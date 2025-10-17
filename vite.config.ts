@@ -174,82 +174,36 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Vendor chunks for better caching
+          // Simplified chunking to avoid React import issues
           if (id.includes('node_modules')) {
-            // Core React ecosystem - rarely changes
-            if (id.includes('react') || id.includes('react-dom')) {
+            // Keep all React-related packages together
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-is') ||
+                id.includes('scheduler') || id.includes('@tanstack') || id.includes('react-query')) {
               return 'react-vendor';
             }
 
-            // Router - separate for better caching
-            if (id.includes('react-router')) {
-              return 'router-vendor';
-            }
-
-            // Supabase - isolated for security updates
-            if (id.includes('@supabase')) {
-              return 'supabase-vendor';
-            }
-
-            // Maps - Large, lazy loaded
+            // Maps - Large, separate chunk
             if (id.includes('mapbox')) {
               return 'maps-vendor';
             }
 
-            // Charts - Large, lazy loaded
+            // Charts - Large, separate chunk
             if (id.includes('recharts')) {
               return 'charts-vendor';
             }
 
-            // UI Components - Medium size
-            if (id.includes('@radix-ui')) {
-              return 'ui-vendor';
-            }
-
-            // Forms libraries
-            if (id.includes('react-hook-form') || id.includes('zod')) {
-              return 'forms-vendor';
-            }
-
-            // Animation libraries
-            if (id.includes('framer-motion') || id.includes('canvas-confetti')) {
-              return 'animation-vendor';
-            }
-
-            // Media players
-            if (id.includes('react-player') || id.includes('lightbox')) {
-              return 'media-vendor';
-            }
-
-            // Query and state management
-            if (id.includes('tanstack') || id.includes('react-query')) {
-              return 'query-vendor';
-            }
-
-            // Sentry monitoring
+            // Sentry - monitoring chunk
             if (id.includes('@sentry')) {
               return 'monitoring-vendor';
             }
 
-            // Everything else in common vendor chunk
-            return 'common-vendor';
+            // Everything else in one vendor chunk to avoid import issues
+            return 'vendor';
           }
 
-          // App code chunking by route
+          // Only split large route chunks
           if (id.includes('/src/pages/Admin')) {
             return 'route-admin';
-          }
-          if (id.includes('/src/pages/Owner') || id.includes('/src/pages/MyProperties')) {
-            return 'route-owner';
-          }
-          if (id.includes('/src/pages/Tenant') || id.includes('/src/pages/Dashboard')) {
-            return 'route-tenant';
-          }
-          if (id.includes('/src/pages/Agency')) {
-            return 'route-agency';
-          }
-          if (id.includes('/src/pages/Property')) {
-            return 'route-property';
           }
         },
         // ✅ SÉCURITÉ : Noms de chunks obfusqués
