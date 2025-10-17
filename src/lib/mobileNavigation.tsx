@@ -5,12 +5,13 @@
  * back button management, and action buttons in the Capacitor environment.
  */
 
-import { Capacitor, App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar } from '@capacitor/status-bar';
 import { Keyboard } from '@capacitor/keyboard';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 
 export interface NavigationState {
   canGoBack: boolean;

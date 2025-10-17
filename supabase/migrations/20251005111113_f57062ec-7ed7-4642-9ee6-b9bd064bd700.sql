@@ -2,7 +2,7 @@
 -- This addresses critical security warnings from Supabase linter
 
 -- Update has_role function
-CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
+CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -34,7 +34,7 @@ BEGIN
   
   -- Attribuer le rôle 'user' par défaut
   INSERT INTO public.user_roles (user_id, role)
-  VALUES (NEW.id, 'user');
+  VALUES (NEW.id, 'user'::public.app_role);
   
   RETURN NEW;
 END;

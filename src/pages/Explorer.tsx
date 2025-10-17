@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { DynamicBreadcrumb } from "@/components/navigation/DynamicBreadcrumb";
@@ -11,7 +12,27 @@ import { KentePattern } from "@/components/ui/african-patterns";
 const ExploreMap = lazy(() => import("@/components/ExploreMap"));
 const FeaturedProperties = lazy(() => import("@/components/FeaturedProperties"));
 
+// Mobile components
+const MobileExplorer = lazy(() => import("@/pages/MobileExplorer"));
+
 const Explorer = () => {
+  const isMobile = useIsMobile();
+
+  // Redirect to mobile version on mobile devices
+  if (isMobile) {
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-600">Chargement...</p>
+          </div>
+        </div>
+      }>
+        <MobileExplorer />
+      </Suspense>
+    );
+  }
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />

@@ -295,3 +295,6 @@ export function MobileHeader({
     </header>
   );
 }
+
+// Default export for convenience
+export default MobileBottomNavigation;

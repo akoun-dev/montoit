@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,7 @@ import { logger } from '@/services/logger';
 
 const Profile = () => {
   const { user, profile, refreshProfile, hasRole } = useAuth();
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
   const [tenantScore, setTenantScore] = useState<number | null>(null);
   const [preferencesModalOpen, setPreferencesModalOpen] = useState(false);
@@ -177,29 +179,36 @@ const Profile = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      
+
       <main className="flex-1 container mx-auto px-4 py-8 pt-24">
         <div className="max-w-4xl mx-auto space-y-6">
           <DynamicBreadcrumb />
-          {/* Header */}
-          <div className="flex items-center gap-4">
-            <Avatar className="h-20 w-20">
+
+          {/* Header - Responsive */}
+          <div className={`flex items-center gap-4 ${isMobile ? 'flex-col text-center' : ''}`}>
+            <Avatar className={`${isMobile ? 'h-16 w-16' : 'h-20 w-20'}`}>
               <AvatarImage src={profile.avatar_url || ''} />
-              <AvatarFallback className="text-2xl">
+              <AvatarFallback className={`${isMobile ? 'text-xl' : 'text-2xl'}`}>
                 {fullName.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
-              <h1 className="text-3xl font-bold">{fullName}</h1>
+              <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold`}>{fullName}</h1>
               <p className="text-muted-foreground">{userTypeLabels[profile.user_type]}</p>
             </div>
           </div>
 
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="profile">Profil</TabsTrigger>
-              <TabsTrigger value="preferences">Préférences de recherche</TabsTrigger>
-              <TabsTrigger value="alerts">Alertes</TabsTrigger>
+            <TabsList className={`grid w-full ${isMobile ? 'grid-cols-1' : 'grid-cols-3'} ${isMobile ? 'gap-1' : ''}`}>
+              <TabsTrigger value="profile" className={`${isMobile ? 'text-sm py-3' : ''}`}>
+                Profil
+              </TabsTrigger>
+              <TabsTrigger value="preferences" className={`${isMobile ? 'text-sm py-3' : ''}`}>
+                Préférences de recherche
+              </TabsTrigger>
+              <TabsTrigger value="alerts" className={`${isMobile ? 'text-sm py-3' : ''}`}>
+                Alertes
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="profile" className="space-y-6 mt-6">
@@ -290,33 +299,38 @@ const Profile = () => {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleUpdateProfile} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fullname">Nom complet</Label>
-                  <Input
-                    id="fullname"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Téléphone</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+225 07 XX XX XX XX"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="city">Ville</Label>
-                  <Input
-                    id="city"
-                    placeholder="Ex: Abidjan, Yamoussoukro"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                  />
+                <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4 space-y-4'}`}>
+                  <div className="space-y-2">
+                    <Label htmlFor="fullname">Nom complet</Label>
+                    <Input
+                      id="fullname"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                      className={isMobile ? 'h-12 text-base' : ''}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Téléphone</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="+225 07 XX XX XX XX"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className={isMobile ? 'h-12 text-base' : ''}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="city">Ville</Label>
+                    <Input
+                      id="city"
+                      placeholder="Ex: Abidjan, Yamoussoukro"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className={isMobile ? 'h-12 text-base' : ''}
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="bio">Biographie</Label>
@@ -325,10 +339,11 @@ const Profile = () => {
                     placeholder="Parlez-nous de vous..."
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    rows={4}
+                    rows={isMobile ? 3 : 4}
+                    className={isMobile ? 'text-base' : ''}
                   />
                 </div>
-                <Button type="submit" disabled={loading}>
+                <Button type="submit" disabled={loading} className={`w-full ${isMobile ? 'h-12 text-base' : ''}`}>
                   {loading ? 'Enregistrement...' : 'Enregistrer les modifications'}
                 </Button>
               </form>

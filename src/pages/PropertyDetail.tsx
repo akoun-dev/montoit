@@ -5,6 +5,7 @@ import type { AgencyMandate } from '@/types/admin';
 import { useQuery } from '@tanstack/react-query';
 
 import { useDocumentHead } from '@/hooks/useDocumentHead';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -15,8 +16,8 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { 
-  Heart, MapPin, Bed, Bath, Maximize, Home, CheckCircle2, 
+import {
+  Heart, MapPin, Bed, Bath, Maximize, Home, CheckCircle2,
   ArrowLeft, MessageCircle, Calendar, DollarSign, Edit, Users,
   Eye, Star, FileText, TrendingUp, Clock, Lock, ExternalLink, Building2, Info
 } from 'lucide-react';
@@ -61,6 +62,7 @@ const PropertyDetail = () => {
   const { user } = useAuth();
   const { canAccessAdminDashboard } = usePermissions();
   const { toggleFavorite, isFavorite } = useFavorites();
+  const isMobile = useIsMobile();
   const [property, setProperty] = useState<Property | null>(null);
   const [owner, setOwner] = useState<PropertyOwner | null>(null);
   const [loading, setLoading] = useState(true);
@@ -336,17 +338,22 @@ const PropertyDetail = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <main className="flex-1 container mx-auto px-4 py-8 pt-24">
-        <div className="max-w-7xl mx-auto">
+      <main className={`flex-1 ${isMobile ? 'px-4 py-4 pt-20' : 'container mx-auto px-4 py-8 pt-24'}`}>
+        <div className={`${isMobile ? 'max-w-full' : 'max-w-7xl mx-auto'}`}>
           {/* Back button */}
-          <Button variant="ghost" className="mb-4" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
+          <Button
+            variant="ghost"
+            className={`mb-4 ${isMobile ? 'text-sm' : ''}`}
+            onClick={() => navigate(-1)}
+            size={isMobile ? "sm" : "default"}
+          >
+            <ArrowLeft className={`mr-2 ${isMobile ? 'h-4 w-4' : 'h-4 w-4'}`} />
             Retour
           </Button>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className={`grid ${isMobile ? 'grid-cols-1 gap-6' : 'grid-cols-1 lg:grid-cols-3 gap-8'}`}>
             {/* Images and main content */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className={`${isMobile ? '' : 'lg:col-span-2'} space-y-6`}>
               {/* Multimedia Gallery */}
               <div className="relative">
                 <MediaGallery
@@ -358,17 +365,19 @@ const PropertyDetail = () => {
                   floorPlans={Array.isArray(property.floor_plans) ? property.floor_plans : []}
                 />
                 <Button
-                  size="icon"
+                  size={isMobile ? "sm" : "icon"}
                   variant="secondary"
-                  className="absolute top-4 right-4 z-10"
+                  className={`absolute z-10 ${isMobile ? 'top-2 right-2' : 'top-4 right-4'}`}
                   onClick={() => toggleFavorite(property.id)}
                 >
-                  <Heart className={`h-5 w-5 ${favorite ? 'fill-current text-destructive' : ''}`} />
+                  <Heart className={`${isMobile ? 'h-5 w-5' : 'h-5 w-5'} ${favorite ? 'fill-current text-destructive' : ''}`} />
                 </Button>
-                <Badge 
-                  className={`absolute top-4 left-4 z-10 flex items-center gap-1 ${
-                    property.status === 'disponible' 
-                      ? 'bg-green-500 hover:bg-green-600 text-white' 
+                <Badge
+                  className={`absolute z-10 flex items-center gap-1 ${
+                    isMobile ? 'top-2 left-2 text-xs px-2 py-1' : 'top-4 left-4'
+                  } ${
+                    property.status === 'disponible'
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
                       : property.status === 'en_negociation'
                       ? 'bg-orange-500 hover:bg-orange-600 text-white'
                       : 'bg-gray-400 hover:bg-gray-500 text-white'
@@ -405,11 +414,11 @@ const PropertyDetail = () => {
               {/* Description */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Description</CardTitle>
+                  <CardTitle className={isMobile ? 'text-lg' : ''}>Description</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div
-                    className="text-muted-foreground whitespace-pre-line"
+                    className={`text-muted-foreground whitespace-pre-line ${isMobile ? 'text-sm leading-relaxed' : ''}`}
                     dangerouslySetInnerHTML={{
                       __html: sanitizePropertyDescription(property.description) || 'Aucune description disponible.'
                     }}
@@ -420,68 +429,68 @@ const PropertyDetail = () => {
               {/* Characteristics */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Caractéristiques</CardTitle>
+                  <CardTitle className={isMobile ? 'text-lg' : ''}>Caractéristiques</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center gap-2">
-                      <Home className="h-5 w-5 text-primary" />
+                  <div className={`grid ${isMobile ? 'grid-cols-1 gap-3' : 'grid-cols-2 gap-4'}`}>
+                    <div className={`flex items-center gap-2 ${isMobile ? 'gap-3' : ''}`}>
+                      <Home className={`${isMobile ? 'h-5 w-5' : 'h-5 w-5'} text-primary`} />
                       <div>
                         <p className="text-sm text-muted-foreground">Type</p>
-                        <p className="font-medium">{property.property_type}</p>
+                        <p className={`font-medium ${isMobile ? 'text-sm' : ''}`}>{property.property_type}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Maximize className="h-5 w-5 text-primary" />
+                    <div className={`flex items-center gap-2 ${isMobile ? 'gap-3' : ''}`}>
+                      <Maximize className={`${isMobile ? 'h-5 w-5' : 'h-5 w-5'} text-primary`} />
                       <div>
                         <p className="text-sm text-muted-foreground">Surface</p>
-                        <p className="font-medium">{property.surface_area || 'N/A'} m²</p>
+                        <p className={`font-medium ${isMobile ? 'text-sm' : ''}`}>{property.surface_area || 'N/A'} m²</p>
                       </div>
                     </div>
-                <div className="flex items-center gap-2">
-                  <Bed className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Chambres</p>
-                    <p className="font-medium">
-                      {property.bedrooms === 0 
-                        ? 'Studio (0 chambre séparée)' 
-                        : property.bedrooms
-                      }
-                    </p>
-                  </div>
-                </div>
-                    <div className="flex items-center gap-2">
-                      <Bath className="h-5 w-5 text-primary" />
+                    <div className={`flex items-center gap-2 ${isMobile ? 'gap-3' : ''}`}>
+                      <Bed className={`${isMobile ? 'h-5 w-5' : 'h-5 w-5'} text-primary`} />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Chambres</p>
+                        <p className={`font-medium ${isMobile ? 'text-sm' : ''}`}>
+                          {property.bedrooms === 0
+                            ? 'Studio (0 chambre séparée)'
+                            : property.bedrooms
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`flex items-center gap-2 ${isMobile ? 'gap-3' : ''}`}>
+                      <Bath className={`${isMobile ? 'h-5 w-5' : 'h-5 w-5'} text-primary`} />
                       <div>
                         <p className="text-sm text-muted-foreground">Salles de bain</p>
-                        <p className="font-medium">{property.bathrooms}</p>
+                        <p className={`font-medium ${isMobile ? 'text-sm' : ''}`}>{property.bathrooms}</p>
                       </div>
                     </div>
                   </div>
 
                   <Separator className="my-4" />
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className={`flex flex-wrap gap-2 ${isMobile ? 'gap-1' : ''}`}>
                     {property.is_furnished && (
-                      <Badge variant="secondary" className="gap-1">
+                      <Badge variant="secondary" className={`gap-1 ${isMobile ? 'text-xs px-2 py-1' : ''}`}>
                         <CheckCircle2 className="h-3 w-3" />
                         Meublé
                       </Badge>
                     )}
                     {property.has_ac && (
-                      <Badge variant="secondary" className="gap-1">
+                      <Badge variant="secondary" className={`gap-1 ${isMobile ? 'text-xs px-2 py-1' : ''}`}>
                         <CheckCircle2 className="h-3 w-3" />
                         Climatisation
                       </Badge>
                     )}
                     {property.has_parking && (
-                      <Badge variant="secondary" className="gap-1">
+                      <Badge variant="secondary" className={`gap-1 ${isMobile ? 'text-xs px-2 py-1' : ''}`}>
                         <CheckCircle2 className="h-3 w-3" />
                         Parking
                       </Badge>
                     )}
                     {property.has_garden && (
-                      <Badge variant="secondary" className="gap-1">
+                      <Badge variant="secondary" className={`gap-1 ${isMobile ? 'text-xs px-2 py-1' : ''}`}>
                         <CheckCircle2 className="h-3 w-3" />
                         Jardin
                       </Badge>
@@ -494,19 +503,19 @@ const PropertyDetail = () => {
               {property.latitude && property.longitude && (
                 <Card>
                   <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-2">
+                    <div className={`flex items-center justify-between ${isMobile ? 'flex-col gap-3 items-start' : ''}`}>
+                      <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-lg' : ''}`}>
                         <MapPin className="h-5 w-5" />
                         Localisation
                       </CardTitle>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size={isMobile ? "sm" : "sm"}
                         asChild
                       >
-                        <a 
+                        <a
                           href={`https://maps.google.com/?q=${property.latitude},${property.longitude}`}
-                          target="_blank" 
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="gap-2"
                         >
@@ -517,7 +526,7 @@ const PropertyDetail = () => {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <LocationSection 
+                    <LocationSection
                       propertyId={property.id}
                       latitude={property.latitude}
                       longitude={property.longitude}
@@ -547,26 +556,26 @@ const PropertyDetail = () => {
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-6">
+            <div className={`space-y-6 ${isMobile ? 'space-y-4' : ''}`}>
               {/* Owner actions */}
               {isOwner && (
                 <Card className="border-primary">
                   <CardHeader>
-                    <CardTitle>Actions propriétaire</CardTitle>
+                    <CardTitle className={isMobile ? 'text-lg' : ''}>Actions propriétaire</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
-                    <Button 
-                      variant="outline" 
-                      className="w-full gap-2" 
+                  <CardContent className={`space-y-2 ${isMobile ? 'space-y-3' : ''}`}>
+                    <Button
+                      variant="outline"
+                      className={`w-full gap-2 ${isMobile ? 'h-12 text-base' : ''}`}
                       onClick={() => navigate(`/biens/${property.id}/modifier`)}
                     >
                       <Edit className="h-4 w-4" />
                       Modifier ce bien
                     </Button>
-                    
+
                     <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
                       <DialogTrigger asChild>
-                        <Button variant="outline" className="w-full gap-2">
+                        <Button variant="outline" className={`w-full gap-2 ${isMobile ? 'h-12 text-base' : ''}`}>
                           <TrendingUp className="h-4 w-4" />
                           Changer le statut
                         </Button>
@@ -606,29 +615,29 @@ const PropertyDetail = () => {
               {isOwner && stats && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Statistiques</CardTitle>
+                    <CardTitle className={isMobile ? 'text-lg' : ''}>Statistiques</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between">
+                  <CardContent className={`space-y-3 ${isMobile ? 'space-y-2' : ''}`}>
+                    <div className={`flex items-center justify-between ${isMobile ? 'py-2' : ''}`}>
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Eye className="h-4 w-4" />
                         <span className="text-sm">Vues</span>
                       </div>
-                      <span className="font-semibold">{stats.view_count}</span>
+                      <span className={`font-semibold ${isMobile ? 'text-sm' : ''}`}>{stats.view_count}</span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className={`flex items-center justify-between ${isMobile ? 'py-2' : ''}`}>
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Star className="h-4 w-4" />
                         <span className="text-sm">Favoris</span>
                       </div>
-                      <span className="font-semibold">{stats.favorites_count}</span>
+                      <span className={`font-semibold ${isMobile ? 'text-sm' : ''}`}>{stats.favorites_count}</span>
                     </div>
-                    <div className="flex items-center justify-between">
+                    <div className={`flex items-center justify-between ${isMobile ? 'py-2' : ''}`}>
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <FileText className="h-4 w-4" />
                         <span className="text-sm">Candidatures</span>
                       </div>
-                      <span className="font-semibold">{stats.applications_count}</span>
+                      <span className={`font-semibold ${isMobile ? 'text-sm' : ''}`}>{stats.applications_count}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -637,45 +646,55 @@ const PropertyDetail = () => {
               {/* Price card */}
               <Card>
                 <CardHeader>
-                  <h1 className="text-3xl font-bold">{property.title}</h1>
-                  <p className="text-3xl font-bold text-primary mt-2">
+                  <h1 className={`${isMobile ? 'text-xl' : 'text-3xl'} font-bold ${isMobile ? 'leading-tight' : ''}`}>{property.title}</h1>
+                  <p className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold text-primary mt-2`}>
                     {property.monthly_rent ? property.monthly_rent.toLocaleString('fr-FR') : 'N/A'} FCFA
                     <span className="text-sm text-muted-foreground font-normal">/mois</span>
                   </p>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className={`space-y-4 ${isMobile ? 'space-y-3' : ''}`}>
                   {property.deposit_amount && (
-                    <div className="flex items-center justify-between text-sm">
+                    <div className={`flex items-center justify-between ${isMobile ? 'py-2' : 'text-sm'}`}>
                       <span className="text-muted-foreground">Caution</span>
-                      <span className="font-medium">{property.deposit_amount.toLocaleString('fr-FR')} FCFA</span>
+                      <span className={`font-medium ${isMobile ? 'text-sm' : ''}`}>{property.deposit_amount.toLocaleString('fr-FR')} FCFA</span>
                     </div>
                   )}
 
                   <Separator />
 
                   {!isOwner && !user && property.status === 'disponible' && (
-                    <div className="space-y-2">
-                      <Button asChild size="lg" className="w-full gap-2">
+                    <div className={`space-y-2 ${isMobile ? 'space-y-3' : ''}`}>
+                      <Button
+                        asChild
+                        size={isMobile ? "lg" : "lg"}
+                        className={`w-full gap-2 ${isMobile ? 'h-14 text-base' : ''}`}
+                      >
                         <Link to="/auth">
-                          <Users className="h-5 w-5" />
+                          <Users className={isMobile ? "h-5 w-5" : "h-5 w-5"} />
                           Créer un compte pour postuler
                         </Link>
                       </Button>
-                      <p className="text-xs text-center text-muted-foreground">
+                      <p className={`text-center text-muted-foreground ${isMobile ? 'text-xs' : 'text-xs'}`}>
                         Inscription gratuite en 2 minutes
                       </p>
                     </div>
                   )}
-                  
+
                   {!isOwner && user && (
-                    <div className="space-y-2">
-                      <Button className="w-full gap-2" onClick={handleContact}>
+                    <div className={`space-y-2 ${isMobile ? 'space-y-3' : ''}`}>
+                      <Button
+                        className={`w-full gap-2 ${isMobile ? 'h-12 text-base' : ''}`}
+                        onClick={handleContact}
+                      >
                         <MessageCircle className="h-4 w-4" />
                         Contacter le propriétaire
                       </Button>
                       {property.status === 'disponible' && (
                         <VerificationGuard propertyId={property.id}>
-                          <Button variant="outline" className="w-full gap-2">
+                          <Button
+                            variant="outline"
+                            className={`w-full gap-2 ${isMobile ? 'h-12 text-base' : ''}`}
+                          >
                             <Calendar className="h-4 w-4" />
                             Postuler
                           </Button>
@@ -699,18 +718,18 @@ const PropertyDetail = () => {
               {owner && !isOwner && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Propriétaire</CardTitle>
+                    <CardTitle className={isMobile ? 'text-lg' : ''}>Propriétaire</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-12 w-12">
+                    <div className={`flex items-center gap-3 ${isMobile ? 'gap-4' : ''}`}>
+                      <Avatar className={`${isMobile ? 'h-14 w-14' : 'h-12 w-12'}`}>
                         <AvatarFallback>
                           {owner.full_name.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <p className="font-medium">{sanitizeText(owner.full_name)}</p>
-                        <p className="text-sm text-muted-foreground capitalize">
+                        <p className={`font-medium ${isMobile ? 'text-base' : ''}`}>{sanitizeText(owner.full_name)}</p>
+                        <p className={`text-muted-foreground capitalize ${isMobile ? 'text-sm' : 'text-sm'}`}>
                           {sanitizeText(owner.user_type)}
                         </p>
                       </div>
@@ -723,34 +742,35 @@ const PropertyDetail = () => {
               {isOwner && applications.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className={`flex items-center gap-2 ${isMobile ? 'text-lg' : ''}`}>
                       <Users className="h-5 w-5" />
                       Candidatures ({applications.length})
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className={isMobile ? 'text-sm' : ''}>
                       Liste des candidats pour ce bien
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
+                    <div className={`space-y-3 ${isMobile ? 'space-y-2' : ''}`}>
                       {applications.slice(0, 5).map((app) => (
-                        <div key={app.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div key={app.id} className={`flex items-center justify-between p-3 border rounded-lg ${isMobile ? 'p-2' : ''}`}>
                           <div className="flex-1">
-                            <p className="font-medium">{sanitizeText(app.profiles.full_name)}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant={app.status === 'pending' ? 'secondary' : app.status === 'approved' ? 'default' : 'destructive'}>
+                            <p className={`font-medium ${isMobile ? 'text-sm' : ''}`}>{sanitizeText(app.profiles.full_name)}</p>
+                            <div className={`flex items-center gap-2 mt-1 ${isMobile ? 'gap-1' : ''}`}>
+                              <Badge variant={app.status === 'pending' ? 'secondary' : app.status === 'approved' ? 'default' : 'destructive'} className={isMobile ? 'text-xs px-1 py-0' : ''}>
                                 {app.status === 'pending' ? 'En attente' : app.status === 'approved' ? 'Approuvé' : 'Rejeté'}
                               </Badge>
                               {app.user_verifications[0]?.tenant_score && (
-                                <Badge variant="outline">
+                                <Badge variant="outline" className={isMobile ? 'text-xs px-1 py-0' : ''}>
                                   Score: {app.user_verifications[0].tenant_score}/100
                                 </Badge>
                               )}
                             </div>
                           </div>
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             variant="ghost"
+                            className={isMobile ? 'text-xs px-2' : ''}
                             onClick={() => navigate(`/candidatures`)}
                           >
                             Voir
@@ -758,9 +778,9 @@ const PropertyDetail = () => {
                         </div>
                       ))}
                       {applications.length > 5 && (
-                        <Button 
-                          variant="outline" 
-                          className="w-full"
+                        <Button
+                          variant="outline"
+                          className={`w-full ${isMobile ? 'text-sm h-10' : ''}`}
                           onClick={() => navigate(`/candidatures`)}
                         >
                           Voir toutes les candidatures
@@ -787,7 +807,7 @@ const PropertyDetail = () => {
 
           {/* Similar Properties Section */}
           {!isOwner && user && (
-            <div className="mt-12">
+            <div className={isMobile ? 'mt-8' : 'mt-12'}>
               <RecommendationsSection
                 userId={user.id}
                 type="properties"

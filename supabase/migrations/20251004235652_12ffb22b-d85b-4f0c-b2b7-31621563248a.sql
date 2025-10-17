@@ -8,7 +8,7 @@ ADD COLUMN face_verification_attempts INTEGER DEFAULT 0;
 
 -- Add face verification flag to profiles table
 ALTER TABLE public.profiles
-ADD COLUMN face_verified BOOLEAN DEFAULT FALSE;
+ADD COLUMN IF NOT EXISTS face_verified BOOLEAN DEFAULT FALSE;
 
 -- Create trigger to update profile when face verification succeeds
 CREATE OR REPLACE FUNCTION public.update_profile_face_verified()

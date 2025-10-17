@@ -50,7 +50,7 @@ BEGIN
           jsonb_build_object('action', 'admin_review_queue_accessed', 'has_2fa', true));
   
   RETURN QUERY
-  SELECT uv.user_id, p.full_name, p.user_type, p.city,
+  SELECT uv.user_id, p.full_name, p.user_type::user_type, p.city,
     uv.oneci_status, uv.oneci_cni_number, uv.oneci_data, uv.oneci_verified_at,
     uv.cnam_status, uv.cnam_social_security_number, uv.cnam_employer, uv.cnam_data, uv.cnam_verified_at,
     uv.face_verification_status, uv.face_similarity_score, uv.face_verified_at,
@@ -70,7 +70,7 @@ RETURNS TABLE(
 )
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
-  SELECT p.id, p.full_name, p.user_type, p.city, p.bio, p.avatar_url,
+  SELECT p.id, p.full_name, p.user_type::user_type, p.city, p.bio, p.avatar_url,
     p.oneci_verified, p.cnam_verified, p.face_verified, p.is_verified
   FROM public.profiles p WHERE p.id = target_user_id;
 $$;

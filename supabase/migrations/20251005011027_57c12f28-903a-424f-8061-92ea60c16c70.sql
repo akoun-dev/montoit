@@ -1,4 +1,7 @@
 -- Créer le bucket pour les documents de bail
+-- Supprimer d'abord le bucket s'il existe pour éviter les conflits
+DELETE FROM storage.buckets WHERE id = 'lease-documents';
+
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('lease-documents', 'lease-documents', false);
 

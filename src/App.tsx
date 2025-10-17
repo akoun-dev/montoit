@@ -7,6 +7,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { AuthProvider } from "@/hooks/useAuth";
+import { MobileProvider } from "@/contexts/MobileContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import { initializeSentry } from "@/lib/sentry-enhanced";
@@ -122,6 +123,7 @@ const AppContent = () => {
             <Route path="/offline" element={<Suspense fallback={<PageSkeleton />}><Offline /></Suspense>} />
             <Route path="/recherche" element={<Search />} />
             <Route path="/explorer" element={<Explorer />} />
+            <Route path="/mobile-explorer" element={<Explorer />} />
             <Route path="/carte-intelligente" element={<SmartMapV2 />} />
             <Route path="/comment-ca-marche" element={<HowItWorksPage />} />
             <Route path="/a-propos" element={<AboutPage />} />
@@ -404,7 +406,9 @@ const App = () => (
         <BrowserRouter>
           <ErrorBoundary level="warning">
             <AuthProvider>
-              <AppContent />
+              <MobileProvider>
+                <AppContent />
+              </MobileProvider>
             </AuthProvider>
           </ErrorBoundary>
         </BrowserRouter>

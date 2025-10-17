@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { DynamicBreadcrumb } from '@/components/navigation/DynamicBreadcrumb';
@@ -53,6 +54,7 @@ interface UserProfile {
 
 const Messages = () => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
   const recipientId = searchParams.get('recipient');
 
@@ -427,65 +429,65 @@ const Messages = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <main className="flex-1 container mx-auto px-4 py-8 pt-24">
-        <div className="max-w-7xl mx-auto">
-          <DynamicBreadcrumb />
-          <h1 className="text-3xl font-bold mb-6">Messages</h1>
+      <main className={`flex-1 ${isMobile ? 'px-2 py-2 pt-20' : 'container mx-auto px-4 py-8 pt-24'}`}>
+        <div className={`${isMobile ? 'max-w-full h-[calc(100vh-8rem)]' : 'max-w-7xl mx-auto'}`}>
+          {!isMobile && <DynamicBreadcrumb />}
+          <h1 className={`${isMobile ? 'text-xl font-semibold px-2 py-2' : 'text-3xl font-bold mb-6'}`}>Messages</h1>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-[600px]">
+          <div className={`grid ${isMobile ? 'grid-cols-1 h-full' : 'grid-cols-1 md:grid-cols-3 gap-4 h-[600px]'}`}>
             {/* Conversations list */}
-            <Card className="md:col-span-1">
-              <CardHeader>
-                <CardTitle>Conversations</CardTitle>
+            <Card className={`${isMobile ? 'h-full border rounded-lg' : 'md:col-span-1'}`}>
+              <CardHeader className={isMobile ? 'pb-3' : ''}>
+                <CardTitle className={isMobile ? 'text-lg' : ''}>Conversations</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
-                <ScrollArea className="h-[500px]">
+              <CardContent className={`p-0 ${isMobile ? 'px-2' : ''}`}>
+                <ScrollArea className={`${isMobile ? 'h-[calc(100vh-14rem)]' : 'h-[500px]'}`}>
                   {loading ? (
-                    <div className="p-4 text-center text-muted-foreground">
+                    <div className={`p-4 text-center text-muted-foreground ${isMobile ? 'py-8' : ''}`}>
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                      <p>Chargement des conversations...</p>
+                      <p className={isMobile ? 'text-sm' : ''}>Chargement des conversations...</p>
                     </div>
                   ) : conversations.length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground">
-                      <MessageCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                      <p>Aucune conversation</p>
-                      <p className="text-xs mt-2">Commencez à discuter avec un propriétaire</p>
+                    <div className={`p-4 text-center text-muted-foreground ${isMobile ? 'py-8' : ''}`}>
+                      <MessageCircle className={`${isMobile ? 'h-16 w-16' : 'h-12 w-12'} mx-auto mb-2 opacity-50`} />
+                      <p className={isMobile ? 'text-base' : ''}>Aucune conversation</p>
+                      <p className={`mt-2 ${isMobile ? 'text-sm' : 'text-xs'}`}>Commencez à discuter avec un propriétaire</p>
                     </div>
                   ) : (
-                    <div className="space-y-1">
+                    <div className={`space-y-1 ${isMobile ? 'px-1' : ''}`}>
                       {conversations.map(conv => (
                         <button
                           key={conv.id}
                           onClick={() => setSelectedConversation(conv.id)}
-                          className={`w-full p-4 text-left hover:bg-muted/50 transition-colors border-l-4 ${
+                          className={`w-full text-left hover:bg-muted/50 transition-colors border-l-4 ${
                             selectedConversation === conv.id
                               ? 'border-primary bg-muted/50'
                               : 'border-transparent'
-                          }`}
+                          } ${isMobile ? 'p-3 rounded-lg mb-1' : 'p-4'}`}
                         >
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarFallback>
-                        {conv.user_name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <p className="font-medium truncate">{sanitizeText(conv.user_name)}</p>
-                          {getConversationBadge(conv.conversation_type)}
-                        </div>
-                        {conv.unread_count > 0 && (
-                          <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full flex-shrink-0">
-                            {conv.unread_count}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {sanitizeText(conv.last_message)}
-                      </p>
-                    </div>
-                  </div>
+                          <div className={`flex items-center gap-3 ${isMobile ? 'gap-2' : ''}`}>
+                            <Avatar className={isMobile ? 'h-10 w-10' : ''}>
+                              <AvatarFallback>
+                                {conv.user_name.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <p className={`font-medium truncate ${isMobile ? 'text-sm' : ''}`}>{sanitizeText(conv.user_name)}</p>
+                                  {getConversationBadge(conv.conversation_type)}
+                                </div>
+                                {conv.unread_count > 0 && (
+                                  <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full flex-shrink-0">
+                                    {conv.unread_count}
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`text-muted-foreground truncate ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                                {sanitizeText(conv.last_message)}
+                              </p>
+                            </div>
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -495,17 +497,17 @@ const Messages = () => {
             </Card>
 
             {/* Messages */}
-            <Card className="md:col-span-2">
+            <Card className={`${isMobile ? 'h-full border rounded-lg mt-2' : 'md:col-span-2'}`}>
               {selectedConversation && profiles[selectedConversation] ? (
                 <>
-                  <CardHeader>
-                    <CardTitle>
+                  <CardHeader className={isMobile ? 'pb-2' : ''}>
+                    <CardTitle className={isMobile ? 'text-lg sticky top-0 bg-background z-10' : ''}>
                       {sanitizeText(profiles[selectedConversation].full_name)}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <ScrollArea className="h-[320px] pr-4">
-                      <div className="space-y-4">
+                  <CardContent className={`space-y-4 ${isMobile ? 'p-2' : ''}`}>
+                    <ScrollArea className={`${isMobile ? 'h-[calc(100vh-20rem)]' : 'h-[320px] pr-4'}`}>
+                      <div className={`space-y-4 ${isMobile ? 'px-1' : ''}`}>
                         {messages.map(msg => (
                           <div
                             key={msg.id}
@@ -514,19 +516,19 @@ const Messages = () => {
                             }`}
                           >
                             <div
-                              className={`max-w-[70%] rounded-lg p-3 ${
+                              className={`${isMobile ? 'max-w-[85%]' : 'max-w-[70%]'} rounded-lg p-3 ${
                                 msg.sender_id === user?.id
                                   ? 'bg-primary text-primary-foreground'
                                   : 'bg-muted'
                               }`}
                             >
                               <div
-                                className="text-sm"
+                                className={`text-sm ${isMobile ? 'text-sm' : ''}`}
                                 dangerouslySetInnerHTML={{
                                   __html: sanitizeMessage(msg.content)
                                 }}
                               />
-                              
+
                               {msg.attachments && msg.attachments.length > 0 && (
                                 <div className="mt-2 space-y-1">
                                   {msg.attachments.map((file, idx) => (
@@ -558,33 +560,34 @@ const Messages = () => {
                       </div>
                     </ScrollArea>
 
-                    <div className="space-y-3 border-t pt-3">
+                    <div className={`space-y-3 border-t pt-3 ${isMobile ? 'px-1 pb-2' : ''}`}>
                       <MessageTemplates onUseTemplate={(content) => setNewMessage(content)} />
-                      
-                      <AttachmentUpload 
+
+                      <AttachmentUpload
                         attachments={attachments}
                         onAttachmentsChange={setAttachments}
                       />
 
-                      <div className="flex gap-2">
+                      <div className={`flex gap-2 ${isMobile ? 'gap-1' : ''}`}>
                         <Input
                           placeholder="Écrivez votre message..."
                           value={newMessage}
                           onChange={(e) => setNewMessage(e.target.value)}
                           onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                          className={isMobile ? 'text-base' : ''}
                         />
-                        <Button onClick={sendMessage} size="icon">
-                          <Send className="h-4 w-4" />
+                        <Button onClick={sendMessage} size={isMobile ? "lg" : "icon"} className={isMobile ? 'px-4' : ''}>
+                          <Send className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
                         </Button>
                       </div>
                     </div>
                   </CardContent>
                 </>
               ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
+                <div className={`h-full flex items-center justify-center text-muted-foreground ${isMobile ? 'py-8' : ''}`}>
                   <div className="text-center">
-                    <MessageCircle className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                    <p>Sélectionnez une conversation</p>
+                    <MessageCircle className={`${isMobile ? 'h-20 w-20' : 'h-16 w-16'} mx-auto mb-4 opacity-50`} />
+                    <p className={isMobile ? 'text-lg' : ''}>Sélectionnez une conversation</p>
                   </div>
                 </div>
               )}

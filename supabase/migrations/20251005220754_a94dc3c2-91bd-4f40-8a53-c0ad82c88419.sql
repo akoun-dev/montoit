@@ -3,7 +3,19 @@
 -- ================================================
 
 -- 1. Étendre admin_login_attempts → login_attempts
-ALTER TABLE IF EXISTS public.admin_login_attempts RENAME TO login_attempts;
+-- Ne renommer que si admin_login_attempts existe et login_attempts n'existe pas
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'admin_login_attempts'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'login_attempts'
+  ) THEN
+    ALTER TABLE public.admin_login_attempts RENAME TO login_attempts;
+  END IF;
+END $$;
 
 -- Ajouter colonnes pour le rate limiting
 ALTER TABLE public.login_attempts 

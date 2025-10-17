@@ -44,6 +44,12 @@ CREATE TABLE IF NOT EXISTS profiles (
   user_type text DEFAULT 'individual',
   phone text,
   email_verified boolean DEFAULT false,
+  city text,
+  bio text,
+  is_verified boolean DEFAULT false,
+  oneci_verified boolean DEFAULT false,
+  cnam_verified boolean DEFAULT false,
+  face_verified boolean DEFAULT false,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
@@ -65,13 +71,29 @@ CREATE POLICY "Users can insert their own profile" ON profiles
   FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- 7. Ensure user_roles table exists
-CREATE TABLE IF NOT EXISTS user_roles (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
-  role text NOT NULL,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(user_id, role)
-);
+-- Check if app_role enum exists first
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'app_role') THEN
+    -- Create table with enum type if it exists
+    CREATE TABLE IF NOT EXISTS user_roles (
+      id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+      user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+      role public.app_role NOT NULL,
+      created_at timestamptz DEFAULT now(),
+      UNIQUE(user_id, role)
+    );
+  ELSE
+    -- Create table with text type if enum doesn't exist yet
+    CREATE TABLE IF NOT EXISTS user_roles (
+      id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+      user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+      role text NOT NULL,
+      created_at timestamptz DEFAULT now(),
+      UNIQUE(user_id, role)
+    );
+  END IF;
+END $$;
 
 ALTER TABLE user_roles ENABLE ROW LEVEL SECURITY;
 
@@ -95,12 +117,12 @@ BEGIN
     COALESCE(new.raw_user_meta_data->>'full_name', new.email),
     COALESCE(new.raw_user_meta_data->>'user_type', 'individual')
   );
-  
-  -- Assign default role
+
+  -- Assign default role (will be updated to enum type later if needed)
   INSERT INTO public.user_roles (user_id, role)
   VALUES (new.id, 'user')
   ON CONFLICT (user_id, role) DO NOTHING;
-  
+
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

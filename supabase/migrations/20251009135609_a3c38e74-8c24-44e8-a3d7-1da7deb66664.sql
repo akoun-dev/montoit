@@ -33,7 +33,7 @@ RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
   INSERT INTO public.user_active_roles (user_id, available_roles, "current_role")
-  VALUES (NEW.id, ARRAY[NEW.user_type]::user_type[], NEW.user_type)
+  VALUES (NEW.id, ARRAY[NEW.user_type::user_type]::user_type[], NEW.user_type::user_type)
   ON CONFLICT (user_id) DO NOTHING;
   RETURN NEW;
 END;
@@ -60,7 +60,7 @@ END;
 $$;
 
 INSERT INTO public.user_active_roles (user_id, available_roles, "current_role")
-SELECT p.id, ARRAY[p.user_type]::user_type[], p.user_type
+SELECT p.id, ARRAY[p.user_type::user_type]::user_type[], p.user_type::user_type
 FROM public.profiles p
 WHERE NOT EXISTS (SELECT 1 FROM public.user_active_roles uar WHERE uar.user_id = p.id)
 ON CONFLICT (user_id) DO NOTHING;
