@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabase';
 import ANSUTCertifiedBadge from '@/components/ui/ansut-certified-badge';
 import { useTimeAgo } from '@/hooks/useTimeAgo';
 import { toast } from '@/hooks/use-toast';
-import { OptimizedImage } from '@/components/property/OptimizedImage';
+import { SimpleImage } from '@/components/property/SimpleImage';
 import { useLongPress } from '@/hooks/useLongPress';
 import { triggerHapticFeedback } from '@/utils/haptics';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -155,14 +155,10 @@ export const PropertyCard = ({
             const validImages = property.images.filter(img => img && typeof img === 'string' && img.trim() !== '');
             if (validImages.length > 0) {
               return (
-                <SwipeableGallery
-                  images={validImages.map(img => ({
-                    url: img,
-                    alt: `${property.title} - ${property.city}`
-                  }))}
-                  showNavigation={validImages.length > 1}
-                  showCounter={validImages.length > 1}
-                  className="h-full"
+                <SimpleImage
+                  src={validImages[0]}
+                  alt={`${property.title} - ${property.city}`}
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
               );
             }
@@ -172,11 +168,10 @@ export const PropertyCard = ({
           if (property.main_image && typeof property.main_image === 'string' && property.main_image.trim() !== '') {
             return (
               <>
-                <OptimizedImage
+                <SimpleImage
                   src={property.main_image}
                   alt={`Photo du bien: ${property.title} - ${property.property_type} à ${property.city}`}
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  priority={false}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
               </>
@@ -187,11 +182,10 @@ export const PropertyCard = ({
           const demoImage = getDemoImage(property.id, property.property_type);
           return (
             <>
-              <OptimizedImage
+              <SimpleImage
                 src={demoImage}
                 alt={`Photo démonstration: ${property.title} - ${property.property_type} à ${property.city}`}
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                priority={false}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
               {/* Demo badge */}
@@ -354,11 +348,10 @@ export const PropertyCard = ({
             const validImages = property.images.filter(img => img && typeof img === 'string' && img.trim() !== '');
             if (validImages.length > 0) {
               return (
-                <OptimizedImage
+                <SimpleImage
                   src={validImages[0]} // Use first image for preview
                   alt={property.title}
                   className="w-full rounded-lg"
-                  priority={true}
                 />
               );
             }
@@ -366,11 +359,10 @@ export const PropertyCard = ({
 
           if (property.main_image && typeof property.main_image === 'string' && property.main_image.trim() !== '') {
             return (
-              <OptimizedImage
+              <SimpleImage
                 src={property.main_image}
                 alt={property.title}
                 className="w-full rounded-lg"
-                priority={true}
               />
             );
           }
@@ -379,11 +371,10 @@ export const PropertyCard = ({
           const demoImage = getDemoImage(property.id, property.property_type);
           return (
             <div className="relative">
-              <OptimizedImage
+              <SimpleImage
                 src={demoImage}
                 alt={`Photo démonstration: ${property.title}`}
                 className="w-full rounded-lg"
-                priority={true}
               />
               {/* Demo badge */}
               <div className="absolute top-2 left-2">

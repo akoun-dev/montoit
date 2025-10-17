@@ -173,7 +173,7 @@ export default defineConfig(({ mode }) => ({
     target: 'es2020', // Ensure broad browser compatibility with BigInt support
     rollupOptions: {
       output: {
-        manualChunks: undefined, // Disable automatic chunking to avoid circular dependencies
+        inlineDynamicImports: true, // Inline all dynamic imports to avoid chunk issues
         // ✅ SÉCURITÉ : Noms de chunks obfusqués
         chunkFileNames: (chunkInfo) => {
           return `assets/[name]-[hash].js`;
@@ -187,6 +187,6 @@ export default defineConfig(({ mode }) => ({
         }
       }
     },
-    chunkSizeWarningLimit: 600
+    chunkSizeWarningLimit: 1000, // Increase limit since we're using one chunk
   },
 }));

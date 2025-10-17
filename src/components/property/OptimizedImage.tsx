@@ -25,23 +25,37 @@ export const OptimizedImage = ({
   // ✅ SÉCURITÉ : Validation de l'URL avant affichage
   const sanitizeUrl = (url: string): string => {
     try {
+      // Debug log
+      console.log('OptimizedImage: Processing URL', { url, type: typeof url });
+      
+      if (!url || typeof url !== 'string' || url.trim() === '') {
+        logger.warn('Empty or invalid URL provided', { url });
+        return '';
+      }
+
       const urlObj = new URL(url);
+      console.log('OptimizedImage: Parsed URL', { hostname: urlObj.hostname });
+      
       // Permettre les URLs Supabase Storage, Unsplash, Picsum et autres sources légitimes
       const allowedHosts = [
         'supabase.co',
         'unsplash.com',
         'images.unsplash.com',
         'picsum.photos',
-        'images.picsum.photos'
+        'images.picsum.photos',
+        'lovable.app' // Ajouté pour les URLs de l'app
       ];
 
       if (!allowedHosts.some(host => urlObj.hostname.includes(host))) {
-        logger.warn('Unauthorized URL attempted', { hostname: urlObj.hostname });
+        logger.warn('Unauthorized URL attempted', { hostname: urlObj.hostname, url });
+        console.warn('OptimizedImage: Unauthorized URL', { hostname: urlObj.hostname, url });
         return '';
       }
+      console.log('OptimizedImage: URL authorized', { url });
       return url;
     } catch (error) {
       logger.warn('Invalid URL format', { url, error });
+      console.error('OptimizedImage: URL parse error', { url, error });
       return '';
     }
   };

@@ -22,7 +22,7 @@ export const shouldShowProperty = (property: Property, currentUserId?: string): 
 export function parsePropertyError(error: Error | { message?: string; code?: string } | unknown): string {
   if (!error) return 'Une erreur inconnue est survenue';
 
-  const errorMessage = error instanceof Error ? error.message : (error?.message || String(error));
+  const errorMessage = error instanceof Error ? error.message : ((error as any)?.message || String(error));
   const errorCode = (error as any)?.code;
 
   // Postgres constraint violations
@@ -105,7 +105,7 @@ export const propertyService = {
       return uniqueProperties as Property[];
     }
 
-    // Use secure RPC for public browsing - exclude rented properties
+    // Try secure RPC for public browsing, but with better error handling
     let { data, error } = await supabase.rpc('get_public_properties', {
       p_city: filters?.city || null,
       p_property_type: filters?.propertyType?.[0] || null,
@@ -115,9 +115,13 @@ export const propertyService = {
       p_status: null, // RPC handles filtering
     });
 
-    // Fallback: if RPC is missing on the project or fails, try a safe direct query
-    if (error) {
-      logger.warn('RPC get_public_properties failed, falling back to direct SELECT', { error });
+    // Fallback: if RPC is missing (404) or fails, try a safe direct query
+    if (error || !data) {
+      if (error?.code === 'PGRST116' || error?.message?.includes('function') || error?.message?.includes('404')) {
+        logger.warn('RPC function get_public_properties does not exist, using direct query fallback', { error });
+      } else {
+        logger.warn('RPC get_public_properties failed, falling back to direct SELECT', { error });
+      }
       // Try a permissive select without moderation_status (some projects don't have this column)
       const fallback = await supabase
         .from('properties')
@@ -137,7 +141,8 @@ export const propertyService = {
         throw enhancedError;
       }
 
-      data = fallback.data as any[];
+      const fallbackData = fallback.data as any[];
+      data = fallbackData;
     }
 
     logger.debug('Properties received from API', { count: data?.length || 0 });
