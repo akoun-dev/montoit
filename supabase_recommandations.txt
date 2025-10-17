@@ -1,2 +1,4 @@
 // Reinitialisation de la base de données
 supabase db reset --linked
+// Appliquer les migrations et seed
+supabase db push --include-seed
