@@ -113,6 +113,46 @@
 }
 
 @layer utilities {
+  /* ============================================
+     PAGE LAYOUT UTILITIES
+     ============================================ */
+  
+  /* Page background with subtle texture */
+  .page-background {
+    @apply bg-gradient-to-br from-background via-background to-muted/20;
+    min-height: 100vh;
+  }
+  
+  /* Page container with responsive margins */
+  .page-container {
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Section spacing for consistent vertical rhythm */
+  .section-spacing {
+    @apply py-8 md:py-12 lg:py-16;
+  }
+  
+  /* Enhanced spacing for better content separation */
+  .content-spacing {
+    @apply space-y-8 md:space-y-12;
+  }
+  
+  /* Card container with proper spacing */
+  .card-container {
+    @apply grid gap-6 md:gap-8;
+  }
+  
+  /* Responsive padding for mobile-first design */
+  .responsive-padding {
+    @apply p-4 md:p-6 lg:p-8;
+  }
+  
+  /* Safe area handling for mobile devices */
+  .safe-area-padding {
+    @apply pt-safe px-4 pb-safe;
+  }
+
   /* Hiérarchie typographique avec Poppins (titres) + Inter (corps) */
   .text-h1 {
     @apply font-poppins text-5xl md:text-7xl font-bold leading-tight tracking-tight;
@@ -1285,4 +1325,3 @@ h4, .text-h4 {
     hsl(var(--kente-gold)) 30px
   );
 }
-

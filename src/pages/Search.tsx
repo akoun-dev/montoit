@@ -74,20 +74,20 @@ const Search = () => {
         <DynamicBreadcrumb />
 
         {/* Header with improved typography */}
-        <div className="mb-8 relative">
+        <div className="mb-8 md:mb-12 section-spacing">
           <KentePattern />
           <div className="relative z-10">
             <h1 className="text-h1 mb-4">
               <span className="text-gradient-primary">Rechercher</span> un bien
             </h1>
           </div>
-          <p className="text-lg text-muted-foreground">
-            Trouvez le logement idéal parmi {properties.length} annonces
+          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl">
+            Trouvez le logement idéal parmi {properties.length} annonces à Abidjan et environs
           </p>
         </div>
 
-        {/* Filters */}
-        <div className="mb-6">
+        {/* Filters with better spacing */}
+        <div className="mb-8 content-spacing">
           {isMobile ? (
             <MobileFilters
               onFilterChange={handleFilterChange as any}
@@ -133,63 +133,65 @@ const Search = () => {
           </div>
         </div>
 
-        <PullToRefresh onRefresh={async () => { await refetch(); }}>
-          {/* Properties Grid/List */}
-          {viewMode === 'map' ? (
-            <Card className="p-4">
-              <PropertyMap properties={filteredProperties.filter(hasCoordinates)} />
-            </Card>
-          ) : (
-            <>
-              {isLoading ? (
-                <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
-                  {[1, 2, 3, 4, 5, 6].map((i) => (
-                    <PropertyCardSkeleton key={i} />
-                  ))}
-                </div>
-              ) : filteredProperties.length > 0 ? (
-                <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
-                  {filteredProperties.map((property) => (
-                    <PropertyCard
-                      key={property.id}
-                      property={property}
-                      isFavorite={isFavorite(property.id)}
-                      onFavoriteClick={handleFavoriteClick}
-                      variant={viewMode === 'list' ? 'compact' : 'default'}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <Card className="p-12 text-center space-y-6">
-                  <SearchIcon className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <div>
-                    <h3 className="text-2xl font-semibold mb-2">
-                      {searchParams.get('location') ? (
-                        <>Aucun bien disponible à <span className="capitalize text-primary">{searchParams.get('location')}</span></>
-                      ) : (
-                        'Aucun bien trouvé'
-                      )}
-                    </h3>
-                    <p className="text-muted-foreground">
-                      {searchParams.get('location') 
-                        ? 'Essayez d\'élargir votre recherche à d\'autres villes ou désactivez certains filtres'
-                        : 'Essayez de modifier vos critères de recherche pour voir plus de résultats'
-                      }
-                    </p>
+        <div className="content-spacing">
+          <PullToRefresh onRefresh={async () => { await refetch(); }}>
+            {/* Properties Grid/List */}
+            {viewMode === 'map' ? (
+              <Card className="p-4 md:p-6">
+                <PropertyMap properties={filteredProperties.filter(hasCoordinates)} />
+              </Card>
+            ) : (
+              <>
+                {isLoading ? (
+                  <div className={viewMode === 'grid' ? 'card-container grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'space-y-6'}>
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                      <PropertyCardSkeleton key={i} />
+                    ))}
                   </div>
-                  <div className="flex gap-3 justify-center">
-                    <Button onClick={() => refetch()} variant="outline" size="lg">
-                      🔄 Actualiser
-                    </Button>
-                    <Button onClick={handleReset} variant="primary-gradient" size="lg">
-                      Réinitialiser les filtres
-                    </Button>
+                ) : filteredProperties.length > 0 ? (
+                  <div className={viewMode === 'grid' ? 'card-container grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'space-y-6'}>
+                    {filteredProperties.map((property) => (
+                      <PropertyCard
+                        key={property.id}
+                        property={property}
+                        isFavorite={isFavorite(property.id)}
+                        onFavoriteClick={handleFavoriteClick}
+                        variant={viewMode === 'list' ? 'compact' : 'default'}
+                      />
+                    ))}
                   </div>
-                </Card>
-              )}
-            </>
-          )}
-        </PullToRefresh>
+                ) : (
+                  <Card className="p-12 text-center space-y-6">
+                    <SearchIcon className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                    <div>
+                      <h3 className="text-2xl font-semibold mb-2">
+                        {searchParams.get('location') ? (
+                          <>Aucun bien disponible à <span className="capitalize text-primary">{searchParams.get('location')}</span></>
+                        ) : (
+                          'Aucun bien trouvé'
+                        )}
+                      </h3>
+                      <p className="text-muted-foreground">
+                        {searchParams.get('location') 
+                          ? 'Essayez d\'élargir votre recherche à d\'autres villes ou désactivez certains filtres'
+                          : 'Essayez de modifier vos critères de recherche pour voir plus de résultats'
+                        }
+                      </p>
+                    </div>
+                    <div className="flex gap-3 justify-center">
+                      <Button onClick={() => refetch()} variant="outline" size="lg">
+                        🔄 Actualiser
+                      </Button>
+                      <Button onClick={handleReset} variant="primary-gradient" size="lg">
+                        Réinitialiser les filtres
+                      </Button>
+                    </div>
+                  </Card>
+                )}
+              </>
+            )}
+          </PullToRefresh>
+        </div>
 
         {/* Recommendations */}
         {user && (
