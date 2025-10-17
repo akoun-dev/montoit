@@ -57,12 +57,26 @@ export function ModernAppSidebar() {
     return names.map(n => n[0]).join("").toUpperCase().slice(0, 2);
   };
 
-  // Navigation commune
-  const commonLinks = [
-    { to: "/", icon: Home, label: "Accueil", color: "text-blue-500" },
-    { to: "/recherche", icon: Search, label: "Recherche", color: "text-purple-500" },
-    { to: "/explorer", icon: MapPin, label: "Explorer", color: "text-green-500" },
+  // Vérifier si on est sur la page d'accueil
+  const isHomePage = isActive("/");
+
+  // Navigation principale simplifiée pour l'accueil
+  const primaryLinks = [
+    { to: "/", icon: Home, label: "Accueil", color: "text-primary", priority: true },
+    { to: "/recherche", icon: Search, label: "Recherche", color: "text-blue-500", priority: true },
+    { to: "/explorer", icon: MapPin, label: "Explorer", color: "text-green-500", priority: true },
   ];
+
+  // Navigation rapide (visible sur l'accueil même pour non-connectés)
+  const quickActions = !profile ? [
+    { to: "/auth", icon: User, label: "Se connecter", color: "text-orange-500", highlight: true },
+    { to: "/a-propos", icon: ShieldCheck, label: "Pourquoi Mon Toit ?", color: "text-purple-500" },
+  ] : [];
+
+  // Action supplémentaire pour l'accueil (visible uniquement sur la page d'accueil)
+  const homeActions = isHomePage && !profile ? [
+    { to: "/publier", icon: PlusCircle, label: "Publier un bien", color: "text-emerald-500" },
+  ] : [];
 
   // Navigation pour utilisateurs connectés
   const userLinks = profile ? [
@@ -85,14 +99,16 @@ export function ModernAppSidebar() {
     { to: "/my-mandates", icon: FileText, label: "Mes Mandats", color: "text-amber-500" },
   ] : [];
 
-  // Navigation admin
-  const adminLinks = canAccessAdminDashboard ? [
+  // Navigation admin (masquée sur l'accueil pour les non-admins)
+  const adminLinks = !isHomePage && canAccessAdminDashboard ? [
     { to: "/admin", icon: Shield, label: "Admin Dashboard", color: "text-red-500" },
     { to: "/admin/certifications", icon: ShieldCheck, label: "Certifications", color: "text-orange-500" },
   ] : [];
 
-  // Autres liens
-  const otherLinks = [
+  // Navigation utilitaire (réduite sur l'accueil)
+  const utilityLinks = isHomePage ? [
+    { to: "/guide", icon: HelpCircle, label: "Guide", color: "text-gray-500" },
+  ] : [
     { to: "/guide", icon: HelpCircle, label: "Aide & Guide", color: "text-gray-500" },
     { to: "/verification", icon: ShieldCheck, label: "Vérification ANSUT", color: "text-primary" },
   ];
@@ -102,7 +118,7 @@ export function ModernAppSidebar() {
   ] : [];
 
   const renderMenuItems = (links: any[], showBadge = false) => {
-    return links.map((link) => {
+    return links.map((link, index) => {
       const active = isActive(link.to);
       return (
         <SidebarMenuItem key={link.to}>
@@ -110,27 +126,48 @@ export function ModernAppSidebar() {
             <Link to={link.to} className="group relative">
               <motion.div
                 className={cn(
-                  "flex items-center gap-3 w-full rounded-lg px-3 py-2.5 transition-all duration-200",
+                  "flex items-center gap-3 w-full rounded-lg px-3 py-2.5 transition-all duration-200 relative overflow-hidden",
                   active 
-                    ? "bg-gradient-to-r from-primary/10 to-secondary/10 border-l-3 border-primary" 
+                    ? "bg-gradient-to-r from-primary/10 to-secondary/10 border-l-3 border-primary shadow-sm" 
+                    : link?.highlight
+                    ? "bg-gradient-to-r from-orange-500/10 to-orange-500/5 border border-orange-500/20 hover:from-orange-500/15 hover:to-orange-500/10"
                     : "hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent"
                 )}
                 whileHover={{ x: 4 }}
                 whileTap={{ scale: 0.98 }}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
               >
-                <link.icon className={cn("h-5 w-5", active ? "text-primary" : link.color)} />
+                {/* Effet de brillance pour les éléments highlight */}
+                {link?.highlight && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 transform translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                )}
+                
+                <link.icon className={cn(
+                  "h-5 w-5 transition-colors duration-200",
+                  active ? "text-primary" : link?.highlight ? "text-orange-500" : link.color
+                )} />
+                
                 {open && (
                   <>
                     <span className={cn(
-                      "flex-1 font-medium text-sm",
-                      active ? "text-primary" : "text-foreground"
+                      "flex-1 font-medium text-sm transition-colors duration-200",
+                      active ? "text-primary" : link?.highlight ? "text-orange-600 font-semibold" : "text-foreground"
                     )}>
                       {link.label}
                     </span>
+                    
+                    {/* Badge pour notifications */}
                     {showBadge && link.badge && (
-                      <Badge variant="destructive" className="h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                      <Badge variant="destructive" className="h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs animate-pulse">
                         {link.badge}
                       </Badge>
+                    )}
+                    
+                    {/* Indicateur pour les éléments highlight */}
+                    {link?.highlight && (
+                      <div className="h-2 w-2 bg-orange-500 rounded-full animate-pulse" />
                     )}
                   </>
                 )}
@@ -198,22 +235,58 @@ export function ModernAppSidebar() {
         {/* Navigation Principale */}
         <SidebarGroup>
           {open && (
-            <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
+            <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2 flex items-center gap-2">
+              <div className="w-1 h-1 bg-primary rounded-full" />
               Navigation
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
             <SidebarMenu>
-              {renderMenuItems(commonLinks)}
+              {renderMenuItems(primaryLinks)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Actions Rapides (pour non-connectés) */}
+        {quickActions.length > 0 && (
+          <SidebarGroup className="mt-6">
+            {open && (
+              <SidebarGroupLabel className="text-xs font-semibold text-orange-600 uppercase tracking-wider px-3 mb-2 flex items-center gap-2">
+                <div className="w-1 h-1 bg-orange-500 rounded-full animate-pulse" />
+                Actions Rapides
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {renderMenuItems(quickActions)}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Actions spécifiques à l'accueil pour propriétaires potentiels */}
+        {homeActions.length > 0 && (
+          <SidebarGroup className="mt-4">
+            {open && (
+              <SidebarGroupLabel className="text-xs font-semibold text-emerald-600 uppercase tracking-wider px-3 mb-2 flex items-center gap-2">
+                <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
+                Propriétaire
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {renderMenuItems(homeActions)}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Mon Espace */}
         {userLinks.length > 0 && (
           <SidebarGroup className="mt-4">
             {open && (
-              <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
+              <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2 flex items-center gap-2">
+                <div className="w-1 h-1 bg-blue-500 rounded-full" />
                 Mon Espace
               </SidebarGroupLabel>
             )}
@@ -229,7 +302,8 @@ export function ModernAppSidebar() {
         {tenantLinks.length > 0 && (
           <SidebarGroup className="mt-4">
             {open && (
-              <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
+              <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2 flex items-center gap-2">
+                <div className="w-1 h-1 bg-indigo-500 rounded-full" />
                 Locataire
               </SidebarGroupLabel>
             )}
@@ -245,7 +319,8 @@ export function ModernAppSidebar() {
         {ownerLinks.length > 0 && (
           <SidebarGroup className="mt-4">
             {open && (
-              <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
+              <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2 flex items-center gap-2">
+                <div className="w-1 h-1 bg-cyan-500 rounded-full" />
                 Gestion
               </SidebarGroupLabel>
             )}
@@ -261,7 +336,8 @@ export function ModernAppSidebar() {
         {adminLinks.length > 0 && (
           <SidebarGroup className="mt-4">
             {open && (
-              <SidebarGroupLabel className="text-xs font-semibold text-red-500 uppercase tracking-wider px-3 mb-2">
+              <SidebarGroupLabel className="text-xs font-semibold text-red-500 uppercase tracking-wider px-3 mb-2 flex items-center gap-2">
+                <div className="w-1 h-1 bg-red-500 rounded-full animate-pulse" />
                 Administration
               </SidebarGroupLabel>
             )}
@@ -273,23 +349,32 @@ export function ModernAppSidebar() {
           </SidebarGroup>
         )}
 
-        {/* Autres */}
-        <SidebarGroup className="mt-4">
-          {open && (
-            <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2">
-              Autres
-            </SidebarGroupLabel>
-          )}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {renderMenuItems(otherLinks)}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Utilitaires */}
+        {utilityLinks.length > 0 && (
+          <SidebarGroup className="mt-4">
+            {open && (
+              <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2 flex items-center gap-2">
+                <div className="w-1 h-1 bg-gray-500 rounded-full" />
+                {isHomePage ? "Guide" : "Utilitaires"}
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {renderMenuItems(utilityLinks)}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Paramètres */}
         {settingsLinks.length > 0 && (
           <SidebarGroup className="mt-4">
+            {open && (
+              <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-2 flex items-center gap-2">
+                <div className="w-1 h-1 bg-gray-600 rounded-full" />
+                Paramètres
+              </SidebarGroupLabel>
+            )}
             <SidebarGroupContent>
               <SidebarMenu>
                 {renderMenuItems(settingsLinks)}
@@ -315,4 +400,3 @@ export function ModernAppSidebar() {
     </Sidebar>
   );
 }
-

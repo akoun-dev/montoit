@@ -9,21 +9,61 @@
 
 DO $$
 DECLARE
-  user1_id UUID;
-  user2_id UUID;
-  user1_exists BOOLEAN;
-  user2_exists BOOLEAN;
+  -- Comptes de développement
+  locataire_id UUID;
+  proprietaire1_id UUID;
+  agence1_id UUID;
+  admin_id UUID;
+  super_admin_id UUID;
+  
+  -- Comptes de démonstration
+  demo_locataire_id UUID;
+  demo_proprietaire_id UUID;
+  demo_agence_id UUID;
+  
+  -- Comptes de staging
+  staging_locataire_id UUID;
+  staging_proprietaire_id UUID;
+  staging_agence_id UUID;
+  
+  user_exists BOOLEAN;
   property_count INTEGER;
 BEGIN
-  -- Vérifier si les utilisateurs de test existent déjà
-  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = 'proprietaire1@test.com') INTO user1_exists;
-  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = 'agence1@test.com') INTO user2_exists;
+  RAISE NOTICE '=== CRÉATION DE TOUS LES COMPTES UTILISATEURS ===';
   
-  -- Vérifier combien de propriétés existent déjà
-  SELECT COUNT(*) INTO property_count FROM public.properties;
-
-  -- Créer le premier utilisateur de test (propriétaire individuel)
-  IF NOT user1_exists THEN
+  -- ===================================================================
+  -- 1. COMPTES DE DÉVELOPPEMENT
+  -- ===================================================================
+  
+  -- Locataire de développement
+  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = 'locataire@test.com') INTO user_exists;
+  IF NOT user_exists THEN
+    INSERT INTO auth.users (
+      id,
+      email,
+      email_confirmed_at,
+      phone,
+      raw_user_meta_data,
+      created_at,
+      updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      'locataire@test.com',
+      NOW(),
+      '+2250101010101',
+      '{"full_name": "Marie Konan", "user_type": "locataire"}',
+      NOW(),
+      NOW()
+    ) RETURNING id INTO locataire_id;
+    RAISE NOTICE '✓ Locataire développement créé: locataire@test.com';
+  ELSE
+    SELECT id INTO locataire_id FROM auth.users WHERE email = 'locataire@test.com';
+    RAISE NOTICE '✓ Locataire développement existe déjà: locataire@test.com';
+  END IF;
+  
+  -- Propriétaire 1 (existe déjà mais on vérifie)
+  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = 'proprietaire1@test.com') INTO user_exists;
+  IF NOT user_exists THEN
     INSERT INTO auth.users (
       id,
       email,
@@ -40,16 +80,16 @@ BEGIN
       '{"full_name": "Jean Kouadio", "user_type": "proprietaire"}',
       NOW(),
       NOW()
-    ) RETURNING id INTO user1_id;
-    
-    RAISE NOTICE 'Utilisateur proprietaire1@test.com créé avec ID: %', user1_id;
+    ) RETURNING id INTO proprietaire1_id;
+    RAISE NOTICE '✓ Propriétaire développement créé: proprietaire1@test.com';
   ELSE
-    SELECT id INTO user1_id FROM auth.users WHERE email = 'proprietaire1@test.com';
-    RAISE NOTICE 'Utilisateur proprietaire1@test.com existe déjà avec ID: %', user1_id;
+    SELECT id INTO proprietaire1_id FROM auth.users WHERE email = 'proprietaire1@test.com';
+    RAISE NOTICE '✓ Propriétaire développement existe déjà: proprietaire1@test.com';
   END IF;
-
-  -- Créer le deuxième utilisateur de test (agence)
-  IF NOT user2_exists THEN
+  
+  -- Agence 1 (existe déjà mais on vérifie)
+  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = 'agence1@test.com') INTO user_exists;
+  IF NOT user_exists THEN
     INSERT INTO auth.users (
       id,
       email,
@@ -66,13 +106,231 @@ BEGIN
       '{"full_name": "Agence Immobilière Abidjan", "user_type": "agence"}',
       NOW(),
       NOW()
-    ) RETURNING id INTO user2_id;
-    
-    RAISE NOTICE 'Utilisateur agence1@test.com créé avec ID: %', user2_id;
+    ) RETURNING id INTO agence1_id;
+    RAISE NOTICE '✓ Agence développement créée: agence1@test.com';
   ELSE
-    SELECT id INTO user2_id FROM auth.users WHERE email = 'agence1@test.com';
-    RAISE NOTICE 'Utilisateur agence1@test.com existe déjà avec ID: %', user2_id;
+    SELECT id INTO agence1_id FROM auth.users WHERE email = 'agence1@test.com';
+    RAISE NOTICE '✓ Agence développement existe déjà: agence1@test.com';
   END IF;
+  
+  -- Admin de développement
+  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = 'admin@test.com') INTO user_exists;
+  IF NOT user_exists THEN
+    INSERT INTO auth.users (
+      id,
+      email,
+      email_confirmed_at,
+      phone,
+      raw_user_meta_data,
+      created_at,
+      updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      'admin@test.com',
+      NOW(),
+      '+2250202020202',
+      '{"full_name": "Administrateur ANSUT", "user_type": "admin"}',
+      NOW(),
+      NOW()
+    ) RETURNING id INTO admin_id;
+    RAISE NOTICE '✓ Admin développement créé: admin@test.com';
+  ELSE
+    SELECT id INTO admin_id FROM auth.users WHERE email = 'admin@test.com';
+    RAISE NOTICE '✓ Admin développement existe déjà: admin@test.com';
+  END IF;
+  
+  -- Super Admin de développement
+  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = 'super@test.com') INTO user_exists;
+  IF NOT user_exists THEN
+    INSERT INTO auth.users (
+      id,
+      email,
+      email_confirmed_at,
+      phone,
+      raw_user_meta_data,
+      created_at,
+      updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      'super@test.com',
+      NOW(),
+      '+2250303030303',
+      '{"full_name": "Super Administrateur", "user_type": "super_admin"}',
+      NOW(),
+      NOW()
+    ) RETURNING id INTO super_admin_id;
+    RAISE NOTICE '✓ Super Admin développement créé: super@test.com';
+  ELSE
+    SELECT id INTO super_admin_id FROM auth.users WHERE email = 'super@test.com';
+    RAISE NOTICE '✓ Super Admin développement existe déjà: super@test.com';
+  END IF;
+  
+  -- ===================================================================
+  -- 2. COMPTES DE DÉMONSTRATION
+  -- ===================================================================
+  
+  -- Locataire de démonstration
+  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = 'demo@locataire.ci') INTO user_exists;
+  IF NOT user_exists THEN
+    INSERT INTO auth.users (
+      id,
+      email,
+      email_confirmed_at,
+      phone,
+      raw_user_meta_data,
+      created_at,
+      updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      'demo@locataire.ci',
+      NOW(),
+      '+2250404040404',
+      '{"full_name": "Demo Locataire", "user_type": "locataire"}',
+      NOW(),
+      NOW()
+    ) RETURNING id INTO demo_locataire_id;
+    RAISE NOTICE '✓ Locataire démo créé: demo@locataire.ci';
+  ELSE
+    SELECT id INTO demo_locataire_id FROM auth.users WHERE email = 'demo@locataire.ci';
+    RAISE NOTICE '✓ Locataire démo existe déjà: demo@locataire.ci';
+  END IF;
+  
+  -- Propriétaire de démonstration
+  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = 'demo@proprietaire.ci') INTO user_exists;
+  IF NOT user_exists THEN
+    INSERT INTO auth.users (
+      id,
+      email,
+      email_confirmed_at,
+      phone,
+      raw_user_meta_data,
+      created_at,
+      updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      'demo@proprietaire.ci',
+      NOW(),
+      '+2250505050505',
+      '{"full_name": "Demo Propriétaire", "user_type": "proprietaire"}',
+      NOW(),
+      NOW()
+    ) RETURNING id INTO demo_proprietaire_id;
+    RAISE NOTICE '✓ Propriétaire démo créé: demo@proprietaire.ci';
+  ELSE
+    SELECT id INTO demo_proprietaire_id FROM auth.users WHERE email = 'demo@proprietaire.ci';
+    RAISE NOTICE '✓ Propriétaire démo existe déjà: demo@proprietaire.ci';
+  END IF;
+  
+  -- Agence de démonstration
+  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = 'demo@agence.ci') INTO user_exists;
+  IF NOT user_exists THEN
+    INSERT INTO auth.users (
+      id,
+      email,
+      email_confirmed_at,
+      phone,
+      raw_user_meta_data,
+      created_at,
+      updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      'demo@agence.ci',
+      NOW(),
+      '+2250606060606',
+      '{"full_name": "Demo Agence", "user_type": "agence"}',
+      NOW(),
+      NOW()
+    ) RETURNING id INTO demo_agence_id;
+    RAISE NOTICE '✓ Agence démo créée: demo@agence.ci';
+  ELSE
+    SELECT id INTO demo_agence_id FROM auth.users WHERE email = 'demo@agence.ci';
+    RAISE NOTICE '✓ Agence démo existe déjà: demo@agence.ci';
+  END IF;
+  
+  -- ===================================================================
+  -- 3. COMPTES DE STAGING
+  -- ===================================================================
+  
+  -- Locataire de staging
+  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = 'staging@locataire.ci') INTO user_exists;
+  IF NOT user_exists THEN
+    INSERT INTO auth.users (
+      id,
+      email,
+      email_confirmed_at,
+      phone,
+      raw_user_meta_data,
+      created_at,
+      updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      'staging@locataire.ci',
+      NOW(),
+      '+2250707070707',
+      '{"full_name": "Staging Locataire", "user_type": "locataire"}',
+      NOW(),
+      NOW()
+    ) RETURNING id INTO staging_locataire_id;
+    RAISE NOTICE '✓ Locataire staging créé: staging@locataire.ci';
+  ELSE
+    SELECT id INTO staging_locataire_id FROM auth.users WHERE email = 'staging@locataire.ci';
+    RAISE NOTICE '✓ Locataire staging existe déjà: staging@locataire.ci';
+  END IF;
+  
+  -- Propriétaire de staging
+  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = 'staging@proprietaire.ci') INTO user_exists;
+  IF NOT user_exists THEN
+    INSERT INTO auth.users (
+      id,
+      email,
+      email_confirmed_at,
+      phone,
+      raw_user_meta_data,
+      created_at,
+      updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      'staging@proprietaire.ci',
+      NOW(),
+      '+2250808080808',
+      '{"full_name": "Staging Propriétaire", "user_type": "proprietaire"}',
+      NOW(),
+      NOW()
+    ) RETURNING id INTO staging_proprietaire_id;
+    RAISE NOTICE '✓ Propriétaire staging créé: staging@proprietaire.ci';
+  ELSE
+    SELECT id INTO staging_proprietaire_id FROM auth.users WHERE email = 'staging@proprietaire.ci';
+    RAISE NOTICE '✓ Propriétaire staging existe déjà: staging@proprietaire.ci';
+  END IF;
+  
+  -- Agence de staging
+  SELECT EXISTS(SELECT 1 FROM auth.users WHERE email = 'staging@agence.ci') INTO user_exists;
+  IF NOT user_exists THEN
+    INSERT INTO auth.users (
+      id,
+      email,
+      email_confirmed_at,
+      phone,
+      raw_user_meta_data,
+      created_at,
+      updated_at
+    ) VALUES (
+      gen_random_uuid(),
+      'staging@agence.ci',
+      NOW(),
+      '+2250909090909',
+      '{"full_name": "Staging Agence", "user_type": "agence"}',
+      NOW(),
+      NOW()
+    ) RETURNING id INTO staging_agence_id;
+    RAISE NOTICE '✓ Agence staging créée: staging@agence.ci';
+  ELSE
+    SELECT id INTO staging_agence_id FROM auth.users WHERE email = 'staging@agence.ci';
+    RAISE NOTICE '✓ Agence staging existe déjà: staging@agence.ci';
+  END IF;
+  
+  -- Vérifier combien de propriétés existent déjà
+  SELECT COUNT(*) INTO property_count FROM public.properties;
 
   -- ===================================================================
   -- 2. CRÉATION DES BIENS IMMOBILIERS (avec des owner_id réels)
@@ -90,7 +348,7 @@ BEGIN
       main_image, images, moderation_status
     ) VALUES
     (
-      user1_id,
+      proprietaire1_id,
       'Villa Moderne 4 Chambres - Cocody',
       'Magnifique villa moderne avec 4 chambres, salon spacieux, cuisine équipée, jardin et piscine. Située dans un quartier calme et sécurisé de Cocody.',
       'villa',
@@ -118,7 +376,7 @@ BEGIN
       'approved'
     ),
     (
-      user1_id,
+      proprietaire1_id,
       'Appartement 3 Pièces - Plateau',
       'Bel appartement de 3 pièces au cœur du Plateau, proche de tous commerces et transports. Vue imprenable sur la ville.',
       'appartement',
@@ -145,7 +403,7 @@ BEGIN
       'approved'
     ),
     (
-      user1_id,
+      proprietaire1_id,
       'Studio Meublé - Marcory',
       'Studio moderne entièrement meublé et équipé, idéal pour jeune professionnel. Proche de la zone 4.',
       'studio',
@@ -169,7 +427,7 @@ BEGIN
       'approved'
     ),
     (
-      user1_id,
+      proprietaire1_id,
       'Duplex 5 Chambres - Yopougon',
       'Grand duplex de 5 chambres avec terrasse, parfait pour famille nombreuse. Quartier résidentiel calme.',
       'duplex',
@@ -196,7 +454,7 @@ BEGIN
       'approved'
     ),
     (
-      user1_id,
+      proprietaire1_id,
       'Villa de Luxe - Cocody',
       'Villa de prestige avec 6 chambres, piscine, jardin paysager, garage 3 voitures. Sécurité 24/7.',
       'villa',
@@ -234,7 +492,7 @@ BEGIN
       main_image, images, moderation_status
     ) VALUES
     (
-      user2_id,
+      agence1_id,
       'Appartement Standing - Cocody',
       'Appartement haut standing avec finitions luxueuses, dans résidence sécurisée avec piscine commune.',
       'appartement',
@@ -261,7 +519,7 @@ BEGIN
       'approved'
     ),
     (
-      user2_id,
+      agence1_id,
       'Local Commercial 3 Chambres - Abobo',
       'Local commercial familial avec 3 pièces, salon, cuisine, cour. Quartier populaire et animé.',
       'local_commercial',
@@ -285,7 +543,7 @@ BEGIN
       'approved'
     ),
     (
-      user2_id,
+      agence1_id,
       'Appartement 2 Pièces - Treichville',
       'Appartement lumineux de 2 pièces, proche du marché et des transports. Idéal premier achat.',
       'appartement',
@@ -320,10 +578,14 @@ END $$;
 -- 3. VÉRIFICATION ET RAPPORT
 -- ===================================================================
 
--- Rapport des données créées
-SELECT '=== RAPPORT DE CRÉATION DES DONNÉES DE TEST ===' as rapport;
+-- ===================================================================
+-- 3. VÉRIFICATION ET RAPPORT COMPLET
+-- ===================================================================
 
-SELECT 'UTILISATEURS DE TEST CRÉÉS:' as section;
+-- Rapport des données créées
+SELECT '=== RAPPORT COMPLET DE CRÉATION DES DONNÉES ===' as rapport;
+
+SELECT 'COMPTES DE DÉVELOPPEMENT CRÉÉS:' as section;
 SELECT 
   u.id, 
   u.email, 
@@ -332,8 +594,56 @@ SELECT
   p.created_at
 FROM auth.users u
 JOIN public.profiles p ON u.id = p.id
-WHERE u.email IN ('proprietaire1@test.com', 'agence1@test.com')
+WHERE u.email IN (
+  'locataire@test.com', 
+  'proprietaire1@test.com', 
+  'agence1@test.com', 
+  'admin@test.com', 
+  'super@test.com'
+)
 ORDER BY u.email;
+
+SELECT 'COMPTES DE DÉMONSTRATION CRÉÉS:' as section;
+SELECT 
+  u.id, 
+  u.email, 
+  p.full_name, 
+  p.user_type,
+  p.created_at
+FROM auth.users u
+JOIN public.profiles p ON u.id = p.id
+WHERE u.email IN (
+  'demo@locataire.ci', 
+  'demo@proprietaire.ci', 
+  'demo@agence.ci'
+)
+ORDER BY u.email;
+
+SELECT 'COMPTES DE STAGING CRÉÉS:' as section;
+SELECT 
+  u.id, 
+  u.email, 
+  p.full_name, 
+  p.user_type,
+  p.created_at
+FROM auth.users u
+JOIN public.profiles p ON u.id = p.id
+WHERE u.email IN (
+  'staging@locataire.ci', 
+  'staging@proprietaire.ci', 
+  'staging@agence.ci'
+)
+ORDER BY u.email;
+
+SELECT 'RÔLES UTILISATEURS PAR TYPE:' as section;
+SELECT 
+  p.user_type,
+  COUNT(*) as count,
+  STRING_AGG(u.email, ', ') as users
+FROM auth.users u
+JOIN public.profiles p ON u.id = p.id
+GROUP BY p.user_type
+ORDER BY count DESC;
 
 SELECT 'PROPRIÉTÉS CRÉÉES PAR TYPE:' as section;
 SELECT 
@@ -371,10 +681,25 @@ JOIN public.profiles p ON pr.owner_id = p.id
 ORDER BY pr.created_at DESC
 LIMIT 5;
 
-SELECT '=== Seed corrigé exécuté avec succès ! ===' as rapport;
-SELECT 'Utilisateurs de test:' as info;
-SELECT '- proprietaire1@test.com (Jean Kouadio)' as user;
-SELECT '- agence1@test.com (Agence Immobilière Abidjan)' as user;
+SELECT '=== Seed complet exécuté avec succès ! ===' as rapport;
+SELECT 'Comptes créés:' as info;
+SELECT 'Développement (5 comptes):' as category;
+SELECT '- locataire@test.com (Test123!) - Marie Konan' as user;
+SELECT '- proprietaire1@test.com (Test123!) - Jean Kouadio' as user;
+SELECT '- agence1@test.com (Test123!) - Agence Immobilière Abidjan' as user;
+SELECT '- admin@test.com (Admin123!) - Administrateur ANSUT' as user;
+SELECT '- super@test.com (Super123!) - Super Administrateur' as user;
 SELECT '' as info;
+SELECT 'Démonstration (3 comptes):' as category;
+SELECT '- demo@locataire.ci (Demo2025!) - Demo Locataire' as user;
+SELECT '- demo@proprietaire.ci (Demo2025!) - Demo Propriétaire' as user;
+SELECT '- demo@agence.ci (Demo2025!) - Demo Agence' as user;
+SELECT '' as info;
+SELECT 'Staging (3 comptes):' as category;
+SELECT '- staging@locataire.ci (Staging2025!) - Staging Locataire' as user;
+SELECT '- staging@proprietaire.ci (Staging2025!) - Staging Propriétaire' as user;
+SELECT '- staging@agence.ci (Staging2025!) - Staging Agence' as user;
+SELECT '' as info;
+SELECT 'Total comptes créés: 11' as info;
 SELECT 'Total propriétés créées: 8' as info;
 SELECT 'Répartition: 5 propriétés pour propriétaire individuel, 3 pour agence' as info;
