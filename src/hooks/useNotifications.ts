@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './useAuth';
 import { logger } from '@/services/logger';
@@ -23,6 +23,40 @@ export const useNotifications = () => {
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      setNotifications(data || []);
+      setUnreadCount(data?.filter((n) => !n.is_read).length || 0);
+    } catch (error) {
+      logger.logError(error, { context: 'useNotifications', action: 'fetch' });
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  const recalculateUnreadCount = useCallback(async () => {
+    if (!user) return;
+
+    const { count } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_read', false);
+
+    setUnreadCount(count || 0);
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -49,7 +83,7 @@ export const useNotifications = () => {
           const newNotification = payload.new as NotificationData;
           setNotifications((prev) => [newNotification, ...prev]);
           setUnreadCount((prev) => prev + 1);
-          
+
           // Show browser notification if permitted
           if (Notification.permission === 'granted') {
             new Notification(newNotification.title, {
@@ -82,41 +116,7 @@ export const useNotifications = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
-
-  const fetchNotifications = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) throw error;
-
-      setNotifications(data || []);
-      setUnreadCount(data?.filter((n) => !n.is_read).length || 0);
-    } catch (error) {
-      logger.logError(error, { context: 'useNotifications', action: 'fetch' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const recalculateUnreadCount = async () => {
-    if (!user) return;
-
-    const { count } = await supabase
-      .from('notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('is_read', false);
-
-    setUnreadCount(count || 0);
-  };
+  }, [user, fetchNotifications, recalculateUnreadCount]);
 
   const markAsRead = async (notificationId: string) => {
     try {

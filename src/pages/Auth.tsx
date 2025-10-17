@@ -18,8 +18,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { logger } from '@/services/logger';
 import { PageTransition } from '@/components/navigation/PageTransition';
 import { BrandBar } from '@/components/ui/brand-bar';
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import { MainLayout } from "@/components/layout/MainLayout";
 import { DynamicBreadcrumb } from "@/components/navigation/DynamicBreadcrumb";
 import { QuickNav } from "@/components/navigation/QuickNav";
 import { NavigationHelp } from "@/components/navigation/NavigationHelp";
@@ -306,25 +305,22 @@ const Auth = () => {
 
   if (show2FA) {
     return (
-      <>
-        <Navbar />
-        <div className="min-h-screen bg-background pt-20">
+      <MainLayout>
+        <div className="bg-background">
           <div className="container mx-auto px-4 py-8 max-w-md">
-            <TwoFactorVerify 
+            <TwoFactorVerify
               onVerified={handle2FAVerified}
               onCancel={handle2FACancel}
             />
           </div>
         </div>
-        <Footer />
-      </>
+      </MainLayout>
     );
   }
 
   return (
-    <>
-      <Navbar />
-      <div className="min-h-screen bg-background pt-20">
+    <MainLayout>
+      <div className="bg-background">
         <div className="container mx-auto px-4 py-8 max-w-6xl">
           <DynamicBreadcrumb />
           
@@ -612,12 +608,11 @@ const Auth = () => {
             conditions d'utilisation
           </Link>
         </p>
-              </div>
             </div>
           </div>
         </div>
-      <Footer />
-    </>
+      </div>
+    </MainLayout>
   );
 };
 

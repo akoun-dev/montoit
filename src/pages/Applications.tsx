@@ -1,8 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { DynamicBreadcrumb } from '@/components/navigation/DynamicBreadcrumb';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -192,10 +191,8 @@ const Applications = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      
-      <main className="flex-1 container mx-auto px-4 py-6 pt-24">
+    <MainLayout>
+      <main className="container mx-auto px-4 py-6">
         <div className="mb-10">
           <DynamicBreadcrumb />
           
@@ -261,9 +258,7 @@ const Applications = () => {
           </DialogContent>
         </Dialog>
       </main>
-
-      <Footer />
-    </div>
+    </MainLayout>
   );
 };
 

@@ -6,8 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useDocumentHead } from '@/hooks/useDocumentHead';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -315,16 +314,14 @@ const PropertyDetail = () => {
 
   if (!property) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1 container mx-auto px-4 py-16 text-center">
+      <MainLayout>
+        <main className="container mx-auto px-4 py-16 text-center">
           <h1 className="text-2xl font-bold mb-4">Bien introuvable</h1>
           <Button asChild>
             <Link to="/recherche">Retour à la recherche</Link>
           </Button>
         </main>
-        <Footer />
-      </div>
+      </MainLayout>
     );
   }
 
@@ -336,9 +333,8 @@ const PropertyDetail = () => {
   const favorite = isFavorite(property.id);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className={`flex-1 ${isMobile ? 'px-4 py-4 pt-20' : 'container mx-auto px-4 py-8 pt-24'}`}>
+    <MainLayout>
+      <main className={`${isMobile ? 'px-4 py-4' : 'container mx-auto px-4 py-8'}`}>
         <div className={`${isMobile ? 'max-w-full' : 'max-w-7xl mx-auto'}`}>
           {/* Back button */}
           <Button
@@ -818,8 +814,7 @@ const PropertyDetail = () => {
           )}
         </div>
       </main>
-      <Footer />
-    </div>
+    </MainLayout>
   );
 };
 

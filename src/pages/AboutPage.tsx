@@ -1,12 +1,10 @@
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import { MainLayout } from "@/components/layout/MainLayout";
 import UnifiedTrustSection from "@/components/UnifiedTrustSection";
 
 const AboutPage = () => {
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-1 pt-20">
+    <MainLayout>
+      <main>
         <div className="container mx-auto px-4 py-12">
           <h1 className="text-4xl font-bold mb-4">À propos de Mon Toit</h1>
           <p className="text-lg text-muted-foreground mb-8">
@@ -15,8 +13,7 @@ const AboutPage = () => {
         </div>
         <UnifiedTrustSection />
       </main>
-      <Footer />
-    </div>
+    </MainLayout>
   );
 };
 

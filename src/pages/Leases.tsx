@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabase";
 import { logger } from "@/services/logger";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import { MainLayout } from "@/components/layout/MainLayout";
 import { DynamicBreadcrumb } from "@/components/navigation/DynamicBreadcrumb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -199,20 +198,17 @@ export default function Leases() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
+      <MainLayout>
         <div className="container mx-auto px-4 py-8">
           <p>Chargement...</p>
         </div>
-        <Footer />
-      </div>
+      </MainLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <main className="container mx-auto px-4 py-6 pt-24">
+    <MainLayout>
+      <main className="container mx-auto px-4 py-6">
         <DynamicBreadcrumb />
         
         <div className="mb-8">
@@ -472,7 +468,6 @@ export default function Leases() {
           )}
         </div>
       </main>
-      <Footer />
-    </div>
+    </MainLayout>
   );
 }

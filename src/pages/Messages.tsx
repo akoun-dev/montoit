@@ -3,8 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { DynamicBreadcrumb } from '@/components/navigation/DynamicBreadcrumb';
 import MessageTemplates from '@/components/messaging/MessageTemplates';
 import AttachmentUpload from '@/components/messaging/AttachmentUpload';
@@ -427,9 +426,8 @@ const Messages = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className={`flex-1 ${isMobile ? 'px-2 py-2 pt-20' : 'container mx-auto px-4 py-8 pt-24'}`}>
+    <MainLayout>
+      <main className={`${isMobile ? 'px-2 py-2' : 'container mx-auto px-4 py-8'}`}>
         <div className={`${isMobile ? 'max-w-full h-[calc(100vh-8rem)]' : 'max-w-7xl mx-auto'}`}>
           {!isMobile && <DynamicBreadcrumb />}
           <h1 className={`${isMobile ? 'text-xl font-semibold px-2 py-2' : 'text-3xl font-bold mb-6'}`}>Messages</h1>
@@ -595,8 +593,7 @@ const Messages = () => {
           </div>
         </div>
       </main>
-      <Footer />
-    </div>
+    </MainLayout>
   );
 };
 

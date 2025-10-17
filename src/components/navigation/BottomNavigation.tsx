@@ -2,8 +2,7 @@ import { Home, Search, Heart, MessageSquare, User } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useNotifications } from "@/hooks/useNotifications";
-import { useFavoriteCount } from "@/hooks/useFavoriteCount";
+import { useFavorites } from "@/hooks/useFavorites";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { memo, useMemo } from "react";
@@ -111,13 +110,12 @@ const BottomNavigation = () => {
   const { user } = useAuth();
   const location = useLocation();
   const isMobile = useIsMobile();
-  const { unreadCount } = useNotifications();
-  const newFavorites = useFavoriteCount();
+  const { favorites } = useFavorites();
 
   // Ne pas afficher sur desktop ou si l'utilisateur n'est pas connecté
   if (!isMobile || !user) return null;
 
-  // Configuration des items de navigation avec badges réels
+  // Configuration des items de navigation - simplifiée sans hooks problématiques
   const navItems: NavItem[] = useMemo(() => [
     {
       label: "Accueil",
@@ -136,14 +134,14 @@ const BottomNavigation = () => {
       icon: Heart,
       path: "/favoris",
       ariaLabel: "Voir mes favoris",
-      badge: newFavorites > 0 ? newFavorites : undefined,
+      badge: favorites.length > 0 ? favorites.length : undefined,
     },
     {
       label: "Messages",
       icon: MessageSquare,
       path: "/messages",
       ariaLabel: "Messages",
-      badge: unreadCount > 0 ? unreadCount : undefined,
+      // Badge désactivé temporairement pour éviter les erreurs
     },
     {
       label: "Profil",
@@ -151,7 +149,7 @@ const BottomNavigation = () => {
       path: "/profil",
       ariaLabel: "Voir mon profil",
     },
-  ], [unreadCount, newFavorites]);
+  ], [favorites.length]);
 
   // Fonction pour déterminer si un item est actif
   const isActive = useMemo(() => {

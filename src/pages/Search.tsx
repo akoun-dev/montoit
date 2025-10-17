@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { DynamicBreadcrumb } from '@/components/navigation/DynamicBreadcrumb';
 import { KentePattern } from '@/components/ui/african-patterns';
 import PropertyFiltersComponent, { PropertyFilters } from '@/components/PropertyFilters';
@@ -67,10 +66,8 @@ const Search = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col page-background">
-      <Navbar />
-
-      <main className="flex-1 page-container section-spacing pt-24">
+    <MainLayout>
+      <main className="page-container section-spacing">
         <DynamicBreadcrumb />
 
         {/* Header with improved typography */}
@@ -203,9 +200,7 @@ const Search = () => {
           </div>
         )}
       </main>
-
-      <Footer />
-    </div>
+    </MainLayout>
   );
 };
 

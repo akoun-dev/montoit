@@ -1,7 +1,6 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { DynamicBreadcrumb } from '@/components/navigation/DynamicBreadcrumb';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,10 +28,8 @@ const Verification = () => {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen flex flex-col bg-background" translate="no">
-        <Navbar />
-      
-        <main className="flex-grow container mx-auto px-4 py-8 pt-24">
+      <MainLayout>
+        <main className="container mx-auto px-4 py-8">
           <div className="max-w-4xl mx-auto">
             <DynamicBreadcrumb />
             
@@ -78,9 +75,7 @@ const Verification = () => {
             </Tabs>
           </div>
         </main>
-
-        <Footer />
-      </div>
+      </MainLayout>
     </ErrorBoundary>
   );
 };

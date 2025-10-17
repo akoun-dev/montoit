@@ -15,8 +15,7 @@ import { useAgencyMandates } from '@/hooks/useAgencyMandates';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { useEffect, useMemo } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useEffect } from 'react';
 
 // Local type matching useNotifications hook
 interface NotificationItem {
@@ -87,34 +86,6 @@ const NotificationBell = () => {
       navigate(url);
     }
   };
-
-  const groupedNotifications = useMemo(() => {
-    const groups: Record<string, NotificationItem[]> = {
-      all: notifications,
-      messages: [],
-      applications: [],
-      properties: [],
-      payments: [],
-      system: [],
-    };
-
-    notifications.forEach(notif => {
-      const category = notif.category || 'system';
-      if (groups[category]) {
-        groups[category].push(notif);
-      }
-    });
-
-    return groups;
-  }, [notifications]);
-
-  const categoryUnreadCount = useMemo(() => {
-    const counts: Record<string, number> = {};
-    Object.keys(groupedNotifications).forEach(category => {
-      counts[category] = groupedNotifications[category].filter(n => !n.is_read).length;
-    });
-    return counts;
-  }, [groupedNotifications]);
 
   const renderNotificationItem = (notification: NotificationItem) => {
     const NotificationIcon = getNotificationIcon(notification.type, notification.category || 'system');
@@ -252,54 +223,18 @@ const NotificationBell = () => {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-auto p-1">
-            <TabsTrigger value="all" className="text-xs">
-              Tout {categoryUnreadCount.all > 0 && `(${categoryUnreadCount.all})`}
-            </TabsTrigger>
-            <TabsTrigger value="messages" className="text-xs">
-              Messages {categoryUnreadCount.messages > 0 && `(${categoryUnreadCount.messages})`}
-            </TabsTrigger>
-            <TabsTrigger value="system" className="text-xs">
-              Système {categoryUnreadCount.system > 0 && `(${categoryUnreadCount.system})`}
-            </TabsTrigger>
-          </TabsList>
-
-          <ScrollArea className="h-[400px]">
-            <TabsContent value="all" className="m-0">
-              {groupedNotifications.all.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  <Bell className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Aucune notification</p>
-                </div>
-              ) : (
-                groupedNotifications.all.map(renderNotificationItem)
-              )}
-            </TabsContent>
-
-            <TabsContent value="messages" className="m-0">
-              {groupedNotifications.messages.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Aucun message</p>
-                </div>
-              ) : (
-                groupedNotifications.messages.map(renderNotificationItem)
-              )}
-            </TabsContent>
-
-            <TabsContent value="system" className="m-0">
-              {groupedNotifications.system.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  <Bell className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Aucune notification système</p>
-                </div>
-              ) : (
-                groupedNotifications.system.map(renderNotificationItem)
-              )}
-            </TabsContent>
-          </ScrollArea>
-        </Tabs>
+        <ScrollArea className="h-[400px]">
+          {notifications.length === 0 ? (
+            <div className="p-4 text-center text-muted-foreground">
+              <Bell className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>Aucune notification</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {notifications.map(renderNotificationItem)}
+            </div>
+          )}
+        </ScrollArea>
       </DropdownMenuContent>
     </DropdownMenu>
   );

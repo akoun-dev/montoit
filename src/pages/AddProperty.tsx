@@ -4,8 +4,7 @@ import { usePropertyForm } from '@/hooks/usePropertyForm';
 import { useMediaUpload, type MediaFiles } from '@/hooks/useMediaUpload';
 import { usePropertyPermissions } from '@/hooks/usePropertyPermissions';
 import { toast } from '@/hooks/use-toast';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { DynamicBreadcrumb } from '@/components/navigation/DynamicBreadcrumb';
 import { FormProgressIndicator, type Step } from '@/components/forms/FormProgressIndicator';
 import { FormStepper } from '@/components/forms/FormStepper';
@@ -127,9 +126,8 @@ const AddProperty = () => {
   const accessCheck = requireOwnerAccess();
   if (!accessCheck.hasAccess) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1 container mx-auto px-4 py-12">
+      <MainLayout>
+        <main className="container mx-auto px-4 py-12">
           <Card>
             <CardHeader>
               <CardTitle>Accès refusé</CardTitle>
@@ -144,14 +142,12 @@ const AddProperty = () => {
             </CardContent>
           </Card>
         </main>
-        <Footer />
-      </div>
+      </MainLayout>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
+    <MainLayout>
       
       {/* Sticky Header */}
       {isSticky && (
@@ -181,7 +177,7 @@ const AddProperty = () => {
         </StickyHeader>
       )}
       
-      <main className="flex-1 container mx-auto px-4 py-8 pt-24">
+      <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <DynamicBreadcrumb />
           
@@ -303,9 +299,7 @@ const AddProperty = () => {
           </Form>
         </div>
       </main>
-
-      <Footer />
-    </div>
+    </MainLayout>
   );
 };
 

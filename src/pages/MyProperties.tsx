@@ -2,8 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { DynamicBreadcrumb } from '@/components/navigation/DynamicBreadcrumb';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -232,10 +231,8 @@ const MyProperties = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      
-      <main className="flex-1 container mx-auto px-4 py-8 pt-24">
+    <MainLayout>
+      <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-8">
           <DynamicBreadcrumb />
           
@@ -332,9 +329,7 @@ const MyProperties = () => {
           />
         </div>
       </main>
-
-      <Footer />
-    </div>
+    </MainLayout>
   );
 };
 

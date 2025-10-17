@@ -14,7 +14,6 @@ import { initializeSentry } from "@/lib/sentry-enhanced";
 import { SarahChatbot } from "@/components/SarahChatbot";
 import { usePrefetchRoutes } from "@/hooks/usePrefetchRoutes";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import BottomNavigation from "@/components/navigation/BottomNavigation";
 import { PageSkeleton, PropertyDetailSkeleton } from "@/components/LoadingFallback";
 import ContextBar from "@/components/ContextBar";
 import { ScrollProgress } from "@/components/animations/ScrollProgress";
@@ -392,7 +391,6 @@ const AppContent = () => {
           </Routes>
         </PageTransition>
       </main>
-      <BottomNavigation />
     </>
   );
 };

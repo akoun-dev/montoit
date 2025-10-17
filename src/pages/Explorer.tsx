@@ -1,7 +1,6 @@
 import { lazy, Suspense } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import { MainLayout } from "@/components/layout/MainLayout";
 import { DynamicBreadcrumb } from "@/components/navigation/DynamicBreadcrumb";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LazyIllustration } from "@/components/illustrations/LazyIllustration";
@@ -34,9 +33,8 @@ const Explorer = () => {
     );
   }
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-1 pt-24">
+    <MainLayout>
+      <main className="pt-8">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-7xl mx-auto">
             <DynamicBreadcrumb />
@@ -96,8 +94,7 @@ const Explorer = () => {
           </div>
         </div>
       </main>
-      <Footer />
-    </div>
+    </MainLayout>
   );
 };
 

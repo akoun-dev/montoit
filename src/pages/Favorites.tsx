@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Heart } from 'lucide-react';
@@ -51,9 +50,8 @@ const Favorites = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
-      <Navbar />
-      <main className="flex-1 container mx-auto px-4 py-6 pt-24">
+    <MainLayout>
+      <main className="container mx-auto px-4 py-6">
         <div className="max-w-7xl mx-auto">
           <DynamicBreadcrumb />
           <div className="mb-10">
@@ -94,8 +92,7 @@ const Favorites = () => {
           )}
         </div>
       </main>
-      <Footer />
-    </div>
+    </MainLayout>
   );
 };
 
