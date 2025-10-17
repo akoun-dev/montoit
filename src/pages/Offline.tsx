@@ -10,7 +10,7 @@ import { motion } from 'framer-motion';
  * - Bouton pour retourner à l'accueil
  * - Informations sur le mode hors ligne
  */
-export const Offline = () => {
+const Offline = () => {
   const navigate = useNavigate();
 
   const handleRetry = () => {
@@ -131,3 +131,4 @@ export const Offline = () => {
   );
 };
 
+export default Offline;

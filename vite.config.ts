@@ -174,12 +174,12 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Simplified chunking to avoid React import issues
+          // Simplified chunking strategy to avoid React import issues
           if (id.includes('node_modules')) {
-            // Keep all React-related packages together
+            // Keep React and related packages in the main chunk to avoid circular dependencies
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-is') ||
-                id.includes('scheduler') || id.includes('@tanstack') || id.includes('react-query')) {
-              return 'react-vendor';
+                id.includes('scheduler') || id.includes('object-assign') || id.includes('prop-types')) {
+              return 'index'; // Put React in the main chunk
             }
 
             // Maps - Large, separate chunk
@@ -197,12 +197,22 @@ export default defineConfig(({ mode }) => ({
               return 'monitoring-vendor';
             }
 
-            // Everything else in one vendor chunk to avoid import issues
+            // React Query and related - separate but reliable chunk
+            if (id.includes('@tanstack') || id.includes('react-query')) {
+              return 'query-vendor';
+            }
+
+            // UI libraries - group together
+            if (id.includes('@radix-ui') || id.includes('framer-motion') || id.includes('lucide-react')) {
+              return 'ui-vendor';
+            }
+
+            // Everything else in one vendor chunk
             return 'vendor';
           }
 
-          // Only split large route chunks
-          if (id.includes('/src/pages/Admin')) {
+          // Only split very large route chunks
+          if (id.includes('/src/pages/Admin') || id.includes('/src/pages/Dashboard')) {
             return 'route-admin';
           }
         },
