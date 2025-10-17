@@ -13,7 +13,8 @@ const config: CapacitorConfig = {
       'https://*.supabase.co',
       'https://api.mapbox.com',
       'https://tiles.mapbox.com',
-      'https://*.mapbox.com'
+      'https://*.mapbox.com',
+      'https://mon-toit.netlify.app/'
     ],
     // Cleartext is not permitted
     cleartext: false,

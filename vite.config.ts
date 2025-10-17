@@ -170,6 +170,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: 'dist',
     sourcemap: true, // Required for Sentry error tracking
+    target: 'es2020', // Ensure broad browser compatibility with BigInt support
     rollupOptions: {
       output: {
         manualChunks: (id) => {
