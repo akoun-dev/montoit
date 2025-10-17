@@ -1,0 +1,81 @@
+project_id = "btxhuqtirylvkgvoutoc"
+
+# ============================================
+# Auth Configuration - Phase 4.1
+# ============================================
+[auth]
+enable_password_rules = true
+min_password_length = 12
+enable_password_checks = true  # Vérifie contre les mots de passe courants et compromis (HIBP)
+
+[functions.cnam-verification]
+verify_jwt = false
+
+[functions.face-verification]
+verify_jwt = false
+
+[functions.smile-id-verification]
+verify_jwt = true
+
+[functions.oneci-verification]
+verify_jwt = false
+
+[functions.mobile-money-payment]
+verify_jwt = false
+
+[functions.mobile-money-webhook]
+verify_jwt = false
+
+[functions.geocode-address]
+verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
+
+[functions.generate-lease-pdf]
+verify_jwt = false
+
+[functions.tenant-scoring]
+verify_jwt = false
+
+[functions.send-reminders]
+verify_jwt = false
+
+[functions.moderate-review]
+verify_jwt = true
+
+[functions.generate-report]
+verify_jwt = true
+
+[functions.seed-demo-data]
+verify_jwt = true
+
+[functions.cryptoneo-auth]
+verify_jwt = false
+
+[functions.cryptoneo-generate-certificate]
+verify_jwt = true
+
+[functions.cryptoneo-sign-document]
+verify_jwt = true
+
+[functions.cryptoneo-verify-signature]
+verify_jwt = false
+
+[functions.generate-property-images]
+verify_jwt = true
+
+[functions.switch-role]
+verify_jwt = true
+
+[functions.add-role]
+verify_jwt = true
+
+[functions.send-guest-message]
+verify_jwt = false
+
+[functions.analyze-market-trends]
+verify_jwt = false
+
+[functions.generate-illustration]
+verify_jwt = true

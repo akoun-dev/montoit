@@ -1,0 +1,10 @@
+{
+  "nodeModulesDir": "auto",
+  "compilerOptions": {
+    "lib": ["deno.window", "dom", "dom.iterable"],
+    "types": []
+  },
+  "imports": {
+    "openai": "npm:openai@^4.52.5"
+  }
+}

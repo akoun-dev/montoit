@@ -1,0 +1,198 @@
+/* Mon Toit - Enhanced Design System with Cultural Integration
+ * This file consolidates all color definitions with enhanced visual harmony and Côte d'Ivoire cultural elements
+ *
+ * Color Palette:
+ * 1. PRIMARY (Blue #2C5F7F) - Trust, professionalism, main brand color
+ * 2. SECONDARY (Orange #E67E22) - Energy, action, primary CTAs
+ * 3. SUCCESS (Green #10B981) - Success states, availability
+ * 4. WARNING (Orange #F59E0B) - Warnings, negotiation
+ * 5. DESTRUCTIVE (Red #EF4444) - Errors, destructive actions
+ *
+ * Cultural Integration Palette:
+ * - Ivory Coast Gold: Economic prosperity and cultural pride
+ * - Lagoon Blue: Connection to Abidjan's geography
+ * - Tropical Green: Forest regions and environmental heritage
+ * - Terracotta: Artisanal traditions and earth tones
+ * - Kente Patterns: Textile heritage inspiration
+ *
+ * Usage Guidelines:
+ * - Primary CTAs: Use SECONDARY (orange) for highest prominence
+ * - Secondary actions: Use PRIMARY (blue) with outline
+ * - Available properties: SUCCESS (green)
+ * - Negotiation/New badges: WARNING/SECONDARY (orange)
+ * - Rented/Inactive: NEUTRAL (gray)
+ * - Errors/Delete: DESTRUCTIVE (red)
+ * - Cultural elements: Use Ivory Coast palette for local identity
+ */
+
+:root {
+    /* Base colors */
+    --background: 0 0% 100%; /* Pure white */
+    --foreground: 215 25% 17%; /* #1F2937 Dark gray */
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 17%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 17%;
+
+    /* PRIMARY - Mon Toit Blue (#2C5F7F) */
+    --primary-50: 203 45% 96%;
+    --primary-100: 203 45% 90%;
+    --primary: 203 48% 34%; /* #2C5F7F */
+    --primary-500: 203 48% 34%;
+    --primary-700: 203 48% 28%;
+    --primary-900: 203 48% 22%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 203 48% 42%;
+
+    /* SECONDARY - Abidjan Orange (#E67E22) */
+    --secondary-50: 27 90% 96%;
+    --secondary-100: 27 90% 88%;
+    --secondary: 27 88% 52%; /* #E67E22 */
+    --secondary-500: 27 88% 52%;
+    --secondary-700: 27 88% 45%;
+    --secondary-900: 27 88% 38%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* SUCCESS - Success Green (#10B981) */
+    --success: 160 84% 39%; /* #10B981 */
+    --success-foreground: 0 0% 100%;
+
+    /* WARNING - Warning Orange (#F59E0B) */
+    --warning: 38 92% 50%; /* #F59E0B */
+    --warning-foreground: 0 0% 100%;
+
+    /* DESTRUCTIVE - Alert Red (#EF4444) */
+    --destructive: 0 72% 51%; /* #EF4444 */
+    --destructive-foreground: 0 0% 100%;
+
+    /* Neutral colors */
+    --muted: 220 14% 96%; /* #F9FAFB Light gray background */
+    --muted-foreground: 215 16% 47%; /* #6B7280 Medium gray text */
+
+    --accent: 203 48% 34%; /* Use primary for consistency */
+    --accent-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%; /* #E5E7EB */
+    --input: 220 13% 91%;
+    --ring: 203 48% 34%; /* Primary blue for focus */
+
+    --radius: 0.75rem;
+
+    /* Semantic status colors */
+    --status-success: 160 84% 39%;
+    --status-success-foreground: 0 0% 100%;
+    --status-warning: 27 88% 52%;
+    --status-warning-foreground: 0 0% 100%;
+    --status-danger: 0 72% 51%;
+    --status-danger-foreground: 0 0% 100%;
+    --status-info: 203 48% 34%;
+    --status-info-foreground: 0 0% 100%;
+    --status-neutral: 215 16% 47%;
+    --status-neutral-foreground: 0 0% 100%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(203 48% 34%), hsl(203 48% 42%));
+    --gradient-secondary: linear-gradient(135deg, hsl(27 88% 52%), hsl(27 88% 60%));
+    --gradient-hero: linear-gradient(135deg, hsl(203 48% 34% / 0.95), hsl(27 88% 52% / 0.85));
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(203 48% 34% / 0.02) 100%);
+
+    /* Shadows */
+    --shadow-primary: 0 10px 40px -10px hsl(203 48% 34% / 0.25);
+    --shadow-card: 0 4px 20px -2px hsl(215 20% 20% / 0.08);
+    --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --shadow-soft: 0 2px 20px -2px hsl(203 48% 34% / 0.1);
+    --shadow-glass: 0 8px 32px 0 hsl(203 48% 34% / 0.12);
+    --shadow-elevated: 0 10px 40px -10px hsl(203 48% 34% / 0.25);
+
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Sidebar (using harmonious colors) */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 215 25% 17%;
+    --sidebar-primary: 27 88% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 215 25% 17%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 27 88% 52%;
+
+    /* CÔTE D'IVOIRE CULTURAL PALETTE */
+
+    /* Ivory Coast Flag Colors */
+    --ivory-orange: 30 100% 50%;        /* Orange vif du drapeau */
+    --ivory-white: 0 0% 100%;            /* Blanc pur */
+    --ivory-green: 142 76% 36%;          /* Vert du drapeau */
+
+    /* Cultural Heritage Colors */
+    --ivory-coast-gold: 45 100% 51%;     /* Or Kente - Prospérité économique */
+    --lagoon-blue: 202 48% 42%;          /* Bleu lagune Ébrié */
+    --tropical-green: 140 60% 30%;       /* Vert forêt tropicale */
+    --terracotta: 14 77% 62%;            /* Terre cuite artisanale */
+    --bogolan-brown: 30 25% 35%;         /* Marron Bogolan */
+
+    /* Natural Environment */
+    --sand-light: 40 40% 95%;            /* Sable clair des plages */
+    --sand: 40 20% 85%;                  /* Sable naturel */
+    --sand-dark: 40 15% 70%;             /* Sable foncé */
+
+    /* Sunset & Nature */
+    --sunset-orange: 25 95% 53%;         /* Orange couché de soleil */
+    --tropical-teal: 174 62% 47%;        /* Bleu tropical */
+
+    /* Property Status Enhancement */
+    --status-available: 142 76% 36%;     /* Vert succès */
+    --status-pending: 27 88% 52%;        /* Orange secondaire */
+    --status-rented: 215 25% 47%;        /* Gris neutre */
+    --status-negotiating: 38 92% 50%;    /* Orange alerte */
+
+    /* Enhanced Design Tokens */
+    --spacing-xs: 4px;                   /* Unité de base */
+    --spacing-sm: 8px;                   /* 2x unité */
+    --spacing-md: 16px;                  /* 4x unité */
+    --spacing-lg: 24px;                  /* 6x unité */
+    --spacing-xl: 32px;                  /* 8x unité */
+
+    /* Border Radius System */
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+
+    /* Elevation System */
+    --elevation-1: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    --elevation-2: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+    --elevation-3: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+    --elevation-4: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+    --elevation-5: 0 19px 38px rgba(0,0,0,0.30), 0 15px 12px rgba(0,0,0,0.22);
+
+    /* Micro-interaction Timing */
+    --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Cultural Gradients */
+    --gradient-lagoon: linear-gradient(135deg, hsl(var(--lagoon-blue)) 0%, hsl(var(--tropical-teal)) 100%);
+    --gradient-sunset: linear-gradient(135deg, hsl(var(--sunset-orange)) 0%, hsl(var(--ivory-coast-gold)) 50%, hsl(var(--terracotta)) 100%);
+    --gradient-forest: linear-gradient(135deg, hsl(var(--tropical-green)) 0%, hsl(var(--ivory-green)) 100%);
+    --gradient-kente: linear-gradient(45deg, hsl(var(--ivory-coast-gold)) 0%, hsl(var(--ivory-orange)) 25%, hsl(var(--ivory-green)) 50%, hsl(var(--ivory-coast-gold)) 75%, hsl(var(--ivory-orange)) 100%);
+
+    /* Accessibility Enhancements */
+    --focus-width: 2px;
+    --focus-offset: 2px;
+    --focus-color: hsl(var(--primary));
+    --high-contrast-border: hsl(0 0% 0%);
+
+    /* Typography Scale */
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-base: 16px;
+    --text-lg: 18px;
+    --text-xl: 20px;
+    --text-2xl: 24px;
+    --text-3xl: 30px;
+    --text-4xl: 36px;
+    --text-5xl: 48px;
+  }

@@ -1,0 +1,1672 @@
+openapi: 3.1.0
+info:
+  title: Mon Toit API
+  description: |
+    Certified real estate platform API for Côte d'Ivoire.
+
+    Mon Toit is a comprehensive property rental platform connecting landlords, tenants, and agencies with ANSUT certification features.
+
+    ## Authentication
+    The API uses JWT-based authentication via Supabase Auth. Include the JWT token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+
+    ## Rate Limiting
+    API endpoints are rate-limited to prevent abuse. Standard limits apply to most endpoints.
+
+    ## Real-time
+    The platform supports real-time updates via WebSocket subscriptions.
+
+    ## Base URL
+    ```
+    https://btxhuqtirylvkgvoutoc.supabase.co
+    ```
+  version: 1.0.0
+  contact:
+    name: Mon Toit API Support
+    email: support@mon-toit.ci
+    url: https://mon-toit.ci
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://btxhuqtirylvkgvoutoc.supabase.co
+    description: Production server
+  - url: https://your-test-project.supabase.co
+    description: Test server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Users
+    description: User profile and management
+  - name: Properties
+    description: Property CRUD operations and search
+  - name: Applications
+    description: Rental applications management
+  - name: Leases
+    description: Lease management and certification
+  - name: Messages
+    description: Messaging and communication
+  - name: Payments
+    description: Payment processing and mobile money
+  - name: Admin
+    description: Administrative operations
+  - name: Files
+    description: File upload and storage
+  - name: Real-time
+    description: Real-time subscriptions
+
+paths:
+  /auth/v1/signup:
+    post:
+      tags:
+        - Authentication
+      summary: User registration
+      description: Register a new user account with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: User email address
+                password:
+                  type: string
+                  minLength: 8
+                  description: User password (min 8 characters)
+                options:
+                  type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        full_name:
+                          type: string
+                          description: User's full name
+                        user_type:
+                          $ref: '#/components/schemas/UserType'
+                      required:
+                        - full_name
+                        - user_type
+      responses:
+        '200':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /auth/v1/token:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user with email and password
+      parameters:
+        - name: grant_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [password]
+            default: password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /rest/v1/profiles:
+    get:
+      tags:
+        - Users
+      summary: Get user profiles
+      description: Retrieve user profiles with optional filtering
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by user ID
+        - name: user_type
+          in: query
+          schema:
+            $ref: '#/components/schemas/UserType'
+          description: Filter by user type
+        - name: city
+          in: query
+          schema:
+            type: string
+          description: Filter by city
+        - name: select
+          in: query
+          schema:
+            type: string
+            default: "*"
+          description: Fields to select (comma-separated)
+      responses:
+        '200':
+          description: Profiles retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Profile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    patch:
+      tags:
+        - Users
+      summary: Update user profile
+      description: Update current user's profile information
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name:
+                  type: string
+                bio:
+                  type: string
+                city:
+                  type: string
+                phone:
+                  type: string
+                avatar_url:
+                  type: string
+                  format: uri
+                ui_density:
+                  type: string
+                  enum: [compact, comfortable, spacious]
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /rest/v1/rpc/get_public_profile:
+    post:
+      tags:
+        - Users
+      summary: Get public profile
+      description: Retrieve public profile information for a user
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - target_user_id
+              properties:
+                target_user_id:
+                  type: string
+                  format: uuid
+                  description: ID of the user to fetch profile for
+      responses:
+        '200':
+          description: Public profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicProfile'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /rest/v1/rpc/get_public_properties:
+    post:
+      tags:
+        - Properties
+      summary: Search properties (public)
+      description: Search for publicly available properties with filters
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                p_city:
+                  type: string
+                  description: Filter by city
+                p_property_type:
+                  type: string
+                  description: Property type
+                p_min_rent:
+                  type: number
+                  minimum: 0
+                  description: Minimum monthly rent
+                p_max_rent:
+                  type: number
+                  minimum: 0
+                  description: Maximum monthly rent
+                p_min_bedrooms:
+                  type: integer
+                  minimum: 0
+                  description: Minimum number of bedrooms
+                p_status:
+                  type: string
+                  description: Property status
+      responses:
+        '200':
+          description: Properties retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicProperty'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /rest/v1/rpc/get_public_property:
+    post:
+      tags:
+        - Properties
+      summary: Get single property (public)
+      description: Retrieve a single property by ID (public access)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - p_property_id
+              properties:
+                p_property_id:
+                  type: string
+                  format: uuid
+                  description: Property ID
+      responses:
+        '200':
+          description: Property retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicProperty'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /rest/v1/properties:
+    get:
+      tags:
+        - Properties
+      summary: Get properties
+      description: Retrieve properties with filtering (authenticated access)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: owner_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [disponible, loué, en_maintenance, indisponible]
+        - name: city
+          in: query
+          schema:
+            type: string
+        - name: select
+          in: query
+          schema:
+            type: string
+            default: "*"
+        - name: order
+          in: query
+          schema:
+            type: string
+            default: "created_at.desc"
+      responses:
+        '200':
+          description: Properties retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Property'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags:
+        - Properties
+      summary: Create property
+      description: Create a new property listing (owner only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePropertyRequest'
+      responses:
+        '201':
+          description: Property created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /rest/v1/properties/{id}:
+    get:
+      tags:
+        - Properties
+      summary: Get property by ID
+      description: Retrieve a specific property by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Property retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - Properties
+      summary: Update property
+      description: Update property information (owner only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                monthly_rent:
+                  type: number
+                  minimum: 0
+                status:
+                  $ref: '#/components/schemas/PropertyStatus'
+                # Add other updatable fields as needed
+      responses:
+        '200':
+          description: Property updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Property'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Properties
+      summary: Delete property
+      description: Delete a property (owner only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Property deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /rest/v1/rental_applications:
+    get:
+      tags:
+        - Applications
+      summary: Get rental applications
+      description: Retrieve rental applications with filtering
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: property_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: applicant_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ApplicationStatus'
+        - name: select
+          in: query
+          schema:
+            type: string
+            default: "*"
+      responses:
+        '200':
+          description: Applications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RentalApplication'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Applications
+      summary: Submit rental application
+      description: Submit a new rental application for a property
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApplicationRequest'
+      responses:
+        '201':
+          description: Application submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RentalApplication'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /rest/v1/rental_applications/{id}:
+    patch:
+      tags:
+        - Applications
+      summary: Update application status
+      description: Update rental application status (property owner only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  $ref: '#/components/schemas/ApplicationStatus'
+                reviewed_at:
+                  type: string
+                  format: date-time
+                review_notes:
+                  type: string
+      responses:
+        '200':
+          description: Application updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RentalApplication'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /rest/v1/leases:
+    get:
+      tags:
+        - Leases
+      summary: Get leases
+      description: Retrieve lease agreements
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: property_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: landlord_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: tenant_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/LeaseStatus'
+      responses:
+        '200':
+          description: Leases retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Lease'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Leases
+      summary: Create lease
+      description: Create a new lease agreement
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLeaseRequest'
+      responses:
+        '201':
+          description: Lease created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lease'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /rest/v1/messages:
+    get:
+      tags:
+        - Messages
+      summary: Get messages
+      description: Retrieve user messages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: sender_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: receiver_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: application_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: is_read
+          in: query
+          schema:
+            type: boolean
+        - name: order
+          in: query
+          schema:
+            type: string
+            default: "created_at.desc"
+      responses:
+        '200':
+          description: Messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Messages
+      summary: Send message
+      description: Send a message to another user
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessageRequest'
+      responses:
+        '201':
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /rest/v1/payments:
+    get:
+      tags:
+        - Payments
+      summary: Get payments
+      description: Retrieve payment records
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: payer_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: receiver_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: property_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PaymentStatus'
+        - name: payment_type
+          in: query
+          schema:
+            $ref: '#/components/schemas/PaymentType'
+      responses:
+        '200':
+          description: Payments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Payment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Payments
+      summary: Create payment
+      description: Initiate a new payment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+      responses:
+        '201':
+          description: Payment initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /rest/v1/rpc/get_my_verification_status:
+    post:
+      tags:
+        - Users
+      summary: Get verification status
+      description: Get current user's verification status
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Verification status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VerificationStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /rest/v1/user_verifications:
+    post:
+      tags:
+        - Users
+      summary: Submit verification
+      description: Submit documents for user verification
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVerificationRequest'
+      responses:
+        '201':
+          description: Verification submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserVerification'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from Supabase Auth
+
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        session:
+          $ref: '#/components/schemas/Session'
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: JWT refresh token
+        expires_in:
+          type: integer
+          description: Token expiration time in seconds
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        aud:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        user_metadata:
+          type: object
+          properties:
+            full_name:
+              type: string
+            user_type:
+              $ref: '#/components/schemas/UserType'
+        app_metadata:
+          type: object
+          properties:
+            provider:
+              type: string
+            roles:
+              type: array
+              items:
+                type: string
+
+    Session:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+        token_type:
+          type: string
+          enum: [bearer]
+        user:
+          $ref: '#/components/schemas/User'
+
+    UserType:
+      type: string
+      enum:
+        - locataire
+        - proprietaire
+        - agence
+        - admin_ansut
+      description: User type in the platform
+
+    Profile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        bio:
+          type: string
+        city:
+          type: string
+        phone:
+          type: string
+        avatar_url:
+          type: string
+          format: uri
+        user_type:
+          $ref: '#/components/schemas/UserType'
+        is_verified:
+          type: boolean
+        cnam_verified:
+          type: boolean
+        oneci_verified:
+          type: boolean
+        face_verified:
+          type: boolean
+        ui_density:
+          type: string
+          enum: [compact, comfortable, spacious]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PublicProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        bio:
+          type: string
+        city:
+          type: string
+        avatar_url:
+          type: string
+          format: uri
+        user_type:
+          $ref: '#/components/schemas/UserType'
+        is_verified:
+          type: boolean
+        cnam_verified:
+          type: boolean
+        oneci_verified:
+          type: boolean
+        face_verified:
+          type: boolean
+
+    PropertyStatus:
+      type: string
+      enum:
+        - disponible
+        - loué
+        - en_maintenance
+        - indisponible
+        - en_attente
+
+    PropertyType:
+      type: string
+      enum:
+        - appartement
+        - villa
+        - studio
+        - duplex
+        - maison
+        - bureau
+        - commerce
+
+    CreatePropertyRequest:
+      type: object
+      required:
+        - title
+        - address
+        - city
+        - property_type
+        - monthly_rent
+        - owner_id
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        property_type:
+          $ref: '#/components/schemas/PropertyType'
+        monthly_rent:
+          type: number
+          minimum: 0
+        bedrooms:
+          type: integer
+          minimum: 0
+        bathrooms:
+          type: integer
+          minimum: 0
+        surface_area:
+          type: number
+          minimum: 0
+        has_parking:
+          type: boolean
+        has_garden:
+          type: boolean
+        has_ac:
+          type: boolean
+        is_furnished:
+          type: boolean
+        deposit_amount:
+          type: number
+          minimum: 0
+        charges_amount:
+          type: number
+          minimum: 0
+        owner_id:
+          type: string
+          format: uuid
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+        status:
+          $ref: '#/components/schemas/PropertyStatus'
+          default: disponible
+
+    Property:
+      allOf:
+        - $ref: '#/components/schemas/CreatePropertyRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            images:
+              type: array
+              items:
+                type: string
+                format: uri
+            main_image:
+              type: string
+              format: uri
+            video_url:
+              type: string
+              format: uri
+            view_count:
+              type: integer
+              minimum: 0
+            neighborhood:
+              type: string
+            floor_number:
+              type: integer
+            work_status:
+              type: string
+            work_description:
+              type: string
+            work_estimated_cost:
+              type: number
+            work_estimated_duration:
+              type: string
+            title_deed_url:
+              type: string
+              format: uri
+            moderation_status:
+              type: string
+              enum: [pending, approved, rejected]
+            moderated_at:
+              type: string
+              format: date-time
+            moderated_by:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    PublicProperty:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        property_type:
+          $ref: '#/components/schemas/PropertyType'
+        monthly_rent:
+          type: number
+        bedrooms:
+          type: integer
+        bathrooms:
+          type: integer
+        surface_area:
+          type: number
+        has_parking:
+          type: boolean
+        has_garden:
+          type: boolean
+        has_ac:
+          type: boolean
+        is_furnished:
+          type: boolean
+        deposit_amount:
+          type: number
+        charges_amount:
+          type: number
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+        main_image:
+          type: string
+          format: uri
+        video_url:
+          type: string
+          format: uri
+        view_count:
+          type: integer
+        neighborhood:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        status:
+          $ref: '#/components/schemas/PropertyStatus'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ApplicationStatus:
+      type: string
+      enum:
+        - pending
+        - under_review
+        - accepted
+        - rejected
+        - withdrawn
+
+    CreateApplicationRequest:
+      type: object
+      required:
+        - property_id
+        - applicant_id
+      properties:
+        property_id:
+          type: string
+          format: uuid
+        applicant_id:
+          type: string
+          format: uuid
+        cover_letter:
+          type: string
+        documents:
+          type: object
+          additionalProperties:
+            type: string
+            format: uri
+        status:
+          $ref: '#/components/schemas/ApplicationStatus'
+          default: pending
+
+    RentalApplication:
+      allOf:
+        - $ref: '#/components/schemas/CreateApplicationRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            application_score:
+              type: integer
+              minimum: 0
+              maximum: 100
+            auto_processed:
+              type: boolean
+            auto_action_type:
+              type: string
+            is_overdue:
+              type: boolean
+            processing_deadline:
+              type: string
+              format: date-time
+            reviewed_at:
+              type: string
+              format: date-time
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    LeaseStatus:
+      type: string
+      enum:
+        - draft
+        - active
+        - expired
+        - terminated
+        - pending_signature
+
+    CertificationStatus:
+      type: string
+      enum:
+        - not_requested
+        - pending
+        - in_review
+        - certified
+        - rejected
+
+    CreateLeaseRequest:
+      type: object
+      required:
+        - property_id
+        - landlord_id
+        - tenant_id
+        - lease_type
+        - start_date
+        - end_date
+        - monthly_rent
+      properties:
+        property_id:
+          type: string
+          format: uuid
+        landlord_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        lease_type:
+          type: string
+          enum: [habitation, commercial, mixed]
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        monthly_rent:
+          type: number
+          minimum: 0
+        deposit_amount:
+          type: number
+          minimum: 0
+        charges_amount:
+          type: number
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/LeaseStatus'
+          default: draft
+        certification_status:
+          $ref: '#/components/schemas/CertificationStatus'
+          default: not_requested
+
+    Lease:
+      allOf:
+        - $ref: '#/components/schemas/CreateLeaseRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            document_url:
+              type: string
+              format: uri
+            signed_document_url:
+              type: string
+              format: uri
+            is_electronically_signed:
+              type: boolean
+            landlord_signed_at:
+              type: string
+              format: date-time
+            tenant_signed_at:
+              type: string
+              format: date-time
+            certification_requested_at:
+              type: string
+              format: date-time
+            ansut_certified_at:
+              type: string
+              format: date-time
+            certified_by:
+              type: string
+              format: uuid
+            certification_notes:
+              type: string
+            cryptoneo_operation_id:
+              type: string
+            landlord_signature_operation_id:
+              type: string
+            tenant_signature_operation_id:
+              type: string
+            landlord_cryptoneo_signature_at:
+              type: string
+              format: date-time
+            tenant_cryptoneo_signature_at:
+              type: string
+              format: date-time
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    CreateMessageRequest:
+      type: object
+      required:
+        - receiver_id
+        - content
+      properties:
+        receiver_id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        application_id:
+          type: string
+          format: uuid
+        conversation_type:
+          type: string
+        attachments:
+          type: array
+          items:
+            type: string
+            format: uri
+
+    Message:
+      allOf:
+        - $ref: '#/components/schemas/CreateMessageRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            sender_id:
+              type: string
+              format: uuid
+            is_read:
+              type: boolean
+            created_at:
+              type: string
+              format: date-time
+
+    PaymentType:
+      type: string
+      enum:
+        - rent
+        - deposit
+        - charges
+        - fees
+        - penalties
+
+    PaymentMethod:
+      type: string
+      enum:
+        - mobile_money
+        - card
+        - bank_transfer
+        - cash
+
+    PaymentStatus:
+      type: string
+      enum:
+        - pending
+        - processing
+        - completed
+        - failed
+        - cancelled
+        - refunded
+
+    CreatePaymentRequest:
+      type: object
+      required:
+        - payer_id
+        - receiver_id
+        - amount
+        - payment_type
+        - payment_method
+      properties:
+        payer_id:
+          type: string
+          format: uuid
+        receiver_id:
+          type: string
+          format: uuid
+        property_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          minimum: 0
+        payment_type:
+          $ref: '#/components/schemas/PaymentType'
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethod'
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+          default: pending
+
+    Payment:
+      allOf:
+        - $ref: '#/components/schemas/CreatePaymentRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            transaction_id:
+              type: string
+            completed_at:
+              type: string
+              format: date-time
+            created_at:
+              type: string
+              format: date-time
+
+    VerificationStatus:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        cnam_status:
+          type: string
+          enum: [pending, verified, rejected]
+        cnam_verified:
+          type: boolean
+        cnam_verified_at:
+          type: string
+          format: date-time
+        oneci_status:
+          type: string
+          enum: [pending, verified, rejected]
+        oneci_verified:
+          type: boolean
+        oneci_verified_at:
+          type: string
+          format: date-time
+        face_verification_status:
+          type: string
+          enum: [pending, verified, rejected]
+        face_verified:
+          type: boolean
+        tenant_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        admin_review_notes:
+          type: string
+        admin_reviewed_at:
+          type: string
+          format: date-time
+
+    CreateVerificationRequest:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        cnam_social_security_number:
+          type: string
+        cnam_employer:
+          type: string
+        oneci_cni_number:
+          type: string
+        face_verification_status:
+          type: string
+          enum: [pending]
+
+    UserVerification:
+      allOf:
+        - $ref: '#/components/schemas/CreateVerificationRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            cnam_data:
+              type: object
+            oneci_data:
+              type: object
+            face_similarity_score:
+              type: number
+              minimum: 0
+              maximum: 100
+            face_verification_attempts:
+              type: integer
+              minimum: 0
+            score_updated_at:
+              type: string
+              format: date-time
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: string
+        user_message:
+          type: string
+          description: User-friendly error message
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

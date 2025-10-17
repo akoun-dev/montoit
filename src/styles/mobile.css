@@ -1,0 +1,729 @@
+/**
+ * Optimisations CSS spécifiques mobile - Enhanced PWA Features
+ */
+
+/* Safe Area pour les encoches iPhone */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pl-safe {
+  padding-left: env(safe-area-inset-left);
+}
+
+.pr-safe {
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Touch Targets minimum 48x48px sur mobile */
+@media (max-width: 768px) {
+  button:not(.btn-sm),
+  a.btn,
+  input[type="button"],
+  input[type="submit"] {
+    min-height: 48px;
+    min-width: 48px;
+  }
+  
+  /* Inputs plus grands pour faciliter la saisie */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    min-height: 48px;
+    font-size: 16px; /* Évite le zoom automatique sur iOS */
+  }
+}
+
+/* Désactiver le tap highlight sur mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth scrolling sur mobile */
+html {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Optimiser les animations sur mobile */
+@media (max-width: 768px) {
+  * {
+    animation-duration: 0.3s !important;
+  }
+}
+
+/* Réduire les animations si l'utilisateur préfère */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Masquer le scrollbar sur mobile pour une apparence plus native */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  
+  * {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Optimiser les images sur mobile */
+@media (max-width: 768px) {
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Pull to refresh indicator (optionnel) */
+.pull-to-refresh {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.9), transparent);
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+  z-index: 1000;
+}
+
+.pull-to-refresh.active {
+  transform: translateY(0);
+}
+
+/* Bottom navigation safe area */
+.bottom-nav {
+  padding-bottom: max(env(safe-area-inset-bottom), 16px);
+}
+
+/* Optimiser les cartes sur mobile */
+@media (max-width: 768px) {
+  .property-card {
+    width: 100%;
+    margin-bottom: 16px;
+  }
+  
+  .property-card img {
+    height: 200px;
+    object-fit: cover;
+  }
+}
+
+/* Masquer certains éléments sur mobile */
+@media (max-width: 768px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+  
+  .show-on-mobile {
+    display: block !important;
+  }
+}
+
+/* Desktop only */
+@media (min-width: 769px) {
+  .hide-on-desktop {
+    display: none !important;
+  }
+  
+  .show-on-desktop {
+    display: block !important;
+  }
+}
+
+/* Optimiser les modals sur mobile */
+@media (max-width: 768px) {
+  .modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Améliorer la lisibilité sur petits écrans */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  h1 {
+    font-size: 1.75rem;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+  }
+  
+  h3 {
+    font-size: 1.25rem;
+  }
+}
+
+/* Optimiser les formulaires sur mobile */
+@media (max-width: 768px) {
+  form {
+    width: 100%;
+  }
+  
+  .form-group {
+    margin-bottom: 16px;
+  }
+  
+  label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+}
+
+/* Skeleton loading optimisé mobile */
+@media (max-width: 768px) {
+  .skeleton {
+    animation: skeleton-loading 1.2s ease-in-out infinite;
+  }
+  
+  @keyframes skeleton-loading {
+    0% {
+      background-color: hsl(200, 20%, 80%);
+    }
+    100% {
+      background-color: hsl(200, 20%, 95%);
+    }
+  }
+}
+
+/* Améliorer les transitions sur mobile */
+@media (max-width: 768px) {
+  .page-transition {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* Optimiser les grilles sur mobile */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+  }
+}
+
+/* Améliorer les boutons flottants sur mobile */
+@media (max-width: 768px) {
+  .floating-button {
+    position: fixed;
+    bottom: calc(env(safe-area-inset-bottom) + 80px);
+    right: 16px;
+    z-index: 40;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* ============================================
+   ENHANCED PWA FEATURES - Phase 2 Optimizations
+   ============================================ */
+
+/* Pull-to-Refresh Animation */
+.pull-to-refresh {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(to bottom, hsl(var(--primary) / 0.1), transparent);
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+  z-index: 1000;
+}
+
+.pull-to-refresh.active {
+  transform: translateY(0);
+}
+
+.pull-to-refresh .spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid hsl(var(--muted));
+  border-top: 3px solid hsl(var(--primary));
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Enhanced Touch Interactions */
+.touchable {
+  position: relative;
+  overflow: hidden;
+}
+
+.touchable::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+  pointer-events: none;
+}
+
+.touchable:active::before {
+  width: 100px;
+  height: 100px;
+}
+
+/* Swipe Gestures Support */
+.swipe-container {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.swipe-item {
+  scroll-snap-align: start;
+  display: inline-block;
+  width: 100%;
+  white-space: normal;
+}
+
+/* Bottom Sheet Modal */
+.bottom-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: hsl(var(--background));
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--elevation-4);
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.bottom-sheet.open {
+  transform: translateY(0);
+}
+
+.bottom-sheet-handle {
+  width: 40px;
+  height: 4px;
+  background: hsl(var(--muted-foreground));
+  border-radius: 2px;
+  margin: 12px auto;
+  cursor: grab;
+}
+
+.bottom-sheet-handle:active {
+  cursor: grabbing;
+}
+
+/* Mobile Navigation Enhancements */
+.mobile-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: hsl(var(--background));
+  border-top: 1px solid hsl(var(--border));
+  padding: 8px 0 max(env(safe-area-inset-bottom), 8px);
+  z-index: 100;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+  text-decoration: none;
+  color: hsl(var(--muted-foreground));
+  min-width: 60px;
+}
+
+.mobile-nav-item.active {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.1);
+}
+
+.mobile-nav-item:hover {
+  background: hsl(var(--muted));
+}
+
+.mobile-nav-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.mobile-nav-label {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Search Bar Enhancement */
+.mobile-search {
+  position: sticky;
+  top: 0;
+  background: hsl(var(--background));
+  padding: 12px;
+  border-bottom: 1px solid hsl(var(--border));
+  z-index: 50;
+}
+
+.mobile-search-input {
+  width: 100%;
+  padding: 12px 16px 12px 44px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-lg);
+  background: hsl(var(--muted));
+  font-size: 16px; /* Prevents zoom on iOS */
+  transition: all 0.2s ease;
+}
+
+.mobile-search-input:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+  background: hsl(var(--background));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
+}
+
+.mobile-search-icon {
+  position: absolute;
+  left: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Card Swipe Actions */
+.card-swipe {
+  position: relative;
+  background: hsl(var(--background));
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.card-swipe-content {
+  padding: 16px;
+  transition: transform 0.3s ease;
+}
+
+.card-swipe-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+.swipe-action {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 500;
+  min-width: 80px;
+}
+
+.swipe-action.delete {
+  background: hsl(var(--destructive));
+}
+
+.swipe-action.edit {
+  background: hsl(var(--primary));
+}
+
+.swipe-action.archive {
+  background: hsl(var(--warning));
+}
+
+/* Lazy Loading Images */
+.lazy-image {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: hsl(var(--muted));
+}
+
+.lazy-image.loaded {
+  opacity: 1;
+}
+
+.lazy-image.skeleton {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Offline Indicator */
+.offline-indicator {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: hsl(var(--warning));
+  color: white;
+  padding: 8px 16px;
+  border-radius: var(--radius-lg);
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: var(--elevation-2);
+  z-index: 2000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.offline-indicator.show {
+  opacity: 1;
+}
+
+/* Installation Prompt */
+.install-prompt {
+  position: fixed;
+  bottom: 80px;
+  left: 16px;
+  right: 16px;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--elevation-3);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.install-prompt-icon {
+  width: 48px;
+  height: 48px;
+  background: hsl(var(--primary));
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.install-prompt-content {
+  flex: 1;
+}
+
+.install-prompt-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.install-prompt-description {
+  font-size: 14px;
+  color: hsl(var(--muted-foreground));
+}
+
+.install-prompt-button {
+  background: hsl(var(--primary));
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.install-prompt-dismiss {
+  background: none;
+  border: none;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  padding: 4px;
+}
+
+/* Haptic Feedback Simulation */
+@keyframes haptic-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.95); }
+}
+
+.haptic-feedback {
+  animation: haptic-pulse 0.1s ease;
+}
+
+/* Voice Search Interface */
+.voice-search-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.voice-search-modal.active {
+  opacity: 1;
+}
+
+.voice-search-content {
+  background: hsl(var(--background));
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  text-align: center;
+  max-width: 300px;
+  width: 90%;
+}
+
+.voice-search-button {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: all 0.2s ease;
+}
+
+.voice-search-button.listening {
+  background: hsl(var(--destructive));
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+/* Gesture Hints */
+.gesture-hint {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 16px;
+  border-radius: var(--radius-lg);
+  font-size: 12px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.gesture-hint.show {
+  opacity: 1;
+}
+
+/* Performance Optimizations */
+@media (max-width: 768px) {
+  /* Reduce animations on low-end devices */
+  * {
+    animation-duration: 0.2s !important;
+    transition-duration: 0.2s !important;
+  }
+
+  /* Optimize images for mobile */
+  img {
+    content-visibility: auto;
+    contain-intrinsic-size: 300px 200px;
+  }
+
+  /* Optimize scrolling performance */
+  .scroll-container {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  /* Optimize touch targets */
+  .touch-target-large {
+    min-height: 56px;
+    min-width: 56px;
+  }
+
+  /* Optimize form inputs */
+  input, textarea, select {
+    font-size: 16px; /* Prevents zoom on iOS */
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* Optimize buttons */
+  button {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+/* Dark Mode Mobile Optimizations */
+@media (max-width: 768px) {
+  .dark .mobile-search-input {
+    background: hsl(var(--muted) / 0.3);
+    color: hsl(var(--foreground));
+  }
+
+  .dark .bottom-sheet {
+    background: hsl(var(--card));
+  }
+
+  .dark .install-prompt {
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
+  }
+}
+
