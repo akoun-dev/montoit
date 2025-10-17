@@ -1,6 +1,7 @@
 import { useAuth } from '@/hooks/useAuth';
 import { useAgencyMandates } from '@/hooks/useAgencyMandates';
 import { useAgencyProperties } from '@/hooks/useAgencyProperties';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +31,8 @@ export default function AgencyDashboard() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-8">
+    <MainLayout>
+      <div className="container mx-auto py-6 space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Tableau de bord Agence</h1>
@@ -171,6 +173,7 @@ export default function AgencyDashboard() {
           />
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </MainLayout>
   );
 }

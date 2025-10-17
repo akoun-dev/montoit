@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { Navigate } from 'react-router-dom';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { PropertyStatsCompact } from '@/components/dashboard/PropertyStatsCompact';
 import PropertyStats from '@/components/dashboard/PropertyStats';
 import ViewsChart from '@/components/dashboard/ViewsChart';
@@ -272,10 +271,8 @@ const OwnerDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      
-      <main className="flex-1 container mx-auto px-4 py-8 pt-24">
+    <MainLayout>
+      <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-4">
           <DynamicBreadcrumb />
           <StickyHeader className="flex items-center justify-between">
@@ -418,9 +415,7 @@ const OwnerDashboard = () => {
           </Tabs>
         </div>
       </main>
-
-      <Footer />
-    </div>
+    </MainLayout>
   );
 };
 

@@ -5,8 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/hooks/use-toast';
 import { logger } from '@/services/logger';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { DynamicBreadcrumb } from '@/components/navigation/DynamicBreadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -156,21 +155,18 @@ const Maintenance = () => {
 
   if (checkingAccess) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <div className="flex-1 flex items-center justify-center">
+      <MainLayout>
+        <div className="flex items-center justify-center" style={{ minHeight: '60vh' }}>
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-        <Footer />
-      </div>
+      </MainLayout>
     );
   }
 
   if (!canAccess) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <div className="flex-1 container mx-auto px-4 py-8 pt-24">
+      <MainLayout>
+        <div className="container mx-auto px-4 py-8">
           <div className="max-w-3xl mx-auto">
             <Card className="border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-white">
               <CardHeader className="space-y-4">
@@ -184,7 +180,7 @@ const Maintenance = () => {
                   La gestion des demandes de maintenance nécessite un dossier validé
                 </CardDescription>
               </CardHeader>
-              
+
               <CardContent className="space-y-6">
                 {/* Étapes visuelles */}
                 <div className="space-y-4">
@@ -197,7 +193,7 @@ const Maintenance = () => {
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-4 items-start p-4 rounded-lg bg-white border">
                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold">2</div>
                     <div>
@@ -207,7 +203,7 @@ const Maintenance = () => {
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-4 items-start p-4 rounded-lg bg-white border">
                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold">3</div>
                     <div>
@@ -234,15 +230,13 @@ const Maintenance = () => {
             </Card>
           </div>
         </div>
-        <Footer />
-      </div>
+      </MainLayout>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <div className="flex-1 container mx-auto px-4 py-8 pt-24">
+    <MainLayout>
+      <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
           <DynamicBreadcrumb />
           <div className="flex items-center justify-between">
@@ -263,7 +257,7 @@ const Maintenance = () => {
                 <div className="grid gap-4">
                   <div>
                     <Label htmlFor="request_type">Type de problème</Label>
-                    <Select 
+                    <Select
                       value={formData.request_type}
                       onValueChange={(value) => setFormData({ ...formData, request_type: value })}
                     >
@@ -281,7 +275,7 @@ const Maintenance = () => {
 
                   <div>
                     <Label htmlFor="urgency">Urgence</Label>
-                    <Select 
+                    <Select
                       value={formData.urgency}
                       onValueChange={(value: any) => setFormData({ ...formData, urgency: value })}
                     >
@@ -379,8 +373,7 @@ const Maintenance = () => {
           )}
         </div>
       </div>
-      <Footer />
-    </div>
+    </MainLayout>
   );
 };
 
