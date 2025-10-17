@@ -2,3 +2,9 @@
 supabase db reset --linked
 // Appliquer les migrations et seed
 supabase db push --include-seed
+
+
+Comptes de test fonctionnels :
+- locataire@test.com / Test123!
+- proprietaire@test.com / Test123!
+- testuser@example.com / Test123!
