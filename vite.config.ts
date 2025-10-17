@@ -187,9 +187,9 @@ export default defineConfig(({ mode }) => ({
               return 'maps-vendor';
             }
 
-            // Charts - Large, separate chunk
+            // Charts - Move to vendor chunk to avoid circular dependencies
             if (id.includes('recharts')) {
-              return 'charts-vendor';
+              return 'vendor';
             }
 
             // Sentry - monitoring chunk
