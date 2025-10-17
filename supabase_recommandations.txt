@@ -1,0 +1,2 @@
+// Reinitialisation de la base de données
+supabase db reset --linked

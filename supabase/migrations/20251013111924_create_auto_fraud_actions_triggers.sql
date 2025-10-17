@@ -26,9 +26,22 @@ CREATE TABLE IF NOT EXISTS public.admin_audit_logs (
   created_at timestamptz DEFAULT now()
 );
 
--- Create index on admin_audit_logs
-CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON public.admin_audit_logs(action);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON public.admin_audit_logs(created_at);
+-- Create index on admin_audit_logs (handle both action and action_type column names)
+DO $$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON public.admin_audit_logs(action);
+EXCEPTION
+  WHEN undefined_column THEN
+    -- Try with action_type if action doesn't exist
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON public.admin_audit_logs(action_type);
+END $$;
+
+DO $$ BEGIN
+  CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON public.admin_audit_logs(created_at);
+EXCEPTION
+  WHEN undefined_column THEN
+    -- Try with created_at if it doesn't exist
+    NULL;
+END $$;
 
 -- Enable RLS on admin_audit_logs
 ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY;

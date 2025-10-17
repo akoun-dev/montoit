@@ -76,7 +76,7 @@ const PropertyDetail = () => {
   // Set document head with meta tags - MUST be called before any conditional returns
   useDocumentHead({
     title: property ? `${property.title} - ${property.city} | Mon Toit` : 'Bien Immobilier | Mon Toit',
-    description: property?.description?.substring(0, 155) || `${property?.property_type || 'Bien'} à ${property?.city || 'Abidjan'} - ${property?.monthly_rent?.toLocaleString() || 'Prix sur demande'} FCFA/mois`,
+    description: property?.description?.substring(0, 155) || `${property?.property_type || 'Bien'} à ${property?.city || 'Abidjan'} - ${property?.monthly_rent ? property.monthly_rent.toLocaleString('fr-FR') + ' FCFA/mois' : 'Prix sur demande'}`,
     ogTitle: property ? `${property.title} - ${property.city}` : 'Bien Immobilier',
     ogDescription: property?.description?.substring(0, 200),
     ogImage: property?.main_image || property?.images?.[0] || 'https://mon-toit.lovable.app/placeholder.svg',
@@ -639,7 +639,7 @@ const PropertyDetail = () => {
                 <CardHeader>
                   <h1 className="text-3xl font-bold">{property.title}</h1>
                   <p className="text-3xl font-bold text-primary mt-2">
-                    {property.monthly_rent.toLocaleString()} FCFA
+                    {property.monthly_rent ? property.monthly_rent.toLocaleString('fr-FR') : 'N/A'} FCFA
                     <span className="text-sm text-muted-foreground font-normal">/mois</span>
                   </p>
                 </CardHeader>
@@ -647,7 +647,7 @@ const PropertyDetail = () => {
                   {property.deposit_amount && (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Caution</span>
-                      <span className="font-medium">{property.deposit_amount.toLocaleString()} FCFA</span>
+                      <span className="font-medium">{property.deposit_amount.toLocaleString('fr-FR')} FCFA</span>
                     </div>
                   )}
 

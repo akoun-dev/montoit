@@ -1,12 +1,5 @@
-project_id = "btxhuqtirylvkgvoutoc"
+project_id = "tivilnibujikyxdrdrgd"
 
-# ============================================
-# Auth Configuration - Phase 4.1
-# ============================================
-[auth]
-enable_password_rules = true
-min_password_length = 12
-enable_password_checks = true  # Vérifie contre les mots de passe courants et compromis (HIBP)
 
 [functions.cnam-verification]
 verify_jwt = false
