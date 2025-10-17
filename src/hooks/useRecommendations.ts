@@ -43,7 +43,12 @@ export const useRecommendations = ({
     setError(null);
 
     try {
-      const { data, error: functionError } = await supabase.functions.invoke(
+      // Ajout d'un timeout pour éviter les requêtes trop longues
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout')), 5000);
+      });
+
+      const recommendationsPromise = supabase.functions.invoke(
         'generate-recommendations',
         {
           body: {
@@ -55,18 +60,41 @@ export const useRecommendations = ({
         }
       );
 
+      const { data, error: functionError } = await Promise.race([
+        recommendationsPromise,
+        timeoutPromise
+      ]) as any;
+
       if (functionError) throw functionError;
 
       setRecommendations(data || []);
     } catch (err) {
       const errorObj = err instanceof Error ? err : new Error('Failed to fetch recommendations');
-      setError(errorObj);
-      logger.error('Error fetching recommendations', { error: err, userId: user?.id, type, propertyId, limit });
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger les recommandations",
-        variant: "destructive",
-      });
+
+      // Vérifier si c'est une erreur CORS ou timeout
+      if (err instanceof Error && (
+        err.message.includes('CORS') ||
+        err.message.includes('Timeout') ||
+        err.message.includes('ERR_FAILED')
+      )) {
+        // Erreur attendue côté serveur - pas de notification utilisateur
+        logger.warn('Recommendations service unavailable (CORS/Timeout)', {
+          error: err,
+          userId: user?.id,
+          type,
+          propertyId,
+          limit
+        });
+      } else {
+        // Autre erreur - notification utilisateur
+        setError(errorObj);
+        logger.error('Error fetching recommendations', { error: err, userId: user?.id, type, propertyId, limit });
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les recommandations",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }

@@ -2,8 +2,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
 import { DynamicBreadcrumb } from '@/components/navigation/DynamicBreadcrumb';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { ApplicationsStatusWidget } from '@/components/dashboard/tenant/ApplicationsStatusWidget';
 import { ActiveLeaseWidget } from '@/components/dashboard/tenant/ActiveLeaseWidget';
 import { PaymentHistoryWidget } from '@/components/dashboard/tenant/PaymentHistoryWidget';
@@ -63,10 +62,8 @@ const TenantDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
-      
-      <main className="flex-1 container mx-auto px-4 py-8 pt-24">
+    <MainLayout>
+      <main className="container mx-auto px-4 py-8">
         <div className="mb-10">
           <DynamicBreadcrumb />
           

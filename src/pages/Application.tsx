@@ -224,10 +224,8 @@ const Application = () => {
   }, [profile, verification, documents]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
-      <Navbar />
-      
-      <main className="flex-1 container mx-auto px-4 py-6 pt-24 max-w-4xl">
+    <MainLayout>
+      <main className="container mx-auto px-4 py-6 max-w-4xl">
         <DynamicBreadcrumb />
         
         <div className="mb-8">
@@ -403,9 +401,7 @@ const Application = () => {
           </div>
         </div>
       </main>
-
-      <Footer />
-    </div>
+    </MainLayout>
   );
 };
 

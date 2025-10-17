@@ -2,8 +2,7 @@ import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Home, Search, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import { MainLayout } from "@/components/layout/MainLayout";
 import { logger } from '@/services/logger';
 
 const NotFound = () => {
@@ -34,9 +33,8 @@ const NotFound = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-1 flex items-center justify-center bg-gradient-to-br from-background to-muted pt-16">
+    <MainLayout>
+      <main className="flex items-center justify-center bg-gradient-to-br from-background to-muted">
         <div className="container mx-auto px-4 py-10 text-center max-w-2xl">
           <div className="mb-8">
             <h1 className="text-9xl font-bold text-primary mb-4">404</h1>
@@ -89,8 +87,7 @@ const NotFound = () => {
           </div>
         </div>
       </main>
-      <Footer />
-    </div>
+    </MainLayout>
   );
 };
 
