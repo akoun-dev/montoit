@@ -28,14 +28,14 @@ SET search_path = public
 AS $$
   -- Permet aux non-connectés de voir UNIQUEMENT les infos du propriétaire
   -- d'une propriété spécifique (pour page détail propriété)
-  SELECT 
-    pp.id, 
-    pp.full_name, 
-    pp.user_type, 
-    pp.city, 
+  SELECT
+    pp.id,
+    pp.full_name,
+    pp.user_type::user_type,
+    pp.city,
     pp.avatar_url,
-    pp.is_verified, 
-    pp.oneci_verified, 
+    pp.is_verified,
+    pp.oneci_verified,
     pp.face_verified,
     pp.cnam_verified
   FROM public.profiles_public pp

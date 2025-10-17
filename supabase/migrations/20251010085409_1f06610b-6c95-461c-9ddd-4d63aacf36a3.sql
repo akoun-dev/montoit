@@ -90,10 +90,10 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
   -- Seuls les utilisateurs authentifiés peuvent accéder aux profils publics
-  SELECT 
+  SELECT
     p.id,
     p.full_name,
-    p.user_type,
+    p.user_type::user_type,
     p.city,
     p.bio,
     p.avatar_url,

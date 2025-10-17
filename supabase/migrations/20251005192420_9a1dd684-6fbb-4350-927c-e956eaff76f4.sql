@@ -47,10 +47,10 @@ BEGIN
   -- Explicitly excluded: oneci_cni_number, cnam_social_security_number, 
   --                     oneci_data, cnam_data, face_similarity_score
   RETURN QUERY
-  SELECT 
+  SELECT
     uv.user_id,
     p.full_name,
-    p.user_type,
+    p.user_type::user_type,
     p.city,
     uv.oneci_status,
     uv.cnam_status,

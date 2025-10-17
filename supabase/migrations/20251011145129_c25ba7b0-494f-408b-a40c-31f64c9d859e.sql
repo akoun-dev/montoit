@@ -139,8 +139,8 @@ BEGIN
   
   -- Retourner les données
   RETURN QUERY
-  SELECT 
-    uv.user_id, p.full_name, p.user_type, p.city,
+  SELECT
+    uv.user_id, p.full_name, p.user_type::user_type, p.city,
     uv.oneci_status, uv.oneci_cni_number, uv.oneci_data, uv.oneci_verified_at,
     uv.cnam_status, uv.cnam_social_security_number, uv.cnam_employer, uv.cnam_data, uv.cnam_verified_at,
     uv.face_verification_status, uv.face_similarity_score, uv.face_verified_at,

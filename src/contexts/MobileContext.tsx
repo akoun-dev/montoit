@@ -185,6 +185,11 @@ export const MobileProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setQuickActions(prev => [...prev, action]);
   }, []);
 
+  // Notifications
+  const setNotificationCount = useCallback((count: number) => {
+    setNotificationCountState(count);
+  }, []);
+
   // Gestures
   const recordSwipeAction = useCallback((direction: SwipeDirection) => {
     setLastSwipeAction({

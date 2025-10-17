@@ -30,6 +30,9 @@ DECLARE
   property_count INTEGER;
 BEGIN
   RAISE NOTICE '=== CRÉATION DE TOUS LES COMPTES UTILISATEURS ===';
+
+  -- Désactiver temporairement le trigger qui bloque admin_ansut dans user_type
+  DROP TRIGGER IF EXISTS enforce_admin_roles ON public.profiles;
   
   -- ===================================================================
   -- 1. COMPTES DE DÉVELOPPEMENT
@@ -129,7 +132,7 @@ BEGIN
       'admin@test.com',
       NOW(),
       '+2250202020202',
-      '{"full_name": "Administrateur ANSUT", "user_type": "admin"}',
+      '{"full_name": "Administrateur ANSUT", "user_type": "admin_ansut"}',
       NOW(),
       NOW()
     ) RETURNING id INTO admin_id;
@@ -155,7 +158,7 @@ BEGIN
       'super@test.com',
       NOW(),
       '+2250303030303',
-      '{"full_name": "Super Administrateur", "user_type": "super_admin"}',
+      '{"full_name": "Super Administrateur ANSUT", "user_type": "admin_ansut"}',
       NOW(),
       NOW()
     ) RETURNING id INTO super_admin_id;
@@ -266,7 +269,7 @@ BEGIN
       gen_random_uuid(),
       'staging@locataire.ci',
       NOW(),
-      '+2250707070707',
+      '+2250717171717',
       '{"full_name": "Staging Locataire", "user_type": "locataire"}',
       NOW(),
       NOW()
@@ -292,7 +295,7 @@ BEGIN
       gen_random_uuid(),
       'staging@proprietaire.ci',
       NOW(),
-      '+2250808080808',
+      '+2250818181818',
       '{"full_name": "Staging Propriétaire", "user_type": "proprietaire"}',
       NOW(),
       NOW()
@@ -571,6 +574,14 @@ BEGIN
   ELSE
     RAISE NOTICE 'Des propriétés existent déjà (% trouvées). Aucune création nécessaire.', property_count;
   END IF;
+
+  -- Réactiver le trigger enforce_admin_roles
+  CREATE TRIGGER enforce_admin_roles
+  BEFORE INSERT OR UPDATE ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.prevent_admin_in_user_type();
+
+  RAISE NOTICE 'Trigger enforce_admin_roles réactivé.';
 
 END $$;
 

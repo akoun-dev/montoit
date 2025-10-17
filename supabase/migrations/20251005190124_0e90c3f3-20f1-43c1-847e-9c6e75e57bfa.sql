@@ -78,13 +78,13 @@ AS $$
 BEGIN
   -- Only return public fields, never phone
   RETURN QUERY
-  SELECT 
+  SELECT
     p.id,
     p.full_name,
     p.avatar_url,
     p.bio,
     p.city,
-    p.user_type,
+    p.user_type::user_type,
     p.is_verified,
     p.oneci_verified,
     p.cnam_verified,
