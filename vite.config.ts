@@ -173,49 +173,7 @@ export default defineConfig(({ mode }) => ({
     target: 'es2020', // Ensure broad browser compatibility with BigInt support
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // Simplified chunking strategy to avoid React import issues
-          if (id.includes('node_modules')) {
-            // Keep React and related packages in the main chunk to avoid circular dependencies
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-is') ||
-                id.includes('scheduler') || id.includes('object-assign') || id.includes('prop-types')) {
-              return 'index'; // Put React in the main chunk
-            }
-
-            // Maps - Large, separate chunk
-            if (id.includes('mapbox')) {
-              return 'maps-vendor';
-            }
-
-            // Charts - Move to vendor chunk to avoid circular dependencies
-            if (id.includes('recharts')) {
-              return 'vendor';
-            }
-
-            // Sentry - monitoring chunk
-            if (id.includes('@sentry')) {
-              return 'monitoring-vendor';
-            }
-
-            // React Query and related - separate but reliable chunk
-            if (id.includes('@tanstack') || id.includes('react-query')) {
-              return 'query-vendor';
-            }
-
-            // UI libraries - group together
-            if (id.includes('@radix-ui') || id.includes('framer-motion') || id.includes('lucide-react')) {
-              return 'ui-vendor';
-            }
-
-            // Everything else in one vendor chunk
-            return 'vendor';
-          }
-
-          // Only split very large route chunks
-          if (id.includes('/src/pages/Admin') || id.includes('/src/pages/Dashboard')) {
-            return 'route-admin';
-          }
-        },
+        manualChunks: undefined, // Disable automatic chunking to avoid circular dependencies
         // ✅ SÉCURITÉ : Noms de chunks obfusqués
         chunkFileNames: (chunkInfo) => {
           return `assets/[name]-[hash].js`;
