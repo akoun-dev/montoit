@@ -1,0 +1,106 @@
+﻿
+
+Partie 1 : Je cherche un logement (visiteur)
+
+ETQC 1- Erreur lors du chargement des annonces autour de moi pour la vue Map
+    • Ce que je fais : j’ai sélectionné le bouton ‘Autour de moi’
+    • Comportement observé Aucune carte (Map) ne s’affiche ; les annonces à proximité ne sont pas chargées.
+    • Comportement attendu : La carte (Map) doit s’afficher correctement et présenter les annonces situées à proximité de la position de l’utilisateur.
+    • Statut : À corriger
+
+
+ETQC 2 — Erreur lors du chargement des annonces en vue Satellite
+    • Ce que je fais : j’ai sélectionné le bouton ‘ Satellite ’ afin de basculer la carte en vue satellite.
+    • Comportement observé : La vue satellite ne s’affiche pas ; aucune annonce n’apparaît sur la carte.
+    • Comportement attendu : La vue satellite doit se charger correctement et afficher les annonces géolocalisées à proximité de l’utilisateur.
+    • Statut : À corriger
+
+
+
+ETQC 3 – Erreur de chargement de toutes les annonces
+    • Ce que je fais : j’ai sélectionné le bouton ‘ Voir toutes les annonces ’ 
+    • Comportement observé : Le message « Aucun bien trouvé » reste affiché 
+    • Comportement attendu : L’ensemble des annonces disponibles doit s’afficher correctement après la sélection du bouton « Voir toutes les annonces ».
+    • Statut : À corriger
+
+
+
+Partie 2 : Espace locataire
+
+ETQC 4 — Erreur lors du chargement des annonces dans la vue Locataire
+    • Ce que je fais : j’accède à l’espace locataire avec les paramètres de connexion (Email : locataire2@test.com, mot de passe : Test123!).
+    • Comportement observé : Aucune annonce ne se charge. Les messages « Rafraîchissement... » et « Chargement... » restent affichés indéfiniment.
+    • Comportement attendu : Les annonces disponibles doivent s’afficher correctement dès la connexion, avant l’application de tout filtre.
+    • Statut : À corriger 
+
+
+
+
+
+ETQC 5 — Erreur ors du chargement des annonces dans la vue Locataire après sélection du bouton “Explorer plus de biens”
+    • Ce que je fais : j’ai sélectionné le bouton ‘ Explorer plus de biens ’ afin d’afficher davantage d’annonces ;
+    • Comportement observé : Aucun bien ne s’affiche après la sélection du bouton ;
+    • Comportement attendu : Des annonces supplémentaires doivent se charger et s’afficher dans la liste des biens disponibles.
+    • Statut : À corriger
+
+
+
+ETQC 6 - Erreur lors du chargement des annonces dans la vue Locataire lors d’une recherche
+    • Ce que je fais : Je clique sur « Rechercher » dans le module tableau de bord du locataire.
+    • Comportement observé : Le message d’erreur « Erreur : impossible de charger les recommandations » s’affiche et aucune annonce ne se charge.
+    • Comportement attendu : Les annonces correspondant aux critères de recherche doivent se charger et s’afficher dans la liste des biens disponibles.
+    • Statut : À corriger
+
+
+
+
+ETQC 7 - Erreur de chargement de la page Profil dans la vue Locataire
+    • Ce que je fais : Je clique sur « Profil » dans le module tableau de bord du locataire.
+    • Comportement observé : Le message d’erreur « Erreur 404 : Oups ! Page introuvable » s’affiche. La page Profil ne se charge pas.
+    • Comportement attendu : La page Profil doit s’afficher correctement avec l’ensemble des informations du locataire (nom, email, coordonnées, etc.).
+    • Statut : À corriger
+
+
+
+
+
+
+
+
+
+
+ETQC 8 — Absence du module “Je dépose mon dossier de candidature”
+    • Ce que je fais : ajouter le module « Je dépose mon dossier de candidature » dans Mes candidatures dans la vue locataire
+    • Comportement observé : Le module « Je dépose mon dossier de candidature » est inexistant ou non accessible dans l’interface.
+    • Comportement attendu : Le module « Je dépose mon dossier de candidature » doit être disponible dans la section « Mes candidatures », et permettre à l’utilisateur de soumettre son dossier de candidature avec toutes les pièces justificatives requises
+    • Statut : Fonction manquante / À développer
+
+Partie 3 : Espace propriétaire
+
+ETQC 9 — Erreur lors du chargement des annonces dans la vue propriétaire
+    • Ce que je fais : j’accède à l’espace propriétaire avec les paramètres de connexion (Email : proprietaire2@test.com, mot de passe : Test123!).
+    • Comportement observé : Aucune annonce ne se charge. Les messages « Rafraîchissement... » et « Chargement... » restent affichés indéfiniment.
+    • Comportement attendu : Les annonces disponibles doivent se charger et s’afficher automatiquement dès la connexion de l’utilisateur à son espace Propriétaire.
+
+
+
+
+ETQC 10 — Erreur lors de l’ajout d’un bien dans la vue Propriétaire
+    • Ce que je fais : Dans le tableau de bord ou la section Mes Biens, je clique sur le bouton « Ajouter un bien »
+    • Comportement observé : Un message d’erreur « Oups ! Une erreur est survenue » s’affiche et la page ou formulaire d’ajout de bien ne se charge pas.
+    • Comportement attendu : La page ou le formulaire d’ajout de bien doit s’afficher correctement, permettant au propriétaire de saisir toutes les informations nécessaires pour ajouter un nouveau bien.
+    • Statut : À corriger
+
+
+ETQC 11 — Erreur lors de chargement dans la vue Propriétaire
+    • Ce que je fais : je clique sur le bouton « Publier un bien »
+    • Comportement observé : Un message d’erreur « Oups ! Une erreur est survenue » s’affiche, et la page ou formulaire de publication de bien ne se charge pas.
+    • Comportement attendu : La page ou formulaire de publication de bien doit s’afficher correctement, permettant au propriétaire de publier un nouveau bien afin qu’il soit visible pour les prospects ou locataires.
+    • Statut : À corriger
+
+
+ETQC 12 — Erreur lors de chargement dans la vue Propriétaire
+    • Ce que je fais : je clique sur le bouton « inviter une agence » dans le module Mes Mandats
+    • Comportement observé : Un message d’erreur « Oups ! Une erreur est survenue » s’affiche et la page ou formulaire d’invitation d’une agence ne se charge pas.
+    • Comportement attendu : La page ou le formulaire d’invitation d’une agence doit s’afficher correctement, permettant au propriétaire d’inviter une agence à la gestion des biens d’un ou plusieurs propriétaires.
+    • Statut : À corriger

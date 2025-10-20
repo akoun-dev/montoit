@@ -234,10 +234,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      // Nettoyer le localStorage pour éviter les conflits
+      localStorage.clear();
+
+      // Logs temporaires pour debugging
+      console.log('Tentative de connexion avec:', { email, passwordLength: password.length });
+      console.log('URL Supabase:', import.meta.env.VITE_SUPABASE_URL);
+
+      const { error, data } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+
+      console.log('Réponse Supabase:', { error, data });
 
       if (error) {
         await logLoginAttempt(email, false, error.message);

@@ -7,6 +7,17 @@ import { getRequiredEnvVar } from '@/lib/env-validation';
 const SUPABASE_URL = getRequiredEnvVar('VITE_SUPABASE_URL');
 const SUPABASE_PUBLISHABLE_KEY = getRequiredEnvVar('VITE_SUPABASE_PUBLISHABLE_KEY');
 
+// TEMPORAIRE: Désactiver secureStorage pour debugging
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    // Utiliser localStorage directement temporairement
+    persistSession: true,
+    autoRefreshToken: true,
+  }
+});
+
+/*
+// Version originale avec secureStorage (à restaurer après debugging)
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: {
@@ -18,3 +29,4 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+*/

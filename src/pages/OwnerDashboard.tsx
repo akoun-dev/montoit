@@ -18,7 +18,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DynamicBreadcrumb } from '@/components/navigation/DynamicBreadcrumb';
-import { RefreshCw, Eye, Download, FileText, BarChart3 } from 'lucide-react';
+import { RefreshCw, Eye, Download, FileText, BarChart3, Home, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { useOwnerProperties } from '@/hooks/useOwnerProperties';
+import { OwnerPropertiesWidget } from '@/components/dashboard/owner/OwnerPropertiesWidget';
 import { StickyHeader } from '@/components/ui/sticky-header';
 import { toast } from 'sonner';
 import { logger } from '@/services/logger';
@@ -27,6 +31,7 @@ import { useOwnerAnalytics } from '@/hooks/useOwnerAnalytics';
 const OwnerDashboard = () => {
   const { user, profile, loading: authLoading } = useAuth();
   const { analytics, stats: analyticsStats, loading: analyticsLoading } = useOwnerAnalytics();
+  const { data: ownerProperties, isLoading: propertiesLoading } = useOwnerProperties(user?.id || '');
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalProperties: 0,
@@ -291,6 +296,10 @@ const OwnerDashboard = () => {
           <Tabs defaultValue="overview" className="space-y-4">
             <TabsList>
               <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
+              <TabsTrigger value="properties">
+                <Home className="h-4 w-4 mr-2" />
+                Mes Biens
+              </TabsTrigger>
               <TabsTrigger value="analytics">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Analytics
@@ -389,6 +398,39 @@ const OwnerDashboard = () => {
               </CardContent>
                 </Card>
               )}
+            </TabsContent>
+
+            <TabsContent value="properties" className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-semibold flex items-center gap-2">
+                    <Home className="h-6 w-6 text-primary" />
+                    Mes Biens
+                  </h2>
+                  <p className="text-muted-foreground">
+                    Gérez vos annonces et suivez leurs performances
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button asChild variant="outline">
+                    <Link to="/mes-biens">
+                      Voir tous
+                    </Link>
+                  </Button>
+                  <Button asChild>
+                    <Link to="/ajouter-bien">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Ajouter un bien
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+
+              <OwnerPropertiesWidget
+                properties={ownerProperties || []}
+                isLoading={propertiesLoading}
+                userId={user?.id}
+              />
             </TabsContent>
 
             <TabsContent value="analytics" className="space-y-6">

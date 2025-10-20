@@ -1,0 +1,58 @@
+Comptes de Test MON TOIT
+
+  Voici tous les comptes de test disponibles avec leurs mots de passe :
+
+  👥 Comptes Principaux
+
+  | Type         | Email                 | Mot de passe | Description                |
+  |--------------|-----------------------|--------------|----------------------------|
+  | Locataire    | locataire@test.com    | Test123!     | Marie Konan                |
+  | Propriétaire | proprietaire@test.com | Test123!     | Jean Kouadio               |
+  | Agence       | agence@test.com       | Test123!     | Agence Immobilière Abidjan |
+  | Admin ANSUT  | admin@test.com        | Test123!     | Administrateur ANSUT       |
+  | Super Admin  | super@test.com        | Test123!     | Super Administrateur       |
+
+  📱 Numéros de Téléphone des Comptes
+
+  - Locataire : +225 01 01 01 01 01
+  - Propriétaire : +225 07 07 07 07 07
+  - Agence : +225 08 08 08 08 08
+  - Admin : +225 02 02 02 02 02
+  - Super Admin : +225 03 03 03 03 03
+
+  🏠 Accès aux Fonctionnalités
+
+  Locataire (locataire@test.com)
+
+  - ✅ Recherche de biens
+  - ✅ Candidatures en ligne
+  - ✅ Profil et messagerie
+  - ✅ Dashboard avec annonces recommandées
+
+  Propriétaire (proprietaire@test.com)
+
+  - ✅ Gestion des biens
+  - ✅ Ajout/modification d'annonces
+  - ✅ Traitement des candidatures
+  - ✅ Dashboard "Mes Biens"
+
+  Agence (agence@test.com)
+
+  - ✅ Gestion multi-propriétaires
+  - ✅ Mandats et contrats
+  - ✅ Rapports analytiques
+  - ✅ Invitation d'autres agences
+
+  Admin ANSUT (admin@test.com)
+
+  - ✅ Certifications ANSUT
+  - ✅ Modération des contenus
+  - ✅ Validation des documents
+  - ✅ Tableau de bord admin
+
+  Super Admin (super@test.com)
+
+  - ✅ Accès système complet
+  - ✅ Configuration technique
+  - ✅ Gestion des utilisateurs
+  - ✅ Maintenance et monitoring

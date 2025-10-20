@@ -9,11 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { CheckCircle, XCircle, Eye, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Eye, FileText, Plus } from 'lucide-react';
 import ApplicationDetail from '@/components/application/ApplicationDetail';
 import { ApplicationStatusTracker } from '@/components/application/ApplicationStatusTracker';
 import { ApplicationsTableView } from '@/components/application/ApplicationsTableView';
 import ViewToggle from '@/components/properties/ViewToggle';
+import { NewApplicationWidget } from '@/components/applications/NewApplicationWidget';
 import { logger } from '@/services/logger';
 
 import type { ApplicationStatus } from '@/types';
@@ -132,7 +133,7 @@ const Applications = () => {
     try {
       const { error } = await supabase
         .from('rental_applications')
-        .update({ 
+        .update({
           status: newStatus,
           reviewed_at: new Date().toISOString()
         })
@@ -155,6 +156,10 @@ const Applications = () => {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleNewApplicationCreated = () => {
+    fetchApplications();
   };
 
   const getStatusBadge = (status: string) => {
@@ -207,7 +212,12 @@ const Applications = () => {
           </p>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
+          {/* New Application Widget for Tenants */}
+          {!isOwner && (
+            <NewApplicationWidget onApplicationCreated={handleNewApplicationCreated} />
+          )}
+
           <div className="flex justify-between items-center">
             <Tabs value={activeFilter} onValueChange={setActiveFilter} className="w-auto">
               <TabsList>

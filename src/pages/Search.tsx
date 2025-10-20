@@ -9,7 +9,8 @@ import { PullToRefresh } from '@/components/properties/PullToRefresh';
 import PropertyMap from '@/components/PropertyMap';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Grid, List, Map, Search as SearchIcon, Eye, CheckCircle2, Lock } from 'lucide-react';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { Grid, List, Map, Search as SearchIcon, Eye, CheckCircle2, Lock, Locate } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useProperties } from '@/hooks/useProperties';
@@ -30,10 +31,113 @@ const Search = () => {
   const { toggleFavorite, isFavorite } = useFavorites();
   const { data: properties = [], isLoading, error, refetch } = useProperties({ currentUserId: user?.id });
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [locating, setLocating] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
   const isMobile = useIsMobile();
-  
-  const { filteredProperties, handleFilterChange, handleLocationSearch, handleReset } = 
+
+  const { filteredProperties, handleFilterChange, handleLocationSearch, handleReset } =
     usePropertyFilters(properties);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredProperties.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentProperties = filteredProperties.slice(startIndex, endIndex);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredProperties.length]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Fonction pour obtenir la position de l'utilisateur
+  const handleNearMeSearch = async () => {
+    if (!navigator.geolocation) {
+      toast.error('La géolocalisation n\'est pas supportée par votre navigateur');
+      return;
+    }
+
+    setLocating(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          resolve,
+          reject,
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 300000, // 5 minutes
+          }
+        );
+      });
+
+      const { latitude, longitude } = position.coords;
+
+      // Filtrer les propriétés dans un rayon de 5km
+      const nearbyProperties = properties.filter(property => {
+        if (!property.latitude || !property.longitude) return false;
+
+        const distance = calculateDistance(
+          latitude,
+          longitude,
+          property.latitude,
+          property.longitude
+        );
+
+        return distance <= 5; // 5km radius
+      });
+
+      // Appliquer le filtre de localisation
+      handleLocationSearch(latitude, longitude);
+
+      // Mettre à jour l'affichage pour montrer les propriétés à proximité
+      toast.success(`${nearbyProperties.length} bien(s) trouvé(s) dans un rayon de 5km`);
+
+      // Forcer le mode carte pour mieux visualiser les résultats
+      if (nearbyProperties.length > 0) {
+        setViewMode('map');
+      }
+    } catch (error) {
+      console.error('Geolocation error:', error);
+      if (error instanceof GeolocationPositionError) {
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            toast.error('Veuillez autoriser l\'accès à votre position pour utiliser cette fonctionnalité');
+            break;
+          case error.POSITION_UNAVAILABLE:
+            toast.error('Votre position n\'est pas disponible');
+            break;
+          case error.TIMEOUT:
+            toast.error('La recherche de votre position a expiré');
+            break;
+          default:
+            toast.error('Erreur lors de la recherche de votre position');
+        }
+      } else {
+        toast.error('Erreur lors de la recherche de votre position');
+      }
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  // Fonction pour calculer la distance entre deux points (formule de Haversine)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Rayon de la Terre en km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
 
   const handleNavigateToProperty = (propertyId: string) => {
     navigate(`/properties/${propertyId}`);
@@ -101,10 +205,25 @@ const Search = () => {
 
         {/* View Mode Toggle */}
         <div className="flex items-center justify-between mb-6">
-          <p className="text-sm text-muted-foreground">
-            {filteredProperties.length} {filteredProperties.length > 1 ? 'biens trouvés' : 'bien trouvé'}
-          </p>
-          
+          <div className="flex items-center gap-4">
+            <p className="text-sm text-muted-foreground">
+              {startIndex + 1}-{Math.min(endIndex, filteredProperties.length)} de {filteredProperties.length} {filteredProperties.length > 1 ? 'biens trouvés' : 'bien trouvé'}
+              {totalPages > 1 && <span> (Page {currentPage} sur {totalPages})</span>}
+            </p>
+
+            {/* Bouton "Autour de moi" */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNearMeSearch}
+              disabled={locating || isLoading}
+              className="text-xs"
+            >
+              <Locate className={`h-4 w-4 mr-1 ${locating ? 'animate-pulse' : ''}`} />
+              {locating ? 'Localisation...' : 'Autour de moi'}
+            </Button>
+          </div>
+
           <div className="flex gap-2">
             <Button
               variant={viewMode === 'grid' ? 'default' : 'outline'}
@@ -145,9 +264,9 @@ const Search = () => {
                       <PropertyCardSkeleton key={i} />
                     ))}
                   </div>
-                ) : filteredProperties.length > 0 ? (
+                ) : currentProperties.length > 0 ? (
                   <div className={viewMode === 'grid' ? 'card-container grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'space-y-6'}>
-                    {filteredProperties.map((property) => (
+                    {currentProperties.map((property) => (
                       <PropertyCard
                         key={property.id}
                         property={property}
@@ -184,6 +303,68 @@ const Search = () => {
                       </Button>
                     </div>
                   </Card>
+                )}
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-8 flex justify-center">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                            className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+
+                        {/* Page numbers */}
+                        {[...Array(totalPages)].map((_, index) => {
+                          const pageNumber = index + 1;
+                          const isCurrentPage = pageNumber === currentPage;
+
+                          // Show first page, last page, current page, and pages around current
+                          if (
+                            pageNumber === 1 ||
+                            pageNumber === totalPages ||
+                            (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                          ) {
+                            return (
+                              <PaginationItem key={pageNumber}>
+                                <PaginationLink
+                                  isActive={isCurrentPage}
+                                  onClick={() => handlePageChange(pageNumber)}
+                                  className={isCurrentPage ? '' : 'cursor-pointer'}
+                                >
+                                  {pageNumber}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                          }
+
+                          // Show ellipsis for gaps
+                          if (
+                            (pageNumber === currentPage - 2 && currentPage > 3) ||
+                            (pageNumber === currentPage + 2 && currentPage < totalPages - 2)
+                          ) {
+                            return (
+                              <PaginationItem key={`ellipsis-${pageNumber}`}>
+                                <span className="flex h-9 w-9 items-center justify-center">...</span>
+                              </PaginationItem>
+                            );
+                          }
+
+                          return null;
+                        })}
+
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                            className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
                 )}
               </>
             )}
