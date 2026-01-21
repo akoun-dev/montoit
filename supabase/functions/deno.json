@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.ns", "deno.window"],
+    "noImplicitAny": false
+  },
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
+    "npm:openai@^4.52.5": "https://esm.sh/openai@4.52.5"
+  },
+  "nodeModulesDir": "auto",
+  "lock": false
+}

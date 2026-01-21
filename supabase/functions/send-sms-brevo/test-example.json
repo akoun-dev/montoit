@@ -1,0 +1,14 @@
+{
+  "description": "Exemple de requête pour tester l'Edge Function send-sms-brevo",
+  "method": "POST",
+  "headers": {
+    "Authorization": "Bearer VOTRE_SUPABASE_ANON_KEY",
+    "Content-Type": "application/json"
+  },
+  "body": {
+    "phone": "+2250140984943",
+    "message": "Test SMS Brevo - MonToit ✅",
+    "tag": "TEST"
+  },
+  "curl_command": "curl --request POST \\\n  --url https://VOTRE_PROJET.supabase.co/functions/v1/send-sms-brevo \\\n  --header 'Authorization: Bearer VOTRE_SUPABASE_ANON_KEY' \\\n  --header 'Content-Type: application/json' \\\n  --data '{\"phone\": \"+2250140984943\", \"message\": \"Test SMS Brevo - MonToit ✅\", \"tag\": \"TEST\"}'"
+}

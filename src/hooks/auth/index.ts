@@ -1,0 +1,1 @@
+export { useFAQ } from './useFAQ';

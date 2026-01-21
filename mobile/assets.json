@@ -1,0 +1,13 @@
+{
+  "icon": "resources/icon.png",
+  "splash": {
+    "images": [
+      "resources/splash.png"
+    ],
+    "color": "#ffffff",
+    "androidDensity": "land-xhdpi",
+    "androidScaleType": "CENTER_CROP",
+    "androidImmersive": true,
+    "androidFullScreen": true
+  }
+}
