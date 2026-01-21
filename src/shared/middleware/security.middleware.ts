@@ -76,6 +76,13 @@ export class InputValidator {
    * Valide un email
    */
   static isValidEmail(email: string): boolean {
+    // Vérifier d'abord qu'il n'y a pas de balises HTML ou scripts
+    const hasHtmlTags = /<[^>]*>/.test(email);
+    if (hasHtmlTags) {
+      return false;
+    }
+
+    // Vérifier le format de l'email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   }

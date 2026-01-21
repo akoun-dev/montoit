@@ -11,7 +11,7 @@ export default defineConfig({
   test: {
     // Configurer l'environnement de test
     environment: 'jsdom',
-    setupFiles: ['./src/tests/setup.ts'],
+    setupFiles: ['./src/tests/setupSecurity.ts'],
     globals: true,
 
     // Augmenter le timeout pour les tests de sécurité

@@ -145,7 +145,7 @@ export default function RoleSelectionPage() {
                           ? `bg-gradient-to-r ${role.gradient}`
                           : 'bg-gray-300'
                         }
-                      } />
+                      `} />
                       <span className={isSelected ? 'text-[#2C1810]' : 'text-[#6B5A4E]'}>
                         {feature}
                       </span>

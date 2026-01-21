@@ -62,7 +62,9 @@ export class SecureUploadService {
     }
 
     // Vérification des signatures de fichiers (header bytes)
-    const buffer = await file.slice(0, 10).arrayBuffer();
+    // Note: arrayBuffer() sur file.slice() peut ne pas être disponible dans tous les environnements
+    const fullBuffer = await file.arrayBuffer();
+    const buffer = fullBuffer.slice(0, 10);
     const view = new Uint8Array(buffer);
 
     // Signatures communes de fichiers

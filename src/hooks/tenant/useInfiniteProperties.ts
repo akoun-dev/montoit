@@ -157,7 +157,7 @@ export function useInfiniteProperties(
       setError(null);
 
       try {
-        let query = buildQuery();
+        const query = buildQuery();
 
         const orderColumn =
           sortBy === 'price_asc' || sortBy === 'price_desc' ? 'price' : 'created_at';
