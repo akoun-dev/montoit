@@ -99,6 +99,12 @@ export default function AddProperty() {
   return <AddPropertyContent />;
 }
 
+// Type pour suivre les images existantes vs nouvelles
+interface ExistingImage {
+  url: string;
+  id: string; // URL comme identifiant unique
+}
+
 export function AddPropertyContent() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -110,6 +116,9 @@ export function AddPropertyContent() {
   const [uploadingImages, setUploadingImages] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  // Nouvel: suivi des images existantes de la base de données
+  const [existingImages, setExistingImages] = useState<ExistingImage[]>([]);
+  const [removedExistingImageUrls, setRemovedExistingImageUrls] = useState<string[]>([]);
   const [draftSaved, setDraftSaved] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [showDraftModal, setShowDraftModal] = useState(false);
@@ -171,6 +180,16 @@ export function AddPropertyContent() {
             typeof data.address === 'string'
               ? data.address
               : ((data as unknown as { address?: { street?: string } })?.address?.street ?? '');
+
+          // Charger les images existantes depuis la base de données
+          const images = data.images || [];
+          const existingImagesData: ExistingImage[] = images.map((url: string) => ({
+            url,
+            id: url,
+          }));
+
+          setExistingImages(existingImagesData);
+          setRemovedExistingImageUrls([]);
 
           setFormData({
             title: data.title || '',
@@ -243,6 +262,8 @@ export function AddPropertyContent() {
     setHasDraft(false);
     setImageFiles([]);
     setImagePreviews([]);
+    setExistingImages([]);
+    setRemovedExistingImageUrls([]);
     setStep(1);
   }, []);
 
@@ -261,6 +282,10 @@ export function AddPropertyContent() {
     localStorage.removeItem(STORAGE_KEYS.PROPERTY_DRAFT);
     setFormData(INITIAL_FORM_DATA);
     setHasDraft(false);
+    setImageFiles([]);
+    setImagePreviews([]);
+    setExistingImages([]);
+    setRemovedExistingImageUrls([]);
     setShowDraftModal(false);
     setPendingDraftData(null);
   };
@@ -370,6 +395,7 @@ export function AddPropertyContent() {
     return 'text-[var(--color-gris-neutre)]';
   };
 
+  // Supprimer une nouvelle image (upload en cours)
   const removeImage = (index: number) => {
     const newFiles = imageFiles.filter((_, i) => i !== index);
     const newPreviews = imagePreviews.filter((_, i) => i !== index);
@@ -381,6 +407,12 @@ export function AddPropertyContent() {
 
     setImageFiles(newFiles);
     setImagePreviews(newPreviews);
+  };
+
+  // Supprimer une image existante (de la base de données)
+  const removeExistingImage = (imageUrl: string) => {
+    setExistingImages((prev) => prev.filter((img) => img.url !== imageUrl));
+    setRemovedExistingImageUrls((prev) => [...prev, imageUrl]);
   };
 
   const uploadImages = async (propertyId: string): Promise<string[]> => {
@@ -497,17 +529,35 @@ export function AddPropertyContent() {
           `Erreur lors de ${isEditMode ? 'la mise à jour' : 'la création'} de la propriété`
         );
 
-      if (imageFiles.length > 0) {
+      if (imageFiles.length > 0 || existingImages.length > 0 || removedExistingImageUrls.length > 0) {
         setUploadingImages(true);
-        const imageUrls = await uploadImages(data.id);
 
-        console.log('[handleSubmit] Updating property with images:', imageUrls);
+        // Upload des nouvelles images
+        let newImageUrls: string[] = [];
+        if (imageFiles.length > 0) {
+          newImageUrls = await uploadImages(data.id);
+        }
+
+        // Calculer les images finales:
+        // - Garder les images existantes qui n'ont pas été supprimées
+        // - Ajouter les nouvelles images uploadées
+        const finalImages = [
+          ...existingImages.map((img) => img.url).filter((url) => !removedExistingImageUrls.includes(url)),
+          ...newImageUrls,
+        ];
+
+        console.log('[handleSubmit] Final images:', {
+          existing: existingImages.length,
+          removed: removedExistingImageUrls.length,
+          new: newImageUrls.length,
+          final: finalImages.length,
+        });
 
         const { error: updateError } = await supabase
           .from('properties')
           .update({
-            images: imageUrls,
-            main_image: imageUrls[0],
+            images: finalImages,
+            main_image: finalImages[0] || null,
           })
           .eq('id', data.id);
 
@@ -763,57 +813,117 @@ export function AddPropertyContent() {
                   </h2>
                 </div>
 
-                {/* Preview grid for existing images */}
-                {imagePreviews.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    {imagePreviews.map((preview, index) => (
-                      <div
-                        key={index}
-                        className="relative aspect-square rounded-xl overflow-hidden group border border-gray-200"
-                      >
-                        <img
-                          src={preview}
-                          alt={`Preview ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                {/* Preview grid for existing images from database */}
+                {existingImages.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium" style={{ color: 'var(--color-gris-texte)' }}>
+                        Photos actuelles ({existingImages.length})
+                      </span>
+                      <span className="text-xs" style={{ color: 'var(--color-gris-neutre)' }}>
+                        Cliquez sur × pour supprimer
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {existingImages.map((image, index) => (
+                        <div
+                          key={`existing-${image.id}`}
+                          className="relative aspect-square rounded-xl overflow-hidden group border border-gray-200"
                         >
-                          <X className="h-4 w-4" />
-                        </button>
-                        {index === 0 && (
-                          <div
-                            className="absolute bottom-2 left-2 text-white text-xs px-2 py-1 rounded-full font-medium"
-                            style={{ backgroundColor: 'var(--color-orange)' }}
+                          <img
+                            src={image.url}
+                            alt={`Photo existante ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeExistingImage(image.url)}
+                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            title="Supprimer cette photo"
                           >
-                            Photo principale
-                          </div>
-                        )}
+                            <X className="h-4 w-4" />
+                          </button>
+                          {index === 0 && (
+                            <div
+                              className="absolute bottom-2 left-2 text-white text-xs px-2 py-1 rounded-full font-medium"
+                              style={{ backgroundColor: 'var(--color-orange)' }}
+                            >
+                              Photo principale
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Preview grid for newly uploaded images */}
+                {imagePreviews.length > 0 && (
+                  <div className="mb-4">
+                    {existingImages.length > 0 && (
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium" style={{ color: 'var(--color-gris-texte)' }}>
+                          Nouvelles photos ({imagePreviews.length})
+                        </span>
+                        <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+                          Nouveau
+                        </span>
                       </div>
-                    ))}
+                    )}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {imagePreviews.map((preview, index) => (
+                        <div
+                          key={`new-${index}`}
+                          className="relative aspect-square rounded-xl overflow-hidden group border-2 border-blue-200"
+                        >
+                          <img
+                            src={preview}
+                            alt={`Nouvelle photo ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(index)}
+                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            title="Supprimer cette photo"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                          <span className="absolute top-2 left-2 text-xs px-2 py-1 rounded-full font-medium bg-blue-500 text-white">
+                            Nouveau
+                          </span>
+                          {existingImages.length === 0 && index === 0 && (
+                            <div
+                              className="absolute bottom-2 left-2 text-white text-xs px-2 py-1 rounded-full font-medium"
+                              style={{ backgroundColor: 'var(--color-orange)' }}
+                            >
+                              Photo principale
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
                 {/* NativeCameraUpload for adding new images */}
-                {imageFiles.length < 10 && (
+                {existingImages.length + imageFiles.length < 10 && (
                   <NativeCameraUpload
                     multiple
-                    maxImages={10 - imageFiles.length}
+                    maxImages={10 - existingImages.length - imageFiles.length}
                     showPreview={false}
                     label="Ajouter des photos"
                     variant="card"
                     compressionQuality={0.8}
                     compressionMaxWidth={1920}
                     onImageCaptured={(file, preview) => {
-                      if (imageFiles.length < 10) {
+                      if (existingImages.length + imageFiles.length < 10) {
                         setImageFiles((prev) => [...prev, file]);
                         setImagePreviews((prev) => [...prev, preview]);
                       }
                     }}
                     onMultipleImages={(files, previews) => {
-                      const remaining = 10 - imageFiles.length;
+                      const remaining = 10 - existingImages.length - imageFiles.length;
                       const filesToAdd = files.slice(0, remaining);
                       const previewsToAdd = previews.slice(0, remaining);
                       setImageFiles((prev) => [...prev, ...filesToAdd]);
@@ -826,7 +936,8 @@ export function AddPropertyContent() {
                   className="text-xs text-center mt-3"
                   style={{ color: 'var(--color-gris-neutre)' }}
                 >
-                  {imageFiles.length}/10 photos • La première photo sera l'image principale
+                  {existingImages.length + imageFiles.length}/10 photos • La première photo sera
+                  l'image principale
                 </p>
               </div>
 

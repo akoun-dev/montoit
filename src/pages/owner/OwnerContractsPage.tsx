@@ -222,6 +222,11 @@ export default function OwnerContractsPage() {
     deductionReason: '',
   });
 
+  // Detail modal states for drill-down from stats cards
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [detailModalType, setDetailModalType] = useState<string | null>(null); // 'brouillon', 'en_attente_signature', 'actif', 'expire', 'resilie', 'signed', 'pending_signature'
+  const [detailPeriod, setDetailPeriod] = useState<'all' | '3m' | '6m' | '1y'>('all');
+
   useEffect(() => {
     if (user) {
       loadContracts();
@@ -549,6 +554,203 @@ export default function OwnerContractsPage() {
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('fr-CI', { style: 'currency', currency: 'XOF' }).format(amount);
 
+  // Helper function to get contracts for detail modal based on type and period
+  const getDetailContracts = () => {
+    let filtered = [...contracts];
+
+    // Filter by status/type
+    switch (detailModalType) {
+      case 'brouillon':
+        filtered = filtered.filter((c) => c.status === 'brouillon');
+        break;
+      case 'en_attente_signature':
+        filtered = filtered.filter((c) => c.status === 'en_attente_signature');
+        break;
+      case 'partiellement_signe':
+        filtered = filtered.filter((c) => c.status === 'partiellement_signe');
+        break;
+      case 'actif':
+        filtered = filtered.filter((c) => c.status === 'actif');
+        break;
+      case 'expire':
+        filtered = filtered.filter((c) => c.status === 'expire');
+        break;
+      case 'resilie':
+        filtered = filtered.filter((c) => c.status === 'resilie');
+        break;
+      case 'signed':
+        filtered = filtered.filter((c) => c.owner_signed_at && c.tenant_signed_at);
+        break;
+      case 'pending_signature':
+        filtered = filtered.filter((c) => !c.owner_signed_at || !c.tenant_signed_at);
+        break;
+      default:
+        break;
+    }
+
+    // Filter by period
+    if (detailPeriod !== 'all') {
+      const now = new Date();
+      let cutoffDate: Date;
+
+      switch (detailPeriod) {
+        case '3m':
+          cutoffDate = new Date(now.setMonth(now.getMonth() - 3));
+          break;
+        case '6m':
+          cutoffDate = new Date(now.setMonth(now.getMonth() - 6));
+          break;
+        case '1y':
+          cutoffDate = new Date(now.setFullYear(now.getFullYear() - 1));
+          break;
+        default:
+          cutoffDate = new Date(0);
+      }
+
+      filtered = filtered.filter((c) => new Date(c.created_at) >= cutoffDate);
+    }
+
+    return filtered;
+  };
+
+  // Open detail modal
+  const openDetailModal = (type: string) => {
+    setDetailModalType(type);
+    setDetailPeriod('all');
+    setShowDetailModal(true);
+  };
+
+  // Get detail modal title and description
+  const getDetailModalInfo = () => {
+    const infoMap: Record<string, { title: string; description: string; icon: typeof FileText }> = {
+      brouillon: {
+        title: 'Brouillons',
+        description: 'Contrats en cours de rédaction',
+        icon: FileText,
+      },
+      en_attente_signature: {
+        title: 'En attente de signature',
+        description: 'Contrats envoyés pour signature',
+        icon: Clock,
+      },
+      partiellement_signe: {
+        title: 'Partiellement signés',
+        description: 'Contrats signés par une seule partie',
+        icon: AlertCircle,
+      },
+      actif: {
+        title: 'Contrats actifs',
+        description: 'Baux en cours de validité',
+        icon: CheckCircle,
+      },
+      expire: {
+        title: 'Contrats expirés',
+        description: 'Baux arrivés à échéance',
+        icon: XCircle,
+      },
+      resilie: {
+        title: 'Contrats résiliés',
+        description: 'Baux terminés avant leur échéance',
+        icon: XCircle,
+      },
+      signed: {
+        title: 'Contrats signés',
+        description: 'Baux signés par toutes les parties',
+        icon: FileSignature,
+      },
+      pending_signature: {
+        title: 'En attente de signature',
+        description: 'Contrats en attente de signature',
+        icon: Clock,
+      },
+    };
+
+    return infoMap[detailModalType || ''] || { title: 'Détails', description: '', icon: FileText };
+  };
+
+  // Export to PDF functionality
+  const exportToPDF = async () => {
+    const contractsToExport = getDetailContracts();
+    const info = getDetailModalInfo();
+
+    // Create a simple HTML table for PDF
+    const tableHTML = `
+      <html>
+        <head>
+          <title>${info.title} - MonToit</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            h1 { color: #F16522; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th { background-color: #2C1810; color: white; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+            .status-actif { background-color: #d1fae5; color: #065f46; }
+            .status-brouillon { background-color: #f3f4f6; color: #374151; }
+            .status-en_attente { background-color: #fef3c7; color: #92400e; }
+            .status-expire, .status-resilie { background-color: #fee2e2; color: #991b1b; }
+            .footer { margin-top: 30px; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <h1>${info.title}</h1>
+          <p>${info.description}</p>
+          <p>Généré le ${new Date().toLocaleDateString('fr-FR')}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>N° Contrat</th>
+                <th>Locataire</th>
+                <th>Biens</th>
+                <th>Loyer</th>
+                <th>Caution</th>
+                <th>Début</th>
+                <th>Fin</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${contractsToExport.map((c) => {
+                const statusConfig = getStatusConfig(c.status);
+                const statusClass = `status-${c.status}`;
+                return `
+                  <tr>
+                    <td>${c.contract_number}</td>
+                    <td>${c.tenant_profile?.full_name || 'N/A'}</td>
+                    <td>${c.properties.title}</td>
+                    <td>${formatCurrency(c.monthly_rent)}</td>
+                    <td>${formatCurrency(c.deposit_amount || 0)}</td>
+                    <td>${formatDate(c.start_date)}</td>
+                    <td>${formatDate(c.end_date)}</td>
+                    <td><span class="status ${statusClass}">${statusConfig.label}</span></td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+          <div class="footer">
+            <p>Total: ${contractsToExport.length} contrat(s)</p>
+            <p>Document généré par MonToit - Plateforme de location immobilière en Côte d'Ivoire</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    // Create a blob and download
+    const blob = new Blob([tableHTML], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `contrats-${detailModalType}-${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success('Export PDF généré avec succès');
+  };
+
   const openNoticeModal = (contract: Contract) => {
     setSelectedContract(contract);
     const defaultDate = new Date();
@@ -703,7 +905,12 @@ export default function OwnerContractsPage() {
           <>
         {/* Stats Dashboard - Only show for Actifs tab */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div
+            onClick={() => stats.total > 0 && openDetailModal('all')}
+            className={`bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all cursor-pointer ${
+              stats.total > 0 ? 'hover:border-orange-300 hover:scale-[1.02]' : 'cursor-default'
+            }`}
+          >
             <div className="flex items-center justify-between mb-3">
               <FileText className="h-5 w-5 text-gray-400" />
               <span className="text-xs font-medium text-gray-400 bg-gray-50 px-2 py-1 rounded-full">
@@ -711,9 +918,19 @@ export default function OwnerContractsPage() {
               </span>
             </div>
             <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+            {stats.total > 0 && (
+              <p className="text-xs text-gray-400 mt-1">Cliquez pour voir les détails</p>
+            )}
           </div>
 
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div
+            onClick={() => stats.brouillon > 0 && openDetailModal('brouillon')}
+            className={`bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all ${
+              stats.brouillon > 0
+                ? 'hover:border-gray-400 hover:scale-[1.02] cursor-pointer'
+                : 'cursor-default'
+            }`}
+          >
             <div className="flex items-center justify-between mb-3">
               <FileText className="h-5 w-5 text-gray-400" />
               <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
@@ -721,9 +938,19 @@ export default function OwnerContractsPage() {
               </span>
             </div>
             <p className="text-3xl font-bold text-gray-600">{stats.brouillon}</p>
+            {stats.brouillon > 0 && (
+              <p className="text-xs text-gray-400 mt-1">Cliquez pour voir les détails</p>
+            )}
           </div>
 
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div
+            onClick={() => stats.en_attente_signature > 0 && openDetailModal('en_attente_signature')}
+            className={`bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all ${
+              stats.en_attente_signature > 0
+                ? 'hover:border-amber-300 hover:scale-[1.02] cursor-pointer'
+                : 'cursor-default'
+            }`}
+          >
             <div className="flex items-center justify-between mb-3">
               <Clock className="h-5 w-5 text-amber-400" />
               <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
@@ -731,9 +958,19 @@ export default function OwnerContractsPage() {
               </span>
             </div>
             <p className="text-3xl font-bold text-amber-600">{stats.en_attente_signature}</p>
+            {stats.en_attente_signature > 0 && (
+              <p className="text-xs text-amber-400 mt-1">Cliquez pour voir les détails</p>
+            )}
           </div>
 
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div
+            onClick={() => stats.actif > 0 && openDetailModal('actif')}
+            className={`bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all ${
+              stats.actif > 0
+                ? 'hover:border-green-300 hover:scale-[1.02] cursor-pointer'
+                : 'cursor-default'
+            }`}
+          >
             <div className="flex items-center justify-between mb-3">
               <CheckCircle className="h-5 w-5 text-green-500" />
               <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
@@ -741,9 +978,19 @@ export default function OwnerContractsPage() {
               </span>
             </div>
             <p className="text-3xl font-bold text-green-600">{stats.actif}</p>
+            {stats.actif > 0 && (
+              <p className="text-xs text-green-400 mt-1">Cliquez pour voir les détails</p>
+            )}
           </div>
 
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div
+            onClick={() => stats.expire > 0 && openDetailModal('expire')}
+            className={`bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all ${
+              stats.expire > 0
+                ? 'hover:border-red-300 hover:scale-[1.02] cursor-pointer'
+                : 'cursor-default'
+            }`}
+          >
             <div className="flex items-center justify-between mb-3">
               <XCircle className="h-5 w-5 text-red-400" />
               <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">
@@ -751,9 +998,19 @@ export default function OwnerContractsPage() {
               </span>
             </div>
             <p className="text-3xl font-bold text-red-600">{stats.expire}</p>
+            {stats.expire > 0 && (
+              <p className="text-xs text-red-400 mt-1">Cliquez pour voir les détails</p>
+            )}
           </div>
 
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div
+            onClick={() => stats.resilie > 0 && openDetailModal('resilie')}
+            className={`bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all ${
+              stats.resilie > 0
+                ? 'hover:border-red-300 hover:scale-[1.02] cursor-pointer'
+                : 'cursor-default'
+            }`}
+          >
             <div className="flex items-center justify-between mb-3">
               <XCircle className="h-5 w-5 text-red-400" />
               <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full">
@@ -761,12 +1018,22 @@ export default function OwnerContractsPage() {
               </span>
             </div>
             <p className="text-3xl font-bold text-red-600">{stats.resilie}</p>
+            {stats.resilie > 0 && (
+              <p className="text-xs text-red-400 mt-1">Cliquez pour voir les détails</p>
+            )}
           </div>
         </div>
 
         {/* Financial Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100">
+          <div
+            onClick={() => contracts.filter((c) => c.status === 'actif').length > 0 && openDetailModal('actif')}
+            className={`bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100 transition-all ${
+              contracts.filter((c) => c.status === 'actif').length > 0
+                ? 'hover:shadow-md hover:scale-[1.02] cursor-pointer'
+                : ''
+            }`}
+          >
             <div className="flex items-center gap-3 mb-3">
               <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
                 <Wallet className="h-6 w-6 text-white" />
@@ -782,9 +1049,19 @@ export default function OwnerContractsPage() {
                 </p>
               </div>
             </div>
+            {contracts.filter((c) => c.status === 'actif').length > 0 && (
+              <p className="text-xs text-green-600">Cliquez pour voir les détails</p>
+            )}
           </div>
 
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+          <div
+            onClick={() => contracts.filter((c) => c.status === 'actif' && c.deposit_amount).length > 0 && openDetailModal('actif')}
+            className={`bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100 transition-all ${
+              contracts.filter((c) => c.status === 'actif' && c.deposit_amount).length > 0
+                ? 'hover:shadow-md hover:scale-[1.02] cursor-pointer'
+                : ''
+            }`}
+          >
             <div className="flex items-center gap-3 mb-3">
               <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
                 <Shield className="h-6 w-6 text-white" />
@@ -800,9 +1077,19 @@ export default function OwnerContractsPage() {
                 </p>
               </div>
             </div>
+            {contracts.filter((c) => c.status === 'actif' && c.deposit_amount).length > 0 && (
+              <p className="text-xs text-blue-600">Cliquez pour voir les détails</p>
+            )}
           </div>
 
-          <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl p-6 border border-purple-100">
+          <div
+            onClick={() => contracts.filter((c) => c.owner_signed_at && c.tenant_signed_at).length > 0 && openDetailModal('signed')}
+            className={`bg-gradient-to-br from-purple-50 to-violet-50 rounded-2xl p-6 border border-purple-100 transition-all ${
+              contracts.filter((c) => c.owner_signed_at && c.tenant_signed_at).length > 0
+                ? 'hover:shadow-md hover:scale-[1.02] cursor-pointer'
+                : ''
+            }`}
+          >
             <div className="flex items-center gap-3 mb-3">
               <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
                 <FileCheck className="h-6 w-6 text-white" />
@@ -814,9 +1101,19 @@ export default function OwnerContractsPage() {
                 </p>
               </div>
             </div>
+            {contracts.filter((c) => c.owner_signed_at && c.tenant_signed_at).length > 0 && (
+              <p className="text-xs text-purple-600">Cliquez pour voir les détails</p>
+            )}
           </div>
 
-          <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl p-6 border border-amber-100">
+          <div
+            onClick={() => contracts.filter((c) => !c.owner_signed_at || !c.tenant_signed_at).length > 0 && openDetailModal('pending_signature')}
+            className={`bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl p-6 border border-amber-100 transition-all ${
+              contracts.filter((c) => !c.owner_signed_at || !c.tenant_signed_at).length > 0
+                ? 'hover:shadow-md hover:scale-[1.02] cursor-pointer'
+                : ''
+            }`}
+          >
             <div className="flex items-center gap-3 mb-3">
               <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center">
                 <Clock className="h-6 w-6 text-white" />
@@ -828,6 +1125,9 @@ export default function OwnerContractsPage() {
                 </p>
               </div>
             </div>
+            {contracts.filter((c) => !c.owner_signed_at || !c.tenant_signed_at).length > 0 && (
+              <p className="text-xs text-amber-600">Cliquez pour voir les détails</p>
+            )}
           </div>
         </div>
 
@@ -1470,6 +1770,224 @@ export default function OwnerContractsPage() {
                 <CheckCircle className="h-4 w-4" />
               )}
               Envoyer le préavis
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail Modal - Drill-down from stats cards */}
+      <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+        <DialogContent className="rounded-2xl max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-gray-900 text-xl">
+                  {(() => {
+                    const info = getDetailModalInfo();
+                    const Icon = info.icon;
+                    return (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-[#F16522] rounded-xl flex items-center justify-center">
+                          <Icon className="h-5 w-5 text-white" />
+                        </div>
+                        {info.title}
+                      </div>
+                    );
+                  })()}
+                </DialogTitle>
+                <p className="text-sm text-gray-500 mt-1">{getDetailModalInfo().description}</p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto">
+            {/* Period Filter */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDetailPeriod('all')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    detailPeriod === 'all'
+                      ? 'bg-[#F16522] text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Tout
+                </button>
+                <button
+                  onClick={() => setDetailPeriod('3m')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    detailPeriod === '3m'
+                      ? 'bg-[#F16522] text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  3 derniers mois
+                </button>
+                <button
+                  onClick={() => setDetailPeriod('6m')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    detailPeriod === '6m'
+                      ? 'bg-[#F16522] text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  6 derniers mois
+                </button>
+                <button
+                  onClick={() => setDetailPeriod('1y')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    detailPeriod === '1y'
+                      ? 'bg-[#F16522] text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Dernière année
+                </button>
+              </div>
+              <button
+                onClick={exportToPDF}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                Exporter PDF
+              </button>
+            </div>
+
+            {/* Contracts Table */}
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              {getDetailContracts().length === 0 ? (
+                <div className="p-8 text-center">
+                  <FileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">Aucun contrat trouvé pour cette sélection</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          N° Contrat
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Locataire
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Bien
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Loyer
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Caution
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Début
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Fin
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Statut
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {getDetailContracts().map((contract) => {
+                        const statusConfig = getStatusConfig(contract.status);
+                        const StatusIcon = statusConfig.icon;
+                        return (
+                          <tr key={contract.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm font-mono text-gray-900">
+                              {contract.contract_number}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              {contract.tenant_profile?.full_name || 'N/A'}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">
+                              {contract.properties.title}
+                              <div className="text-xs text-gray-400">{contract.properties.city}</div>
+                            </td>
+                            <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                              {formatCurrency(contract.monthly_rent)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              {formatCurrency(contract.deposit_amount || 0)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">
+                              {formatDate(contract.start_date)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">
+                              {formatDate(contract.end_date)}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span
+                                className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${statusConfig.color}`}
+                              >
+                                <StatusIcon className="h-3 w-3" />
+                                {statusConfig.label}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={() => {
+                                  setShowDetailModal(false);
+                                  navigate(`/contrat/${contract.id}`);
+                                }}
+                                className="text-[#F16522] hover:text-[#d9571d] text-sm font-medium"
+                              >
+                                Voir détails
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Summary */}
+            {getDetailContracts().length > 0 && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-xl">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Total des contrats affichés</span>
+                  <span className="font-bold text-gray-900">{getDetailContracts().length}</span>
+                </div>
+                {detailModalType === 'actif' && (
+                  <>
+                    <div className="flex items-center justify-between text-sm mt-2">
+                      <span className="text-gray-600">Revenu mensuel total</span>
+                      <span className="font-bold text-green-600">
+                        {formatCurrency(
+                          getDetailContracts().reduce((sum, c) => sum + c.monthly_rent, 0)
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm mt-2">
+                      <span className="text-gray-600">Caution totale détenue</span>
+                      <span className="font-bold text-blue-600">
+                        {formatCurrency(
+                          getDetailContracts().reduce((sum, c) => sum + (c.deposit_amount || 0), 0)
+                        )}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-4 border-t">
+            <button
+              onClick={() => setShowDetailModal(false)}
+              className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-medium transition-colors"
+            >
+              Fermer
             </button>
           </DialogFooter>
         </DialogContent>
