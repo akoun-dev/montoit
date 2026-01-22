@@ -51,6 +51,19 @@ const ROUTE_LABELS: Record<string, string> = {
   'cev-management': 'Gestion CEV',
   'trust-agents': 'Agents de confiance',
   nouvelle: 'Nouvelle demande',
+  // Routes propriétaires
+  'mes-biens': 'Mes biens',
+  contrats: 'Contrats',
+  candidatures: 'Candidatures',
+  visites: 'Visites',
+  'mes-locataires': 'Locataires',
+  'mes-mandats': 'Mandats',
+  profil: 'Mon profil',
+  'ajouter-propriete': 'Ajouter un bien',
+  'creer-contrat': 'Créer un contrat',
+  contrat: 'Contrat',
+  signer: 'Signer',
+  'mes-applications': 'Candidatures',
 };
 
 // Pages où ne pas afficher le breadcrumb

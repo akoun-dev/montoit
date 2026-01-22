@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -25,6 +25,7 @@ import { ScoreBadge } from '@/shared/ui/ScoreBadge';
 import InfiniteScroll from '@/shared/components/InfiniteScroll';
 import { useInfiniteProperties } from '../../hooks/tenant/useInfiniteProperties';
 import { useSaveSearch } from '../../hooks/tenant/useSaveSearch';
+import { usePrefetchProperties } from '@/shared/hooks/usePrefetchProperty';
 import SaveSearchDialog from '../../features/tenant/components/SaveSearchDialog';
 import UnifiedSearchBar from '@/shared/ui/UnifiedSearchBar';
 
@@ -61,6 +62,9 @@ export default function SearchPropertiesPage() {
   // Save search hook
   const { saveSearch, isAuthenticated } = useSaveSearch();
 
+  // Prefetch properties hook
+  const { prefetchProperties } = usePrefetchProperties();
+
   // Infinite scroll hook with sorting
   const {
     properties,
@@ -71,6 +75,15 @@ export default function SearchPropertiesPage() {
     loadMore,
     totalCount,
   } = useInfiniteProperties({ ...appliedFilters, sortBy, pageSize: 99999 });
+
+  // Prefetch first 6 properties when they are loaded (for faster detail page navigation)
+  const propertiesToPrefetch = useMemo(() => properties.slice(0, 6).map((p) => p.id), [properties]);
+
+  useEffect(() => {
+    if (propertiesToPrefetch.length > 0 && !loading) {
+      prefetchProperties(propertiesToPrefetch);
+    }
+  }, [propertiesToPrefetch, loading, prefetchProperties]);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -471,7 +484,7 @@ export default function SearchPropertiesPage() {
                 <div
                   className={`grid gap-6 ${activeView === 'map' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}
                 >
-                  {properties.map((property, index) => (
+                  {properties.map((property) => (
                     <article
                       key={property.id}
                       onClick={() => navigate(`/proprietes/${property.id}`)}
@@ -481,6 +494,8 @@ export default function SearchPropertiesPage() {
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.borderColor = `${COLORS.orange}4D`;
+                        // Prefetch property details on hover for faster navigation
+                        prefetchProperties([property.id]);
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.borderColor = COLORS.border;
@@ -505,14 +520,6 @@ export default function SearchPropertiesPage() {
 
                         {/* Badges Flottants */}
                         <div className="absolute top-3 left-3 flex gap-2">
-                          {index < 3 && (
-                            <span
-                              className="text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase shadow-sm"
-                              style={{ backgroundColor: COLORS.orange }}
-                            >
-                              Nouveau
-                            </span>
-                          )}
                           <span
                             className="bg-white/90 backdrop-blur-sm text-[10px] font-bold px-2 py-1 rounded-md uppercase shadow-sm"
                             style={{ color: COLORS.chocolat }}

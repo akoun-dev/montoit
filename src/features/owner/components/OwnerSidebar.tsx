@@ -14,6 +14,7 @@ import {
   Handshake,
   Building2,
   Calendar,
+  Key,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -34,7 +35,7 @@ const navItems = [
   { label: 'Mes contrats', href: ROUTES.CONTRACTS.LIST, icon: FileText },
   { label: 'Mes candidatures', href: '/proprietaire/candidatures', icon: Users },
   { label: 'Visites', href: '/proprietaire/visites', icon: Calendar },
-  { label: 'Mes locataires', href: '/proprietaire/mes-locataires', icon: Users },
+  { label: 'Mes locataires', href: '/proprietaire/mes-locataires', icon: Key },
   { label: 'Mandats agence', href: '/proprietaire/mes-mandats', icon: Handshake },
   { label: 'Messages', href: '/proprietaire/messages', icon: MessageSquare, hasBadge: true },
   { label: 'Mon profil', href: '/proprietaire/profil', icon: UserCircle2 },

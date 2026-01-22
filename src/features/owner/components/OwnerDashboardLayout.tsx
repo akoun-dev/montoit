@@ -42,7 +42,7 @@ export default function OwnerDashboardLayout({ children, title }: OwnerDashboard
       />
 
       <div className="flex-1 flex flex-col min-w-0 lg:ml-72 overflow-hidden">
-        <header className="lg:hidden flex-shrink-0 bg-white border-b border-neutral-200 px-4 py-3">
+        <header className="lg:hidden flex-shrink-0 bg-white border-b border-neutral-200 px-4 py-3 sticky top-0 z-20">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -56,7 +56,9 @@ export default function OwnerDashboardLayout({ children, title }: OwnerDashboard
         </header>
 
         <main className="flex-1 overflow-auto">
-          <div className="w-full px-4 lg:px-10 xl:px-12 py-6">{children || <Outlet />}</div>
+          <div className="w-full px-3 sm:px-4 lg:px-8 xl:px-12 py-4 lg:py-6">
+            {children || <Outlet />}
+          </div>
         </main>
       </div>
     </div>

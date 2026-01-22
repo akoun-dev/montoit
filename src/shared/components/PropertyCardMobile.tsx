@@ -82,7 +82,7 @@ export default function PropertyCardMobile({
           <div className="flex items-end justify-between">
             <div className="bg-white/95 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg">
               <span className="text-xl font-bold text-[#2C1810]">
-                {FormatService.formatCurrency(property.monthly_rent)}
+                {FormatService.formatCurrency(property.price ?? 0)}
               </span>
               <span className="text-sm text-[#A69B95] ml-1">/mois</span>
             </div>

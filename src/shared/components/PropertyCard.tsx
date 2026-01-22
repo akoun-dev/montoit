@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Bed, Bath, Maximize } from 'lucide-react';
 import { FormatService } from '@/services/format/formatService';
 import { OwnerBadge } from '@/shared/ui';
+import { usePrefetchProperty } from '@/shared/hooks/usePrefetchProperty';
 import type { Database } from '@/shared/lib/database.types';
 
 type Property = Database['public']['Tables']['properties']['Row'];
@@ -54,7 +55,8 @@ function getFallbackImage(property: Property): string {
 
   // Create a key based on property characteristics to get a consistent image
   const key = `${type}-${city || 'abidjan'}-${priceRange % 4}`;
-  return imageMap[key] || imageMap['apartment-abidjan-0'];
+  const fallbackUrl = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80';
+  return imageMap[key as keyof typeof imageMap] ?? fallbackUrl;
 }
 
 function handleImageError(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -96,12 +98,17 @@ export default function PropertyCard({
   // Get the appropriate image for this property
   const imageUrl = property.images?.[0] || getFallbackImage(property);
 
+  // Prefetch property details on hover for faster navigation
+  const { usePrefetchOnHover } = usePrefetchProperty();
+  const hoverHandlers = usePrefetchOnHover(property.id);
+
   return (
     <Link
       to={`/propriete/${property.id}`}
       className="group block w-full sm:w-80 flex-shrink-0 premium-card card-hover-premium overflow-hidden"
       role="article"
       aria-label={`Voir les détails de ${property.title} à ${property.city}, ${property.neighborhood}`}
+      {...hoverHandlers}
     >
       {/* Image Container - 60%+ de la carte */}
       <div className="relative h-72 sm:h-80 bg-[var(--color-creme)] overflow-hidden">
@@ -119,7 +126,7 @@ export default function PropertyCard({
         {/* Prix en Overlay - Bottom Left - Consistently positioned */}
         <div className="absolute bottom-3 left-3 px-4 py-2 bg-[var(--color-chocolat)]/90 backdrop-blur-sm rounded-xl text-white shadow-lg">
           <span className="text-lg font-bold">
-            {FormatService.formatCurrency(property.monthly_rent)}
+            {FormatService.formatCurrency(property.price ?? 0)}
           </span>
           <span className="text-xs opacity-80 ml-1">/mois</span>
         </div>
