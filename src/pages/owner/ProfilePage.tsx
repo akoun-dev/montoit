@@ -15,11 +15,11 @@ import {
   Home,
   FileText,
   TrendingUp,
+  Mail,
+  Loader2,
 } from 'lucide-react';
-import { Button } from '@/shared/ui/Button';
-import Input from '@/shared/ui/Input';
-import { toast } from '@/hooks/shared/useSafeToast';
-import { AddressValue, formatAddress } from '@/shared/utils/address';
+import { toast } from 'sonner';
+import { formatAddress } from '@/shared/utils/address';
 import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
 
 interface Profile {
@@ -29,7 +29,7 @@ interface Profile {
   email: string | null;
   phone: string | null;
   city: string | null;
-  address: AddressValue;
+  address: any;
   bio: string | null;
   avatar_url: string | null;
   user_type: string | null;
@@ -42,6 +42,144 @@ interface Profile {
   agency_description?: string | null;
   properties_count?: number;
   total_revenue?: number;
+  facial_verification_status?: 'pending' | 'verified' | 'failed' | null;
+  facial_verification_date?: string | null;
+  facial_verification_score?: number | null;
+}
+
+// Helper component
+const StatCard = ({
+  icon: Icon,
+  label,
+  value,
+  color = 'gray',
+}: {
+  icon: any;
+  label: string;
+  value: string | number;
+  color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple';
+}) => {
+  const colors = {
+    gray: 'bg-gray-50 text-gray-600 border-gray-200',
+    blue: 'bg-blue-50 text-blue-600 border-blue-200',
+    green: 'bg-green-50 text-green-600 border-green-200',
+    orange: 'bg-orange-50 text-orange-600 border-orange-200',
+    purple: 'bg-purple-50 text-purple-600 border-purple-200',
+  };
+
+  return (
+    <div className={`p-5 rounded-xl border ${colors[color]}`}>
+      <div className="flex items-center gap-3 mb-3">
+        <div className={`p-2 rounded-lg ${color === 'gray' ? 'bg-gray-200' : 'bg-white'}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+        <span className="text-sm font-medium">{label}</span>
+      </div>
+      <p className="text-2xl font-bold">{value}</p>
+    </div>
+  );
+};
+
+function VerificationItem({
+  title,
+  description,
+  verified,
+  score,
+  onVerify,
+  showButton = true,
+  status = 'pending',
+  allowRetry = false,
+}: {
+  title: string;
+  description: string;
+  verified: boolean | null;
+  score?: number | null;
+  onVerify?: () => void;
+  showButton?: boolean;
+  status?: 'pending' | 'verified' | 'failed' | null;
+  allowRetry?: boolean;
+}) {
+  const getStatusConfig = () => {
+    if (verified || status === 'verified') {
+      return {
+        icon: CheckCircle,
+        color: 'text-green-600',
+        bgColor: 'bg-green-100',
+        label: 'Vérifié',
+      };
+    }
+    if (status === 'failed') {
+      return {
+        icon: AlertCircle,
+        color: 'text-red-600',
+        bgColor: 'bg-red-100',
+        label: 'Échoué',
+      };
+    }
+    return {
+      icon: AlertCircle,
+      color: 'text-amber-500',
+      bgColor: 'bg-amber-100',
+      label: 'En attente',
+    };
+  };
+
+  const statusConfig = getStatusConfig();
+  const StatusIcon = statusConfig.icon;
+
+  return (
+    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:shadow-sm transition-all">
+      <div className="flex items-center gap-3 flex-1">
+        <StatusIcon className={`w-6 h-6 ${statusConfig.color} flex-shrink-0`} />
+        <div className="min-w-0 flex-1">
+          <h3 className="font-medium text-gray-900">{title}</h3>
+          <p className="text-sm text-gray-500">{description}</p>
+          {score && verified && (
+            <p className="text-xs text-green-600 mt-1">
+              Score: {score}%
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-3 ml-4 flex-shrink-0">
+        <span
+          className={`px-3 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap border ${statusConfig.bgColor} ${statusConfig.color}`}
+        >
+          {statusConfig.label}
+        </span>
+        {showButton && onVerify && (!verified || allowRetry) && (
+          <button
+            onClick={onVerify}
+            className="inline-flex items-center gap-2.5 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+          >
+            <svg
+              className="h-4 w-4 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              {status === 'failed' || allowRetry ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              ) : (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              )}
+            </svg>
+            <span>{status === 'failed' ? 'Réessayer' : allowRetry && verified ? 'Refaire' : 'Vérifier'}</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function OwnerProfilePage() {
@@ -64,6 +202,8 @@ export default function OwnerProfilePage() {
     agency_name: '',
     agency_description: '',
   });
+
+  const facialStatus = profile?.facial_verification_status;
 
   useEffect(() => {
     if (user) {
@@ -212,207 +352,244 @@ export default function OwnerProfilePage() {
     (profile?.agency_name && profile.agency_name.trim()) ||
     'Utilisateur';
 
-  const tabs = [
+  // Filter tabs based on user type
+  const allTabs = [
     { id: 'infos', label: 'Informations', icon: User },
     { id: 'agency', label: 'Agence', icon: Building2 },
     { id: 'verification', label: 'Vérifications', icon: Shield },
     { id: 'stats', label: 'Statistiques', icon: TrendingUp },
   ];
-  const isOwnerOnly =
-    profile?.user_type === 'proprietaire' ||
-    profile?.user_type === 'owner' ||
-    authProfile?.user_type === 'proprietaire';
+
+  const isAgency = profile?.user_type === 'agence' || profile?.user_type === 'agency' || authProfile?.user_type === 'agence';
+  const tabs = allTabs.filter(tab => tab.id !== 'agency' || isAgency);
+
+  if (!user) {
+    return (
+      <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-600">Veuillez vous connecter</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="w-full">
-      {/* Profile Header */}
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <div className="flex items-center gap-6">
-          <div className="relative">
-            {profile?.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt={displayName}
-                className="w-20 h-20 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center">
-                <User className="w-8 h-8 text-primary-600" />
-              </div>
-            )}
-            <label className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-sm cursor-pointer">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarUpload}
-                className="hidden"
-                id="avatar-upload"
-              />
-              <Camera className="w-4 h-4 text-gray-600" />
-            </label>
-            {uploadingAvatar && (
-              <span className="absolute -bottom-5 right-0 text-xs text-muted-foreground">
-                Upload...
-              </span>
-            )}
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold">{displayName}</h2>
-            <p className="text-gray-600">
-              {profile?.user_type === 'proprietaire' ? 'Propriétaire' : 'Agence immobilière'}
-            </p>
-            {profile?.trust_score && (
-              <div className="flex items-center gap-2 mt-2">
-                <Shield className="w-4 h-4 text-green-600" />
-                <span className="text-sm font-medium">
-                  Score de confiance: {profile.trust_score}%
-                </span>
-              </div>
-            )}
+    <div className="w-full min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
+              <User className="h-7 w-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-white">Mon Profil</h1>
+              <p className="text-[#E8D4C5]">Gérez vos informations personnelles</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="bg-white rounded-lg shadow-sm mb-6">
-        <div className="border-b">
-          <nav className="flex -mb-px">
-            {tabs.map((tab) => (
+      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
+        {/* Profile Header Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <div className="relative">
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={displayName}
+                  className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
+                />
+              ) : (
+                <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center border-4 border-white shadow-md">
+                  <User className="w-12 h-12 text-orange-500" />
+                </div>
+              )}
+              <label className="absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-md cursor-pointer hover:bg-gray-50 transition-colors border border-gray-200">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                  id="avatar-upload"
+                />
+                {uploadingAvatar ? (
+                  <Loader2 className="w-4 h-4 text-gray-600 animate-spin" />
+                ) : (
+                  <Camera className="w-4 h-4 text-gray-600" />
+                )}
+              </label>
+            </div>
+
+            <div className="flex-1 text-center sm:text-left">
+              <h2 className="text-2xl font-bold text-gray-900">{displayName}</h2>
+              <p className="text-gray-500 mt-1">
+                {profile?.user_type === 'proprietaire' ? 'Propriétaire' : profile?.user_type === 'agence' ? 'Agence immobilière' : 'Utilisateur'}
+              </p>
+              {profile?.trust_score && (
+                <div className="flex items-center gap-2 mt-3 justify-center sm:justify-start">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-full border border-green-200">
+                    <Shield className="w-4 h-4 text-green-600" />
+                    <span className="text-sm font-semibold text-green-700">
+                      Score: {profile.trust_score}%
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs Navigation */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-2 mb-8 inline-flex gap-2">
+          {tabs.map((tab) => {
+            const TabIcon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
+                  isActive
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
-                <tab.icon className="w-4 h-4" />
+                <TabIcon className="w-4 h-4" />
                 {tab.label}
               </button>
-            ))}
-          </nav>
+            );
+          })}
         </div>
-      </div>
 
-      {/* Tab Content */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        {activeTab === 'infos' && (
-          <form onSubmit={handleSaveProfile} className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nom complet</label>
-                <Input
-                  type="text"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  placeholder="Votre nom complet"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                <Input type="email" value={profile?.email || ''} disabled className="bg-gray-50" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
-                <Input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="Votre numéro de téléphone"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Genre</label>
-                <select
-                  value={formData.gender}
-                  onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'Homme' | 'Femme' | 'Non spécifié' | '' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                >
-                  <option value="">Sélectionner...</option>
-                  <option value="Homme">Homme</option>
-                  <option value="Femme">Femme</option>
-                  <option value="Non spécifié">Non spécifié</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Ville</label>
-                <Input
-                  type="text"
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  placeholder="Votre ville"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
-              <Input
-                type="text"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="Votre adresse complète"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
-              <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                rows={4}
-                value={formData.bio}
-                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                placeholder="Parlez-vous brièvement..."
-              />
-            </div>
-            <div className="flex justify-end">
-              <Button type="submit" disabled={saving} className="flex items-center gap-2">
-                {saving ? 'Enregistrement...' : 'Enregistrer'}
-              </Button>
-            </div>
-          </form>
-        )}
-
-        {activeTab === 'agency' && (
-          <div className="space-y-6">
-            {isOwnerOnly && (
-              <div className="p-4 border border-blue-200 bg-blue-50 rounded-lg">
-                <p className="font-semibold text-blue-800 mb-1">Fonctionnalité agence</p>
-                <p className="text-blue-700 text-sm">
-                  Vous êtes identifié comme propriétaire. Vous pouvez ajouter des informations
-                  d'agence à votre profil ou gérer vos mandats avec des agences immobilières.
-                </p>
-                <div className="mt-3 flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate('/proprietaire/mes-mandats')}
-                    className="whitespace-nowrap"
+        {/* Tab Content */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          {activeTab === 'infos' && (
+            <form onSubmit={handleSaveProfile} className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nom complet</label>
+                  <input
+                    type="text"
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    placeholder="Votre nom complet"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    <input
+                      type="email"
+                      value={profile?.email || ''}
+                      disabled
+                      className="bg-transparent flex-1 outline-none text-gray-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                  <div className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:border-orange-500">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="Votre numéro de téléphone"
+                      className="flex-1 outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Genre</label>
+                  <select
+                    value={formData.gender}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'Homme' | 'Femme' | 'Non spécifié' | '' })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                   >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Voir mes mandats
-                  </Button>
+                    <option value="">Sélectionner...</option>
+                    <option value="Homme">Homme</option>
+                    <option value="Femme">Femme</option>
+                    <option value="Non spécifié">Non spécifié</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Ville</label>
+                  <div className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:border-orange-500">
+                    <MapPin className="w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      placeholder="Votre ville"
+                      className="flex-1 outline-none"
+                    />
+                  </div>
                 </div>
               </div>
-            )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="Votre adresse complète"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
+                <textarea
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
+                  rows={4}
+                  value={formData.bio}
+                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                  placeholder="Parlez-vous brièvement..."
+                />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-lg font-medium transition-all disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Enregistrement...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Enregistrer
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
 
+          {activeTab === 'agency' && (
             <form onSubmit={handleSaveProfile} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Nom de l'agence
                 </label>
-                <Input
+                <input
                   type="text"
                   value={formData.agency_name}
                   onChange={(e) => setFormData({ ...formData, agency_name: e.target.value })}
                   placeholder="Nom de votre agence"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                 />
               </div>
               <div>
@@ -424,26 +601,24 @@ export default function OwnerProfilePage() {
                     <img
                       src={profile.agency_logo}
                       alt="Logo agence"
-                      className="w-16 h-16 rounded-lg object-cover"
+                      className="w-20 h-20 rounded-xl object-cover border border-gray-200"
                     />
                   ) : (
-                    <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <Building2 className="w-8 h-8 text-gray-400" />
+                    <div className="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center border border-gray-200">
+                      <Building2 className="w-10 h-10 text-gray-400" />
                     </div>
                   )}
-                  <div>
-                    <label className="cursor-pointer flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50">
-                      <Camera className="w-4 h-4" />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleLogoUpload}
-                        className="hidden"
-                        id="logo-upload"
-                      />
-                      {uploadingLogo ? 'Upload...' : 'Changer le logo'}
-                    </label>
-                  </div>
+                  <label className="cursor-pointer flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <Camera className="w-4 h-4" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                      id="logo-upload"
+                    />
+                    {uploadingLogo ? 'Upload...' : 'Changer le logo'}
+                  </label>
                 </div>
               </div>
               <div>
@@ -451,7 +626,7 @@ export default function OwnerProfilePage() {
                   Description de l'agence
                 </label>
                 <textarea
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
                   rows={4}
                   value={formData.agency_description}
                   onChange={(e) => setFormData({ ...formData, agency_description: e.target.value })}
@@ -459,102 +634,107 @@ export default function OwnerProfilePage() {
                 />
               </div>
               <div className="flex justify-end">
-                <Button type="submit" disabled={saving} className="flex items-center gap-2">
-                  {saving ? 'Enregistrement...' : 'Enregistrer'}
-                </Button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-lg font-medium transition-all disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Enregistrement...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Enregistrer
+                    </>
+                  )}
+                </button>
               </div>
             </form>
-          </div>
-        )}
+          )}
 
-        {activeTab === 'verification' && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Statut de vérification</h3>
-            <VerificationItem
-              title="Email vérifié"
-              description="Votre adresse email a été vérifiée"
-              verified={true}
-            />
-            <VerificationItem
-              title="Vérification ONECI"
-              description="Carte d'identité vérifiée"
-              verified={profile?.oneci_verified}
-            />
-          </div>
-        )}
+          {activeTab === 'verification' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-gray-900">Statut de vérification</h3>
 
-        {activeTab === 'stats' && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold">Statistiques</h3>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Biens publiés</p>
-                    <p className="text-2xl font-bold">{profile?.properties_count || 0}</p>
-                  </div>
-                  <Home className="w-8 h-8 text-blue-500" />
-                </div>
+              {/* Verified items with action buttons */}
+              <div className="space-y-3 mb-8">
+                <VerificationItem
+                  title="Email vérifié"
+                  description="Votre adresse email a été vérifiée"
+                  verified={true}
+                  showButton={false}
+                />
+                <VerificationItem
+                  title="Vérification ONECI"
+                  description="Carte d'identité vérifiée"
+                  verified={profile?.oneci_verified ?? null}
+                  onVerify={() => navigate('/proprietaire/verification-oneci')}
+                  showButton={!profile?.oneci_verified}
+                />
+                <VerificationItem
+                  title="Reconnaissance faciale"
+                  description="Vérification biométrique NeoFace avec contrôle de vivacité"
+                  verified={facialStatus === 'verified'}
+                  score={profile?.facial_verification_score}
+                  onVerify={() => navigate('/verification-biometrique?reset=true')}
+                  showButton={true}
+                  status={facialStatus || 'pending'}
+                  allowRetry={facialStatus === 'verified'}
+                />
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between">
+
+              {/* Info Box */}
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <div className="flex gap-3">
+                  <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm text-gray-600">Revenus totaux</p>
-                    <p className="text-2xl font-bold">
-                      {profile?.total_revenue
-                        ? `${profile.total_revenue.toLocaleString()} FCFA`
-                        : '0 FCFA'}
-                    </p>
+                    <p className="font-medium text-blue-900">Pourquoi se faire vérifier ?</p>
+                    <ul className="mt-2 text-sm text-blue-800 space-y-1">
+                      <li>• Augmentez votre score de confiance et crédibilité</li>
+                      <li>• Gagnez la confiance des locataires potentiels</li>
+                      <li>• Accédez à des fonctionnalités prioritaires</li>
+                      <li>• Vos annonces seront mises en avant dans les recherches</li>
+                    </ul>
                   </div>
-                  <TrendingUp className="w-8 h-8 text-green-500" />
-                </div>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Score de confiance</p>
-                    <p className="text-2xl font-bold">{profile?.trust_score || 0}%</p>
-                  </div>
-                  <Shield className="w-8 h-8 text-purple-500" />
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+          )}
 
-function VerificationItem({
-  title,
-  description,
-  verified,
-}: {
-  title: string;
-  description: string;
-  verified: boolean | null;
-}) {
-  return (
-    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-      <div className="flex items-center gap-3">
-        {verified ? (
-          <CheckCircle className="w-6 h-6 text-green-600" />
-        ) : (
-          <AlertCircle className="w-6 h-6 text-amber-500" />
-        )}
-        <div>
-          <h3 className="font-medium text-foreground">{title}</h3>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          {activeTab === 'stats' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-gray-900">Statistiques</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <StatCard
+                  icon={Home}
+                  label="Biens publiés"
+                  value={profile?.properties_count || 0}
+                  color="blue"
+                />
+                <StatCard
+                  icon={TrendingUp}
+                  label="Revenus totaux"
+                  value={
+                    profile?.total_revenue
+                      ? `${profile.total_revenue.toLocaleString()} FCFA`
+                      : '0 FCFA'
+                  }
+                  color="green"
+                />
+                <StatCard
+                  icon={Shield}
+                  label="Score de confiance"
+                  value={`${profile?.trust_score || 0}%`}
+                  color="purple"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
-      <span
-        className={`px-3 py-1 rounded-full text-sm font-medium ${
-          verified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-        }`}
-      >
-        {verified ? 'Vérifié' : 'En attente'}
-      </span>
     </div>
   );
 }

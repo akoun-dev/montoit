@@ -298,31 +298,31 @@ export default function MyPropertiesPage() {
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="p-2 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg">
-                <Building2 className="w-5 h-5 text-white" />
+              <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
+                <Building2 className="h-7 w-7 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">Mes Biens</h1>
-                <p className="text-sm text-gray-500">Gérez votre portefeuille immobilier</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white">Mes Biens</h1>
+                <p className="text-[#E8D4C5]">Gérez votre portefeuille immobilier</p>
               </div>
             </div>
 
             <Link
               to="/proprietaire/ajouter-propriete"
-              className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-all"
+              className="flex items-center gap-2 bg-[#F16522] hover:bg-[#d9571d] text-white px-6 py-3 rounded-xl font-medium transition-colors"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="h-5 w-5" />
               <span>Ajouter un bien</span>
             </Link>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
         {/* Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <StatCard
