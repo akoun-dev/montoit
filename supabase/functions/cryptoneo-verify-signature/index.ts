@@ -14,36 +14,39 @@ serve(async (req) => {
   }
 
   try {
-    const { leaseId, operationId } = await req.json();
+    const { operationId } = await req.json();
+
+    if (!operationId) {
+      return new Response(
+        JSON.stringify({ error: 'Operation ID requis' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // 1. Get lease
-    const { data: lease } = await supabaseAdmin
-      .from('leases')
-      .select('*, properties(city)')
-      .eq('id', leaseId)
-      .single();
+    console.log('🔍 Vérification signature CryptoNeo - Operation ID:', operationId);
 
-    if (!lease) {
-      return new Response(
-        JSON.stringify({ error: 'Bail non trouvé' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // 2. Get JWT token
+    // 1. Get JWT token from auth function
     const authResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/cryptoneo-auth`, {
-      headers: { 
+      headers: {
         Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
       }
     });
+
+    if (!authResponse.ok) {
+      return new Response(
+        JSON.stringify({ error: 'Échec authentification CryptoNeo' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { token: jwt } = await authResponse.json();
 
-    // 3. Verify signature status
+    // 2. Call CryptoNeo verifySignedBatch API
     const verifyResponse = await fetch(`${CRYPTONEO_BASE_URL}/sign/verifySignedBatch`, {
       method: 'POST',
       headers: {
@@ -56,145 +59,179 @@ serve(async (req) => {
     if (!verifyResponse.ok) {
       const error = await verifyResponse.text();
       console.error('CryptoNeo verification failed:', error);
-      
-      await supabaseAdmin
-        .from('electronic_signature_logs')
-        .update({ 
-          status: 'failed',
-          error_message: error
-        })
-        .eq('operation_id', operationId);
-
       return new Response(
-        JSON.stringify({ error: 'Échec vérification signature' }),
+        JSON.stringify({ error: 'Échec vérification signature CryptoNeo' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const verifyData = await verifyResponse.json();
-    const { status, signedPdfBase64, error } = verifyData;
+    console.log('CryptoNeo verification response:', verifyData);
 
-    if (status === 'completed' && signedPdfBase64) {
-      console.log('Signature completed, storing signed PDF');
+    // CryptoNeo retourne statusCode 7004 pour succès
+    if (verifyData.statusCode === 7004) {
+      const results = verifyData.data?.results || [];
 
-      // 4. Convert base64 to Blob
-      const binaryString = atob(signedPdfBase64);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const pdfBlob = new Blob([bytes], { type: 'application/pdf' });
+      // Traiter les résultats
+      const completedDocs = results.filter((r: any) => r.statusCode === 7000);
+      const failedDocs = results.filter((r: any) => r.statusCode !== 7000);
 
-      // 5. Upload to storage
-      const fileName = `leases/signed/${leaseId}.pdf`;
-      const { error: uploadError } = await supabaseAdmin.storage
-        .from('lease-documents')
-        .upload(fileName, pdfBlob, { upsert: true });
+      // Trouver le contrat par operationId
+      const { data: contract } = await supabaseAdmin
+        .from('lease_contracts')
+        .select('*')
+        .eq('cryptoneo_operation_id', operationId)
+        .single();
 
-      if (uploadError) {
-        console.error('Error uploading signed PDF:', uploadError);
-        throw uploadError;
-      }
+      if (contract) {
+        // Télécharger et stocker les documents signés
+        const signedDocumentUrls: string[] = [];
 
-      // 6. Get public URL
-      const { data: urlData } = supabaseAdmin.storage
-        .from('lease-documents')
-        .getPublicUrl(fileName);
+        for (const result of completedDocs) {
+          if (result.data?.fileName && result.data?.downloadUrl) {
+            try {
+              // Télécharger le PDF signé
+              const pdfResponse = await fetch(result.data.downloadUrl);
+              if (!pdfResponse.ok) {
+                console.error('Failed to download signed PDF:', result.data.fileName);
+                continue;
+              }
 
-      // 7. Update lease
-      await supabaseAdmin
-        .from('leases')
-        .update({
-          signed_document_url: urlData.publicUrl,
-          is_electronically_signed: true
-        })
-        .eq('id', leaseId);
+              const pdfBlob = await pdfResponse.blob();
+              const pdfBuffer = await pdfBlob.arrayBuffer();
 
-      // 8. Update log
-      await supabaseAdmin
-        .from('electronic_signature_logs')
-        .update({
-          status: 'completed',
-          cryptoneo_response: { status, signedPdfStored: true },
-          updated_at: new Date().toISOString()
-        })
-        .eq('operation_id', operationId);
+              // Upload vers Supabase Storage
+              const fileName = `contracts/${contract.id}_signed_${Date.now()}.pdf`;
+              const { error: uploadError } = await supabaseAdmin.storage
+                .from('contract-documents')
+                .upload(fileName, pdfBuffer, {
+                  contentType: 'application/pdf',
+                  upsert: true
+                });
 
-      // 9. Notify both parties
-      await supabaseAdmin.from('notifications').insert([
-        {
-          user_id: lease.landlord_id,
-          type: 'signature_completed',
-          category: 'lease',
-          title: 'Signature électronique complétée',
-          message: 'Le bail a été signé électroniquement par les deux parties.',
-          link: '/leases'
-        },
-        {
-          user_id: lease.tenant_id,
-          type: 'signature_completed',
-          category: 'lease',
-          title: 'Signature électronique complétée',
-          message: 'Le bail a été signé électroniquement par les deux parties.',
-          link: '/leases'
+              if (uploadError) {
+                console.error('Error uploading signed PDF:', uploadError);
+                continue;
+              }
+
+              // Récupérer l'URL publique
+              const { data: urlData } = supabaseAdmin.storage
+                .from('contract-documents')
+                .getPublicUrl(fileName);
+
+              signedDocumentUrls.push(urlData.publicUrl);
+            } catch (err) {
+              console.error('Error processing signed document:', err);
+            }
+          }
         }
-      ]);
 
-      console.log('Electronic signature completed for lease:', leaseId);
+        // Mettre à jour le contrat
+        const updateData: any = {
+          cryptoneo_signature_status: 'completed',
+          cryptoneo_callback_received_at: new Date().toISOString(),
+        };
 
-      return new Response(
-        JSON.stringify({ 
-          success: true,
-          status: 'completed',
-          signedDocumentUrl: urlData.publicUrl
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        if (signedDocumentUrls.length > 0) {
+          updateData.cryptoneo_signed_document_url = signedDocumentUrls[0]; // Premier document comme principal
+          updateData.document_url = signedDocumentUrls[0]; // Mettre à jour l'URL du document
+        }
 
-    } else if (status === 'in_progress') {
-      console.log('Signature still in progress, will retry');
+        if (failedDocs.length === 0) {
+          // Tous les documents sont signés avec succès
+          updateData.cryptoneo_all_signed = true;
+        }
 
-      // Retry after 30s
-      setTimeout(async () => {
-        await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/cryptoneo-verify-signature`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ leaseId, operationId })
+        await supabaseAdmin
+          .from('lease_contracts')
+          .update(updateData)
+          .eq('id', contract.id);
+
+        // Créer les notifications
+        if (signedDocumentUrls.length > 0) {
+          await supabaseAdmin.from('notifications').insert([
+            {
+              user_id: contract.owner_id,
+              type: 'contract_electronically_signed',
+              category: 'contract',
+              title: 'Contrat signé électroniquement',
+              message: 'Le contrat a été signé électroniquement avec succès via CryptoNeo.',
+              link: `/proprietaire/mes-contrats/${contract.id}`
+            },
+            {
+              user_id: contract.tenant_id,
+              type: 'contract_electronically_signed',
+              category: 'contract',
+              title: 'Contrat signé électroniquement',
+              message: 'Le contrat a été signé électroniquement avec succès via CryptoNeo.',
+              link: `/locataire/mes-contrats/${contract.id}`
+            }
+          ]);
+        }
+
+        // Log dans les audits
+        await supabaseAdmin.from('admin_audit_logs').insert({
+          admin_id: contract.owner_id,
+          action_type: 'contract_electronically_signed',
+          target_type: 'lease_contract',
+          target_id: contract.id,
+          notes: `Signature CryptoNeo réussie - ${completedDocs.length}/${results.length} documents signés - Operation: ${operationId}`
         });
-      }, 30000);
+
+        console.log('✅ Signature vérifiée avec succès pour contrat:', contract.id);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            statusCode: 7004,
+            data: {
+              operationId,
+              results,
+              signedDocumentUrls,
+              completed: completedDocs.length,
+              total: results.length
+            },
+            message: 'Signature vérifiée avec succès'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+
+      } else {
+        // Aucun contrat trouvé pour cet operationId
+        console.warn('Aucun contrat trouvé pour operationId:', operationId);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            statusCode: verifyData.statusCode,
+            data: verifyData.data,
+            message: 'Aucun contrat trouvé pour cet operationId'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else if (verifyData.statusCode === 7005) {
+      // Signature en cours
+      console.log('⏳ Signature en cours pour operationId:', operationId);
 
       return new Response(
-        JSON.stringify({ status: 'in_progress' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          success: true,
+          statusCode: 7005,
+          message: 'Signature en cours de traitement'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-
-    } else if (status === 'failed') {
-      console.error('Signature failed:', error);
-
-      await supabaseAdmin
-        .from('electronic_signature_logs')
-        .update({
-          status: 'failed',
-          error_message: error || 'Signature failed'
-        })
-        .eq('operation_id', operationId);
-
+    } else {
+      // Erreur
       return new Response(
-        JSON.stringify({ 
-          status: 'failed',
-          error: error || 'Signature failed'
+        JSON.stringify({
+          error: verifyData.statusMessage || 'Erreur lors de la vérification',
+          statusCode: verifyData.statusCode
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    return new Response(
-      JSON.stringify({ status }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
 
   } catch (error) {
     console.error('Error in cryptoneo-verify-signature:', error);

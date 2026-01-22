@@ -2,10 +2,12 @@ import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { downloadContract, regenerateContract } from '@/services/contracts/contractService';
-import { ArrowLeft, FileText, Download, RefreshCw, X } from 'lucide-react';
+import { ArrowLeft, FileText, Download, RefreshCw, X, Shield, PenTool } from 'lucide-react';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { saveContractSignature, canvasToBase64 } from '@/services/contracts/signatureService';
 import { toast } from 'sonner';
+import { ElectronicSignatureModal } from '@/shared/ui/electronic-signature';
+import { apiKeysConfig } from '@/shared/config/api-keys.config';
 
 interface LeaseContract {
   id: string;
@@ -23,6 +25,8 @@ interface LeaseContract {
   charges_amount: number | null;
   custom_clauses: string | null;
   document_url?: string;
+  landlord_signed_at?: string | null;
+  tenant_signed_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -55,6 +59,7 @@ export default function ContractDetailPage() {
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
   const [showSignature, setShowSignature] = useState(false);
+  const [signatureMethod, setSignatureMethod] = useState<'manual' | 'electronic' | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [signing, setSigning] = useState(false);
 
@@ -303,6 +308,7 @@ Fait à ${new Date().toLocaleDateString('fr-FR', {
 
       const signatureData = canvasToBase64(canvas);
       const signatureType = contract.owner_id === user.id ? 'landlord' : 'tenant';
+      const now = new Date().toISOString();
 
       // Save the signature
       await saveContractSignature({
@@ -314,30 +320,29 @@ Fait à ${new Date().toLocaleDateString('fr-FR', {
       });
 
       // Update contract status based on who signed
-      const now = new Date().toISOString();
-      const updates: any = {
+      const contractUpdates: any = {
         updated_at: now,
       };
 
       if (signatureType === 'landlord') {
-        updates.landlord_signed_at = now;
+        contractUpdates.landlord_signed_at = now;
         // If landlord signs first, contract becomes partially signed
         if (!contract.tenant_signed_at) {
-          updates.status = 'partiellement_signe';
+          contractUpdates.status = 'partiellement_signe';
         }
       } else {
-        updates.tenant_signed_at = now;
+        contractUpdates.tenant_signed_at = now;
         // If tenant signs and landlord already signed, contract becomes active
         if (contract.landlord_signed_at) {
-          updates.status = 'actif';
-          updates.is_electronically_signed = true;
+          contractUpdates.status = 'actif';
+          contractUpdates.is_electronically_signed = true;
         }
       }
 
       // Update the contract in database
       const { error } = await supabase
         .from('lease_contracts')
-        .update(updates)
+        .update(contractUpdates)
         .eq('id', contract.id);
 
       if (error) throw error;
@@ -489,16 +494,97 @@ Fait à ${new Date().toLocaleDateString('fr-FR', {
               {generateContractContent()}
             </pre>
           </div>
+
+          {/* Signature Section */}
+          {(!contract.landlord_signed_at || !contract.tenant_signed_at) && (
+            <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Signature du contrat</h2>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* Manual Signature */}
+                <button
+                  onClick={() => {
+                    setSignatureMethod('manual');
+                    setShowSignature(true);
+                  }}
+                  className="p-6 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all text-left"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 bg-gray-100 rounded-lg">
+                      <PenTool className="w-6 h-6 text-gray-700" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">Signature manuscrite</h3>
+                      <p className="text-sm text-gray-500">Dessinez votre signature</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Signez directement sur l'écran avec votre doigt ou une souris
+                  </p>
+                </button>
+
+                {/* Electronic Signature */}
+                {apiKeysConfig.signature.cryptoneo.isConfigured && (
+                  <button
+                    onClick={() => setSignatureMethod('electronic')}
+                    className="p-6 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all text-left"
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-gradient-to-br from-orange-100 to-orange-200 rounded-lg">
+                        <Shield className="w-6 h-6 text-orange-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">Signature électronique</h3>
+                        <p className="text-sm text-orange-600">Recommandé • Valeur légale</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Signature certifiée CryptoNeo avec valeur légale équivalente à une signature
+                      notariée
+                    </p>
+                  </button>
+                )}
+              </div>
+
+              {/* Signature status indicators */}
+              <div className="mt-6 pt-6 border-t grid md:grid-cols-2 gap-4">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      contract.landlord_signed_at ? 'bg-green-500' : 'bg-gray-300'
+                    }`}
+                  />
+                  <span className="text-sm text-gray-700">
+                    Propriétaire: {contract.landlord_signed_at ? 'Signé' : 'En attente'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      contract.tenant_signed_at ? 'bg-green-500' : 'bg-gray-300'
+                    }`}
+                  />
+                  <span className="text-sm text-gray-700">
+                    Locataire: {contract.tenant_signed_at ? 'Signé' : 'En attente'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {showSignature && (
+      {/* Manual Signature Modal */}
+      {showSignature && signatureMethod === 'manual' && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900">Signer le contrat</h3>
               <button
-                onClick={() => setShowSignature(false)}
+                onClick={() => {
+                  setShowSignature(false);
+                  setSignatureMethod(null);
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-6 h-6" />
@@ -542,6 +628,32 @@ Fait à ${new Date().toLocaleDateString('fr-FR', {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Electronic Signature Modal */}
+      {contract?.document_url && (
+        <ElectronicSignatureModal
+          isOpen={signatureMethod === 'electronic'}
+          onClose={() => setSignatureMethod(null)}
+          documents={[
+            {
+              id: contract.id,
+              url: contract.document_url,
+              title: `Contrat de location n° ${contract.contract_number}`,
+            },
+          ]}
+          contractId={contract.id}
+          onSuccess={() => {
+            toast.success('Document signé avec succès !');
+            setSignatureMethod(null);
+            loadContract(window.location.pathname.split('/').pop() || '');
+          }}
+          onError={(error) => {
+            toast.error(error);
+            // NE PAS fermer le modal en cas d'erreur - laisser l'utilisateur voir l'erreur
+            // setSignatureMethod(null); // Commenté pour garder le modal ouvert
+          }}
+        />
       )}
     </>
   );

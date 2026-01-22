@@ -160,13 +160,13 @@ class ApiKeysConfig {
 
   readonly signature = {
     cryptoneo: {
-      appKey: import.meta.env['CRYPTONEO_APP_KEY'] || '',
-      appSecret: import.meta.env['CRYPTONEO_APP_SECRET'] || '',
+      appKey: import.meta.env['VITE_CRYPTONEO_APP_KEY'] || '',
+      appSecret: import.meta.env['VITE_CRYPTONEO_APP_SECRET'] || '',
       baseUrl:
-        import.meta.env['CRYPTONEO_BASE_URL'] ||
+        import.meta.env['VITE_CRYPTONEO_BASE_URL'] ||
         'https://ansut.cryptoneoplatforms.com/esignaturedemo',
       isConfigured: !!(
-        import.meta.env['CRYPTONEO_APP_KEY'] && import.meta.env['CRYPTONEO_APP_SECRET']
+        import.meta.env['VITE_CRYPTONEO_APP_KEY'] && import.meta.env['VITE_CRYPTONEO_APP_SECRET']
       ),
     } as SignatureConfig,
   };

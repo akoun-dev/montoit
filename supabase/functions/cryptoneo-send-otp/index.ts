@@ -95,10 +95,13 @@ serve(async (req) => {
     });
 
     return new Response(
-      JSON.stringify({ 
-        success: true,
-        message: 'OTP envoyé avec succès',
-        expiresIn: 300 // 5 minutes
+      JSON.stringify({
+        statusCode: 7002,
+        statusMessage: 'OTP envoyé avec succès',
+        data: {
+          expiresIn: 300, // 5 minutes
+          ...otpData
+        }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -113,3 +116,4 @@ serve(async (req) => {
   }
 });
 
+// Force redeploy
