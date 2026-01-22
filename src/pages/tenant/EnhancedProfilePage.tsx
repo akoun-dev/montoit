@@ -43,6 +43,7 @@ interface TenantProfile {
   applications_count?: number;
   contracts_count?: number;
   payment_history?: boolean;
+  gender?: 'Homme' | 'Femme' | 'Non spécifié' | null;
 }
 
 export default function EnhancedProfilePage() {
@@ -60,6 +61,7 @@ export default function EnhancedProfilePage() {
     city: '',
     address: '',
     bio: '',
+    gender: '' as 'Homme' | 'Femme' | 'Non spécifié' | '',
   });
   const facialStatus = profile?.facial_verification_status;
 
@@ -100,6 +102,7 @@ export default function EnhancedProfilePage() {
           city: profileData.city || '',
           address: profileData.address ? formatAddress(profileData.address) : '',
           bio: profileData.bio || '',
+          gender: profileData.gender || '',
         });
       }
     } catch (error) {
@@ -340,6 +343,19 @@ export default function EnhancedProfilePage() {
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="Votre numéro de téléphone"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Genre</label>
+                  <select
+                    value={formData.gender}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'Homme' | 'Femme' | 'Non spécifié' | '' })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    <option value="">Sélectionner...</option>
+                    <option value="Homme">Homme</option>
+                    <option value="Femme">Femme</option>
+                    <option value="Non spécifié">Non spécifié</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Ville</label>

@@ -18,7 +18,10 @@ import {
 } from '@/shared/ui/dialog';
 import { Button } from '@/shared/ui/Button';
 import { useElectronicSignature, SignatureStep } from '@/hooks/contract/useElectronicSignature';
+import { useAuth } from '@/app/providers/AuthProvider';
+import { supabase } from '@/integrations/supabase/client';
 import OTPInput from '@/shared/components/modern/OTPInput';
+import { toast } from '@/hooks/shared/useSafeToast';
 import {
   Shield,
   Loader2,
@@ -30,6 +33,9 @@ import {
   Clock,
   X,
   Info,
+  Upload,
+  Camera,
+  User,
 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 
@@ -55,6 +61,10 @@ const stepConfig: Record<
   idle: {
     title: 'Signature Électronique',
     description: 'Signez vos documents électroniquement avec CryptoNeo',
+  },
+  collect_data: {
+    title: 'Informations requises',
+    description: 'Veuillez fournir les informations nécessaires pour générer votre certificat',
   },
   generating_cert: {
     title: 'Génération du Certificat',
@@ -90,9 +100,47 @@ export function ElectronicSignatureModal({
 }: ElectronicSignatureModalProps) {
   console.log('[ElectronicSignatureModal] Component called with props:', { isOpen, documents, contractId });
 
+  const { user } = useAuth();
   const [otpCanal, setOtpCanal] = useState<'SMS' | 'MAIL'>('SMS');
   const [otpCode, setOtpCode] = useState('');
   const [countdown, setCountdown] = useState(0);
+  const [userPhone, setUserPhone] = useState('');
+  const [userEmail, setUserEmail] = useState('');
+
+  // Signature data collection state
+  const [gender, setGender] = useState<'Homme' | 'Femme' | ''>('');
+  const [signaturePhone, setSignaturePhone] = useState('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string>('');
+  const [consentement, setConsentement] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [profileData, setProfileData] = useState<{ gender?: string | null; phone?: string | null } | null>(null);
+
+  // Récupérer le téléphone, email et genre du profil au chargement
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('phone, gender')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (data) {
+          setProfileData(data);
+          if (data.phone) {
+            setUserPhone(data.phone);
+            setSignaturePhone(data.phone);
+          }
+          if (data.gender) {
+            setGender(data.gender);
+          }
+        }
+        setUserEmail(user.email || '');
+      }
+    };
+    fetchProfile();
+  }, [user]);
 
   const {
     step,
@@ -101,6 +149,7 @@ export function ElectronicSignatureModal({
     certificateAlias,
     operationId,
     startSignatureProcess,
+    setSignatureDataAndGenerate,
     sendOTP,
     submitOTP,
     reset,
@@ -124,10 +173,15 @@ export function ElectronicSignatureModal({
       reset();
       setOtpCode('');
       setCountdown(0);
+      setGender('');
+      setPhotoFile(null);
+      setPhotoPreview('');
+      setConsentement(false);
+      setProfileData(null);
     }
   }, [isOpen, reset]);
 
-  // Auto-start signature process when modal opens
+  // Auto-start signature process when modal opens (move to collect_data step)
   useEffect(() => {
     console.log('[ElectronicSignatureModal] isOpen:', isOpen, 'step:', step);
     if (isOpen && step === 'idle') {
@@ -136,10 +190,151 @@ export function ElectronicSignatureModal({
     }
   }, [isOpen, step, documents, contractId, startSignatureProcess]);
 
+  // Calculate hash from file and convert to base64
+  // IMPORTANT: Hash must be calculated on the BINARY file first, then converted to base64
+  const processPhotoFile = (file: File): Promise<{ base64: string; hash: string }> => {
+    return new Promise((resolve, reject) => {
+      // Step 1: Read file as ArrayBuffer to calculate hash
+      const arrayBufferReader = new FileReader();
+      arrayBufferReader.onload = async (event) => {
+        try {
+          const arrayBuffer = event.target?.result as ArrayBuffer;
+
+          // Step 2: Calculate SHA-256 hash on the BINARY data (as per CryptoNeo documentation)
+          const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const hash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+          console.log('🔐 Hash calculated from binary file:', hash.substring(0, 16) + '...');
+
+          // Step 3: Convert to base64 for API
+          const blob = new Blob([arrayBuffer], { type: file.type });
+          const base64Reader = new FileReader();
+          base64Reader.onload = (base64Event) => {
+            const result = base64Event.target?.result as string;
+            // Extract base64 without the data:image/...;base64, prefix
+            const base64 = result.split(',')[1] || result;
+            console.log('📸 Base64 length:', base64.length);
+            resolve({ base64, hash });
+          };
+          base64Reader.onerror = reject;
+          base64Reader.readAsDataURL(blob);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      arrayBufferReader.onerror = reject;
+      arrayBufferReader.readAsArrayBuffer(file);
+    });
+  };
+
+  // Handle photo file selection
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('La photo ne doit pas dépasser 5MB');
+        return;
+      }
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Veuillez sélectionner une image');
+        return;
+      }
+      setPhotoFile(file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle form submission for data collection step
+  const handleDataSubmit = async () => {
+    // Use profile data for gender
+    const profileGender = profileData?.gender;
+    if (!profileGender || profileGender === 'Non spécifié') {
+      toast.error('Genre non renseigné dans votre profil. Veuillez compléter votre profil.');
+      return;
+    }
+    if (!photoFile && !photoPreview) {
+      toast.error('Veuillez fournir une photo');
+      return;
+    }
+    if (!consentement) {
+      toast.error('Veuillez accepter les conditions générales');
+      return;
+    }
+    // Use phone from profile
+    const phoneDigits = profileData?.phone?.replace(/\D/g, '') || '';
+    if (!phoneDigits || phoneDigits.length < 10 || phoneDigits.length > 15) {
+      toast.error('Numéro de téléphone invalide dans votre profil. Veuillez compléter votre profil.');
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      let photoBase64: string;
+      let photoHash: string;
+
+      if (photoFile) {
+        // Process photo file: calculate hash from binary, then convert to base64
+        const result = await processPhotoFile(photoFile);
+        photoBase64 = result.base64;
+        photoHash = result.hash;
+      } else {
+        // Use existing preview - need to decode base64 to binary, hash it, then re-encode
+        const base64Data = photoPreview.split(',')[1] || photoPreview;
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        // Calculate hash from binary
+        const hashBuffer = await crypto.subtle.digest('SHA-256', bytes.buffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        photoHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+
+        // Keep the base64 as-is
+        photoBase64 = base64Data;
+      }
+
+      await setSignatureDataAndGenerate(
+        {
+          gender: profileGender as 'Homme' | 'Femme',
+          photoBase64,
+          photoHash,
+          phone: phoneDigits,
+          consentement,
+        },
+        documents,
+        contractId
+      );
+    } catch (err) {
+      console.error('Error processing photo:', err);
+      toast.error('Erreur lors du traitement de la photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   // Handle OTP send
   const handleSendOTP = async () => {
-    await sendOTP(otpCanal);
-    setCountdown(60);
+    const destination = otpCanal === 'SMS' ? userPhone : userEmail;
+    if (otpCanal === 'SMS' && (!destination || !destination.match(/^\+[1-9]\d{7,14}$/))) {
+      return;
+    }
+    try {
+      await sendOTP(otpCanal, destination);
+      // Succès : démarrer le countdown et afficher le champ OTP
+      setCountdown(60);
+    } catch (err) {
+      // Erreur déjà gérée par le hook (toast affiché)
+      console.error('Error sending OTP:', err);
+    }
   };
 
   // Handle OTP submit
@@ -169,7 +364,7 @@ export function ElectronicSignatureModal({
   }, [step, error, onError]);
 
   const currentStepConfig = stepConfig[step];
-  const isCloseDisabled = loading || step === 'signing' || step === 'generating_cert';
+  const isCloseDisabled = loading || step === 'signing' || step === 'generating_cert' || step === 'collect_data';
 
   console.log('[ElectronicSignatureModal] Render - isOpen:', isOpen, 'step:', step, 'loading:', loading);
 
@@ -211,6 +406,131 @@ export function ElectronicSignatureModal({
 
         {/* Content based on step */}
         <div className="mt-4">
+          {/* Step: Collect Data */}
+          {step === 'collect_data' && (
+            <div className="space-y-6">
+              {/* Documents list */}
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <p className="text-sm font-medium text-foreground">Documents à signer :</p>
+                {documents.map((doc) => (
+                  <div key={doc.id} className="flex items-center gap-2 text-sm">
+                    <FileText className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-foreground">{doc.title}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Profile info display */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-2">
+                <p className="text-sm font-medium text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Informations du profil
+                </p>
+                <div className="text-sm text-blue-600 dark:text-blue-400 space-y-1">
+                  <p>Genre : <span className="font-medium">{profileData?.gender || 'Non renseigné'}</span></p>
+                  <p>Téléphone : <span className="font-medium">{profileData?.phone || 'Non renseigné'}</span></p>
+                </div>
+              </div>
+
+              {/* Photo upload */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Camera className="w-4 h-4" />
+                  Photo d'identité *
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Une photo claire de votre visage pour le certificat numérique (max 5MB)
+                </p>
+                {photoPreview ? (
+                  <div className="space-y-3">
+                    <div className="relative w-32 h-32 mx-auto rounded-lg overflow-hidden border-2 border-neutral-200">
+                      <img
+                        src={photoPreview}
+                        alt="Photo preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex justify-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="small"
+                        onClick={() => {
+                          setPhotoFile(null);
+                          setPhotoPreview('');
+                        }}
+                      >
+                        Changer
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-neutral-300 rounded-lg cursor-pointer hover:border-primary-400 hover:bg-primary-50/50 transition-all">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-medium text-primary-500">Cliquez pour télécharger</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">PNG, JPG jusqu'à 5MB</p>
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/png,image/jpeg,image/jpg"
+                      onChange={handlePhotoChange}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* CGU Consent */}
+              <div className="space-y-3">
+                <label className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={consentement}
+                    onChange={(e) => setConsentement(e.target.checked)}
+                    className="mt-1 w-4 h-4 text-primary-500 border-neutral-300 rounded focus:ring-primary-500"
+                  />
+                  <div className="text-sm">
+                    <p className="font-medium text-foreground">Consentement *</p>
+                    <p className="text-muted-foreground mt-1">
+                      J'accepte les conditions générales d'utilisation de CryptoNeo et consens au traitement de mes données personnelles pour la signature électronique.
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Submit button */}
+              <Button
+                onClick={handleDataSubmit}
+                disabled={!photoPreview || !consentement || uploadingPhoto}
+                className="w-full"
+                size="medium"
+              >
+                {uploadingPhoto ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 shrink-0 animate-spin" />
+                    <span>Traitement en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <Shield className="w-4 h-4 mr-2 shrink-0" />
+                    <span>Générer le certificat</span>
+                  </>
+                )}
+              </Button>
+
+              {/* Info */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  Ces informations sont requises par CryptoNeo pour générer votre certificat numérique de signature.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Step: Generating Certificate */}
           {step === 'generating_cert' && (
             <div className="text-center py-8 space-y-4">
@@ -258,39 +578,68 @@ export function ElectronicSignatureModal({
               )}
 
               {/* OTP canal selection */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <label className="text-sm font-medium text-foreground">
                   Mode de réception du code :
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    type="button"
-                    variant={otpCanal === 'SMS' ? 'primary' : 'outline'}
-                    size="small"
-                    onClick={() => setOtpCanal('SMS')}
-                    className="w-full"
-                  >
-                    <Send className="w-4 h-4 mr-2 shrink-0" />
-                    <span>SMS</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={otpCanal === 'MAIL' ? 'primary' : 'outline'}
-                    size="small"
-                    onClick={() => setOtpCanal('MAIL')}
-                    className="w-full"
-                  >
-                    <Info className="w-4 h-4 mr-2 shrink-0" />
-                    <span>Email</span>
-                  </Button>
-                </div>
+
+                {otpCanal === 'SMS' ? (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground">
+                        Numéro de téléphone (format +225XXXXXXXXX) :
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="tel"
+                          value={userPhone}
+                          onChange={(e) => setUserPhone(e.target.value)}
+                          placeholder="+2250700000000"
+                          className="flex-1 px-3 py-2 border border-neutral-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="small"
+                          onClick={() => setOtpCanal('MAIL')}
+                        >
+                          <Info className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      {userPhone && !userPhone.match(/^\+[1-9]\d{7,14}$/) && (
+                        <p className="text-xs text-destructive">
+                          Format invalide. Utilisez le format E.164 : +225XXXXXXXXX
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <label className="text-xs text-muted-foreground">
+                        Adresse email :
+                      </label>
+                      <div className="flex gap-2 items-center p-3 bg-muted/50 rounded-md">
+                        <span className="text-sm flex-1">{userEmail}</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="small"
+                          onClick={() => setOtpCanal('SMS')}
+                        >
+                          <Send className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Send OTP button */}
               {countdown === 0 ? (
                 <Button
                   onClick={handleSendOTP}
-                  disabled={loading}
+                  disabled={loading || (otpCanal === 'SMS' && (!userPhone || !userPhone.match(/^\+[1-9]\d{7,14}$/)))}
                   className="w-full"
                   size="medium"
                 >
@@ -304,7 +653,7 @@ export function ElectronicSignatureModal({
               )}
 
               {/* OTP Input */}
-              {countdown < 60 && countdown > 0 && (
+              {countdown > 0 && (
                 <div className="space-y-4">
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground">
@@ -446,7 +795,7 @@ export function ElectronicSignatureModal({
         </div>
 
         {/* Footer actions */}
-        {step === 'waiting_otp' && !loading && (
+        {(step === 'waiting_otp' || step === 'collect_data') && !loading && (
           <div className="mt-6 pt-4 border-t">
             <Button
               onClick={cancel}

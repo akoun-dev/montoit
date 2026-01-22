@@ -12,10 +12,11 @@ import {
   X,
   ChevronDown,
   Building2,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useNavigate } from 'react-router-dom';
-import { toast } from '@/hooks/shared/useSafeToast';
+import { toast } from 'sonner';
 import ApplicationCard from '../../features/owner/components/ApplicationCard';
 import {
   getOwnerApplications,
@@ -59,6 +60,55 @@ const PERIOD_FILTERS: PeriodFilterOption[] = [
   { value: 'custom', label: 'Personnalisé' },
 ];
 
+// Status filter options
+const STATUS_FILTERS = [
+  { value: 'all', label: 'Toutes' },
+  { value: 'en_attente', label: 'En attente' },
+  { value: 'en_cours', label: 'En cours' },
+  { value: 'acceptee', label: 'Acceptées' },
+  { value: 'refusee', label: 'Refusées' },
+];
+
+// Helper component
+const StatCard = ({
+  icon: Icon,
+  label,
+  value,
+  color = 'gray',
+  onClick,
+}: {
+  icon: any;
+  label: string;
+  value: number;
+  color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'amber';
+  onClick?: () => void;
+}) => {
+  const colors = {
+    gray: 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100',
+    blue: 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100',
+    green: 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100',
+    orange: 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100',
+    purple: 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100',
+    red: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100',
+    amber: 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100',
+  };
+
+  return (
+    <div
+      onClick={onClick}
+      className={`p-5 rounded-xl border transition-all cursor-pointer ${colors[color]}`}
+    >
+      <div className="flex items-center gap-3 mb-3">
+        <div className={`p-2 rounded-lg ${color === 'gray' ? 'bg-gray-200' : 'bg-white'}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+        <span className="text-sm font-medium">{label}</span>
+      </div>
+      <p className="text-2xl font-bold">{value}</p>
+    </div>
+  );
+};
+
 export default function OwnerApplicationsPage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -87,9 +137,7 @@ export default function OwnerApplicationsPage() {
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
 
   // Modals
-  const [selectedApplication, setSelectedApplication] = useState<ApplicationWithDetails | null>(
-    null
-  );
+  const [selectedApplication, setSelectedApplication] = useState<ApplicationWithDetails | null>(null);
   const [showVisitModal, setShowVisitModal] = useState(false);
   const [visitApplicationId, setVisitApplicationId] = useState<string | null>(null);
   const [visitForm, setVisitForm] = useState<VisitFormData>({
@@ -263,10 +311,18 @@ export default function OwnerApplicationsPage() {
     }
   };
 
+  if (!user) {
+    return (
+      <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-600">Veuillez vous connecter</p>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="min-h-[60vh] bg-neutral-50 flex items-center justify-center rounded-2xl">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+      <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
       </div>
     );
   }
@@ -274,234 +330,230 @@ export default function OwnerApplicationsPage() {
   return (
     <>
       {/* Header */}
-      <div className="bg-[#2C1810]">
-        <div className="w-full px-2 sm:px-4 lg:px-6 xl:px-8 py-6">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
-              <Users className="h-7 w-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white">Candidatures</h1>
-              <p className="text-[#E8D4C5] mt-1">Gérez les candidatures pour vos biens</p>
+      <div className="bg-white border-b sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg">
+                <Users className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900">Candidatures</h1>
+                <p className="text-sm text-gray-500">Gérez les candidatures pour vos biens</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="w-full px-2 sm:px-4 lg:px-6 xl:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
-          <button
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+          <StatCard
+            icon={Users}
+            label="Total"
+            value={stats.total}
             onClick={() => setStatusFilter('all')}
-            className={`bg-white rounded-2xl p-4 border-2 transition-all ${statusFilter === 'all' ? 'border-primary-500 shadow-md' : 'border-transparent hover:border-neutral-200'}`}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <Users className="h-4 w-4 text-primary-500" />
-              <span className="text-xs text-neutral-500">Total</span>
-            </div>
-            <p className="text-2xl font-bold text-neutral-900">{stats.total}</p>
-          </button>
-
-          <button
+          />
+          <StatCard
+            icon={Clock}
+            label="En attente"
+            value={stats.pending}
+            color="amber"
             onClick={() => setStatusFilter('en_attente')}
-            className={`bg-white rounded-2xl p-4 border-2 transition-all ${statusFilter === 'en_attente' ? 'border-amber-500 shadow-md' : 'border-transparent hover:border-neutral-200'}`}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="h-4 w-4 text-amber-500" />
-              <span className="text-xs text-neutral-500">En attente</span>
-            </div>
-            <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
-          </button>
-
-          <button
+          />
+          <StatCard
+            icon={Loader2}
+            label="En cours"
+            value={stats.inProgress}
+            color="blue"
             onClick={() => setStatusFilter('en_cours')}
-            className={`bg-white rounded-2xl p-4 border-2 transition-all ${statusFilter === 'en_cours' ? 'border-blue-500 shadow-md' : 'border-transparent hover:border-neutral-200'}`}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <Loader2 className="h-4 w-4 text-blue-500" />
-              <span className="text-xs text-neutral-500">En cours</span>
-            </div>
-            <p className="text-2xl font-bold text-blue-600">{stats.inProgress}</p>
-          </button>
-
-          <button
+          />
+          <StatCard
+            icon={CheckCircle}
+            label="Acceptées"
+            value={stats.accepted}
+            color="green"
             onClick={() => setStatusFilter('acceptee')}
-            className={`bg-white rounded-2xl p-4 border-2 transition-all ${statusFilter === 'acceptee' ? 'border-green-500 shadow-md' : 'border-transparent hover:border-neutral-200'}`}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <span className="text-xs text-neutral-500">Acceptées</span>
-            </div>
-            <p className="text-2xl font-bold text-green-600">{stats.accepted}</p>
-          </button>
-
-          <button
+          />
+          <StatCard
+            icon={XCircle}
+            label="Refusées"
+            value={stats.rejected}
+            color="red"
             onClick={() => setStatusFilter('refusee')}
-            className={`bg-white rounded-2xl p-4 border-2 transition-all ${statusFilter === 'refusee' ? 'border-red-500 shadow-md' : 'border-transparent hover:border-neutral-200'}`}
-          >
-            <div className="flex items-center gap-2 mb-1">
-              <XCircle className="h-4 w-4 text-red-500" />
-              <span className="text-xs text-neutral-500">Refusées</span>
-            </div>
-            <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
-          </button>
+          />
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-2xl p-4 mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-400" />
-            <input
-              type="text"
-              placeholder="Rechercher par nom ou email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-neutral-400" />
-            <select
-              value={propertyFilter}
-              onChange={(e) => setPropertyFilter(e.target.value)}
-              className="border border-neutral-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="all">Toutes les propriétés</option>
-              {properties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Status filters */}
+            <div className="flex flex-wrap gap-2">
+              {STATUS_FILTERS.map((filter) => (
+                <button
+                  key={filter.value}
+                  onClick={() => setStatusFilter(filter.value)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    statusFilter === filter.value
+                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {filter.label}
+                </button>
               ))}
-            </select>
-          </div>
-          <div className="relative">
-            <button
-              onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
-              className="flex items-center gap-2 px-4 py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 hover:bg-neutral-50 transition-colors min-w-[200px] justify-between"
-            >
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-neutral-400" />
-                <span className="text-sm text-neutral-700">
-                  {periodFilter !== 'all'
-                    ? PERIOD_FILTERS.find((f) => f.value === periodFilter)?.label || 'Période'
-                    : 'Période'}
-                </span>
+            </div>
+
+            {/* Search and property filter */}
+            <div className="flex flex-1 items-center gap-3">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                />
               </div>
-              <ChevronDown className={`h-4 w-4 text-neutral-400 transition-transform ${showPeriodDropdown ? 'rotate-180' : ''}`} />
-            </button>
 
-            {showPeriodDropdown && (
-              <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-neutral-200 rounded-xl shadow-lg z-50">
-                <div className="p-2 space-y-1">
-                  {PERIOD_FILTERS.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        setPeriodFilter(option.value);
-                        setShowPeriodDropdown(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        periodFilter === option.value
-                          ? 'bg-primary-50 text-primary-700'
-                          : 'text-neutral-700 hover:bg-neutral-50'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
+              {properties.length > 0 && (
+                <select
+                  value={propertyFilter}
+                  onChange={(e) => setPropertyFilter(e.target.value)}
+                  className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                >
+                  <option value="all">Toutes les propriétés</option>
+                  {properties.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
                   ))}
-                </div>
+                </select>
+              )}
 
-                {/* Custom date range inputs */}
-                {periodFilter === 'custom' && (
-                  <div className="p-4 border-t border-neutral-100 space-y-3">
-                    <div>
-                      <label className="block text-xs font-medium text-neutral-700 mb-1">
-                        Date de début
-                      </label>
-                      <input
-                        type="date"
-                        value={customStartDate}
-                        onChange={(e) => setCustomStartDate(e.target.value)}
-                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                      />
+              {/* Period filter dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <Calendar className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm text-gray-700">
+                    {periodFilter !== 'all'
+                      ? PERIOD_FILTERS.find((f) => f.value === periodFilter)?.label || 'Période'
+                      : 'Période'}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${showPeriodDropdown ? 'rotate-180' : ''}`} />
+                </button>
+
+                {showPeriodDropdown && (
+                  <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
+                    <div className="p-2 space-y-1">
+                      {PERIOD_FILTERS.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => {
+                            setPeriodFilter(option.value);
+                            setShowPeriodDropdown(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            periodFilter === option.value
+                              ? 'bg-orange-50 text-orange-600'
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-neutral-700 mb-1">
-                        Date de fin
-                      </label>
-                      <input
-                        type="date"
-                        value={customEndDate}
-                        onChange={(e) => setCustomEndDate(e.target.value)}
-                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                      />
-                    </div>
+
+                    {/* Custom date range inputs */}
+                    {periodFilter === 'custom' && (
+                      <div className="p-4 border-t border-gray-200 space-y-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Date de début
+                          </label>
+                          <input
+                            type="date"
+                            value={customStartDate}
+                            onChange={(e) => setCustomStartDate(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Date de fin
+                          </label>
+                          <input
+                            type="date"
+                            value={customEndDate}
+                            onChange={(e) => setCustomEndDate(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
+            </div>
           </div>
         </div>
 
         {/* Active Filters Display */}
         {(statusFilter !== 'all' || propertyFilter !== 'all' || searchTerm !== '' || periodFilter !== 'all') && (
-          <div className="bg-primary-50 border border-primary-200 rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2">
-            <span className="text-sm text-primary-700 font-medium">Filtres actifs :</span>
+          <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-orange-700 font-medium">Filtres actifs :</span>
             {statusFilter !== 'all' && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-white border border-primary-300 rounded-full text-sm text-primary-700">
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-white border border-orange-300 rounded-full text-sm text-orange-700">
                 <Clock className="h-3 w-3" />
-                {statusFilter === 'en_attente'
-                  ? 'En attente'
-                  : statusFilter === 'en_cours'
-                    ? 'En cours'
-                    : statusFilter === 'acceptee'
-                      ? 'Acceptées'
-                      : statusFilter === 'refusee'
-                        ? 'Refusées'
-                        : statusFilter}
+                {STATUS_FILTERS.find((f) => f.value === statusFilter)?.label}
                 <button
                   onClick={() => setStatusFilter('all')}
-                  className="ml-1 text-primary-400 hover:text-primary-600"
+                  className="ml-1 text-orange-400 hover:text-orange-600"
                 >
                   <X className="h-3 w-3" />
                 </button>
               </span>
             )}
             {propertyFilter !== 'all' && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-white border border-primary-300 rounded-full text-sm text-primary-700">
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-white border border-orange-300 rounded-full text-sm text-orange-700">
                 <Building2 className="h-3 w-3" />
                 {properties.find((p) => p.id === propertyFilter)?.title || 'Propriété'}
                 <button
                   onClick={() => setPropertyFilter('all')}
-                  className="ml-1 text-primary-400 hover:text-primary-600"
+                  className="ml-1 text-orange-400 hover:text-orange-600"
                 >
                   <X className="h-3 w-3" />
                 </button>
               </span>
             )}
             {searchTerm !== '' && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-white border border-primary-300 rounded-full text-sm text-primary-700">
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-white border border-orange-300 rounded-full text-sm text-orange-700">
                 <Search className="h-3 w-3" />
                 "{searchTerm}"
                 <button
                   onClick={() => setSearchTerm('')}
-                  className="ml-1 text-primary-400 hover:text-primary-600"
+                  className="ml-1 text-orange-400 hover:text-orange-600"
                 >
                   <X className="h-3 w-3" />
                 </button>
               </span>
             )}
             {periodFilter !== 'all' && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-white border border-primary-300 rounded-full text-sm text-primary-700">
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-white border border-orange-300 rounded-full text-sm text-orange-700">
                 <Calendar className="h-3 w-3" />
-                {PERIOD_FILTERS.find((f) => f.value === periodFilter)?.label || 'Période'}
+                {PERIOD_FILTERS.find((f) => f.value === periodFilter)?.label}
                 <button
                   onClick={() => {
                     setPeriodFilter('all');
                     setCustomStartDate('');
                     setCustomEndDate('');
                   }}
-                  className="ml-1 text-primary-400 hover:text-primary-600"
+                  className="ml-1 text-orange-400 hover:text-orange-600"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -526,12 +578,12 @@ export default function OwnerApplicationsPage() {
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-2xl p-12 text-center">
-            <div className="w-20 h-20 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="h-10 w-10 text-neutral-400" />
+          <div className="bg-white rounded-xl border border-gray-100 p-12 text-center shadow-sm">
+            <div className="bg-gray-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="h-10 w-10 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-neutral-900 mb-2">Aucune candidature</h3>
-            <p className="text-neutral-500">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Aucune candidature</h3>
+            <p className="text-gray-500">
               {statusFilter !== 'all' || propertyFilter !== 'all' || searchTerm !== '' || periodFilter !== 'all'
                 ? 'Aucune candidature ne correspond aux critères de filtration'
                 : "Vous n'avez pas encore reçu de candidatures pour vos biens."}
@@ -543,23 +595,23 @@ export default function OwnerApplicationsPage() {
       {/* Visit Scheduling Modal */}
       {showVisitModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-neutral-900 flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-primary-500" />
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-orange-500" />
                 Planifier une visite
               </h3>
               <button
                 onClick={() => setShowVisitModal(false)}
-                className="p-1 hover:bg-neutral-100 rounded-lg"
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5 text-gray-600" />
               </button>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Date de visite *
                 </label>
                 <input
@@ -567,16 +619,16 @@ export default function OwnerApplicationsPage() {
                   value={visitForm.date}
                   onChange={(e) => setVisitForm({ ...visitForm, date: e.target.value })}
                   min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Heure *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Heure *</label>
                 <select
                   value={visitForm.time}
                   onChange={(e) => setVisitForm({ ...visitForm, time: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                 >
                   {[
                     '08:00',
@@ -597,7 +649,7 @@ export default function OwnerApplicationsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Type de visite
                 </label>
                 <div className="flex gap-4">
@@ -608,7 +660,7 @@ export default function OwnerApplicationsPage() {
                       value="physique"
                       checked={visitForm.type === 'physique'}
                       onChange={() => setVisitForm({ ...visitForm, type: 'physique' })}
-                      className="text-primary-500 focus:ring-primary-500"
+                      className="text-orange-500 focus:ring-orange-500"
                     />
                     <span className="text-sm">Physique</span>
                   </label>
@@ -619,7 +671,7 @@ export default function OwnerApplicationsPage() {
                       value="virtuelle"
                       checked={visitForm.type === 'virtuelle'}
                       onChange={() => setVisitForm({ ...visitForm, type: 'virtuelle' })}
-                      className="text-primary-500 focus:ring-primary-500"
+                      className="text-orange-500 focus:ring-orange-500"
                     />
                     <span className="text-sm">Virtuelle</span>
                   </label>
@@ -627,7 +679,7 @@ export default function OwnerApplicationsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Notes (optionnel)
                 </label>
                 <textarea
@@ -635,7 +687,7 @@ export default function OwnerApplicationsPage() {
                   onChange={(e) => setVisitForm({ ...visitForm, notes: e.target.value })}
                   placeholder="Instructions particulières..."
                   rows={3}
-                  className="w-full px-4 py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
                 />
               </div>
             </div>
@@ -643,14 +695,14 @@ export default function OwnerApplicationsPage() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowVisitModal(false)}
-                className="flex-1 py-2.5 border border-neutral-200 text-neutral-700 rounded-xl font-medium hover:bg-neutral-50"
+                className="flex-1 py-2.5 border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
               >
                 Annuler
               </button>
               <button
                 onClick={submitVisit}
                 disabled={actionLoading}
-                className="flex-1 py-2.5 bg-primary-500 text-white rounded-xl font-medium hover:bg-primary-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-medium hover:from-orange-600 hover:to-orange-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
               >
                 {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Confirmer
@@ -663,22 +715,22 @@ export default function OwnerApplicationsPage() {
       {/* Application Details Modal */}
       {selectedApplication && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-bold text-neutral-900">Détails de la candidature</h3>
+                <h3 className="text-lg font-bold text-gray-900">Détails de la candidature</h3>
                 <button
                   onClick={() => setSelectedApplication(null)}
-                  className="p-1 hover:bg-neutral-100 rounded-lg"
+                  className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-5 w-5 text-gray-600" />
                 </button>
               </div>
 
               <div className="space-y-6">
                 {/* Applicant info */}
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
+                  <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden">
                     {selectedApplication.applicant?.avatar_url ? (
                       <img
                         src={selectedApplication.applicant.avatar_url}
@@ -686,26 +738,26 @@ export default function OwnerApplicationsPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <Users className="h-8 w-8 text-primary-500" />
+                      <Users className="h-8 w-8 text-orange-500" />
                     )}
                   </div>
                   <div>
                     <h4 className="font-semibold text-lg">
                       {selectedApplication.applicant?.full_name || 'Candidat'}
                     </h4>
-                    <p className="text-neutral-500">{selectedApplication.applicant?.email}</p>
+                    <p className="text-gray-500">{selectedApplication.applicant?.email}</p>
                     {selectedApplication.applicant?.phone && (
-                      <p className="text-neutral-500">{selectedApplication.applicant.phone}</p>
+                      <p className="text-gray-500">{selectedApplication.applicant.phone}</p>
                     )}
                   </div>
                 </div>
 
                 {/* Property */}
-                <div className="bg-neutral-50 rounded-xl p-4">
-                  <p className="text-sm text-neutral-500 mb-1">Propriété</p>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-sm text-gray-500 mb-1">Propriété</p>
                   <p className="font-semibold">{selectedApplication.property?.title}</p>
-                  <p className="text-sm text-neutral-600">{selectedApplication.property?.city}</p>
-                  <p className="text-primary-600 font-bold mt-1">
+                  <p className="text-sm text-gray-600">{selectedApplication.property?.city}</p>
+                  <p className="text-orange-600 font-bold mt-1">
                     {selectedApplication.property?.monthly_rent?.toLocaleString()} FCFA/mois
                   </p>
                 </div>
@@ -713,10 +765,10 @@ export default function OwnerApplicationsPage() {
                 {/* Score */}
                 {(selectedApplication.applicant?.trust_score ||
                   selectedApplication.application_score) && (
-                  <div className="bg-neutral-50 rounded-xl p-4">
-                    <p className="text-sm text-neutral-500 mb-2">Score de confiance</p>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="text-sm text-gray-500 mb-2">Score de confiance</p>
                     <div className="flex items-center gap-2">
-                      <div className="w-full bg-neutral-200 rounded-full h-3">
+                      <div className="w-full bg-gray-200 rounded-full h-3">
                         <div
                           className={`h-3 rounded-full ${
                             (selectedApplication.applicant?.trust_score ??
@@ -746,8 +798,8 @@ export default function OwnerApplicationsPage() {
                 {/* Cover letter */}
                 {selectedApplication.cover_letter && (
                   <div>
-                    <p className="text-sm text-neutral-500 mb-2">Lettre de motivation</p>
-                    <p className="text-neutral-700 bg-neutral-50 rounded-xl p-4 italic">
+                    <p className="text-sm text-gray-500 mb-2">Lettre de motivation</p>
+                    <p className="text-gray-700 bg-gray-50 rounded-xl p-4 italic">
                       "{selectedApplication.cover_letter}"
                     </p>
                   </div>
@@ -756,7 +808,7 @@ export default function OwnerApplicationsPage() {
 
               <button
                 onClick={() => setSelectedApplication(null)}
-                className="w-full mt-6 py-2.5 bg-neutral-100 text-neutral-700 rounded-xl font-medium hover:bg-neutral-200"
+                className="w-full mt-6 py-2.5 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
               >
                 Fermer
               </button>

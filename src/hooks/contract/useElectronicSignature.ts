@@ -14,7 +14,21 @@ import cryptoNeoService, {
   type SignatureResult,
 } from '@/services/cryptonoe/cryptonoe.service';
 
-export type SignatureStep = 'idle' | 'generating_cert' | 'waiting_otp' | 'signing' | 'completed' | 'error';
+export type SignatureStep = 'idle' | 'collect_data' | 'generating_cert' | 'waiting_otp' | 'signing' | 'completed' | 'error';
+
+export interface SignatureDocument {
+  id: string;
+  url: string;
+  title: string;
+}
+
+export interface SignatureData {
+  gender: 'Homme' | 'Femme';
+  photoBase64: string;
+  photoHash: string;
+  phone: string;
+  consentement: boolean;
+}
 
 export interface SignatureDocument {
   id: string;
@@ -40,7 +54,8 @@ interface UseElectronicSignatureReturn {
 
   // Actions
   startSignatureProcess: (documents: SignatureDocument[], contractId: string) => Promise<void>;
-  sendOTP: (canal?: 'SMS' | 'MAIL') => Promise<void>;
+  setSignatureDataAndGenerate: (data: SignatureData, documents: SignatureDocument[], contractId: string) => Promise<void>;
+  sendOTP: (canal: 'SMS' | 'MAIL', destination?: string) => Promise<void>;
   submitOTP: (otp: string, documents: SignatureDocument[]) => Promise<void>;
   verifyStatus: (operationId: number) => Promise<SignatureResult[] | null>;
   reset: () => void;
@@ -88,7 +103,7 @@ export const useElectronicSignature = (): UseElectronicSignatureReturn => {
   }, [reset]);
 
   /**
-   * Démarre le processus de signature - génère le certificat
+   * Démarre le processus de signature - vérifie d'abord les données du profil
    */
   const startSignatureProcess = useCallback(async (_documents: SignatureDocument[], _contractId: string) => {
     console.log('🚀 Starting signature process for user:', user?.id);
@@ -110,159 +125,188 @@ export const useElectronicSignature = (): UseElectronicSignatureReturn => {
       return;
     }
 
-    console.log('✅ Service configured, starting certificate generation');
-    updateState({ loading: true, step: 'generating_cert', error: null });
+    // Vérifier les données du profil (genre et téléphone requis)
+    console.log('📋 Checking profile data...');
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('gender, phone')
+      .eq('id', user.id)
+      .maybeSingle();
 
-    // Timeout de sécurité (30 secondes)
-    let completed = false;
-    const timeoutId = setTimeout(() => {
-      if (!completed) {
-        console.error('⏰ Certificate generation timeout');
-        updateState({
-          error: 'La génération du certificat prend trop de temps. Veuillez réessayer.',
-          step: 'error',
-          loading: false,
-        });
-        toast.error('Délai dépassé. Veuillez réessayer.');
-      }
-    }, 30000);
+    const missingData: string[] = [];
+    if (!profile?.gender || profile.gender === 'Non spécifié') {
+      missingData.push('le genre');
+    }
+    if (!profile?.phone) {
+      missingData.push('le numéro de téléphone');
+    }
 
-    try {
-      // 1. Vérifier le profil utilisateur
-      console.log('📋 Fetching user profile...');
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('full_name, phone')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('❌ Profile query error:', profileError);
-        throw new Error(`Erreur de chargement du profil: ${profileError.message}`);
-      }
-
-      if (!profile) {
-        console.error('❌ Profile not found');
-        throw new Error('Profil utilisateur non trouvé. Veuillez compléter votre profil.');
-      }
-
-      console.log('✅ Profile found');
-
-      // 2. Récupérer les données ONECI depuis la table user_verifications (optionnel)
-      console.log('📄 Fetching ONECI data...');
-      const { data: verification, error: verificationError } = await supabase
-        .from('user_verifications')
-        .select('oneci_cni_number, oneci_data')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      let hashPiece: string;
-      let base64Photo: string | undefined;
-
-      if (!verificationError && verification?.oneci_data) {
-        const oneciData = verification.oneci_data as any;
-        base64Photo = oneciData.photo_base64;
-
-        // Utiliser les données ONECI si disponibles
-        const cniNumber = verification.oneci_cni_number || oneciData.cni_number || oneciData.oneci_cni_number;
-        if (cniNumber) {
-          const encoder = new TextEncoder();
-          const data = encoder.encode(cniNumber);
-          const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-          const hashArray = Array.from(new Uint8Array(hashBuffer));
-          hashPiece = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-          console.log('✅ ONECI hash calculated from CNI');
-        } else {
-          // Fallback: utiliser l'email comme identifiant
-          const encoder = new TextEncoder();
-          const data = encoder.encode(user.email || '');
-          const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-          const hashArray = Array.from(new Uint8Array(hashBuffer));
-          hashPiece = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-          console.log('⚠️ Using email hash as fallback (no CNI number)');
-        }
-      } else {
-        // Pas de données ONECI: utiliser l'email comme identifiant
-        const encoder = new TextEncoder();
-        const data = encoder.encode(user.email || '');
-        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        hashPiece = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-        console.log('⚠️ No ONECI data, using email hash for certificate');
-      }
-
-      // 3. Préparer les données du certificat
-      const fullName = profile.full_name || user.email || 'Utilisateur';
-      const nameParts = fullName.split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || firstName;
-
-      const certRequest: CertificateRequest = {
-        firstName,
-        lastName,
-        email: user.email || '',
-        phone: profile.phone || '',
-        organisation: 'ANSUT',
-        typePiece: 'CNI',
-        hashPiece,
-        base64: base64Photo,
-      };
-
-      // 4. Générer le certificat
-      console.log('🔐 Generating certificate...');
-      const response = await cryptoNeoService.generateCertificate(certRequest);
-
-      console.log('📩 Certificate generation response:', response);
-
-      completed = true;
-      clearTimeout(timeoutId);
-
-      if (response.statusCode === 7000 || response.statusCode === 7001) {
-        const alias = response.data?.alias || response.data?.certificatId;
-        console.log('✅ Certificate generated successfully:', alias);
-        updateState({
-          certificateAlias: alias,
-          step: 'waiting_otp',
-          loading: false,
-        });
-        toast.success('Certificat numérique généré avec succès');
-      } else if (response.statusCode === 7002) {
-        // Certificat déjà généré, passer directement à l'étape OTP
-        const alias = response.data?.certificatId;
-        console.log('✅ Certificate already exists:', alias);
-        updateState({
-          certificateAlias: alias,
-          step: 'waiting_otp',
-          loading: false,
-        });
-        toast.success('Certificat numérique déjà existant');
-      } else {
-        console.error('❌ Certificate generation failed:', response);
-        throw new Error(response.statusMessage || 'Erreur génération certificat');
-      }
-    } catch (err) {
-      completed = true;
-      clearTimeout(timeoutId);
-
-      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de la génération du certificat';
-      console.error('❌ Certificate generation error:', err);
+    if (missingData.length > 0) {
+      console.error('❌ Missing profile data:', missingData);
       updateState({
-        error: errorMessage,
+        error: `Veuillez compléter votre profil avant de signer: il manque ${missingData.join(' et ')}`,
         step: 'error',
         loading: false,
       });
-      toast.error(errorMessage);
+      toast.error(`Profil incomplet. Veuillez renseigner ${missingData.join(' et ')} dans votre profil.`, {
+        duration: 5000,
+      });
+      return;
     }
-  }, [user, navigate]);
+
+    console.log('✅ Profile data complete, moving to photo collection step');
+    updateState({ loading: false, step: 'collect_data', error: null });
+  }, [user]);
+
+  /**
+   * Définit les données de signature et génère le certificat
+   */
+  const setSignatureDataAndGenerate = useCallback(
+    async (signatureData: SignatureData, _documents: SignatureDocument[], _contractId: string) => {
+      console.log('🚀 Generating certificate with signature data:', signatureData);
+      console.log('📸 Photo base64 length:', signatureData.photoBase64?.length, 'first 50 chars:', signatureData.photoBase64?.substring(0, 50));
+      console.log('👤 Gender:', signatureData.gender);
+      console.log('✅ Consentement:', signatureData.consentement);
+
+      if (!user) {
+        toast.error('Vous devez être connecté pour signer un document');
+        return;
+      }
+
+      updateState({ loading: true, step: 'generating_cert', error: null });
+
+      // Timeout de sécurité (30 secondes)
+      let completed = false;
+      const timeoutId = setTimeout(() => {
+        if (!completed) {
+          console.error('⏰ Certificate generation timeout');
+          updateState({
+            error: 'La génération du certificat prend trop de temps. Veuillez réessayer.',
+            step: 'error',
+            loading: false,
+          });
+          toast.error('Délai dépassé. Veuillez réessayer.');
+        }
+      }, 30000);
+
+      try {
+        // 1. Vérifier le profil utilisateur
+        console.log('📋 Fetching user profile...');
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('full_name, phone')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error('❌ Profile query error:', profileError);
+          throw new Error(`Erreur de chargement du profil: ${profileError.message}`);
+        }
+
+        if (!profile) {
+          console.error('❌ Profile not found');
+          throw new Error('Profil utilisateur non trouvé. Veuillez compléter votre profil.');
+        }
+
+        console.log('✅ Profile found');
+
+        // 2. Utiliser le hash de la photo (hashPiece) - requis par CryptoNeo
+        // IMPORTANT: Le hash est calculé sur le FICHIER BINAIRE original (pas la base64)
+        // selon les spécifications techniques de CryptoNeo
+        const hashPiece = signatureData.photoHash;
+        console.log('✅ Using pre-calculated hash from binary file:', hashPiece.substring(0, 16) + '...');
+
+        // 3. Préparer les données du certificat
+        const fullName = profile.full_name || user.email || 'Utilisateur';
+        const nameParts = fullName.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || firstName;
+
+        // Date de consentement au format requis par CryptoNeo
+        const now = new Date();
+        const dateConsentement = now.toISOString().replace('T', ' ').substring(0, 19);
+
+        const certRequest: CertificateRequest = {
+          firstName,
+          lastName,
+          email: user.email || '',
+          phone: signatureData.phone || profile.phone || '225012345678', // Utiliser le téléphone du formulaire, du profil, ou par défaut
+          organisation: 'CRYPTONEO', // IMPORTANT: doit être "CRYPTONEO" selon la doc
+          typePiece: 'CNI',
+          hashPiece, // Hash SHA-256 du fichier binaire original (calculé avant conversion base64)
+          base64: signatureData.photoBase64,
+          genre: signatureData.gender, // Ajouté pour CryptoNeo
+          dateConsentement, // Ajouté pour CryptoNeo
+          consentement: signatureData.consentement, // Ajouté pour CryptoNeo
+        };
+
+        // 4. Générer le certificat
+        console.log('🔐 Generating certificate...');
+        const response = await cryptoNeoService.generateCertificate(certRequest);
+
+        console.log('📩 Certificate generation response:', response);
+
+        completed = true;
+        clearTimeout(timeoutId);
+
+        if (response.statusCode === 7000 || response.statusCode === 7001) {
+          const alias = response.data?.alias || response.data?.certificatId || `CERT_${user?.id}_${Date.now()}`;
+          console.log('✅ Certificate generated successfully:', alias);
+          updateState({
+            certificateAlias: alias,
+            step: 'waiting_otp',
+            loading: false,
+          });
+          toast.success('Certificat numérique généré avec succès');
+        } else if (response.statusCode === 7002) {
+          // Certificat déjà généré, passer directement à l'étape OTP
+          const alias = response.data?.certificatId || response.data?.alias || `CERT_${user?.id}_${Date.now()}`;
+          console.log('✅ Certificate already exists:', alias);
+          updateState({
+            certificateAlias: alias,
+            step: 'waiting_otp',
+            loading: false,
+          });
+          toast.success('Certificat numérique déjà existant');
+        } else {
+          console.error('❌ Certificate generation failed:', response);
+          throw new Error(response.statusMessage || 'Erreur génération certificat');
+        }
+      } catch (err) {
+        completed = true;
+        clearTimeout(timeoutId);
+
+        const errorMessage = err instanceof Error ? err.message : 'Erreur lors de la génération du certificat';
+        console.error('❌ Certificate generation error:', err);
+        updateState({
+          error: errorMessage,
+          step: 'error',
+          loading: false,
+        });
+        toast.error(errorMessage);
+      }
+    },
+    [user]
+  );
 
   /**
    * Envoie le code OTP (SMS ou email)
    */
-  const sendOTP = useCallback(async (canal: 'SMS' | 'MAIL' = 'SMS') => {
+  const sendOTP = useCallback(async (canal: 'SMS' | 'MAIL', destination?: string) => {
     updateState({ loading: true, error: null });
 
     try {
-      await cryptoNeoService.sendOTP({ canal });
+      // Préparer les paramètres
+      const params: any = { canal };
+      if (destination) {
+        if (canal === 'SMS') {
+          params.phone = destination;
+        } else {
+          params.email = destination;
+        }
+      }
+
+      await cryptoNeoService.sendOTP(params);
       updateState({ loading: false });
       toast.success(`Code OTP envoyé par ${canal === 'SMS' ? 'SMS' : 'email'}`);
     } catch (err) {
@@ -438,6 +482,7 @@ export const useElectronicSignature = (): UseElectronicSignatureReturn => {
     certificateAlias: state.certificateAlias,
     operationId: state.operationId,
     startSignatureProcess,
+    setSignatureDataAndGenerate,
     sendOTP,
     submitOTP,
     verifyStatus,

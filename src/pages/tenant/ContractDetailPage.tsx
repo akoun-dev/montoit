@@ -1,13 +1,32 @@
 import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { downloadContract, regenerateContract } from '@/services/contracts/contractService';
-import { ArrowLeft, FileText, Download, RefreshCw, X, Shield, PenTool } from 'lucide-react';
+import {
+  ArrowLeft,
+  FileText,
+  Download,
+  RefreshCw,
+  X,
+  Shield,
+  PenTool,
+  Calendar,
+  MapPin,
+  Home as HomeIcon,
+  CreditCard,
+  Clock,
+  User,
+  Users,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { saveContractSignature, canvasToBase64 } from '@/services/contracts/signatureService';
-import { toast } from 'sonner';
 import { ElectronicSignatureModal } from '@/shared/ui/electronic-signature';
 import { apiKeysConfig } from '@/shared/config/api-keys.config';
+import { Button } from '@/shared/ui/Button';
 
 interface LeaseContract {
   id: string;
@@ -48,8 +67,53 @@ interface Profile {
   phone: string | null;
 }
 
+// Helper component for stat cards
+const StatCard = ({ icon: Icon, label, value, color = 'gray' }: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  color?: 'blue' | 'green' | 'orange' | 'gray' | 'purple';
+}) => {
+  const colors = {
+    blue: 'bg-blue-50 text-blue-600 border-blue-200',
+    green: 'bg-green-50 text-green-600 border-green-200',
+    orange: 'bg-orange-50 text-orange-600 border-orange-200',
+    gray: 'bg-gray-50 text-gray-600 border-gray-200',
+    purple: 'bg-purple-50 text-purple-600 border-purple-200',
+  };
+
+  return (
+    <div className={`p-4 rounded-xl border ${colors[color]}`}>
+      <div className="flex items-center gap-2 mb-1">
+        <Icon className="w-4 h-4" />
+        <span className="text-sm font-medium">{label}</span>
+      </div>
+      <p className="text-xl font-bold">{value}</p>
+    </div>
+  );
+};
+
+// Status badge component
+const StatusBadge = ({ status, signedAt }: { status: string; signedAt?: string | null }) => {
+  if (signedAt) {
+    return (
+      <div className="flex items-center gap-1.5 text-sm">
+        <CheckCircle2 className="w-4 h-4 text-green-500" />
+        <span className="text-green-600 font-medium">Signé</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1.5 text-sm">
+      <Clock className="w-4 h-4 text-amber-500" />
+      <span className="text-amber-600 font-medium">En attente</span>
+    </div>
+  );
+};
+
 export default function ContractDetailPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [contract, setContract] = useState<LeaseContract | null>(null);
@@ -58,94 +122,61 @@ export default function ContractDetailPage() {
   const [tenant, setTenant] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
-  const [showSignature, setShowSignature] = useState(false);
   const [signatureMethod, setSignatureMethod] = useState<'manual' | 'electronic' | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [signing, setSigning] = useState(false);
 
+  const contractId = window.location.pathname.split('/').pop() || '';
+
   useEffect(() => {
-    const contractId = window.location.pathname.split('/').pop();
     if (contractId) {
       loadContract(contractId);
     }
   }, []);
 
-  const loadContract = async (contractId: string) => {
+  const loadContract = async (id: string) => {
     if (!user?.id) return;
 
     try {
       setLoading(true);
 
-      // Load contract
       const { data, error } = await supabase
         .from('lease_contracts')
         .select('*')
-        .eq('id', contractId)
+        .eq('id', id)
         .single();
 
       if (error) throw error;
-
-      const contractData = data as unknown as LeaseContract;
-
-      if (!contractData) {
-        alert('Contrat non trouvé');
-        window.location.href = '/dashboard';
+      if (!data) {
+        navigate('/locataire/contrats');
         return;
       }
 
-      // Check access rights based on user role
+      const contractData = data as unknown as LeaseContract;
+
+      // Check access
       const hasAccess =
         contractData.owner_id === user?.id ||
         contractData.tenant_id === user?.id ||
         (contractData.agency_id && contractData.agency_id === user?.id);
 
       if (!hasAccess) {
-        alert("Vous n'avez pas accès à ce contrat");
-
-        // Redirect to appropriate contracts list based on user role
-        const userRole = (user as { user_type?: string })?.user_type;
-        let redirectUrl = '/dashboard';
-
-        if (userRole === 'tenant') {
-          redirectUrl = '/locataire/contrats';
-        } else if (userRole === 'proprietaire' || userRole === 'owner') {
-          redirectUrl = '/proprietaire/contrats';
-        } else if (userRole === 'agence' || userRole === 'agency') {
-          redirectUrl = '/agences/contrats';
-        }
-
-        window.location.href = redirectUrl;
+        navigate('/locataire/contrats');
         return;
       }
 
       setContract(contractData);
 
-      // Load property
-      const { data: propData } = await supabase
-        .from('properties')
-        .select('title, address, city, property_type, surface_area, bedrooms, bathrooms')
-        .eq('id', contractData.property_id)
-        .single();
+      // Load related data
+      const [propData, ownerData, tenantData] = await Promise.all([
+        supabase.from('properties').select('title, address, city, property_type, surface_area, bedrooms, bathrooms').eq('id', contractData.property_id).single(),
+        supabase.from('profiles').select('full_name, email, phone').eq('id', contractData.owner_id).single(),
+        supabase.from('profiles').select('full_name, email, phone').eq('id', contractData.tenant_id).single(),
+      ]);
 
-      if (propData) setProperty({ ...propData, id: contractData.property_id });
-
-      // Load owner profile
-      const { data: ownerData } = await supabase
-        .from('profiles')
-        .select('full_name, email, phone')
-        .eq('id', contractData.owner_id)
-        .single();
-
-      if (ownerData) setOwner(ownerData);
-
-      // Load tenant profile
-      const { data: tenantData } = await supabase
-        .from('profiles')
-        .select('full_name, email, phone')
-        .eq('id', contractData.tenant_id)
-        .single();
-
-      if (tenantData) setTenant(tenantData);
+      if (propData.data) setProperty({ ...propData.data, id: contractData.property_id });
+      if (ownerData.data) setOwner(ownerData.data);
+      if (tenantData.data) setTenant(tenantData.data);
     } catch (error) {
       console.error('Error loading contract:', error);
     } finally {
@@ -154,96 +185,35 @@ export default function ContractDetailPage() {
   };
 
   const handleDownload = async () => {
+    if (!contract?.document_url) return;
     try {
-      if (!contract?.document_url) {
-        alert('Aucun PDF disponible pour ce contrat. Veuillez d abord régénérer le contrat.');
-        return;
-      }
-
-      const filename = `contrat-${contract.contract_number}.pdf`;
-      await downloadContract(contract.document_url, filename);
+      await downloadContract(contract.document_url, `contrat-${contract.contract_number}.pdf`);
     } catch (error) {
       console.error('Error downloading contract:', error);
-      alert('Erreur lors du téléchargement du contrat');
     }
   };
 
-  const handleRegenerate = async (contractId: string) => {
+  const handleRegenerate = async () => {
+    if (!contract) return;
     try {
       setRegenerating(true);
-      await regenerateContract(contractId);
-      alert('Contrat regénéré avec succès');
+      await regenerateContract(contract.id);
+      await loadContract(contractId);
     } catch (error) {
       console.error('Error regenerating contract:', error);
-      alert('Erreur lors de la régénération du contrat');
     } finally {
       setRegenerating(false);
     }
   };
 
-  const generateContractContent = () => {
-    if (!contract || !property || !owner || !tenant) return '';
-
-    return `
-CONTRAT DE LOCATION N° ${contract.contract_number}
-
-Entre les soussignés :
-Le Propriétaire : ${owner.full_name}
-Email : ${owner.email}
-Téléphone : ${owner.phone || 'Non spécifié'}
-
-Et le Locataire : ${tenant.full_name}
-Email : ${tenant.email}
-Téléphone : ${tenant.phone || 'Non spécifié'}
-
-Il a été convenu ce qui suit :
-
-ARTICLE 1 - OBJET DU CONTRAT
-Le Propriétaire loue au Locataire le bien immobilier suivant :
-${property.title}
-${property.address ? formatAddress(property.address as AddressValue) : ''}
-${property.city}
-
-Caractéristiques du bien :
-- Surface : ${property.surface_area} m²
-- Nombre de chambres : ${property.bedrooms}
-- Nombre de salles de bain : ${property.bathrooms}
-
-ARTICLE 2 - DURÉE DU CONTRAT
-Le présent contrat est conclu pour une durée de ${calculateDuration(
-      contract.start_date,
-      contract.end_date
-    )} mois,
-à compter du ${new Date(contract.start_date).toLocaleDateString('fr-FR')}
-jusqu'au ${new Date(contract.end_date).toLocaleDateString('fr-FR')}.
-
-ARTICLE 3 - LOYER ET CHARGES
-Le loyer mensuel est fixé à ${contract.monthly_rent.toLocaleString()} FCFA.
-Le dépôt de garantie s'élève à ${contract.deposit_amount?.toLocaleString() || '0'} FCFA.
-Les charges s'élèvent à ${contract.charges_amount?.toLocaleString() || '0'} FCFA.
-
-ARTICLE 4 - CONDITIONS PARTICULIÈRES
-${contract.custom_clauses || 'Aucune condition particulière'}
-
-Fait à ${new Date().toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })}
-    `;
-  };
-
   const calculateDuration = (startDate: string, endDate: string) => {
     const start = new Date(startDate);
     const end = new Date(endDate);
-    const months =
-      (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-    return months;
+    return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
   };
 
-  const startDrawing = (
-    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
-  ) => {
+  // Canvas drawing handlers
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     setIsDrawing(true);
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -276,331 +246,419 @@ Fait à ${new Date().toLocaleDateString('fr-FR', {
     }
   };
 
-  const stopDrawing = () => {
-    setIsDrawing(false);
-  };
+  const stopDrawing = () => setIsDrawing(false);
 
   const clearSignature = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   const handleSign = async () => {
-    if (!contract || !user) {
-      alert('Contrat ou utilisateur non disponible');
-      return;
-    }
+    if (!contract || !user) return;
 
     try {
       setSigning(true);
 
-      // Convert canvas to base64
       const canvas = canvasRef.current;
-      if (!canvas) {
-        alert('Zone de signature non disponible');
-        return;
-      }
+      if (!canvas) return;
 
       const signatureData = canvasToBase64(canvas);
       const signatureType = contract.owner_id === user.id ? 'landlord' : 'tenant';
       const now = new Date().toISOString();
 
-      // Save the signature
       await saveContractSignature({
         contractId: contract.id,
         userId: user.id,
-        signatureType: signatureType,
-        signatureData: signatureData,
+        signatureType,
+        signatureData,
         signedAt: now,
       });
 
-      // Update contract status based on who signed
-      const contractUpdates: any = {
-        updated_at: now,
-      };
-
+      const updates: any = { updated_at: now };
       if (signatureType === 'landlord') {
-        contractUpdates.landlord_signed_at = now;
-        // If landlord signs first, contract becomes partially signed
-        if (!contract.tenant_signed_at) {
-          contractUpdates.status = 'partiellement_signe';
-        }
+        updates.landlord_signed_at = now;
+        if (!contract.tenant_signed_at) updates.status = 'partiellement_signe';
       } else {
-        contractUpdates.tenant_signed_at = now;
-        // If tenant signs and landlord already signed, contract becomes active
+        updates.tenant_signed_at = now;
         if (contract.landlord_signed_at) {
-          contractUpdates.status = 'actif';
-          contractUpdates.is_electronically_signed = true;
+          updates.status = 'actif';
+          updates.is_electronically_signed = true;
         }
       }
 
-      // Update the contract in database
-      const { error } = await supabase
-        .from('lease_contracts')
-        .update(contractUpdates)
-        .eq('id', contract.id);
+      await supabase.from('lease_contracts').update(updates).eq('id', contract.id);
 
-      if (error) throw error;
-
-      toast.success('Signature enregistrée avec succès');
-      setShowSignature(false);
-
-      // Reload contract to get updated status
-      await loadContract(window.location.pathname.split('/').pop() || '');
+      setSignatureMethod(null);
+      await loadContract(contractId);
     } catch (error) {
       console.error('Error signing contract:', error);
-      toast.error('Erreur lors de la signature');
     } finally {
       setSigning(false);
     }
   };
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600">Veuillez vous connecter</p>
-        </div>
-      </div>
-    );
-  }
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      <div className="w-full min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
       </div>
     );
   }
 
   if (!contract) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="w-full min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600">Contrat non trouvé</p>
         </div>
       </div>
     );
   }
 
+  const isFullySigned = contract.landlord_signed_at && contract.tenant_signed_at;
+
   return (
-    <>
-      <div className="min-h-screen bg-gray-50 pt-4 pb-12">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <button
-            onClick={() => window.history.back()}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-6"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Retour</span>
-          </button>
-
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <FileText className="w-8 h-8 text-orange-500" />
+    <div className="w-full min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate(-1)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg">
+                  <FileText className="w-5 h-5 text-white" />
+                </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Contrat de Location</h1>
-                  <p className="text-sm text-gray-600">Numéro: {contract.contract_number}</p>
+                  <h1 className="text-lg font-semibold text-gray-900">Contrat de Location</h1>
+                  <p className="text-sm text-gray-500">N° {contract.contract_number}</p>
                 </div>
               </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={handleDownload}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center space-x-2"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Télécharger</span>
-                </button>
-                <button
-                  onClick={() => handleRegenerate(contract.id)}
-                  disabled={regenerating}
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center space-x-2 disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
-                  <span>{regenerating ? 'Regénération...' : 'Regénérer'}</span>
-                </button>
-              </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 mt-6">
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Propriétaire</h3>
-                <p className="text-gray-700">{owner?.full_name}</p>
-                <p className="text-gray-600">{owner?.email}</p>
-                <p className="text-gray-600">{owner?.phone}</p>
-              </div>
-
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Locataire</h3>
-                <p className="text-gray-700">{tenant?.full_name}</p>
-                <p className="text-gray-600">{tenant?.email}</p>
-                <p className="text-gray-600">{tenant?.phone}</p>
-              </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="small"
+                onClick={handleDownload}
+                disabled={!contract.document_url}
+                className="flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Télécharger</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="small"
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{regenerating ? '...' : 'Regénérer'}</span>
+              </Button>
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Informations sur le bien</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <h3 className="font-semibold text-gray-900">Adresse</h3>
-                <p className="text-gray-700">{property?.title}</p>
-                <p className="text-gray-600">
-                  {property?.address ? formatAddress(property.address as AddressValue) : ''}
-                </p>
-                <p className="text-gray-600">{property?.city}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Caractéristiques</h3>
-                <p className="text-gray-700">{property?.surface_area} m²</p>
-                <p className="text-gray-700">{property?.bedrooms} chambres</p>
-                <p className="text-gray-700">{property?.bathrooms} salles de bain</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Conditions financières</h2>
-            <div className="grid md:grid-cols-3 gap-4">
-              <div>
-                <h3 className="font-semibold text-gray-900">Loyer mensuel</h3>
-                <p className="text-2xl font-bold text-green-600">
-                  {contract?.monthly_rent?.toLocaleString()} FCFA
-                </p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Dépôt de garantie</h3>
-                <p className="text-2xl font-bold text-blue-600">
-                  {contract?.deposit_amount?.toLocaleString()} FCFA
-                </p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Durée</h3>
-                <p className="text-2xl font-bold text-gray-700">
-                  {calculateDuration(contract.start_date, contract.end_date)} mois
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <pre className="whitespace-pre-wrap font-sans text-gray-800 leading-relaxed">
-              {generateContractContent()}
-            </pre>
-          </div>
-
-          {/* Signature Section */}
-          {(!contract.landlord_signed_at || !contract.tenant_signed_at) && (
-            <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Signature du contrat</h2>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                {/* Manual Signature */}
-                <button
-                  onClick={() => {
-                    setSignatureMethod('manual');
-                    setShowSignature(true);
-                  }}
-                  className="p-6 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all text-left"
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 bg-gray-100 rounded-lg">
-                      <PenTool className="w-6 h-6 text-gray-700" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">Signature manuscrite</h3>
-                      <p className="text-sm text-gray-500">Dessinez votre signature</p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    Signez directement sur l'écran avec votre doigt ou une souris
-                  </p>
-                </button>
-
-                {/* Electronic Signature */}
-                {apiKeysConfig.signature.cryptoneo.isConfigured && (
-                  <button
-                    onClick={() => setSignatureMethod('electronic')}
-                    className="p-6 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all text-left"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 bg-gradient-to-br from-orange-100 to-orange-200 rounded-lg">
-                        <Shield className="w-6 h-6 text-orange-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">Signature électronique</h3>
-                        <p className="text-sm text-orange-600">Recommandé • Valeur légale</p>
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      Signature certifiée CryptoNeo avec valeur légale équivalente à une signature
-                      notariée
-                    </p>
-                  </button>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Contract Details */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Status Banner */}
+            <div className={`p-4 rounded-xl border ${
+              isFullySigned
+                ? 'bg-green-50 border-green-200'
+                : 'bg-amber-50 border-amber-200'
+            }`}>
+              <div className="flex items-center gap-3">
+                {isFullySigned ? (
+                  <CheckCircle2 className="w-6 h-6 text-green-600" />
+                ) : (
+                  <AlertCircle className="w-6 h-6 text-amber-600" />
                 )}
-              </div>
-
-              {/* Signature status indicators */}
-              <div className="mt-6 pt-6 border-t grid md:grid-cols-2 gap-4">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      contract.landlord_signed_at ? 'bg-green-500' : 'bg-gray-300'
-                    }`}
-                  />
-                  <span className="text-sm text-gray-700">
-                    Propriétaire: {contract.landlord_signed_at ? 'Signé' : 'En attente'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      contract.tenant_signed_at ? 'bg-green-500' : 'bg-gray-300'
-                    }`}
-                  />
-                  <span className="text-sm text-gray-700">
-                    Locataire: {contract.tenant_signed_at ? 'Signé' : 'En attente'}
-                  </span>
+                <div>
+                  <p className="font-semibold text-gray-900">
+                    {isFullySigned ? 'Contrat entièrement signé' : 'Contrat en attente de signature'}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {isFullySigned
+                      ? 'Le contrat est maintenant actif et a valeur légale'
+                      : 'Les deux parties doivent signer pour activer le contrat'}
+                  </p>
                 </div>
               </div>
             </div>
-          )}
+
+            {/* Financial Info */}
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Conditions financières</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <StatCard
+                  icon={CreditCard}
+                  label="Loyer mensuel"
+                  value={`${contract.monthly_rent?.toLocaleString()} FCFA`}
+                  color="green"
+                />
+                <StatCard
+                  icon={Shield}
+                  label="Dépôt de garantie"
+                  value={`${contract.deposit_amount?.toLocaleString() || 0} FCFA`}
+                  color="blue"
+                />
+                <StatCard
+                  icon={Calendar}
+                  label="Durée"
+                  value={`${calculateDuration(contract.start_date, contract.end_date)} mois`}
+                  color="purple"
+                />
+              </div>
+            </div>
+
+            {/* Property Info */}
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Bien immobilier</h2>
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-gray-100 rounded-xl">
+                  <HomeIcon className="w-6 h-6 text-gray-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900">{property?.title}</h3>
+                  <div className="flex items-center gap-1 text-gray-600 mt-1">
+                    <MapPin className="w-4 h-4" />
+                    <span className="text-sm">
+                      {property?.address ? formatAddress(property.address as AddressValue) : ''}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-500">{property?.city}</p>
+                  <div className="flex flex-wrap gap-4 mt-3 text-sm">
+                    <span className="text-gray-600">
+                      <span className="font-medium">{property?.surface_area} m²</span> de surface
+                    </span>
+                    <span className="text-gray-600">
+                      <span className="font-medium">{property?.bedrooms}</span> chambre{property?.bedrooms > 1 ? 's' : ''}
+                    </span>
+                    <span className="text-gray-600">
+                      <span className="font-medium">{property?.bathrooms}</span> salle{property?.bathrooms > 1 ? 's' : ''} de bain
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Parties */}
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Parties au contrat</h2>
+              <div className="grid sm:grid-cols-2 gap-6">
+                {/* Propriétaire */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-orange-500" />
+                    <h3 className="font-semibold text-gray-900">Propriétaire</h3>
+                  </div>
+                  <div className="pl-7 space-y-1">
+                    <p className="text-gray-900">{owner?.full_name}</p>
+                    <p className="text-sm text-gray-500">{owner?.email}</p>
+                    <p className="text-sm text-gray-500">{owner?.phone}</p>
+                  </div>
+                  <div className="pl-7">
+                    <StatusBadge status="owner" signedAt={contract.landlord_signed_at} />
+                  </div>
+                </div>
+
+                {/* Locataire */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <User className="w-5 h-5 text-blue-500" />
+                    <h3 className="font-semibold text-gray-900">Locataire</h3>
+                  </div>
+                  <div className="pl-7 space-y-1">
+                    <p className="text-gray-900">{tenant?.full_name}</p>
+                    <p className="text-sm text-gray-500">{tenant?.email}</p>
+                    <p className="text-sm text-gray-500">{tenant?.phone}</p>
+                  </div>
+                  <div className="pl-7">
+                    <StatusBadge status="tenant" signedAt={contract.tenant_signed_at} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Contract Content Preview */}
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Contenu du contrat</h2>
+              <div className="prose prose-sm max-w-none">
+                <pre className="whitespace-pre-wrap font-sans text-gray-700 text-sm leading-relaxed bg-gray-50 p-4 rounded-lg overflow-x-auto">
+                  {`CONTRAT DE LOCATION N° ${contract.contract_number}
+
+Entre les soussignés :
+
+Le Propriétaire : ${owner?.full_name}
+Email : ${owner?.email}
+Téléphone : ${owner?.phone || 'Non spécifié'}
+
+Et le Locataire : ${tenant?.full_name}
+Email : ${tenant?.email}
+Téléphone : ${tenant?.phone || 'Non spécifié'}
+
+Il a été convenu ce qui suit :
+
+ARTICLE 1 - OBJET DU CONTRAT
+Le Propriétaire loue au Locataire le bien immobilier suivant :
+${property?.title}
+${property?.address ? formatAddress(property.address as AddressValue) : ''}
+${property?.city}
+
+Caractéristiques du bien :
+- Surface : ${property?.surface_area} m²
+- Nombre de chambres : ${property?.bedrooms}
+- Nombre de salles de bain : ${property?.bathrooms}
+
+ARTICLE 2 - DURÉE DU CONTRAT
+Le présent contrat est conclu pour une durée de ${calculateDuration(contract.start_date, contract.end_date)} mois,
+à compter du ${new Date(contract.start_date).toLocaleDateString('fr-FR')}
+jusqu'au ${new Date(contract.end_date).toLocaleDateString('fr-FR')}.
+
+ARTICLE 3 - LOYER ET CHARGES
+Le loyer mensuel est fixé à ${contract.monthly_rent?.toLocaleString()} FCFA.
+Le dépôt de garantie s'élève à ${contract.deposit_amount?.toLocaleString() || '0'} FCFA.
+Les charges s'élèvent à ${contract.charges_amount?.toLocaleString() || '0'} FCFA.
+
+ARTICLE 4 - CONDITIONS PARTICULIÈRES
+${contract.custom_clauses || 'Aucune condition particulière'}
+
+Fait à ${new Date().toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}`}
+                </pre>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Signature Actions */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Signature du contrat</h2>
+
+              {!isFullySigned && (
+                <div className="space-y-3">
+                  {/* Electronic Signature - Featured */}
+                  {apiKeysConfig.signature.cryptoneo.isConfigured && (
+                    <button
+                      onClick={() => setSignatureMethod('electronic')}
+                      className="w-full p-4 border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl hover:border-orange-400 hover:shadow-md transition-all text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg">
+                          <Shield className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-gray-900">Signature électronique</h3>
+                            <span className="px-2 py-0.5 bg-orange-500 text-white text-xs font-medium rounded-full">
+                              Recommandé
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Signature certifiée CryptoNeo avec valeur légale
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Manual Signature */}
+                  <button
+                    onClick={() => setSignatureMethod('manual')}
+                    className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-gray-400 hover:bg-gray-50 transition-all text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-gray-100 rounded-xl">
+                        <PenTool className="w-6 h-6 text-gray-700" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">Signature manuscrite</h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Dessinez votre signature à l'écran
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              {/* Signature Status */}
+              <div className="mt-6 pt-6 border-t space-y-4">
+                <h3 className="font-semibold text-gray-900 text-sm">Statut des signatures</h3>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-orange-500" />
+                      <span className="text-sm font-medium">Propriétaire</span>
+                    </div>
+                    <StatusBadge status="owner" signedAt={contract.landlord_signed_at} />
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-blue-500" />
+                      <span className="text-sm font-medium">Locataire</span>
+                    </div>
+                    <StatusBadge status="tenant" signedAt={contract.tenant_signed_at} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Info Box */}
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-blue-700">
+                    La signature électronique CryptoNeo a la même valeur légale qu'une signature notariée.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Manual Signature Modal */}
-      {showSignature && signatureMethod === 'manual' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Signer le contrat</h3>
+      {signatureMethod === 'manual' && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Signature manuscrite</h3>
+                <p className="text-sm text-gray-500 mt-1">Dessinez votre signature dans le cadre ci-dessous</p>
+              </div>
               <button
-                onClick={() => {
-                  setShowSignature(false);
-                  setSignatureMethod(null);
-                }}
-                className="text-gray-400 hover:text-gray-600"
+                onClick={() => setSignatureMethod(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
 
-            <p className="text-sm text-gray-600 mb-4">
-              Dessinez votre signature dans le cadre ci-dessous
-            </p>
-
-            <div className="border-2 border-gray-300 rounded-lg mb-4">
+            <div className="border-2 border-gray-300 rounded-xl mb-4 overflow-hidden">
               <canvas
                 ref={canvasRef}
                 width={600}
                 height={200}
-                className="w-full h-48 cursor-crosshair touch-none"
+                className="w-full h-48 cursor-crosshair touch-none bg-white"
                 onMouseDown={startDrawing}
                 onMouseMove={draw}
                 onMouseUp={stopDrawing}
@@ -611,20 +669,30 @@ Fait à ${new Date().toLocaleDateString('fr-FR', {
               />
             </div>
 
-            <div className="flex justify-between">
-              <button
+            <div className="flex items-center justify-between">
+              <Button
+                variant="outline"
                 onClick={clearSignature}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 Effacer
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleSign}
                 disabled={signing}
-                className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center space-x-2"
+                className="min-w-[160px]"
               >
-                {signing ? 'Signature...' : 'Confirmer la signature'}
-              </button>
+                {signing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Signature...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="w-4 h-4 mr-2" />
+                    Confirmer
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </div>
@@ -644,17 +712,14 @@ Fait à ${new Date().toLocaleDateString('fr-FR', {
           ]}
           contractId={contract.id}
           onSuccess={() => {
-            toast.success('Document signé avec succès !');
             setSignatureMethod(null);
-            loadContract(window.location.pathname.split('/').pop() || '');
+            loadContract(contractId);
           }}
-          onError={(error) => {
-            toast.error(error);
-            // NE PAS fermer le modal en cas d'erreur - laisser l'utilisateur voir l'erreur
-            // setSignatureMethod(null); // Commenté pour garder le modal ouvert
+          onError={() => {
+            // Modal stays open on error
           }}
         />
       )}
-    </>
+    </div>
   );
 }

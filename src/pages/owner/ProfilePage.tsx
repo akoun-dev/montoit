@@ -36,6 +36,7 @@ interface Profile {
   is_verified: boolean | null;
   oneci_verified: boolean | null;
   trust_score: number | null;
+  gender?: 'Homme' | 'Femme' | 'Non spécifié' | null;
   agency_name?: string | null;
   agency_logo?: string | null;
   agency_description?: string | null;
@@ -59,6 +60,7 @@ export default function OwnerProfilePage() {
     city: '',
     address: '',
     bio: '',
+    gender: '' as 'Homme' | 'Femme' | 'Non spécifié' | '',
     agency_name: '',
     agency_description: '',
   });
@@ -85,6 +87,7 @@ export default function OwnerProfilePage() {
           city: profileData.city || '',
           address: profileData.address ? formatAddress(profileData.address) : '',
           bio: profileData.bio || '',
+          gender: profileData.gender || '',
           agency_name: profileData.agency_name || '',
           agency_description: profileData.agency_description || '',
         });
@@ -326,6 +329,19 @@ export default function OwnerProfilePage() {
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="Votre numéro de téléphone"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Genre</label>
+                <select
+                  value={formData.gender}
+                  onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'Homme' | 'Femme' | 'Non spécifié' | '' })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">Sélectionner...</option>
+                  <option value="Homme">Homme</option>
+                  <option value="Femme">Femme</option>
+                  <option value="Non spécifié">Non spécifié</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Ville</label>

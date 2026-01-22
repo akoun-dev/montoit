@@ -20,6 +20,9 @@ export interface CertificateRequest {
   typePiece: string;
   hashPiece: string;
   base64?: string;
+  genre?: 'Homme' | 'Femme';
+  dateConsentement?: string;
+  consentement?: boolean;
 }
 
 export interface CertificateResponse {
@@ -147,18 +150,91 @@ export class CryptoNeoService {
       throw new Error('Non authentifié');
     }
 
-    const response = await fetch(`${supabase.functions.url}/cryptoneo-generate-certificate`, {
+    const functionUrl = `${supabase.functions.url}/cryptoneo-generate-certificate`;
+    console.log('CryptoNeo generateCertificate URL:', functionUrl);
+    console.log('Request body size:', JSON.stringify(request).length, 'bytes');
+
+    console.log('CryptoNeo generateCertificate request BEFORE sending:', JSON.stringify({
+      ...request,
+      base64: request.base64 ? `[${request.base64?.substring(0, 50)}...]` : undefined,
+    }));
+
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 secondes timeout
+
+    try {
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      const responseText = await response.text();
+
+      console.log('CryptoNeo generateCertificate response:', {
+        status: response.status,
+        ok: response.ok,
+        body: responseText.substring(0, 500),
+      });
+
+      if (!response.ok) {
+        try {
+          const errorJson = JSON.parse(responseText);
+          throw new Error(errorJson.error || errorJson.message || responseText);
+        } catch {
+          throw new Error(`Erreur de génération de certificat (${response.status}): ${responseText}`);
+        }
+      }
+
+      const data = JSON.parse(responseText);
+      return data as CertificateResponse;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Timeout : la génération du certificat prend trop de temps (>60s)');
+      }
+      if (error instanceof Error && error.message === 'Failed to fetch') {
+        console.error('Network error - check console for CORS details');
+        throw new Error('Erreur réseau : vérifiez votre connexion ou les paramètres CORS');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Envoie un code OTP par SMS ou email
+   */
+  async sendOTP(request: OTPSendRequest): Promise<OTPSendResponse> {
+    // Use fetch directly to get better error handling
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      throw new Error('Non authentifié');
+    }
+
+    const response = await fetch(`${supabase.functions.url}/cryptoneo-send-otp`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${session.access_token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(request),
+      body: JSON.stringify({
+        canal: request.canal,
+        phone: request.phone,
+        email: request.email,
+      }),
     });
 
     const responseText = await response.text();
 
-    console.log('CryptoNeo generateCertificate response:', {
+    console.log('CryptoNeo sendOTP response:', {
       status: response.status,
       ok: response.ok,
       body: responseText.substring(0, 500),
@@ -169,30 +245,11 @@ export class CryptoNeoService {
         const errorJson = JSON.parse(responseText);
         throw new Error(errorJson.error || errorJson.message || responseText);
       } catch {
-        throw new Error(`Erreur de génération de certificat (${response.status}): ${responseText}`);
+        throw new Error(`Erreur d'envoi OTP (${response.status}): ${responseText}`);
       }
     }
 
     const data = JSON.parse(responseText);
-    return data as CertificateResponse;
-  }
-
-  /**
-   * Envoie un code OTP par SMS ou email
-   */
-  async sendOTP(request: OTPSendRequest): Promise<OTPSendResponse> {
-    const { data, error } = await supabase.functions.invoke('cryptoneo-send-otp', {
-      body: {
-        phone: request.phone,
-        email: request.email,
-      },
-    });
-
-    if (error) {
-      console.error('CryptoNeo OTP send error:', error);
-      throw new Error(`Erreur d'envoi OTP: ${error.message}`);
-    }
-
     return data as OTPSendResponse;
   }
 
@@ -200,15 +257,40 @@ export class CryptoNeoService {
    * Signe des documents électroniquement
    */
   async signDocuments(request: SignDocumentRequest): Promise<SignDocumentResponse> {
-    const { data, error } = await supabase.functions.invoke('cryptoneo-sign-document', {
-      body: request,
-    });
+    // Use fetch directly to get better error handling
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (error) {
-      console.error('CryptoNeo sign documents error:', error);
-      throw new Error(`Erreur de signature: ${error.message}`);
+    if (!session) {
+      throw new Error('Non authentifié');
     }
 
+    const response = await fetch(`${supabase.functions.url}/cryptoneo-sign-document`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    const responseText = await response.text();
+
+    console.log('CryptoNeo signDocuments response:', {
+      status: response.status,
+      ok: response.ok,
+      body: responseText.substring(0, 500),
+    });
+
+    if (!response.ok) {
+      try {
+        const errorJson = JSON.parse(responseText);
+        throw new Error(errorJson.error || errorJson.message || responseText);
+      } catch {
+        throw new Error(`Erreur de signature (${response.status}): ${responseText}`);
+      }
+    }
+
+    const data = JSON.parse(responseText);
     return data as SignDocumentResponse;
   }
 

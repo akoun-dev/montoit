@@ -10,14 +10,16 @@ import {
   Home,
   Check,
   X,
-  MoreVertical,
-  ChevronRight,
   ChevronDown,
   Filter,
+  Loader2,
+  Building2,
+  Video as VideoIcon,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { formatAddress } from '@/shared/utils/address';
+import { toast } from 'sonner';
 
 type VisitsMode = 'owner' | 'agency';
 type Filter = 'all' | 'upcoming' | 'past';
@@ -71,25 +73,81 @@ interface TenantProfile {
   phone: string | null;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  en_attente: 'En attente',
-  confirmee: 'Confirmée',
-  annulee: 'Annulée',
-  terminee: 'Terminée',
+// Status configuration
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; bg: string; icon: any }
+> = {
+  en_attente: {
+    label: 'En attente',
+    color: 'text-amber-700',
+    bg: 'bg-amber-100',
+    icon: Clock,
+  },
+  confirmee: {
+    label: 'Confirmée',
+    color: 'text-green-700',
+    bg: 'bg-green-100',
+    icon: Check,
+  },
+  annulee: {
+    label: 'Annulée',
+    color: 'text-red-700',
+    bg: 'bg-red-100',
+    icon: X,
+  },
+  terminee: {
+    label: 'Terminée',
+    color: 'text-blue-700',
+    bg: 'bg-blue-100',
+    icon: Calendar,
+  },
 };
 
-const STATUS_STYLES: Record<string, string> = {
-  en_attente: 'bg-amber-50 text-amber-700 border-amber-200',
-  confirmee: 'bg-green-50 text-green-700 border-green-200',
-  annulee: 'bg-red-50 text-red-700 border-red-200',
-  terminee: 'bg-blue-50 text-blue-700 border-blue-200',
+// Helper components
+const StatCard = ({
+  icon: Icon,
+  label,
+  value,
+  color = 'gray',
+}: {
+  icon: any;
+  label: string;
+  value: number;
+  color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'amber';
+}) => {
+  const colors = {
+    gray: 'bg-gray-50 text-gray-600 border-gray-200',
+    blue: 'bg-blue-50 text-blue-600 border-blue-200',
+    green: 'bg-green-50 text-green-600 border-green-200',
+    orange: 'bg-orange-50 text-orange-600 border-orange-200',
+    purple: 'bg-purple-50 text-purple-600 border-purple-200',
+    red: 'bg-red-50 text-red-600 border-red-200',
+    amber: 'bg-amber-50 text-amber-600 border-amber-200',
+  };
+
+  return (
+    <div className={`p-5 rounded-xl border ${colors[color]}`}>
+      <div className="flex items-center gap-3 mb-3">
+        <div className={`p-2 rounded-lg ${color === 'gray' ? 'bg-gray-200' : 'bg-white'}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+        <span className="text-sm font-medium">{label}</span>
+      </div>
+      <p className="text-2xl font-bold">{value}</p>
+    </div>
+  );
 };
 
-const STATUS_ICONS: Record<string, React.ReactNode> = {
-  en_attente: <Clock className="h-4 w-4" />,
-  confirmee: <Check className="h-4 w-4" />,
-  annulee: <X className="h-4 w-4" />,
-  terminee: <Calendar className="h-4 w-4" />,
+const StatusBadge = ({ status }: { status: string }) => {
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.en_attente;
+  const Icon = config.icon;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${config.bg} ${config.color}`}>
+      <Icon className="w-3.5 h-3.5" />
+      {config.label}
+    </span>
+  );
 };
 
 function VisitsPage({ mode }: { mode: VisitsMode }) {
@@ -173,6 +231,7 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
       setVisits(enriched);
     } catch (err) {
       console.error('Erreur lors du chargement des visites', err);
+      toast.error('Erreur lors du chargement des visites');
       setVisits([]);
     } finally {
       setLoading(false);
@@ -259,17 +318,17 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
         .eq('owner_id', user?.id);
 
       if (error) throw error;
+      toast.success('Visite confirmée avec succès');
       await loadVisits();
     } catch (err) {
       console.error('Erreur lors de la confirmation:', err);
+      toast.error('Erreur lors de la confirmation');
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleCancelVisit = async (visitId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir annuler cette visite ?')) return;
-
     setActionLoading(visitId);
     try {
       const { error } = await supabase
@@ -279,9 +338,11 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
         .eq('owner_id', user?.id);
 
       if (error) throw error;
+      toast.success('Visite annulée');
       await loadVisits();
     } catch (err) {
       console.error('Erreur lors de l\'annulation:', err);
+      toast.error('Erreur lors de l\'annulation');
     } finally {
       setActionLoading(null);
     }
@@ -292,198 +353,209 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
     return visitDate >= new Date() && visit.status !== 'annulee' && visit.status !== 'terminee';
   };
 
-  const title = mode === 'agency' ? 'Visites programmées' : 'Mes visites programmées';
+  const title = mode === 'agency' ? 'Visites programmées' : 'Mes visites';
   const subtitle =
     mode === 'agency'
       ? 'Consultez les visites prévues pour les biens de votre agence'
       : 'Suivez les visites planifiées pour vos propriétés';
 
+  if (!user) {
+    return (
+      <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-600">Veuillez vous connecter</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8">
+    <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#2C1810] dashboard-header-animate rounded-2xl px-4 sm:px-6 lg:px-8 py-6 shadow-lg">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center icon-pulse-premium shadow-md">
-              <Calendar className="h-7 w-7 text-white" />
+      <div className="bg-white border-b sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg">
+                <Calendar className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
+                <p className="text-sm text-gray-500">{subtitle}</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white">{title}</h1>
-              <p className="text-[#E8D4C5] mt-1">{subtitle}</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-4 py-2 rounded-xl font-semibold ${
-                filter === 'all'
-                  ? 'bg-white text-[#F16522]'
-                  : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
-            >
-              Toutes
-            </button>
-            <button
-              onClick={() => setFilter('upcoming')}
-              className={`px-4 py-2 rounded-xl font-semibold ${
-                filter === 'upcoming'
-                  ? 'bg-white text-[#F16522]'
-                  : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
-            >
-              À venir
-            </button>
-            <button
-              onClick={() => setFilter('past')}
-              className={`px-4 py-2 rounded-xl font-semibold ${
-                filter === 'past'
-                  ? 'bg-white text-[#F16522]'
-                  : 'bg-white/10 text-white hover:bg-white/20'
-              }`}
-            >
-              Passées/annulées
-            </button>
           </div>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard label="Total" value={stats.total} icon={<Calendar className="h-5 w-5" />} color="gray" />
-        <StatCard label="À venir" value={stats.upcoming} icon={<Clock className="h-5 w-5" />} color="orange" />
-        <StatCard label="En attente" value={stats.pending} icon={<Clock className="h-5 w-5" />} color="amber" />
-        <StatCard label="Confirmées" value={stats.confirmed} icon={<Check className="h-5 w-5" />} color="green" />
-        <StatCard label="Annulées" value={stats.cancelled} icon={<X className="h-5 w-5" />} color="red" />
-      </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          <StatCard
+            icon={Calendar}
+            label="Total"
+            value={stats.total}
+          />
+          <StatCard
+            icon={Clock}
+            label="À venir"
+            value={stats.upcoming}
+            color="orange"
+          />
+          <StatCard
+            icon={Clock}
+            label="En attente"
+            value={stats.pending}
+            color="amber"
+          />
+          <StatCard
+            icon={Check}
+            label="Confirmées"
+            value={stats.confirmed}
+            color="green"
+          />
+          <StatCard
+            icon={Calendar}
+            label="Passées"
+            value={stats.past}
+            color="blue"
+          />
+          <StatCard
+            icon={X}
+            label="Annulées"
+            value={stats.cancelled}
+            color="red"
+          />
+        </div>
 
-      {/* Period Filter */}
-      <div className="bg-white rounded-[20px] border border-[#EFEBE9] p-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-[#6B5A4E]" />
-            <span className="text-sm font-medium text-[#2C1810]">Filtrer par période :</span>
-          </div>
-          <div className="relative flex-1 sm:flex-none">
-            <button
-              onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-[#EFEBE9] rounded-xl hover:bg-[#FBFAF9] transition-colors min-w-[200px] justify-between"
-            >
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-[#6B5A4E]" />
-                <span className="text-sm text-[#2C1810]">
+        {/* Filters */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Status filters */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setFilter('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filter === 'all'
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Toutes
+              </button>
+              <button
+                onClick={() => setFilter('upcoming')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filter === 'upcoming'
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                À venir
+              </button>
+              <button
+                onClick={() => setFilter('past')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  filter === 'past'
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Passées
+              </button>
+            </div>
+
+            {/* Period filter dropdown */}
+            <div className="relative lg:ml-auto">
+              <button
+                onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <Calendar className="w-4 h-4 text-gray-600" />
+                <span className="text-sm text-gray-700">
                   {periodFilter !== 'all'
                     ? PERIOD_FILTERS.find((f) => f.value === periodFilter)?.label || 'Période'
                     : 'Toutes les périodes'}
                 </span>
-              </div>
-              <ChevronDown className={`h-4 w-4 text-[#6B5A4E] transition-transform ${showPeriodDropdown ? 'rotate-180' : ''}`} />
-            </button>
-
-            {showPeriodDropdown && (
-              <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-[#EFEBE9] rounded-xl shadow-lg z-50">
-                <div className="p-2 space-y-1">
-                  {PERIOD_FILTERS.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        setPeriodFilter(option.value);
-                        setShowPeriodDropdown(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        periodFilter === option.value
-                          ? 'bg-[#FFF5F0] text-[#F16522]'
-                          : 'text-[#2C1810] hover:bg-[#FBFAF9]'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Custom date range inputs */}
-                {periodFilter === 'custom' && (
-                  <div className="p-4 border-t border-[#EFEBE9] space-y-3">
-                    <div>
-                      <label className="block text-xs font-medium text-[#2C1810] mb-1">
-                        Date de début
-                      </label>
-                      <input
-                        type="date"
-                        value={customStartDate}
-                        onChange={(e) => setCustomStartDate(e.target.value)}
-                        className="w-full px-3 py-2 border border-[#EFEBE9] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F16522]/20 focus:border-[#F16522]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-[#2C1810] mb-1">
-                        Date de fin
-                      </label>
-                      <input
-                        type="date"
-                        value={customEndDate}
-                        onChange={(e) => setCustomEndDate(e.target.value)}
-                        className="w-full px-3 py-2 border border-[#EFEBE9] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F16522]/20 focus:border-[#F16522]"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Active filters display */}
-          {periodFilter !== 'all' && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-[#FFF5F0] border border-[#F16522]/10 rounded-xl">
-              <span className="text-sm font-medium text-[#F16522]">
-                {PERIOD_FILTERS.find((f) => f.value === periodFilter)?.label}
-              </span>
-              <button
-                onClick={() => {
-                  setPeriodFilter('all');
-                  setCustomStartDate('');
-                  setCustomEndDate('');
-                }}
-                className="text-[#F16522] hover:text-[#d9571d]"
-              >
-                <X className="h-4 w-4" />
+                <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${showPeriodDropdown ? 'rotate-180' : ''}`} />
               </button>
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* List */}
-      <div className="bg-white rounded-[20px] border border-[#EFEBE9] overflow-hidden shadow-sm">
-        <div className="p-6 border-b border-[#EFEBE9] flex items-center justify-between bg-gradient-to-r from-[#FBFAF9] to-white">
-          <div>
-            <h2 className="text-xl font-bold text-[#2C1810]">Visites programmées</h2>
-            <p className="text-[#6B5A4E] mt-1">
-              {displayedVisits.length} visite{displayedVisits.length > 1 ? 's' : ''} affichée{displayedVisits.length > 1 ? 's' : ''}
-            </p>
+              {showPeriodDropdown && (
+                <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
+                  <div className="p-2 space-y-1">
+                    {PERIOD_FILTERS.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => {
+                          setPeriodFilter(option.value);
+                          setShowPeriodDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          periodFilter === option.value
+                            ? 'bg-orange-50 text-orange-600'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom date range inputs */}
+                  {periodFilter === 'custom' && (
+                    <div className="p-4 border-t border-gray-200 space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Date de début
+                        </label>
+                        <input
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Date de fin
+                        </label>
+                        <input
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
+        {/* Visits List */}
         {loading ? (
-          <div className="flex items-center justify-center p-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#F16522]" />
+          <div className="bg-white rounded-xl border border-gray-100 p-12 flex items-center justify-center shadow-sm">
+            <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
           </div>
         ) : displayedVisits.length === 0 ? (
-          <div className="text-center py-16 px-6">
-            <div className="w-20 h-20 bg-[#FFF5F0] rounded-full flex items-center justify-center mx-auto mb-6">
-              <Calendar className="h-10 w-10 text-[#F16522]" />
+          <div className="bg-white rounded-xl border border-gray-100 p-12 text-center shadow-sm">
+            <div className="bg-gray-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Calendar className="h-10 w-10 text-gray-400" />
             </div>
-            <h3 className="text-xl font-semibold text-[#2C1810] mb-3">Aucune visite</h3>
-            <p className="text-[#6B5A4E] max-w-md mx-auto">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Aucune visite</h3>
+            <p className="text-gray-500">
               {filter !== 'all' || periodFilter !== 'all'
                 ? 'Aucune visite ne correspond aux critères de filtration'
                 : 'Vous n\'avez aucune visite programmée.'}
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-[#EFEBE9]">
+          <div className="space-y-4">
             {displayedVisits.map((visit) => {
               const statusKey = visit.status || 'en_attente';
               const upcoming = isUpcoming(visit);
+              const isLoading = actionLoading === visit.id;
+
               const formattedDate = new Date(
                 `${visit.visit_date}T${visit.visit_time || '12:00'}`
               ).toLocaleDateString('fr-FR', {
@@ -502,146 +574,146 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
               return (
                 <div
                   key={visit.id}
-                  className={`p-6 transition-all ${
-                    upcoming ? 'bg-gradient-to-r from-[#FFF8F3] to-white hover:shadow-md' : 'hover:bg-[#FAF7F4]'
+                  className={`bg-white rounded-xl shadow-sm border transition-all overflow-hidden ${
+                    upcoming ? 'border-orange-200 hover:shadow-md' : 'border-gray-100 hover:shadow-md'
                   }`}
                 >
-                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-                    {/* Left: Property info */}
-                    <div className="flex items-start gap-4 flex-1">
-                      {/* Property image or placeholder */}
-                      <div className="flex-shrink-0">
+                  <div className="p-5">
+                    <div className="flex flex-col lg:flex-row gap-5">
+                      {/* Property Image */}
+                      <div className="lg:w-44 h-36 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
                         {visit.property?.main_image ? (
                           <img
                             src={visit.property.main_image}
                             alt={visit.property.title || 'Propriété'}
-                            className="w-24 h-24 xl:w-32 xl:h-32 rounded-2xl object-cover shadow-sm"
+                            className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-24 h-24 xl:w-32 xl:h-32 rounded-2xl bg-gradient-to-br from-[#F16522]/20 to-[#F16522]/5 flex items-center justify-center">
-                            <Home className="h-10 w-10 text-[#F16522]/60" />
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Building2 className="h-10 w-10 text-gray-300" />
                           </div>
                         )}
                       </div>
 
+                      {/* Visit Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-4 mb-2">
-                          <div>
-                            <h3 className="text-lg font-bold text-[#2C1810] mb-1">
-                              {visit.property?.title || 'Propriété'}
-                            </h3>
-                            <p className="text-[#6B5A4E] flex items-center gap-1.5 text-sm">
-                              <MapPin className="h-4 w-4 flex-shrink-0" />
-                              {visit.property?.address
-                                ? formatAddress(visit.property.address)
-                                : visit.property?.city || 'Adresse non renseignée'}
-                            </p>
+                        {/* Header */}
+                        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Building2 className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                              <span className="font-semibold text-gray-900">
+                                {visit.property?.title || 'Propriété'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <MapPin className="w-3.5 h-3.5" />
+                              <span className="truncate">
+                                {visit.property?.address
+                                  ? formatAddress(visit.property.address)
+                                  : visit.property?.city || 'Adresse non renseignée'}
+                              </span>
+                            </div>
                           </div>
-                          <span
-                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border flex-shrink-0 ${STATUS_STYLES[statusKey] || STATUS_STYLES['en_attente']}`}
-                          >
-                            {STATUS_ICONS[statusKey] || STATUS_ICONS['en_attente']}
-                            {STATUS_LABELS[statusKey] || statusKey}
-                          </span>
-                        </div>
 
-                        <div className="flex flex-wrap gap-4 text-sm">
-                          <div className="flex items-center gap-2 text-[#2C1810] font-semibold">
-                            <Calendar className="h-4 w-4 text-[#F16522]" />
-                            <span>{formattedDate}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-[#2C1810] font-semibold">
-                            <Clock className="h-4 w-4 text-[#F16522]" />
-                            <span>{formattedTime}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-[#6B5A4E]">
-                            <Video
-                              className={`h-4 w-4 ${visit.visit_type === 'virtuelle' ? 'text-blue-500' : 'text-gray-400'}`}
-                            />
-                            <span>
-                              {visit.visit_type === 'virtuelle' ? 'Visite virtuelle' : 'Visite physique'}
-                            </span>
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={statusKey} />
+                            {visit.visit_type === 'virtuelle' && (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                <VideoIcon className="w-3.5 h-3.5" />
+                                Virtuelle
+                              </span>
+                            )}
                           </div>
                         </div>
 
+                        {/* Date & Time */}
+                        <div className="flex flex-wrap gap-4 mb-3">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar className="w-4 h-4 text-orange-500" />
+                            <span className="font-medium text-gray-900">{formattedDate}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="w-4 h-4 text-orange-500" />
+                            <span className="font-medium text-gray-900">{formattedTime}</span>
+                          </div>
+                        </div>
+
+                        {/* Notes */}
                         {visit.notes && (
-                          <div className="mt-3 p-3 bg-[#FFF5F0] rounded-xl border border-[#F16522]/10">
-                            <p className="text-sm text-[#6B5A4E]">{visit.notes}</p>
+                          <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                            <p className="text-sm text-gray-600">{visit.notes}</p>
                           </div>
                         )}
-                      </div>
-                    </div>
 
-                    {/* Right: Tenant info & actions */}
-                    <div className="flex xl:flex-col gap-4 justify-between xl:justify-start xl:min-w-[280px]">
-                      {/* Tenant card */}
-                      <div className="bg-gradient-to-br from-[#FAF7F4] to-white border border-[#EFEBE9] rounded-xl p-4 xl:w-full">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-8 h-8 rounded-full bg-[#F16522] flex items-center justify-center">
-                            <User className="h-4 w-4 text-white" />
+                        {/* Tenant Info */}
+                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg mb-3">
+                          <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center flex-shrink-0">
+                            <User className="w-5 h-5 text-white" />
                           </div>
-                          <span className="text-sm font-semibold text-[#6B5A4E]">Visiteur</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900">
+                              {visit.tenant?.full_name || 'Candidat inconnu'}
+                            </p>
+                            <div className="flex flex-wrap gap-3 text-sm text-gray-500">
+                              {visit.tenant?.email && (
+                                <a
+                                  href={`mailto:${visit.tenant.email}`}
+                                  className="flex items-center gap-1 hover:text-orange-500 transition-colors"
+                                >
+                                  <Mail className="w-3.5 h-3.5" />
+                                  <span className="truncate">{visit.tenant.email}</span>
+                                </a>
+                              )}
+                              {visit.tenant?.phone && (
+                                <a
+                                  href={`tel:${visit.tenant.phone}`}
+                                  className="flex items-center gap-1 hover:text-orange-500 transition-colors"
+                                >
+                                  <Phone className="w-3.5 h-3.5" />
+                                  <span>{visit.tenant.phone}</span>
+                                </a>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-[#2C1810] font-semibold mb-2">
-                          {visit.tenant?.full_name || 'Candidat inconnu'}
-                        </p>
-                        <div className="space-y-1.5">
-                          {visit.tenant?.email && (
-                            <a
-                              href={`mailto:${visit.tenant.email}`}
-                              className="flex items-center gap-2 text-sm text-[#6B5A4E] hover:text-[#F16522] transition-colors"
-                            >
-                              <Mail className="h-3.5 w-3.5" />
-                              <span className="truncate">{visit.tenant.email}</span>
-                            </a>
-                          )}
-                          {visit.tenant?.phone && (
-                            <a
-                              href={`tel:${visit.tenant.phone}`}
-                              className="flex items-center gap-2 text-sm text-[#6B5A4E] hover:text-[#F16522] transition-colors"
-                            >
-                              <Phone className="h-3.5 w-3.5" />
-                              <span>{visit.tenant.phone}</span>
-                            </a>
-                          )}
-                        </div>
-                      </div>
 
-                      {/* Actions */}
-                      {upcoming && visit.status !== 'annulee' && (
-                        <div className="flex xl:flex-col gap-2">
-                          {visit.status === 'en_attente' && (
+                        {/* Actions */}
+                        {upcoming && visit.status !== 'annulee' && (
+                          <div className="flex gap-2">
+                            {visit.status === 'en_attente' && (
+                              <button
+                                onClick={() => handleConfirmVisit(visit.id)}
+                                disabled={isLoading}
+                                className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                              >
+                                {isLoading ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Check className="w-4 h-4" />
+                                    Confirmer
+                                  </>
+                                )}
+                              </button>
+                            )}
                             <button
-                              onClick={() => handleConfirmVisit(visit.id)}
-                              disabled={actionLoading === visit.id}
-                              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              onClick={() => handleCancelVisit(visit.id)}
+                              disabled={isLoading}
+                              className="flex items-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                             >
-                              {actionLoading === visit.id ? (
-                                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                              {isLoading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
                               ) : (
                                 <>
-                                  <Check className="h-4 w-4" />
-                                  Confirmer
+                                  <X className="w-4 h-4" />
+                                  Annuler
                                 </>
                               )}
                             </button>
-                          )}
-                          <button
-                            onClick={() => handleCancelVisit(visit.id)}
-                            disabled={actionLoading === visit.id}
-                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {actionLoading === visit.id ? (
-                              <div className="animate-spin h-4 w-4 border-2 border-red-600 border-t-transparent rounded-full" />
-                            ) : (
-                              <>
-                                <X className="h-4 w-4" />
-                                Annuler
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -650,37 +722,6 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  icon,
-  color = 'gray',
-}: {
-  label: string;
-  value: number;
-  icon?: React.ReactNode;
-  color?: 'gray' | 'orange' | 'amber' | 'green' | 'red' | 'blue';
-}) {
-  const colors = {
-    gray: 'bg-gray-50 text-gray-600 border-gray-100',
-    orange: 'bg-[#FFF5F0] text-[#F16522] border-[#F16522]/10',
-    amber: 'bg-amber-50 text-amber-600 border-amber-100',
-    green: 'bg-green-50 text-green-600 border-green-100',
-    red: 'bg-red-50 text-red-600 border-red-100',
-    blue: 'bg-blue-50 text-blue-600 border-blue-100',
-  };
-
-  return (
-    <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9] card-animate-in card-hover-premium hover:shadow-lg transition-shadow">
-      <div className="flex items-center justify-between mb-3">
-        <div className={`p-2.5 rounded-xl border ${colors[color]}`}>{icon}</div>
-      </div>
-      <p className="text-3xl font-bold text-[#2C1810]">{value}</p>
-      <p className="text-sm text-[#6B5A4E] mt-1">{label}</p>
     </div>
   );
 }
