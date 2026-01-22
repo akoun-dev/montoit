@@ -104,7 +104,7 @@ export default function TerminatedContractsTab({ stats, onRefresh }: TerminatedC
         )
         .eq('owner_id', user.id)
         .eq('status', 'resilie')
-        .order('terminated_at', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 

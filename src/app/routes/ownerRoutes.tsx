@@ -13,6 +13,7 @@ const OwnerApplications = lazyWithRetry(() => import('@/pages/owner/OwnerApplica
 const MyProperties = lazyWithRetry(() => import('@/pages/owner/MyPropertiesPage'));
 const OwnerProfilePage = lazyWithRetry(() => import('@/pages/owner/ProfilePage'));
 const OwnerVisitsPage = lazyWithRetry(() => import('@/pages/owner/VisitsPage'));
+const MyTenantsPage = lazyWithRetry(() => import('@/pages/owner/MyTenantsPage'));
 // Import ContractDetail and SignLease from tenant pages (can be reused)
 const ContractDetail = lazyWithRetry(() => import('@/pages/tenant/ContractDetailPage'));
 const SignLease = lazyWithRetry(() => import('@/pages/tenant/SignLeasePage'));
@@ -121,6 +122,12 @@ export const ownerRoutes: RouteObject[] = [
       {
         path: 'visites',
         element: <OwnerVisitsPage />,
+      },
+
+      // Tenants
+      {
+        path: 'mes-locataires',
+        element: <MyTenantsPage />,
       },
     ],
   },
