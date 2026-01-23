@@ -1,2 +1,0 @@
-1 - Ajouter envoyer une notification par mail, pour la signature de contrat avec NEOFACE
-2 - Integrer de INTOUCH et cryptoNEO et ONECI

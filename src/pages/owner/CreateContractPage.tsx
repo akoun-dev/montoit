@@ -289,7 +289,7 @@ export default function CreateContractPage() {
         console.error('Error generating PDF:', pdfError);
       }
 
-      await supabase.from('properties').update({ status: 'reserve' }).eq('id', selectedProperty);
+      await supabase.from('properties').update({ status: 'en_attente' }).eq('id', selectedProperty);
 
       try {
         await notifyLeaseCreated(data.id);
