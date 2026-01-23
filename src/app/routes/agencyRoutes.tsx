@@ -18,6 +18,11 @@ const AgencyContratsPage = lazyWithRetry(() => import('@/pages/agency/ContratsPa
 const CreateContractPage = lazyWithRetry(() => import('@/pages/owner/CreateContractPage'));
 const MessagesPage = lazyWithRetry(() => import('@/pages/messaging/MessagesPage'));
 const AgencyVisitsPage = lazyWithRetry(() => import('@/pages/agency/VisitsPage'));
+const AgencyPaymentsPage = lazyWithRetry(() => import('@/pages/agency/PaymentsPage'));
+const AgencyDocumentsPage = lazyWithRetry(() => import('@/pages/agency/DocumentsPage'));
+const AgencyRemindersPage = lazyWithRetry(() => import('@/pages/agency/RemindersPage'));
+const TeamManagementPage = lazyWithRetry(() => import('@/pages/agency/TeamManagementPage'));
+const CommissionsPage = lazyWithRetry(() => import('@/pages/agency/CommissionsPage'));
 
 export const agencyRoutes: RouteObject[] = [
   {
@@ -111,6 +116,34 @@ export const agencyRoutes: RouteObject[] = [
       {
         path: 'calendrier',
         element: <AgencyCalendarPage />,
+      },
+
+      // Payments & Charges
+      {
+        path: 'paiements',
+        element: <AgencyPaymentsPage />,
+      },
+
+      // Documents
+      {
+        path: 'documents',
+        element: <AgencyDocumentsPage />,
+      },
+
+      // Reminders
+      {
+        path: 'rappels',
+        element: <AgencyRemindersPage />,
+      },
+
+      // Team & Settings
+      {
+        path: 'equipe',
+        element: <TeamManagementPage />,
+      },
+      {
+        path: 'commissions',
+        element: <CommissionsPage />,
       },
     ],
   },

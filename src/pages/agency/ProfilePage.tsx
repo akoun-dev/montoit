@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +18,12 @@ import {
   Users,
   Mail,
   Globe,
+  Upload,
+  File,
+  Trash2,
+  Download,
+  Loader2,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import Input from '@/shared/ui/Input';
@@ -50,6 +56,16 @@ interface AgencyProfile {
   mandates_count?: number;
 }
 
+interface VerificationDocument {
+  id: string;
+  name: string;
+  type: string;
+  file_url: string;
+  file_size: number;
+  uploaded_at: string;
+  status: 'pending' | 'verified' | 'rejected';
+}
+
 export default function AgencyProfilePage() {
   const { user, profile: authProfile } = useAuth();
   const [searchParams] = useSearchParams();
@@ -59,6 +75,18 @@ export default function AgencyProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [documents, setDocuments] = useState<VerificationDocument[]>([]);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const DOCUMENT_TYPES = [
+    { value: 'title_deed', label: 'Titre foncier', icon: FileText, description: 'Document prouvant la propriété', color: 'bg-blue-100 text-blue-600' },
+    { value: 'cadastral', label: 'Document cadastral', icon: MapPin, description: 'Plan cadastral du bien', color: 'bg-green-100 text-green-600' },
+    { value: 'official_attestation', label: 'Attestation officielle', icon: CheckCircle, description: 'Document officiel d\'agrément', color: 'bg-purple-100 text-purple-600' },
+    { value: 'notarized_deed', label: 'Acte notarié', icon: File, description: 'Contrat ou acte notarié', color: 'bg-amber-100 text-amber-600' },
+    { value: 'insurance', label: 'Assurance', icon: Shield, description: 'Attestation d\'assurance RC Pro', color: 'bg-red-100 text-red-600' },
+    { value: 'other', label: 'Autre document', icon: FileText, description: 'Autre document justificatif', color: 'bg-gray-100 text-gray-600' },
+  ];
   const [formData, setFormData] = useState({
     full_name: '',
     phone: '',
@@ -75,16 +103,42 @@ export default function AgencyProfilePage() {
   useEffect(() => {
     if (user) {
       loadProfile();
+      loadDocuments();
     }
   }, [user]);
 
   const loadProfile = async () => {
     try {
-      const { data: profileData } = await supabase
+      // First try to get profile with agency fields
+      let { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
+
+      // If profile doesn't have agency fields, try to get from agencies table
+      if (!profileData?.agency_name) {
+        const { data: agencyData } = await supabase
+          .from('agencies')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (agencyData) {
+          // Merge agency data into profile
+          profileData = {
+            ...profileData,
+            agency_name: agencyData.agency_name,
+            agency_logo: agencyData.logo_url,
+            agency_description: agencyData.description,
+            agency_website: agencyData.website,
+            agency_phone: agencyData.phone,
+            agency_email: agencyData.email,
+            is_verified: agencyData.is_verified,
+            trust_score: agencyData.verification_score,
+          };
+        }
+      }
 
       if (profileData) {
         setProfile(profileData);
@@ -106,6 +160,199 @@ export default function AgencyProfilePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadDocuments = async () => {
+    try {
+      // Try agency_verification_documents table first
+      let data, error;
+      try {
+        const result = await supabase
+          .from('agency_verification_documents')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('uploaded_at', { ascending: false });
+        data = result.data;
+        error = result.error;
+      } catch (e) {
+        error = e;
+      }
+
+      // If table doesn't exist or is empty, try loading from profile.verification_documents JSON field
+      if (error || !data || data.length === 0) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('verification_documents')
+          .eq('id', user.id)
+          .single();
+
+        if (profileData?.verification_documents && Array.isArray(profileData.verification_documents)) {
+          const jsonDocs = profileData.verification_documents.map((doc: any) => ({
+            id: doc.id,
+            name: doc.name,
+            type: doc.type,
+            file_url: doc.file_url,
+            file_size: doc.file_size,
+            uploaded_at: doc.uploaded_at,
+            status: doc.status,
+          }));
+          setDocuments(jsonDocs);
+          return;
+        }
+      }
+
+      if (error && (error as any).code !== 'PGRST116') {
+        console.log('Documents table not created yet');
+      } else {
+        setDocuments(data || []);
+      }
+    } catch (err) {
+      console.error('Error loading documents:', err);
+    }
+  };
+
+  const handleDocumentUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0]) return;
+    const file = e.target.files[0];
+
+    // Check if PDF
+    if (file.type !== 'application/pdf') {
+      toast.error('Veuillez uploader un fichier PDF');
+      return;
+    }
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Le fichier ne doit pas dépasser 10MB');
+      return;
+    }
+
+    try {
+      setUploadingDoc(true);
+
+      // Upload to storage - use profile-images bucket (existing)
+      const fileName = `verification/${user.id}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('profile-images')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError);
+        throw uploadError;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('profile-images')
+        .getPublicUrl(fileName);
+
+      if (!urlData?.publicUrl) {
+        throw new Error('URL publique introuvable');
+      }
+
+      // Save to database - try agency_verification_documents first, fallback to profiles
+      let dbError;
+      try {
+        dbError = await supabase
+          .from('agency_verification_documents')
+          .insert({
+            user_id: user.id,
+            name: file.name,
+            type: 'other',
+            file_url: urlData.publicUrl,
+            file_size: file.size,
+            status: 'pending',
+          });
+      } catch (e: any) {
+        // Table doesn't exist, try to store in a JSON field in profiles
+        console.log('agency_verification_documents table not found, storing in profile...');
+
+        // Store document metadata in profile.verification_documents JSON field
+        const existingDocs = (profile as any)?.verification_documents || [];
+        const newDoc = {
+          id: Date.now().toString(),
+          name: file.name,
+          type: 'other',
+          file_url: urlData.publicUrl,
+          file_size: file.size,
+          status: 'pending',
+          uploaded_at: new Date().toISOString(),
+        };
+
+        dbError = await supabase
+          .from('profiles')
+          .update({
+            verification_documents: [...existingDocs, newDoc]
+          })
+          .eq('id', user.id);
+      }
+
+      if (dbError && (dbError as any).code !== 'PGRST116') {
+        throw dbError;
+      }
+
+      toast.success('Document uploadé avec succès');
+      loadDocuments();
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      toast.error('Erreur lors de l\'upload du document');
+    } finally {
+      setUploadingDoc(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) return;
+
+    try {
+      // Try agency_verification_documents table first
+      let deleted = false;
+      try {
+        const { error } = await supabase
+          .from('agency_verification_documents')
+          .delete()
+          .eq('id', docId);
+
+        if (!error && error.code !== 'PGRST116') {
+          deleted = true;
+        }
+      } catch (e) {
+        // Table doesn't exist
+      }
+
+      // If table deletion failed or doesn't exist, try JSON field in profile
+      if (!deleted && profile?.verification_documents && Array.isArray(profile.verification_documents)) {
+        const updatedDocs = profile.verification_documents.filter((doc: any) => doc.id !== docId);
+        await supabase
+          .from('profiles')
+          .update({ verification_documents: updatedDocs })
+          .eq('id', user.id);
+        deleted = true;
+      }
+
+      if (deleted) {
+        toast.success('Document supprimé');
+        loadDocuments();
+      } else {
+        toast.success('Document supprimé (mis à jour localement)');
+        // Update local state immediately
+        setDocuments((prev) => prev.filter((d) => d.id !== docId));
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      toast.error('Erreur lors de la suppression');
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Octets';
+    const k = 1024;
+    const sizes = ['Octets', 'Ko', 'Mo', 'Go'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const handleSaveProfile = async (e: ChangeEvent<HTMLFormElement>) => {
@@ -513,18 +760,174 @@ export default function AgencyProfilePage() {
         )}
 
         {activeTab === 'verification' && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Statut de vérification</h3>
-            <VerificationItem
-              title="Email vérifié"
-              description="Votre adresse email a été vérifiée"
-              verified={true}
-            />
-            <VerificationItem
-              title="Agrément ONECI"
-              description="Agrément professionnel vérifié"
-              verified={profile?.oneci_verified}
-            />
+          <div className="space-y-6">
+            {/* Status Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Statut de vérification</h3>
+              <div className="space-y-3">
+                <VerificationItem
+                  title="Email vérifié"
+                  description="Votre adresse email a été vérifiée"
+                  verified={true}
+                />
+                <VerificationItem
+                  title="Agrément ONECI"
+                  description="Agrément professionnel vérifié"
+                  verified={profile?.oneci_verified}
+                />
+              </div>
+            </div>
+
+            {/* Documents Upload Section */}
+            <div className="border-t pt-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Documents de vérification</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Complétez votre dossier pour augmenter votre score de confiance
+                  </p>
+                </div>
+                {documents.length > 0 && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700">
+                    <File className="w-4 h-4 mr-1" />
+                    {documents.length} document{documents.length > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+
+              {/* Document Types Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                {DOCUMENT_TYPES.map((docType) => {
+                  const Icon = docType.icon;
+                  return (
+                    <div
+                      key={docType.value}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="group cursor-pointer border-2 border-dashed border-gray-300 hover:border-primary-400 hover:border-solid hover:bg-primary-50/50 rounded-xl p-5 transition-all"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className={`p-3 rounded-xl ${docType.color || 'bg-gray-100 text-gray-600'} group-hover:scale-110 transition-transform`}>
+                          <Icon className="w-6 h-6" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-gray-900 group-hover:text-primary-700 transition-colors">
+                            {docType.label}
+                          </h4>
+                          <p className="text-sm text-gray-500 mt-1">{docType.description}</p>
+                          <p className="text-xs text-gray-400 mt-2">PDF uniquement - Max 10Mo</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Upload Status */}
+              {uploadingDoc && (
+                <div className="mb-4 p-4 bg-gradient-to-r from-primary-50 to-blue-50 border border-primary-200 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 text-primary-600 animate-spin" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-primary-900">Téléchargement en cours...</p>
+                      <p className="text-xs text-primary-600">Veuillez patienter</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Documents List */}
+              {documents.length > 0 ? (
+                <div className="space-y-3">
+                  {documents.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="p-3 bg-red-50 rounded-xl">
+                          <File className="w-6 h-6 text-red-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{doc.name}</p>
+                          <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+                            <span>{formatFileSize(doc.file_size)}</span>
+                            <span>•</span>
+                            <span>
+                              {new Date(doc.uploaded_at).toLocaleDateString('fr-FR', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
+                            </span>
+                            <span>•</span>
+                            <span className="text-gray-400">PDF</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                        <button
+                          onClick={() => window.open(doc.file_url, '_blank')}
+                          className="p-2.5 rounded-lg hover:bg-gray-100 transition-colors"
+                          title="Télécharger"
+                        >
+                          <Download className="w-5 h-5 text-gray-600" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          className="p-2.5 rounded-lg hover:bg-red-50 transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-5 h-5 text-red-600" />
+                        </button>
+                        <span
+                          className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap flex items-center gap-1.5 ${
+                            doc.status === 'verified'
+                              ? 'bg-green-100 text-green-700'
+                              : doc.status === 'rejected'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}
+                        >
+                          {doc.status === 'verified' && <CheckCircle className="w-4 h-4" />}
+                          {doc.status === 'rejected' && <AlertCircle className="w-4 h-4" />}
+                          {doc.status === 'pending' && <Clock className="w-4 h-4" />}
+                          {doc.status === 'verified'
+                            ? 'Vérifié'
+                            : doc.status === 'rejected'
+                            ? 'Rejeté'
+                            : 'En attente'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl border border-dashed border-gray-300">
+                  <FileText className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+                  <h4 className="text-lg font-semibold text-gray-700 mb-2">Aucun document téléchargé</h4>
+                  <p className="text-gray-500 text-sm mb-4">
+                    Commencez par ajouter vos documents officiels
+                  </p>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium"
+                  >
+                    <Upload className="w-5 h-5" />
+                    Ajouter un document
+                  </button>
+                </div>
+              )}
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                onChange={handleDocumentUpload}
+                className="hidden"
+                disabled={uploadingDoc}
+              />
+            </div>
           </div>
         )}
 

@@ -6,7 +6,7 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 
 interface OwnerDashboardLayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   title?: string;
 }
 

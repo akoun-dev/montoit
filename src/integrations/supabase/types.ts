@@ -1244,6 +1244,15 @@ export type Database = {
           updated_at: string | null;
           user_id: string | null;
           user_type: string | null;
+          // Agency fields
+          agency_name: string | null;
+          agency_logo: string | null;
+          agency_description: string | null;
+          agency_website: string | null;
+          agency_phone: string | null;
+          agency_email: string | null;
+          agency_id: string | null;
+          verification_documents: Json | null;
         };
         Insert: {
           active_role?: string | null;
@@ -1273,6 +1282,15 @@ export type Database = {
           updated_at?: string | null;
           user_id?: string | null;
           user_type?: string | null;
+          // Agency fields
+          agency_name?: string | null;
+          agency_logo?: string | null;
+          agency_description?: string | null;
+          agency_website?: string | null;
+          agency_phone?: string | null;
+          agency_email?: string | null;
+          agency_id?: string | null;
+          verification_documents?: Json | null;
         };
         Update: {
           active_role?: string | null;
@@ -1302,6 +1320,15 @@ export type Database = {
           updated_at?: string | null;
           user_id?: string | null;
           user_type?: string | null;
+          // Agency fields
+          agency_name?: string | null;
+          agency_logo?: string | null;
+          agency_description?: string | null;
+          agency_website?: string | null;
+          agency_phone?: string | null;
+          agency_email?: string | null;
+          agency_id?: string | null;
+          verification_documents?: Json | null;
         };
         Relationships: [];
       };

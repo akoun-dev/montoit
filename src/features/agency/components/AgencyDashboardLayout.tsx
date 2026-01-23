@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useLocation, Outlet } from 'react-router-dom';
-import Sidebar from './Sidebar';
+import AgencySidebar from './AgencySidebar';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Menu } from 'lucide-react';
 
 interface AgencyDashboardLayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   title?: string;
 }
 
@@ -42,13 +42,12 @@ export default function AgencyDashboardLayout({ children, title }: AgencyDashboa
 
   return (
     <div className="flex h-screen bg-neutral-50 overflow-hidden">
-      <Sidebar
+      <AgencySidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        currentPath={location.pathname}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-72 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header mobile uniquement */}
         <header className="lg:hidden flex-shrink-0 bg-white border-b border-neutral-200 px-4 py-3">
           <div className="flex items-center gap-3">

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { X, Building2, Settings } from 'lucide-react';
+import { X, Building2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useNavigationItems } from '@/shared/hooks/useNavigationItems';
@@ -19,7 +19,7 @@ export default function AgencySidebar({ isOpen, onClose }: AgencySidebarProps) {
 
   const isActive = (href: string) => {
     if (href === '/agency') {
-      return currentPath === '/agency' || currentPath === '/agency/dashboard';
+      return currentPath === '/agency' || currentPath === '/agences/dashboard';
     }
     return currentPath.startsWith(href);
   };
@@ -119,21 +119,13 @@ export default function AgencySidebar({ isOpen, onClose }: AgencySidebarProps) {
           </ul>
         </nav>
 
-        {/* Footer with Settings */}
+        {/* Footer with CTA */}
         <div className="p-4 border-t border-neutral-100">
-          <Link
-            to="/agency/configurations"
-            className="flex items-center gap-3 px-4 py-3 text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 rounded-xl transition-all"
-          >
-            <Settings className="h-5 w-5 text-neutral-400" />
-            <span className="font-medium">Configurations</span>
-          </Link>
-
-          <div className="mt-3 bg-primary-50 rounded-xl p-4">
+          <div className="bg-primary-50 rounded-xl p-4">
             <p className="text-sm font-medium text-primary-700 mb-1">Gérer vos mandats</p>
             <p className="text-xs text-primary-600 mb-3">Créez un nouveau mandat de gestion</p>
             <Link
-              to="/agency/mandats/nouveau"
+              to="/agences/mandats/nouveau"
               className="block text-center text-sm font-semibold text-white bg-primary-500 hover:bg-primary-600 py-2 px-4 rounded-lg transition-colors"
             >
               Nouveau mandat
