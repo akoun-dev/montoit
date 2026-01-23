@@ -15,6 +15,9 @@ import {
   Building2,
   Calendar,
   Key,
+  Wallet,
+  FolderOpen,
+  Bell,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -36,6 +39,9 @@ const navItems = [
   { label: 'Mes candidatures', href: '/proprietaire/candidatures', icon: Users },
   { label: 'Visites', href: '/proprietaire/visites', icon: Calendar },
   { label: 'Mes locataires', href: '/proprietaire/mes-locataires', icon: Key },
+  { label: 'Paiements', href: '/proprietaire/paiements', icon: Wallet },
+  { label: 'Documents', href: '/proprietaire/documents', icon: FolderOpen },
+  { label: 'Rappels', href: '/proprietaire/rappels', icon: Bell },
   { label: 'Mandats agence', href: '/proprietaire/mes-mandats', icon: Handshake },
   { label: 'Messages', href: '/proprietaire/messages', icon: MessageSquare, hasBadge: true },
   { label: 'Mon profil', href: '/proprietaire/profil', icon: UserCircle2 },

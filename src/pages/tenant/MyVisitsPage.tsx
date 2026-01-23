@@ -7,6 +7,7 @@ import TenantDashboardLayout from '../../features/tenant/components/TenantDashbo
 import { logger } from '@/shared/lib/logger';
 import type { Visit, VisitFilter } from '@/types/visit.types';
 import { formatAddress } from '@/shared/utils/address';
+import PropertyRatingDialog, { type PropertyRating } from '../../features/tenant/components/PropertyRatingDialog';
 
 const statusStyles: Record<string, string> = {
   en_attente: 'bg-yellow-100 text-yellow-800',
@@ -389,68 +390,52 @@ export default function MyVisits() {
       </div>
 
       {showFeedbackModal && selectedVisit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Laisser un avis</h3>
-              <button
-                onClick={() => setShowFeedbackModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
+        <PropertyRatingDialog
+          isOpen={showFeedbackModal}
+          onClose={() => {
+            setShowFeedbackModal(false);
+            setSelectedVisit(null);
+          }}
+          onSubmit={async (ratingData) => {
+            try {
+              const { error } = await supabase
+                .from('visit_requests')
+                .update({
+                  metadata: {
+                    ...(selectedVisit.metadata || {}),
+                    feedback: ratingData.comment,
+                    rating: ratingData.overall_rating,
+                    location_rating: ratingData.location_rating,
+                    condition_rating: ratingData.condition_rating,
+                    value_rating: ratingData.value_rating,
+                    communication_rating: ratingData.communication_rating,
+                    would_recommend: ratingData.would_recommend,
+                  },
+                  tenant_attended: true,
+                  status: 'terminee',
+                  completed_at: new Date().toISOString(),
+                })
+                .eq('id', selectedVisit.id);
 
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-900 mb-2">Note</label>
-              <div className="flex items-center space-x-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => setRating(star)}
-                    className="focus:outline-none"
-                  >
-                    <Star
-                      className={`w-8 h-8 ${
-                        star <= rating
-                          ? 'fill-yellow-400 text-yellow-400'
-                          : 'text-gray-300 hover:text-yellow-400'
-                      }`}
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
+              if (error) throw error;
 
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-900 mb-2">Commentaire</label>
-              <textarea
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                rows={4}
-                placeholder="Partagez votre expérience..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              />
-            </div>
+              // Save rating to property_ratings table
+              await supabase.from('property_ratings').insert({
+                property_id: selectedVisit.property_id,
+                tenant_id: user?.id,
+                visit_id: selectedVisit.id,
+                ...ratingData,
+              });
 
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowFeedbackModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={submitFeedback}
-                disabled={rating === 0 || submittingFeedback}
-                className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submittingFeedback ? 'Envoi...' : 'Envoyer'}
-              </button>
-            </div>
-          </div>
-        </div>
+              loadVisits();
+            } catch (error) {
+              logger.error('Failed to submit rating', error instanceof Error ? error : undefined);
+              alert("Erreur lors de l'envoi de l'avis");
+            }
+          }}
+          propertyTitle={selectedVisit.property?.title || 'Propriété'}
+          propertyAddress={selectedVisit.property ? formatAddress(selectedVisit.property.address, selectedVisit.property.city) : undefined}
+        />
       )}
     </TenantDashboardLayout>
   );

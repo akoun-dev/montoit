@@ -19,6 +19,7 @@ const TenantScorePage = lazyWithRetry(() => import('@/pages/tenant/ScorePage'));
 const MaintenanceRequest = lazyWithRetry(() => import('@/pages/tenant/MaintenanceRequestPage'));
 const MyApplications = lazyWithRetry(() => import('@/pages/tenant/MyApplicationsPage'));
 const RentalHistoryPage = lazyWithRetry(() => import('@/pages/tenant/RentalHistoryPage'));
+const MyReviewsPage = lazyWithRetry(() => import('@/pages/tenant/MyReviewsPage'));
 
 // Unified dashboard
 const UnifiedDashboard = lazyWithRetry(() => import('@/pages/dashboard/UnifiedDashboardPage'));
@@ -122,6 +123,16 @@ export const tenantRoutes: RouteObject[] = [
     element: (
       <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
         <MyVisits />
+      </ProtectedRoute>
+    ),
+  },
+
+  // Reviews
+  {
+    path: 'avis',
+    element: (
+      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
+        <MyReviewsPage />
       </ProtectedRoute>
     ),
   },

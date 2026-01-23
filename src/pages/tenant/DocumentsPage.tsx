@@ -1,432 +1,716 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/app/providers/AuthProvider';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   FileText,
-  Upload,
   Download,
-  Trash2,
   Eye,
+  Search,
+  Filter,
+  Calendar,
+  Home,
+  CreditCard,
+  Shield,
+  FolderOpen,
+  File,
+  FileWarning,
   CheckCircle,
   Clock,
-  XCircle,
+  X,
   AlertCircle,
+  Building,
+  FileCode,
+  Image,
   Plus,
+  Trash2,
+  RefreshCw,
+  ExternalLink,
+  ChevronRight,
+  Receipt,
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/app/providers/AuthProvider';
 import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
-interface Document {
+interface DocumentItem {
   id: string;
   name: string;
-  type: 'identity' | 'income' | 'guarantee' | 'contract' | 'other';
-  status: 'pending' | 'verified' | 'rejected';
-  file_url: string;
-  file_type: string;
-  file_size: number;
+  type: 'contract' | 'payment' | 'insurance' | 'other';
+  category: string;
+  file_url: string | null;
+  file_type: 'pdf' | 'image' | 'doc' | 'other';
   created_at: string;
-  verified_at?: string;
-  notes?: string;
+  updated_at: string;
+  expiry_date: string | null;
+  status: 'valid' | 'expired' | 'pending';
+  size?: number;
+  description?: string;
 }
 
-const documentTypes = {
-  identity: { label: "Pièce d'identité", icon: '🆔', required: true },
-  income: { label: 'Justificatif de revenus', icon: '💰', required: true },
-  guarantee: { label: 'Justificatif de garantie', icon: '🛡️', required: false },
-  contract: { label: 'Contrat de location', icon: '📄', required: false },
-  other: { label: 'Autre document', icon: '📁', required: false },
-};
+interface LeaseContract {
+  id: string;
+  contract_number: string;
+  start_date: string;
+  end_date: string;
+  monthly_rent: number;
+  status: string;
+  property_id: string;
+  properties?: {
+    title: string;
+    address: string | null;
+    city: string;
+  };
+}
 
-const statusConfig = {
-  pending: {
-    icon: Clock,
-    color: 'text-yellow-600',
-    bgColor: 'bg-yellow-100',
-    label: 'En attente de vérification',
+interface Payment {
+  id: string;
+  amount: number;
+  payment_date: string;
+  status: string;
+  payment_method: string;
+  receipt_url: string | null;
+  lease_id: string;
+}
+
+const DOCUMENT_CATEGORIES = {
+  contract: {
+    label: 'Contrats',
+    icon: FileText,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-100',
+    subcategories: [
+      { id: 'current', label: 'Contrat en cours', icon: File },
+      { id: 'amendment', label: 'Avenants', icon: FileCode },
+      { id: 'termination', label: 'Résiliation', icon: FileWarning },
+      { id: 'history', label: 'Historique', icon: FolderOpen },
+    ],
   },
-  verified: {
-    icon: CheckCircle,
+  payment: {
+    label: 'Paiements',
+    icon: CreditCard,
     color: 'text-green-600',
     bgColor: 'bg-green-100',
-    label: 'Vérifié',
+    subcategories: [
+      { id: 'receipt', label: 'Quittances de loyer', icon: Receipt },
+      { id: 'proof', label: 'Reçus de paiement', icon: CheckCircle },
+      { id: 'invoice', label: 'Factures de charges', icon: File },
+      { id: 'history', label: 'Historique complet', icon: Calendar },
+    ],
   },
-  rejected: {
-    icon: XCircle,
-    color: 'text-red-600',
-    bgColor: 'bg-red-100',
-    label: 'Rejeté',
+  insurance: {
+    label: 'Assurances',
+    icon: Shield,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-100',
+    subcategories: [
+      { id: 'tenant', label: 'Assurance habitation', icon: Home },
+      { id: 'owner', label: 'Assurance propriétaire', icon: Building },
+      { id: 'certificate', label: 'Attestations', icon: FileText },
+      { id: 'claim', label: 'Sinistres', icon: AlertCircle },
+    ],
+  },
+  other: {
+    label: 'Autres documents',
+    icon: FolderOpen,
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-100',
+    subcategories: [
+      { id: 'diagnostic', label: 'Diagnostics', icon: File },
+      { id: 'rules', label: "Règlement de l'immeuble", icon: FileText },
+      { id: 'plan', label: 'Plans', icon: Image },
+      { id: 'manual', label: "Modes d'emploi", icon: FileCode },
+    ],
   },
 };
 
 export default function DocumentsPage() {
   const { user } = useAuth();
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [selectedType, setSelectedType] = useState<string>('identity');
+  const [activeTab, setActiveTab] = useState<'contract' | 'payment' | 'insurance' | 'other'>('contract');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [currentContract, setCurrentContract] = useState<LeaseContract | null>(null);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [previewDocument, setPreviewDocument] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
       loadDocuments();
+      loadCurrentContract();
+      loadPayments();
     }
-  }, [user]);
+  }, [user, activeTab]);
 
   const loadDocuments = async () => {
+    if (!user) return;
+
     try {
-      // Get user's documents from profiles table
-      const { data: profile, error } = await supabase
+      setLoading(true);
+
+      // Pour l'instant, charger les documents depuis la table profiles
+      // Plus tard, utiliser une table dédiée tenant_documents
+      const { data: profile } = await supabase
         .from('profiles')
         .select('documents')
-        .eq('id', user?.id)
+        .eq('id', user.id)
         .single();
 
-      if (error) throw error;
+      // Filtrer par type de document actif
+      const allDocs = (profile?.documents as any[]) || [];
+      const filteredDocs = allDocs.filter((doc: any) => doc.type === activeTab);
 
-      // Parse and set documents
-      const docs = profile?.documents || [];
+      const docs: DocumentItem[] = filteredDocs.map((doc: any) => ({
+        id: doc.id,
+        name: doc.name,
+        type: doc.type,
+        category: doc.category || 'other',
+        file_url: doc.file_url,
+        file_type: doc.file_type || 'other',
+        created_at: doc.created_at,
+        updated_at: doc.updated_at || doc.created_at,
+        expiry_date: doc.expiry_date || null,
+        status: doc.status || 'valid',
+        size: doc.file_size,
+        description: doc.description,
+      }));
+
       setDocuments(docs);
     } catch (error) {
       console.error('Error loading documents:', error);
-      setDocuments([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const loadCurrentContract = async () => {
+    if (!user || activeTab !== 'contract') return;
 
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Le fichier ne doit pas dépasser 10MB');
-      return;
-    }
-
-    // Validate file type
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-    if (!allowedTypes.includes(file.type)) {
-      alert('Seuls les fichiers PDF, JPEG et PNG sont autorisés');
-      return;
-    }
-
-    setUploading(true);
     try {
-      // Upload file to Supabase Storage
-      const fileName = `${user?.id}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('user-documents')
-        .upload(fileName, file);
+      const { data } = await supabase
+        .from('lease_contracts')
+        .select(`
+          *,
+          properties(title, address, city)
+        `)
+        .eq('tenant_id', user.id)
+        .eq('status', 'actif')
+        .maybeSingle();
 
-      if (uploadError) throw uploadError;
+      setCurrentContract(data as LeaseContract | null);
+    } catch (error) {
+      console.error('Error loading contract:', error);
+    }
+  };
 
-      // Get public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('user-documents').getPublicUrl(fileName);
+  const loadPayments = async () => {
+    if (!user || activeTab !== 'payment') return;
 
-      // Get current documents
+    try {
+      const { data } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('payer_id', user.id)
+        .order('payment_date', { ascending: false })
+        .limit(12);
+
+      setPayments((data || []) as Payment[]);
+    } catch (error) {
+      console.error('Error loading payments:', error);
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) return;
+
+    try {
       const { data: profile } = await supabase
         .from('profiles')
         .select('documents')
         .eq('id', user?.id)
         .single();
 
-      const currentDocs = profile?.documents || [];
+      const currentDocs = (profile?.documents as any[]) || [];
+      const updatedDocs = currentDocs.filter((d: any) => d.id !== docId);
 
-      // Create new document object
-      const newDoc: Document = {
-        id: Date.now().toString(), // Generate unique ID
-        name: file.name,
-        type: selectedType as Document['type'],
-        file_url: publicUrl,
-        file_type: file.type,
-        file_size: file.size,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-      };
-
-      // Update documents array
-      const updatedDocs = [...currentDocs, newDoc];
-
-      // Save to profiles table
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from('profiles')
         .update({ documents: updatedDocs })
         .eq('id', user?.id);
 
-      if (updateError) throw updateError;
+      if (error) throw error;
 
-      // Reload documents
-      await loadDocuments();
-    } catch (error) {
-      console.error('Error uploading document:', error);
-      alert('Erreur lors du téléchargement du document');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const deleteDocument = async (documentId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) return;
-
-    try {
-      // Get document info
-      const document = documents.find((d) => d.id === documentId);
-      if (!document) return;
-
-      // Delete from storage
-      const filePath = document.file_url.split('/').slice(-2).join('/');
-      const { error: deleteError } = await supabase.storage
-        .from('user-documents')
-        .remove([filePath]);
-
-      if (deleteError) console.error('Storage delete error:', deleteError);
-
-      // Remove document from array
-      const updatedDocs = documents.filter((d) => d.id !== documentId);
-
-      // Update profiles table
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ documents: updatedDocs })
-        .eq('id', user?.id);
-
-      if (updateError) throw updateError;
-
-      setDocuments(updatedDocs);
+      loadDocuments();
     } catch (error) {
       console.error('Error deleting document:', error);
       alert('Erreur lors de la suppression du document');
     }
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  const handleDownload = (url: string, name: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const filteredDocuments = documents.filter((doc) => {
+    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (doc.description?.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesCategory = !selectedCategory || doc.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const getFileIcon = (fileType: string) => {
+    switch (fileType) {
+      case 'pdf':
+        return <FileText className="h-5 w-5" />;
+      case 'image':
+        return <Image className="h-5 w-5" />;
+      case 'doc':
+        return <FileCode className="h-5 w-5" />;
+      default:
+        return <File className="h-5 w-5" />;
+    }
   };
 
-  const getDocumentStats = () => {
-    const total = documents.length;
-    const verified = documents.filter((d) => d.status === 'verified').length;
-    const pending = documents.filter((d) => d.status === 'pending').length;
-    const rejected = documents.filter((d) => d.status === 'rejected').length;
-
-    return { total, verified, pending, rejected };
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'valid':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+            <CheckCircle className="h-3 w-3" />
+            Valide
+          </span>
+        );
+      case 'expired':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+            <AlertCircle className="h-3 w-3" />
+            Expiré
+          </span>
+        );
+      case 'pending':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+            <Clock className="h-3 w-3" />
+            En attente
+          </span>
+        );
+      default:
+        return null;
+    }
   };
 
-  const stats = getDocumentStats();
-
-  if (!user) {
+  const renderContractTab = () => {
     return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
-        <div className="text-center">
-          <FileText className="w-16 h-16 text-neutral-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-neutral-900 mb-2">Connexion requise</h2>
-          <p className="text-neutral-600">Veuillez vous connecter pour accéder à vos documents</p>
-        </div>
+      <div className="space-y-6">
+        {/* Current Contract Banner */}
+        {currentContract && (
+          <div className="bg-gradient-to-r from-[#F16522] to-[#d9571d] rounded-2xl p-6 text-white">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Home className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg mb-1">Contrat en cours</h3>
+                  <p className="text-white/90 text-sm mb-2">
+                    {currentContract.properties?.title}
+                  </p>
+                  <p className="text-white/80 text-xs mb-1">
+                    Du {format(new Date(currentContract.start_date), 'd MMM yyyy', { locale: fr })} au{' '}
+                    {format(new Date(currentContract.end_date), 'd MMM yyyy', { locale: fr })}
+                  </p>
+                  <p className="text-white/80 text-xs font-semibold">
+                    {currentContract.monthly_rent.toLocaleString()} FCFA/mois
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate(`/locataire/contrat/${currentContract.id}`)}
+                className="px-4 py-2 bg-white text-[#F16522] font-semibold rounded-xl hover:bg-white/90 transition-colors flex items-center gap-2"
+              >
+                <Eye className="h-4 w-4" />
+                Voir le contrat
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Documents List */}
+        {renderDocumentsList()}
       </div>
     );
-  }
+  };
 
-  return (
-    <TenantDashboardLayout title="Mes Documents">
-      <div className="w-full">
-        {/* Header Banner */}
-        <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center flex-shrink-0">
-              <FileText className="h-6 w-6 text-white" />
+  const renderPaymentTab = () => {
+    return (
+      <div className="space-y-6">
+        {/* Payments Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl p-4 border border-[#EFEBE9]">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-green-100 rounded-lg">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-[#2C1810]">
+                  {payments.filter(p => p.status === 'complete').length}
+                </p>
+                <p className="text-xs text-[#6B5A4E]">Payés</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white">Mes Documents</h1>
-              <p className="text-[#E8D4C5] mt-1">Gérez vos documents justificatifs</p>
+          </div>
+
+          <div className="bg-white rounded-xl p-4 border border-[#EFEBE9]">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-100 rounded-lg">
+                <Clock className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-[#2C1810]">
+                  {payments.filter(p => p.status === 'pending').length}
+                </p>
+                <p className="text-xs text-[#6B5A4E]">En attente</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-4 border border-[#EFEBE9]">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-100 rounded-lg">
+                <Receipt className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-[#2C1810]">
+                  {payments.length}
+                </p>
+                <p className="text-xs text-[#6B5A4E]">Total</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-4 border border-[#EFEBE9]">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-[#F16522]/10 rounded-lg">
+                <CreditCard className="h-5 w-5 text-[#F16522]" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-[#2C1810]">
+                  {payments
+                    .filter(p => p.status === 'complete')
+                    .reduce((sum, p) => sum + p.amount, 0)
+                    .toLocaleString()} FCFA
+                </p>
+                <p className="text-xs text-[#6B5A4E]">Total payé</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-              </div>
-              <FileText className="w-8 h-8 text-gray-400" />
+        {/* Recent Payments */}
+        {payments.length > 0 && (
+          <div className="bg-white rounded-2xl border border-[#EFEBE9] overflow-hidden">
+            <div className="p-4 border-b border-[#EFEBE9] bg-[#FAF7F4]">
+              <h3 className="font-semibold text-[#2C1810]">Paiements récents</h3>
             </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Vérifiés</p>
-                <p className="text-2xl font-bold text-green-600">{stats.verified}</p>
-              </div>
-              <CheckCircle className="w-8 h-8 text-green-400" />
+            <div className="divide-y divide-[#EFEBE9]">
+              {payments.slice(0, 6).map((payment) => (
+                <div key={payment.id} className="p-4 flex items-center justify-between hover:bg-[#FAF7F4] transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-2.5 rounded-lg ${
+                      payment.status === 'complete' ? 'bg-green-100' : 'bg-amber-100'
+                    }`}>
+                      {payment.status === 'complete' ? (
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <Clock className="h-5 w-5 text-amber-600" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-[#2C1810]">
+                        {payment.amount.toLocaleString()} FCFA
+                      </p>
+                      <p className="text-xs text-[#6B5A4E]">
+                        {format(new Date(payment.payment_date), 'd MMM yyyy', { locale: fr })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(payment.status === 'complete' ? 'valid' : 'pending')}
+                    {payment.receipt_url && (
+                      <button
+                        onClick={() => handleDownload(payment.receipt_url!, `Quittance_${payment.id}.pdf`)}
+                        className="p-2 text-[#6B5A4E] hover:text-[#F16522] hover:bg-[#FAF7F4] rounded-lg transition-colors"
+                        title="Télécharger la quittance"
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
+            <button
+              onClick={() => navigate('/locataire/mes-paiements')}
+              className="w-full p-3 text-center text-[#F16522] font-medium text-sm hover:bg-[#FAF7F4] transition-colors"
+            >
+              Voir tous les paiements →
+            </button>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">En attente</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
-              </div>
-              <Clock className="w-8 h-8 text-yellow-400" />
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Rejetés</p>
-                <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
-              </div>
-              <XCircle className="w-8 h-8 text-red-400" />
-            </div>
-          </div>
-        </div>
+        )}
 
-        {/* Upload Section */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Ajouter un document</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Type de document
-              </label>
+        {/* Documents List */}
+        {renderDocumentsList()}
+      </div>
+    );
+  };
+
+  const renderDocumentsList = () => {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#F16522]"></div>
+        </div>
+      );
+    }
+
+    if (filteredDocuments.length === 0) {
+      return (
+        <div className="bg-white rounded-2xl p-12 text-center border border-[#EFEBE9]">
+          <div className="w-20 h-20 bg-[#FAF7F4] rounded-full flex items-center justify-center mx-auto mb-6">
+            <FileText className="h-10 w-10 text-[#6B5A4E]" />
+          </div>
+          <h3 className="text-xl font-bold text-[#2C1810] mb-2">
+            Aucun document trouvé
+          </h3>
+          <p className="text-[#6B5A4E] mb-6">
+            {searchQuery
+              ? 'Aucun document ne correspond à votre recherche'
+              : `Vous n'avez pas encore de documents dans cette catégorie`}
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-white rounded-2xl border border-[#EFEBE9] overflow-hidden">
+        {/* Header avec recherche et filtres */}
+        <div className="p-4 border-b border-[#EFEBE9] bg-[#FAF7F4]">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#6B5A4E]" />
+              <input
+                type="text"
+                placeholder="Rechercher un document..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#EFEBE9] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F16522]/20 focus:border-[#F16522]"
+              />
+            </div>
+            <div className="flex gap-2">
               <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                value={selectedCategory || ''}
+                onChange={(e) => setSelectedCategory(e.target.value || null)}
+                className="px-4 py-2.5 bg-white border border-[#EFEBE9] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F16522]/20 focus:border-[#F16522] text-sm"
               >
-                {Object.entries(documentTypes).map(([key, config]) => (
-                  <option key={key} value={key}>
-                    {config.icon} {config.label}
-                    {config.required && ' *'}
+                <option value="">Toutes les catégories</option>
+                {DOCUMENT_CATEGORIES[activeTab].subcategories.map((sub) => (
+                  <option key={sub.id} value={sub.id}>
+                    {sub.label}
                   </option>
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fichier (PDF, JPEG, PNG - max 10MB)
-              </label>
-              <label className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm cursor-pointer bg-white hover:bg-gray-50">
-                <Upload className="w-4 h-4 mr-2" />
-                {uploading ? 'Téléchargement...' : 'Choisir un fichier'}
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  disabled={uploading}
-                />
-              </label>
-            </div>
-          </div>
-          <div className="text-sm text-gray-500">
-            <span className="flex items-center">
-              <AlertCircle className="w-4 h-4 mr-1" />
-              Les documents avec * sont obligatoires pour certaines demandes de location
-            </span>
           </div>
         </div>
 
         {/* Documents List */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Mes documents ({documents.length})
-            </h2>
-          </div>
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-            </div>
-          ) : documents.length === 0 ? (
-            <div className="p-12 text-center">
-              <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucun document</h3>
-              <p className="text-gray-600">Commencez par ajouter vos documents justificatifs</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {documents.map((document) => {
-                const StatusIcon = statusConfig[document.status].icon;
-                return (
-                  <div key={document.id} className="p-6 hover:bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex-shrink-0">
-                          <FileText className="w-10 h-10 text-gray-400" />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-900">{document.name}</h3>
-                          <div className="flex items-center space-x-4 mt-1">
-                            <span className="text-sm text-gray-500">
-                              {documentTypes[document.type].label}
-                            </span>
-                            <span className="text-sm text-gray-500">
-                              {formatFileSize(document.file_size)}
-                            </span>
-                            <span className="text-sm text-gray-500">
-                              {formatDate(document.created_at)}
-                            </span>
-                          </div>
-                          {document.notes && (
-                            <p className="text-sm text-gray-600 mt-1">{document.notes}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig[document.status].bgColor} ${statusConfig[document.status].color}`}
-                        >
-                          <StatusIcon className="w-3 h-3 mr-1" />
-                          {statusConfig[document.status].label}
-                        </span>
-                        <a
-                          href={document.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2 text-gray-400 hover:text-gray-600"
-                          title="Voir le document"
-                        >
-                          <Eye className="w-5 h-5" />
-                        </a>
-                        <a
-                          href={document.file_url}
-                          download={document.name}
-                          className="p-2 text-gray-400 hover:text-gray-600"
-                          title="Télécharger"
-                        >
-                          <Download className="w-5 h-5" />
-                        </a>
-                        <button
-                          onClick={() => deleteDocument(document.id)}
-                          className="p-2 text-red-400 hover:text-red-600"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
+        <div className="divide-y divide-[#EFEBE9]">
+          {filteredDocuments.map((doc) => (
+            <div
+              key={doc.id}
+              className="p-4 hover:bg-[#FAF7F4] transition-colors flex items-start gap-4"
+            >
+              {/* File Icon */}
+              <div className="p-3 bg-[#FAF7F4] rounded-xl border border-[#EFEBE9] flex-shrink-0">
+                {getFileIcon(doc.file_type)}
+              </div>
+
+              {/* Document Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div>
+                    <h4 className="font-semibold text-[#2C1810] truncate">{doc.name}</h4>
+                    {doc.description && (
+                      <p className="text-sm text-[#6B5A4E] line-clamp-1">{doc.description}</p>
+                    )}
                   </div>
-                );
-              })}
+                  {getStatusBadge(doc.status)}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 text-xs text-[#6B5A4E] mt-2">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {format(new Date(doc.created_at), 'd MMM yyyy', { locale: fr })}
+                  </span>
+                  {doc.size && (
+                    <span>{(doc.size / 1024).toFixed(0)} Ko</span>
+                  )}
+                  {doc.expiry_date && (
+                    <span className={
+                      new Date(doc.expiry_date) < new Date() ? 'text-red-600 font-medium' : ''
+                    }>
+                      Expire: {format(new Date(doc.expiry_date), 'd MMM yyyy', { locale: fr })}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {doc.file_url && (
+                  <button
+                    onClick={() => setPreviewDocument(doc.file_url)}
+                    className="p-2 text-[#6B5A4E] hover:text-[#F16522] hover:bg-[#FAF7F4] rounded-lg transition-colors"
+                    title="Voir"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                )}
+                {doc.file_url && (
+                  <button
+                    onClick={() => handleDownload(doc.file_url, doc.name)}
+                    className="p-2 text-[#6B5A4E] hover:text-[#F16522] hover:bg-[#FAF7F4] rounded-lg transition-colors"
+                    title="Télécharger"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDeleteDocument(doc.id)}
+                  className="p-2 text-[#6B5A4E] hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Supprimer"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-          )}
+          ))}
         </div>
       </div>
+    );
+  };
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'contract':
+        return renderContractTab();
+      case 'payment':
+        return renderPaymentTab();
+      default:
+        return renderDocumentsList();
+    }
+  };
+
+  return (
+    <TenantDashboardLayout title="Documents">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="bg-[#2C1810] rounded-[20px] p-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center">
+              <FolderOpen className="h-6 w-6 text-white" />
+            </div>
+            <span>Mes Documents</span>
+          </h1>
+          <p className="text-[#E8D4C5] text-lg ml-15">
+            Tous vos documents locatifs au même endroit
+          </p>
+        </div>
+
+        {/* Category Tabs */}
+        <div className="bg-white rounded-2xl border border-[#EFEBE9] p-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {Object.entries(DOCUMENT_CATEGORIES).map(([key, config]) => {
+              const Icon = config.icon;
+              return (
+                <button
+                  key={key}
+                  onClick={() => {
+                    setActiveTab(key as any);
+                    setSelectedCategory(null);
+                    setSearchQuery('');
+                  }}
+                  className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${
+                    activeTab === key
+                      ? 'bg-[#F16522] text-white shadow-lg'
+                      : 'text-[#6B5A4E] hover:bg-[#FAF7F4]'
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="hidden sm:inline">{config.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Main Content */}
+        {renderTabContent()}
+      </div>
+
+      {/* Document Preview Modal */}
+      {previewDocument && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setPreviewDocument(null)}
+          />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-[#EFEBE9]">
+              <h3 className="font-semibold text-[#2C1810]">Aperçu du document</h3>
+              <button
+                onClick={() => setPreviewDocument(null)}
+                className="p-2 hover:bg-[#FAF7F4] rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5 text-[#6B5A4E]" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-auto p-4 bg-[#FAF7F4]">
+              <iframe
+                src={previewDocument}
+                className="w-full h-full min-h-[500px] rounded-lg border border-[#EFEBE9]"
+                title="Document preview"
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end p-4 border-t border-[#EFEBE9] bg-white">
+              <button
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = previewDocument;
+                  link.download = 'document';
+                  link.click();
+                }}
+                className="px-4 py-2 bg-[#F16522] text-white rounded-lg hover:bg-[#d9571d] transition-colors flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Télécharger
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </TenantDashboardLayout>
   );
 }

@@ -8,7 +8,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { queryKeys, staticQueryConfig } from '@/shared/lib/query-config';
+import { queryKeys, propertyDetailConfig } from '@/shared/lib/query-config';
 import type { Database } from '@/integrations/supabase/types';
 
 type Property = Database['public']['Tables']['properties']['Row'];
@@ -66,7 +66,7 @@ export function usePrefetchProperty() {
     queryClient.prefetchQuery({
       queryKey: queryKeys.properties.detail(id),
       queryFn: () => fetchProperty(id),
-      ...staticQueryConfig,
+      ...propertyDetailConfig,
     });
   };
 
@@ -100,7 +100,7 @@ export function usePrefetchProperties() {
       queryClient.prefetchQuery({
         queryKey: queryKeys.properties.detail(id),
         queryFn: () => fetchProperty(id),
-        ...staticQueryConfig,
+        ...propertyDetailConfig,
       });
     });
   };

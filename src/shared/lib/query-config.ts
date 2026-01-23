@@ -86,6 +86,34 @@ export const paginatedQueryConfig = {
 };
 
 /**
+ * Configuration optimisée pour la recherche de propriétés
+ * - Cache plus long pour les résultats (les propriétés changent rarement)
+ * - Préfetching automatique de la page suivante
+ * - Refetch en arrière-plan pour garder les données fraîches
+ */
+export const searchPropertiesConfig = {
+  staleTime: 5 * 60 * 1000, // 5 minutes - les résultats restent valides
+  gcTime: 30 * 60 * 1000, // 30 minutes - garder en cache plus longtemps
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+  refetchOnMount: false,
+  keepPreviousData: true,
+  // Préfetcher la page suivante quand l'utilisateur atteint 50% du contenu
+  prefetchNextPageThreshold: 0.5,
+};
+
+/**
+ * Configuration pour les détails de propriété (cache très agressif)
+ */
+export const propertyDetailConfig = {
+  staleTime: 15 * 60 * 1000, // 15 minutes
+  gcTime: 60 * 60 * 1000, // 1 heure
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+  refetchOnMount: false,
+};
+
+/**
  * Préfixes de clés de requête pour une meilleure organisation
  */
 export const queryKeys = {

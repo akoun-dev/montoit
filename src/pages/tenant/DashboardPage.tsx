@@ -15,6 +15,8 @@ import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { Link, useNavigate } from 'react-router-dom';
 import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
+import { usePaymentAlerts } from '@/hooks/tenant/usePaymentAlerts';
+import PaymentAlertsBanner from '../../features/tenant/components/PaymentAlertsBanner';
 
 interface LeaseContract {
   id: string;
@@ -71,6 +73,13 @@ export default function TenantDashboard() {
   });
   const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
   const [recentFavorites, setRecentFavorites] = useState<Favorite[]>([]);
+
+  // Payment alerts
+  const { alerts: paymentAlerts, dismissAlert: dismissAlertHook } = usePaymentAlerts();
+
+  const dismissPaymentAlert = (alertId: string) => {
+    dismissAlertHook(alertId);
+  };
 
   const loadDashboardData = useCallback(async () => {
     if (!user) return;
@@ -211,6 +220,17 @@ export default function TenantDashboard() {
             Bienvenue, {profile?.full_name || 'Locataire'}
           </p>
         </div>
+
+        {/* Payment Alerts */}
+        {paymentAlerts.length > 0 && (
+          <div className="mb-6">
+            <PaymentAlertsBanner
+              alerts={paymentAlerts}
+              onDismiss={dismissPaymentAlert}
+              onPayNow={(propertyId, amount) => navigate(`/locataire/effectuer-paiement?property=${propertyId}&amount=${amount}`)}
+            />
+          </div>
+        )}
 
         {/* Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

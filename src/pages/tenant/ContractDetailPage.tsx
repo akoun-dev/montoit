@@ -549,6 +549,115 @@ Fait à ${new Date().toLocaleDateString('fr-FR', {
 
           {/* Right Column - Signature Actions */}
           <div className="space-y-6">
+            {/* Shared Documents Section */}
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-[#F16522]" />
+                Documents du contrat
+              </h2>
+
+              <div className="space-y-3">
+                {/* Inventaire */}
+                <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-[#F16522]/10 rounded-lg">
+                      <FileText className="w-5 h-5 text-[#F16522]" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-[#2C1810]">Inventaire du logement</p>
+                      <p className="text-sm text-gray-500">État des lieux, photos, équipements</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="small"
+                    onClick={async () => {
+                      // TODO: implémenter le téléchargement de l'inventaire
+                      alert('Fonctionnalité disponible prochainement');
+                    }}
+                    className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* Diagnostic */}
+                <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-[#2C1810]">Diagnostic technique</p>
+                      <p className="text-sm text-gray-500">Consommation, diagnostics</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="small"
+                    disabled
+                    className="text-gray-400 border-gray-300"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* états des lieux */}
+                <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-[#2C1810]">État des lieux</p>
+                      <p className="text-sm text-gray-500">Signé à l'entrée et à la sortie</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="small"
+                    disabled
+                    className="text-gray-400 border-gray-300"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* Justificatif de domicile */}
+                {contract.tenant_signed_at && (
+                  <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <Shield className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-[#2C1810]">Justificatif de domicile</p>
+                        <p className="text-sm text-gray-500">Disponible après signature</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="small"
+                      onClick={async () => {
+                        // TODO: générer et télécharger le justificatif
+                        alert('Fonctionnalité disponible prochainement');
+                      }}
+                      className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs text-blue-700">
+                  💡 Ces documents sont partagés entre le propriétaire et le locataire. Les
+                  justificatifs sont disponibles une fois le contrat signé par les deux parties.
+                </p>
+              </div>
+            </div>
+
             <div className="bg-white rounded-xl shadow-sm border p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Signature du contrat</h2>
 

@@ -57,6 +57,8 @@ const ROUTE_LABELS: Record<string, string> = {
   candidatures: 'Candidatures',
   visites: 'Visites',
   'mes-locataires': 'Locataires',
+  paiements: 'Paiements',
+  documents: 'Documents',
   'mes-mandats': 'Mandats',
   profil: 'Mon profil',
   'ajouter-propriete': 'Ajouter un bien',

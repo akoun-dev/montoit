@@ -167,7 +167,7 @@ export default function TenantDashboardContent() {
         </div>
 
         <Link
-          to="/mes-visites"
+          to="/locataire/mes-visites"
           className="bg-white rounded-2xl p-5 border border-[#EFEBE9] hover:border-[#F16522] transition-colors group"
         >
           <div className="flex items-center justify-between">
@@ -184,7 +184,7 @@ export default function TenantDashboardContent() {
         </Link>
 
         <Link
-          to="/maintenance"
+          to="/locataire/maintenance"
           className="bg-white rounded-2xl p-5 border border-[#EFEBE9] hover:border-[#F16522] transition-colors group"
         >
           <div className="flex items-center justify-between">
@@ -205,7 +205,7 @@ export default function TenantDashboardContent() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-[#2C1810]">Mes Baux</h2>
-          <Link to="/mes-contrats" className="text-sm text-[#F16522] hover:underline font-medium">
+          <Link to="/locataire/mes-contrats" className="text-sm text-[#F16522] hover:underline font-medium">
             Voir tous
           </Link>
         </div>
@@ -226,7 +226,7 @@ export default function TenantDashboardContent() {
             {leases.slice(0, 3).map((lease) => (
               <Link
                 key={lease.id}
-                to={`/contrat/${lease.id}`}
+                to={`/locataire/contrat/${lease.id}`}
                 className="flex items-center gap-4 bg-white rounded-2xl border border-[#EFEBE9] p-4 hover:border-[#F16522] transition-colors group"
               >
                 {lease.property?.main_image ? (
@@ -271,7 +271,7 @@ export default function TenantDashboardContent() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-[#2C1810]">Paiements à venir</h2>
             <Link
-              to="/mes-paiements"
+              to="/locataire/mes-paiements"
               className="text-sm text-[#F16522] hover:underline font-medium"
             >
               Historique
@@ -297,7 +297,7 @@ export default function TenantDashboardContent() {
                     {payment.amount?.toLocaleString('fr-FR')} FCFA
                   </p>
                   <Link
-                    to={`/effectuer-paiement?payment=${payment.id}`}
+                    to={`/locataire/effectuer-paiement?payment=${payment.id}`}
                     className="text-sm text-[#F16522] hover:underline font-medium"
                   >
                     Payer →

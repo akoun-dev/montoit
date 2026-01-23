@@ -1,8 +1,8 @@
-import { useCallback } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useRef } from 'react';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
-import { queryKeys, paginatedQueryConfig } from '@/shared/lib/query-config';
+import { queryKeys, searchPropertiesConfig, propertyDetailConfig } from '@/shared/lib/query-config';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 type PropertyWithScore = Property & {
@@ -30,6 +30,7 @@ interface UseInfinitePropertiesResult {
   loadMore: () => void;
   refresh: () => void;
   totalCount: number;
+  prefetchPage?: (pageNumber: number) => void;
 }
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -199,7 +200,9 @@ export function useInfiniteProperties(
     pageSize = DEFAULT_PAGE_SIZE,
   } = options;
 
+  const queryClient = useQueryClient();
   const { filters, orderColumn, ascending } = buildQueryParams(options);
+  const prefetchedPages = useRef<Set<number>>(new Set());
 
   // Build cache key based on filters
   const queryKey = [
@@ -238,7 +241,7 @@ export function useInfiniteProperties(
       }
       return undefined;
     },
-    ...paginatedQueryConfig,
+    ...searchPropertiesConfig,
   });
 
   // Flatten all pages into a single array
@@ -250,12 +253,98 @@ export function useInfiniteProperties(
   // Convert error to string
   const errorString = error instanceof Error ? error.message : null;
 
+  // Intelligent prefetching of next page when approaching the end
+  useEffect(() => {
+    if (!hasNextPage || isFetchingNextPage) return;
+
+    const currentPage = data?.pages.length ?? 0;
+    const visibleItems = currentPage * pageSize;
+    const threshold = Math.floor(totalCount * 0.7); // Prefetch at 70% of content
+
+    if (visibleItems >= threshold && !prefetchedPages.current.has(currentPage)) {
+      prefetchedPages.current.add(currentPage);
+      fetchNextPage();
+    }
+  }, [data, hasNextPage, isFetchingNextPage, fetchNextPage, pageSize, totalCount]);
+
+  // Prefetch property details for visible items
+  useEffect(() => {
+    const visibleProperties = properties.slice(0, 12); // First 12 properties (typically visible)
+    const prefetchDelay = 100; // Small delay to prioritize initial render
+
+    const timer = setTimeout(() => {
+      visibleProperties.forEach((property, index) => {
+        // Stagger prefetching to avoid overwhelming the network
+        setTimeout(() => {
+          queryClient.prefetchQuery({
+            queryKey: queryKeys.properties.detail(property.id),
+            queryFn: async () => {
+              const { data } = await supabase
+                .from('properties')
+                .select('*')
+                .eq('id', property.id)
+                .eq('status', 'disponible')
+                .single();
+
+              if (!data) return null;
+
+              // Fetch owner data
+              let ownerData = null;
+              if (data.owner_id) {
+                const { data: profilesData } = await supabase.rpc('get_public_profiles', {
+                  profile_user_ids: [data.owner_id],
+                });
+                if (profilesData && profilesData.length > 0) {
+                  ownerData = profilesData[0];
+                }
+              }
+
+              return {
+                ...data,
+                owner_trust_score: ownerData?.trust_score ?? null,
+                owner_full_name: ownerData?.full_name ?? null,
+                owner_is_verified: ownerData?.is_verified ?? null,
+              };
+            },
+            ...propertyDetailConfig,
+          });
+        }, index * 100); // 100ms delay between each prefetch
+      });
+    }, prefetchDelay);
+
+    return () => clearTimeout(timer);
+  }, [properties, queryClient]);
+
   // Load more function
   const loadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Prefetch a specific page number (useful for pagination UI)
+  const prefetchPage = useCallback(
+    (pageNumber: number) => {
+      if (!prefetchedPages.current.has(pageNumber)) {
+        prefetchedPages.current.add(pageNumber);
+        queryClient.prefetchInfiniteQuery({
+          queryKey,
+          queryFn: ({ pageParam = 0 }) =>
+            fetchProperties({
+              pageParam,
+              filters,
+              orderColumn,
+              ascending,
+              pageSize,
+            }),
+          initialPageParam: 0,
+          pages: pageNumber + 1,
+          ...searchPropertiesConfig,
+        });
+      }
+    },
+    [queryClient, queryKey, filters, orderColumn, ascending, pageSize]
+  );
 
   return {
     properties,
@@ -266,5 +355,6 @@ export function useInfiniteProperties(
     loadMore,
     refresh: () => refetch(),
     totalCount,
+    prefetchPage,
   };
 }

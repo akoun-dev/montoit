@@ -8,6 +8,9 @@ export { default as OwnerContractsPage } from './OwnerContractsPage';
 export { default as ProfilePage } from './ProfilePage';
 export { default as VisitsPage } from './VisitsPage';
 export { default as MyTenantsPage } from './MyTenantsPage';
+export { default as PaymentsPage } from './PaymentsPage';
+export { default as DocumentsPage } from './DocumentsPage';
+export { default as RemindersPage } from './RemindersPage';
 
 // Owner Components
 export { default as TerminatedContractsTab } from './TerminatedContractsTab';
