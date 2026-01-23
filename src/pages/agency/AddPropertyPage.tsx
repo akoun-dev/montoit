@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/services/supabase/client';
-import { Home, FileText, Building2, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Home, FileText, Building2, AlertCircle, CheckCircle, Loader2, MapPin } from 'lucide-react';
+import CitySelector from '@/features/property/components/CitySelector';
 
 interface Mandate {
   id: string;
   property_id?: string;
   property_title?: string;
+  owner_id: string;
   owner_name: string;
   status: 'active' | 'expired' | 'pending';
   start_date: string;
@@ -21,6 +23,7 @@ interface PropertyFormData {
   property_type: string;
   address: string;
   city: string;
+  neighborhood: string;
   price: number;
   description: string;
   surface_area: number;
@@ -42,6 +45,7 @@ export default function AgencyAddPropertyPage() {
     property_type: 'apartment',
     address: '',
     city: '',
+    neighborhood: '',
     price: 0,
     description: '',
     surface_area: 0,
@@ -82,6 +86,7 @@ export default function AgencyAddPropertyPage() {
         id: mandate.id,
         property_id: mandate.property_id,
         property_title: mandate.properties?.title,
+        owner_id: mandate.owner_id,
         owner_name: mandate.owner?.full_name || 'Propriétaire inconnu',
         status: mandate.status,
         start_date: mandate.start_date,
@@ -125,9 +130,19 @@ export default function AgencyAddPropertyPage() {
       const { data: property, error: propertyError } = await supabase
         .from('properties')
         .insert({
-          ...formData,
-          owner_id: selectedMandate.owner_name,
-          agency_id: user?.id,
+          title: formData.title,
+          property_type: formData.property_type,
+          address: formData.address,
+          city: formData.city,
+          neighborhood: formData.neighborhood,
+          price: formData.price,
+          monthly_rent: formData.price,
+          description: formData.description,
+          surface_area: formData.surface_area,
+          rooms: formData.rooms,
+          bedrooms: formData.bedrooms,
+          bathrooms: formData.bathrooms,
+          owner_id: selectedMandate.owner_id,
           status: 'published',
         })
         .select()
@@ -310,15 +325,17 @@ export default function AgencyAddPropertyPage() {
                       placeholder="Ex: 15 Rue des Jardins"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Ville *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                      placeholder="Ex: Abidjan, Cocody"
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <MapPin className="inline w-4 h-4 mr-1" />
+                      Localisation *
+                    </label>
+                    <CitySelector
+                      selectedCity={formData.city}
+                      selectedDistrict={formData.neighborhood}
+                      onCitySelect={(city) => setFormData({ ...formData, city })}
+                      onDistrictSelect={(district) => setFormData({ ...formData, neighborhood: district })}
+                      disabled={submitting}
                     />
                   </div>
                   <div>
