@@ -10,8 +10,17 @@ import {
   Plus,
   Eye,
   TrendingUp,
+  TrendingDown,
   Calendar,
   Handshake,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  DollarSign,
+  Activity,
+  ArrowUpRight,
+  ArrowDownRight,
+  Star,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -37,6 +46,16 @@ interface Stats {
   maintenanceRequests: number;
   unreadMessages: number;
   monthlyRevenue: number;
+  occupancyRate: number;
+}
+
+interface RecentActivity {
+  id: string;
+  type: 'application' | 'payment' | 'maintenance' | 'visit' | 'contract';
+  title: string;
+  description: string;
+  date: string;
+  status?: 'pending' | 'completed' | 'failed';
 }
 
 export default function OwnerDashboardPage() {
@@ -54,7 +73,9 @@ export default function OwnerDashboardPage() {
     maintenanceRequests: 0,
     unreadMessages: 0,
     monthlyRevenue: 0,
+    occupancyRate: 0,
   });
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -90,7 +111,7 @@ export default function OwnerDashboardPage() {
       // Load active leases count
       const { data: leasesData } = await supabase
         .from('lease_contracts')
-        .select('id, monthly_rent')
+        .select('id, monthly_rent, property_id')
         .eq('owner_id', user.id)
         .eq('status', 'actif');
 
@@ -100,16 +121,39 @@ export default function OwnerDashboardPage() {
         0
       );
 
+      // Calculate occupancy rate
+      const occupancyRate = props.length > 0
+        ? Math.round((activeLeases.length / props.length) * 100)
+        : 0;
+
       // Load pending applications
       const propertyIds = props.map((p) => p.id);
       let pendingApplications = 0;
+      let activities: RecentActivity[] = [];
+
       if (propertyIds.length > 0) {
         const { data: applicationsData } = await supabase
           .from('rental_applications')
-          .select('id')
+          .select('id, property_id, created_at, profiles(full_name)')
           .in('property_id', propertyIds)
-          .eq('status', 'en_attente');
+          .eq('status', 'en_attente')
+          .order('created_at', { ascending: false })
+          .limit(5);
+
         pendingApplications = applicationsData?.length || 0;
+
+        // Add recent applications to activities
+        applicationsData?.forEach((app: any) => {
+          const property = props.find(p => p.id === app.property_id);
+          activities.push({
+            id: app.id,
+            type: 'application',
+            title: 'Nouvelle candidature',
+            description: `${app.profiles?.full_name || 'Un candidat'} pour ${property?.title || 'un bien'}`,
+            date: app.created_at,
+            status: 'pending',
+          });
+        });
       }
 
       // Load maintenance requests
@@ -117,11 +161,46 @@ export default function OwnerDashboardPage() {
       if (propertyIds.length > 0) {
         const { data: maintenanceData } = await supabase
           .from('maintenance_requests')
-          .select('id')
+          .select('id, property_id, created_at, title, status')
           .in('property_id', propertyIds)
-          .in('status', ['ouverte', 'en_cours']);
+          .in('status', ['ouverte', 'en_cours'])
+          .order('created_at', { ascending: false })
+          .limit(3);
+
         maintenanceRequests = maintenanceData?.length || 0;
+
+        // Add maintenance to activities
+        maintenanceData?.forEach((req: any) => {
+          const property = props.find(p => p.id === req.property_id);
+          activities.push({
+            id: req.id,
+            type: 'maintenance',
+            title: 'Demande de maintenance',
+            description: `${req.title} - ${property?.title || 'Un bien'}`,
+            date: req.created_at,
+            status: 'pending',
+          });
+        });
       }
+
+      // Load recent payments
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select('id, amount, created_at, lease_id, lease_contracts(properties(title))')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      paymentsData?.forEach((payment: any) => {
+        activities.push({
+          id: payment.id,
+          type: 'payment',
+          title: 'Paiement reçu',
+          description: `${payment.amount.toLocaleString()} FCFA - ${payment.lease_contracts?.properties?.title || 'Un bien'}`,
+          date: payment.created_at,
+          status: 'completed',
+        });
+      });
 
       // Load unread messages
       const { data: messagesData } = await supabase
@@ -130,6 +209,10 @@ export default function OwnerDashboardPage() {
         .eq('receiver_id', user.id)
         .eq('is_read', false);
 
+      // Sort activities by date
+      activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setRecentActivities(activities.slice(0, 6));
+
       setStats({
         totalProperties: props.length,
         activeLeases: activeLeases.length,
@@ -137,12 +220,88 @@ export default function OwnerDashboardPage() {
         maintenanceRequests,
         unreadMessages: messagesData?.length || 0,
         monthlyRevenue,
+        occupancyRate,
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const getEmptyState = () => {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50">
+        <div className="w-full px-4 py-12">
+          <div className="max-w-4xl mx-auto text-center">
+            {/* Welcome Illustration */}
+            <div className="mb-8">
+              <div className="w-32 h-32 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full mx-auto flex items-center justify-center shadow-xl">
+                <Home className="w-16 h-16 text-white" />
+              </div>
+            </div>
+
+            {/* Welcome Message */}
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              Bienvenue sur MonToit !
+            </h1>
+            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+              Votre espace propriétaire pour gérer vos biens immobiliers en toute simplicité.
+            </p>
+
+            {/* Features Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+              <div className="bg-white rounded-2xl p-6 shadow-lg">
+                <div className="w-12 h-12 bg-orange-100 rounded-xl mx-auto mb-4 flex items-center justify-center">
+                  <Plus className="w-6 h-6 text-orange-600" />
+                </div>
+                <h3 className="font-semibold text-gray-900 mb-2">Ajoutez vos biens</h3>
+                <p className="text-sm text-gray-600">Publiez vos propriétés en quelques clics</p>
+              </div>
+              <div className="bg-white rounded-2xl p-6 shadow-lg">
+                <div className="w-12 h-12 bg-green-100 rounded-xl mx-auto mb-4 flex items-center justify-center">
+                  <Users className="w-6 h-6 text-green-600" />
+                </div>
+                <h3 className="font-semibold text-gray-900 mb-2">Trouvez des locataires</h3>
+                <p className="text-sm text-gray-600">Gérez les candidatures simplement</p>
+              </div>
+              <div className="bg-white rounded-2xl p-6 shadow-lg">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl mx-auto mb-4 flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-blue-600" />
+                </div>
+                <h3 className="font-semibold text-gray-900 mb-2">Suivez vos revenus</h3>
+                <p className="text-sm text-gray-600">Visualisez vos revenus en temps réel</p>
+              </div>
+            </div>
+
+            {/* CTA Button */}
+            <Link
+              to="/proprietaire/ajouter-propriete"
+              className="inline-flex items-center gap-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold py-4 px-8 rounded-2xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Ajouter mon premier bien</span>
+            </Link>
+
+            {/* Trust Indicators */}
+            <div className="mt-12 flex items-center justify-center gap-8 text-sm text-gray-500">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-green-500" />
+                <span>Gratuit</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-green-500" />
+                <span>Sécurisé</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-green-500" />
+                <span>Sans engagement</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -153,141 +312,152 @@ export default function OwnerDashboardPage() {
     );
   }
 
+  // Show empty state for new users
+  if (properties.length === 0) {
+    return getEmptyState();
+  }
+
   return (
-    <>
+    <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#2C1810] dashboard-header-animate">
-        <div className="w-full px-2 sm:px-4 lg:px-6 xl:px-8 py-6">
-          <div className="flex items-center justify-between">
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center icon-pulse-premium">
+              <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
                 <Building className="h-7 w-7 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-white">Espace Propriétaire</h1>
-                <p className="text-[#E8D4C5] mt-1">
-                  Bienvenue, {profile?.full_name || 'Propriétaire'}
+                <h1 className="text-2xl sm:text-3xl font-bold text-white">Tableau de bord</h1>
+                <p className="text-[#E8D4C5]">
+                  Bonjour, {profile?.full_name || 'Propriétaire'}
                 </p>
               </div>
             </div>
             <Link
               to="/proprietaire/ajouter-propriete"
-              className="bg-[#F16522] hover:bg-[#d9571d] text-white font-semibold py-3 px-6 rounded-xl transition-colors flex items-center gap-2"
+              className="flex items-center gap-2 bg-[#F16522] hover:bg-[#d9571d] text-white px-6 py-3 rounded-xl font-medium transition-colors"
             >
               <Plus className="h-5 w-5" />
-              <span className="hidden sm:inline">Ajouter un bien</span>
+              <span>Ajouter un bien</span>
             </Link>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="w-full px-2 sm:px-4 lg:px-6 xl:px-8 py-8">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9] card-animate-in card-hover-premium card-stagger-1">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-[#FFF5F0] p-2 rounded-xl">
-                <Building className="h-5 w-5 text-[#F16522]" />
+      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
+        {/* Stats Grid - Premium Cards with Trend Indicators */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {/* Total Properties */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                <Building className="h-6 w-6 text-orange-600" />
               </div>
-              <span className="text-sm text-[#6B5A4E]">Mes biens</span>
+              <div className="flex items-center text-green-600 text-sm font-medium">
+                <TrendingUp className="w-4 h-4 mr-1" />
+                <span>Active</span>
+              </div>
             </div>
-            <p className="text-3xl font-bold text-[#2C1810]">{stats.totalProperties}</p>
+            <p className="text-3xl font-bold text-gray-900">{stats.totalProperties}</p>
+            <p className="text-sm text-gray-500 mt-1">Biens immobiliers</p>
           </div>
 
-          <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9] card-animate-in card-hover-premium card-stagger-2">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-green-100 p-2 rounded-xl">
-                <FileText className="h-5 w-5 text-green-600" />
+          {/* Active Leases */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                <FileText className="h-6 w-6 text-green-600" />
               </div>
-              <span className="text-sm text-[#6B5A4E]">Baux actifs</span>
+              <span className="text-sm text-gray-500 font-medium">{stats.occupancyRate}% occupé</span>
             </div>
-            <p className="text-3xl font-bold text-[#2C1810]">{stats.activeLeases}</p>
+            <p className="text-3xl font-bold text-gray-900">{stats.activeLeases}</p>
+            <p className="text-sm text-gray-500 mt-1">Baux actifs</p>
           </div>
 
-          <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9] card-animate-in card-hover-premium card-stagger-3">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-amber-100 p-2 rounded-xl">
-                <Users className="h-5 w-5 text-amber-600" />
+          {/* Pending Applications */}
+          <div className={`bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow border ${
+            stats.pendingApplications > 0 ? 'border-amber-200 ring-2 ring-amber-100' : 'border-gray-100'
+          }`}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+                <Users className="h-6 w-6 text-amber-600" />
               </div>
-              <span className="text-sm text-[#6B5A4E]">Candidatures</span>
+              {stats.pendingApplications > 0 && (
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-xs text-white">
+                  {stats.pendingApplications}
+                </span>
+              )}
             </div>
-            <p className="text-3xl font-bold text-[#2C1810]">{stats.pendingApplications}</p>
+            <p className="text-3xl font-bold text-gray-900">{stats.pendingApplications}</p>
+            <p className="text-sm text-gray-500 mt-1">Candidatures en attente</p>
           </div>
 
-          <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9] card-animate-in card-hover-premium card-stagger-4">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-[#FFF5F0] p-2 rounded-xl">
-                <TrendingUp className="h-5 w-5 text-[#F16522]" />
+          {/* Monthly Revenue */}
+          <div className="bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl p-6 shadow-lg text-white">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-white" />
               </div>
-              <span className="text-sm text-[#6B5A4E]">Revenus/mois</span>
+              <div className="flex items-center text-white/80 text-sm font-medium">
+                <Activity className="w-4 h-4 mr-1" />
+                <span>Ce mois</span>
+              </div>
             </div>
-            <p className="text-2xl font-bold text-[#F16522]">
-              {stats.monthlyRevenue.toLocaleString()} <span className="text-sm">FCFA</span>
-            </p>
+            <p className="text-3xl font-bold">{stats.monthlyRevenue.toLocaleString()}</p>
+            <p className="text-sm text-white/80 mt-1">FCFA / mois</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Column - Properties */}
+          {/* Main Column */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Properties List */}
-            <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9] card-animate-in card-hover-premium card-stagger-5">
+            {/* Properties Grid */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-[#2C1810] flex items-center gap-2">
-                  <Home className="h-6 w-6 text-[#F16522]" />
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Home className="h-6 w-6 text-orange-500" />
                   <span>Mes Propriétés</span>
                 </h2>
                 <Link
-                  to="/proprietaire/ajouter-propriete"
-                  className="text-[#F16522] hover:underline text-sm font-medium"
+                  to="/proprietaire/mes-biens"
+                  className="text-orange-500 hover:text-orange-600 text-sm font-medium flex items-center"
                 >
-                  + Ajouter
+                  Voir tout <ArrowUpRight className="w-4 h-4 ml-1" />
                 </Link>
               </div>
 
-              {properties.length > 0 ? (
-                <div className="space-y-4">
-                  {properties.slice(0, 5).map((property) => (
-                    <div
-                      key={property.id}
-                      className="bg-[#FAF7F4] border border-[#EFEBE9] rounded-xl p-4 flex items-center gap-4 hover:border-[#F16522] transition-colors"
-                    >
-                      <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-[#EFEBE9]">
-                        {property.main_image ? (
-                          <img
-                            src={property.main_image}
-                            alt={property.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Home className="h-8 w-8 text-[#6B5A4E]" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-[#2C1810] truncate">{property.title}</h3>
-                        <p className="text-sm text-[#6B5A4E]">
-                          {property.city} {property.neighborhood && `• ${property.neighborhood}`}
-                        </p>
-                        <div className="flex items-center gap-4 mt-2">
-                          <span className="text-[#F16522] font-bold">
-                            {property.monthly_rent.toLocaleString()} FCFA
-                          </span>
-                          <span className="flex items-center gap-1 text-xs text-[#6B5A4E]">
-                            <Eye className="h-3 w-3" /> {property.views_count || 0} vues
-                          </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {properties.slice(0, 4).map((property) => (
+                  <Link
+                    key={property.id}
+                    to={`/propriete/${property.id}`}
+                    className="group block bg-gray-50 rounded-xl overflow-hidden hover:shadow-lg transition-all border border-gray-100 hover:border-orange-200"
+                  >
+                    <div className="aspect-video w-full overflow-hidden">
+                      {property.main_image ? (
+                        <img
+                          src={property.main_image}
+                          alt={property.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center">
+                          <Home className="h-12 w-12 text-orange-400" />
                         </div>
-                      </div>
-                      <div className="flex flex-col gap-2 items-end">
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-semibold text-gray-900 line-clamp-1">{property.title}</h3>
                         <span
-                          className={`text-xs px-3 py-1 rounded-full font-medium ${
+                          className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ml-2 ${
                             property.status === 'disponible'
                               ? 'bg-green-100 text-green-700'
                               : property.status === 'loue'
                                 ? 'bg-blue-100 text-blue-700'
-                                : 'bg-[#EFEBE9] text-[#6B5A4E]'
+                                : 'bg-gray-100 text-gray-700'
                           }`}
                         >
                           {property.status === 'disponible'
@@ -296,84 +466,116 @@ export default function OwnerDashboardPage() {
                               ? 'Loué'
                               : property.status}
                         </span>
-                        <div className="flex gap-3">
-                          <Link
-                            to={`/propriete/${property.id}`}
-                            className="text-xs text-[#F16522] hover:underline font-medium"
-                          >
-                            Voir →
-                          </Link>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setSelectedPropertyForInvite(property.id);
-                              setShowInviteDialog(true);
-                            }}
-                            className="text-xs text-[#6B5A4E] hover:text-[#F16522] font-medium flex items-center gap-1"
-                            title="Déléguer la gestion à une agence"
-                          >
-                            <Building2 className="h-3.5 w-3.5" />
-                            Déléguer
-                          </button>
-                        </div>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-2">
+                        {property.city} {property.neighborhood && `• ${property.neighborhood}`}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-bold text-orange-600">
+                          {property.monthly_rent.toLocaleString()} FCFA
+                        </span>
+                        <span className="flex items-center gap-1 text-xs text-gray-400">
+                          <Eye className="h-3 w-3" /> {property.views_count || 0}
+                        </span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="bg-[#FFF5F0] w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Building className="h-10 w-10 text-[#F16522]" />
-                  </div>
-                  <h3 className="text-lg font-bold text-[#2C1810] mb-2">Aucune propriété</h3>
-                  <p className="text-[#6B5A4E] mb-4">Commencez à louer votre bien dès maintenant</p>
+                  </Link>
+                ))}
+              </div>
+
+              {properties.length > 4 && (
+                <div className="mt-4 text-center">
                   <Link
-                    to="/proprietaire/ajouter-propriete"
-                    className="bg-[#F16522] hover:bg-[#d9571d] text-white font-semibold py-3 px-6 rounded-xl transition-colors inline-flex items-center"
+                    to="/proprietaire/mes-biens"
+                    className="text-sm text-gray-600 hover:text-orange-500 font-medium"
                   >
-                    <Plus className="h-5 w-5 mr-2" />
-                    Ajouter un bien
+                    Voir les {properties.length - 4} autres bien{properties.length - 4 > 1 ? 's' : ''}
                   </Link>
                 </div>
               )}
             </div>
+
+            {/* Recent Activity */}
+            {recentActivities.length > 0 && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  <Activity className="h-6 w-6 text-orange-500" />
+                  <span>Activité récente</span>
+                </h2>
+                <div className="space-y-4">
+                  {recentActivities.slice(0, 5).map((activity) => {
+                    const Icon = activity.type === 'application' ? Users :
+                      activity.type === 'payment' ? DollarSign :
+                      activity.type === 'maintenance' ? Wrench :
+                      activity.type === 'visit' ? Calendar : FileText;
+                    const iconColor = activity.type === 'application' ? 'text-amber-500 bg-amber-50' :
+                      activity.type === 'payment' ? 'text-green-500 bg-green-50' :
+                      activity.type === 'maintenance' ? 'text-blue-500 bg-blue-50' :
+                      'text-gray-500 bg-gray-50';
+
+                    return (
+                      <div
+                        key={activity.id}
+                        className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                      >
+                        <div className={`w-10 h-10 rounded-xl ${iconColor} flex items-center justify-center flex-shrink-0`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900">{activity.title}</p>
+                          <p className="text-sm text-gray-500 truncate">{activity.description}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs text-gray-400">
+                            {new Date(activity.date).toLocaleDateString('fr-FR', {
+                              day: 'numeric',
+                              month: 'short'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="space-y-6">
             {/* Quick Actions */}
-            <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9] card-animate-in card-hover-premium card-stagger-6">
-              <h3 className="text-lg font-bold text-[#2C1810] mb-4">Actions Rapides</h3>
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Actions Rapides</h3>
               <div className="space-y-3">
                 <Link
                   to="/proprietaire/ajouter-propriete"
-                  className="bg-[#F16522] hover:bg-[#d9571d] text-white font-semibold py-3 px-4 rounded-xl transition-colors w-full flex items-center justify-center"
+                  className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-4 rounded-xl transition-colors w-full flex items-center justify-center"
                 >
                   <Plus className="h-5 w-5 mr-2" />
                   Ajouter un bien
                 </Link>
-                <Link
-                  to="/proprietaire/candidatures"
-                  className="border border-[#EFEBE9] hover:border-[#F16522] text-[#2C1810] font-medium py-3 px-4 rounded-xl transition-colors w-full flex items-center justify-center"
-                >
-                  <Users className="h-5 w-5 mr-2" />
-                  Candidatures
-                  {stats.pendingApplications > 0 && (
+                {stats.pendingApplications > 0 && (
+                  <Link
+                    to="/proprietaire/candidatures"
+                    className="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-medium py-3 px-4 rounded-xl transition-colors w-full flex items-center justify-center"
+                  >
+                    <Users className="h-5 w-5 mr-2" />
+                    Candidatures
                     <span className="ml-2 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">
                       {stats.pendingApplications}
                     </span>
-                  )}
-                </Link>
+                  </Link>
+                )}
                 <Link
                   to="/proprietaire/contrats"
-                  className="border border-[#EFEBE9] hover:border-[#F16522] text-[#2C1810] font-medium py-3 px-4 rounded-xl transition-colors w-full flex items-center justify-center"
+                  className="border border-gray-200 hover:border-orange-200 text-gray-700 font-medium py-3 px-4 rounded-xl transition-colors w-full flex items-center justify-center"
                 >
                   <FileText className="h-5 w-5 mr-2" />
                   Mes contrats
                 </Link>
                 <Link
                   to="/proprietaire/mes-mandats"
-                  className="border border-[#EFEBE9] hover:border-[#F16522] text-[#2C1810] font-medium py-3 px-4 rounded-xl transition-colors w-full flex items-center justify-center"
+                  className="border border-gray-200 hover:border-orange-200 text-gray-700 font-medium py-3 px-4 rounded-xl transition-colors w-full flex items-center justify-center"
                 >
                   <Handshake className="h-5 w-5 mr-2" />
                   Mandats agence
@@ -383,75 +585,99 @@ export default function OwnerDashboardPage() {
                     setSelectedPropertyForInvite(undefined);
                     setShowInviteDialog(true);
                   }}
-                  className="border border-[#EFEBE9] hover:border-[#F16522] text-[#2C1810] font-medium py-3 px-4 rounded-xl transition-colors w-full flex items-center justify-center"
+                  className="border border-gray-200 hover:border-orange-200 text-gray-700 font-medium py-3 px-4 rounded-xl transition-colors w-full flex items-center justify-center"
                 >
                   <Building2 className="h-5 w-5 mr-2" />
                   Inviter une agence
                 </button>
-                <Link
-                  to="/locataire/messages"
-                  className="border border-[#EFEBE9] hover:border-[#F16522] text-[#2C1810] font-medium py-3 px-4 rounded-xl transition-colors w-full flex items-center justify-center"
-                >
-                  <MessageSquare className="h-5 w-5 mr-2" />
-                  Messages
-                </Link>
-              </div>
-            </div>
-
-            {/* Notifications */}
-            <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9] card-animate-in card-stagger-6">
-              <h3 className="text-lg font-bold text-[#2C1810] mb-4">Alertes</h3>
-              <div className="space-y-3">
-                {stats.pendingApplications > 0 && (
+                {stats.unreadMessages > 0 && (
                   <Link
-                    to="/dashboard/candidatures"
-                    className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3 hover:border-amber-400 transition-colors"
+                    to="/locataire/messages"
+                    className="border border-gray-200 hover:border-orange-200 text-gray-700 font-medium py-3 px-4 rounded-xl transition-colors w-full flex items-center justify-center"
                   >
-                    <Users className="h-5 w-5 text-amber-600" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-[#2C1810]">Candidatures en attente</p>
-                      <p className="text-2xl font-bold text-amber-600">
-                        {stats.pendingApplications}
-                      </p>
-                    </div>
+                    <MessageSquare className="h-5 w-5 mr-2" />
+                    Messages
+                    <span className="ml-2 bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">
+                      {stats.unreadMessages}
+                    </span>
                   </Link>
                 )}
-                {stats.maintenanceRequests > 0 && (
-                  <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl p-3">
-                    <Wrench className="h-5 w-5 text-blue-600" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-[#2C1810]">Demandes maintenance</p>
-                      <p className="text-2xl font-bold text-blue-600">
-                        {stats.maintenanceRequests}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {stats.unreadMessages > 0 && (
-                  <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-3">
-                    <MessageSquare className="h-5 w-5 text-green-600" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-[#2C1810]">Messages non lus</p>
-                      <p className="text-2xl font-bold text-green-600">{stats.unreadMessages}</p>
-                    </div>
-                  </div>
-                )}
-                {stats.pendingApplications === 0 &&
-                  stats.maintenanceRequests === 0 &&
-                  stats.unreadMessages === 0 && (
-                    <p className="text-sm text-[#6B5A4E] text-center py-4">Aucune alerte</p>
-                  )}
               </div>
             </div>
 
-            {/* Calendar Preview */}
-            <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9] card-animate-in card-hover-premium card-stagger-6">
-              <h3 className="text-lg font-bold text-[#2C1810] mb-4 flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-[#F16522]" />
-                <span>Prochaines visites</span>
-              </h3>
-              <p className="text-sm text-[#6B5A4E] text-center py-4">Aucune visite planifiée</p>
-            </div>
+            {/* Alerts */}
+            {(stats.pendingApplications > 0 || stats.maintenanceRequests > 0 || stats.unreadMessages > 0) && (
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-500" />
+                  <span>Alertes</span>
+                </h3>
+                <div className="space-y-3">
+                  {stats.pendingApplications > 0 && (
+                    <Link
+                      to="/proprietaire/candidatures"
+                      className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 hover:bg-amber-100 transition-colors"
+                    >
+                      <Users className="h-5 w-5 text-amber-600 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">Candidatures en attente</p>
+                        <p className="text-2xl font-bold text-amber-600">
+                          {stats.pendingApplications}
+                        </p>
+                      </div>
+                      <ArrowUpRight className="h-5 w-5 text-amber-600" />
+                    </Link>
+                  )}
+                  {stats.maintenanceRequests > 0 && (
+                    <Link
+                      to="/proprietaire/maintenance"
+                      className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl p-4 hover:bg-blue-100 transition-colors"
+                    >
+                      <Wrench className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">Demandes de maintenance</p>
+                        <p className="text-2xl font-bold text-blue-600">
+                          {stats.maintenanceRequests}
+                        </p>
+                      </div>
+                      <ArrowUpRight className="h-5 w-5 text-blue-600" />
+                    </Link>
+                  )}
+                  {stats.unreadMessages > 0 && (
+                    <Link
+                      to="/locataire/messages"
+                      className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4 hover:bg-green-100 transition-colors"
+                    >
+                      <MessageSquare className="h-5 w-5 text-green-600 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">Messages non lus</p>
+                        <p className="text-2xl font-bold text-green-600">{stats.unreadMessages}</p>
+                      </div>
+                      <ArrowUpRight className="h-5 w-5 text-green-600" />
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Tips/Recommendations */}
+            {stats.occupancyRate < 50 && properties.length > 0 && (
+              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6 text-white">
+                <div className="flex items-center gap-3 mb-3">
+                  <Star className="h-6 w-6" />
+                  <h3 className="font-bold">Conseil</h3>
+                </div>
+                <p className="text-sm text-white/90 mb-4">
+                  Votre taux d'occupation est de {stats.occupancyRate}%. Pensez à ajuster vos prix ou à améliorer vos annonces pour attirer plus de locataires.
+                </p>
+                <Link
+                  to="/proprietaire/mes-biens"
+                  className="text-sm underline hover:no-underline"
+                >
+                  Gérer mes biens →
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -474,6 +700,6 @@ export default function OwnerDashboardPage() {
         agencies={agencies}
         selectedPropertyId={selectedPropertyForInvite}
       />
-    </>
+    </div>
   );
 }

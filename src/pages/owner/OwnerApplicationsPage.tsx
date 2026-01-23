@@ -13,11 +13,20 @@ import {
   ChevronDown,
   Building2,
   FileText,
+  Grid3x3,
+  List,
+  User,
+  MapPin,
+  Mail,
+  Phone,
+  Star,
+  Eye,
+  CalendarCheck,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import ApplicationCard from '../../features/owner/components/ApplicationCard';
 import {
   getOwnerApplications,
   getApplicationStats,
@@ -69,6 +78,30 @@ const STATUS_FILTERS = [
   { value: 'refusee', label: 'Refusées' },
 ];
 
+// Status configuration
+const STATUS_CONFIG = {
+  en_attente: {
+    label: 'En attente',
+    color: 'bg-amber-100 text-amber-700 border-amber-200',
+    icon: Clock,
+  },
+  en_cours: {
+    label: 'En cours',
+    color: 'bg-blue-100 text-blue-700 border-blue-200',
+    icon: Loader2,
+  },
+  acceptee: {
+    label: 'Acceptée',
+    color: 'bg-green-100 text-green-700 border-green-200',
+    icon: CheckCircle,
+  },
+  refusee: {
+    label: 'Refusée',
+    color: 'bg-red-100 text-red-700 border-red-200',
+    icon: XCircle,
+  },
+};
+
 // Helper component
 const StatCard = ({
   icon: Icon,
@@ -109,6 +142,198 @@ const StatCard = ({
   );
 };
 
+// Application Row Component for List View
+const ApplicationRow = ({
+  application,
+  onAccept,
+  onReject,
+  onScheduleVisit,
+  onViewDetails,
+  loading,
+}: {
+  application: ApplicationWithDetails;
+  onAccept: (id: string) => void;
+  onReject: (id: string) => void;
+  onScheduleVisit: (id: string) => void;
+  onViewDetails: (app: ApplicationWithDetails) => void;
+  loading: boolean;
+}) => {
+  const statusConfig = STATUS_CONFIG[application.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.en_attente;
+  const StatusIcon = statusConfig.icon;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 hover:border-orange-300 hover:shadow-md transition-all overflow-hidden">
+      <div className="p-5">
+        <div className="flex items-start gap-4">
+          {/* Applicant Avatar */}
+          <div className="flex-shrink-0">
+            <div className="w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden border-2 border-orange-200">
+              {application.applicant?.avatar_url ? (
+                <img
+                  src={application.applicant.avatar_url}
+                  alt={application.applicant.full_name || ''}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="h-7 w-7 text-orange-500" />
+              )}
+            </div>
+          </div>
+
+          {/* Applicant Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg text-gray-900 truncate">
+                  {application.applicant?.full_name || 'Candidat'}
+                </h3>
+                <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500">
+                  {application.applicant?.email && (
+                    <span className="flex items-center gap-1">
+                      <Mail className="h-3.5 w-3.5" />
+                      {application.applicant.email}
+                    </span>
+                  )}
+                  {application.applicant?.phone && (
+                    <span className="flex items-center gap-1">
+                      <Phone className="h-3.5 w-3.5" />
+                      {application.applicant.phone}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Badge */}
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${statusConfig.color}`}>
+                <StatusIcon className="h-3.5 w-3.5" />
+                {statusConfig.label}
+              </div>
+            </div>
+
+            {/* Property Info */}
+            <div className="mt-3 bg-gray-50 rounded-lg p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-500 mb-1">Propriété</p>
+                  <p className="font-medium text-gray-900 truncate">
+                    {application.property?.title}
+                  </p>
+                  <p className="text-sm text-gray-600 flex items-center gap-1 mt-0.5">
+                    <MapPin className="h-3 w-3" />
+                    {application.property?.city}
+                    {application.property?.neighborhood && ` • ${application.property.neighborhood}`}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 mb-1">Loyer</p>
+                  <p className="font-bold text-orange-600">
+                    {application.property?.monthly_rent?.toLocaleString()} FCFA
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Score & Additional Info */}
+            <div className="mt-3 flex items-center gap-6">
+              {/* Trust Score */}
+              {(application.applicant?.trust_score || application.application_score) && (
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium">
+                    Score: {application.applicant?.trust_score ?? application.application_score}/100
+                  </span>
+                </div>
+              )}
+
+              {/* Application Date */}
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Calendar className="h-4 w-4" />
+                <span>
+                  {application.created_at
+                    ? new Date(application.created_at).toLocaleDateString('fr-FR', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })
+                    : 'N/A'}
+                </span>
+              </div>
+
+              {/* Cover Letter Preview */}
+              {application.cover_letter && (
+                <div className="flex items-center gap-1 text-sm text-gray-500 truncate flex-1">
+                  <MessageSquare className="h-4 w-4 flex-shrink-0" />
+                  <span className="italic truncate">"{application.cover_letter.substring(0, 50)}..."</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onViewDetails(application)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Eye className="h-4 w-4" />
+              Voir détails
+            </button>
+            {(application.status === 'en_attente' || application.status === 'en_cours') && (
+              <button
+                onClick={() => onScheduleVisit(application.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+              >
+                <CalendarCheck className="h-4 w-4" />
+                Visite
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {application.status === 'en_attente' && (
+              <>
+                <button
+                  onClick={() => onAccept(application.id)}
+                  disabled={loading}
+                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                  Accepter
+                </button>
+                <button
+                  onClick={() => onReject(application.id)}
+                  disabled={loading}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                  Refuser
+                </button>
+              </>
+            )}
+            {application.status === 'refusee' && (
+              <button
+                onClick={() => onAccept(application.id)}
+                disabled={loading}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Loader2 className="h-4 w-4" />}
+                Rouvrir
+              </button>
+            )}
+            {application.status === 'acceptee' && (
+              <span className="text-sm text-green-600 font-medium">
+                ✓ Vous pouvez créer un contrat
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function OwnerApplicationsPage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -124,6 +349,9 @@ export default function OwnerApplicationsPage() {
     rejected: 0,
   });
   const [properties, setProperties] = useState<{ id: string; title: string }[]>([]);
+
+  // View mode: grid or list
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('all');
@@ -244,7 +472,6 @@ export default function OwnerApplicationsPage() {
     setActionLoading(true);
     try {
       await acceptApplication(applicationId);
-      // Send notification to applicant
       try {
         await notifyApplicationAccepted(applicationId);
       } catch (notifError) {
@@ -263,7 +490,6 @@ export default function OwnerApplicationsPage() {
     setActionLoading(true);
     try {
       await rejectApplication(applicationId);
-      // Send notification to applicant
       try {
         await notifyApplicationRejected(applicationId);
       } catch (notifError) {
@@ -292,7 +518,6 @@ export default function OwnerApplicationsPage() {
     setActionLoading(true);
     try {
       await scheduleVisitFromApplication(visitApplicationId, visitForm);
-      // Send notification to applicant with visit date
       try {
         const visitDateTime = `${new Date(visitForm.date).toLocaleDateString('fr-FR')} à ${visitForm.time}`;
         await notifyVisitScheduled(visitApplicationId, visitDateTime);
@@ -328,17 +553,45 @@ export default function OwnerApplicationsPage() {
   }
 
   return (
-    <>
+    <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
-              <Users className="h-7 w-7 text-white" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
+                <Users className="h-7 w-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white">Candidatures</h1>
+                <p className="text-[#E8D4C5]">Gérez les candidatures pour vos biens</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white">Candidatures</h1>
-              <p className="text-[#E8D4C5]">Gérez les candidatures pour vos biens</p>
+
+            {/* View Toggle */}
+            <div className="flex items-center gap-2 bg-white/10 rounded-xl p-1">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-lg transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-white text-[#2C1810]'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+                title="Vue liste"
+              >
+                <List className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-lg transition-colors ${
+                  viewMode === 'grid'
+                    ? 'bg-white text-[#2C1810]'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+                title="Vue grille"
+              >
+                <Grid3x3 className="h-5 w-5" />
+              </button>
             </div>
           </div>
         </div>
@@ -560,19 +813,110 @@ export default function OwnerApplicationsPage() {
           </div>
         )}
 
-        {/* Applications List */}
+        {/* Applications */}
         {displayedApplications.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className={viewMode === 'list' ? 'space-y-4' : 'grid grid-cols-1 lg:grid-cols-2 gap-6'}>
             {displayedApplications.map((application) => (
-              <ApplicationCard
-                key={application.id}
-                application={application}
-                onAccept={handleAccept}
-                onReject={handleReject}
-                onScheduleVisit={handleScheduleVisit}
-                onViewDetails={setSelectedApplication}
-                loading={actionLoading}
-              />
+              viewMode === 'list' ? (
+                <ApplicationRow
+                  key={application.id}
+                  application={application}
+                  onAccept={handleAccept}
+                  onReject={handleReject}
+                  onScheduleVisit={handleScheduleVisit}
+                  onViewDetails={setSelectedApplication}
+                  loading={actionLoading}
+                />
+              ) : (
+                <div
+                  key={application.id}
+                  className="bg-white rounded-xl border border-gray-200 hover:border-orange-300 hover:shadow-md transition-all overflow-hidden"
+                >
+                  <div className="p-5">
+                    {/* Grid View Card Content */}
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden border-2 border-orange-200 flex-shrink-0">
+                        {application.applicant?.avatar_url ? (
+                          <img
+                            src={application.applicant.avatar_url}
+                            alt={application.applicant.full_name || ''}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="h-7 w-7 text-orange-500" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h3 className="font-semibold text-gray-900">
+                              {application.applicant?.full_name || 'Candidat'}
+                            </h3>
+                            <p className="text-sm text-gray-500">{application.applicant?.email}</p>
+                          </div>
+                          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
+                            STATUS_CONFIG[application.status as keyof typeof STATUS_CONFIG]?.color ||
+                            STATUS_CONFIG.en_attente.color
+                          }`}>
+                            {STATUS_CONFIG[application.status as keyof typeof STATUS_CONFIG]?.label ||
+                              'En attente'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mb-4 bg-gray-50 rounded-lg p-3">
+                      <p className="text-sm font-medium text-gray-900">
+                        {application.property?.title}
+                      </p>
+                      <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
+                        <MapPin className="h-3 w-3" />
+                        {application.property?.city}
+                      </p>
+                      <p className="text-orange-600 font-bold mt-2">
+                        {application.property?.monthly_rent?.toLocaleString()} FCFA/mois
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <button
+                        onClick={() => setSelectedApplication(application)}
+                        className="text-sm text-gray-600 hover:text-gray-900 font-medium"
+                      >
+                        Voir détails →
+                      </button>
+                      <div className="flex items-center gap-2">
+                        {application.status === 'en_attente' && (
+                          <>
+                            <button
+                              onClick={() => handleAccept(application.id)}
+                              disabled={actionLoading}
+                              className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              Accepter
+                            </button>
+                            <button
+                              onClick={() => handleReject(application.id)}
+                              disabled={actionLoading}
+                              className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              Refuser
+                            </button>
+                          </>
+                        )}
+                        {application.status === 'en_cours' && (
+                          <button
+                            onClick={() => handleScheduleVisit(application.id)}
+                            className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
+                          >
+                            Visite
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
             ))}
           </div>
         ) : (
@@ -814,6 +1158,6 @@ export default function OwnerApplicationsPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
