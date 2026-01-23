@@ -13,6 +13,8 @@ import {
   DollarSign,
   Settings,
   FileText,
+  Navigation,
+  Loader2,
 } from 'lucide-react';
 import { NativeCameraUpload } from '@/components/native';
 import Modal from '@/shared/ui/Modal';
@@ -30,6 +32,7 @@ import { useFormValidation } from '@/hooks/shared/useFormValidation';
 import { ValidatedInput } from '@/shared/ui/ValidatedInput';
 import { ValidatedTextarea } from '@/shared/ui/ValidatedTextarea';
 import type { Database } from '@/shared/lib/database.types';
+import { useNativeGeolocation } from '@/hooks/native/useNativeGeolocation';
 
 type PropertyType = Database['public']['Tables']['properties']['Row']['property_type'];
 
@@ -52,6 +55,8 @@ interface PropertyFormData {
   furnished: boolean;
   has_ac: boolean;
   is_anonymous: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 // Character limits
@@ -80,6 +85,8 @@ const INITIAL_FORM_DATA: PropertyFormData = {
   furnished: false,
   has_ac: false,
   is_anonymous: false,
+  latitude: null,
+  longitude: null,
 };
 
 // Step configuration
@@ -124,6 +131,14 @@ export function AddPropertyContent() {
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [pendingDraftData, setPendingDraftData] = useState<PropertyFormData | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Hook de géolocalisation
+  const {
+    position: geoPosition,
+    isLoading: geoLoading,
+    error: geoError,
+    getCurrentPosition,
+  } = useNativeGeolocation({ enableHighAccuracy: true });
 
   // Hook de validation
   const { validateField, getFieldState, setFieldTouched } = useFormValidation<PropertyFormData>();
@@ -210,6 +225,8 @@ export function AddPropertyContent() {
             furnished: data.furnished ?? false,
             has_ac: data.has_ac ?? false,
             is_anonymous: data.is_anonymous ?? false,
+            latitude: data.latitude ?? null,
+            longitude: data.longitude ?? null,
           });
         }
       } catch (error) {
@@ -317,6 +334,18 @@ export function AddPropertyContent() {
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  // Handler pour la géolocalisation
+  const handleGetMyLocation = async () => {
+    const result = await getCurrentPosition();
+    if (result && result.latitude !== null && result.longitude !== null) {
+      setFormData((prev) => ({
+        ...prev,
+        latitude: result.latitude,
+        longitude: result.longitude,
+      }));
     }
   };
 
@@ -495,6 +524,8 @@ export function AddPropertyContent() {
         furnished: !!formData.furnished,
         has_ac: !!formData.has_ac,
         is_anonymous: !!formData.is_anonymous,
+        latitude: formData.latitude ?? null,
+        longitude: formData.longitude ?? null,
         status: 'disponible' as const,
         images: [],
         main_image: null,
@@ -1186,6 +1217,80 @@ export function AddPropertyContent() {
                     placeholder="Ex: Rue des Jardins, Résidence Les Palmiers"
                     className="input-premium w-full"
                   />
+                </div>
+
+                {/* Bouton de géolocalisation */}
+                <div
+                  className="p-4 rounded-xl border-2 border-dashed flex items-center justify-between"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    backgroundColor: (formData.latitude && formData.longitude)
+                      ? 'var(--color-orange-50)'
+                      : 'transparent'
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="p-2 rounded-full"
+                      style={{ backgroundColor: 'var(--color-orange-100)' }}
+                    >
+                      <Navigation
+                        className="w-5 h-5"
+                        style={{ color: 'var(--color-orange)' }}
+                      />
+                    </div>
+                    <div>
+                      <p
+                        className="font-semibold text-sm"
+                        style={{ color: 'var(--color-chocolat)' }}
+                      >
+                        {formData.latitude && formData.longitude
+                          ? 'Position capturée'
+                          : 'Géolocalisation'}
+                      </p>
+                      <p
+                        className="text-xs"
+                        style={{ color: 'var(--color-gris-neutre)' }}
+                      >
+                        {formData.latitude && formData.longitude
+                          ? `${formData.latitude.toFixed(6)}, ${formData.longitude.toFixed(6)}`
+                          : 'Utilisez votre position actuelle'}
+                      </p>
+                      {geoError && (
+                        <p className="text-xs text-red-500 mt-1">{geoError}</p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGetMyLocation}
+                    disabled={geoLoading}
+                    className="px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2"
+                    style={{
+                      backgroundColor: geoLoading
+                        ? 'var(--color-gris-neutre)'
+                        : 'var(--color-orange)',
+                      color: 'white',
+                      opacity: geoLoading ? 0.7 : 1,
+                    }}
+                  >
+                    {geoLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Localisation...
+                      </>
+                    ) : formData.latitude && formData.longitude ? (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        Recapturer
+                      </>
+                    ) : (
+                      <>
+                        <Navigation className="w-4 h-4" />
+                        Ma position
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

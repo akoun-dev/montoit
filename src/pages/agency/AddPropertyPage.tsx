@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/services/supabase/client';
-import { Home, FileText, Building2, AlertCircle, CheckCircle, Loader2, MapPin } from 'lucide-react';
+import { Home, FileText, Building2, AlertCircle, CheckCircle, Loader2, MapPin, Navigation, RefreshCw } from 'lucide-react';
 import CitySelector from '@/features/property/components/CitySelector';
+import { useNativeGeolocation } from '@/hooks/native/useNativeGeolocation';
 
 interface Mandate {
   id: string;
@@ -30,6 +31,8 @@ interface PropertyFormData {
   rooms: number;
   bedrooms: number;
   bathrooms: number;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export default function AgencyAddPropertyPage() {
@@ -52,7 +55,17 @@ export default function AgencyAddPropertyPage() {
     rooms: 0,
     bedrooms: 0,
     bathrooms: 0,
+    latitude: null,
+    longitude: null,
   });
+
+  // Hook de géolocalisation
+  const {
+    position: geoPosition,
+    isLoading: geoLoading,
+    error: geoError,
+    getCurrentPosition,
+  } = useNativeGeolocation({ enableHighAccuracy: true });
 
   useEffect(() => {
     if (user) {
@@ -111,6 +124,17 @@ export default function AgencyAddPropertyPage() {
     }));
   };
 
+  const handleGetMyLocation = async () => {
+    const result = await getCurrentPosition();
+    if (result && result.latitude !== null && result.longitude !== null) {
+      setFormData((prev) => ({
+        ...prev,
+        latitude: result.latitude,
+        longitude: result.longitude,
+      }));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMandate) {
@@ -143,6 +167,8 @@ export default function AgencyAddPropertyPage() {
           bedrooms: formData.bedrooms,
           bathrooms: formData.bathrooms,
           owner_id: selectedMandate.owner_id,
+          latitude: formData.latitude ?? null,
+          longitude: formData.longitude ?? null,
           status: 'published',
         })
         .select()
@@ -337,6 +363,54 @@ export default function AgencyAddPropertyPage() {
                       onDistrictSelect={(district) => setFormData({ ...formData, neighborhood: district })}
                       disabled={submitting}
                     />
+                  </div>
+                  {/* Géolocalisation */}
+                  <div className="md:col-span-2">
+                    <div className="p-4 rounded-xl border-2 border-dashed flex items-center justify-between bg-gray-50">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-full bg-orange-100">
+                          <Navigation className="w-5 h-5 text-orange-500" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm text-gray-900">
+                            {formData.latitude && formData.longitude
+                              ? 'Position capturée'
+                              : 'Géolocalisation'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {formData.latitude && formData.longitude
+                              ? `${formData.latitude.toFixed(6)}, ${formData.longitude.toFixed(6)}`
+                              : 'Utilisez votre position actuelle'}
+                          </p>
+                          {geoError && (
+                            <p className="text-xs text-red-500 mt-1">{geoError}</p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleGetMyLocation}
+                        disabled={geoLoading || submitting}
+                        className="px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 bg-orange-500 text-white hover:bg-orange-600 disabled:bg-gray-400 disabled:opacity-70"
+                      >
+                        {geoLoading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Localisation...
+                          </>
+                        ) : formData.latitude && formData.longitude ? (
+                          <>
+                            <RefreshCw className="w-4 h-4" />
+                            Recapturer
+                          </>
+                        ) : (
+                          <>
+                            <Navigation className="w-4 h-4" />
+                            Ma position
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
