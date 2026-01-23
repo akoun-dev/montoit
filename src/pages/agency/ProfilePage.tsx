@@ -60,7 +60,8 @@ interface VerificationDocument {
   id: string;
   name: string;
   type: string;
-  file_url: string;
+  file_data?: string; // base64 data
+  file_url?: string; // fallback for URL-based storage
   file_size: number;
   uploaded_at: string;
   status: 'pending' | 'verified' | 'rejected';
@@ -164,47 +165,26 @@ export default function AgencyProfilePage() {
 
   const loadDocuments = async () => {
     try {
-      // Try agency_verification_documents table first
-      let data, error;
-      try {
-        const result = await supabase
-          .from('agency_verification_documents')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('uploaded_at', { ascending: false });
-        data = result.data;
-        error = result.error;
-      } catch (e) {
-        error = e;
-      }
+      // Load from profile.verification_documents JSON field
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('verification_documents')
+        .eq('id', user.id)
+        .single();
 
-      // If table doesn't exist or is empty, try loading from profile.verification_documents JSON field
-      if (error || !data || data.length === 0) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('verification_documents')
-          .eq('id', user.id)
-          .single();
-
-        if (profileData?.verification_documents && Array.isArray(profileData.verification_documents)) {
-          const jsonDocs = profileData.verification_documents.map((doc: any) => ({
-            id: doc.id,
-            name: doc.name,
-            type: doc.type,
-            file_url: doc.file_url,
-            file_size: doc.file_size,
-            uploaded_at: doc.uploaded_at,
-            status: doc.status,
-          }));
-          setDocuments(jsonDocs);
-          return;
-        }
-      }
-
-      if (error && (error as any).code !== 'PGRST116') {
-        console.log('Documents table not created yet');
+      if (profileData?.verification_documents && Array.isArray(profileData.verification_documents)) {
+        const jsonDocs = profileData.verification_documents.map((doc: any) => ({
+          id: doc.id,
+          name: doc.name,
+          type: doc.type,
+          file_data: doc.file_data, // base64 data
+          file_size: doc.file_size,
+          uploaded_at: doc.uploaded_at,
+          status: doc.status,
+        }));
+        setDocuments(jsonDocs);
       } else {
-        setDocuments(data || []);
+        setDocuments([]);
       }
     } catch (err) {
       console.error('Error loading documents:', err);
@@ -221,79 +201,53 @@ export default function AgencyProfilePage() {
       return;
     }
 
-    // Check file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Le fichier ne doit pas dépasser 10MB');
+    // Check file size (max 5MB for base64 storage)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Le fichier ne doit pas dépasser 5MB');
       return;
     }
 
     try {
       setUploadingDoc(true);
 
-      // Upload to storage - use documents bucket
-      const fileName = `${user.id}/agency/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('documents')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: true,
-        });
-
-      if (uploadError) {
-        console.error('Storage upload error:', uploadError);
-        throw uploadError;
-      }
-
-      const { data: urlData } = supabase.storage
-        .from('documents')
-        .getPublicUrl(fileName);
-
-      if (!urlData?.publicUrl) {
-        throw new Error('URL publique introuvable');
-      }
-
-      // Save to database - try agency_verification_documents first, fallback to profiles
-      let dbError;
-      try {
-        dbError = await supabase
-          .from('agency_verification_documents')
-          .insert({
-            user_id: user.id,
-            name: file.name,
-            type: 'other',
-            file_url: urlData.publicUrl,
-            file_size: file.size,
-            status: 'pending',
-          });
-      } catch (e: any) {
-        // Table doesn't exist, try to store in a JSON field in profiles
-        console.log('agency_verification_documents table not found, storing in profile...');
-
-        // Store document metadata in profile.verification_documents JSON field
-        const existingDocs = (profile as any)?.verification_documents || [];
-        const newDoc = {
-          id: Date.now().toString(),
-          name: file.name,
-          type: 'other',
-          file_url: urlData.publicUrl,
-          file_size: file.size,
-          status: 'pending',
-          uploaded_at: new Date().toISOString(),
+      // Convert file to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remove data URL prefix (e.g., "data:application/pdf;base64,")
+          const base64 = result.split(',')[1];
+          resolve(base64);
         };
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
 
-        dbError = await supabase
-          .from('profiles')
-          .update({
-            verification_documents: [...existingDocs, newDoc]
-          })
-          .eq('id', user.id);
-      }
+      const base64Data = await base64Promise;
 
-      if (dbError && (dbError as any).code !== 'PGRST116') {
-        throw dbError;
-      }
+      // Store document metadata and base64 content in profile.verification_documents JSON field
+      const existingDocs = (profile as any)?.verification_documents || [];
+      const newDoc = {
+        id: Date.now().toString(),
+        name: file.name,
+        type: 'other',
+        file_data: base64Data,
+        file_size: file.size,
+        status: 'pending',
+        uploaded_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          verification_documents: [...existingDocs, newDoc]
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
 
       toast.success('Document uploadé avec succès');
+      loadProfile(); // Reload profile to get updated documents
       loadDocuments();
     } catch (error) {
       console.error('Error uploading document:', error);
@@ -308,38 +262,20 @@ export default function AgencyProfilePage() {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) return;
 
     try {
-      // Try agency_verification_documents table first
-      let deleted = false;
-      try {
-        const { error } = await supabase
-          .from('agency_verification_documents')
-          .delete()
-          .eq('id', docId);
-
-        if (!error && error.code !== 'PGRST116') {
-          deleted = true;
-        }
-      } catch (e) {
-        // Table doesn't exist
-      }
-
-      // If table deletion failed or doesn't exist, try JSON field in profile
-      if (!deleted && profile?.verification_documents && Array.isArray(profile.verification_documents)) {
+      // Delete from profile.verification_documents JSON field
+      if (profile?.verification_documents && Array.isArray(profile.verification_documents)) {
         const updatedDocs = profile.verification_documents.filter((doc: any) => doc.id !== docId);
         await supabase
           .from('profiles')
           .update({ verification_documents: updatedDocs })
           .eq('id', user.id);
-        deleted = true;
-      }
-
-      if (deleted) {
         toast.success('Document supprimé');
+        loadProfile(); // Reload profile
         loadDocuments();
       } else {
-        toast.success('Document supprimé (mis à jour localement)');
         // Update local state immediately
         setDocuments((prev) => prev.filter((d) => d.id !== docId));
+        toast.success('Document supprimé');
       }
     } catch (error) {
       console.error('Error deleting document:', error);
@@ -866,7 +802,27 @@ export default function AgencyProfilePage() {
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                         <button
-                          onClick={() => window.open(doc.file_url, '_blank')}
+                          onClick={() => {
+                            // Download from base64 or URL
+                            if (doc.file_data) {
+                              const binaryString = atob(doc.file_data);
+                              const bytes = new Uint8Array(binaryString.length);
+                              for (let i = 0; i < binaryString.length; i++) {
+                                bytes[i] = binaryString.charCodeAt(i);
+                              }
+                              const blob = new Blob([bytes], { type: 'application/pdf' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = doc.name;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              URL.revokeObjectURL(url);
+                            } else if (doc.file_url) {
+                              window.open(doc.file_url, '_blank');
+                            }
+                          }}
                           className="p-2.5 rounded-lg hover:bg-gray-100 transition-colors"
                           title="Télécharger"
                         >
