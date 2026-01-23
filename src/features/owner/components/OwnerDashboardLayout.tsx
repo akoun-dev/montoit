@@ -23,13 +23,22 @@ export default function OwnerDashboardLayout({ children, title }: OwnerDashboard
 
   const loadUnreadMessages = async () => {
     if (!user) return;
+
+    // Get unread count from conversations where user is a participant
     const { data, error } = await supabase
-      .from('messages')
-      .select('id')
-      .eq('receiver_id', user.id)
-      .eq('is_read', false);
-    if (!error) {
-      setUnreadMessages(data?.length || 0);
+      .from('conversations')
+      .select('unread_count_participant1, unread_count_participant2, participant1_id, participant2_id')
+      .or('participant1_id.eq.' + user.id + ',participant2_id.eq.' + user.id);
+
+    if (!error && data) {
+      const totalUnread = data.reduce((sum, conv) => {
+        if (conv.participant1_id === user.id) {
+          return sum + (conv.unread_count_participant1 || 0);
+        } else {
+          return sum + (conv.unread_count_participant2 || 0);
+        }
+      }, 0);
+      setUnreadMessages(totalUnread);
     }
   };
 

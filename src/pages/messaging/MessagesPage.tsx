@@ -81,7 +81,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF7F4] pt-20 pb-4 px-4 flex gap-6">
+    <div className="h-[calc(100vh-120px)] flex gap-4 -mx-3 -mt-4">
       {/* --- SIDEBAR : LISTE DES CONVERSATIONS --- */}
       <div
         className={`w-full md:w-80 lg:w-96 bg-white rounded-[24px] border border-[#EFEBE9] shadow-sm flex flex-col overflow-hidden ${
