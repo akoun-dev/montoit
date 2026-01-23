@@ -64,7 +64,7 @@ export default function AgencyDashboardLayout({ children, title }: AgencyDashboa
 
         {/* Contenu principal */}
         <main className="flex-1 overflow-auto">
-          <div className="w-full px-4 lg:px-8 xl:px-10 py-6">{children || <Outlet />}</div>
+          <div className="w-full px-4 py-6">{children || <Outlet />}</div>
         </main>
       </div>
     </div>

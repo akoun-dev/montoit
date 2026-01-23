@@ -199,7 +199,7 @@ export default function RegistrationRequestsPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF7F4] py-8">
-      <div className="container mx-auto px-4 max-w-6xl">
+      <div className="w-full mx-auto px-4 w-fullxl">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
@@ -333,7 +333,7 @@ export default function RegistrationRequestsPage() {
 
         {/* Detail Modal */}
         <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:w-fullg">
             <DialogHeader>
               <DialogTitle>Détails de la candidature</DialogTitle>
             </DialogHeader>

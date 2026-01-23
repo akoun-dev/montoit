@@ -143,7 +143,7 @@ export default function AgencyDashboardPage() {
     <div className="min-h-screen bg-[#FAF7F4]">
       {/* Header */}
       <div className="bg-[#2C1810] dashboard-header-animate">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center icon-pulse-premium">
@@ -166,7 +166,7 @@ export default function AgencyDashboardPage() {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9] card-animate-in card-hover-premium card-stagger-1">

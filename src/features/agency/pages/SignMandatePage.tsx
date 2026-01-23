@@ -170,7 +170,7 @@ export default function SignMandatePage() {
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-3xl mx-auto">
+      <div className="w-full">
         {/* Header */}
         <div className="mb-8">
           <button

@@ -182,7 +182,7 @@ export default function AgentDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF7F4] py-8">
-      <div className="container mx-auto px-4 max-w-6xl">
+      <div className="w-full mx-auto px-4 w-fullxl">
         {/* Back Button */}
         <button
           onClick={() => navigate('/dashboard/agence/equipe')}

@@ -710,7 +710,7 @@ export default function AgencyDocumentsPage() {
       {/* Upload Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full">
+          <div className="bg-white rounded-2xl w-fullxl w-full">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">Ajouter des documents</h2>
               <button

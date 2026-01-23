@@ -169,7 +169,7 @@ export default function MandateDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-50 p-6">
-        <div className="max-w-5xl mx-auto">
+        <div className="w-full">
           <div className="animate-pulse space-y-6">
             <div className="h-8 w-32 bg-neutral-200 rounded" />
             <div className="h-64 bg-neutral-200 rounded-2xl" />
@@ -253,7 +253,7 @@ export default function MandateDetailPage() {
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 py-6">
+      <div className="w-full px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Main Info */}
           <div className="lg:col-span-2 space-y-6">

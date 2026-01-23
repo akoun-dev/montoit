@@ -233,7 +233,7 @@ export default function PropertyAssignmentsPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF7F4] py-8">
-      <div className="container mx-auto px-4 max-w-7xl">
+      <div className="w-full mx-auto px-4 w-fullxl">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
