@@ -230,10 +230,10 @@ export default function AgencyProfilePage() {
     try {
       setUploadingDoc(true);
 
-      // Upload to storage - use profile-images bucket (existing)
-      const fileName = `verification/${user.id}/${Date.now()}_${file.name}`;
+      // Upload to storage - use verifications bucket
+      const fileName = `${user.id}/agency/${Date.now()}_${file.name}`;
       const { error: uploadError } = await supabase.storage
-        .from('profile-images')
+        .from('verifications')
         .upload(fileName, file, {
           cacheControl: '3600',
           upsert: true,
@@ -245,7 +245,7 @@ export default function AgencyProfilePage() {
       }
 
       const { data: urlData } = supabase.storage
-        .from('profile-images')
+        .from('verifications')
         .getPublicUrl(fileName);
 
       if (!urlData?.publicUrl) {
@@ -386,7 +386,7 @@ export default function AgencyProfilePage() {
     try {
       setUploadingAvatar(true);
       const fileName = `${user.id}/avatar-${Date.now()}`;
-      const bucket = STORAGE_BUCKETS.PROFILE_IMAGES;
+      const bucket = STORAGE_BUCKETS.AVATARS;
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
@@ -422,7 +422,7 @@ export default function AgencyProfilePage() {
     try {
       setUploadingLogo(true);
       const fileName = `${user.id}/logo-${Date.now()}`;
-      const bucket = STORAGE_BUCKETS.PROFILE_IMAGES;
+      const bucket = STORAGE_BUCKETS.AVATARS;
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
