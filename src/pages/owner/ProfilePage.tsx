@@ -17,10 +17,13 @@ import {
   TrendingUp,
   Mail,
   Loader2,
+  Key,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatAddress } from '@/shared/utils/address';
 import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
+import RoleSwitcher from '@/components/role/RoleSwitcher';
+import { RoleSwitchModal } from '@/shared/ui/Modal';
 
 interface Profile {
   id: string;
@@ -192,6 +195,8 @@ export default function OwnerProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [becomingTenant, setBecomingTenant] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
   const [formData, setFormData] = useState({
     full_name: '',
     phone: '',
@@ -347,6 +352,37 @@ export default function OwnerProfilePage() {
     }
   };
 
+  const handleBecomeTenant = () => {
+    if (!user) return;
+    setShowRoleModal(true);
+  };
+
+  const handleConfirmRoleSwitch = async () => {
+    if (!user) return;
+
+    setBecomingTenant(true);
+
+    try {
+      // Mettre à jour le user_type directement dans la base de données
+      const { error } = await supabase
+        .from('profiles')
+        .update({ user_type: 'locataire' })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      toast.success('Vous êtes maintenant locataire ! Redirection...');
+
+      // Rediriger immédiatement sans attendre
+      window.location.href = '/locataire/dashboard';
+    } catch (error) {
+      console.error('Error becoming tenant:', error);
+      toast.error('Échec de la modification du rôle');
+      setBecomingTenant(false);
+    }
+    // Note: setBecomingTenant(false) n'est pas appelé en cas de succès car on redirige
+  };
+
   const displayName =
     (profile?.full_name && profile.full_name.trim()) ||
     (profile?.agency_name && profile.agency_name.trim()) ||
@@ -380,6 +416,7 @@ export default function OwnerProfilePage() {
   }
 
   return (
+    <>
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
@@ -430,19 +467,28 @@ export default function OwnerProfilePage() {
 
             <div className="flex-1 text-center sm:text-left">
               <h2 className="text-2xl font-bold text-gray-900">{displayName}</h2>
-              <p className="text-gray-500 mt-1">
-                {profile?.user_type === 'proprietaire' ? 'Propriétaire' : profile?.user_type === 'agence' ? 'Agence immobilière' : 'Utilisateur'}
-              </p>
-              {profile?.trust_score && (
-                <div className="flex items-center gap-2 mt-3 justify-center sm:justify-start">
+              <div className="flex items-center gap-3 mt-1 flex-wrap justify-center sm:justify-start">
+                <span className="text-gray-500">Rôle :</span>
+                <RoleSwitcher variant="compact" size="sm" />
+              </div>
+              <div className="flex items-center gap-3 mt-3 flex-wrap justify-center sm:justify-start">
+                {profile?.trust_score && (
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-full border border-green-200">
                     <Shield className="w-4 h-4 text-green-600" />
                     <span className="text-sm font-semibold text-green-700">
                       Score: {profile.trust_score}%
                     </span>
                   </div>
-                </div>
-              )}
+                )}
+                <button
+                  onClick={handleBecomeTenant}
+                  disabled={becomingTenant}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Key className="w-4 h-4" />
+                  <span>{becomingTenant ? 'Changement...' : 'Je suis locataire'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -736,5 +782,16 @@ export default function OwnerProfilePage() {
         </div>
       </div>
     </div>
+
+    {/* Modal de switch de rôle */}
+    <RoleSwitchModal
+      isOpen={showRoleModal}
+      onClose={() => setShowRoleModal(false)}
+      onConfirm={handleConfirmRoleSwitch}
+      fromRole="proprietaire"
+      toRole="locataire"
+      loading={becomingTenant}
+    />
+    </>
   );
 }

@@ -1,0 +1,104 @@
+/**
+ * RoleSwitcher Styles
+ * Styles pour le composant de changement de rôle
+ */
+
+.role-switcher {
+  --transition-speed: 0.2s;
+}
+
+/* Animation pour le menu déroulant */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Animation pour les cartes */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.role-switcher-dropdown {
+  animation: slideDown var(--transition-speed) ease-out;
+}
+
+.role-switcher-card {
+  animation: scaleIn var(--transition-speed) ease-out;
+  transition: transform var(--transition-speed) ease-out,
+              box-shadow var(--transition-speed) ease-out;
+}
+
+.role-switcher-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Bouton actif */
+.role-switcher-button-active {
+  position: relative;
+}
+
+.role-switcher-button-active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+}
+
+/* Styles pour le mode inline */
+.role-switcher-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.role-switcher-inline-button {
+  transition: all var(--transition-speed) ease-out;
+}
+
+.role-switcher-inline-button:hover {
+  transform: scale(1.05);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .role-switcher-dropdown {
+    min-width: 180px;
+  }
+
+  .role-switcher-card {
+    padding: 0.75rem;
+  }
+
+  .role-switcher-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}

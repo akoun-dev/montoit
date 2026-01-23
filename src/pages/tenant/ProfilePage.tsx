@@ -11,6 +11,7 @@ import OwnerDashboardLayout from '@/features/owner/components/OwnerDashboardLayo
 import ONECIFormTest from '@/features/verification/components/ONECIFormTest';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
+import RoleSwitcher from '@/components/role/RoleSwitcher';
 
 interface Profile {
   id: string;
@@ -289,10 +290,17 @@ export default function ProfilePage() {
                 </span>
               )}
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl font-bold text-foreground">{displayName}</h1>
               <p className="text-muted-foreground">{profile?.email || user?.email}</p>
-              <p className="text-sm text-muted-foreground">Rôle : {roleLabel}</p>
+              <div className="mt-2 flex items-center gap-3 flex-wrap">
+                <span className="text-sm text-muted-foreground">Rôle :</span>
+                <RoleSwitcher variant="compact" size="sm" />
+                {/* Debug: Afficher le rôle directement */}
+                <span className="text-xs text-gray-400">
+                  (DEBUG: user_type={profile?.user_type})
+                </span>
+              </div>
               {profile?.trust_score && (
                 <div className="mt-2 flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Score de confiance:</span>

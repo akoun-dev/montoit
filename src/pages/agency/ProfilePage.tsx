@@ -30,6 +30,7 @@ import Input from '@/shared/ui/Input';
 import { toast } from '@/hooks/shared/useSafeToast';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
+import RoleSwitcher from '@/components/role/RoleSwitcher';
 
 interface AgencyProfile {
   id: string;
@@ -457,7 +458,12 @@ export default function AgencyProfilePage() {
                 />
               )}
             </div>
-            <p className="text-gray-600">Agence immobilière</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-gray-600">Agence immobilière</span>
+              <span className="text-gray-400">•</span>
+              <span className="text-sm text-gray-500">Rôle :</span>
+              <RoleSwitcher variant="compact" size="sm" />
+            </div>
             {profile?.trust_score && (
               <div className="flex items-center gap-2 mt-2">
                 <Shield className="w-4 h-4 text-green-600" />

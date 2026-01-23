@@ -49,6 +49,9 @@ console.log('🟢 main.tsx: Query config imported');
 import { AuthProvider } from '@/app/providers/AuthProvider';
 console.log('🟢 main.tsx: AuthProvider imported');
 
+import { RoleProvider } from '@/contexts/RoleContext';
+console.log('🟢 main.tsx: RoleProvider imported');
+
 import { ThemeProvider } from '@/contexts/ThemeContext';
 console.log('🟢 main.tsx: ThemeProvider imported');
 
@@ -120,7 +123,9 @@ try {
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <App />
+            <RoleProvider>
+              <App />
+            </RoleProvider>
           </AuthProvider>
         </QueryClientProvider>
       </ThemeProvider>
