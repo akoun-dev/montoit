@@ -33,6 +33,32 @@ const UserCertificationDetails = lazyWithRetry(
   () => import('@/pages/trust-agent/UserCertificationDetailsPage')
 );
 
+// Dossier Validation pages
+const TenantDossierValidation = lazyWithRetry(
+  () => import('@/pages/trust-agent/TenantDossierValidationPage')
+);
+const OwnerDossierValidation = lazyWithRetry(
+  () => import('@/pages/trust-agent/OwnerDossierValidationPage')
+);
+const AgencyDossierValidation = lazyWithRetry(
+  () => import('@/pages/trust-agent/AgencyDossierValidationPage')
+);
+const DossiersList = lazyWithRetry(
+  () => import('@/pages/trust-agent/DossiersListPage')
+);
+
+// CEV Mission page
+const CEVMission = lazyWithRetry(
+  () => import('@/pages/trust-agent/CEVMissionPage')
+);
+
+// Disputes pages
+const DisputesList = lazyWithRetry(() => import('@/pages/trust-agent/DisputesListPage'));
+const DisputeDetail = lazyWithRetry(() => import('@/pages/trust-agent/DisputeDetailPage'));
+
+// Reports page
+const Reports = lazyWithRetry(() => import('@/pages/trust-agent/ReportsPage'));
+
 export const trustAgentRoutes: RouteObject = {
   path: 'trust-agent',
   element: (
@@ -55,5 +81,21 @@ export const trustAgentRoutes: RouteObject = {
     { path: 'certifications/properties', element: <PropertyCertification /> },
     { path: 'properties', element: <PropertyManagement /> },
     { path: 'history', element: <CertificationHistory /> },
+
+    // Dossier Validation routes
+    { path: 'dossiers', element: <DossiersList /> },
+    { path: 'dossiers/tenants/:id', element: <TenantDossierValidation /> },
+    { path: 'dossiers/owners/:id', element: <OwnerDossierValidation /> },
+    { path: 'dossiers/agencies/:id', element: <AgencyDossierValidation /> },
+
+    // CEV Mission route
+    { path: 'cev/:id', element: <CEVMission /> },
+
+    // Disputes routes
+    { path: 'disputes', element: <DisputesList /> },
+    { path: 'disputes/:id', element: <DisputeDetail /> },
+
+    // Reports route
+    { path: 'reports', element: <Reports /> },
   ],
 };
