@@ -230,10 +230,10 @@ export default function AgencyProfilePage() {
     try {
       setUploadingDoc(true);
 
-      // Upload to storage - use verifications bucket
+      // Upload to storage - use documents bucket
       const fileName = `${user.id}/agency/${Date.now()}_${file.name}`;
       const { error: uploadError } = await supabase.storage
-        .from('verifications')
+        .from('documents')
         .upload(fileName, file, {
           cacheControl: '3600',
           upsert: true,
@@ -245,7 +245,7 @@ export default function AgencyProfilePage() {
       }
 
       const { data: urlData } = supabase.storage
-        .from('verifications')
+        .from('documents')
         .getPublicUrl(fileName);
 
       if (!urlData?.publicUrl) {
