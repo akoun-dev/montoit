@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { Camera, ImagePlus, X, Upload, Loader2 } from 'lucide-react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { Camera, ImagePlus, X, Upload, Loader2, Clipboard } from 'lucide-react';
 import { CameraResultType } from '@capacitor/camera';
 import { Button } from '@/shared/ui/Button';
 import { useNativeCamera } from '@/hooks/native/useNativeCamera';
@@ -43,11 +43,170 @@ export function NativeCameraUpload({
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSourceMenu, setShowSourceMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [pasteSupported, setPasteSupported] = useState(false);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   const { isNative, takePhoto, pickFromGallery, pickMultiple, isLoading, error } = useNativeCamera({
     quality: 90,
     resultType: CameraResultType.DataUrl,
   });
+
+  // Détecter si le paste est supporté
+  useEffect(() => {
+    setPasteSupported(
+      navigator.clipboard && typeof navigator.clipboard.read === 'function'
+    );
+  }, []);
+
+  // Handler pour le paste depuis le presse-papier
+  const handlePaste = useCallback(
+    async (e: React.ClipboardEvent) => {
+      // Ignorer si le focus est dans un input de fichier
+      if ((e.target as HTMLElement).tagName === 'INPUT') {
+        return;
+      }
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      e.preventDefault();
+      setIsProcessing(true);
+
+      try {
+        const newFiles: File[] = [];
+        const newPreviews: string[] = [];
+
+        for (const item of Array.from(items)) {
+          if (item.kind === 'file' && item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (!file) continue;
+
+            // Validate file size
+            if (file.size > maxSizeMB * 1024 * 1024) {
+              console.warn(`File too large: ${file.name} (${file.size} bytes)`);
+              continue;
+            }
+
+            // Compress the image
+            const compressedFile = await UploadService.compressImage(
+              file,
+              compressionMaxWidth,
+              compressionQuality
+            );
+            const preview = await fileToDataUrl(compressedFile);
+
+            newFiles.push(compressedFile);
+            newPreviews.push(preview);
+          }
+        }
+
+        if (newFiles.length > 0) {
+          if (multiple) {
+            setFiles((prev) => [...prev, ...newFiles]);
+            setPreviews((prev) => [...prev, ...newPreviews]);
+            onMultipleImages?.([...files, ...newFiles], [...previews, ...newPreviews]);
+          } else {
+            setFiles(newFiles);
+            setPreviews(newPreviews);
+            onImageCaptured(newFiles[0], newPreviews[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Error handling paste:', err);
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [files, previews, multiple, compressionMaxWidth, compressionQuality, maxSizeMB, onImageCaptured, onMultipleImages]
+  );
+
+  // Activer le paste sur le drop zone
+  useEffect(() => {
+    const dropZone = dropZoneRef.current;
+    if (!dropZone) return;
+
+    if (pasteSupported) {
+      dropZone.addEventListener('paste', handlePaste as EventListener);
+    }
+
+    return () => {
+      if (pasteSupported && dropZone) {
+        dropZone.removeEventListener('paste', handlePaste as EventListener);
+      }
+    };
+  }, [pasteSupported, handlePaste]);
+
+  // Handlers pour le drag and drop
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+
+      const droppedFiles = Array.from(e.dataTransfer?.files || []) as File[];
+      const imageFiles = droppedFiles.filter((f) => f.type.startsWith('image/'));
+
+      if (imageFiles.length === 0) return;
+
+      setIsProcessing(true);
+      try {
+        const newFiles: File[] = [];
+        const newPreviews: string[] = [];
+
+        for (const file of imageFiles) {
+          // Validate file size
+          if (file.size > maxSizeMB * 1024 * 1024) {
+            console.warn(`File too large: ${file.name} (${file.size} bytes)`);
+            continue;
+          }
+
+          // Compress the image
+          const compressedFile = await UploadService.compressImage(
+            file,
+            compressionMaxWidth,
+            compressionQuality
+          );
+          const preview = await fileToDataUrl(compressedFile);
+
+          newFiles.push(compressedFile);
+          newPreviews.push(preview);
+
+          if (!multiple) {
+            setFiles([compressedFile]);
+            setPreviews([preview]);
+            onImageCaptured(compressedFile, preview);
+            break;
+          }
+        }
+
+        if (multiple && newFiles.length > 0) {
+          setFiles((prev) => [...prev, ...newFiles]);
+          setPreviews((prev) => [...prev, ...newPreviews]);
+          onMultipleImages?.([...files, ...newFiles], [...previews, ...newPreviews]);
+        }
+      } catch (err) {
+        console.error('Error handling drop:', err);
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [files, previews, multiple, compressionMaxWidth, compressionQuality, maxSizeMB, onImageCaptured, onMultipleImages]
+  );
 
   const processAndAddImage = useCallback(
     async (dataUrl: string) => {
@@ -374,25 +533,42 @@ export function NativeCameraUpload({
       ) : (
         <>
           <div
+            ref={dropZoneRef}
             onClick={() => !isDisabled && canAddMore && fileInputRef.current?.click()}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
             className={cn(
-              'border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors',
+              'border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors relative',
               isDisabled || !canAddMore
                 ? 'border-muted bg-muted/50 cursor-not-allowed'
-                : 'border-primary/30 hover:border-primary hover:bg-primary/5'
+                : isDragging
+                  ? 'border-primary bg-primary/10 scale-[1.02]'
+                  : 'border-primary/30 hover:border-primary hover:bg-primary/5',
+              pasteSupported && 'cursor-copy'
             )}
           >
             <div className="flex flex-col items-center gap-3">
               {isProcessing ? (
                 <Loader2 className="h-10 w-10 text-primary animate-spin" />
               ) : (
-                <Upload className="h-10 w-10 text-primary" />
+                <>
+                  <Upload className="h-10 w-10 text-primary" />
+                  {pasteSupported && (
+                    <Clipboard className="h-6 w-6 text-muted-foreground absolute top-2 right-2" />
+                  )}
+                </>
               )}
               <div>
                 <p className="font-medium text-foreground">{label}</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Cliquez ou glissez-déposez vos images ici
+                  Cliquez, glissez-déposez ou collez vos images ici
                 </p>
+                {pasteSupported && (
+                  <p className="text-xs text-primary mt-1">
+                    📋 Ctrl+V pour coller depuis le presse-papier
+                  </p>
+                )}
               </div>
               {multiple && (
                 <p className="text-xs text-muted-foreground">
