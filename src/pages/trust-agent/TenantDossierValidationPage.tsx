@@ -18,7 +18,7 @@ import {
   Mail,
   Phone,
   MapPin,
-  IdCard,
+  Badge,
   AlertTriangle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';
@@ -427,7 +427,7 @@ export default function TenantDossierValidationPage() {
               Documents
             </TabsTrigger>
             <TabsTrigger value="identity">
-              <IdCard className="h-4 w-4 mr-2" />
+              <Badge className="h-4 w-4 mr-2" />
               Identité
             </TabsTrigger>
             <TabsTrigger value="financial">
@@ -476,7 +476,7 @@ export default function TenantDossierValidationPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <IdCard className="h-4 w-4 text-muted-foreground" />
+                      <Badge className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <p className="text-xs text-muted-foreground">CNI / Passeport</p>
                         <p className="font-medium">{dossier.national_id || 'Non renseigné'}</p>

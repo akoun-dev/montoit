@@ -61,7 +61,6 @@ const ROUTE_LABELS: Record<string, string> = {
   documents: 'Documents',
   'mes-mandats': 'Mandats',
   profil: 'Mon profil',
-  'ajouter-propriete': 'Ajouter un bien',
   'creer-contrat': 'Créer un contrat',
   contrat: 'Contrat',
   signer: 'Signer',
