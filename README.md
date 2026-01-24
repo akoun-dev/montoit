@@ -43,6 +43,7 @@ MonToit est une plateforme immobilière complète qui connecte les locataires, l
 - **Locataires** : Recherche de propriétés, candidatures, paiement de loyer
 - **Propriétaires** : Gestion de biens, contrats de location, suivi des paiements
 - **Agences** : Gestion de portefeuille, équipes, mandats et commissions
+- **Trust Agents (Tiers de Confiance)** : Médiation de litiges, validation de dossiers, certifications CEV
 - **Administrateurs** : Modération, vérifications, analytics
 
 ---
@@ -58,20 +59,30 @@ MonToit est une plateforme immobilière complète qui connecte les locataires, l
 - Suivi des demandes en temps réel
 
 ### Propriétaires
-- Publication et gestion de propriétés
+- Publication et gestion de propriétés avec géolocalisation GPS
 - Gestion des candidatures et sélection de locataires
 - Génération de contrats de bail PDF
 - Suivi des paiements et indexation de loyer
 - État des lieux et rapports de départ
 - Attribution de mandats aux agences
+- Affichage des propriétés sur carte interactive
 
 ### Agences Immobilières
-- Gestion de portefeuille de biens
+- Gestion de portefeuille de biens avec géolocalisation
 - Gestion d'équipe d'agents
 - Suivi des mandats et signatures électroniques
 - Tableau de bord analytics et commissions
 - Demandes d'inscription et validation
 - Export de données et rapports
+
+### Trust Agents (Tiers de Confiance)
+Le **Trust Agent** est un rôle spécialisé qui assure :
+- **Validation des dossiers** : Vérification des locataires, propriétaires et agences
+- **Médiation de litiges** : Gestion des conflits entre locataires et propriétaires
+- **Missions CEV** : Contrôles d'Entrée en Vigueur des biens
+- **Certifications** : Attribution des labels ANSUT aux biens conformes
+- **Rapports** : Analytics de performance et statistiques de mediation
+- **États des lieux** : Rapports numériques d'entrée et de sortie
 
 ### Administration
 - Panel d'administration complet
@@ -81,6 +92,16 @@ MonToit est une plateforme immobilière complète qui connecte les locataires, l
 - Logs d'audit et sécurité
 - Gestion des fonctionnalités (feature flags)
 
+### Trust Agents (Tiers de Confiance)
+- Tableau de bord des missions et dossiers
+- Validation des dossiers (locataires, propriétaires, agences)
+- Gestion des litiges et médiation
+- Rapports et analytics de performance
+- Missions CEV (Contrôle d'Entrée en Vigueur)
+- Certification des biens immobiliers
+- État des lieux numériques
+- Gestion des preuves et propositions de résolution
+
 ### Fonctionnalités Transverses
 - Authentification multi-facteurs
 - Vérification d'identité (CNI, ONECI, CNAM)
@@ -88,6 +109,7 @@ MonToit est une plateforme immobilière complète qui connecte les locataires, l
 - Notifications push et email
 - Interface responsive (mobile, tablette, desktop)
 - Application mobile native (iOS/Android via Capacitor)
+- **Géolocalisation** : Capture GPS des propriétés pour affichage sur cartes
 
 ---
 
@@ -479,9 +501,11 @@ montoit/
 │   │   ├── tenant/           # Fonctionnalités locataires
 │   │   ├── owner/            # Fonctionnalités propriétaires
 │   │   ├── agency/           # Fonctionnalités agences
+│   │   ├── trust-agent/      # Espace Trust Agent (Tiers de Confiance)
 │   │   ├── admin/            # Panel d'administration
 │   │   ├── messaging/        # Messagerie
 │   │   ├── verification/     # Vérification d'identité
+│   │   ├── dispute/          # Gestion des litiges
 │   │   └── contract/         # Contrats de location
 │   │
 │   ├── components/           # Composants partagés
@@ -542,6 +566,19 @@ montoit/
 | PostgreSQL | Base de données relationnelle |
 | Row Level Security | Sécurité au niveau base |
 
+### Tables principales
+
+| Table | Description |
+|-------|-------------|
+| `properties` | Biens immobiliers avec localisation et géolocalisation |
+| `profiles` | Profils utilisateurs avec rôles (locataire, propriétaire, agence, trust_agent) |
+| `lease_contracts` | Contrats de bail |
+| `disputes` | Litiges et médiations |
+| `cev_missions` | Missions de contrôle CEV |
+| `tenant_applications` | Dossiers de candidature locataire |
+| `owner_applications` | Dossiers de validation propriétaire |
+| `agency_applications` | Dossiers d'agréation agence |
+
 ### Services externes
 
 | Service | Usage |
@@ -560,6 +597,7 @@ montoit/
 | Technologie | Version | Usage |
 |-------------|---------|-------|
 | Capacitor | 7.4.4 | Bridge natif iOS/Android |
+| Capacitor Geolocation | - | GPS pour capture position |
 | Workbox | - | Service Worker pour PWA |
 
 ### Développement
