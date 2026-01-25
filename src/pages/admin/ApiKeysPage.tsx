@@ -23,8 +23,8 @@ export default function ApiKeysPage() {
           </div>
           <h3 className="text-xl font-bold text-[#2C1810] mb-2">En développement</h3>
           <p className="text-[#6B5A4E] max-w-lg mx-auto">
-            Cette page est un placeholder. Le contenu et les fonctionnalités de Clés API sont en cours
-            {page.replace(/Page$/, '')} sont en cours de développement. Revenez bientôt pour une
+            Cette page est un placeholder. Le contenu et les fonctionnalités de
+            Clés API sont en cours de développement. Revenez bientôt pour une
             expérience complète.
           </p>
           <button

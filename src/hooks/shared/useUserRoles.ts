@@ -84,7 +84,10 @@ export function useUserRoles(): UseUserRolesReturn {
 
       if (rpcError) {
         // Fonction absente : fallback silencieux
-        if (rpcError.message?.includes('Could not find the function')) {
+        if (
+          rpcError.message?.includes('Could not find the function') ||
+          rpcError.message?.includes('has no field')
+        ) {
           skipRpc.value = true;
           userRolesRpcSkipped.value = true;
           setRoles([]);
