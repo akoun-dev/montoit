@@ -4,6 +4,7 @@ import { FormatService } from '@/services/format/formatService';
 import { OwnerBadge } from '@/shared/ui';
 import { usePrefetchProperty } from '@/shared/hooks/usePrefetchProperty';
 import type { Database } from '@/shared/lib/database.types';
+import { cn } from '@/shared/lib/utils';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 
@@ -57,6 +58,22 @@ function getFallbackImage(property: Property): string {
   const key = `${type}-${city || 'abidjan'}-${priceRange % 4}`;
   const fallbackUrl = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80';
   return imageMap[key as keyof typeof imageMap] ?? fallbackUrl;
+}
+
+// Helper function to get status badge configuration
+function getStatusConfig(status?: string | null) {
+  if (!status) return null;
+
+  const statusConfig: Record<string, { label: string; className: string; icon?: string }> = {
+    disponible: { label: 'Disponible', className: 'bg-green-500/90 text-white', icon: '✓' },
+    louee: { label: 'Louée', className: 'bg-blue-500/90 text-white', icon: '🔑' },
+    en_attente: { label: 'En attente', className: 'bg-amber-500/90 text-white', icon: '⏳' },
+    reservee: { label: 'Réservée', className: 'bg-purple-500/90 text-white', icon: '📋' },
+    indisponible: { label: 'Indisponible', className: 'bg-gray-500/90 text-white', icon: '✕' },
+    maintenance: { label: 'Maintenance', className: 'bg-red-500/90 text-white', icon: '🔧' },
+  };
+
+  return statusConfig[status.toLowerCase()] || null;
 }
 
 function handleImageError(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -131,16 +148,45 @@ export default function PropertyCard({
           <span className="text-xs opacity-80 ml-1">/mois</span>
         </div>
 
-        {/* Badge Nouveau - Orange Premium - Consistently positioned */}
+        {/* Status Badge - Top Left */}
+        {(() => {
+          const statusConfig = getStatusConfig(property.status);
+          if (!statusConfig) return null;
+          return (
+            <div className={cn(
+              'absolute top-3 left-3 px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-sm',
+              statusConfig.className
+            )}>
+              <span className="mr-1">{statusConfig.icon}</span>
+              {statusConfig.label}
+            </div>
+          );
+        })()}
+
+        {/* Badge Nouveau - Orange Premium - Positioned below status badge if status exists */}
         {showBadge && badgeText && (
-          <div className="absolute top-3 left-3 px-3 py-1.5 bg-[var(--color-orange)] text-white rounded-full text-xs font-semibold shadow-lg">
+          <div className={cn(
+            'absolute px-3 py-1.5 bg-[var(--color-orange)] text-white rounded-full text-xs font-semibold shadow-lg',
+            property.status ? 'top-10 left-3' : 'top-3 left-3'
+          )}>
             {badgeText}
           </div>
         )}
 
-        {/* Owner Badge with Trust Score - Bottom Right - Consistently positioned */}
+        {/* Badge Certifié ANSUT - Top Right, above owner badge */}
+        {property.ansut_verified && (
+          <div className="absolute top-3 right-3 px-3 py-1.5 bg-emerald-600 text-white rounded-full text-xs font-semibold shadow-lg flex items-center gap-1">
+            <span className="text-white">✓</span>
+            <span>Certifié ANSUT</span>
+          </div>
+        )}
+
+        {/* Owner Badge with Trust Score - Bottom Right or Below ANSUT Badge */}
         {ownerTrustScore != null && (
-          <div className="absolute bottom-3 right-3">
+          <div className={cn(
+            "absolute",
+            property.ansut_verified ? "bottom-3 right-3" : "bottom-3 right-3"
+          )}>
             <OwnerBadge
               name={ownerName}
               avatarUrl={ownerAvatarUrl}

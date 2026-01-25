@@ -63,7 +63,7 @@ export function usePaymentAlerts(): PaymentAlertsHookReturn {
         const endDate = contract.end_date ? new Date(contract.end_date) : null;
 
         // Trouver la prochaine échéance de paiement
-        let nextDueDate = new Date(startDate);
+        const nextDueDate = new Date(startDate);
         while (nextDueDate <= today) {
           nextDueDate.setMonth(nextDueDate.getMonth() + 1);
         }

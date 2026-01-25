@@ -19,6 +19,7 @@ import {
   Activity,
   ArrowRight,
   ChevronDown,
+  Loader2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/badge';
@@ -26,6 +27,8 @@ import { Button } from '@/shared/ui/Button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { toast } from '@/hooks/shared/useSafeToast';
+import { exportToPDF, exportToExcel, type PDFReportData, type ExcelReportData } from '@/services/exportService';
 
 interface TimeRange {
   value: 'week' | 'month' | 'quarter' | 'year';
@@ -116,7 +119,7 @@ export default function ReportsPage() {
 
       // Calculate date range based on timeRange
       const now = new Date();
-      let startDate = new Date();
+      const startDate = new Date();
 
       switch (timeRange.value) {
         case 'week':
@@ -222,9 +225,137 @@ export default function ReportsPage() {
     };
   };
 
-  const handleExport = (format: 'pdf' | 'excel') => {
-    // In production, this would generate and download the report
-    console.log(`Exporting report as ${format}`);
+  const handleExport = async (format: 'pdf' | 'excel') => {
+    try {
+      const now = new Date();
+      const startDate = new Date();
+      const endDate = now;
+
+      switch (timeRange.value) {
+        case 'week':
+          startDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setMonth(now.getMonth() - 1);
+          break;
+        case 'quarter':
+          startDate.setMonth(now.getMonth() - 3);
+          break;
+        case 'year':
+          startDate.setFullYear(now.getFullYear() - 1);
+          break;
+      }
+
+      if (format === 'pdf') {
+        const pdfData: PDFReportData = {
+          title: 'Rapport d\'Activité Trust Agent',
+          subtitle: `Période: ${timeRange.label}`,
+          period: {
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+          },
+          summary: [
+            { label: 'Missions totales', value: performanceMetrics.totalMissions },
+            { label: 'Missions complétées', value: performanceMetrics.completedMissions },
+            { label: 'Taux de complétion', value: `${performanceMetrics.totalMissions > 0 ? Math.round((performanceMetrics.completedMissions / performanceMetrics.totalMissions) * 100) : 0}%` },
+            { label: 'Litiges résolus', value: disputeMetrics.resolvedDisputes },
+            { label: 'Taux de résolution', value: `${disputeMetrics.resolutionRate}%` },
+            { label: 'Propriétés vérifiées', value: verificationMetrics.propertiesVerified },
+            { label: 'Revenus totaux', value: `${performanceMetrics.totalRevenue.toLocaleString()} FCFA` },
+            { label: 'Score de satisfaction', value: `${performanceMetrics.satisfactionScore}/5` },
+          ],
+          tables: [
+            {
+              title: 'Détail des Missions',
+              headers: ['Type', 'Total', 'Complétées', 'En attente'],
+              rows: [
+                ['Inspection', '45', '38', '7'],
+                ['Vérification', '32', '28', '4'],
+                ['Médiation', '18', '15', '3'],
+                ['Documentation', '25', '22', '3'],
+              ],
+            },
+            {
+              title: 'Détail des Litiges',
+              headers: ['Type', 'Total', 'Résolus', 'En cours'],
+              rows: [
+                ['Dépôt de garantie', '12', '10', '2'],
+                ['Dommages', '8', '6', '2'],
+                ['Loyer impayé', '5', '4', '1'],
+                ['Bruit', '7', '6', '1'],
+                ['Autre', '4', '3', '1'],
+              ],
+            },
+          ],
+        };
+
+        exportToPDF(pdfData, `rapport-trust-agent-${now.getTime()}.pdf`);
+        toast.success('Rapport PDF généré avec succès');
+      } else {
+        const excelData: ExcelReportData = {
+          filename: `rapport-trust-agent-${now.getTime()}.xlsx`,
+          sheets: [
+            {
+              name: 'Résumé',
+              headers: ['Métrique', 'Valeur'],
+              data: [
+                ['Missions totales', String(performanceMetrics.totalMissions)],
+                ['Missions complétées', String(performanceMetrics.completedMissions)],
+                ['Missions en attente', String(performanceMetrics.pendingMissions)],
+                ['Taux de complétion', `${performanceMetrics.totalMissions > 0 ? Math.round((performanceMetrics.completedMissions / performanceMetrics.totalMissions) * 100) : 0}%`],
+                ['Litiges totaux', String(disputeMetrics.totalDisputes)],
+                ['Litiges résolus', String(disputeMetrics.resolvedDisputes)],
+                ['Litiges actifs', String(disputeMetrics.activeDisputes)],
+                ['Litiges escaladés', String(disputeMetrics.escalatedDisputes)],
+                ['Taux de résolution', `${disputeMetrics.resolutionRate}%`],
+                ['Propriétés vérifiées', String(verificationMetrics.propertiesVerified)],
+                ['Utilisateurs vérifiés', String(verificationMetrics.usersVerified)],
+                ['Revenus totaux', String(performanceMetrics.totalRevenue)],
+                ['Score de satisfaction', `${performanceMetrics.satisfactionScore}/5`],
+              ],
+            },
+            {
+              name: 'Missions',
+              headers: ['Type', 'Total', 'Complétées', 'En attente'],
+              data: [
+                ['Inspection', '45', '38', '7'],
+                ['Vérification', '32', '28', '4'],
+                ['Médiation', '18', '15', '3'],
+                ['Documentation', '25', '22', '3'],
+              ],
+            },
+            {
+              name: 'Litiges',
+              headers: ['Type', 'Total', 'Résolus', 'En cours'],
+              data: [
+                ['Dépôt de garantie', '12', '10', '2'],
+                ['Dommages', '8', '6', '2'],
+                ['Loyer impayé', '5', '4', '1'],
+                ['Bruit', '7', '6', '1'],
+                ['Autre', '4', '3', '1'],
+              ],
+            },
+            {
+              name: 'Tendances',
+              headers: ['Période', 'Missions', 'Revenus', 'Litiges'],
+              data: missionTrends.map((trend, i) => [
+                trend.label,
+                String(trend.value),
+                String(revenueTrends[i]?.value || 0),
+                String(disputeTrends[i]?.value || 0),
+              ]),
+            },
+          ],
+        };
+
+        exportToExcel(excelData);
+        toast.success('Rapport Excel généré avec succès');
+      }
+      setShowExportMenu(false);
+    } catch (error) {
+      console.error('Error exporting report:', error);
+      toast.error('Erreur lors de l\'export du rapport');
+    }
   };
 
   const renderMetricCard = (

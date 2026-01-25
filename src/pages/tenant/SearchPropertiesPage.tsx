@@ -519,13 +519,36 @@ export default function SearchPropertiesPage() {
                         />
 
                         {/* Badges Flottants */}
-                        <div className="absolute top-3 left-3 flex gap-2">
-                          <span
-                            className="bg-white/90 backdrop-blur-sm text-[10px] font-bold px-2 py-1 rounded-md uppercase shadow-sm"
-                            style={{ color: COLORS.chocolat }}
-                          >
-                            Disponible
-                          </span>
+                        <div className="absolute top-3 left-3 flex gap-2 flex-wrap">
+                          {/* Badge de statut */}
+                          {(() => {
+                            const statusConfig = (() => {
+                              const status = property.status?.toLowerCase();
+                              if (!status) return null;
+                              const configs: Record<string, { label: string; className: string }> = {
+                                disponible: { label: 'Disponible', className: 'bg-green-500/90 text-white' },
+                                louee: { label: 'Louée', className: 'bg-blue-500/90 text-white' },
+                                en_attente: { label: 'En attente', className: 'bg-amber-500/90 text-white' },
+                                reservee: { label: 'Réservée', className: 'bg-purple-500/90 text-white' },
+                                indisponible: { label: 'Indisponible', className: 'bg-gray-500/90 text-white' },
+                                maintenance: { label: 'Maintenance', className: 'bg-red-500/90 text-white' },
+                              };
+                              return configs[status] || null;
+                            })();
+                            return statusConfig ? (
+                              <span className={`${statusConfig.className} text-[10px] font-bold px-2 py-1 rounded-md uppercase shadow-sm backdrop-blur-sm`}>
+                                {statusConfig.label}
+                              </span>
+                            ) : null;
+                          })()}
+
+                          {/* Badge Certifié ANSUT */}
+                          {property.ansut_verified && (
+                            <span className="bg-emerald-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase shadow-sm backdrop-blur-sm flex items-center gap-1">
+                              <span>✓</span>
+                              <span>Certifié ANSUT</span>
+                            </span>
+                          )}
                         </div>
 
                         {/* Bouton Favori */}
@@ -823,12 +846,44 @@ export default function SearchPropertiesPage() {
                         loading="lazy"
                       />
                       <div className="flex-1 min-w-0">
-                        <span
-                          className="inline-block px-2 py-0.5 text-xs font-semibold rounded-full mb-2 capitalize"
-                          style={{ backgroundColor: `${COLORS.orange}1A`, color: COLORS.orange }}
-                        >
-                          {property.property_type}
-                        </span>
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          {/* Type de propriété */}
+                          <span
+                            className="inline-block px-2 py-0.5 text-xs font-semibold rounded-full capitalize"
+                            style={{ backgroundColor: `${COLORS.orange}1A`, color: COLORS.orange }}
+                          >
+                            {property.property_type}
+                          </span>
+
+                          {/* Badge de statut */}
+                          {(() => {
+                            const statusConfig = (() => {
+                              const status = property.status?.toLowerCase();
+                              if (!status) return null;
+                              const configs: Record<string, { label: string; className: string }> = {
+                                disponible: { label: 'Disponible', className: 'bg-green-100 text-green-700' },
+                                louee: { label: 'Louée', className: 'bg-blue-100 text-blue-700' },
+                                en_attente: { label: 'En attente', className: 'bg-amber-100 text-amber-700' },
+                                reservee: { label: 'Réservée', className: 'bg-purple-100 text-purple-700' },
+                                indisponible: { label: 'Indisponible', className: 'bg-gray-100 text-gray-700' },
+                                maintenance: { label: 'Maintenance', className: 'bg-red-100 text-red-700' },
+                              };
+                              return configs[status] || null;
+                            })();
+                            return statusConfig ? (
+                              <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${statusConfig.className}`}>
+                                {statusConfig.label}
+                              </span>
+                            ) : null;
+                          })()}
+
+                          {/* Badge Certifié ANSUT */}
+                          {property.ansut_verified && (
+                            <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700">
+                              ✓ Certifié ANSUT
+                            </span>
+                          )}
+                        </div>
                         <h4
                           className="font-semibold text-sm mb-1 line-clamp-1"
                           style={{ color: COLORS.chocolat }}

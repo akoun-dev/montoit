@@ -4,7 +4,7 @@
  * Ce service centralise toutes les opérations spécifiques aux agents de confiance avec validation stricte des permissions.
  */
 
-import { supabase } from '@/services/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { requireRole } from '@/shared/services/roleValidation.service';
 import type { Json } from '@/integrations/supabase/types';
 
@@ -251,6 +251,57 @@ export const trustAgentApi = {
     });
 
     if (error) throw error;
+  },
+
+  /**
+   * Récupère toutes les propriétés (pour la page de gestion)
+   */
+  getAllProperties: async (): Promise<PropertyNeedingVerification[]> => {
+    await requireRole(['trust_agent'])();
+
+    try {
+      const { data, error } = await supabase
+        .from('properties')
+        .select(
+          'id, title, address, ansut_verified, ansut_verification_date, created_at, city, neighborhood, property_type, main_image, owner_id, is_verified, status'
+        )
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      // Add verification priority based on age and verification status
+      const propertiesWithPriority = (data || []).map((property) => {
+        const daysSinceCreation = property.created_at
+          ? Math.floor(
+              (Date.now() - new Date(property.created_at).getTime()) / (1000 * 60 * 60 * 24)
+            )
+          : 0;
+
+        let priority: 'high' | 'medium' | 'low' | 'urgent' = 'low';
+        if (property.ansut_verified) {
+          priority = 'low';
+        } else if (daysSinceCreation > 60) {
+          priority = 'urgent';
+        } else if (daysSinceCreation > 30) {
+          priority = 'high';
+        } else {
+          priority = 'medium';
+        }
+
+        return {
+          ...property,
+          verification_priority: priority,
+          days_since_creation: daysSinceCreation,
+          needs_verification: !property.ansut_verified,
+        };
+      });
+
+      return propertiesWithPriority as PropertyNeedingVerification[];
+    } catch (err) {
+      console.error('Error in getAllProperties:', err);
+      throw err;
+    }
   },
 
   /**

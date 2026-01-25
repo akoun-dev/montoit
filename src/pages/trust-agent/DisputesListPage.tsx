@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search,
-  Filter,
   Scale,
   DollarSign,
   Home,
@@ -15,13 +13,19 @@ import {
   ChevronRight,
   Calendar,
 } from 'lucide-react';
-import { Card, CardContent } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/badge';
-import { Button } from '@/shared/ui/Button';
-import Input from '@/shared/ui/Input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
+import { Card } from '@/shared/ui/Card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/shared/useSafeToast';
+import { cn } from '@/shared/lib/utils';
+
+// New Trust Agent UI Components
+import {
+  KPICard,
+  EmptyState,
+  FilterBar,
+  TrustAgentPageHeader,
+} from '@/shared/ui/trust-agent';
 
 type DisputeType = 'deposit' | 'damage' | 'rent' | 'noise' | 'other';
 type DisputeStatus = 'assigned' | 'under_mediation' | 'awaiting_response' | 'resolved' | 'escalated';
@@ -40,48 +44,25 @@ interface Dispute {
   created_at: string;
   updated_at: string;
   resolution_notes: string | null;
-  // Related data
-  contract?: {
-    property: {
-      title: string;
-      address: string;
-      city: string;
-    };
-    tenant: {
-      full_name: string;
-      email: string;
-    };
-    owner: {
-      full_name: string;
-      email: string;
-    };
-  };
-  // Mediation data
   mediation_stage?: string;
   messages_count?: number;
   last_activity?: string;
 }
 
-const STATUS_CONFIG: Record<DisputeStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string; icon: React.ElementType }> = {
-  assigned: { label: 'Assigné', variant: 'outline', color: 'bg-blue-100 text-blue-700', icon: Clock },
-  under_mediation: { label: 'En médiation', variant: 'default', color: 'bg-orange-100 text-orange-700', icon: AlertTriangle },
-  awaiting_response: { label: 'En attente de réponse', variant: 'outline', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
-  resolved: { label: 'Résolu', variant: 'secondary', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
-  escalated: { label: 'Escaladé', variant: 'outline', color: 'bg-red-100 text-red-700', icon: ArrowUpCircle },
+const STATUS_CONFIG = {
+  assigned: { label: 'Assigné', variant: 'secondary' as const, bg: 'bg-blue-100', text: 'text-blue-700', icon: Clock },
+  under_mediation: { label: 'En médiation', variant: 'default' as const, bg: 'bg-orange-100', text: 'text-orange-700', icon: AlertTriangle },
+  awaiting_response: { label: 'En attente', variant: 'secondary' as const, bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock },
+  resolved: { label: 'Résolu', variant: 'secondary' as const, bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle2 },
+  escalated: { label: 'Escaladé', variant: 'outline' as const, bg: 'bg-red-100', text: 'text-red-700', icon: ArrowUpCircle },
 };
 
-const TYPE_CONFIG: Record<DisputeType, { label: string; icon: React.ElementType; color: string }> = {
+const TYPE_CONFIG = {
   deposit: { label: 'Dépôt de garantie', icon: DollarSign, color: 'bg-purple-100 text-purple-700' },
   damage: { label: 'Dommages', icon: Home, color: 'bg-orange-100 text-orange-700' },
   rent: { label: 'Loyer impayé', icon: DollarSign, color: 'bg-red-100 text-red-700' },
   noise: { label: 'Bruit', icon: AlertCircle, color: 'bg-amber-100 text-amber-700' },
   other: { label: 'Autre', icon: MessageSquare, color: 'bg-gray-100 text-gray-700' },
-};
-
-const PRIORITY_CONFIG: Record<DisputePriority, { label: string; color: string }> = {
-  low: { label: 'Basse', color: 'text-gray-500' },
-  medium: { label: 'Moyenne', color: 'text-amber-600' },
-  high: { label: 'Haute', color: 'text-red-600' },
 };
 
 export default function DisputesListPage() {
@@ -104,7 +85,7 @@ export default function DisputesListPage() {
       const { data, error } = await supabase
         .from('disputes' as never)
         .select('*')
-        .order('created_at', { ascending: false }) as unknown as { data: Dispute[]; error: { code?: string; message?: string } | null };
+        .order('created_at', { ascending: false }) as unknown as { data: Dispute[]; error: { code?: string } | null };
 
       if (error) {
         if (error.code === 'PGRST204' || error.code === 'PGRST116') {
@@ -123,203 +104,198 @@ export default function DisputesListPage() {
     }
   };
 
-  const filteredDisputes = disputes.filter((dispute) => {
-    if (statusFilter !== 'all' && dispute.status !== statusFilter) return false;
-    if (typeFilter !== 'all' && dispute.type !== typeFilter) return false;
-    if (priorityFilter !== 'all' && dispute.priority !== priorityFilter) return false;
+  const filteredDisputes = useMemo(() => {
+    return disputes.filter((dispute) => {
+      if (statusFilter !== 'all' && dispute.status !== statusFilter) return false;
+      if (typeFilter !== 'all' && dispute.type !== typeFilter) return false;
+      if (priorityFilter !== 'all' && dispute.priority !== priorityFilter) return false;
 
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      return (
-        dispute.title.toLowerCase().includes(query) ||
-        dispute.description.toLowerCase().includes(query)
-      );
-    }
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          dispute.title.toLowerCase().includes(query) ||
+          dispute.description.toLowerCase().includes(query)
+        );
+      }
 
-    return true;
-  });
+      return true;
+    });
+  }, [disputes, statusFilter, typeFilter, priorityFilter, searchQuery]);
 
-  const stats = {
+  const stats = useMemo(() => ({
     total: disputes.length,
     assigned: disputes.filter((d) => d.status === 'assigned').length,
     under_mediation: disputes.filter((d) => d.status === 'under_mediation').length,
-    awaiting_response: disputes.filter((d) => d.status === 'awaiting_response').length,
     resolved: disputes.filter((d) => d.status === 'resolved').length,
     escalated: disputes.filter((d) => d.status === 'escalated').length,
-  };
+  }), [disputes]);
 
   const handleDisputeClick = (dispute: Dispute) => {
     navigate(`/trust-agent/disputes/${dispute.id}`);
   };
 
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setTypeFilter('all');
+    setPriorityFilter('all');
+  };
+
+  const activeFiltersCount = (
+    (statusFilter !== 'all' ? 1 : 0) +
+    (typeFilter !== 'all' ? 1 : 0) +
+    (priorityFilter !== 'all' ? 1 : 0) +
+    (searchQuery ? 1 : 0)
+  );
+
+  // KPI Cards Data
+  const kpiData = [
+    { title: 'Total', value: stats.total, icon: <Scale />, variant: 'default' as const },
+    { title: 'Assignés', value: stats.assigned, icon: <Clock />, variant: 'info' as const },
+    { title: 'En médiation', value: stats.under_mediation, icon: <AlertTriangle />, variant: 'warning' as const },
+    { title: 'Résolus', value: stats.resolved, icon: <CheckCircle2 />, variant: 'success' as const },
+    { title: 'Escaladés', value: stats.escalated, icon: <ArrowUpCircle />, variant: 'danger' as const },
+  ];
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Scale className="h-6 w-6 text-purple-600" />
-            Gestion des Litiges
-          </h1>
-          <p className="text-muted-foreground">Gérez et résolvez les litiges entre locataires et propriétaires</p>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-50">
+      {/* Page Header */}
+      <TrustAgentPageHeader
+        title="Gestion des Litiges"
+        subtitle="Gérez et résolvez les litiges entre locataires et propriétaires"
+        badges={[
+          { label: `${stats.under_mediation} en médiation`, variant: stats.under_mediation > 0 ? 'warning' : 'secondary' },
+          { label: `${stats.resolved} résolus`, variant: 'success' },
+        ]}
+        showSearch
+        onSearch={setSearchQuery}
+        searchPlaceholder="Rechercher par titre ou description..."
+      />
 
       <main className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold">{stats.total}</p>
-              <p className="text-sm text-muted-foreground">Total</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-blue-600">{stats.assigned}</p>
-              <p className="text-sm text-muted-foreground">Assignés</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-orange-600">{stats.under_mediation}</p>
-              <p className="text-sm text-muted-foreground">En médiation</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-green-600">{stats.resolved}</p>
-              <p className="text-sm text-muted-foreground">Résolus</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4 text-center">
-              <p className="text-2xl font-bold text-red-600">{stats.escalated}</p>
-              <p className="text-sm text-muted-foreground">Escaladés</p>
-            </CardContent>
-          </Card>
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+          {kpiData.map((kpi, index) => (
+            <KPICard key={index} {...kpi} />
+          ))}
         </div>
 
-        {/* Search and Filters */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher par titre ou description..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as DisputeStatus | 'all')}
-                  className="px-3 py-2 border rounded-lg bg-background"
-                >
-                  <option value="all">Tous les statuts</option>
-                  <option value="assigned">Assigné</option>
-                  <option value="under_mediation">En médiation</option>
-                  <option value="awaiting_response">En attente</option>
-                  <option value="resolved">Résolu</option>
-                  <option value="escalated">Escaladé</option>
-                </select>
-
-                <select
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value as DisputeType | 'all')}
-                  className="px-3 py-2 border rounded-lg bg-background"
-                >
-                  <option value="all">Tous les types</option>
-                  <option value="deposit">Dépôt de garantie</option>
-                  <option value="damage">Dommages</option>
-                  <option value="rent">Loyer impayé</option>
-                  <option value="noise">Bruit</option>
-                  <option value="other">Autre</option>
-                </select>
-
-                <select
-                  value={priorityFilter}
-                  onChange={(e) => setPriorityFilter(e.target.value as DisputePriority | 'all')}
-                  className="px-3 py-2 border rounded-lg bg-background"
-                >
-                  <option value="all">Toutes les priorités</option>
-                  <option value="high">Haute</option>
-                  <option value="medium">Moyenne</option>
-                  <option value="low">Basse</option>
-                </select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Filter Bar */}
+        <FilterBar
+          searchPlaceholder="Rechercher par titre ou description..."
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          groups={[
+            {
+              id: 'status',
+              label: 'Statut',
+              type: 'radio',
+              options: [
+                { value: 'all', label: 'Tous', count: stats.total },
+                { value: 'assigned', label: 'Assignés', count: stats.assigned, icon: <Clock className="h-3 w-3" /> },
+                { value: 'under_mediation', label: 'En médiation', count: stats.under_mediation, icon: <AlertTriangle className="h-3 w-3" /> },
+                { value: 'resolved', label: 'Résolus', count: stats.resolved, icon: <CheckCircle2 className="h-3 w-3" /> },
+                { value: 'escalated', label: 'Escaladés', count: stats.escalated, icon: <ArrowUpCircle className="h-3 w-3" /> },
+              ],
+              selected: statusFilter === 'all' ? [] : [statusFilter],
+              onChange: (values) => setStatusFilter((values[0] || 'all') as DisputeStatus | 'all'),
+            },
+            {
+              id: 'type',
+              label: 'Type',
+              type: 'radio',
+              options: [
+                { value: 'all', label: 'Tous les types' },
+                { value: 'deposit', label: 'Dépôt de garantie', icon: <DollarSign className="h-3 w-3" /> },
+                { value: 'damage', label: 'Dommages', icon: <Home className="h-3 w-3" /> },
+                { value: 'rent', label: 'Loyer impayé', icon: <DollarSign className="h-3 w-3" /> },
+                { value: 'noise', label: 'Bruit', icon: <AlertCircle className="h-3 w-3" /> },
+                { value: 'other', label: 'Autre', icon: <MessageSquare className="h-3 w-3" /> },
+              ],
+              selected: typeFilter === 'all' ? [] : [typeFilter],
+              onChange: (values) => setTypeFilter((values[0] || 'all') as DisputeType | 'all'),
+            },
+            {
+              id: 'priority',
+              label: 'Priorité',
+              type: 'radio',
+              options: [
+                { value: 'all', label: 'Toutes' },
+                { value: 'high', label: 'Haute priorité' },
+                { value: 'medium', label: 'Moyenne' },
+                { value: 'low', label: 'Basse' },
+              ],
+              selected: priorityFilter === 'all' ? [] : [priorityFilter],
+              onChange: (values) => setPriorityFilter((values[0] || 'all') as DisputePriority | 'all'),
+            },
+          ]}
+          activeFiltersCount={activeFiltersCount}
+          onClearFilters={handleClearFilters}
+        />
 
         {/* Disputes List */}
         {loading ? (
-          <div className="space-y-4">
+          <div className="grid gap-4">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="h-32" />
-              </Card>
+              <div key={i} className="h-32 bg-gray-200 rounded-xl animate-pulse" />
             ))}
           </div>
         ) : filteredDisputes.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Scale className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">Aucun litige trouvé</p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={<Scale />}
+            title={activeFiltersCount > 0 ? 'Aucun litige trouvé' : 'Aucun litige'}
+            description={
+              activeFiltersCount > 0
+                ? 'Essayez d\'ajuster vos critères de recherche'
+                : 'Aucun litige en cours pour le moment'
+            }
+            actionLabel={activeFiltersCount > 0 ? 'Effacer les filtres' : undefined}
+            onAction={activeFiltersCount > 0 ? handleClearFilters : undefined}
+            variant={activeFiltersCount > 0 ? 'filter' : 'success'}
+          />
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {filteredDisputes.map((dispute) => {
               const statusConfig = STATUS_CONFIG[dispute.status];
               const StatusIcon = statusConfig.icon;
               const typeConfig = TYPE_CONFIG[dispute.type];
               const TypeIcon = typeConfig.icon;
-              const priorityConfig = PRIORITY_CONFIG[dispute.priority];
 
               return (
                 <Card
                   key={dispute.id}
-                  className={`cursor-pointer hover:shadow-md transition-shadow ${
-                    dispute.priority === 'high' ? 'border-l-4 border-l-red-500' : ''
-                  }`}
+                  className={cn(
+                    'cursor-pointer hover:shadow-lg transition-all duration-200 border-gray-200 hover:border-primary-200',
+                    dispute.priority === 'high' && 'border-l-4 border-l-red-500'
+                  )}
                   onClick={() => handleDisputeClick(dispute)}
                 >
-                  <CardContent className="p-4">
+                  <div className="p-5">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-4 flex-1">
-                        <div className={`p-3 rounded-lg ${typeConfig.color}`}>
+                        <div className={`p-3 rounded-xl ${typeConfig.color}`}>
                           <TypeIcon className="h-6 w-6" />
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold">{dispute.title}</h3>
-                            <Badge variant={statusConfig.variant} className={statusConfig.color}>
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                            <h3 className="font-semibold text-gray-900">{dispute.title}</h3>
+                            <Badge className={statusConfig.bg + ' ' + statusConfig.text + ' border-0'}>
                               <StatusIcon className="h-3 w-3 mr-1" />
                               {statusConfig.label}
                             </Badge>
-                            <span className={`text-xs font-medium ${priorityConfig.color}`}>
-                              {dispute.priority === 'high' && (
-                                <AlertTriangle className="h-3 w-3 inline mr-1" />
-                              )}
-                              {priorityConfig.label}
-                            </span>
+                            {dispute.priority === 'high' && (
+                              <Badge className="bg-red-100 text-red-700 border-0">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Prioritaire
+                              </Badge>
+                            )}
                           </div>
-                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                            {dispute.description}
-                          </p>
-                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                          <p className="text-sm text-gray-500 line-clamp-2">{dispute.description}</p>
+                          <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
                             <span className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
                               {new Date(dispute.created_at).toLocaleDateString('fr-FR')}
                             </span>
-                            {dispute.contract_id && (
-                              <span>Contrat #{dispute.contract_id.slice(0, 8)}...</span>
-                            )}
                             {dispute.messages_count !== undefined && (
                               <span className="flex items-center gap-1">
                                 <MessageSquare className="h-3 w-3" />
@@ -329,9 +305,9 @@ export default function DisputesListPage() {
                           </div>
                         </div>
                       </div>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0 ml-4" />
+                      <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0 ml-4" />
                     </div>
-                  </CardContent>
+                  </div>
                 </Card>
               );
             })}

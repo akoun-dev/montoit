@@ -59,6 +59,15 @@ const DisputeDetail = lazyWithRetry(() => import('@/pages/trust-agent/DisputeDet
 // Reports page
 const Reports = lazyWithRetry(() => import('@/pages/trust-agent/ReportsPage'));
 
+// Notifications page
+const Notifications = lazyWithRetry(() => import('@/pages/trust-agent/NotificationsPage'));
+
+// Stats page
+const Stats = lazyWithRetry(() => import('@/pages/trust-agent/StatsPage'));
+
+// Agent Management page
+const AgentManagement = lazyWithRetry(() => import('@/pages/trust-agent/AgentManagementPage'));
+
 export const trustAgentRoutes: RouteObject = {
   path: 'trust-agent',
   element: (
@@ -97,5 +106,14 @@ export const trustAgentRoutes: RouteObject = {
 
     // Reports route
     { path: 'reports', element: <Reports /> },
+
+    // Notifications route
+    { path: 'notifications', element: <Notifications /> },
+
+    // Stats route
+    { path: 'stats', element: <Stats /> },
+
+    // Agent Management route (admin only)
+    { path: 'agents', element: <AgentManagement /> },
   ],
 };

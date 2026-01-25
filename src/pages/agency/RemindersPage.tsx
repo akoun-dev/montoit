@@ -378,7 +378,7 @@ export default function AgencyRemindersPage() {
 
       const contract = contracts.find((c) => c.id === newReminder.contract_id);
 
-      let error = await (supabase as any)
+      const error = await (supabase as any)
         .from('payment_reminders')
         .insert({
           agency_id: agencyId,

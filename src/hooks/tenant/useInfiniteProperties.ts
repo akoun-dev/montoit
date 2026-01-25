@@ -141,7 +141,7 @@ async function fetchProperties({
   const ownerIds = (data || []).map((p) => p.owner_id).filter((id): id is string => id !== null);
   const uniqueOwnerIds = [...new Set(ownerIds)];
 
-  let ownerProfiles: Map<
+  const ownerProfiles: Map<
     string,
     { trust_score: number | null; full_name: string | null; is_verified: boolean | null }
   > = new Map();

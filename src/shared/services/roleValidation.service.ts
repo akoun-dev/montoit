@@ -5,7 +5,7 @@
  * des utilisateurs au niveau de la couche API, en complément du RLS de Supabase.
  */
 
-import { supabase } from '@/services/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 
 export type UserRole = 'tenant' | 'owner' | 'agency' | 'admin' | 'trust_agent' | 'moderator';
 

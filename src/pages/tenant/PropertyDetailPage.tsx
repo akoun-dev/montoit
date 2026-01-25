@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -17,15 +17,11 @@ import {
   Building,
   Home,
   FileText,
-  AlertTriangle,
   Star,
-  Users,
-  Shield,
   Phone,
   Mail,
   X,
   Info,
-  ChevronDown,
 } from 'lucide-react';
 import { supabase } from '@/services/supabase/client';
 import MapWrapper from '@/shared/ui/MapWrapper';
@@ -39,6 +35,22 @@ import { twMerge } from 'tailwind-merge';
 
 function cn(...inputs: (string | boolean | undefined | null)[]) {
   return twMerge(clsx(inputs));
+}
+
+// Helper function to get status badge configuration
+function getStatusConfig(status?: string | null) {
+  if (!status) return null;
+
+  const statusConfig: Record<string, { label: string; className: string; icon?: string }> = {
+    disponible: { label: 'Disponible', className: 'bg-green-100 text-green-700 border-green-200', icon: '✓' },
+    louee: { label: 'Louée', className: 'bg-blue-100 text-blue-700 border-blue-200', icon: '🔑' },
+    en_attente: { label: 'En attente', className: 'bg-amber-100 text-amber-700 border-amber-200', icon: '⏳' },
+    reservee: { label: 'Réservée', className: 'bg-purple-100 text-purple-700 border-purple-200', icon: '📋' },
+    indisponible: { label: 'Indisponible', className: 'bg-gray-100 text-gray-700 border-gray-200', icon: '✕' },
+    maintenance: { label: 'Maintenance', className: 'bg-red-100 text-red-700 border-red-200', icon: '🔧' },
+  };
+
+  return statusConfig[status.toLowerCase()] || null;
 }
 
 // Extended property type with new columns and owner profile
@@ -84,14 +96,6 @@ interface Property {
 }
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80';
-const COLORS = {
-  chocolat: '#2C1810',
-  sable: '#E8D4C5',
-  orange: '#F16522',
-  creme: '#FAF7F4',
-  grisTexte: '#6B5A4E',
-  border: '#EFEBE9',
-};
 
 function handleImageError(e: React.SyntheticEvent<HTMLImageElement>) {
   const target = e.target as HTMLImageElement;
@@ -291,7 +295,6 @@ export default function PropertyDetailPage() {
   const { user, profile } = useAuth();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'overview' | 'location' | 'reviews'>('overview');
   const [showContactModal, setShowContactModal] = useState(false);
@@ -448,8 +451,23 @@ export default function PropertyDetailPage() {
             >
               <ArrowLeft className="h-5 w-5 text-[#2C1810]" />
             </button>
-            <h1 className="text-lg md:text-xl font-bold text-[#2C1810] truncate flex-1">
+            <h1 className="text-lg md:text-xl font-bold text-[#2C1810] truncate flex-1 flex items-center gap-2">
               {property.title}
+              {(() => {
+                const statusConfig = getStatusConfig(property.status);
+                return statusConfig ? (
+                  <span className={`hidden md:inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${statusConfig.className}`}>
+                    <span className="mr-1">{statusConfig.icon}</span>
+                    {statusConfig.label}
+                  </span>
+                ) : null;
+              })()}
+              {property.ansut_verified && (
+                <span className="hidden md:inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                  <span className="mr-1">✓</span>
+                  Certifié ANSUT
+                </span>
+              )}
             </h1>
             <div className="flex items-center gap-2">
               <button className="w-10 h-10 bg-[#FAF7F4] hover:bg-[#EFEBE9] rounded-full flex items-center justify-center transition-colors">
@@ -560,9 +578,26 @@ export default function PropertyDetailPage() {
               <div className="space-y-6">
                 {/* Title & Location */}
                 <div>
-                  <h2 className="text-2xl md:text-3xl font-bold text-[#2C1810] mb-3">
-                    {property.title}
-                  </h2>
+                  <div className="flex items-center gap-3 mb-3 flex-wrap">
+                    <h2 className="text-2xl md:text-3xl font-bold text-[#2C1810]">
+                      {property.title}
+                    </h2>
+                    {(() => {
+                      const statusConfig = getStatusConfig(property.status);
+                      return statusConfig ? (
+                        <span className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${statusConfig.className}`}>
+                          <span className="mr-1">{statusConfig.icon}</span>
+                          {statusConfig.label}
+                        </span>
+                      ) : null;
+                    })()}
+                    {property.ansut_verified && (
+                      <span className="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                        <span className="mr-1">✓</span>
+                        Certifié ANSUT
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 text-[#6B5A4E]">
                     <MapPin className="h-5 w-5 text-[#F16522]" />
                     <span className="font-medium">

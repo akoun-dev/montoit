@@ -129,7 +129,7 @@ export default function OwnerDashboardPage() {
       // Load pending applications
       const propertyIds = props.map((p) => p.id);
       let pendingApplications = 0;
-      let activities: RecentActivity[] = [];
+      const activities: RecentActivity[] = [];
 
       if (propertyIds.length > 0) {
         const { data: applicationsData } = await supabase

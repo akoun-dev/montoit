@@ -52,6 +52,7 @@ interface Dispute {
   created_at: string;
   updated_at: string;
   resolution_notes: string | null;
+  mediation_stage?: 'reception' | 'analysis' | 'negotiation' | 'proposal' | 'resolution';
   // Related data
   contract?: {
     property: {
@@ -305,6 +306,119 @@ export default function DisputeDetailPage() {
     }
   };
 
+  const advanceMediationStage = async (newStage: 'reception' | 'analysis' | 'negotiation' | 'proposal' | 'resolution') => {
+    if (!dispute) return;
+
+    try {
+      const updates: Partial<Dispute> = {
+        mediation_stage: newStage,
+        updated_at: new Date().toISOString(),
+      };
+
+      // If reaching resolution, mark as resolved
+      if (newStage === 'resolution') {
+        updates.status = 'resolved';
+      } else if (dispute.status === 'assigned') {
+        updates.status = 'under_mediation';
+      }
+
+      const { error } = await supabase
+        .from('disputes' as never)
+        .update(updates)
+        .eq('id', dispute.id) as unknown as { error: { code?: string; message?: string } | null };
+
+      if (error) throw error;
+
+      toast.success(`Étape avancée: ${MEDIATION_STAGES.find(s => s.id === newStage)?.label}`);
+      loadDispute(dispute.id);
+    } catch (error) {
+      console.error('Error advancing mediation stage:', error);
+      toast.error('Erreur lors de l\'avancement de l\'étape');
+    }
+  };
+
+  // Get the current stage index for the stepper
+  const getCurrentStageIndex = () => {
+    if (!dispute?.mediation_stage) return 0;
+    return MEDIATION_STAGES.findIndex(s => s.id === dispute.mediation_stage);
+  };
+
+  // Get stage status for the stepper
+  const getStageStatus = (stageIndex: number): 'completed' | 'current' | 'pending' => {
+    const currentStageIndex = getCurrentStageIndex();
+    if (stageIndex < currentStageIndex) return 'completed';
+    if (stageIndex === currentStageIndex) return 'current';
+    return 'pending';
+  };
+
+  // Get available actions for current stage
+  const getStageActions = () => {
+    if (!dispute) return [];
+
+    const currentStage = dispute.mediation_stage || 'reception';
+    const actions: Array<{ label: string; action: () => void; variant?: 'primary' | 'secondary' | 'danger' }> = [];
+
+    switch (currentStage) {
+      case 'reception':
+        actions.push({
+          label: 'Démarrer l\'analyse',
+          action: () => advanceMediationStage('analysis'),
+          variant: 'primary',
+        });
+        break;
+      case 'analysis':
+        actions.push({
+          label: 'Demander des documents',
+          action: () => setActiveTab('evidence'),
+          variant: 'secondary',
+        });
+        actions.push({
+          label: 'Commencer la négociation',
+          action: () => advanceMediationStage('negotiation'),
+          variant: 'primary',
+        });
+        break;
+      case 'negotiation':
+        actions.push({
+          label: 'Envoyer un message',
+          action: () => setActiveTab('messages'),
+          variant: 'secondary',
+        });
+        actions.push({
+          label: 'Faire une proposition',
+          action: () => setShowProposalDialog(true),
+          variant: 'primary',
+        });
+        break;
+      case 'proposal':
+        actions.push({
+          label: 'Voir les réponses',
+          action: () => setActiveTab('proposals'),
+          variant: 'secondary',
+        });
+        actions.push({
+          label: 'Clôturer le litige',
+          action: () => advanceMediationStage('resolution'),
+          variant: 'primary',
+        });
+        break;
+      case 'resolution':
+        // Already resolved - no actions needed
+        break;
+    }
+
+    // Add escalate option for all stages except resolution
+    if (currentStage !== 'resolution' && dispute.status !== 'escalated') {
+      actions.push({
+        label: 'Escalader',
+        action: () => setShowEscalateDialog(true),
+        variant: 'danger',
+      });
+    }
+
+    return actions;
+  };
+
   const handleCreateProposal = async () => {
     if (!dispute || !proposalDescription.trim()) return;
 
@@ -445,25 +559,23 @@ export default function DisputeDetailPage() {
 
             <div className="flex items-center gap-2">
               {dispute.status === 'assigned' && (
-                <Button onClick={() => updateDisputeStatus('under_mediation')}>
+                <Button onClick={() => advanceMediationStage('analysis')}>
                   <Gavel className="h-4 w-4 mr-2" />
-                  Démarrer la médiation
+                  Démarrer l'analyse
                 </Button>
               )}
-              {dispute.status === 'under_mediation' && (
+              {dispute.status === 'under_mediation' && dispute.mediation_stage && (
                 <>
-                  <Button variant="outline" onClick={() => setShowEscalateDialog(true)} className="text-red-600 border-red-200 hover:bg-red-50">
-                    <ArrowUpCircle className="h-4 w-4 mr-2" />
-                    Escalader
-                  </Button>
-                  <Button variant="outline" onClick={() => setShowProposalDialog(true)}>
-                    <Send className="h-4 w-4 mr-2" />
-                    Faire une proposition
-                  </Button>
-                  <Button onClick={() => setShowResolveDialog(true)}>
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Résoudre
-                  </Button>
+                  {getStageActions().map((action, index) => (
+                    <Button
+                      key={index}
+                      variant={action.variant === 'danger' ? 'outline' : action.variant === 'secondary' ? 'outline' : 'primary'}
+                      className={action.variant === 'danger' ? 'text-red-600 border-red-200 hover:bg-red-50' : ''}
+                      onClick={action.action}
+                    >
+                      {action.label}
+                    </Button>
+                  ))}
                 </>
               )}
               {dispute.status === 'awaiting_response' && (
@@ -525,35 +637,63 @@ export default function DisputeDetailPage() {
 
                     {/* Mediation Workflow */}
                     <div className="pt-4 border-t">
-                      <p className="text-sm font-medium mb-4">Workflow de médiation</p>
+                      <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm font-medium">Workflow de médiation</p>
+                        <span className="text-xs text-muted-foreground">
+                          Étape actuelle: {MEDIATION_STAGES[getCurrentStageIndex()]?.label}
+                        </span>
+                      </div>
                       <div className="grid grid-cols-5 gap-2">
                         {MEDIATION_STAGES.map((stage, index) => {
                           const StageIcon = stage.icon;
-                          const isActive = dispute.status === 'under_mediation' || dispute.status === 'awaiting_response';
-                          const isCompleted = dispute.status === 'resolved';
-                          const isCurrent = isActive && index === 2;
+                          const stageStatus = getStageStatus(index);
+                          const isCurrent = stageStatus === 'current';
+                          const isCompleted = stageStatus === 'completed';
 
                           return (
                             <div key={stage.id} className="relative">
-                              <div className={`flex flex-col items-center p-3 rounded-lg border-2 ${
-                                isCurrent ? 'border-orange-400 bg-orange-50' :
-                                isCompleted ? 'border-green-400 bg-green-50' :
-                                'border-gray-200 bg-gray-50'
-                              }`}>
-                                <StageIcon className={`h-5 w-5 ${
-                                  isCurrent ? 'text-orange-600' :
-                                  isCompleted ? 'text-green-600' :
-                                  'text-gray-400'
-                                }`} />
-                                <p className="text-xs font-medium mt-1">{stage.label}</p>
+                              <div
+                                className={`flex flex-col items-center p-3 rounded-lg border-2 transition-all cursor-pointer ${
+                                  isCurrent ? 'border-orange-400 bg-orange-50 shadow-md' :
+                                  isCompleted ? 'border-green-400 bg-green-50' :
+                                  'border-gray-200 bg-gray-50 opacity-60'
+                                }`}
+                                onClick={() => dispute && getStageStatus(index) !== 'pending' && setActiveTab('overview')}
+                              >
+                                <div className={`relative ${isCurrent ? 'animate-pulse' : ''}`}>
+                                  <StageIcon className={`h-5 w-5 ${
+                                    isCurrent ? 'text-orange-600' :
+                                    isCompleted ? 'text-green-600' :
+                                    'text-gray-400'
+                                  }`} />
+                                  {isCompleted && (
+                                    <CheckCircle2 className="h-3 w-3 text-green-600 absolute -top-1 -right-1 bg-white rounded-full" />
+                                  )}
+                                </div>
+                                <p className={`text-xs font-medium mt-1 ${
+                                  isCurrent ? 'text-orange-700' :
+                                  isCompleted ? 'text-green-700' :
+                                  'text-gray-500'
+                                }`}>{stage.label}</p>
                               </div>
                               {index < MEDIATION_STAGES.length - 1 && (
-                                <div className="hidden sm:block absolute top-1/2 -right-1 w-2 h-0.5 bg-gray-300" />
+                                <div className={`hidden sm:block absolute top-1/2 -right-1 w-2 h-0.5 ${
+                                  index < getCurrentStageIndex() ? 'bg-green-400' : 'bg-gray-300'
+                                }`} />
                               )}
                             </div>
                           );
                         })}
                       </div>
+
+                      {/* Stage description */}
+                      {dispute.mediation_stage && (
+                        <div className="mt-4 p-3 rounded-lg bg-blue-50">
+                          <p className="text-xs text-blue-700">
+                            <strong>{MEDIATION_STAGES[getCurrentStageIndex()]?.label}:</strong> {MEDIATION_STAGES[getCurrentStageIndex()]?.description}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -798,17 +938,23 @@ export default function DisputeDetailPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {dispute.status === 'assigned' && (
-                  <Button className="w-full justify-start" onClick={() => updateDisputeStatus('under_mediation')}>
+                  <Button className="w-full justify-start" onClick={() => advanceMediationStage('analysis')}>
                     <Gavel className="h-4 w-4 mr-2" />
-                    Démarrer la médiation
+                    Démarrer l'analyse
                   </Button>
                 )}
+                {dispute.status === 'under_mediation' && dispute.mediation_stage && getStageActions().map((action, index) => (
+                  <Button
+                    key={index}
+                    variant={action.variant === 'danger' ? 'outline' : action.variant === 'secondary' ? 'outline' : 'primary'}
+                    className={`${action.variant === 'danger' ? 'w-full justify-start text-red-600' : 'w-full justify-start'}`}
+                    onClick={action.action}
+                  >
+                    {action.label}
+                  </Button>
+                ))}
                 {(dispute.status === 'under_mediation' || dispute.status === 'awaiting_response') && (
                   <>
-                    <Button variant="outline" className="w-full justify-start" onClick={() => setShowProposalDialog(true)}>
-                      <Send className="h-4 w-4 mr-2" />
-                      Faire une proposition
-                    </Button>
                     <Button variant="outline" className="w-full justify-start" onClick={() => setShowResolveDialog(true)}>
                       <CheckCircle2 className="h-4 w-4 mr-2" />
                       Résoudre le litige

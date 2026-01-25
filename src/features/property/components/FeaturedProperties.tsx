@@ -93,9 +93,18 @@ function PropertyCard({
 
         {/* Top Badges */}
         <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
-          <span className="px-3 py-1.5 bg-[var(--terracotta-500)] text-white text-xs font-bold rounded-full uppercase tracking-wide">
-            {property.property_type || 'Appartement'}
-          </span>
+          <div className="flex gap-2 flex-wrap">
+            <span className="px-3 py-1.5 bg-[var(--terracotta-500)] text-white text-xs font-bold rounded-full uppercase tracking-wide">
+              {property.property_type || 'Appartement'}
+            </span>
+            {/* Badge Certifié ANSUT */}
+            {property.ansut_verified && (
+              <span className="bg-emerald-600/90 text-white text-[10px] font-bold px-2 py-1.5 rounded-full uppercase shadow-sm backdrop-blur-sm flex items-center gap-1">
+                <span>✓</span>
+                <span>Certifié ANSUT</span>
+              </span>
+            )}
+          </div>
           <button
             className="p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white hover:scale-110 transition-all"
             onClick={(e) => {

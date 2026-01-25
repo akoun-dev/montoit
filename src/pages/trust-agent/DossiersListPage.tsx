@@ -1,24 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search,
-  Filter,
   User,
   Building,
   Briefcase,
-  CheckCircle2,
   Clock,
-  XCircle,
   Eye,
+  CheckCircle2,
+  XCircle,
   ChevronRight,
+  Filter as FilterIcon,
 } from 'lucide-react';
-import { Card, CardContent } from '@/shared/ui/Card';
-import { Badge } from '@/shared/ui/badge';
-import { Button } from '@/shared/ui/Button';
-import Input from '@/shared/ui/Input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
+import { Badge } from '@/shared/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/shared/useSafeToast';
+
+// New Trust Agent UI Components
+import {
+  KPICard,
+  EmptyState,
+  FilterBar,
+  TrustAgentPageHeader,
+} from '@/shared/ui/trust-agent';
 
 type DossierType = 'tenant' | 'owner' | 'agency';
 type DossierStatus = 'pending' | 'in_review' | 'approved' | 'rejected';
@@ -35,16 +39,16 @@ interface Dossier {
 }
 
 const STATUS_CONFIG = {
-  pending: { label: 'En attente', variant: 'secondary' as const, color: 'bg-gray-100 text-gray-700', icon: Clock },
-  in_review: { label: 'En cours', variant: 'default' as const, color: 'bg-blue-100 text-blue-700', icon: Eye },
-  approved: { label: 'Approuvé', variant: 'secondary' as const, color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
-  rejected: { label: 'Rejeté', variant: 'destructive' as const, color: 'bg-red-100 text-red-700', icon: XCircle },
+  pending: { label: 'En attente', variant: 'secondary' as const, bg: 'bg-gray-100', text: 'text-gray-700', icon: Clock },
+  in_review: { label: 'En cours', variant: 'default' as const, bg: 'bg-blue-100', text: 'text-blue-700', icon: Eye },
+  approved: { label: 'Approuvé', variant: 'secondary' as const, bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle2 },
+  rejected: { label: 'Rejeté', variant: 'destructive' as const, bg: 'bg-red-100', text: 'text-red-700', icon: XCircle },
 };
 
 const TYPE_CONFIG = {
-  tenant: { label: 'Locataire', icon: User, color: 'bg-blue-100 text-blue-700' },
-  owner: { label: 'Propriétaire', icon: Building, color: 'bg-orange-100 text-orange-700' },
-  agency: { label: 'Agence', icon: Briefcase, color: 'bg-purple-100 text-purple-700' },
+  tenant: { label: 'Locataires', icon: User, color: 'bg-blue-100 text-blue-700' },
+  owner: { label: 'Propriétaires', icon: Building, color: 'bg-orange-100 text-orange-700' },
+  agency: { label: 'Agences', icon: Briefcase, color: 'bg-purple-100 text-purple-700' },
 };
 
 export default function DossiersListPage() {
@@ -68,7 +72,6 @@ export default function DossiersListPage() {
     try {
       setLoading(true);
 
-      // Load tenant dossiers from tenant_applications
       const { data: tenantData, error: tenantError } = await supabase
         .from('tenant_applications')
         .select('id, full_name, email, phone, verification_status, submitted_at, reviewed_at')
@@ -78,8 +81,6 @@ export default function DossiersListPage() {
         console.error('Error loading tenant dossiers:', tenantError);
       }
 
-      // Note: Owner and Agency dossiers would be loaded from their respective tables
-      // For now, we'll just use empty arrays
       setDossiers({
         tenant: (tenantData || []) as Dossier[],
         owner: [],
@@ -93,189 +94,181 @@ export default function DossiersListPage() {
     }
   };
 
-  const filteredDossiers = dossiers[activeTab]?.filter((dossier) => {
-    // Status filter
-    if (statusFilter !== 'all' && dossier.verification_status !== statusFilter) {
-      return false;
-    }
+  const filteredDossiers = useMemo(() => {
+    return dossiers[activeTab]?.filter((dossier) => {
+      if (statusFilter !== 'all' && dossier.verification_status !== statusFilter) {
+        return false;
+      }
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      return (
-        dossier.full_name.toLowerCase().includes(query) ||
-        dossier.email.toLowerCase().includes(query) ||
-        dossier.phone?.includes(query)
-      );
-    }
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return (
+          dossier.full_name.toLowerCase().includes(query) ||
+          dossier.email.toLowerCase().includes(query) ||
+          dossier.phone?.includes(query)
+        );
+      }
 
-    return true;
-  }) || [];
+      return true;
+    }) || [];
+  }, [dossiers, activeTab, statusFilter, searchQuery]);
 
-  const stats = {
-    tenant: {
-      total: dossiers.tenant.length,
-      pending: dossiers.tenant.filter((d) => d.verification_status === 'pending').length,
-      in_review: dossiers.tenant.filter((d) => d.verification_status === 'in_review').length,
-      approved: dossiers.tenant.filter((d) => d.verification_status === 'approved').length,
-      rejected: dossiers.tenant.filter((d) => d.verification_status === 'rejected').length,
-    },
-    owner: {
-      total: dossiers.owner.length,
-      pending: 0,
-      in_review: 0,
-      approved: 0,
-      rejected: 0,
-    },
-    agency: {
-      total: dossiers.agency.length,
-      pending: 0,
-      in_review: 0,
-      approved: 0,
-      rejected: 0,
-    },
-  };
+  const stats = useMemo(() => {
+    const currentStats = {
+      total: dossiers[activeTab].length,
+      pending: dossiers[activeTab].filter((d) => d.verification_status === 'pending').length,
+      in_review: dossiers[activeTab].filter((d) => d.verification_status === 'in_review').length,
+      approved: dossiers[activeTab].filter((d) => d.verification_status === 'approved').length,
+      rejected: dossiers[activeTab].filter((d) => d.verification_status === 'rejected').length,
+    };
+    return currentStats;
+  }, [dossiers, activeTab]);
 
   const handleDossierClick = (dossier: Dossier) => {
-    const basePath = `/trust-agent/dossiers/${activeTab}`;
-    navigate(`${basePath}/${dossier.id}`);
+    navigate(`/trust-agent/dossiers/${activeTab}/${dossier.id}`);
   };
 
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+  };
+
+  const activeFiltersCount = (statusFilter !== 'all' ? 1 : 0) + (searchQuery ? 1 : 0);
+
+  // KPI Cards Data
+  const kpiData = [
+    {
+      title: 'Total',
+      value: stats.total,
+      icon: <User />,
+      variant: 'default' as const,
+    },
+    {
+      title: 'En attente',
+      value: stats.pending,
+      icon: <Clock />,
+      variant: 'warning' as const,
+    },
+    {
+      title: 'En cours',
+      value: stats.in_review,
+      icon: <Eye />,
+      variant: 'info' as const,
+    },
+    {
+      title: 'Approuvés',
+      value: stats.approved,
+      icon: <CheckCircle2 />,
+      variant: 'success' as const,
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b">
-        <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
-          <h1 className="text-2xl font-bold">Validation des Dossiers</h1>
-          <p className="text-muted-foreground">Gérez les dossiers de vérification des locataires, propriétaires et agences</p>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-50">
+      {/* Page Header */}
+      <TrustAgentPageHeader
+        title="Validation des Dossiers"
+        subtitle="Gérez les dossiers de vérification des locataires, propriétaires et agences"
+        badges={[
+          { label: `${stats.pending} en attente`, variant: stats.pending > 0 ? 'warning' : 'secondary' },
+          { label: `${stats.approved} approuvés`, variant: 'success' },
+        ]}
+        showSearch
+        onSearch={setSearchQuery}
+        searchPlaceholder="Rechercher par nom, email ou téléphone..."
+      />
 
       <main className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-8">
-        {/* Type Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as DossierType)} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="tenant" className="flex items-center gap-2">
+          {/* Tabs */}
+          <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-white border border-gray-200 rounded-xl">
+            <TabsTrigger
+              value="tenant"
+              className="flex items-center gap-2 py-3 data-[state=active]:bg-primary-500 data-[state=active]:text-white"
+            >
               <User className="h-4 w-4" />
               Locataires
-              <Badge variant="secondary">{stats.tenant.total}</Badge>
+              <Badge variant="secondary" className="data-[state=active]:bg-white/20 data-[state=active]:text-white">
+                {stats.total}
+              </Badge>
             </TabsTrigger>
-            <TabsTrigger value="owner" className="flex items-center gap-2">
+            <TabsTrigger
+              value="owner"
+              className="flex items-center gap-2 py-3 data-[state=active]:bg-primary-500 data-[state=active]:text-white"
+            >
               <Building className="h-4 w-4" />
               Propriétaires
-              <Badge variant="secondary">{stats.owner.total}</Badge>
+              <Badge variant="secondary" className="data-[state=active]:bg-white/20 data-[state=active]:text-white">
+                0
+              </Badge>
             </TabsTrigger>
-            <TabsTrigger value="agency" className="flex items-center gap-2">
+            <TabsTrigger
+              value="agency"
+              className="flex items-center gap-2 py-3 data-[state=active]:bg-primary-500 data-[state=active]:text-white"
+            >
               <Briefcase className="h-4 w-4" />
               Agences
-              <Badge variant="secondary">{stats.agency.total}</Badge>
+              <Badge variant="secondary" className="data-[state=active]:bg-white/20 data-[state=active]:text-white">
+                0
+              </Badge>
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="space-y-6">
-            {/* Search and Filters */}
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher par nom, email ou téléphone..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant={statusFilter === 'all' ? 'secondary' : 'outline'}
-                  size="small"
-                  onClick={() => setStatusFilter('all')}
-                >
-                  Tous
-                </Button>
-                <Button
-                  variant={statusFilter === 'pending' ? 'secondary' : 'outline'}
-                  size="small"
-                  onClick={() => setStatusFilter('pending')}
-                >
-                  En attente
-                </Button>
-                <Button
-                  variant={statusFilter === 'in_review' ? 'secondary' : 'outline'}
-                  size="small"
-                  onClick={() => setStatusFilter('in_review')}
-                >
-                  En cours
-                </Button>
-                <Button
-                  variant={statusFilter === 'approved' ? 'secondary' : 'outline'}
-                  size="small"
-                  onClick={() => setStatusFilter('approved')}
-                >
-                  Approuvés
-                </Button>
-                <Button
-                  variant={statusFilter === 'rejected' ? 'secondary' : 'outline'}
-                  size="small"
-                  onClick={() => setStatusFilter('rejected')}
-                >
-                  Rejetés
-                </Button>
-              </div>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {kpiData.map((kpi, index) => (
+                <KPICard key={index} {...kpi} />
+              ))}
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <Card>
-                <CardContent className="pt-4 text-center">
-                  <p className="text-2xl font-bold">{stats[activeTab].total}</p>
-                  <p className="text-sm text-muted-foreground">Total</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4 text-center">
-                  <p className="text-2xl font-bold text-gray-600">{stats[activeTab].pending}</p>
-                  <p className="text-sm text-muted-foreground">En attente</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4 text-center">
-                  <p className="text-2xl font-bold text-blue-600">{stats[activeTab].in_review}</p>
-                  <p className="text-sm text-muted-foreground">En cours</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4 text-center">
-                  <p className="text-2xl font-bold text-green-600">{stats[activeTab].approved}</p>
-                  <p className="text-sm text-muted-foreground">Approuvés</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-4 text-center">
-                  <p className="text-2xl font-bold text-red-600">{stats[activeTab].rejected}</p>
-                  <p className="text-sm text-muted-foreground">Rejetés</p>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Filter Bar */}
+            <FilterBar
+              searchPlaceholder="Rechercher par nom, email ou téléphone..."
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
+              groups={[
+                {
+                  id: 'status',
+                  label: 'Statut',
+                  type: 'radio',
+                  options: [
+                    { value: 'all', label: 'Tous', count: stats.total },
+                    { value: 'pending', label: 'En attente', count: stats.pending, icon: <Clock className="h-3 w-3" /> },
+                    { value: 'in_review', label: 'En cours', count: stats.in_review, icon: <Eye className="h-3 w-3" /> },
+                    { value: 'approved', label: 'Approuvés', count: stats.approved, icon: <CheckCircle2 className="h-3 w-3" /> },
+                    { value: 'rejected', label: 'Rejetés', count: stats.rejected, icon: <XCircle className="h-3 w-3" /> },
+                  ],
+                  selected: statusFilter === 'all' ? [] : [statusFilter],
+                  onChange: (values) => setStatusFilter((values[0] || 'all') as DossierStatus | 'all'),
+                },
+              ]}
+              activeFiltersCount={activeFiltersCount}
+              onClearFilters={handleClearFilters}
+            />
 
             {/* Dossiers List */}
             {loading ? (
-              <div className="space-y-4">
+              <div className="grid gap-4">
                 {[1, 2, 3].map((i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardContent className="h-24" />
-                  </Card>
+                  <div key={i} className="h-32 bg-gray-200 rounded-xl animate-pulse" />
                 ))}
               </div>
             ) : filteredDossiers.length === 0 ? (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Filter className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">Aucun dossier trouvé</p>
-                </CardContent>
-              </Card>
+              <EmptyState
+                icon={<FilterIcon />}
+                title={activeFiltersCount > 0 ? 'Aucun dossier trouvé' : 'Aucun dossier'}
+                description={
+                  activeFiltersCount > 0
+                    ? 'Essayez d\'ajuster vos critères de recherche'
+                    : 'Aucun dossier de vérification pour le moment'
+                }
+                actionLabel={activeFiltersCount > 0 ? 'Effacer les filtres' : undefined}
+                onAction={activeFiltersCount > 0 ? handleClearFilters : undefined}
+                variant={activeFiltersCount > 0 ? 'filter' : 'default'}
+              />
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {filteredDossiers.map((dossier) => {
                   const statusConfig = STATUS_CONFIG[dossier.verification_status];
                   const StatusIcon = statusConfig.icon;
@@ -285,33 +278,33 @@ export default function DossiersListPage() {
                   return (
                     <Card
                       key={dossier.id}
-                      className="cursor-pointer hover:shadow-md transition-shadow"
+                      className="cursor-pointer hover:shadow-lg transition-all duration-200 border-gray-200 hover:border-primary-200"
                       onClick={() => handleDossierClick(dossier)}
                     >
-                      <CardContent className="p-4">
+                      <div className="p-5">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-lg ${typeConfig.color}`}>
+                            <div className={`p-3 rounded-xl ${typeConfig.color}`}>
                               <TypeIcon className="h-6 w-6" />
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
-                                <h3 className="font-semibold">{dossier.full_name}</h3>
-                                <Badge variant={statusConfig.variant} className={statusConfig.color}>
+                                <h3 className="font-semibold text-gray-900">{dossier.full_name}</h3>
+                                <Badge className={statusConfig.bg + ' ' + statusConfig.text + ' border-0'}>
                                   <StatusIcon className="h-3 w-3 mr-1" />
                                   {statusConfig.label}
                                 </Badge>
                               </div>
-                              <p className="text-sm text-muted-foreground">{dossier.email}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
+                              <p className="text-sm text-gray-500 mt-0.5">{dossier.email}</p>
+                              <p className="text-xs text-gray-400 mt-1">
                                 Soumis le {new Date(dossier.submitted_at).toLocaleDateString('fr-FR')}
                               </p>
                             </div>
                           </div>
 
-                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
                         </div>
-                      </CardContent>
+                      </div>
                     </Card>
                   );
                 })}

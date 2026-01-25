@@ -286,8 +286,13 @@ export const propertyApi = {
       const cacheKey = `${CACHE_PREFIX}featured`;
       const cached = cacheService.get<PropertyWithOwnerScore[]>(cacheKey);
 
-      // Si un cache existe mais est vide, on force un refresh pour éviter de rester bloqué
-      if (cached && cached.length > 0) {
+      // Vérifier si le cache contient des données complètes (avec ansut_verified)
+      // Si le champ est manquant, c'est que le cache est obsolète (avant migration)
+      const hasMissingFields = cached?.some(
+        (p) => p.ansut_verified === undefined || !('ansut_verified' in p)
+      );
+
+      if (cached && cached.length > 0 && !hasMissingFields) {
         return cached;
       }
 
