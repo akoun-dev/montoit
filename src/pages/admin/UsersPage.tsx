@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Users, Search, Filter, MoreVertical, Edit, Trash2, UserPlus } from 'lucide-react';
 
 export default function AdminUsersPage() {
-  const navigate = useNavigate();
   const [search, setSearch] = useState('');
 
   const users = [

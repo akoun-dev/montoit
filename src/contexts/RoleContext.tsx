@@ -112,7 +112,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         .select('id', { count: 'exact', head: true })
         .eq('owner_id', user.id);
 
-      if (!propertiesError && properties && (properties as any).count > 0) {
+      if (!propertiesError && properties && (properties as { count?: number }).count && (properties as { count: number }).count > 0) {
         if (!roles.includes('owner')) {
           roles.push('owner');
         }
@@ -125,7 +125,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         .eq('tenant_id', user.id)
         .in('status', ['actif', 'en_attente_signature']);
 
-      if (!tenantLeasesError && tenantLeases && (tenantLeases as any).count > 0) {
+      if (!tenantLeasesError && tenantLeases && (tenantLeases as { count?: number }).count && (tenantLeases as { count: number }).count > 0) {
         if (!roles.includes('tenant')) {
           roles.push('tenant');
         }
@@ -155,6 +155,15 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     let rolesToUse = detectedRoles;
     if (detectedRoles.length === 0) {
       const userType = profile.user_type?.toLowerCase() || '';
+
+      // Cas spécial : admin_ansut et admin sont des rôles système, pas des business roles
+      // Ils ne passent pas par RoleContext
+      if (userType.includes('admin') || userType === 'admin_ansut' || userType === 'moderator') {
+        logger.info('System role detected, skipping RoleContext', { userId: user?.id, user_type: profile.user_type });
+        setLoadingRoles(false);
+        return;
+      }
+
       if (userType.includes('tenant') || userType.includes('locataire')) {
         rolesToUse = ['tenant'];
       } else if (userType.includes('owner') || userType.includes('proprietaire')) {
@@ -315,7 +324,7 @@ export function useContextualRoles() {
           .select('id', { count: 'exact', head: true })
           .eq('owner_id', user.id);
 
-        const hasProps = (properties as any)?.count > 0;
+        const hasProps = (properties as { count?: number })?.count !== undefined && (properties as { count: number }).count > 0;
         setHasProperties(hasProps);
 
         // Vérifier les baux
@@ -325,7 +334,7 @@ export function useContextualRoles() {
           .eq('tenant_id', user.id)
           .in('status', ['actif', 'en_attente_signature']);
 
-        const hasLeaseData = (leases as any)?.count > 0;
+        const hasLeaseData = (leases as { count?: number })?.count !== undefined && (leases as { count: number }).count > 0;
         setHasLeases(hasLeaseData);
       } catch (error) {
         logger.error('Error detecting contextual roles', error instanceof Error ? error : undefined);

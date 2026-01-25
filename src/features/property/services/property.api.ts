@@ -8,7 +8,7 @@
  * au lieu de jointures directes sur profiles (RLS sécurisé)
  */
 
-import { supabase, SUPABASE_API_URL } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { withErrorHandling } from '@/integrations/supabase/error-handler';
 import { cacheService } from '@/shared/services/cacheService';
 import type { Database } from '@/shared/lib/database.types';

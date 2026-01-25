@@ -1,17 +1,16 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings, AlertCircle } from 'lucide-react';
 
 export default function PropertiesPage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#FAF7F4] p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-[#2C1810] flex items-center gap-3">
-            <Settings className="h-8 w-8 text-[#F16522]" />${page.replace(/Page$/, '')}
+            <Settings className="h-8 w-8 text-[#F16522]" />
+            Propriétés
           </h1>
           <p className="text-[#6B5A4E] mt-2">
             Page d'administration en construction. Cette fonctionnalité sera bientôt disponible.
@@ -24,9 +23,7 @@ export default function PropertiesPage() {
           </div>
           <h3 className="text-xl font-bold text-[#2C1810] mb-2">En développement</h3>
           <p className="text-[#6B5A4E] max-w-lg mx-auto">
-            Cette page est un placeholder. Le contenu et les fonctionnalités de $
-            {page.replace(/Page$/, '')} sont en cours de développement. Revenez bientôt pour une
-            expérience complète.
+            Cette page est un placeholder. Le contenu et les fonctionnalités de Propriétés sont en cours de développement. Revenez bientôt pour une expérience complète.
           </p>
           <button
             onClick={() => navigate('/admin/tableau-de-bord')}

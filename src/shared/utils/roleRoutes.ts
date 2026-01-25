@@ -10,7 +10,10 @@ export type UserRole =
   | 'tenant'
   | 'owner'
   | 'agent'
-  | 'trust_agent';
+  | 'trust_agent'
+  | 'admin_ansut'
+  | 'admin'
+  | 'moderator';
 
 /**
  * Dashboard routes by role
@@ -24,6 +27,9 @@ export const DASHBOARD_ROUTES: Record<UserRole, string> = {
   agence: '/agences/dashboard',
   agent: '/agences/dashboard', // Alias for agence
   trust_agent: '/trust-agent/dashboard',
+  admin_ansut: '/admin/tableau-de-bord',
+  admin: '/admin/tableau-de-bord',
+  moderator: '/moderator/dashboard',
 };
 
 /**
@@ -99,6 +105,9 @@ export function normalizeRole(role: string): UserRole {
     agent: 'agent',
     'trust-agent': 'trust_agent',
     trust_agent: 'trust_agent',
+    admin_ansut: 'admin_ansut',
+    admin: 'admin',
+    moderator: 'moderator',
   };
 
   const mappedRole = roleMapping[normalized];
@@ -158,4 +167,7 @@ export const ROLE_ALIASES: Record<string, UserRole> = {
   agent: 'agent',
   trust_agent: 'trust_agent',
   'trust-agent': 'trust_agent',
+  admin_ansut: 'admin_ansut',
+  admin: 'admin',
+  moderator: 'moderator',
 };

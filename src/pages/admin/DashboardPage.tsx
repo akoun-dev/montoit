@@ -70,7 +70,7 @@ interface RecentActivity {
 }
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [activities, setActivities] = useState<RecentActivity[]>([]);
@@ -81,42 +81,70 @@ export default function AdminDashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    const checkAdminAccess = async () => {
+      try {
+        // Check admin access based on user_type instead of RPC
+        const userType = profile?.user_type?.toLowerCase() || '';
+
+        // Allow access for admin_ansut or admin user types
+        const hasAdminAccess = userType === 'admin_ansut' || userType === 'admin';
+
+        if (!hasAdminAccess) {
+          console.error('Access denied: user_type is', profile?.user_type);
+          navigate('/');
+          return;
+        }
+
+        setIsAdmin(true);
+        loadDashboardData();
+      } catch (err) {
+        console.error('Error checking admin access:', err);
+        navigate('/');
+      }
+    };
+
+    if (user && profile) {
       checkAdminAccess();
     }
-  }, [user]);
-
-  const checkAdminAccess = async () => {
-    try {
-      const { data: hasAdminRole, error } = await supabase.rpc('has_role', {
-        _user_id: user?.id ?? '',
-        _role: 'admin',
-      });
-
-      if (error) throw error;
-
-      if (!hasAdminRole) {
-        navigate('/');
-        return;
-      }
-
-      setIsAdmin(true);
-      loadDashboardData();
-    } catch (err) {
-      console.error('Error checking admin access:', err);
-      navigate('/');
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, profile]);
 
   const loadDashboardData = async () => {
     try {
-      const { data: statsData, error: statsError } = await supabase.rpc('get_platform_stats');
+      setLoading(true);
 
-      if (statsError) throw statsError;
-
-      if (statsData && typeof statsData === 'object' && !Array.isArray(statsData)) {
-        setStats(statsData as unknown as PlatformStats);
+      // Try to get stats from RPC, fallback to manual calculation
+      let statsData: PlatformStats | null = null;
+      try {
+        const { data, error: statsError } = await supabase.rpc('get_platform_stats');
+        if (!statsError && data && typeof data === 'object' && !Array.isArray(data)) {
+          statsData = data as unknown as PlatformStats;
+        }
+      } catch {
+        console.warn('get_platform_stats RPC not available, using manual calculation');
       }
+
+      // Manual calculation if RPC failed
+      if (!statsData) {
+        const [usersCount, propertiesCount, leasesCount] = await Promise.all([
+          supabase.from('profiles').select('id', { count: 'exact', head: true }),
+          supabase.from('properties').select('id', { count: 'exact', head: true }),
+          supabase.from('lease_contracts').select('id', { count: 'exact', head: true }),
+        ]);
+
+        statsData = {
+          total_users: usersCount.count || 0,
+          total_properties: propertiesCount.count || 0,
+          total_leases: leasesCount.count || 0,
+          active_leases: 0,
+          total_payments: 0,
+          pending_verification_requests: 0,
+          open_disputes: 0,
+          monthly_revenue: 0,
+        } as PlatformStats;
+      }
+
+      setStats(statsData);
 
       const { data: activitiesData } = await supabase
         .from('admin_audit_logs')

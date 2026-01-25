@@ -27,6 +27,9 @@ export const ROLES = {
   OWNER_EN: 'owner',
   AGENT: 'agent',
 
+  // Business types - Admin
+  ADMIN_ANSUT: 'admin_ansut',
+
   // System roles (from user_roles table)
   ADMIN: 'admin',
   MODERATOR: 'moderator',

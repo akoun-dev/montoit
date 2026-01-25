@@ -27,7 +27,7 @@ const AdminFeatureFlags = lazyWithRetry(() => import('@/pages/admin/FeatureFlags
 export const adminRoutes: RouteObject = {
   path: 'admin',
   element: (
-    <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
+    <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.ADMIN_ANSUT]}>
       <AdminLayout />
     </ProtectedRoute>
   ),

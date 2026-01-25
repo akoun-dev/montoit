@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings, AlertCircle } from 'lucide-react';
 
 export default function UserRolesPage() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#FAF7F4] p-6">
