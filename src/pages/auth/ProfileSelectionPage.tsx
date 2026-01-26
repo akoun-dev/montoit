@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeUserType, translateUserType, type UserTypeEn } from '@/shared/lib/utils';
-import { getDashboardRoute, normalizeRole } from '@/shared/utils/roleRoutes';
+import { getDashboardRoute } from '@/shared/utils/roleRoutes';
 
 export default function ProfileSelection() {
   const { user, profile } = useAuth();
@@ -81,23 +81,42 @@ export default function ProfileSelection() {
     try {
       const userTypeForDb = translateUserType(selectedType);
 
+      // Récupérer le fullName depuis sessionStorage (saisi lors de l'inscription téléphone)
+      const storedFullName = sessionStorage.getItem('pending_full_name');
+
+      // Mettre à jour le profile avec le user_type et le full_name si disponible
+      const updateData: {
+        user_type: string;
+        full_name?: string;
+        updated_at: string;
+      } = {
+        user_type: userTypeForDb,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Si le full_name a été saisi lors de l'inscription téléphone, le mettre à jour
+      if (storedFullName && (!profile?.full_name || profile.full_name === '')) {
+        updateData.full_name = storedFullName;
+      }
+
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({
-          user_type: userTypeForDb,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', user.id);
 
       if (updateError) throw updateError;
 
-      if (selectedType === 'tenant') {
-        navigate('/');
-      } else if (selectedType === 'owner') {
-        navigate(getDashboardRoute('proprietaire'));
+      // Nettoyer le sessionStorage
+      sessionStorage.removeItem('pending_full_name');
+
+      // Redirection selon le type sélectionné (utiliser window.location pour éviter le re-render)
+      let dashboardUrl = '/locataire/dashboard';
+      if (selectedType === 'owner') {
+        dashboardUrl = getDashboardRoute('proprietaire');
       } else if (selectedType === 'agent') {
-        navigate('/agence/inscription');
+        dashboardUrl = getDashboardRoute('agence');
       }
+      window.location.href = dashboardUrl;
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : 'Erreur lors de la mise à jour du profil';

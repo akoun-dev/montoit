@@ -75,7 +75,12 @@ function validatePayload(body: unknown): { valid: boolean; error?: string; data?
  * IMPORTANT: Le + dans le numéro ne doit PAS être encodé (particularité de cette API)
  */
 function buildAzureUrl(phone: string, message: string): string {
+  // L'URL de base CORRECTE est /gateway/api (pas /client/)
   const baseUrl = Deno.env.get('AZURE_SMS_URL') || 'https://ansuthub.westeurope.cloudapp.azure.com/gateway/api';
+
+  // Si l'URL configurée contient /client/, la remplacer par /gateway/api
+  const cleanBaseUrl = baseUrl.replace(/\/client\/$/, '/gateway/api/');
+
   const username = Deno.env.get('AZURE_SMS_USERNAME') || '';
   const password = Deno.env.get('AZURE_SMS_PASSWORD') || '';
   const from = Deno.env.get('AZURE_SMS_FROM') || 'ANSUT';
@@ -88,7 +93,7 @@ function buildAzureUrl(phone: string, message: string): string {
   const encodedFrom = encodeURIComponent(from);
   const encodedText = encodeURIComponent(message);
 
-  return `${baseUrl}/SendSMS?Username=${encodedUsername}&Password=${encodedPassword}&From=${encodedFrom}&To=${phone};&Text=${encodedText}&dlrUrl=`;
+  return `${cleanBaseUrl}SendSMS?Username=${encodedUsername}&Password=${encodedPassword}&From=${encodedFrom}&To=${phone};&Text=${encodedText}&dlrUrl=`;
 }
 
 Deno.serve(async (req: Request) => {

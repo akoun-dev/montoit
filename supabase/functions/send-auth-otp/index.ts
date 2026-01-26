@@ -126,17 +126,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // ========== ENVOYER L'OTP VIA SMS/WHATSAPP ==========
-    // Utiliser directement Brevo pour éviter les erreurs de providers
-    const functionUrl = `${supabaseUrl}/functions/v1/send-sms-brevo`;
+    // ========== ENVOYER L'OTP VIA SMS AZURE ==========
+    const functionUrl = `${supabaseUrl}/functions/v1/send-sms-azure`;
 
     const message = `MonToit: Votre code de verification est ${otp}. Valide 10min. Ne partagez jamais ce code.`;
-    const e164Phone = `+${normalizedPhone}`; // Garder le format E.164 complet pour Brevo
+    const e164Phone = `+${normalizedPhone}`; // Format E.164 pour Azure SMS
 
-    edgeLogger.info('Sending OTP via Brevo', { method, phone: normalizedPhone });
+    edgeLogger.info('Sending OTP via Azure SMS', { method, phone: normalizedPhone });
 
-    // Envoyer directement via Brevo SMS
-    const provider = 'brevo-sms';
+    const provider = 'azure-sms';
 
     const sendResponse = await fetch(functionUrl, {
       method: 'POST',

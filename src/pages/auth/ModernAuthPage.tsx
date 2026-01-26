@@ -15,7 +15,6 @@ import {
   Mail,
   Lock,
   User,
-  Phone,
   Loader2,
   ArrowRight,
   ArrowLeft,
@@ -23,7 +22,6 @@ import {
   Star,
   Home,
   Shield,
-  MessageCircle,
 } from 'lucide-react';
 import { supabase } from '@/services/supabase/client';
 import { InputWithIcon } from '@/shared/ui';
@@ -98,7 +96,7 @@ export default function ModernAuthPage() {
   // Phone fields
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneDisplay, setPhoneDisplay] = useState('');
-  const [_countryDialCode, setCountryDialCode] = useState('+225');
+  const [, setCountryDialCode] = useState('+225');
   const [isPhoneValid, setIsPhoneValid] = useState(false);
   const [otp, setOtp] = useState('');
   // WhatsApp désactivé - SMS uniquement
@@ -211,6 +209,12 @@ export default function ModernAuthPage() {
     setGeneratedOtp(code);
     sessionStorage.setItem(`otp:${targetEmail}`, code);
 
+    // En développement local, utiliser directement le fallback pour éviter les erreurs 401
+    if (isLocalDevEnv()) {
+      console.log('[sendResendOtp] Local dev environment - using OTP fallback directly');
+      return { code, viaFallback: true };
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke('send-email-brevo', {
         body: {
@@ -233,15 +237,17 @@ export default function ModernAuthPage() {
       }
 
       return { code, viaFallback: false };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to send OTP email:', err);
 
       // En local, autoriser un fallback pour débloquer les tests même si l'Edge Function n'est pas disponible
-      const message = (err?.message || '').toLowerCase();
+      const message = err instanceof Error ? (err.message || '').toLowerCase() : '';
       const shouldFallback =
         isLocalDevEnv() &&
         (message.includes('edge function') ||
           message.includes('404') ||
+          message.includes('401') ||
+          message.includes('unauthorized') ||
           message.includes('not found') ||
           message.includes('cors') ||
           message.includes('failed to fetch'));
@@ -252,7 +258,7 @@ export default function ModernAuthPage() {
         return { code, viaFallback: true };
       }
 
-      throw new Error(err?.message || 'Envoi du code impossible');
+      throw new Error(err instanceof Error ? err.message : 'Envoi du code impossible');
     }
   };
 
@@ -417,7 +423,10 @@ export default function ModernAuthPage() {
       setError('Veuillez entrer votre nom');
       return;
     }
-    await handleVerifyOTP(true);
+    // Sauvegarder le nom complet dans sessionStorage pour la page de choix de profil
+    sessionStorage.setItem('pending_full_name', fullName.trim());
+    // Rediriger vers la page de choix de profil
+    navigate('/choix-profil');
   };
 
   // ===================== EMAIL OTP FLOW =====================
@@ -455,12 +464,16 @@ export default function ModernAuthPage() {
         });
       }
 
-      setSuccess('Email vérifié ! Choisissez votre rôle.');
-      setEmailStep('role');
+      // Sauvegarder le nom complet dans sessionStorage pour la page de choix de profil
+      if (fullName) {
+        sessionStorage.setItem('pending_full_name', fullName.trim());
+      }
+
+      // Rediriger vers la page de choix de profil
+      navigate('/choix-profil');
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Code invalide ou expiré';
       setError(errorMessage);
-    } finally {
       setLoading(false);
     }
   };
