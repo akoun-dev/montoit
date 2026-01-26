@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Server, Globe, Database, Mail, CreditCard, CheckCircle, XCircle, Settings, RefreshCw, Plus } from 'lucide-react';
+import { Server, Globe, Database, Mail, CreditCard, CheckCircle, XCircle, Settings, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AdminPageHeader } from '@/shared/ui/admin/AdminPageHeader';
 import { AdminTable } from '@/shared/ui/admin/AdminTable';
-import Button from '@/components/ui/Button';
 import { useUserRoles } from '@/hooks/shared/useUserRoles';
 import { ServiceProvider, ServiceStatusType, ColumnConfig } from '@/types/admin';
 import { getServiceProviders, testServiceProvider } from '@/features/admin/services/adminExtended.api';
@@ -17,11 +16,8 @@ export default function ServiceProvidersPage() {
   const { isAdmin, loading: rolesLoading } = useUserRoles();
 
   // États
-  const [page, setPage] = useState(1);
-  const [limit] = useState(20);
   const [search, setSearch] = useState('');
   const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState<ServiceStatusType | ''>('');
 
   // Requête pour les fournisseurs
   const {
@@ -120,7 +116,7 @@ export default function ServiceProvidersPage() {
   }) || [];
 
   // Configuration des statuts
-  const statusConfig: Record<ServiceStatusType, { label: string; color: string; icon: any }> = {
+  const statusConfig: Record<ServiceStatusType, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
     operational: { label: 'Opérationnel', color: 'bg-green-100 text-green-800', icon: CheckCircle },
     degraded: { label: 'Dégradé', color: 'bg-yellow-100 text-yellow-800', icon: RefreshCw },
     down: { label: 'Indisponible', color: 'bg-red-100 text-red-800', icon: XCircle },
@@ -128,7 +124,7 @@ export default function ServiceProvidersPage() {
   };
 
   // Configuration des icônes par type
-  const providerIcons: Record<string, any> = {
+  const providerIcons: Record<string, React.ComponentType<{ className?: string }>> = {
     stripe: CreditCard,
     sendgrid: Mail,
     twilio: Mail,

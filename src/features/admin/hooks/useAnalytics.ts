@@ -4,7 +4,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAnalyticsData, getPeriodDates } from '../services/analytics.api';
-import { AdminPeriod, AnalyticsData } from '@/types/admin';
+import type { AdminPeriod } from '@/types/admin';
 
 export function useAnalytics(period: AdminPeriod = '30d') {
   const queryClient = useQueryClient();

@@ -5,7 +5,6 @@ import {
   User,
   Heart,
   Calendar,
-  Bell,
   FileText,
   Settings,
   LogOut,
@@ -19,6 +18,8 @@ import {
   BadgeCheck,
   Eye,
   Clock,
+  ClipboardList,
+  TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useState, useEffect, type ComponentType } from 'react';
@@ -135,16 +136,82 @@ export default function HeaderPremium() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Navigation principale filtrée par permissions
-  const mainNavItems = [
-    { label: 'Rechercher', href: '/recherche', icon: Search, visible: true },
-    {
-      label: 'Louer mon bien',
-      href: '/ajouter-propriete',
-      icon: PlusCircle,
-      visible: permissions.canAddProperty || !permissions.isAuthenticated,
-    },
-  ].filter((item) => item.visible);
+  // Navigation principale contextuelle selon l'URL actuelle
+  const getContextualNavItems = () => {
+    // Navigation publique (par défaut)
+    const publicNav = [
+      { label: 'Accueil', href: '/', icon: Home },
+      { label: 'Rechercher', href: '/recherche', icon: Search },
+      {
+        label: 'Louer mon bien',
+        href: '/ajouter-propriete',
+        icon: PlusCircle,
+        visible: permissions.canAddProperty || !permissions.isAuthenticated,
+      },
+    ];
+
+    // Navigation locataire
+    if (isInTenantContext) {
+      return [
+        { label: 'Accueil', href: '/', icon: Home },
+        { label: 'Recherche', href: '/locataire/recherche', icon: Search },
+        { label: 'Mes Locations', href: '/locataire/dashboard', icon: Key },
+        { label: 'Favoris', href: '/locataire/favoris', icon: Heart },
+        { label: 'Visites', href: '/locataire/mes-visites', icon: Calendar },
+        { label: 'Messages', href: '/locataire/messages', icon: MessageCircle, badge: unreadCount },
+      ];
+    }
+
+    // Navigation propriétaire
+    if (isInOwnerContext) {
+      return [
+        { label: 'Accueil', href: '/', icon: Home },
+        { label: 'Tableau de bord', href: '/proprietaire/dashboard', icon: LayoutDashboard },
+        { label: 'Mes Biens', href: '/proprietaire/mes-biens', icon: Building2 },
+        { label: 'Candidatures', href: '/proprietaire/candidatures', icon: Eye },
+        { label: 'Contrats', href: '/proprietaire/contrats', icon: FileText },
+        { label: 'Messages', href: '/proprietaire/messages', icon: MessageCircle, badge: unreadCount },
+      ];
+    }
+
+    // Navigation agence
+    if (location.pathname.startsWith('/agences')) {
+      return [
+        { label: 'Accueil', href: '/', icon: Home },
+        { label: 'Tableau de bord', href: '/agences/dashboard', icon: LayoutDashboard },
+        { label: 'Mandats', href: '/agences/mandats', icon: FileText },
+        { label: 'Candidatures', href: '/agences/candidatures', icon: Eye },
+        { label: 'Messages', href: '/agences/messages', icon: MessageCircle, badge: unreadCount },
+      ];
+    }
+
+    // Navigation admin (mais AdminLayout a déjà son propre header)
+    if (isInAdminContext) {
+      return [
+        { label: 'Accueil', href: '/', icon: Home },
+        { label: 'Tableau de bord', href: '/admin/tableau-de-bord', icon: LayoutDashboard },
+        { label: 'Utilisateurs', href: '/admin/utilisateurs', icon: Shield },
+        { label: 'Propriétés', href: '/admin/properties', icon: Home },
+        { label: 'Analytics', href: '/admin/analytics', icon: TrendingUp },
+      ];
+    }
+
+    // Navigation trust agent (mais TrustAgentLayout a déjà son propre header)
+    if (isInTrustAgentContext) {
+      return [
+        { label: 'Accueil', href: '/', icon: Home },
+        { label: 'Tableau de bord', href: '/trust-agent/dashboard', icon: LayoutDashboard },
+        { label: 'Missions', href: '/trust-agent/missions', icon: ClipboardList },
+        { label: 'Dossiers', href: '/trust-agent/dossiers', icon: FileText },
+        { label: 'Certifications', href: '/trust-agent/certifications/users', icon: BadgeCheck },
+      ];
+    }
+
+    return publicNav;
+  };
+
+  const mainNavItems = getContextualNavItems()
+    .filter((item: { visible?: boolean }) => item.visible !== false);
 
   // Menu utilisateur filtré par permissions et rôle (tenant/owner/agent)
   const buildUserMenuItems = () => {
@@ -273,21 +340,7 @@ export default function HeaderPremium() {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-8">
-              <Link
-                to="/"
-                className={`relative py-2 text-sm font-bold transition-colors group ${
-                  isActive('/') ? 'text-[#F16522]' : 'text-[#6B5A4E] hover:text-[#2C1810]'
-                }`}
-              >
-                Accueil
-                <span
-                  className={`absolute bottom-0 left-0 w-full h-[3px] bg-[#F16522] rounded-full transform origin-left transition-transform duration-300 ease-out ${
-                    isActive('/') ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'
-                  }`}
-                />
-              </Link>
-
+            <nav className="hidden md:flex items-center gap-6">
               {mainNavItems.map((item) => (
                 <Link
                   key={item.label}
@@ -296,7 +349,15 @@ export default function HeaderPremium() {
                     isActive(item.href) ? 'text-[#F16522]' : 'text-[#6B5A4E] hover:text-[#2C1810]'
                   }`}
                 >
-                  <span className="flex items-center gap-1">{item.label}</span>
+                  <span className="flex items-center gap-1.5">
+                    {item.icon && <item.icon className="h-4 w-4" />}
+                    {item.label}
+                    {item.badge && item.badge > 0 && (
+                      <span className="ml-1 min-w-[18px] h-[18px] px-1 bg-[#25D366] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                        {item.badge > 9 ? '9+' : item.badge}
+                      </span>
+                    )}
+                  </span>
                   <span
                     className={`absolute bottom-0 left-0 w-full h-[3px] bg-[#F16522] rounded-full transform origin-left transition-transform duration-300 ease-out ${
                       isActive(item.href) ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'
@@ -632,32 +693,26 @@ export default function HeaderPremium() {
           )}
 
           <nav className="space-y-1">
-            <Link
-              to="/"
-              onClick={() => setShowMobileMenu(false)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-r-lg transition-colors ${
-                isActive('/')
-                  ? 'bg-[#F16522]/10 text-[#F16522] border-l-4 border-[#F16522]'
-                  : 'text-[#6B5A4E] hover:bg-[#FAF7F4] hover:text-[#F16522]'
-              }`}
-            >
-              <Home className="h-5 w-5" />
-              <span className="font-medium">Accueil</span>
-            </Link>
-
             {mainNavItems.map((item) => (
               <Link
                 key={item.label}
                 to={item.href}
                 onClick={() => setShowMobileMenu(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-r-lg transition-colors ${
+                className={`flex items-center justify-between gap-3 px-4 py-3 rounded-r-lg transition-colors ${
                   isActive(item.href)
                     ? 'bg-[#F16522]/10 text-[#F16522] border-l-4 border-[#F16522]'
                     : 'text-[#6B5A4E] hover:bg-[#FAF7F4] hover:text-[#F16522]'
                 }`}
               >
-                <item.icon className="h-5 w-5" />
-                <span className="font-medium">{item.label}</span>
+                <div className="flex items-center gap-3">
+                  {item.icon && <item.icon className="h-5 w-5" />}
+                  <span className="font-medium">{item.label}</span>
+                </div>
+                {item.badge && item.badge > 0 && (
+                  <span className="bg-[#25D366] text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                    {item.badge > 9 ? '9+' : item.badge}
+                  </span>
+                )}
               </Link>
             ))}
 

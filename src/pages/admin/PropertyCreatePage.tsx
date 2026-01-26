@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Home, MapPin, DollarSign, Ruler, Bed, Bath, Save } from 'lucide-react';
+import { ArrowLeft, Home, DollarSign, Ruler, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 import Button from '@/components/ui/Button';
@@ -42,12 +42,6 @@ export default function PropertyCreatePage() {
   const navigate = useNavigate();
   const { isAdmin } = useUserRoles();
 
-  // Redirection si non admin
-  if (!isAdmin) {
-    navigate('/admin/tableau-de-bord');
-    return null;
-  }
-
   const [formData, setFormData] = useState<PropertyFormData>({
     title: '',
     description: '',
@@ -69,7 +63,7 @@ export default function PropertyCreatePage() {
 
   // Mutation pour créer la propriété
   const createMutation = useMutation({
-    mutationFn: async (formData: PropertyFormData) => {
+    mutationFn: async (data: PropertyFormData) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Non authentifié');
 
@@ -82,29 +76,29 @@ export default function PropertyCreatePage() {
 
       const ownerId = profilesData?.[0]?.id || user.id;
 
-      const { data, error } = await supabase
+      const { data: result, error } = await supabase
         .from('properties')
         .insert({
           owner_id: ownerId,
-          title: formData.title,
-          description: formData.description,
-          property_type: formData.property_type,
-          price: formData.price,
-          surface_area: formData.surface_area,
-          rooms: formData.rooms,
-          bedrooms: formData.bedrooms,
-          bathrooms: formData.bathrooms,
-          city: formData.city,
-          address: formData.address,
-          furnished: formData.furnished,
-          status: formData.status,
-          is_public: formData.is_public,
+          title: data.title,
+          description: data.description,
+          property_type: data.property_type,
+          price: data.price,
+          surface_area: data.surface_area,
+          rooms: data.rooms,
+          bedrooms: data.bedrooms,
+          bathrooms: data.bathrooms,
+          city: data.city,
+          address: data.address,
+          furnished: data.furnished,
+          status: data.status,
+          is_public: data.is_public,
         })
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return result;
     },
     onSuccess: () => {
       toast.success('Propriété créée avec succès');
@@ -115,6 +109,12 @@ export default function PropertyCreatePage() {
       setIsSubmitting(false);
     },
   });
+
+  // Redirection si non admin
+  if (!isAdmin) {
+    navigate('/admin/tableau-de-bord');
+    return null;
+  }
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof PropertyFormData, string>> = {};

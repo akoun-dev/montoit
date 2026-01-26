@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CreditCard, Eye, Download, Filter, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { CreditCard, Eye, Filter, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AdminPageHeader } from '@/shared/ui/admin/AdminPageHeader';
@@ -140,6 +140,7 @@ export default function TransactionsPage() {
     setRefundModal({ open: true, transactionId });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const confirmRefund = () => {
     if (refundModal.transactionId) {
       refundMutation.mutate({ transactionId: refundModal.transactionId, reason: 'Remboursement administrateur' });

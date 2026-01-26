@@ -5,11 +5,7 @@ import {
   Home,
   Eye,
   Edit,
-  CheckCircle,
-  XCircle,
-  Download,
   Filter,
-  MoreVertical,
   Trash2,
   AlertTriangle,
 } from 'lucide-react';
@@ -24,14 +20,12 @@ import { useUserRoles } from '@/hooks/shared/useUserRoles';
 import {
   getAdminProperties,
   certifyPropertyANSUT,
-  updateProperty,
   deleteProperty,
 } from '@/features/admin/services/adminExtended.api';
 import {
   AdminProperty,
   PropertyFilters,
   PropertyStatus,
-  PaginatedResult,
   ColumnConfig,
 } from '@/types/admin';
 
@@ -116,7 +110,7 @@ export default function PropertiesPage() {
     setPage(1);
   };
 
-  const handleFilterChange = (key: keyof PropertyFilters, value: any) => {
+  const handleFilterChange = (key: keyof PropertyFilters, value: string | boolean) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setPage(1);
   };
@@ -155,10 +149,10 @@ export default function PropertiesPage() {
 
     const csvContent = [
       headers.join(','),
-      ...rows.map((row: any[]) => row.map((cell) => `"${cell}"`).join(',')),
+      ...rows.map((row: string[]) => row.map((cell) => `"${cell}"`).join(',')),
     ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }) as Blob;
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);

@@ -247,7 +247,10 @@ export async function isResourceOwner(
  * Middleware de validation des permissions
  */
 export function requirePermission(permission: keyof RolePermissions) {
-  return async (context: { userId?: string } = {}) => {
+  return async (
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    context: { userId?: string } = {}
+  ) => {
     const hasPerm = await hasPermission(permission);
     if (!hasPerm) {
       throw new Error(`Permission requise: ${permission}`);
@@ -259,7 +262,10 @@ export function requirePermission(permission: keyof RolePermissions) {
  * Middleware de validation de rôle
  */
 export function requireRole(allowedRoles: UserRole[]) {
-  return async (context: { userId?: string } = {}) => {
+  return async (
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    context: { userId?: string } = {}
+  ) => {
     const hasRequiredRole = await hasRole(allowedRoles);
     if (!hasRequiredRole) {
       throw new Error(`Rôle requis: ${allowedRoles.join(' ou ')}`);

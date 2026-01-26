@@ -27,7 +27,7 @@ export interface AdminNotification {
   type: AdminNotificationType;
   title: string;
   message: string | null;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   link: string | null;
   read_at: string | null;
   created_at: string;
@@ -187,7 +187,7 @@ export const notificationHelpers = {
   /**
    * Notifier d'une alerte sécurité
    */
-  async notifySecurityAlert(message: string, data?: Record<string, any>) {
+  async notifySecurityAlert(message: string, data?: Record<string, unknown>) {
     const { error } = await supabase.rpc('notify_all_admins', {
       p_type: 'security_alert',
       p_title: 'Alerte sécurité',

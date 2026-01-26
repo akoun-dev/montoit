@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Users, Eye, Edit, Filter, Calendar, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { Users, Eye, Edit, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AdminPageHeader } from '@/shared/ui/admin/AdminPageHeader';
 import { AdminTable } from '@/shared/ui/admin/AdminTable';
 import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
 import { useUserRoles } from '@/hooks/shared/useUserRoles';
 import { getCEVMissions, reassignCEVMission } from '@/features/admin/services/adminExtended.api';
 import { CEVMissionWithDetails, CEVMissionStatus, ColumnConfig } from '@/types/admin';
@@ -147,6 +146,7 @@ export default function CEVManagementPage() {
     setReassignModal({ open: true, missionId });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const confirmReassign = () => {
     if (reassignModal.missionId) {
       // Pour l'exemple, on utilise un agent fixe

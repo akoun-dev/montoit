@@ -16,12 +16,12 @@ export interface VerificationApplication {
   user_id: string;
   dossier_type: DossierType;
   status: DossierStatus;
-  verification_status: Record<string, any>;
+  verification_status: Record<string, unknown>;
   completion_percentage: number;
-  personal_info: Record<string, any>;
-  financial_info: Record<string, any>;
-  property_info: Record<string, any>;
-  documents: Record<string, any>;
+  personal_info: Record<string, unknown>;
+  financial_info: Record<string, unknown>;
+  property_info: Record<string, unknown>;
+  documents: Record<string, unknown>;
   assigned_agent_id: string | null;
   submitted_at: string;
   reviewed_at: string | null;
@@ -49,10 +49,10 @@ export interface VerificationDocument {
 
 export interface CreateApplicationData {
   dossier_type: DossierType;
-  personal_info?: Record<string, any>;
-  financial_info?: Record<string, any>;
-  property_info?: Record<string, any>;
-  documents?: Record<string, any>;
+  personal_info?: Record<string, unknown>;
+  financial_info?: Record<string, unknown>;
+  property_info?: Record<string, unknown>;
+  documents?: Record<string, unknown>;
 }
 
 export interface UpdateApplicationData extends Partial<CreateApplicationData> {
@@ -180,7 +180,7 @@ export async function updateVerificationApplication(
   applicationId: string,
   data: UpdateApplicationData
 ): Promise<VerificationApplication> {
-  const updateData: any = { ...data };
+  const updateData: Record<string, unknown> = { ...data };
 
   // Mise à jour automatique du timestamp
   if (data.status === 'in_review' && !data.reviewed_at) {

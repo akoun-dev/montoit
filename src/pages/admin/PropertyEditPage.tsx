@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Home, MapPin, DollarSign, Ruler, Save, Loader2 } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import { ArrowLeft, Home, DollarSign, Ruler, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import Button from '@/components/ui/Button';
@@ -45,12 +45,6 @@ export default function PropertyEditPage() {
   const { isAdmin } = useUserRoles();
   const { id } = useParams<{ id: string }>();
 
-  // Redirection si non admin
-  if (!isAdmin) {
-    navigate('/admin/tableau-de-bord');
-    return null;
-  }
-
   const [formData, setFormData] = useState<PropertyFormData>({
     title: '',
     description: '',
@@ -69,43 +63,47 @@ export default function PropertyEditPage() {
     featured: false,
   });
 
-  const [errors, setErrors] = useState<Partial<Record<keyof PropertyFormData, string>>>({});
+  const [errors] = useState<Partial<Record<keyof PropertyFormData, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Récupérer la propriété
-  const { data: property, isLoading } = useQuery({
-    queryKey: ['admin-property', id],
-    queryFn: async () => {
+  // Load property data
+  useEffect(() => {
+    const loadProperty = async () => {
+      if (!id) return;
       const { data, error } = await supabase
         .from('properties')
         .select('*')
         .eq('id', id)
         .single();
 
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-    onSuccess: (data) => {
-      setFormData({
-        title: data.title || '',
-        description: data.description || '',
-        property_type: data.property_type || 'appartement',
-        price: data.price || 0,
-        surface_area: data.surface_area || 0,
-        rooms: data.rooms || 1,
-        bedrooms: data.bedrooms || 1,
-        bathrooms: data.bathrooms || 1,
-        city: data.city || 'Abidjan',
-        address: (data.address as string) || '',
-        furnished: data.furnished || false,
-        status: data.status || 'disponible',
-        is_public: data.is_public ?? true,
-        is_verified: data.is_verified ?? false,
-        featured: data.featured ?? false,
-      });
-    },
-  });
+      if (error) {
+        toast.error(`Erreur: ${error.message}`);
+      } else if (data) {
+        setFormData({
+          title: data.title || '',
+          description: data.description || '',
+          property_type: data.property_type || 'appartement',
+          price: data.price || 0,
+          surface_area: data.surface_area || 0,
+          rooms: data.rooms || 1,
+          bedrooms: data.bedrooms || 1,
+          bathrooms: data.bathrooms || 1,
+          city: data.city || 'Abidjan',
+          address: (data.address as string) || '',
+          furnished: data.furnished || false,
+          status: data.status || 'disponible',
+          is_public: data.is_public ?? true,
+          is_verified: data.is_verified ?? false,
+          featured: data.featured ?? false,
+        });
+      }
+      setIsLoading(false);
+    };
+
+    loadProperty();
+     
+  }, [id]);
 
   // Mutation pour mettre à jour la propriété
   const updateMutation = useMutation({
@@ -147,54 +145,11 @@ export default function PropertyEditPage() {
     },
   });
 
-  const validateForm = (): boolean => {
-    const newErrors: Partial<Record<keyof PropertyFormData, string>> = {};
-
-    if (!formData.title || formData.title.length < 5) {
-      newErrors.title = 'Le titre doit contenir au moins 5 caractères';
-    }
-    if (!formData.description || formData.description.length < 20) {
-      newErrors.description = 'La description doit contenir au moins 20 caractères';
-    }
-    if (formData.price <= 0) {
-      newErrors.price = 'Le prix doit être supérieur à 0';
-    }
-    if (formData.surface_area <= 0) {
-      newErrors.surface_area = 'La surface doit être supérieure à 0';
-    }
-    if (!formData.city) {
-      newErrors.city = 'La ville est requise';
-    }
-    if (!formData.address || formData.address.length < 5) {
-      newErrors.address = "L'adresse doit contenir au moins 5 caractères";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-
-    setIsSubmitting(true);
-    updateMutation.mutate(formData);
-  };
-
-  const updateField = <K extends keyof PropertyFormData>(
-    key: K,
-    value: PropertyFormData[K]
-  ) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-    // Clear error when user starts typing
-    if (errors[key]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[key];
-        return newErrors;
-      });
-    }
-  };
+  // Redirection si non admin
+  if (!isAdmin) {
+    navigate('/admin/tableau-de-bord');
+    return null;
+  }
 
   if (isLoading) {
     return (

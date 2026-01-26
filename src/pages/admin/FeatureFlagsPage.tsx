@@ -279,11 +279,11 @@ export default function FeatureFlagsPage() {
     is_active: boolean;
   }) => {
     try {
-      await createFlag(data as any);
+      await createFlag(data);
       toast.success('Feature flag créé avec succès');
       setShowModal(false);
-    } catch (error: any) {
-      toast.error(`Erreur: ${error.message}`);
+    } catch (error: unknown) {
+      toast.error(`Erreur: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -296,12 +296,12 @@ export default function FeatureFlagsPage() {
   }) => {
     if (!editingFlag) return;
     try {
-      await updateFlag(editingFlag.id, data as any);
+      await updateFlag(editingFlag.id, data);
       toast.success('Feature flag mis à jour');
       setShowModal(false);
       setEditingFlag(undefined);
-    } catch (error: any) {
-      toast.error(`Erreur: ${error.message}`);
+    } catch (error: unknown) {
+      toast.error(`Erreur: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -313,8 +313,8 @@ export default function FeatureFlagsPage() {
     try {
       await deleteFlag(flagId);
       toast.success('Feature flag supprimé');
-    } catch (error: any) {
-      toast.error(`Erreur: ${error.message}`);
+    } catch (error: unknown) {
+      toast.error(`Erreur: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -322,8 +322,8 @@ export default function FeatureFlagsPage() {
     try {
       await toggleFlag(flagId, !currentState);
       toast.success(`Feature flag ${!currentState ? 'activé' : 'désactivé'}`);
-    } catch (error: any) {
-      toast.error(`Erreur: ${error.message}`);
+    } catch (error: unknown) {
+      toast.error(`Erreur: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -331,8 +331,8 @@ export default function FeatureFlagsPage() {
     try {
       await updateRollout(flagId, newPercentage);
       toast.success(`Rollout mis à jour: ${newPercentage}%`);
-    } catch (error: any) {
-      toast.error(`Erreur: ${error.message}`);
+    } catch (error: unknown) {
+      toast.error(`Erreur: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

@@ -12,7 +12,6 @@ import {
   AdminProperty,
   TransactionWithDetails,
   CEVMissionWithDetails,
-  ServiceStatus,
   LogEntry,
   BusinessRule,
   ServiceProvider,
@@ -25,84 +24,7 @@ import {
   LogFilters,
   PaginatedResult,
   PaginationParams,
-  AdminAction,
 } from '@/types/admin';
-
-// =============================================================================
-// UTILITAIRES
-// =============================================================================
-
-/**
- * Construit une requête paginée avec filtres
- */
-async function getPaginatedData<T>({
-  table,
-  page = 1,
-  limit = 50,
-  filters = {},
-  sortBy = 'created_at',
-  sortOrder = 'desc',
-}: {
-  table: string;
-  page?: number;
-  limit?: number;
-  filters?: Record<string, any>;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}): Promise<PaginatedResult<T>> {
-  await requirePermission('canAccessAdminPanel')();
-
-  const from = (page - 1) * limit;
-  const to = from + limit - 1;
-
-  let query = supabase.from(table).select('*', { count: 'exact' }).range(from, to);
-
-  // Application des filtres
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      if (typeof value === 'object') {
-        // Filtres complexes (opérateurs)
-        Object.entries(value).forEach(([operator, operand]) => {
-          switch (operator) {
-            case 'ilike':
-              query = query.ilike(key, operand as string);
-              break;
-            case 'gte':
-              query = query.gte(key, operand);
-              break;
-            case 'lte':
-              query = query.lte(key, operand);
-              break;
-            case 'in':
-              query = query.in(key, operand as string[]);
-              break;
-          }
-        });
-      } else {
-        query = query.eq(key, value);
-      }
-    }
-  });
-
-  query = query.order(sortBy, { ascending: sortOrder === 'asc' });
-
-  const { data, error, count } = await query;
-
-  if (error) throw error;
-
-  const total = count || 0;
-  const totalPages = Math.ceil(total / limit);
-
-  return {
-    data: data as T[],
-    total,
-    page,
-    limit,
-    totalPages,
-    hasNextPage: page < totalPages,
-    hasPreviousPage: page > 1,
-  };
-}
 
 // =============================================================================
 // UTILISATEURS AVEC RÔLES
@@ -147,7 +69,7 @@ export async function getUsersWithRoles(
 
   // Récupérer les rôles pour chaque utilisateur
   const userIds = profiles?.map((p) => p.id) || [];
-  let roles: any[] = [];
+  let roles: Array<{ user_id: string; role: string; assigned_at: string; assigned_by: string | null; expires_at: string | null; is_active: boolean | null }> = [];
 
   if (userIds.length > 0) {
     const { data: rolesData, error: rolesError } = await supabase
@@ -171,7 +93,7 @@ export async function getUsersWithRoles(
       roles: userRoles.map((r) => ({
         id: r.id,
         user_id: r.user_id,
-        role: r.role as any,
+        role: r.role as 'admin' | 'moderator' | 'trust_agent' | 'user',
         assigned_at: r.assigned_at,
         assigned_by: r.assigned_by,
         expires_at: r.expires_at,
@@ -340,10 +262,10 @@ export async function getAdminProperties(
     // Map DB columns to interface expectations
     is_active: p.is_public,
     ansut_verified: p.is_verified,
-    postal_code: (p.address as any)?.postal_code || null,
-    country: (p.address as any)?.country || 'Côte d\'Ivoire',
-    images: (p.images as any) || [],
-    amenities: (p.amenities as any) || [],
+    postal_code: (p.address as { postal_code?: string } | null)?.postal_code || null,
+    country: (p.address as { country?: string } | null)?.country || 'Côte d\'Ivoire',
+    images: (p.images as string[]) || [],
+    amenities: (p.amenities as string[]) || [],
     contacts_count: p.applications_count || 0,
     ansut_certificate_url: null,
   }));
@@ -487,7 +409,23 @@ export async function getAdminTransactions(
 
   if (error) throw error;
 
-  const transactions: TransactionWithDetails[] = (data || []).map((t: any) => ({
+  const transactions: TransactionWithDetails[] = (data || []).map((t: {
+    id: string;
+    amount: number;
+    currency?: string;
+    status: string;
+    payment_method: string;
+    stripe_payment_intent_id?: string;
+    lease_id?: string;
+    created_at: string;
+    updated_at: string;
+    completed_at?: string;
+    refunded_at?: string;
+    failure_reason?: string;
+    metadata?: Record<string, unknown>;
+    profiles?: { id: string; full_name?: string; email?: string };
+    lease_contracts?: { owner_id: string; property_id: string };
+  }) => ({
     id: t.id,
     amount: t.amount,
     currency: t.currency || 'EUR',
@@ -566,7 +504,23 @@ export async function getCEVMissions(
 
   if (error) throw error;
 
-  const missions: CEVMissionWithDetails[] = (data || []).map((m: any) => ({
+  const missions: CEVMissionWithDetails[] = (data || []).map((m: {
+    id: string;
+    property_id: string;
+    agent_id: string;
+    tenant_id?: string;
+    owner_id?: string;
+    type: string;
+    status: string;
+    scheduled_date?: string;
+    completed_date?: string;
+    report_id?: string;
+    notes?: string;
+    created_at: string;
+    updated_at: string;
+    properties?: { title?: string; address?: string };
+    profiles?: { full_name?: string; email?: string };
+  }) => ({
     id: m.id,
     property_id: m.property_id,
     property_title: m.properties?.title || null,
@@ -642,7 +596,7 @@ export async function getTrustAgents(): Promise<TrustAgentProfile[]> {
 
   // Récupérer les stats pour chaque agent
   const agentIds = data?.map((a) => a.id) || [];
-  const [missionStats, verificationStats] = await Promise.all([
+  const [missionStats] = await Promise.all([
     supabase
       .from('cev_missions')
       .select('agent_id, status')
@@ -655,7 +609,6 @@ export async function getTrustAgents(): Promise<TrustAgentProfile[]> {
 
   return (data || []).map((agent) => {
     const agentMissions = missionStats.data?.filter((m) => m.agent_id === agent.id) || [];
-    const agentVerifications = verificationStats.data?.filter((v) => v.verified_by === agent.id) || [];
 
     return {
       id: agent.id,
@@ -738,13 +691,9 @@ export async function getTrustAgentById(agentId: string): Promise<TrustAgentProf
     .eq('user_id', agentId);
 
   // Récupérer les stats
-  const [missionStats, verificationStats] = await Promise.all([
-    supabase.from('cev_missions').select('agent_id, status').eq('agent_id', agentId),
-    supabase.from('verification_applications').select('verified_by, status').eq('verified_by', agentId),
-  ]);
+  const missionStats = await supabase.from('cev_missions').select('agent_id, status').eq('agent_id', agentId);
 
   const agentMissions = missionStats.data || [];
-  const agentVerifications = verificationStats.data || [];
 
   return {
     id: data.id,
@@ -755,7 +704,7 @@ export async function getTrustAgentById(agentId: string): Promise<TrustAgentProf
     avatar_url: data.avatar_url,
     certifications: [],
     specializations: [],
-    is_active: roles?.some((r: any) => r.is_active !== false) ?? true,
+    is_active: roles?.some((r: { is_active?: boolean }) => r.is_active !== false) ?? true,
     verification_status: 'verified',
     assigned_missions: agentMissions.filter((m) => m.status === 'assigned' || m.status === 'in_progress').length,
     completed_missions: agentMissions.filter((m) => m.status === 'completed').length,
@@ -887,7 +836,7 @@ export async function updateTrustAgent(
   await requirePermission('canManageUsers')();
 
   // Préparer les données de mise à jour
-  const updateData: Record<string, any> = {};
+  const updateData: Record<string, string> = {};
   if (input.full_name !== undefined) updateData.full_name = input.full_name;
   if (input.phone !== undefined) updateData.phone = input.phone;
 
@@ -1040,7 +989,7 @@ async function logAdminAction(params: {
   action: string;
   entity_type: string;
   entity_id: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
 }) {
   const {
     data: { user },
@@ -1052,7 +1001,7 @@ async function logAdminAction(params: {
     action: params.action,
     entity_type: params.entity_type,
     entity_id: params.entity_id,
-    details: params.details as any,
+    details: params.details,
   });
 }
 
@@ -1096,7 +1045,17 @@ export async function getAdminLogs(
 
   if (error) throw error;
 
-  const logs: LogEntry[] = (data || []).map((log: any) => ({
+  const logs: LogEntry[] = (data || []).map((log: {
+    id: string;
+    action: string;
+    entity_type: string;
+    entity_id: string;
+    user_id: string | null;
+    user_email: string | null;
+    ip_address: string | null;
+    details: Record<string, unknown>;
+    created_at: string;
+  }) => ({
     id: log.id,
     action: log.action,
     entity_type: log.entity_type,
@@ -1294,7 +1253,7 @@ export async function getServiceProviders(): Promise<ServiceProvider[]> {
       logo_url: 'https://stripe.com/img/v3/home/twitter.png',
       website_url: 'https://stripe.com',
       is_active: true,
-      is_configured: data?.find((s: any) => s.setting_key === 'stripe_configured')?.setting_value === true,
+      is_configured: data?.find((s: { setting_key: string; setting_value: boolean }) => s.setting_key === 'stripe_configured')?.setting_value === true,
       last_check: new Date().toISOString(),
       status: 'operational',
       configuration_count: 5,
@@ -1307,7 +1266,7 @@ export async function getServiceProviders(): Promise<ServiceProvider[]> {
       logo_url: 'https://sendgrid.com/wp-content/themes/sgdotcom/assets/images/logo-dark.svg',
       website_url: 'https://sendgrid.com',
       is_active: true,
-      is_configured: data?.find((s: any) => s.setting_key === 'sendgrid_configured')?.setting_value === true,
+      is_configured: data?.find((s: { setting_key: string; setting_value: boolean }) => s.setting_key === 'sendgrid_configured')?.setting_value === true,
       last_check: new Date().toISOString(),
       status: 'operational',
       configuration_count: 3,
@@ -1320,7 +1279,7 @@ export async function getServiceProviders(): Promise<ServiceProvider[]> {
       logo_url: 'https://www.twilio.com/marketing/bundles/company/img/logos/red/twilio-logo-red.png',
       website_url: 'https://twilio.com',
       is_active: true,
-      is_configured: data?.find((s: any) => s.setting_key === 'twilio_configured')?.setting_value === true,
+      is_configured: data?.find((s: { setting_key: string; setting_value: boolean }) => s.setting_key === 'twilio_configured')?.setting_value === true,
       last_check: new Date().toISOString(),
       status: 'operational',
       configuration_count: 2,
@@ -1333,7 +1292,7 @@ export async function getServiceProviders(): Promise<ServiceProvider[]> {
       logo_url: 'https://a0.awsstatic.com/libra-css/images/logos/aws_logo_smile_1200x630.png',
       website_url: 'https://aws.amazon.com/s3',
       is_active: true,
-      is_configured: data?.find((s: any) => s.setting_key === 'aws_s3_configured')?.setting_value === true,
+      is_configured: data?.find((s: { setting_key: string; setting_value: boolean }) => s.setting_key === 'aws_s3_configured')?.setting_value === true,
       last_check: new Date().toISOString(),
       status: 'operational',
       configuration_count: 2,
@@ -1385,7 +1344,7 @@ export async function getBusinessRules(): Promise<BusinessRule[]> {
 
   if (error) throw error;
 
-  return (data || []).map((setting: any) => ({
+  return (data || []).map((setting: { id: string; setting_key: string; setting_value: Json; description?: string; category?: string; updated_at: string; updated_by?: string }) => ({
     id: setting.id,
     key: setting.setting_key.replace('rule_', ''),
     name: setting.description || setting.setting_key,

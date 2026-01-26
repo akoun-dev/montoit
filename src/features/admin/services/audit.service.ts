@@ -9,7 +9,6 @@ import {
   logAdminAction,
   AuditActions,
   AuditEntityTypes,
-  type AuditLogOptions,
 } from '@/features/admin/middleware/auditMiddleware';
 
 /**
@@ -21,7 +20,7 @@ export const adminAuditService = {
   /**
    * Logger la création d'un utilisateur
    */
-  async logUserCreate(userId: string, userDetails: Record<string, any>) {
+  async logUserCreate(userId: string, userDetails: Record<string, unknown>) {
     const adminId = await this.getCurrentAdminId();
     if (!adminId) return;
 
@@ -38,8 +37,8 @@ export const adminAuditService = {
    */
   async logUserUpdate(
     userId: string,
-    oldValues: Record<string, any>,
-    newValues: Record<string, any>
+    oldValues: Record<string, unknown>,
+    newValues: Record<string, unknown>
   ) {
     const adminId = await this.getCurrentAdminId();
     if (!adminId) return;
@@ -56,7 +55,7 @@ export const adminAuditService = {
   /**
    * Logger la suppression d'un utilisateur
    */
-  async logUserDelete(userId: string, userDetails: Record<string, any>) {
+  async logUserDelete(userId: string, userDetails: Record<string, unknown>) {
     const adminId = await this.getCurrentAdminId();
     if (!adminId) return;
 

@@ -24,6 +24,7 @@ export interface RateLimitOptions {
  */
 export async function checkRateLimit(
   endpoint: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   options?: RateLimitOptions
 ): Promise<RateLimitResult> {
   try {
@@ -72,7 +73,7 @@ export async function checkRateLimit(
 /**
  * Hook pour protéger une fonction avec rate limiting
  */
-export function withRateLimit<T extends (...args: any[]) => Promise<any>>(
+export function withRateLimit<T extends (...args: unknown[]) => Promise<unknown>>(
   endpoint: string,
   fn: T
 ): T {

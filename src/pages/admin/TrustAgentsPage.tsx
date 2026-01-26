@@ -11,7 +11,6 @@ import {
   Edit,
   Trash2,
   Plus,
-  X,
   Loader2,
 } from 'lucide-react';
 import { AdminPageHeader, AdminTable } from '@/shared/ui/admin';

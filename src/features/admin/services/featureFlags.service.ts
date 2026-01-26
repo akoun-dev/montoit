@@ -16,7 +16,7 @@ export interface FeatureFlag {
   flag_type: FlagType;
   is_active: boolean;
   rollout_percentage: number;
-  segment_rules: Record<string, any>;
+  segment_rules: Record<string, unknown>;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -35,7 +35,7 @@ export interface FeatureFlagVariant {
   name: string;
   description: string | null;
   percentage: number;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   is_active: boolean;
   created_at: string;
 }
@@ -54,7 +54,7 @@ export interface CreateFlagData {
   flag_type: FlagType;
   is_active?: boolean;
   rollout_percentage?: number;
-  segment_rules?: Record<string, any>;
+  segment_rules?: Record<string, unknown>;
 }
 
 /**
@@ -95,6 +95,7 @@ export const featureFlagsService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { data: rpcResult, error } = await supabase.rpc('upsert_feature_flag', {
       p_name: data.name,
       p_description: data.description || null,
@@ -121,6 +122,7 @@ export const featureFlagsService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { data: rpcResult, error } = await supabase.rpc('upsert_feature_flag', {
       p_name: flag.name, // Le nom ne change pas
       p_description: data.description,

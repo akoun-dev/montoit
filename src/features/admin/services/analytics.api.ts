@@ -177,7 +177,12 @@ async function getUserGrowthMetrics(startDate: string, endDate: string): Promise
 /**
  * Récupère les métriques des propriétés
  */
-async function getPropertyMetrics(startDate: string, endDate: string): Promise<PropertyMetrics> {
+async function getPropertyMetrics(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  startDate: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  endDate: string
+): Promise<PropertyMetrics> {
   const [byStatusData, byCityData, ansutData, priceData] = await Promise.all([
     supabase.from('properties').select('status'),
     supabase.from('properties').select('city'),
@@ -305,17 +310,20 @@ function aggregateByDate<T extends { created_at: string | null }>(
     let key: string;
 
     switch (granularity) {
-      case 'day':
+      case 'day': {
         key = date.toISOString().split('T')[0];
         break;
-      case 'week':
+      }
+      case 'week': {
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
         key = weekStart.toISOString().split('T')[0];
         break;
-      case 'month':
+      }
+      case 'month': {
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         break;
+      }
     }
 
     map.set(key, (map.get(key) || 0) + 1);

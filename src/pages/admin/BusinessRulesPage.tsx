@@ -6,9 +6,7 @@ import {
   Edit,
   ToggleLeft,
   ToggleRight,
-  Filter,
   Plus,
-  Trash2,
   Save,
   X,
 } from 'lucide-react';
@@ -32,7 +30,6 @@ export default function BusinessRulesPage() {
   const [limit] = useState(20);
   const [search, setSearch] = useState('');
   const [selectedRules, setSelectedRules] = useState<string[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [editingRule, setEditingRule] = useState<BusinessRule | null>(null);
@@ -52,7 +49,7 @@ export default function BusinessRulesPage() {
 
   // Mutations
   const updateRuleMutation = useMutation({
-    mutationFn: async ({ ruleId, value }: { ruleId: string; value: any }) => {
+    mutationFn: async ({ ruleId, value }: { ruleId: string; value: string | number | boolean }) => {
       return await updateBusinessRule(ruleId, value);
     },
     onSuccess: () => {
@@ -70,7 +67,7 @@ export default function BusinessRulesPage() {
       await new Promise((resolve) => setTimeout(resolve, 300));
       return { ruleId, active };
     },
-    onSuccess: ({ ruleId, active }) => {
+    onSuccess: ({ active }) => {
       toast.success(`Règle ${active ? 'activée' : 'désactivée'} avec succès`);
       queryClient.invalidateQueries({ queryKey: ['business-rules'] });
     },
@@ -92,6 +89,7 @@ export default function BusinessRulesPage() {
     setPage(1);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleClearFilters = () => {
     setCategoryFilter('');
     setStatusFilter('');
@@ -155,7 +153,7 @@ export default function BusinessRulesPage() {
     }
 
     // Conversion de type
-    let parsedValue: any = editValue;
+    let parsedValue: string | number = editValue;
     if (typeof editingRule.value === 'number') {
       parsedValue = parseFloat(editValue);
       if (isNaN(parsedValue)) {
@@ -175,6 +173,7 @@ export default function BusinessRulesPage() {
     updateRuleMutation.mutate({ ruleId: editingRule.id, value: parsedValue });
   };
 
+   
   const handleToggleRule = (ruleId: string, currentStatus: boolean) => {
     toggleRuleMutation.mutate({ ruleId, active: !currentStatus });
   };
@@ -240,7 +239,7 @@ export default function BusinessRulesPage() {
       title: 'Valeur',
       dataIndex: 'value',
       width: '15%',
-      render: (value: any, record: BusinessRule) => {
+      render: (value: string | number | boolean, record: BusinessRule) => {
         if (editingRule?.id === record.id) {
           return (
             <div className="flex items-center gap-2">

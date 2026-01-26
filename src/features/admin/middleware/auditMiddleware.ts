@@ -10,8 +10,8 @@ export interface AuditLogOptions {
   action: string;
   entityType: string;
   entityId?: string;
-  oldValues?: Record<string, any>;
-  newValues?: Record<string, any>;
+  oldValues?: Record<string, unknown>;
+  newValues?: Record<string, unknown>;
   statusCode?: number;
   errorMessage?: string;
 }
@@ -67,18 +67,17 @@ export async function logAdminAction(
 /**
  * Wrapper HOC pour logger automatiquement les appels de fonction
  */
-export function withAudit<T extends (...args: any[]) => Promise<any>>(
+export function withAudit<T extends (...args: unknown[]) => Promise<unknown>>(
   action: string,
   entityType: string,
   fn: T,
   getEntityId?: (...args: Parameters<T>) => string
 ): T {
   return (async (...args: Parameters<T>) => {
-    const startTime = Date.now();
-    let result: any;
-    let error: any = null;
-    let oldValues: Record<string, any> = {};
-    let newValues: Record<string, any> = {};
+    let result: unknown;
+    let error: unknown = null;
+    let oldValues: Record<string, unknown> = {};
+    let newValues: Record<string, unknown> = {};
 
     try {
       // Tenter de récupérer les anciennes valeurs avant modification
@@ -101,19 +100,22 @@ export function withAudit<T extends (...args: any[]) => Promise<any>>(
       throw e;
     } finally {
       const adminId = await getCurrentAdminId();
-      if (!adminId) return;
+      if (!adminId) {
+        // Can't log without admin ID
+        // Don't throw or return in finally block
+      } else {
+        const entityId = getEntityId?.(...args);
 
-      const entityId = getEntityId?.(...args);
-
-      await logAdminAction(adminId, {
-        action,
-        entityType,
-        entityId,
-        oldValues: action === 'update' ? oldValues : {},
-        newValues: error ? {} : (action === 'create' ? newValues : newValues),
-        statusCode: error ? 500 : 200,
-        errorMessage: error?.message,
-      });
+        await logAdminAction(adminId, {
+          action,
+          entityType,
+          entityId,
+          oldValues: action === 'update' ? oldValues : {},
+          newValues: error ? {} : (action === 'create' ? newValues : newValues),
+          statusCode: error ? 500 : 200,
+          errorMessage: error?.message,
+        });
+      }
     }
   }) as T;
 }
@@ -156,7 +158,7 @@ async function getCurrentAdminId(): Promise<string | null> {
 /**
  * Récupère l'état d'une entité avant modification
  */
-async function fetchEntityBefore(entityType: string, entityId: string): Promise<Record<string, any>> {
+async function fetchEntityBefore(entityType: string, entityId: string): Promise<Record<string, unknown>> {
   try {
     const tableMap: Record<string, string> = {
       user: 'profiles',
@@ -176,7 +178,7 @@ async function fetchEntityBefore(entityType: string, entityId: string): Promise<
       .eq('id', entityId)
       .maybeSingle();
 
-    return (data as Record<string, any>) || {};
+    return (data as Record<string, unknown>) || {};
   } catch {
     return {};
   }
@@ -185,7 +187,7 @@ async function fetchEntityBefore(entityType: string, entityId: string): Promise<
 /**
  * Récupère l'état d'une entité après modification
  */
-async function fetchEntityAfter(entityType: string, entityId: string): Promise<Record<string, any>> {
+async function fetchEntityAfter(entityType: string, entityId: string): Promise<Record<string, unknown>> {
   return fetchEntityBefore(entityType, entityId);
 }
 

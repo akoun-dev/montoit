@@ -57,7 +57,6 @@ export default function AdminUsersPage() {
     isOpen: false,
     user: null,
   });
-  const [exporting, setExporting] = useState(false);
 
   // Vérification accès admin
   const userType = profile?.user_type?.toLowerCase();
@@ -240,7 +239,7 @@ export default function AdminUsersPage() {
         title: 'Rôles système',
         dataIndex: 'roles',
         width: '15%',
-        render: (roles: any[]) => (
+        render: (roles: { role: string }[]) => (
           <div className="flex flex-wrap gap-1">
             {roles && roles.length > 0 ? (
               roles.map((role) => {

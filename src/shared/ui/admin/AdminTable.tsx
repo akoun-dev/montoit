@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, MoreVertical, Search, SlidersHorizontal } from 'lucide-react';
 import { ColumnConfig, SortConfig, PaginatedResult } from '@/types/admin';
 
-export interface AdminTableProps<T = any> {
+export interface AdminTableProps<T = Record<string, unknown>> {
   columns: ColumnConfig[];
   data: T[];
   loading?: boolean;
@@ -34,7 +34,7 @@ export interface AdminTableProps<T = any> {
   onFilter?: () => void;
 }
 
-export function AdminTable<T = any>({
+export function AdminTable<T = Record<string, unknown>>({
   columns,
   data,
   loading = false,
@@ -63,7 +63,7 @@ export function AdminTable<T = any>({
     if (typeof rowKey === 'function') {
       return rowKey(record);
     }
-    return (record as any)[rowKey] || String(index);
+    return (record as Record<string, unknown>)[rowKey] as string || String(index);
   };
 
   const handleSort = (column: ColumnConfig) => {
@@ -232,8 +232,8 @@ export function AdminTable<T = any>({
                         `}
                       >
                         {column.render
-                          ? column.render((record as any)[column.dataIndex || column.key], record, index)
-                          : (record as any)[column.dataIndex || column.key] ?? '-'}
+                          ? column.render((record as Record<string, unknown>)[column.dataIndex || column.key], record, index)
+                          : (record as Record<string, unknown>)[column.dataIndex || column.key] ?? '-'}
                       </td>
                     ))}
                     {rowActions && (

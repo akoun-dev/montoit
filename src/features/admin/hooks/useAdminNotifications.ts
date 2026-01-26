@@ -4,7 +4,7 @@
  * Gère l'état des notifications en temps réel
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   adminNotificationsService,
@@ -13,7 +13,6 @@ import {
 
 export function useAdminNotifications() {
   const queryClient = useQueryClient();
-  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   // Query pour les notifications
   const {
@@ -35,11 +34,6 @@ export function useAdminNotifications() {
   });
 
   // Mettre à jour le compteur quand les données changent
-  useEffect(() => {
-    if (unreadCountData !== undefined) {
-      setUnreadCount(unreadCountData);
-    }
-  }, [unreadCountData]);
 
   // Marquer comme lu
   const markAsRead = useCallback(async (notificationId: string) => {

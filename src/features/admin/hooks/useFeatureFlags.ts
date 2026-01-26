@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { featureFlagsService, type FlagType } from '@/features/admin/services/featureFlags.service';
+import { featureFlagsService } from '../services/featureFlags.service';
 
 /**
  * Hook pour évaluer un seul feature flag

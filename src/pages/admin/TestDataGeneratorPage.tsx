@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { Database, Users, Home, CreditCard, FileText, Download, Play, Trash2, AlertCircle } from 'lucide-react';
+import { Database, Users, Home, CreditCard, FileText, Download, Play, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AdminPageHeader } from '@/shared/ui/admin/AdminPageHeader';
@@ -14,7 +14,7 @@ interface GenerationOption {
   id: string;
   label: string;
   description: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   defaultCount: number;
   maxCount: number;
 }
@@ -88,7 +88,7 @@ export default function TestDataGeneratorPage() {
 
   // Mutation pour générer des données (simulée)
   const generateMutation = useMutation({
-    mutationFn: async (options: any) => {
+    mutationFn: async (options: Record<string, number>) => {
       // Simulation d'une génération
       return new Promise<void>((resolve) => {
         const totalSteps = Object.keys(options.selectedOptions).length;
@@ -196,6 +196,7 @@ export default function TestDataGeneratorPage() {
     toast.success('Configuration exportée avec succès');
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleCancel = () => {
     if (generationProgress && !generationProgress.isComplete) {
       if (confirm('Annuler la génération en cours ?')) {

@@ -3,7 +3,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { Download, FileSpreadsheet, FileText, File } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { ExportFormat } from '@/types/admin';
 
 export interface ExportButtonProps {

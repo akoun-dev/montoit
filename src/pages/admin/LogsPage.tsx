@@ -141,7 +141,7 @@ export default function LogsPage() {
       width: '10%',
       sortable: true,
       render: (value: LogLevel) => {
-        const levelConfig: Record<LogLevel, { label: string; color: string; icon: any }> = {
+        const levelConfig: Record<LogLevel, { label: string; color: string; icon: React.ComponentType<{ className?: string }> }> = {
           info: { label: 'Info', color: 'bg-blue-100 text-blue-800', icon: Info },
           warning: { label: 'Avertissement', color: 'bg-yellow-100 text-yellow-800', icon: AlertTriangle },
           error: { label: 'Erreur', color: 'bg-red-100 text-red-800', icon: AlertCircle },
@@ -200,7 +200,7 @@ export default function LogsPage() {
       title: 'Détails',
       dataIndex: 'details',
       width: '20%',
-      render: (value: any) => (
+      render: (value: Record<string, unknown>) => (
         <div className="truncate max-w-xs">
           <code className="text-xs bg-[#FAF7F4] px-2 py-1 rounded">
             {JSON.stringify(value).substring(0, 50)}

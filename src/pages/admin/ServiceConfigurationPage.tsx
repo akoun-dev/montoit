@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Settings,
-  Key,
   CheckCircle,
   AlertCircle,
   ArrowUp,
@@ -66,6 +65,7 @@ export default function ServiceConfigurationPage() {
     setPage(1);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleClearFilters = () => {
     setServiceFilter('');
     setProviderFilter('');
@@ -248,7 +248,7 @@ export default function ServiceConfigurationPage() {
       title: 'Configuration',
       dataIndex: 'config',
       width: '20%',
-      render: (value: any) => (
+      render: (value: Record<string, unknown>) => (
         <div className="text-xs text-[#6B5A4E] truncate max-w-xs" title={JSON.stringify(value)}>
           {typeof value === 'object' ? JSON.stringify(value).substring(0, 50) + '...' : String(value)}
         </div>

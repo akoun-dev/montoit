@@ -8,9 +8,7 @@ import { supabase } from '@/services/supabase/client';
 import type { Database } from '@/shared/lib/database.types';
 import {
   hasPermission,
-  requirePermission,
   requireRole,
-  hasRole,
 } from '@/shared/services/roleValidation.service';
 import { rateLimiter, getCurrentUserId } from '@/shared/services/rateLimiter.service';
 import { validatePassword } from '@/shared/utils/passwordPolicy';

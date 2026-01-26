@@ -4,16 +4,14 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/app/providers/AuthProvider';
 import { useAnalytics } from '@/features/admin/hooks/useAnalytics';
-import { AdminPeriod } from '@/types/admin';
+import type { AdminPeriod } from '@/types/admin';
 import { FormatService } from '@/services/format/formatService';
 import { AnalyticsLineChart, AnalyticsBarChart, AnalyticsPieChart, StatCard } from '@/shared/ui/charts';
-import { AdminPageHeader, ExportButton } from '@/shared/ui/admin';
+import { ExportButton } from '@/shared/ui/admin';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Users, Home, FileText, DollarSign, Activity, Calendar } from 'lucide-react';
 
 export default function AnalyticsPage() {
-  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [selectedPeriod, setSelectedPeriod] = useState<AdminPeriod>('30d');
   const [exporting, setExporting] = useState(false);
