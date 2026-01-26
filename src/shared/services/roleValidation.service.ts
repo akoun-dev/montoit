@@ -9,6 +9,20 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type UserRole = 'tenant' | 'owner' | 'agency' | 'admin' | 'trust_agent' | 'moderator';
 
+// Mapping des valeurs de la base de données vers l'enum UserRole
+const USER_TYPE_MAPPING: Record<string, UserRole> = {
+  'locataire': 'tenant',
+  'proprietaire': 'owner',
+  'agence': 'agency',
+  'admin': 'admin',
+  'admin_ansut': 'admin',
+  'trust_agent': 'trust_agent',
+  'moderator': 'moderator',
+  'tenant': 'tenant',
+  'owner': 'owner',
+  'agent': 'agency',
+};
+
 export interface RolePermissions {
   canCreateProperty: boolean;
   canEditProperty: boolean;
@@ -112,7 +126,10 @@ export async function getCurrentUserRole(): Promise<UserRole | null> {
     .eq('id', user.id)
     .single();
 
-  return (profile?.user_type as UserRole) || null;
+  if (!profile?.user_type) return null;
+
+  // Mapper le user_type de la base vers l'enum UserRole
+  return USER_TYPE_MAPPING[profile.user_type] || null;
 }
 
 /**

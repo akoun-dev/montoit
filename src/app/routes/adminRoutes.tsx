@@ -8,6 +8,7 @@ import { ROLES } from '@/shared/constants/roles';
 const AdminDashboard = lazyWithRetry(() => import('@/pages/admin/DashboardPage'));
 const AdminUsers = lazyWithRetry(() => import('@/pages/admin/UsersPage'));
 const AdminUserRoles = lazyWithRetry(() => import('@/pages/admin/UserRolesPage'));
+const AdminDocumentValidation = lazyWithRetry(() => import('@/pages/admin/DocumentValidationPage'));
 const AdminApiKeys = lazyWithRetry(() => import('@/pages/admin/ApiKeysPage'));
 const AdminBusinessRules = lazyWithRetry(() => import('@/pages/admin/BusinessRulesPage'));
 const AdminCEVManagement = lazyWithRetry(() => import('@/pages/admin/CEVManagementPage'));
@@ -21,7 +22,7 @@ const AdminServiceProviders = lazyWithRetry(() => import('@/pages/admin/ServiceP
 const AdminServiceConfiguration = lazyWithRetry(
   () => import('@/pages/admin/ServiceConfigurationPage')
 );
-const AdminDataGenerator = lazyWithRetry(() => import('@/pages/admin/DataGeneratorPage'));
+const AdminDataGenerator = lazyWithRetry(() => import('@/pages/admin/TestDataGeneratorPage'));
 const AdminFeatureFlags = lazyWithRetry(() => import('@/pages/admin/FeatureFlagsPage'));
 
 export const adminRoutes: RouteObject = {
@@ -35,6 +36,7 @@ export const adminRoutes: RouteObject = {
     { index: true, element: <Navigate to="/admin/tableau-de-bord" replace /> },
     { path: 'tableau-de-bord', element: <AdminDashboard /> },
     { path: 'utilisateurs', element: <AdminUsers /> },
+    { path: 'validation-documents', element: <AdminDocumentValidation /> },
     { path: 'gestion-roles', element: <AdminUserRoles /> },
     { path: 'api-keys', element: <AdminApiKeys /> },
     { path: 'regles-metier', element: <AdminBusinessRules /> },

@@ -26,7 +26,7 @@ export default function ProtectedRoute({
 }: ProtectedRouteProps) {
   const navigate = useNavigate();
   const { user, loading: authLoading, profile } = useAuth();
-  const { isAdmin, isTrustAgent, loading: rolesLoading, roles } = useUserRoles();
+  const { isAdmin, isTrustAgent, loading: rolesLoading, userType, systemRoles } = useUserRoles();
   const [accessChecked, setAccessChecked] = useState(false);
 
   const isLoading = authLoading || rolesLoading;
@@ -36,40 +36,53 @@ export default function ProtectedRoute({
 
     // Not logged in - redirect to login
     if (!user) {
+      console.log('[ProtectedRoute] No user, redirecting to /connexion');
       navigate('/connexion', { replace: true });
       return;
     }
 
     // Check admin requirement
     if (requireAdmin && !isAdmin) {
+      console.log('[ProtectedRoute] requireAdmin failed, isAdmin:', isAdmin);
       navigate('/', { replace: true });
       return;
     }
 
     // Check trust_agent requirement
     if (requireTrustAgent && !isTrustAgent) {
+      console.log('[ProtectedRoute] requireTrustAgent failed, isTrustAgent:', isTrustAgent);
       navigate('/', { replace: true });
       return;
     }
 
     // Check role-based access
     if (allowedRoles && allowedRoles.length > 0) {
-      const userType = profile?.user_type || profile?.active_role;
+      const profileUserType = profile?.user_type || profile?.active_role;
+
+      console.log('[ProtectedRoute] Checking roles:', {
+        allowedRoles,
+        profileUserType,
+        userType,
+        systemRoles,
+        isAdmin,
+      });
 
       // Check if user has any of the allowed roles
-      // First check business type (from profile)
-      const hasBusinessType = userType && allowedRoles.includes(userType);
+      // First check business type (from profile or hook)
+      const hasBusinessType = (userType || profileUserType) && allowedRoles.includes(userType || profileUserType);
 
       // Then check system roles (from user_roles table)
-      const hasSystemRole = roles.some((role) => allowedRoles.includes(role));
+      const hasSystemRole = systemRoles.some((role) => allowedRoles.includes(role));
 
       // Admin always has access
       const adminOverride = isAdmin;
 
       if (!hasBusinessType && !hasSystemRole && !adminOverride) {
+        console.log('[ProtectedRoute] Access denied, redirecting to /');
         navigate('/', { replace: true });
         return;
       }
+      console.log('[ProtectedRoute] Access granted');
     }
 
     setAccessChecked(true);
@@ -82,7 +95,8 @@ export default function ProtectedRoute({
     requireTrustAgent,
     isAdmin,
     isTrustAgent,
-    roles,
+    userType,
+    systemRoles,
     navigate,
   ]);
 

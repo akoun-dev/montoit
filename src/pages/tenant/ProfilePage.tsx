@@ -2,7 +2,7 @@ import { useState, useEffect, ChangeEvent } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { User, Phone, MapPin, Shield, Camera, Save, CheckCircle, AlertCircle } from 'lucide-react';
+import { User, Phone, MapPin, Shield, Camera, Save, CheckCircle, AlertCircle, FileText } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import Input from '@/shared/ui/Input';
 import { toast } from '@/hooks/shared/useSafeToast';
@@ -12,6 +12,7 @@ import ONECIFormTest from '@/features/verification/components/ONECIFormTest';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
 import RoleSwitcher from '@/components/role/RoleSwitcher';
+import { DossierSubmissionTab } from '@/shared/ui/verification/DossierSubmissionTab';
 
 interface Profile {
   id: string;
@@ -205,6 +206,7 @@ export default function ProfilePage() {
   const tabs = [
     { id: 'infos', label: 'Informations', icon: User },
     { id: 'verification', label: 'Vérification', icon: Shield },
+    { id: 'dossier', label: 'Dossier', icon: FileText },
   ];
 
   return (
@@ -469,6 +471,13 @@ export default function ProfilePage() {
                   )}
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'dossier' && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold text-foreground mb-4">Dossier de certification</h2>
+              <DossierSubmissionTab dossierType="tenant" />
             </div>
           )}
         </div>

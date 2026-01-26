@@ -88,7 +88,7 @@ export interface TimeSeriesData {
 export async function getOverviewStats(period: 'week' | 'month' | 'quarter' | 'year' = 'month'): Promise<OverviewStats> {
   try {
     const now = new Date();
-    let startDate = new Date();
+    const startDate = new Date();
 
     // Calculer la date de début selon la période
     switch (period) {
@@ -107,19 +107,19 @@ export async function getOverviewStats(period: 'week' | 'month' | 'quarter' | 'y
     }
 
     // Récupérer les statistiques de missions
-    const { data: missionsData, error: missionsError } = await supabase
+    const { data: missionsData } = await supabase
       .from('cev_missions')
       .select('status, created_at, updated_at')
       .gte('created_at', startDate.toISOString());
 
     // Récupérer les statistiques de litiges
-    const { data: disputesData, error: disputesError } = await supabase
+    const { data: disputesData } = await supabase
       .from('disputes')
       .select('status, created_at, updated_at, resolved_at')
       .gte('created_at', startDate.toISOString());
 
     // Récupérer les statistiques de dossiers
-    const { data: dossiersData, error: dossiersError } = await supabase
+    const { data: dossiersData } = await supabase
       .from('verification_requests')
       .select('status, created_at')
       .gte('created_at', startDate.toISOString());
@@ -145,7 +145,6 @@ export async function getOverviewStats(period: 'week' | 'month' | 'quarter' | 'y
     const missionCompletionRate = totalMissions > 0 ? Math.round((completedMissions / totalMissions) * 100) : 0;
 
     const totalDisputes = disputes.length;
-    const resolvedDisputes = disputes.filter(d => d.status === 'resolved').length;
 
     // Calculer le temps moyen de résolution
     const resolvedDisputesWithDate = disputes.filter(d => d.status === 'resolved' && d.resolved_at);
@@ -174,7 +173,7 @@ export async function getOverviewStats(period: 'week' | 'month' | 'quarter' | 'y
       totalDisputes,
       totalCertifications,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching overview stats:', error);
     // Return empty stats on error
     return {
@@ -254,7 +253,7 @@ export async function getMissionStats(): Promise<MissionStats> {
       completed,
       completionRate,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching mission stats:', error);
     return {
       byType: [],
@@ -320,7 +319,7 @@ export async function getDisputeStats(): Promise<DisputeStats> {
       resolutionRate,
       avgDuration: 4.2,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching dispute stats:', error);
     return {
       byType: [],
@@ -392,7 +391,7 @@ export async function getCertificationStats(): Promise<CertificationStats> {
       totalUsers: usersData?.length || 0,
       totalProperties: propertiesData?.length || 0,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching certification stats:', error);
     return {
       usersByMonth: [],

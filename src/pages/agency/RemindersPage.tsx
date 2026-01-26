@@ -100,7 +100,7 @@ const StatCard = ({
   trend,
   color = 'gray',
 }: {
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string | number;
   trend?: string;
@@ -167,7 +167,17 @@ export default function AgencyRemindersPage() {
 
   // Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [contracts, setContracts] = useState<any[]>([]);
+  const [contracts, setContracts] = useState<Array<{
+    id: string;
+    property_id: string;
+    tenant_id: string;
+    monthly_rent: number;
+    start_date: string;
+    end_date: string | null;
+    status: string;
+    properties: { title: string };
+    tenant: { first_name: string; last_name: string };
+  }>>([]);
 
   // Settings state
   const [settings, setSettings] = useState({
@@ -228,7 +238,17 @@ export default function AgencyRemindersPage() {
       setLoading(true);
 
       // Charger les rappels
-      const { data: remindersData, error: remindersError } = await (supabase as any)
+      const { data: remindersData } = await (supabase as unknown as {
+        from: (table: string) => {
+          select: (columns: string) => {
+            eq: (field: string, value: string) => {
+              order: (field: string, options: { ascending: boolean }) => {
+                limit: (count: number) => Promise<{ data: Reminder[] | null; error: unknown }>;
+              };
+            };
+          };
+        };
+      })
         .from('payment_reminders')
         .select('*, properties(title, city), tenant:profiles(first_name, last_name, email)')
         .eq('agency_id', id)
@@ -239,7 +259,7 @@ export default function AgencyRemindersPage() {
 
       // Calculer les stats
       const reminderStats = (remindersData || []).reduce(
-        (acc: ReminderStats, r: any) => {
+        (acc: ReminderStats, r: Reminder) => {
           acc.total++;
           if (r.status === 'sent') acc.sent++;
           if (r.status === 'delivered') acc.delivered++;
@@ -252,24 +272,41 @@ export default function AgencyRemindersPage() {
       setStats(reminderStats);
 
       // Charger les settings (try agency_reminder_settings first, then reminder_settings)
-      let settingsData;
-      let settingsError;
+      let settingsData: unknown;
 
       try {
-        const result = await (supabase as any)
+        const result = await (supabase as unknown as {
+          from: (table: string) => {
+            select: (columns: string) => {
+              eq: (field: string, value: string) => {
+                single: () => Promise<{ data: unknown; error: { code?: string } | null }>;
+              };
+            };
+          };
+        })
           .from('agency_reminder_settings')
           .select('*')
           .eq('agency_id', id)
           .single();
         settingsData = result.data;
-        settingsError = result.error;
-      } catch (e) {
-        settingsError = e;
+        if (!result.error || result.error.code === 'PGRST116') {
+          // Table exists or we got data
+        }
+      } catch (_error) {
+        // Continue to fallback
       }
 
-      if (settingsError || !settingsData) {
+      if (!settingsData) {
         // Try owner_settings as fallback
-        const result = await (supabase as any)
+        const result = await (supabase as unknown as {
+          from: (table: string) => {
+            select: (columns: string) => {
+              eq: (field: string, value: string) => {
+                maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
+              };
+            };
+          };
+        })
           .from('reminder_settings')
           .select('*')
           .eq('owner_id', user.id)
@@ -277,13 +314,20 @@ export default function AgencyRemindersPage() {
         settingsData = result.data;
       }
 
-      if (settingsData) {
+      if (settingsData && typeof settingsData === 'object') {
+        const data = settingsData as {
+          rent_reminder_schedule?: number[];
+          default_channel?: string;
+          reminders_enabled?: boolean;
+          renewal_reminders_enabled?: boolean;
+          renewal_reminder_days?: number;
+        };
         setSettings({
-          rent_reminder_schedule: settingsData.rent_reminder_schedule || [-7, -3, 0],
-          default_channel: settingsData.default_channel || 'email',
-          reminders_enabled: settingsData.reminders_enabled ?? true,
-          renewal_reminders_enabled: settingsData.renewal_reminders_enabled ?? true,
-          renewal_reminder_days: settingsData.renewal_reminder_days || 30,
+          rent_reminder_schedule: data.rent_reminder_schedule || [-7, -3, 0],
+          default_channel: data.default_channel || 'email',
+          reminders_enabled: data.reminders_enabled ?? true,
+          renewal_reminders_enabled: data.renewal_reminders_enabled ?? true,
+          renewal_reminder_days: data.renewal_reminder_days || 30,
         });
       }
 
@@ -299,14 +343,35 @@ export default function AgencyRemindersPage() {
     if (!user || !agencyId) return;
 
     try {
-      const { data } = await (supabase as any)
+      const { data } = await (supabase as unknown as {
+        from: (table: string) => {
+          select: (columns: string) => {
+            eq: (field: string, value: string) => {
+              order: (field: string, options: { ascending: boolean }) => Promise<{
+                data: Array<{
+                  id: string;
+                  property_id: string;
+                  tenant_id: string;
+                  monthly_rent: number;
+                  start_date: string;
+                  end_date: string | null;
+                  status: string;
+                  properties: { agency_id?: string; [key: string]: unknown };
+                  tenant: { [key: string]: unknown };
+                }> | null;
+                error: unknown;
+              }>;
+            };
+          };
+        };
+      })
         .from('lease_contracts')
         .select('id, property_id, tenant_id, monthly_rent, start_date, end_date, status, properties(*), tenant:profiles(*)')
         .eq('status', 'active')
         .order('start_date', { ascending: false });
 
       // Filter by agency properties
-      const agencyContracts = (data || []).filter((c: any) =>
+      const agencyContracts = (data || []).filter((c) =>
         c.properties?.agency_id === agencyId
       );
 
@@ -352,7 +417,7 @@ export default function AgencyRemindersPage() {
       if (error.error) throw error.error;
 
       toast.success('Configuration sauvegardée');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving settings:', error);
       toast.error('Erreur lors de la sauvegarde');
     } finally {
@@ -408,7 +473,7 @@ export default function AgencyRemindersPage() {
         scheduled_date: '',
       });
       if (agencyId) loadData(agencyId);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating reminder:', error);
       toast.error('Erreur lors de la création');
     } finally {
@@ -425,7 +490,27 @@ export default function AgencyRemindersPage() {
     if (!user || !agencyId) return;
 
     try {
-      const { data: contracts } = await (supabase as any)
+      const { data: contracts } = await (supabase as unknown as {
+        from: (table: string) => {
+          select: (columns: string) => {
+            eq: (field: string, value: string) => {
+              gte: (field: string, value: string) => {
+                order: (field: string, options: { ascending: boolean }) => Promise<{
+                  data: Array<{
+                    id: string;
+                    property_id: string;
+                    tenant_id: string;
+                    end_date: string;
+                    properties: { title: string; agency_id?: string };
+                    tenant: { first_name: string };
+                  }> | null;
+                  error: unknown;
+                }>;
+              };
+            };
+          };
+        };
+      })
         .from('lease_contracts')
         .select('id, property_id, tenant_id, end_date, properties(title, agency_id), tenant:profiles(first_name)')
         .eq('status', 'active')
@@ -433,12 +518,12 @@ export default function AgencyRemindersPage() {
         .order('end_date', { ascending: true });
 
       // Filter by agency
-      const agencyContracts = (contracts || []).filter((c: any) =>
+      const agencyContracts = (contracts || []).filter((c) =>
         c.properties?.agency_id === agencyId
       );
 
       const expiring = agencyContracts
-        .map((c: any) => {
+        .map((c) => {
           const daysUntilExpiry = Math.ceil(
             (new Date(c.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
           );
@@ -452,7 +537,7 @@ export default function AgencyRemindersPage() {
             property: c.properties,
           };
         })
-        .filter((l: any) => l.days_until_expiry <= 90);
+        .filter((l) => l.days_until_expiry <= 90);
 
       setExpiringLeases(expiring);
     } catch (error) {

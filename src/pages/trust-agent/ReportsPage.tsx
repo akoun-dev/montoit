@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   BarChart3,
   TrendingUp,
   TrendingDown,
   Download,
   Calendar,
-  Filter,
   CheckCircle2,
   Clock,
   AlertTriangle,
@@ -17,9 +15,7 @@ import {
   FileText,
   Award,
   Activity,
-  ArrowRight,
   ChevronDown,
-  Loader2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/badge';
@@ -74,9 +70,7 @@ interface TrendData {
 }
 
 export default function ReportsPage() {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>(TIME_RANGES[1]); // Default to month
   const [showExportMenu, setShowExportMenu] = useState(false);
 
@@ -115,8 +109,6 @@ export default function ReportsPage() {
 
   const loadMetrics = async () => {
     try {
-      setLoading(true);
-
       // Calculate date range based on timeRange
       const now = new Date();
       const startDate = new Date();
@@ -197,8 +189,6 @@ export default function ReportsPage() {
 
     } catch (error) {
       console.error('Error loading metrics:', error);
-    } finally {
-      setLoading(false);
     }
   };
 

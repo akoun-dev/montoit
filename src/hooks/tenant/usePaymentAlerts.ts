@@ -58,7 +58,14 @@ export function usePaymentAlerts(): PaymentAlertsHookReturn {
 
       const newAlerts: PaymentAlert[] = [];
 
-      for (const contract of contracts as any[]) {
+      for (const contract of contracts as Array<{
+        id: string;
+        property_id: string;
+        start_date: string;
+        end_date: string | null;
+        monthly_rent?: number;
+        properties?: { title: string };
+      }>) {
         const startDate = new Date(contract.start_date);
         const endDate = contract.end_date ? new Date(contract.end_date) : null;
 

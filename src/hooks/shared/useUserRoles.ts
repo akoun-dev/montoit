@@ -1,74 +1,81 @@
 /**
  * Hook useUserRoles - Gestion centralisée des rôles utilisateur
- * Vérifie les rôles via Supabase RPC get_user_roles()
+ *
+ * Deux systèmes de rôles existent:
+ * 1. user_type (business type) dans profiles: locataire, proprietaire, trust_agent, admin_ansut
+ * 2. system roles dans user_roles table: admin, moderator, trust_agent, user
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/app/providers/AuthProvider';
-import { isLocalSupabase } from '@/shared/utils/environment';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/app/providers/AuthProvider";
+import { isLocalSupabase } from "@/shared/utils/environment";
 
 // Flag global pour mémoriser l'absence du RPC et éviter de le rappeler
-const userRolesRpcSkipped = { value: false }; // activer la détection des rôles (trust agent, etc.)
+const userRolesRpcSkipped = { value: false };
 
-// Type des rôles disponibles (correspondant à l'enum app_role en DB)
-export type AppRole = 'admin' | 'moderator' | 'user' | 'trust_agent';
+// Type user_type (business type) - stocké dans profiles.user_type
+export type UserType =
+  | "locataire"
+  | "proprietaire"
+  | "trust_agent"
+  | "admin_ansut";
+
+// Type system_role - stocké dans user_roles.role
+export type SystemRole =
+  | "admin"
+  | "moderator"
+  | "trust_agent"
+  | "user";
 
 export interface UseUserRolesReturn {
-  // État
-  roles: AppRole[];
+  // État - user_type depuis profiles
+  userType: UserType | null;
+  // État - system roles depuis user_roles
+  systemRoles: SystemRole[];
   loading: boolean;
   error: Error | null;
 
-  // Méthodes de vérification
-  hasRole: (role: AppRole) => boolean;
-  hasAnyRole: (roles: AppRole[]) => boolean;
-  hasAllRoles: (roles: AppRole[]) => boolean;
+  // Méthodes de vérification pour user_type
+  hasUserType: (type: UserType) => boolean;
+  // Méthodes de vérification pour system roles
+  hasSystemRole: (role: SystemRole) => boolean;
 
   // Raccourcis pratiques
-  isAdmin: boolean;
-  isModerator: boolean;
-  isTrustAgent: boolean;
-  isUser: boolean;
+  isAdmin: boolean;       // admin_ansut (user_type) OU admin (system role)
+  isModerator: boolean;   // moderator (system role)
+  isTrustAgent: boolean;  // trust_agent (user_type ou system role)
+  isUser: boolean;        // utilisateur standard (sans rôle spécial)
 
   // Actions
   refreshRoles: () => Promise<void>;
 }
 
 export function useUserRoles(): UseUserRolesReturn {
-  const { user } = useAuth();
-  const [roles, setRoles] = useState<AppRole[]>([]);
+  const { user, profile } = useAuth();
+  const [userType, setUserType] = useState<UserType | null>(null);
+  const [systemRoles, setSystemRoles] = useState<SystemRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  // Flag module-level pour éviter de spammer un RPC manquant
   const skipRpc = useMemo(() => userRolesRpcSkipped, []);
 
-  // Fonction de chargement des rôles
   const fetchRoles = useCallback(async () => {
-    // Pas d'utilisateur connecté
     if (!user?.id) {
-      setRoles([]);
+      setUserType(null);
+      setSystemRoles([]);
       setLoading(false);
       setError(null);
       return;
     }
 
-    // Si on est en environnement local, on saute l'appel RPC et on retourne un rôle par défaut
+    // Environnement local: rôles par défaut pour le développement
     if (isLocalSupabase()) {
       skipRpc.value = true;
       userRolesRpcSkipped.value = true;
-      // En local, on peut définir un rôle par défaut (ex: 'user')
-      // Pour le développement, on peut aussi simuler d'autres rôles via une variable d'environnement
-      const defaultRole: AppRole = 'user';
-      setRoles([defaultRole]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    // Si on a déjà détecté que le RPC est absent, ne rien appeler
-    if (skipRpc.value) {
-      setRoles([]);
+      // Pour tester les pages admin en local
+      console.log('[useUserRoles] Local environment - setting admin role');
+      setUserType("admin_ansut");
+      setSystemRoles(["admin"]);
       setLoading(false);
       setError(null);
       return;
@@ -78,76 +85,119 @@ export function useUserRoles(): UseUserRolesReturn {
       setLoading(true);
       setError(null);
 
-      const { data, error: rpcError } = await supabase.rpc('get_user_roles', {
+      // Récupérer le user_type depuis le RPC get_user_roles
+      const { data: rpcData, error: rpcError } = await supabase.rpc("get_user_roles", {
         _user_id: user.id,
       });
 
       if (rpcError) {
-        // Fonction absente : fallback silencieux
         if (
-          rpcError.message?.includes('Could not find the function') ||
-          rpcError.message?.includes('has no field')
+          rpcError.message?.includes("Could not find the function") ||
+          rpcError.message?.includes("has no field")
         ) {
           skipRpc.value = true;
           userRolesRpcSkipped.value = true;
-          setRoles([]);
+          // Utiliser le profile.user_type comme fallback
+          const profileUserType = profile?.user_type as UserType | null;
+          console.log('[useUserRoles] RPC failed, using profile.user_type as fallback:', profileUserType);
+          setUserType(profileUserType || null);
+          setLoading(false);
           setError(null);
           return;
         }
         throw new Error(rpcError.message);
       }
 
-      // Cast sécurisé des rôles retournés
-      const userRoles = (data as AppRole[]) || [];
-      setRoles(userRoles);
+      // Le RPC retourne un tableau de user_type (business types)
+      const userTypes = (rpcData as UserType[]) || [];
+      const rpcUserType = userTypes[0] || null;
+
+      // Utiliser le user_type du RPC ou fallback vers profile.user_type
+      const finalUserType = rpcUserType || (profile?.user_type as UserType | null);
+      console.log('[useUserRoles] User type determined:', {
+        rpcUserType,
+        profileUserType: profile?.user_type,
+        finalUserType,
+      });
+      setUserType(finalUserType);
+
+      // Récupérer les system roles depuis user_roles table
+      const { data: systemRolesData, error: systemRolesError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
+
+      if (systemRolesError) {
+        console.warn("Erreur lors du chargement des system roles:", systemRolesError);
+      }
+
+      const roles = (systemRolesData?.map((r: { role: string }) => r.role) as SystemRole[]) || [];
+      setSystemRoles(roles);
+      console.log('[useUserRoles] System roles:', roles);
     } catch (err) {
-      console.warn('Erreur lors du chargement des rôles:', err);
-      setError(err instanceof Error ? err : new Error('Erreur inconnue'));
-      setRoles([]);
+      console.warn("Erreur lors du chargement des rôles:", err);
+      // En cas d'erreur, utiliser le profile.user_type comme fallback
+      const profileUserType = profile?.user_type as UserType | null;
+      console.log('[useUserRoles] Error caught, using profile.user_type as fallback:', profileUserType);
+      setUserType(profileUserType || null);
+      setSystemRoles([]);
+      setError(err instanceof Error ? err : new Error("Erreur inconnue"));
     } finally {
       setLoading(false);
     }
-  }, [user?.id, skipRpc]);
+  }, [user?.id, profile?.user_type, skipRpc]);
 
-  // Charger les rôles au montage et quand l'utilisateur change
   useEffect(() => {
     fetchRoles();
   }, [fetchRoles]);
 
-  // Méthodes de vérification mémorisées
-  const hasRole = useCallback((role: AppRole): boolean => roles.includes(role), [roles]);
-
-  const hasAnyRole = useCallback(
-    (checkRoles: AppRole[]): boolean => checkRoles.some((role) => roles.includes(role)),
-    [roles]
+  const hasUserType = useCallback(
+    (type: UserType): boolean => userType === type,
+    [userType]
   );
 
-  const hasAllRoles = useCallback(
-    (checkRoles: AppRole[]): boolean => checkRoles.every((role) => roles.includes(role)),
-    [roles]
+  const hasSystemRole = useCallback(
+    (role: SystemRole): boolean => systemRoles.includes(role),
+    [systemRoles]
   );
 
-  // Propriétés calculées mémorisées
   const computedValues = useMemo(
     () => ({
-      isAdmin: roles.includes('admin'),
-      isModerator: roles.includes('moderator'),
-      isTrustAgent: roles.includes('trust_agent'),
-      isUser: roles.includes('user'),
+      // Admin: user_type = admin_ansut OU system role = admin
+      isAdmin: userType === "admin_ansut" || systemRoles.includes("admin"),
+      // Moderator: system role = moderator
+      isModerator: systemRoles.includes("moderator"),
+      // Trust Agent: user_type = trust_agent OU system role = trust_agent
+      isTrustAgent: userType === "trust_agent" || systemRoles.includes("trust_agent"),
+      // User: utilisateur standard sans rôle spécial
+      isUser:
+        (userType === "locataire" || userType === "proprietaire") &&
+        !systemRoles.includes("admin") &&
+        !systemRoles.includes("moderator") &&
+        !systemRoles.includes("trust_agent") &&
+        userType !== "admin_ansut" &&
+        userType !== "trust_agent",
     }),
-    [roles]
+    [userType, systemRoles]
   );
 
+  console.log('[useUserRoles] Computed values:', {
+    userType,
+    systemRoles,
+    ...computedValues,
+  });
+
   return {
-    roles,
+    userType,
+    systemRoles,
     loading,
     error,
-    hasRole,
-    hasAnyRole,
-    hasAllRoles,
+    hasUserType,
+    hasSystemRole,
     ...computedValues,
     refreshRoles: fetchRoles,
   };
 }
 
+// Pour compatibilité avec l'ancien code qui utilise `roles` comme tableau
 export default useUserRoles;

@@ -5,7 +5,7 @@
  * avec synchronisation temps réel via Supabase.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/hooks/shared/useSafeToast';
@@ -51,9 +51,9 @@ export function useTrustAgentNotifications(filters?: NotificationFilters) {
     queryFn: async () => {
       try {
         return await trustAgentNotificationsService.getAll(filters);
-      } catch (err: any) {
+      } catch (err: unknown) {
         // If table doesn't exist (PGRST205), return empty array silently
-        if (err?.code === 'PGRST116' || err?.code === 'PGRST205') {
+        if (err && typeof err === 'object' && 'code' in err && (err.code === 'PGRST116' || err.code === 'PGRST205')) {
           // Table doesn't exist or RLS not configured - silent fallback
           return [];
         }
@@ -77,9 +77,9 @@ export function useTrustAgentNotifications(filters?: NotificationFilters) {
     queryFn: async () => {
       try {
         return await trustAgentNotificationsService.getUnreadCount();
-      } catch (err: any) {
+      } catch (err: unknown) {
         // If table doesn't exist, return 0 silently
-        if (err?.code === 'PGRST116' || err?.code === 'PGRST205') {
+        if (err && typeof err === 'object' && 'code' in err && (err.code === 'PGRST116' || err.code === 'PGRST205')) {
           return 0;
         }
         return 0;
@@ -100,9 +100,9 @@ export function useTrustAgentNotifications(filters?: NotificationFilters) {
       queryClient.invalidateQueries({ queryKey: ['trust-agent-notifications'] });
       queryClient.invalidateQueries({ queryKey: ['trust-agent-notifications-unread'] });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       // Silent error if table doesn't exist
-      if (error?.code !== 'PGRST116' && error?.code !== 'PGRST205') {
+      if (error && typeof error === 'object' && 'code' in error && error.code !== 'PGRST116' && error.code !== 'PGRST205') {
         console.error('Error marking notification as read:', error);
         toast.error('Erreur lors du marquage de la notification');
       }
@@ -117,9 +117,9 @@ export function useTrustAgentNotifications(filters?: NotificationFilters) {
       queryClient.invalidateQueries({ queryKey: ['trust-agent-notifications-unread'] });
       toast.success('Toutes les notifications ont été marquées comme lues');
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       // Silent error if table doesn't exist
-      if (error?.code !== 'PGRST116' && error?.code !== 'PGRST205') {
+      if (error && typeof error === 'object' && 'code' in error && error.code !== 'PGRST116' && error.code !== 'PGRST205') {
         console.error('Error marking all notifications as read:', error);
         toast.error('Erreur lors du marquage des notifications');
       }
@@ -134,9 +134,9 @@ export function useTrustAgentNotifications(filters?: NotificationFilters) {
       queryClient.invalidateQueries({ queryKey: ['trust-agent-notifications'] });
       queryClient.invalidateQueries({ queryKey: ['trust-agent-notifications-unread'] });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       // Silent error if table doesn't exist
-      if (error?.code !== 'PGRST116' && error?.code !== 'PGRST205') {
+      if (error && typeof error === 'object' && 'code' in error && error.code !== 'PGRST116' && error.code !== 'PGRST205') {
         console.error('Error archiving notification:', error);
         toast.error('Erreur lors de l\'archivage de la notification');
       }
@@ -151,9 +151,9 @@ export function useTrustAgentNotifications(filters?: NotificationFilters) {
       queryClient.invalidateQueries({ queryKey: ['trust-agent-notifications-unread'] });
       toast.success('Toutes les notifications lues ont été archivées');
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       // Silent error if table doesn't exist
-      if (error?.code !== 'PGRST116' && error?.code !== 'PGRST205') {
+      if (error && typeof error === 'object' && 'code' in error && error.code !== 'PGRST116' && error.code !== 'PGRST205') {
         console.error('Error archiving all read notifications:', error);
         toast.error('Erreur lors de l\'archivage des notifications');
       }
@@ -286,9 +286,9 @@ export function useUnreadNotificationCount() {
     queryFn: async () => {
       try {
         return await trustAgentNotificationsService.getUnreadCount();
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Silent fallback if table doesn't exist
-        if (err?.code === 'PGRST116' || err?.code === 'PGRST205') {
+        if (err && typeof err === 'object' && 'code' in err && (err.code === 'PGRST116' || err.code === 'PGRST205')) {
           return 0;
         }
         return 0;

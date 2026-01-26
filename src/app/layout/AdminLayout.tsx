@@ -19,6 +19,8 @@ import {
   ChevronRight,
   LogOut,
   Eye,
+  FileCheck,
+  ToggleLeft,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 
@@ -48,6 +50,12 @@ const navigationItems = [
         href: '/admin/utilisateurs',
         icon: Users,
         color: 'text-green-600',
+      },
+      {
+        name: 'Validation Documents',
+        href: '/admin/validation-documents',
+        icon: FileCheck,
+        color: 'text-amber-600',
       },
       {
         name: 'Rôles & Permissions',
@@ -113,6 +121,12 @@ const navigationItems = [
     section: 'Configuration',
     items: [
       {
+        name: 'Feature Flags',
+        href: '/admin/feature-flags',
+        icon: ToggleLeft,
+        color: 'text-violet-600',
+      },
+      {
         name: 'Règles Métier',
         href: '/admin/regles-metier',
         icon: Settings,
@@ -170,7 +184,7 @@ export default function AdminLayout() {
               </div>
               {!sidebarCollapsed && (
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Admin Panel</h2>
+                  <h2 className="text-lg font-bold text-gray-900">ADMINISTRATION</h2>
                   <p className="text-sm text-gray-500">Mon Toit Pro</p>
                 </div>
               )}

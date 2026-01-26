@@ -9,14 +9,12 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bell,
   Briefcase,
-  Scale,
   FileText,
   Home,
   CheckCircle2,
   Archive,
   Check,
   Filter,
-  Trash2,
   AlertTriangle,
   Clock,
   RefreshCw,
@@ -24,10 +22,10 @@ import {
   Zap,
   Info,
   ChevronRight,
+  AlertCircle,
 } from 'lucide-react';
 import { Card, CardContent } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/badge';
-import { Button } from '@/shared/ui/Button';
 import { TrustAgentPageHeader, EmptyState } from '@/shared/ui/trust-agent';
 import { cn } from '@/shared/lib/utils';
 import { toast } from '@/hooks/shared/useSafeToast';
@@ -38,7 +36,7 @@ import {
 import type { TrustAgentNotificationType } from '@/features/trust-agent/services/trustAgentNotifications.service';
 
 // Configuration améliorée des icônes avec couleurs
-const NOTIFICATION_ICONS: Record<TrustAgentNotificationType, { icon: React.ReactNode; bgGradient: string; iconColor: string }> = {
+const NOTIFICATION_ICONS: Record<TrustAgentNotificationType, { icon: React.ReactElement; bgGradient: string; iconColor: string }> = {
   new_mission: {
     icon: <Briefcase className="h-5 w-5" />,
     bgGradient: 'from-blue-500 to-blue-600',
@@ -50,7 +48,7 @@ const NOTIFICATION_ICONS: Record<TrustAgentNotificationType, { icon: React.React
     iconColor: 'text-purple-600',
   },
   new_dispute: {
-    icon: <Scale className="h-5 w-5" />,
+    icon: <AlertCircle className="h-5 w-5" />,
     bgGradient: 'from-red-500 to-red-600',
     iconColor: 'text-red-600',
   },
@@ -81,7 +79,7 @@ const TYPE_FILTERS = [
   { value: 'all' as const, label: 'Toutes', icon: <Bell className="h-4 w-4" />, color: 'bg-gray-100 text-gray-700' },
   { value: 'new_mission' as const, label: 'Missions', icon: <Briefcase className="h-4 w-4" />, color: 'bg-blue-100 text-blue-700' },
   { value: 'mission_update' as const, label: 'Suivi missions', icon: <RefreshCw className="h-4 w-4" />, color: 'bg-purple-100 text-purple-700' },
-  { value: 'new_dispute' as const, label: 'Litiges', icon: <Scale className="h-4 w-4" />, color: 'bg-red-100 text-red-700' },
+  { value: 'new_dispute' as const, label: 'Litiges', icon: <AlertCircle className="h-4 w-4" />, color: 'bg-red-100 text-red-700' },
   { value: 'dispute_update' as const, label: 'Suivi litiges', icon: <AlertTriangle className="h-4 w-4" />, color: 'bg-orange-100 text-orange-700' },
   { value: 'new_dossier' as const, label: 'Dossiers', icon: <FileText className="h-4 w-4" />, color: 'bg-amber-100 text-amber-700' },
   { value: 'dossier_approved' as const, label: 'Validations', icon: <CheckCircle2 className="h-4 w-4" />, color: 'bg-green-100 text-green-700' },
@@ -236,7 +234,7 @@ export default function NotificationsPage() {
       <TrustAgentPageHeader
         title="Notifications"
         subtitle="Restez informé de vos missions, litiges et certifications"
-        badges={stats.map((s) => ({ label: `${s.value} ${s.label}`, variant: s.variant as any }))}
+        badges={stats.map((s) => ({ label: `${s.value} ${s.label}`, variant: s.variant as 'default' | 'secondary' | 'warning' | 'info' | 'success' | 'danger' }))}
         actions={[
           {
             label: 'Actualiser',

@@ -5,7 +5,6 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   BarChart,
   Bar,
@@ -23,7 +22,6 @@ import {
 } from 'recharts';
 import {
   TrendingUp,
-  TrendingDown,
   Calendar,
   Briefcase,
   Scale,
@@ -32,15 +30,11 @@ import {
   Clock,
   Award,
   FileText,
-  Filter,
   ChevronDown,
   Users,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';
-import { Badge } from '@/shared/ui/badge';
-import { Button } from '@/shared/ui/Button';
 import { TrustAgentPageHeader, KPICard, EmptyState } from '@/shared/ui/trust-agent';
-import { useAuth } from '@/app/providers/AuthProvider';
 import { cn } from '@/shared/lib/utils';
 import { toast } from '@/hooks/shared/useSafeToast';
 import {
@@ -80,21 +74,10 @@ const COLORS = {
   pink: '#EC4899',
 };
 
-const PIE_COLORS = [
-  COLORS.primary,
-  COLORS.secondary,
-  COLORS.success,
-  COLORS.warning,
-  COLORS.purple,
-  COLORS.teal,
-];
-
 type PeriodFilter = 'week' | 'month' | 'quarter' | 'year';
 type TabId = 'overview' | 'missions' | 'disputes' | 'certifications';
 
 export default function StatsPage() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
   const [period, setPeriod] = useState<PeriodFilter>('month');
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [loading, setLoading] = useState(true);

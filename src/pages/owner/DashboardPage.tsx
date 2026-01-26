@@ -10,16 +10,13 @@ import {
   Plus,
   Eye,
   TrendingUp,
-  TrendingDown,
   Calendar,
   Handshake,
-  Clock,
   CheckCircle2,
   AlertCircle,
   DollarSign,
   Activity,
   ArrowUpRight,
-  ArrowDownRight,
   Star,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -102,9 +99,9 @@ export default function OwnerDashboardPage() {
         .eq('owner_id', user.id)
         .order('created_at', { ascending: false });
 
-      const props = (propertiesData || []).map((p: any) => ({
+      const props = (propertiesData || []).map((p) => ({
         ...p,
-        monthly_rent: p.price ?? p.monthly_rent ?? 0,
+        monthly_rent: (p as { price?: number; monthly_rent?: number }).price ?? (p as { monthly_rent?: number }).monthly_rent ?? 0,
       })) as Property[];
       setProperties(props);
 
@@ -143,7 +140,7 @@ export default function OwnerDashboardPage() {
         pendingApplications = applicationsData?.length || 0;
 
         // Add recent applications to activities
-        applicationsData?.forEach((app: any) => {
+        applicationsData?.forEach((app) => {
           const property = props.find(p => p.id === app.property_id);
           activities.push({
             id: app.id,
@@ -170,7 +167,7 @@ export default function OwnerDashboardPage() {
         maintenanceRequests = maintenanceData?.length || 0;
 
         // Add maintenance to activities
-        maintenanceData?.forEach((req: any) => {
+        maintenanceData?.forEach((req) => {
           const property = props.find(p => p.id === req.property_id);
           activities.push({
             id: req.id,
@@ -191,7 +188,7 @@ export default function OwnerDashboardPage() {
         .order('created_at', { ascending: false })
         .limit(3);
 
-      paymentsData?.forEach((payment: any) => {
+      paymentsData?.forEach((payment) => {
         activities.push({
           id: payment.id,
           type: 'payment',

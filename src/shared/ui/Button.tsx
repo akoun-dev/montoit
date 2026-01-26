@@ -133,7 +133,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading && (
-          <Loader className="mr-2 h-4 w-4 animate-spin shrink-0" aria-hidden="true" fill="currentColor" />
+          <Loader className="mr-2 h-4 w-4 animate-spin shrink-0" aria-hidden="true" />
         )}
         {typeof children === 'string' ? (
           <span className={loading ? 'opacity-70' : ''}>{children}</span>

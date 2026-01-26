@@ -18,21 +18,17 @@ import {
   TrendingUp,
   ArrowRight,
   Search,
-  Filter,
   RefreshCw,
   UserCheck,
   AlertCircle,
-  MoreVertical,
   Shuffle,
   Plus,
   Edit,
   Trash2,
   Shield,
-  X,
-  Mail,
   UserPlus,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';
+import { Card, CardContent } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/Button';
 import { TrustAgentPageHeader, KPICard, EmptyState } from '@/shared/ui/trust-agent';
@@ -202,9 +198,12 @@ export default function AgentManagementPage() {
       toast.success('Agent de confiance créé avec succès');
       setCreateAgentDialog({ isOpen: false });
       loadAgentsWorkload();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating agent:', error);
-      toast.error(error?.message || 'Erreur lors de la création de l\'agent');
+      const errorMessage = error && typeof error === 'object' && 'message' in error
+        ? (error.message as string)
+        : 'Erreur lors de la création de l\'agent';
+      toast.error(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -238,7 +237,7 @@ export default function AgentManagementPage() {
       toast.success('Agent mis à jour avec succès');
       setEditAgentDialog(null);
       loadAgentsWorkload();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating agent:', error);
       toast.error('Erreur lors de la mise à jour de l\'agent');
     } finally {
@@ -275,35 +274,11 @@ export default function AgentManagementPage() {
       toast.success('Rôle d\'agent de confiance supprimé');
       setDeleteAgentDialog(null);
       loadAgentsWorkload();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting agent:', error);
       toast.error('Erreur lors de la suppression du rôle');
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  const openReassignmentDialog = async (
-    type: 'mission' | 'dispute',
-    itemId: string,
-    itemName: string,
-    currentAgentId: string
-  ) => {
-    try {
-      const available = await agentAssignmentService.getAvailableAgents(currentAgentId);
-      setAvailableAgents(available);
-      setReassignmentDialog({
-        isOpen: true,
-        type,
-        itemId,
-        itemName,
-        currentAgentId,
-      });
-      setSelectedAgentId(null);
-      setReassignmentReason('');
-    } catch (error) {
-      console.error('Error loading available agents:', error);
-      toast.error('Erreur lors du chargement des agents disponibles');
     }
   };
 

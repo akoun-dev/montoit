@@ -24,6 +24,7 @@ import {
   Download,
   Loader2,
   Clock,
+  FolderOpen,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import Input from '@/shared/ui/Input';
@@ -31,6 +32,7 @@ import { toast } from '@/hooks/shared/useSafeToast';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
 import RoleSwitcher from '@/components/role/RoleSwitcher';
+import { DossierSubmissionTab } from '@/shared/ui/verification/DossierSubmissionTab';
 
 interface AgencyProfile {
   id: string;
@@ -403,6 +405,7 @@ export default function AgencyProfilePage() {
     { id: 'agency', label: 'Agence', icon: Building2 },
     { id: 'contact', label: 'Contact', icon: Mail },
     { id: 'verification', label: 'Vérifications', icon: Shield },
+    { id: 'dossier', label: 'Dossier', icon: FolderOpen },
     { id: 'stats', label: 'Statistiques', icon: TrendingUp },
   ];
 
@@ -890,6 +893,13 @@ export default function AgencyProfilePage() {
                 disabled={uploadingDoc}
               />
             </div>
+          </div>
+        )}
+
+        {activeTab === 'dossier' && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Dossier de certification agence</h3>
+            <DossierSubmissionTab dossierType="agency" />
           </div>
         )}
 

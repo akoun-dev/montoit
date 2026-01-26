@@ -9,7 +9,7 @@
 
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar as CalendarIcon, ArrowLeft, Plus, Calendar, List, Filter, Grid } from 'lucide-react';
+import { Calendar as CalendarIcon, ArrowLeft, Plus, List, Filter, Grid } from 'lucide-react';
 import {
   isSameDay,
   startOfWeek,
@@ -70,7 +70,6 @@ export default function CalendarPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [missionTypeFilter, setMissionTypeFilter] = useState<MissionTypeFilter>('all');
   const [activeMissionId, setActiveMissionId] = useState<string | null>(null);
-  const [isRescheduling, setIsRescheduling] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -110,10 +109,6 @@ export default function CalendarPage() {
     }
   };
 
-  const handleDragStart = (event: DragEndEvent) => {
-    setActiveMissionId(event.active.id as string);
-  };
-
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveMissionId(null);
@@ -121,8 +116,6 @@ export default function CalendarPage() {
     if (!over || active.id === over.id) return;
 
     try {
-      setIsRescheduling(true);
-
       const newDate = over.id as string;
 
       const { error } = await supabase
@@ -140,8 +133,6 @@ export default function CalendarPage() {
     } catch (error) {
       console.error('Error rescheduling mission:', error);
       toast.error('Erreur lors de la replanification de la mission');
-    } finally {
-      setIsRescheduling(false);
     }
   };
 

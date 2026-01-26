@@ -171,12 +171,22 @@ export const adminApi = {
   suspendUser: async (userId: string, reason: string): Promise<UserProfile> => {
     await requirePermission('canManageUsers')();
 
+    // Get current metadata
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('metadata')
+      .eq('id', userId)
+      .single();
+
     const { data, error } = await supabase
       .from('profiles')
       .update({
-        is_suspended: true,
-        suspension_reason: reason,
-        suspended_at: new Date().toISOString(),
+        is_active: false,
+        metadata: {
+          ...(profile?.metadata || {}),
+          suspension_reason: reason,
+          suspended_at: new Date().toISOString(),
+        },
       })
       .eq('id', userId)
       .select()
@@ -195,9 +205,11 @@ export const adminApi = {
     const { data, error } = await supabase
       .from('profiles')
       .update({
-        is_suspended: false,
-        suspension_reason: null,
-        suspended_at: null,
+        is_active: true,
+        metadata: {
+          suspension_reason: null,
+          suspended_at: null,
+        },
       })
       .eq('id', userId)
       .select()
@@ -213,12 +225,23 @@ export const adminApi = {
   changeUserRole: async (userId: string, newRole: string): Promise<UserProfile> => {
     await requirePermission('canManageUsers')();
 
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('metadata')
+      .eq('id', userId)
+      .single();
+
+    const currentUser = (await supabase.auth.getUser()).data.user;
+
     const { data, error } = await supabase
       .from('profiles')
       .update({
         user_type: newRole,
-        role_changed_at: new Date().toISOString(),
-        role_changed_by: (await supabase.auth.getUser()).data.user?.id,
+        metadata: {
+          ...(profile?.metadata || {}),
+          role_changed_at: new Date().toISOString(),
+          role_changed_by: currentUser?.id,
+        },
       })
       .eq('id', userId)
       .select()
@@ -285,7 +308,7 @@ export const adminApi = {
       date_to?: string;
     }
   ): Promise<{ logs: unknown[]; total: number }> => {
-    await requireRole(['admin'])();
+    await requireRole(['admin', 'admin_ansut']);
 
     let query = supabase
       .from('audit_logs')
@@ -335,7 +358,7 @@ export const adminApi = {
    * Récupère les logs d'audit admin (table admin_audit_logs)
    */
   getAdminAuditLogs: async (limit = 20): Promise<unknown[]> => {
-    await requireRole(['admin'])();
+    await requireRole(['admin', 'admin_ansut']);
 
     const { data, error } = await supabase
       .from('admin_audit_logs')

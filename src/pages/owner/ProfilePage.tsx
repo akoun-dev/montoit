@@ -18,12 +18,14 @@ import {
   Mail,
   Loader2,
   Key,
+  FolderOpen,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatAddress } from '@/shared/utils/address';
 import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
 import RoleSwitcher from '@/components/role/RoleSwitcher';
 import { RoleSwitchModal } from '@/shared/ui/Modal';
+import { DossierSubmissionTab } from '@/shared/ui/verification/DossierSubmissionTab';
 
 interface Profile {
   id: string;
@@ -393,6 +395,7 @@ export default function OwnerProfilePage() {
     { id: 'infos', label: 'Informations', icon: User },
     { id: 'agency', label: 'Agence', icon: Building2 },
     { id: 'verification', label: 'Vérifications', icon: Shield },
+    { id: 'dossier', label: 'Dossier', icon: FolderOpen },
     { id: 'stats', label: 'Statistiques', icon: TrendingUp },
   ];
 
@@ -747,6 +750,13 @@ export default function OwnerProfilePage() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'dossier' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-gray-900">Dossier de certification propriétaire</h3>
+              <DossierSubmissionTab dossierType="owner" />
             </div>
           )}
 
