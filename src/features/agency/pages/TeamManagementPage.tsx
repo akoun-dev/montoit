@@ -88,6 +88,7 @@ export default function TeamManagementPage() {
 
   // Form state for adding agent
   const [newAgent, setNewAgent] = useState({
+    full_name: '',
     email: '',
     phone: '',
     role: 'agent',
@@ -98,6 +99,7 @@ export default function TeamManagementPage() {
 
   useEffect(() => {
     loadAgency();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadAgency = async () => {

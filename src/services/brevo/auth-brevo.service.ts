@@ -8,6 +8,9 @@
 import { supabase } from '@/services/supabase/client';
 import { otpUnifiedService, type OTPRequest, type OTPVerification } from './otp-unified.service';
 
+// Regex de validation email conforme RFC 5322
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+
 export interface SignUpData {
   email?: string;
   phone?: string;
@@ -53,6 +56,15 @@ class AuthBrevoService {
       return {
         success: false,
         error: 'Email ou numéro de téléphone requis',
+      };
+    }
+
+    // Validation email
+    if (method === 'email' && !EMAIL_REGEX.test(recipient)) {
+      console.error('[auth-brevo] ❌ Format email invalide');
+      return {
+        success: false,
+        error: 'Format d\'email invalide. Ex: exemple@domaine.com',
       };
     }
 
@@ -235,7 +247,7 @@ class AuthBrevoService {
       // car nous n'avons pas de mot de passe utilisateur
 
       // Utiliser le magic link ou créer un token manuellement
-      const { data, error } = await supabase.auth.setSession({
+      const { error } = await supabase.auth.setSession({
         access_token: this.generateTemporaryToken(profile.id),
         refresh_token: this.generateTemporaryToken(profile.id, 'refresh'),
       });

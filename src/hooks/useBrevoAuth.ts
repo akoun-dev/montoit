@@ -10,6 +10,12 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/services/supabase/client';
 import { authBrevoService } from '@/services/brevo/auth-brevo.service';
 
+// Regex de validation email conforme RFC 5322
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+
+// Regex de validation nom complet (minimum 5 caractères, lettres avec accents, espaces, tirets, apostrophes)
+const FULL_NAME_REGEX = /^[\p{L}\s'-]{5,}$/u;
+
 export interface UseBrevoAuthState {
   loading: boolean;
   error: string | null;
@@ -95,6 +101,12 @@ export function useBrevoAuth() {
       fullName?: string;
     }): Promise<boolean> => {
       const { recipient, method, fullName } = data;
+
+      // Validation email avant envoi
+      if (method === 'email' && !EMAIL_REGEX.test(recipient)) {
+        setStateField('error', 'Format d\'email invalide. Ex: exemple@domaine.com');
+        return false;
+      }
 
       setStateField('loading', true);
       clearError();
@@ -185,6 +197,12 @@ export function useBrevoAuth() {
     async (fullName: string): Promise<boolean> => {
       if (!tempData || !fullName.trim()) {
         setStateField('error', 'Veuillez entrer un nom valide');
+        return false;
+      }
+
+      // Validation du nom complet (minimum 5 caractères, lettres uniquement)
+      if (!FULL_NAME_REGEX.test(fullName.trim())) {
+        setStateField('error', 'Le nom complet doit contenir au moins 5 lettres');
         return false;
       }
 

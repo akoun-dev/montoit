@@ -6,10 +6,9 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Mail,
-  Lock,
   User,
   Phone,
   Loader2,
@@ -17,7 +16,6 @@ import {
   ArrowLeft,
   Smartphone,
   Star,
-  Home,
   Shield,
   MessageCircle,
   CheckCircle,
@@ -26,6 +24,9 @@ import { useBrevoAuth } from '@/hooks/useBrevoAuth';
 import { PhoneInputWithCountry } from '@/shared/components/PhoneInputWithCountry';
 import OTPInput from '@/shared/components/modern/OTPInput';
 import { InputWithIcon } from '@/shared/ui';
+
+// Regex de validation nom complet (minimum 5 caractères, lettres avec accents, espaces, tirets, apostrophes)
+const FULL_NAME_REGEX = /^[\p{L}\s'-]{5,}$/u;
 
 type AuthMethod = 'phone' | 'email';
 
@@ -62,11 +63,9 @@ export default function ModernAuthPageBrevo() {
     success,
     otpSent,
     needsName,
-    isNewUser,
     sendOTP,
     verifyOTP,
     submitName,
-    selectRole,
     clearError,
     reset,
   } = useBrevoAuth();
@@ -77,12 +76,10 @@ export default function ModernAuthPageBrevo() {
   );
   const [recipient, setRecipient] = useState('');
   const [phoneDisplay, setPhoneDisplay] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
   const [isPhoneValid, setIsPhoneValid] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [sendMethod, setSendMethod] = useState<'sms' | 'whatsapp'>('whatsapp');
   const [slideIndex, setSlideIndex] = useState(0);
 
@@ -106,7 +103,6 @@ export default function ModernAuthPageBrevo() {
     reset();
     setRecipient('');
     setPhoneDisplay('');
-    setPhoneNumber('');
     setEmail('');
     setOtpCode('');
     setFullName('');
@@ -120,13 +116,18 @@ export default function ModernAuthPageBrevo() {
     isValid: boolean
   ) => {
     setPhoneDisplay(display);
-    setPhoneNumber(fullNumber);
     setRecipient(fullNumber);
     setIsPhoneValid(isValid);
   };
 
   // Envoyer l'OTP
   const handleSendOTP = async () => {
+    // Validation du nom pour l'inscription par email
+    if (authMethod === 'email' && !FULL_NAME_REGEX.test(fullName.trim())) {
+      setError('Le nom complet doit contenir au moins 5 lettres');
+      return;
+    }
+
     const success = await sendOTP({
       recipient: authMethod === 'phone' ? recipient : email,
       method: authMethod,
@@ -149,16 +150,15 @@ export default function ModernAuthPageBrevo() {
 
   // Soumettre le nom (nouvel utilisateur)
   const handleSubmitName = async () => {
+    if (!FULL_NAME_REGEX.test(fullName.trim())) {
+      setError('Le nom complet doit contenir au moins 5 lettres');
+      return;
+    }
     const success = await submitName(fullName);
 
     if (success) {
       // Redirection automatique vers sélection du rôle
     }
-  };
-
-  // Sélectionner un rôle
-  const handleSelectRole = async (role: 'locataire' | 'proprietaire' | 'agence') => {
-    await selectRole(role);
   };
 
   return (

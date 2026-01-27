@@ -49,11 +49,25 @@ class OTPUnifiedService {
   }
 
   /**
+   * Regex de validation email conforme RFC 5322
+   * - Partie locale : lettres, chiffres, caractères spéciaux autorisés
+   * - Domaine : lettres, chiffres, tirets, points
+   * - TLD : minimum 2 caractères
+   */
+  private readonly EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+
+  /**
+   * Valide un format d'email
+   */
+  validateEmail(email: string): boolean {
+    return this.EMAIL_REGEX.test(email);
+  }
+
+  /**
    * Détermine si le recipient est un email ou un numéro de téléphone
    */
   private detectRecipientType(recipient: string): "email" | "phone" {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(recipient) ? "email" : "phone";
+    return this.EMAIL_REGEX.test(recipient) ? "email" : "phone";
   }
 
   /**
@@ -480,6 +494,7 @@ class OTPUnifiedService {
 
   /**
    * Vérifie le rate limiting pour un destinataire
+   * Note: Le paramètre action est réservé pour une utilisation future (différencier les types d'actions)
    */
   async checkRateLimit(
     recipient: string,
@@ -487,6 +502,8 @@ class OTPUnifiedService {
     windowMinutes: number = 5,
     maxAttempts: number = 3,
   ): Promise<{ allowed: boolean; remainingTime?: number }> {
+    // Le paramètre action est réservé pour une utilisation future
+    void action;
     try {
       const cutoffTime = new Date(Date.now() - windowMinutes * 60 * 1000)
         .toISOString();

@@ -27,6 +27,12 @@ import { supabase } from '@/services/supabase/client';
 import { InputWithIcon } from '@/shared/ui';
 import { PhoneInputWithCountry } from '@/shared/components/PhoneInputWithCountry';
 import { otpUnifiedService } from '@/services/brevo/otp-unified.service';
+
+// Regex de validation email conforme RFC 5322
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+
+// Regex de validation nom complet (minimum 5 caractères, lettres avec accents, espaces, tirets, apostrophes)
+const FULL_NAME_REGEX = /^[\p{L}\s'-]{5,}$/u;
 import OTPInput from '@/shared/components/modern/OTPInput';
 import { getDashboardRoute } from '@/shared/utils/roleRoutes';
 
@@ -269,6 +275,11 @@ export default function ModernAuthPage() {
     setLoading(true);
 
     try {
+      // Validation email
+      if (!EMAIL_REGEX.test(email)) {
+        throw new Error('Format d\'email invalide. Ex: exemple@domaine.com');
+      }
+
       console.log('Attempting login with email:', email);
       const { error: loginError } = await supabase.auth.signInWithPassword({
         email,
@@ -294,14 +305,19 @@ export default function ModernAuthPage() {
     setLoading(true);
 
     try {
+      // Validation email
+      if (!EMAIL_REGEX.test(email)) {
+        throw new Error('Format d\'email invalide. Ex: exemple@domaine.com');
+      }
+      // Validation nom complet (minimum 5 caractères, lettres uniquement)
+      if (!FULL_NAME_REGEX.test(fullName.trim())) {
+        throw new Error('Le nom complet doit contenir au moins 5 lettres');
+      }
       if (password !== confirmPassword) {
         throw new Error('Les mots de passe ne correspondent pas');
       }
       if (password.length < 6) {
         throw new Error('Mot de passe trop court (minimum 6 caractères)');
-      }
-      if (!fullName.trim()) {
-        throw new Error('Veuillez entrer votre nom complet');
       }
 
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
@@ -419,8 +435,8 @@ export default function ModernAuthPage() {
   };
 
   const handleSubmitName = async () => {
-    if (!fullName.trim()) {
-      setError('Veuillez entrer votre nom');
+    if (!FULL_NAME_REGEX.test(fullName.trim())) {
+      setError('Le nom complet doit contenir au moins 5 lettres');
       return;
     }
     // Sauvegarder le nom complet dans sessionStorage pour la page de choix de profil
