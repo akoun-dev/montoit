@@ -11,6 +11,7 @@ const ProfileSelection = lazyWithRetry(() => import('@/pages/auth/ProfileSelecti
 const ProfileCompletion = lazyWithRetry(() => import('@/pages/auth/ProfileCompletionPage'));
 const BiometricVerification = lazyWithRetry(() => import('@/pages/auth/BiometricVerificationPage'));
 const NeoFaceReturn = lazyWithRetry(() => import('@/pages/auth/NeoFaceReturnPage'));
+const JoinAgency = lazyWithRetry(() => import('@/pages/auth/JoinAgencyPage'));
 
 export const authRoutes: RouteObject[] = [
   { path: 'connexion', element: <ModernAuth /> },
@@ -18,6 +19,7 @@ export const authRoutes: RouteObject[] = [
   { path: 'login', element: <Navigate to="/connexion" replace /> },
   { path: 'auth', element: <ModernAuth /> },
   { path: 'auth/callback', element: <AuthCallback /> },
+  { path: 'rejoindre-agence', element: <JoinAgency /> },
   { path: 'mot-de-passe-oublie', element: <ForgotPassword /> },
   { path: 'reinitialiser-mot-de-passe', element: <ResetPassword /> },
   {

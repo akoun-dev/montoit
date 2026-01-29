@@ -65,6 +65,16 @@ export default function TenantCalendar() {
 
       if (leaseData) {
         const lease = leaseData as any;
+
+        // Load property data to get monthly_rent
+        const { data: propertyData } = await supabase
+          .from('properties')
+          .select('monthly_rent')
+          .eq('id', lease.property_id)
+          .single();
+
+        const monthlyRent = propertyData?.monthly_rent || 0;
+
         const paymentDate = new Date(lease.start_date);
         while (paymentDate <= endOfMonth) {
           if (paymentDate >= startOfMonth) {
@@ -73,7 +83,7 @@ export default function TenantCalendar() {
               date: new Date(paymentDate),
               type: 'payment_due',
               title: 'Échéance de loyer',
-              amount: lease.monthly_rent,
+              amount: monthlyRent,
             });
           }
           paymentDate.setMonth(paymentDate.getMonth() + 1);

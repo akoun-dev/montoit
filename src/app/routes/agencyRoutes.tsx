@@ -7,8 +7,13 @@ import AgencyDashboardLayout from '@/features/agency/components/AgencyDashboardL
 // Agency pages
 const AgencyDashboard = lazyWithRetry(() => import('@/pages/agency/DashboardPage'));
 const MyMandatesPage = lazyWithRetry(() => import('@/pages/agency/MyMandatesPage'));
-const MandateDetailPage = lazyWithRetry(() => import('@/pages/agency/MandateDetailPage'));
+const AgencyMandatesPage = lazyWithRetry(() => import('@/features/agency/pages/AgencyMandatesPage'));
+const MandateDetailPage = lazyWithRetry(() => import('@/components/mandates/MandateDetailPage'));
 const SignMandatePage = lazyWithRetry(() => import('@/pages/agency/SignMandatePage'));
+const HandwrittenSignaturePage = lazyWithRetry(() => import('@/pages/mandates/HandwrittenSignaturePage'));
+const AgencyPropertiesPage = lazyWithRetry(() => import('@/pages/agency/AgencyPropertiesPage'));
+const AgencyPropertyDetailPage = lazyWithRetry(() => import('@/pages/agency/AgencyPropertyDetailPage'));
+const AgencyPropertyEditPage = lazyWithRetry(() => import('@/pages/agency/AgencyPropertyEditPage'));
 const AgencyAddProperty = lazyWithRetry(() => import('@/pages/agency/AddPropertyPage'));
 const AgencyAnalyticsPage = lazyWithRetry(() => import('@/pages/agency/AnalyticsPage'));
 const AgencyCalendarPage = lazyWithRetry(() => import('@/pages/agency/CalendarPage'));
@@ -22,6 +27,7 @@ const AgencyPaymentsPage = lazyWithRetry(() => import('@/pages/agency/PaymentsPa
 const AgencyDocumentsPage = lazyWithRetry(() => import('@/pages/agency/DocumentsPage'));
 const AgencyRemindersPage = lazyWithRetry(() => import('@/pages/agency/RemindersPage'));
 const TeamManagementPage = lazyWithRetry(() => import('@/pages/agency/TeamManagementPage'));
+const PropertyAssignmentsPage = lazyWithRetry(() => import('@/features/agency/pages/PropertyAssignmentsPage'));
 const CommissionsPage = lazyWithRetry(() => import('@/pages/agency/CommissionsPage'));
 
 export const agencyRoutes: RouteObject[] = [
@@ -41,7 +47,7 @@ export const agencyRoutes: RouteObject[] = [
       // Agency mandates
       {
         path: 'mandats',
-        element: <MyMandatesPage />,
+        element: <AgencyMandatesPage />,
       },
       {
         path: 'mandats/:id',
@@ -51,11 +57,23 @@ export const agencyRoutes: RouteObject[] = [
         path: 'signer-mandat/:id',
         element: <SignMandatePage />,
       },
+      {
+        path: 'mes-mandats/signer/:id',
+        element: <HandwrittenSignaturePage />,
+      },
 
       // Property management
       {
         path: 'biens',
-        element: <AgencyAddProperty />,
+        element: <AgencyPropertiesPage />,
+      },
+      {
+        path: 'biens/:id',
+        element: <AgencyPropertyDetailPage />,
+      },
+      {
+        path: 'biens/:id/edit',
+        element: <AgencyPropertyEditPage />,
       },
       {
         path: 'ajouter-bien',
@@ -140,6 +158,10 @@ export const agencyRoutes: RouteObject[] = [
       {
         path: 'equipe',
         element: <TeamManagementPage />,
+      },
+      {
+        path: 'attributions',
+        element: <PropertyAssignmentsPage />,
       },
       {
         path: 'commissions',

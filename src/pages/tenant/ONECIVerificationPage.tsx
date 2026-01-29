@@ -15,7 +15,6 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { ArrowLeft, Shield, CheckCircle } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { OneCiVerificationForm } from '@/features/verification';
-import TenantDashboardLayout from '@/features/tenant/components/TenantDashboardLayout';
 
 export default function ONECIVerificationPage() {
   const { user, profile: authProfile, refetchProfile } = useAuth();
@@ -67,16 +66,16 @@ export default function ONECIVerificationPage() {
 
   if (loading) {
     return (
-      <TenantDashboardLayout title="Vérification ONECI">
+      <div>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
-      </TenantDashboardLayout>
+      </div>
     );
   }
 
   return (
-    <TenantDashboardLayout title="Vérification ONECI">
+    <div>
       <div className="w-full">
         {/* Header */}
         <div className="mb-8">
@@ -130,6 +129,6 @@ export default function ONECIVerificationPage() {
           </div>
         )}
       </div>
-    </TenantDashboardLayout>
+    </div>
   );
 }

@@ -80,9 +80,7 @@ serve(async (req) => {
           cryptoneo_signed_document_url: publicUrl,
           cryptoneo_signature_status: 'completed',
           cryptoneo_callback_received_at: new Date().toISOString(),
-          is_electronically_signed: true,
-          landlord_cryptoneo_signature_at: new Date().toISOString(),
-          tenant_cryptoneo_signature_at: new Date().toISOString()
+          signed_at: new Date().toISOString()
         })
         .eq('id', lease.id);
 

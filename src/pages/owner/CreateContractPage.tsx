@@ -63,6 +63,7 @@ export default function CreateContractPage() {
 
   const initialPropertyId = urlPropertyId || searchParams.get('propertyId') || '';
   const initialTenantId = searchParams.get('tenantId') || '';
+  const applicationId = searchParams.get('applicationId') || '';
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [applications, setApplications] = useState<AcceptedApplication[]>([]);
@@ -140,7 +141,8 @@ export default function CreateContractPage() {
 
   useEffect(() => {
     if (user) loadData();
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, applicationId]);
 
   useEffect(() => {
     if (selectedProperty) {
@@ -173,6 +175,38 @@ export default function CreateContractPage() {
         monthly_rent: p.price ?? 0,
       }));
       setProperties(normalized);
+
+      // Si applicationId est fourni, charger la candidature et pré-remplir
+      if (applicationId) {
+        const { data: appData, error: appError } = await supabase
+          .from('rental_applications')
+          .select('id, tenant_id, property_id, status')
+          .eq('id', applicationId)
+          .eq('status', 'acceptee')
+          .single();
+
+        if (appError) throw appError;
+
+        if (appData) {
+          setSelectedProperty(appData.property_id);
+          setSelectedTenant(appData.tenant_id);
+
+          // Charger les infos du locataire
+          const { data: tenantData } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, phone')
+            .eq('id', appData.tenant_id)
+            .single();
+
+          if (tenantData) {
+            const appWithProfile: AcceptedApplication = {
+              ...appData,
+              profiles: tenantData,
+            };
+            setApplications([appWithProfile]);
+          }
+        }
+      }
     } catch (err: unknown) {
       console.error('Error loading data:', err);
       setError(err instanceof Error ? err.message : 'Erreur lors du chargement');
@@ -243,6 +277,7 @@ export default function CreateContractPage() {
     setError('');
 
     try {
+      // Vérifier si un contrat existe déjà pour ce couple propriétaire/locataire
       const { count: existingContracts, error: existingError } = await supabase
         .from('lease_contracts')
         .select('id', { count: 'exact', head: true })

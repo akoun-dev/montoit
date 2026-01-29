@@ -129,6 +129,7 @@ export default function MyMandatesPage() {
   };
 
   const handleSign = (mandate: AgencyMandate) => {
+    // Both owners and agencies go through the choice page
     navigate(`/mandat/signer/${mandate.id}`);
   };
 

@@ -12,6 +12,9 @@ import Home from '@/pages/public/HomePage';
 const NotFound = lazyWithRetry(() => import('@/pages/public/NotFoundPage'));
 const AddPropertyLanding = lazyWithRetry(() => import('@/pages/public/AddPropertyLandingPage'));
 
+// Agencies directory
+const AgenciesDirectory = lazyWithRetry(() => import('@/pages/agencies/AgenciesDirectoryPage'));
+
 // Property pages
 const SearchProperties = lazyWithRetry(() => import('@/pages/tenant/SearchPropertiesPage'));
 const PropertyDetail = lazyWithRetry(() => import('@/pages/tenant/PropertyDetailPage'));
@@ -50,6 +53,9 @@ export const publicRoutes: RouteObject[] = [
   // Property landing pages
   { path: 'ajouter-propriete', element: <AddPropertyLanding /> },
   { path: 'louer-mon-bien', element: <AddPropertyLanding /> },
+
+  // Agencies directory
+  { path: 'agences', element: <AgenciesDirectory /> },
 
   // Property search & details
   {

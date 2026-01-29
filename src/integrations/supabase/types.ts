@@ -1,3 +1,4 @@
+Initialising login role...
 export type Json =
   | string
   | number
@@ -310,13 +311,20 @@ export type Database = {
         Row: {
           address: string | null
           agency_name: string
+          ansut_certification_date: string | null
+          ansut_certification_expiry: string | null
+          ansut_certification_number: string | null
           city: string | null
           commission_rate: number | null
+          country: string | null
           created_at: string | null
+          department: string | null
           description: string | null
           email: string | null
           id: string
+          is_ansut_certified: boolean | null
           is_verified: boolean | null
+          legal_form: string | null
           logo_url: string | null
           phone: string | null
           registration_number: string | null
@@ -329,13 +337,20 @@ export type Database = {
         Insert: {
           address?: string | null
           agency_name: string
+          ansut_certification_date?: string | null
+          ansut_certification_expiry?: string | null
+          ansut_certification_number?: string | null
           city?: string | null
           commission_rate?: number | null
+          country?: string | null
           created_at?: string | null
+          department?: string | null
           description?: string | null
           email?: string | null
           id?: string
+          is_ansut_certified?: boolean | null
           is_verified?: boolean | null
+          legal_form?: string | null
           logo_url?: string | null
           phone?: string | null
           registration_number?: string | null
@@ -348,13 +363,20 @@ export type Database = {
         Update: {
           address?: string | null
           agency_name?: string
+          ansut_certification_date?: string | null
+          ansut_certification_expiry?: string | null
+          ansut_certification_number?: string | null
           city?: string | null
           commission_rate?: number | null
+          country?: string | null
           created_at?: string | null
+          department?: string | null
           description?: string | null
           email?: string | null
           id?: string
+          is_ansut_certified?: boolean | null
           is_verified?: boolean | null
+          legal_form?: string | null
           logo_url?: string | null
           phone?: string | null
           registration_number?: string | null
@@ -395,6 +417,100 @@ export type Database = {
           },
           {
             foreignKeyName: "agencies_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_agents: {
+        Row: {
+          agency_id: string
+          bio: string | null
+          commission_split: number | null
+          created_at: string | null
+          email: string
+          hire_date: string
+          id: string
+          phone: string | null
+          role: string
+          specialties: string[] | null
+          status: string
+          target_monthly: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          bio?: string | null
+          commission_split?: number | null
+          created_at?: string | null
+          email: string
+          hire_date?: string
+          id?: string
+          phone?: string | null
+          role?: string
+          specialties?: string[] | null
+          status?: string
+          target_monthly?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          bio?: string | null
+          commission_split?: number | null
+          created_at?: string | null
+          email?: string
+          hire_date?: string
+          id?: string
+          phone?: string | null
+          role?: string
+          specialties?: string[] | null
+          status?: string
+          target_monthly?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_agents_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_agents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_audit_stats"
+            referencedColumns: ["admin_id"]
+          },
+          {
+            foreignKeyName: "agency_agents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_agents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_user_id"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_agents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_user_id"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agency_agents_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "public_profiles_view"
@@ -561,98 +677,98 @@ export type Database = {
         Row: {
           agency_id: string
           agency_signed_at: string | null
-          can_communicate_tenants: boolean | null
-          can_create_leases: boolean | null
-          can_create_properties: boolean | null
-          can_delete_properties: boolean | null
-          can_edit_properties: boolean | null
-          can_manage_applications: boolean | null
-          can_manage_documents: boolean | null
-          can_manage_maintenance: boolean | null
-          can_view_applications: boolean | null
-          can_view_financials: boolean | null
-          can_view_properties: boolean | null
-          commission_rate: number | null
-          created_at: string | null
+          can_communicate_tenants: boolean
+          can_create_leases: boolean
+          can_create_properties: boolean
+          can_delete_properties: boolean
+          can_edit_properties: boolean
+          can_manage_applications: boolean
+          can_manage_documents: boolean
+          can_manage_maintenance: boolean
+          can_view_applications: boolean
+          can_view_financials: boolean
+          can_view_properties: boolean
+          commission_rate: number
+          created_at: string
           cryptoneo_operation_id: string | null
           cryptoneo_signature_status: string | null
           end_date: string | null
           id: string
           mandate_document_url: string | null
-          mandate_scope: string | null
+          mandate_scope: string
           notes: string | null
           owner_id: string
           owner_signed_at: string | null
           property_id: string | null
           signed_at: string | null
           signed_mandate_url: string | null
-          start_date: string | null
-          status: string | null
-          updated_at: string | null
+          start_date: string
+          status: string
+          updated_at: string
         }
         Insert: {
           agency_id: string
           agency_signed_at?: string | null
-          can_communicate_tenants?: boolean | null
-          can_create_leases?: boolean | null
-          can_create_properties?: boolean | null
-          can_delete_properties?: boolean | null
-          can_edit_properties?: boolean | null
-          can_manage_applications?: boolean | null
-          can_manage_documents?: boolean | null
-          can_manage_maintenance?: boolean | null
-          can_view_applications?: boolean | null
-          can_view_financials?: boolean | null
-          can_view_properties?: boolean | null
-          commission_rate?: number | null
-          created_at?: string | null
+          can_communicate_tenants?: boolean
+          can_create_leases?: boolean
+          can_create_properties?: boolean
+          can_delete_properties?: boolean
+          can_edit_properties?: boolean
+          can_manage_applications?: boolean
+          can_manage_documents?: boolean
+          can_manage_maintenance?: boolean
+          can_view_applications?: boolean
+          can_view_financials?: boolean
+          can_view_properties?: boolean
+          commission_rate?: number
+          created_at?: string
           cryptoneo_operation_id?: string | null
           cryptoneo_signature_status?: string | null
           end_date?: string | null
           id?: string
           mandate_document_url?: string | null
-          mandate_scope?: string | null
+          mandate_scope?: string
           notes?: string | null
           owner_id: string
           owner_signed_at?: string | null
           property_id?: string | null
           signed_at?: string | null
           signed_mandate_url?: string | null
-          start_date?: string | null
-          status?: string | null
-          updated_at?: string | null
+          start_date?: string
+          status?: string
+          updated_at?: string
         }
         Update: {
           agency_id?: string
           agency_signed_at?: string | null
-          can_communicate_tenants?: boolean | null
-          can_create_leases?: boolean | null
-          can_create_properties?: boolean | null
-          can_delete_properties?: boolean | null
-          can_edit_properties?: boolean | null
-          can_manage_applications?: boolean | null
-          can_manage_documents?: boolean | null
-          can_manage_maintenance?: boolean | null
-          can_view_applications?: boolean | null
-          can_view_financials?: boolean | null
-          can_view_properties?: boolean | null
-          commission_rate?: number | null
-          created_at?: string | null
+          can_communicate_tenants?: boolean
+          can_create_leases?: boolean
+          can_create_properties?: boolean
+          can_delete_properties?: boolean
+          can_edit_properties?: boolean
+          can_manage_applications?: boolean
+          can_manage_documents?: boolean
+          can_manage_maintenance?: boolean
+          can_view_applications?: boolean
+          can_view_financials?: boolean
+          can_view_properties?: boolean
+          commission_rate?: number
+          created_at?: string
           cryptoneo_operation_id?: string | null
           cryptoneo_signature_status?: string | null
           end_date?: string | null
           id?: string
           mandate_document_url?: string | null
-          mandate_scope?: string | null
+          mandate_scope?: string
           notes?: string | null
           owner_id?: string
           owner_signed_at?: string | null
           property_id?: string | null
           signed_at?: string | null
           signed_mandate_url?: string | null
-          start_date?: string | null
-          status?: string | null
-          updated_at?: string | null
+          start_date?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -716,6 +832,106 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "public_properties_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_invitations: {
+        Row: {
+          accepted_at: string | null
+          agency_id: string
+          bio: string | null
+          commission_split: number | null
+          created_at: string | null
+          email: string
+          expires_at: string | null
+          first_name: string | null
+          id: string
+          invited_by: string | null
+          last_name: string | null
+          phone: string | null
+          role: string | null
+          status: string | null
+          target_monthly: number | null
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          agency_id: string
+          bio?: string | null
+          commission_split?: number | null
+          created_at?: string | null
+          email: string
+          expires_at?: string | null
+          first_name?: string | null
+          id?: string
+          invited_by?: string | null
+          last_name?: string | null
+          phone?: string | null
+          role?: string | null
+          status?: string | null
+          target_monthly?: number | null
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          agency_id?: string
+          bio?: string | null
+          commission_split?: number | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string | null
+          first_name?: string | null
+          id?: string
+          invited_by?: string | null
+          last_name?: string | null
+          phone?: string | null
+          role?: string | null
+          status?: string | null
+          target_monthly?: number | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_invitations_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_invitations_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "admin_audit_stats"
+            referencedColumns: ["admin_id"]
+          },
+          {
+            foreignKeyName: "agent_invitations_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_invitations_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_user_id"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_invitations_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_user_id"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_invitations_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles_view"
             referencedColumns: ["id"]
           },
         ]
@@ -3620,15 +3836,7 @@ export type Database = {
           signer_type?: string
           status?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "mandate_signature_logs_mandate_id_fkey"
-            columns: ["mandate_id"]
-            isOneToOne: false
-            referencedRelation: "agency_mandates"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       messages: {
         Row: {
@@ -4786,8 +4994,10 @@ export type Database = {
           paid_at: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_type: Database["public"]["Enums"]["payment_type"]
+          payment_url: string | null
           processor_response: Json | null
           property_id: string | null
+          provider: string | null
           refund_amount: number | null
           refund_reason: string | null
           refund_transaction_id: string | null
@@ -4815,8 +5025,10 @@ export type Database = {
           paid_at?: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_type: Database["public"]["Enums"]["payment_type"]
+          payment_url?: string | null
           processor_response?: Json | null
           property_id?: string | null
+          provider?: string | null
           refund_amount?: number | null
           refund_reason?: string | null
           refund_transaction_id?: string | null
@@ -4844,8 +5056,10 @@ export type Database = {
           paid_at?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           payment_type?: Database["public"]["Enums"]["payment_type"]
+          payment_url?: string | null
           processor_response?: Json | null
           property_id?: string | null
+          provider?: string | null
           refund_amount?: number | null
           refund_reason?: string | null
           refund_transaction_id?: string | null
@@ -5080,6 +5294,7 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           main_image: string | null
+          managed_by_agency: string | null
           minimum_lease_months: number | null
           neighborhood: string | null
           owner_id: string
@@ -5134,6 +5349,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           main_image?: string | null
+          managed_by_agency?: string | null
           minimum_lease_months?: number | null
           neighborhood?: string | null
           owner_id: string
@@ -5188,6 +5404,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           main_image?: string | null
+          managed_by_agency?: string | null
           minimum_lease_months?: number | null
           neighborhood?: string | null
           owner_id?: string
@@ -5206,6 +5423,13 @@ export type Database = {
           year_built?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "properties_managed_by_agency_fkey"
+            columns: ["managed_by_agency"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "properties_owner_id_fkey"
             columns: ["owner_id"]
@@ -5323,6 +5547,125 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "public_profiles_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_assignments: {
+        Row: {
+          agency_id: string
+          agent_id: string
+          assigned_by: string | null
+          assignment_type: string | null
+          commission_override: number | null
+          created_at: string | null
+          end_date: string | null
+          id: string
+          notes: string | null
+          property_id: string
+          start_date: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          agent_id: string
+          assigned_by?: string | null
+          assignment_type?: string | null
+          commission_override?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          property_id: string
+          start_date?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          agent_id?: string
+          assigned_by?: string | null
+          assignment_type?: string | null
+          commission_override?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          property_id?: string
+          start_date?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_assignments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_assignments_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agency_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "admin_audit_stats"
+            referencedColumns: ["admin_id"]
+          },
+          {
+            foreignKeyName: "property_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_user_id"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_user_id"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "property_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_assignments_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_assignments_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties_with_monthly_rent"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_assignments_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "public_properties_view"
             referencedColumns: ["id"]
           },
         ]
@@ -6405,11 +6748,15 @@ export type Database = {
         Row: {
           comment: string | null
           created_at: string | null
+          criteria_ratings: Json | null
+          helpful_count: number | null
           id: string
           is_visible: boolean | null
           moderation_status: string | null
           property_id: string | null
           rating: number
+          response: string | null
+          response_at: string | null
           review_type: string | null
           reviewee_id: string | null
           reviewer_id: string
@@ -6418,11 +6765,15 @@ export type Database = {
         Insert: {
           comment?: string | null
           created_at?: string | null
+          criteria_ratings?: Json | null
+          helpful_count?: number | null
           id?: string
           is_visible?: boolean | null
           moderation_status?: string | null
           property_id?: string | null
           rating: number
+          response?: string | null
+          response_at?: string | null
           review_type?: string | null
           reviewee_id?: string | null
           reviewer_id: string
@@ -6431,11 +6782,15 @@ export type Database = {
         Update: {
           comment?: string | null
           created_at?: string | null
+          criteria_ratings?: Json | null
+          helpful_count?: number | null
           id?: string
           is_visible?: boolean | null
           moderation_status?: string | null
           property_id?: string | null
           rating?: number
+          response?: string | null
+          response_at?: string | null
           review_type?: string | null
           reviewee_id?: string | null
           reviewer_id?: string
@@ -9832,6 +10187,13 @@ export type Database = {
       }
     }
     Functions: {
+      accept_agent_invitation: {
+        Args: { token_text: string; user_uuid: string }
+        Returns: {
+          message: string
+          success: boolean
+        }[]
+      }
       assign_dispute_to_agent: {
         Args: { agent_id?: string; dispute_id: string }
         Returns: string
@@ -9917,6 +10279,22 @@ export type Database = {
         Args: { p_flag_name: string; p_user_id?: string }
         Returns: Json
       }
+      expire_old_invitations: { Args: never; Returns: number }
+      get_agent_agency_id: { Args: { user_uuid: string }; Returns: string }
+      get_agent_properties: {
+        Args: { agent_user_id: string }
+        Returns: {
+          assignment_type: string
+          city: string
+          main_image: string
+          neighborhood: string
+          price: number
+          property_id: string
+          start_date: string
+          status: string
+          title: string
+        }[]
+      }
       get_dispute_statistics: { Args: { p_agent_id?: string }; Returns: Json }
       get_entity_audit_history: {
         Args: { p_entity_id: string; p_entity_type: string; p_limit?: number }
@@ -9957,6 +10335,15 @@ export type Database = {
           is_verified: boolean
           oneci_verified: boolean
           trust_score: number
+          user_id: string
+        }[]
+      }
+      get_public_profiles_safe: {
+        Args: { profile_user_ids: string[] }
+        Returns: {
+          avatar_url: string
+          full_name: string
+          is_verified: boolean
           user_id: string
         }[]
       }
@@ -10006,13 +10393,58 @@ export type Database = {
         Args: { p_admin_id: string }
         Returns: number
       }
-      get_user_roles: {
-        Args: { _user_id?: string }
+      get_user_mandates: {
+        Args: { p_user_id: string; p_user_type?: string }
         Returns: {
-          app_role: string
+          agency_city: string
+          agency_email: string
+          agency_id: string
+          agency_name: string
+          agency_phone: string
+          agency_signed_at: string
+          agency_user_id: string
+          can_communicate_tenants: boolean
+          can_create_leases: boolean
+          can_create_properties: boolean
+          can_delete_properties: boolean
+          can_edit_properties: boolean
+          can_manage_applications: boolean
+          can_manage_documents: boolean
+          can_manage_maintenance: boolean
+          can_view_applications: boolean
+          can_view_financials: boolean
+          can_view_properties: boolean
+          commission_rate: number
+          created_at: string
+          cryptoneo_signature_status: string
+          end_date: string
+          id: string
+          mandate_scope: string
+          notes: string
+          owner_email: string
+          owner_id: string
+          owner_name: string
+          owner_phone: string
+          owner_signed_at: string
+          property_city: string
+          property_id: string
+          property_main_image: string
+          property_monthly_rent: number
+          property_neighborhood: string
+          property_title: string
+          signed_mandate_url: string
+          start_date: string
+          status: string
+          updated_at: string
         }[]
       }
+      get_user_roles: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["user_type"][]
+      }
+      is_agency_agent: { Args: { user_uuid: string }; Returns: boolean }
       is_trust_agent: { Args: never; Returns: boolean }
+      is_valid_invitation_token: { Args: { token_text: string }; Returns: Json }
       log_admin_action: {
         Args: {
           p_action: string

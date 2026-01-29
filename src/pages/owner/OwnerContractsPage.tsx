@@ -37,6 +37,8 @@ import {
   regenerateContract,
   deleteContract,
   sendSignatureReminder,
+  cancelContract,
+  terminateContract,
 } from '@/services/contracts/contractService';
 import { toast } from 'sonner';
 import { format, addYears } from 'date-fns';
@@ -77,10 +79,10 @@ interface Stats {
   total: number;
   brouillon: number;
   en_attente_signature: number;
-  partiellement_signe: number;
   actif: number;
   expire: number;
   resilie: number;
+  annule: number;
 }
 
 // Status config
@@ -96,12 +98,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
     color: 'text-amber-700',
     bg: 'bg-amber-100',
     icon: Clock,
-  },
-  partiellement_signe: {
-    label: 'Partiellement signé',
-    color: 'text-blue-700',
-    bg: 'bg-blue-100',
-    icon: AlertCircle,
   },
   actif: {
     label: 'Actif',
@@ -119,6 +115,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
     label: 'Résilié',
     color: 'text-red-700',
     bg: 'bg-red-100',
+    icon: XCircle,
+  },
+  annule: {
+    label: 'Annulé',
+    color: 'text-gray-700',
+    bg: 'bg-gray-100',
     icon: XCircle,
   },
 };
@@ -198,16 +200,22 @@ export default function OwnerContractsPage() {
     total: 0,
     brouillon: 0,
     en_attente_signature: 0,
-    partiellement_signe: 0,
     actif: 0,
     expire: 0,
     resilie: 0,
+    annule: 0,
   });
   const [activeTab, setActiveTab] = useState<TabValue>('actifs');
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedContract, setExpandedContract] = useState<string | null>(null);
+
+  // Modal states for contract actions
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [terminateModalOpen, setTerminateModalOpen] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+  const [reason, setReason] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -271,10 +279,10 @@ export default function OwnerContractsPage() {
         total: contractsWithTenants.length,
         brouillon: 0,
         en_attente_signature: 0,
-        partiellement_signe: 0,
         actif: 0,
         expire: 0,
         resilie: 0,
+        annule: 0,
       };
       contractsWithTenants.forEach((c) => {
         const status = c.status as keyof Stats;
@@ -354,6 +362,56 @@ export default function OwnerContractsPage() {
     } catch (error) {
       console.error('Error sending for signature:', error);
       toast.error('Erreur lors de l\'envoi pour signature');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancelContract = async (contract: Contract) => {
+    setSelectedContract(contract);
+    setReason('');
+    setCancelModalOpen(true);
+  };
+
+  const confirmCancelContract = async () => {
+    if (!selectedContract) return;
+
+    setActionLoading(selectedContract.id);
+    try {
+      await cancelContract(selectedContract.id, reason);
+      toast.success('Contrat annulé avec succès');
+      setCancelModalOpen(false);
+      setSelectedContract(null);
+      setReason('');
+      loadContracts();
+    } catch (error: any) {
+      console.error('Error canceling contract:', error);
+      toast.error(error.message || 'Erreur lors de l\'annulation');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleTerminateContract = async (contract: Contract) => {
+    setSelectedContract(contract);
+    setReason('');
+    setTerminateModalOpen(true);
+  };
+
+  const confirmTerminateContract = async () => {
+    if (!selectedContract) return;
+
+    setActionLoading(selectedContract.id);
+    try {
+      await terminateContract(selectedContract.id, reason);
+      toast.success('Contrat résilié avec succès');
+      setTerminateModalOpen(false);
+      setSelectedContract(null);
+      setReason('');
+      loadContracts();
+    } catch (error: any) {
+      console.error('Error terminating contract:', error);
+      toast.error(error.message || 'Erreur lors de la résiliation');
     } finally {
       setActionLoading(null);
     }
@@ -498,7 +556,7 @@ export default function OwnerContractsPage() {
                 )}
                 {tab.value === 'resilies' && (
                   <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-full text-xs">
-                    {stats.resilie}
+                    {stats.resilie + stats.annule}
                   </span>
                 )}
               </button>
@@ -813,20 +871,64 @@ export default function OwnerContractsPage() {
                               )}
 
                               {contract.status === 'en_attente_signature' && (
-                                <Button
-                                  variant="outline"
-                                  size="small"
-                                  onClick={() => handleSendReminder(contract)}
-                                  disabled={isLoading}
-                                  className="flex items-center gap-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-                                >
-                                  {isLoading ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : (
-                                    <RefreshCw className="w-4 h-4" />
-                                  )}
-                                  <span>Rappel</span>
-                                </Button>
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="small"
+                                    onClick={() => handleSendReminder(contract)}
+                                    disabled={isLoading}
+                                    className="flex items-center gap-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                                  >
+                                    {isLoading ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <RefreshCw className="w-4 h-4" />
+                                    )}
+                                    <span>Rappel</span>
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="small"
+                                    onClick={() => handleCancelContract(contract)}
+                                    disabled={isLoading}
+                                    className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    {actionLoading === contract.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Ban className="w-4 h-4" />
+                                    )}
+                                    <span className="hidden sm:inline">Annuler</span>
+                                  </Button>
+                                </>
+                              )}
+
+                              {contract.status === 'actif' && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="small"
+                                    onClick={() => navigate(`/contrat/${contract.id}`)}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                    <span>Voir</span>
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="small"
+                                    onClick={() => handleTerminateContract(contract)}
+                                    disabled={isLoading}
+                                    className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    {actionLoading === contract.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Ban className="w-4 h-4" />
+                                    )}
+                                    <span className="hidden sm:inline">Résilier</span>
+                                  </Button>
+                                </>
                               )}
                             </div>
                           </div>
@@ -840,6 +942,123 @@ export default function OwnerContractsPage() {
           </>
         )}
       </div>
+
+      {/* Modal d'annulation de contrat */}
+      <Dialog open={cancelModalOpen} onOpenChange={setCancelModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Ban className="w-5 h-5 text-red-600" />
+              Annuler le contrat
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-gray-600">
+              Êtes-vous sûr de vouloir annuler le contrat <strong>{selectedContract?.contract_number}</strong> ?
+            </p>
+            <div>
+              <label htmlFor="cancel-reason" className="block text-sm font-medium text-gray-700 mb-1">
+                Motif de l'annulation <span className="text-gray-400">(optionnel)</span>
+              </label>
+              <textarea
+                id="cancel-reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Expliquez pourquoi vous annulez ce contrat..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCancelModalOpen(false);
+                setSelectedContract(null);
+                setReason('');
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmCancelContract}
+              disabled={actionLoading !== null}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Annulation...
+                </>
+              ) : (
+                'Confirmer l\'annulation'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de résiliation de contrat */}
+      <Dialog open={terminateModalOpen} onOpenChange={setTerminateModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Ban className="w-5 h-5 text-red-600" />
+              Résilier le contrat
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-gray-600">
+              Êtes-vous sûr de vouloir résilier le contrat <strong>{selectedContract?.contract_number}</strong> ?
+            </p>
+            <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
+              ⚠️ Cette action est irréversible. Le contrat sera marqué comme résilié et la propriété redevenue disponible.
+            </p>
+            <div>
+              <label htmlFor="terminate-reason" className="block text-sm font-medium text-gray-700 mb-1">
+                Motif de la résiliation <span className="text-gray-400">(optionnel)</span>
+              </label>
+              <textarea
+                id="terminate-reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Expliquez pourquoi vous résiliez ce contrat..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTerminateModalOpen(false);
+                setSelectedContract(null);
+                setReason('');
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmTerminateContract}
+              disabled={actionLoading !== null}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Résiliation...
+                </>
+              ) : (
+                'Confirmer la résiliation'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

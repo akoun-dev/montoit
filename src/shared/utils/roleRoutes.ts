@@ -25,7 +25,7 @@ export const DASHBOARD_ROUTES: Record<UserRole, string> = {
   proprietaire: '/proprietaire/dashboard',
   owner: '/proprietaire/dashboard', // Alias for proprietaire
   agence: '/agences/dashboard',
-  agent: '/agences/dashboard', // Alias for agence
+  agent: '/agent/dashboard', // Agent dashboard - separate from agency
   trust_agent: '/trust-agent/dashboard',
   admin_ansut: '/admin/tableau-de-bord',
   admin: '/admin/tableau-de-bord',

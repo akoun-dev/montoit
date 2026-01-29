@@ -1,9 +1,10 @@
-import { Link, useLocation } from 'react-router-dom';
-import { X, Building2 } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { X, Building2, LogOut } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useNavigationItems } from '@/shared/hooks/useNavigationItems';
 import { BadgeIndicator } from '@/shared/ui/BadgeIndicator';
+import { useAuth } from '@/app/providers/AuthProvider';
 
 const cn = (...inputs: (string | undefined | null | false)[]) => twMerge(clsx(inputs));
 
@@ -14,8 +15,19 @@ interface AgencySidebarProps {
 
 export default function AgencySidebar({ isOpen, onClose }: AgencySidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
+  const { signOut } = useAuth();
   const { agentItems, bottomItems } = useNavigationItems();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/connexion');
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion', error);
+    }
+  };
 
   const isActive = (href: string) => {
     if (href === '/agency') {
@@ -121,7 +133,7 @@ export default function AgencySidebar({ isOpen, onClose }: AgencySidebarProps) {
 
         {/* Footer with CTA */}
         <div className="p-4 border-t border-neutral-100">
-          <div className="bg-primary-50 rounded-xl p-4">
+          <div className="bg-primary-50 rounded-xl p-4 mb-4">
             <p className="text-sm font-medium text-primary-700 mb-1">Gérer vos mandats</p>
             <p className="text-xs text-primary-600 mb-3">Créez un nouveau mandat de gestion</p>
             <Link
@@ -131,6 +143,13 @@ export default function AgencySidebar({ isOpen, onClose }: AgencySidebarProps) {
               Nouveau mandat
             </Link>
           </div>
+          <button
+            onClick={handleSignOut}
+            className="flex items-center justify-center gap-2 w-full text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 py-2.5 px-4 rounded-lg transition-colors border border-red-200"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Déconnexion</span>
+          </button>
         </div>
       </aside>
     </>

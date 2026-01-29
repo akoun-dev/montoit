@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useNavigate, Link } from 'react-router-dom';
-import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 import TenantApplicationCard from '../../features/tenant/components/TenantApplicationCard';
 import {
   getTenantApplications,
@@ -21,6 +20,7 @@ import {
   type ApplicationStats,
 } from '@/services/applications/applicationService';
 import { toast } from 'sonner';
+import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 
 type StatusFilter = 'all' | 'en_attente' | 'en_cours' | 'acceptee' | 'refusee' | 'annulee';
 

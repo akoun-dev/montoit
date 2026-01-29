@@ -15,6 +15,7 @@ import {
   tenantRoutes,
   ownerRoutes,
   agencyRoutes,
+  agentRoutes,
   adminRoutes,
   trustAgentRoutes,
   moderatorRoutes,
@@ -24,6 +25,10 @@ import {
 const AgencyProfilePage = lazyWithRetry(() => import('@/pages/agency/ProfilePage'));
 // Lazy load MyMandatesPage for /mes-mandats route (shared between owners and agencies)
 const MyMandatesPage = lazyWithRetry(() => import('@/pages/agency/MyMandatesPage'));
+// Lazy load SignMandateWithOTPPage for /mandat/signer-otp route
+const SignMandateWithOTPPage = lazyWithRetry(() => import('@/features/mandates/SignMandateWithOTPPage'));
+// Lazy load SignMandateChoicePage for /mandat/signer route (no auth required - public link)
+const SignMandateChoicePage = lazyWithRetry(() => import('@/pages/mandates/SignMandateChoicePage'));
 
 /**
  * Main application routes
@@ -69,6 +74,12 @@ export const routes: RouteObject[] = [
         children: agencyRoutes,
       },
 
+      // Agent routes under /agent prefix
+      {
+        path: 'agent',
+        children: agentRoutes,
+      },
+
       // Alternative agency profile route
       {
         path: 'agence/profile',
@@ -85,6 +96,22 @@ export const routes: RouteObject[] = [
         element: (
           <ProtectedRoute>
             <MyMandatesPage />
+          </ProtectedRoute>
+        ),
+      },
+
+      // Mandate signature choice route (public - accessible via link without role restriction)
+      {
+        path: 'mandat/signer/:id',
+        element: <SignMandateChoicePage />,
+      },
+
+      // Mandate signature with OTP route (requires auth)
+      {
+        path: 'mandat/signer-otp/:id',
+        element: (
+          <ProtectedRoute>
+            <SignMandateWithOTPPage />
           </ProtectedRoute>
         ),
       },

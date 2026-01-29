@@ -35,13 +35,9 @@ interface Review {
   value_rating: number;
   communication_rating: number;
   comment: string;
-  would_recommend: boolean;
   created_at: string;
   owner_response: string | null;
   owner_response_date: string | null;
-  owner_name: string | null;
-  visit_id: string | null;
-  lease_id: string | null;
   is_editable: boolean;
 }
 
@@ -89,28 +85,31 @@ export default function MyReviewsPage() {
     try {
       setLoading(true);
 
-      // Get property ratings from tenant
-      const { data: ratingsData, error: ratingsError } = await supabase
-        .from('property_ratings')
+      // Get reviews from tenant
+      const { data: reviewsData, error: reviewsError } = await supabase
+        .from('reviews')
         .select(`
           *,
           properties!inner(title, city, main_image)
         `)
-        .eq('tenant_id', user.id)
+        .eq('reviewer_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (ratingsError) {
-        // Table doesn't exist or other error - show empty state
-        console.log('Property ratings table not available yet:', ratingsError.message);
+      if (reviewsError) {
+        console.log('Error loading reviews:', reviewsError.message);
         setReviews([]);
         return;
       }
 
-      const reviews: Review[] = (ratingsData || []).map((r: any) => {
+      const reviews: Review[] = (reviewsData || []).map((r: any) => {
         const createdAt = new Date(r.created_at);
         const daysSinceCreation = Math.floor(
           (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24)
         );
+
+        // Extract criteria ratings
+        const criteria = r.criteria_ratings || {};
+        const overall = r.rating || criteria.overall || 0;
 
         return {
           id: r.id,
@@ -118,19 +117,15 @@ export default function MyReviewsPage() {
           property_title: r.properties?.title || 'Propriété',
           property_city: r.properties?.city || '',
           property_image: r.properties?.main_image || null,
-          overall_rating: r.overall_rating || 0,
-          location_rating: r.location_rating || 0,
-          condition_rating: r.condition_rating || 0,
-          value_rating: r.value_rating || 0,
-          communication_rating: r.communication_rating || 0,
+          overall_rating: overall,
+          location_rating: criteria.location || criteria.emplacement || 0,
+          condition_rating: criteria.condition || criteria.proprete || 0,
+          value_rating: criteria.value || criteria.qualite_prix || 0,
+          communication_rating: criteria.communication || 0,
           comment: r.comment || '',
-          would_recommend: r.would_recommend || false,
           created_at: r.created_at,
-          owner_response: null, // Would be joined from owner_responses table
-          owner_response_date: null,
-          owner_name: null,
-          visit_id: r.visit_id || null,
-          lease_id: r.lease_id || null,
+          owner_response: r.response || null,
+          owner_response_date: r.response_at || null,
           is_editable: daysSinceCreation <= 30,
         };
       });
@@ -163,17 +158,16 @@ export default function MyReviewsPage() {
         .eq('id', user.id)
         .single();
 
-      // Get review count - handle if table doesn't exist
+      // Get review count from reviews table
       let reviewCount = 0;
       try {
         const { count } = await supabase
-          .from('property_ratings')
+          .from('reviews')
           .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', user.id);
+          .eq('reviewer_id', user.id);
 
         reviewCount = count || 0;
       } catch (e) {
-        // Table doesn't exist yet, use 0
         reviewCount = 0;
       }
 
@@ -229,7 +223,7 @@ export default function MyReviewsPage() {
 
     try {
       const { error } = await supabase
-        .from('property_ratings')
+        .from('reviews')
         .delete()
         .eq('id', reviewId);
 
@@ -247,22 +241,26 @@ export default function MyReviewsPage() {
     if (!selectedReview) return;
 
     try {
+      // Build criteria_ratings object
+      const criteriaRatings = {
+        overall: ratingData.overall_rating,
+        location: ratingData.location_rating,
+        condition: ratingData.condition_rating,
+        value: ratingData.value_rating,
+        communication: ratingData.communication_rating,
+      };
+
       const { error } = await supabase
-        .from('property_ratings')
+        .from('reviews')
         .update({
-          overall_rating: ratingData.overall_rating,
-          location_rating: ratingData.location_rating,
-          condition_rating: ratingData.condition_rating,
-          value_rating: ratingData.value_rating,
-          communication_rating: ratingData.communication_rating,
+          rating: ratingData.overall_rating,
           comment: ratingData.comment,
-          would_recommend: ratingData.would_recommend,
+          criteria_ratings: criteriaRatings,
           updated_at: new Date().toISOString(),
         })
         .eq('id', selectedReview.id);
 
       if (error) {
-        // Table doesn't exist or other error
         if (error.code === 'PGRST204' || error.code === 'PGRST205') {
           alert('La fonctionnalité des avis n\'est pas encore disponible. Veuillez contacter le support.');
         } else {
@@ -478,14 +476,6 @@ export default function MyReviewsPage() {
                     </p>
 
                     <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
-                      <span className="px-2 py-1 rounded-full bg-[#FAF7F4] text-[#6B5A4E]">
-                        {review.visit_id ? 'Après visite' : 'Après emménagement'}
-                      </span>
-                      {review.would_recommend && (
-                        <span className="px-2 py-1 rounded-full bg-green-100 text-green-700">
-                          Recommandé
-                        </span>
-                      )}
                       <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600 flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {format(new Date(review.created_at), 'd MMM yyyy', { locale: fr })}
@@ -562,7 +552,7 @@ export default function MyReviewsPage() {
             value_rating: selectedReview.value_rating,
             communication_rating: selectedReview.communication_rating,
             comment: selectedReview.comment,
-            would_recommend: selectedReview.would_recommend,
+            would_recommend: true, // Default value
           }}
         />
       )}

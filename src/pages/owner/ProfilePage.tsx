@@ -26,6 +26,7 @@ import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
 import RoleSwitcher from '@/components/role/RoleSwitcher';
 import { RoleSwitchModal } from '@/shared/ui/Modal';
 import { DossierSubmissionTab } from '@/shared/ui/verification/DossierSubmissionTab';
+import verificationApplicationsService from '@/features/verification/services/verificationApplications.service';
 
 interface Profile {
   id: string;
@@ -94,6 +95,8 @@ function VerificationItem({
   showButton = true,
   status = 'pending',
   allowRetry = false,
+  extraInfo,
+  isDossier = false,
 }: {
   title: string;
   description: string;
@@ -101,8 +104,10 @@ function VerificationItem({
   score?: number | null;
   onVerify?: () => void;
   showButton?: boolean;
-  status?: 'pending' | 'verified' | 'failed' | null;
+  status?: 'pending' | 'verified' | 'failed' | 'in_review' | null;
   allowRetry?: boolean;
+  extraInfo?: string | null;
+  isDossier?: boolean;
 }) {
   const getStatusConfig = () => {
     if (verified || status === 'verified') {
@@ -119,6 +124,14 @@ function VerificationItem({
         color: 'text-red-600',
         bgColor: 'bg-red-100',
         label: 'Échoué',
+      };
+    }
+    if (status === 'in_review') {
+      return {
+        icon: AlertCircle,
+        color: 'text-blue-600',
+        bgColor: 'bg-blue-100',
+        label: 'En cours',
       };
     }
     return {
@@ -144,6 +157,11 @@ function VerificationItem({
               Score: {score}%
             </p>
           )}
+          {extraInfo && (
+            <p className="text-xs text-red-600 mt-1">
+              {extraInfo}
+            </p>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-3 ml-4 flex-shrink-0">
@@ -152,7 +170,15 @@ function VerificationItem({
         >
           {statusConfig.label}
         </span>
-        {showButton && onVerify && (!verified || allowRetry) && (
+        {showButton && onVerify && (() => {
+          // Pour le dossier: afficher seulement si pas de dossier, rejected, ou more_info_requested
+          if (isDossier) {
+            const shouldShow = !verified || status === 'failed' || status === 'more_info_requested';
+            return shouldShow;
+          }
+          // Pour les autres items: afficher si !verified ou allowRetry
+          return !verified || allowRetry;
+        })() && (
           <button
             onClick={onVerify}
             className="inline-flex items-center gap-2.5 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
@@ -163,7 +189,7 @@ function VerificationItem({
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              {status === 'failed' || allowRetry ? (
+              {status === 'failed' || allowRetry || (isDossier && status === 'more_info_requested') ? (
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -179,7 +205,16 @@ function VerificationItem({
                 />
               )}
             </svg>
-            <span>{status === 'failed' ? 'Réessayer' : allowRetry && verified ? 'Refaire' : 'Vérifier'}</span>
+            <span>
+              {isDossier
+                ? (status === 'failed' || status === 'more_info_requested'
+                    ? 'Compléter le dossier'
+                    : verified || status === 'verified'
+                      ? 'Voir le dossier'
+                      : 'Commencer le dossier')
+                : (status === 'failed' ? 'Réessayer' : allowRetry && verified ? 'Refaire' : 'Vérifier')
+              }
+            </span>
           </button>
         )}
       </div>
@@ -199,6 +234,7 @@ export default function OwnerProfilePage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [becomingTenant, setBecomingTenant] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [dossierApplication, setDossierApplication] = useState<any>(null);
   const [formData, setFormData] = useState({
     full_name: '',
     phone: '',
@@ -217,6 +253,30 @@ export default function OwnerProfilePage() {
       loadProfile();
     }
   }, [user]);
+
+  // Charger le dossier de certification propriétaire
+  useEffect(() => {
+    if (user) {
+      loadDossierApplication();
+    }
+  }, [user]);
+
+  const loadDossierApplication = async () => {
+    if (!user) return;
+
+    try {
+      const applications = await verificationApplicationsService.getUserApplications(user.id, 'owner');
+      const activeApp = applications.find(
+        (app) => app.status === 'pending' || app.status === 'in_review' || app.status === 'more_info_requested'
+      ) || applications[0] || null;
+
+      if (activeApp) {
+        setDossierApplication(activeApp);
+      }
+    } catch (error) {
+      console.error('Error loading dossier application:', error);
+    }
+  };
 
   const loadProfile = async () => {
     try {
@@ -238,6 +298,21 @@ export default function OwnerProfilePage() {
           agency_name: profileData.agency_name || '',
           agency_description: profileData.agency_description || '',
         });
+
+        // Recalculer le score et mettre à jour si différent
+        try {
+          const { ScoringService } = await import('@/services/scoringService');
+          const scoreBreakdown = await ScoringService.calculateGlobalTrustScore(user.id);
+          const newScore = scoreBreakdown.globalScore;
+
+          if (profileData.trust_score !== newScore) {
+            await supabase.from('profiles').update({ trust_score: newScore }).eq('id', user.id);
+            // Mettre à jour le profil local
+            setProfile({ ...profileData, trust_score: newScore });
+          }
+        } catch (scoreError) {
+          console.error('Error recalculating score:', scoreError);
+        }
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -276,24 +351,12 @@ export default function OwnerProfilePage() {
 
     try {
       setUploadingAvatar(true);
-      const fileName = `${user.id}/avatar-${Date.now()}`;
-      const bucket = STORAGE_BUCKETS.PROFILE_IMAGES;
-
-      // Create bucket if needed
-      const { data: existingBuckets, error: bucketError } = await supabase.storage.listBuckets();
-      if (bucketError) throw bucketError;
-
-      const bucketExists = (existingBuckets || []).some((b) => b.name === bucket);
-      if (!bucketExists) {
-        const { error: createError } = await supabase.storage.createBucket(bucket, {
-          public: true,
-        });
-        if (createError) throw createError;
-      }
+      const fileName = `${user.id}/avatar-${Date.now()}.${file.name.split('.').pop()}`;
+      const bucket = STORAGE_BUCKETS.AVATARS;
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, file, { upsert: true, cacheControl: '3600' });
       if (uploadError) throw uploadError;
 
       const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
@@ -324,12 +387,12 @@ export default function OwnerProfilePage() {
 
     try {
       setUploadingLogo(true);
-      const fileName = `${user.id}/logo-${Date.now()}`;
-      const bucket = STORAGE_BUCKETS.PROFILE_IMAGES;
+      const fileName = `${user.id}/logo-${Date.now()}.${file.name.split('.').pop()}`;
+      const bucket = STORAGE_BUCKETS.AVATARS;
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, file, { upsert: true, cacheControl: '3600' });
       if (uploadError) throw uploadError;
 
       const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
@@ -732,6 +795,17 @@ export default function OwnerProfilePage() {
                   showButton={true}
                   status={facialStatus || 'pending'}
                   allowRetry={facialStatus === 'verified'}
+                />
+                <VerificationItem
+                  title="Dossier de certification propriétaire"
+                  description="Documents verifies pour obtenir la certification ANSUT"
+                  verified={dossierApplication?.status === 'approved'}
+                  status={dossierApplication?.status === 'rejected' ? 'failed' : dossierApplication?.status === 'approved' ? 'verified' : dossierApplication?.status === 'pending' || dossierApplication?.status === 'in_review' ? 'in_review' : 'pending'}
+                  onVerify={() => setActiveTab('dossier')}
+                  showButton={!dossierApplication || dossierApplication?.status === 'more_info_requested' || dossierApplication?.status === 'rejected'}
+                  extraInfo={dossierApplication?.rejection_reason}
+                  isDossier={true}
+                  allowRetry={dossierApplication?.status === 'rejected' || dossierApplication?.status === 'more_info_requested'}
                 />
               </div>
 

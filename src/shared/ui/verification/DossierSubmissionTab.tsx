@@ -18,6 +18,9 @@ import {
   Info,
   Loader2,
   ChevronRight,
+  Clock,
+  XCircle,
+  Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
@@ -71,31 +74,31 @@ const DOCUMENTS_CONFIG: Record<
   owner: [
     {
       type: 'id_card',
-      label: 'Carte d\'identité',
-      description: 'CNI, passeport ou titre de séjour recto-verso',
+      label: 'Carte d\'identité ou Passeport',
+      description: 'CNI ou passeport recto-verso',
       required: true,
       icon: <User className="w-5 h-5" />,
     },
     {
       type: 'property_proof',
       label: 'Titre de propriété',
-      description: 'Acte de propriété ou titre foncier pour chaque bien',
+      description: 'Acte de propriété ou titre foncier',
       required: true,
       icon: <Home className="w-5 h-5" />,
     },
     {
-      type: 'tax_compliance',
-      label: 'Certificat de conformité fiscale',
-      description: 'Attestation de régularité fiscale datant de moins de 3 mois',
+      type: 'cie_sodeci_bill',
+      label: 'Facture CIE ou SODECI',
+      description: 'Dernière facture d\'électricité (CIE) ou d\'eau (SODECI)',
       required: true,
       icon: <FileText className="w-5 h-5" />,
     },
     {
-      type: 'insurance',
-      label: 'Assurance propriétaire',
-      description: 'Attestation d\'assurance PNO (Propriétaire Non Occupant)',
-      required: false,
-      icon: <CheckCircle2 className="w-5 h-5" />,
+      type: 'rib',
+      label: 'Relevé d\'identité bancaire (RIB)',
+      description: 'RIB avec coordonnées bancaires complètes',
+      required: true,
+      icon: <FileText className="w-5 h-5" />,
     },
   ],
   agency: [
@@ -285,12 +288,6 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
   const handleSubmit = async () => {
     console.log('handleSubmit called', { application, documents, requiredDocs, dossierType });
 
-    if (!application) {
-      console.error('No application found');
-      toast.error('Veuillez d\'abord uploader au moins un document');
-      return;
-    }
-
     // Vérifier que tous les documents requis sont présents
     const missingRequired = requiredDocs.filter((doc) => !documents[doc.type]);
     console.log('Missing required docs:', missingRequired);
@@ -304,9 +301,21 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
 
     try {
       setSubmitting(true);
-      console.log('Submitting application:', application.id);
+
+      // Créer l'application si elle n'existe pas
+      let currentApp = application;
+      if (!currentApp) {
+        console.log('No application exists, creating one...');
+        currentApp = await verificationApplicationsService.create(user.id, {
+          dossier_type: dossierType,
+        });
+        setApplication(currentApp);
+        console.log('Application created:', currentApp);
+      }
+
+      console.log('Submitting application:', currentApp.id);
       console.log('Calling submitVerificationService...');
-      const result = await verificationApplicationsService.submit(application.id);
+      const result = await verificationApplicationsService.submit(currentApp.id);
       console.log('Submit result:', result);
       toast.success('Dossier soumis avec succès !');
       console.log('Reloading application...');
@@ -322,10 +331,10 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
   };
 
   const allRequiredDocsPresent = requiredDocs.every((doc) => documents[doc.type]);
+  // On peut soumettre si: tous les docs requis sont presents ET (pas d'application OU brouillon OU infos demandees)
   const canSubmit =
     allRequiredDocsPresent &&
-    application &&
-    (application.status === 'pending' || application.status === 'more_info_requested');
+    (!application || application.status === 'draft' || application.status === 'more_info_requested');
 
   const missingRequiredDocs = requiredDocs.filter((doc) => !documents[doc.type]);
 
@@ -339,9 +348,9 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header avec Statut Visible */}
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-xl font-semibold text-gray-900">Dossier de verification</h3>
             <p className="text-sm text-gray-600 mt-1">
@@ -351,11 +360,125 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
           {application && <DossierStatusBadge status={application.status} />}
         </div>
 
+        {/* Statut du dossier - Section visible et prominente */}
+        <div className="mb-6">
+          {!application ? (
+            /* Aucun dossier commence */
+            <div className="p-5 bg-slate-50 border-2 border-slate-200 rounded-2xl">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-slate-100 rounded-xl flex-shrink-0">
+                  <Upload className="w-6 h-6 text-slate-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-slate-900">Dossier non commence</h4>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Commencez votre verification en uploadant vos documents ci-dessous
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-full border bg-slate-100 text-slate-700 border-slate-200">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>À commencer</span>
+                </span>
+              </div>
+            </div>
+          ) : application.status === 'draft' ? (
+            <div className="p-5 bg-gray-50 border-2 border-gray-200 rounded-2xl">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-gray-100 rounded-xl flex-shrink-0">
+                  <FileText className="w-6 h-6 text-gray-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-gray-900">Dossier en cours de preparation</h4>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Uploadez vos documents et soumettez votre dossier pour verification
+                  </p>
+                </div>
+                <DossierStatusBadge status={application.status} size="lg" />
+              </div>
+            </div>
+          ) : application.status === 'pending' ? (
+            <div className="p-5 bg-amber-50 border-2 border-amber-200 rounded-2xl">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-amber-100 rounded-xl flex-shrink-0">
+                  <Clock className="w-6 h-6 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-amber-900">Dossier soumis - En attente de verification</h4>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Votre dossier a ete recu et sera examine par notre equipe sous peu
+                  </p>
+                </div>
+                <DossierStatusBadge status={application.status} size="lg" />
+              </div>
+            </div>
+          ) : application.status === 'in_review' ? (
+            <div className="p-5 bg-blue-50 border-2 border-blue-200 rounded-2xl">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-100 rounded-xl flex-shrink-0">
+                  <Eye className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-blue-900">Dossier en cours d'examen</h4>
+                  <p className="text-sm text-blue-700 mt-1">
+                    Notre equipe est en train de verifier vos documents
+                  </p>
+                </div>
+                <DossierStatusBadge status={application.status} size="lg" />
+              </div>
+            </div>
+          ) : application.status === 'more_info_requested' ? (
+            <div className="p-5 bg-purple-50 border-2 border-purple-200 rounded-2xl">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-purple-100 rounded-xl flex-shrink-0">
+                  <AlertCircle className="w-6 h-6 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-purple-900">Informations supplementaires demandees</h4>
+                  <p className="text-sm text-purple-700 mt-1">
+                    Veuillez completer votre dossier avec les documents demandes
+                  </p>
+                </div>
+                <DossierStatusBadge status={application.status} size="lg" />
+              </div>
+            </div>
+          ) : application.status === 'approved' ? (
+            <div className="p-5 bg-green-50 border-2 border-green-200 rounded-2xl">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-green-100 rounded-xl flex-shrink-0">
+                  <CheckCircle2 className="w-6 h-6 text-green-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-green-900">Dossier valide !</h4>
+                  <p className="text-sm text-green-700 mt-1">
+                    Felicitations ! Votre dossier a ete approuve et vous etes desormais certifie ANSUT
+                  </p>
+                </div>
+                <DossierStatusBadge status={application.status} size="lg" />
+              </div>
+            </div>
+          ) : application.status === 'rejected' ? (
+            <div className="p-5 bg-red-50 border-2 border-red-200 rounded-2xl">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-red-100 rounded-xl flex-shrink-0">
+                  <XCircle className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-red-900">Dossier refuse</h4>
+                  <p className="text-sm text-red-700 mt-1">
+                    {application.rejection_reason || 'Votre dossier n\'a pas pu etre valide. Veuillez reessayer.'}
+                  </p>
+                </div>
+                <DossierStatusBadge status={application.status} size="lg" />
+              </div>
+            </div>
+          ) : null}
+        </div>
+
         {/* Progress Bar */}
-        {application && (
+        {(!application || application.status !== 'approved' && application.status !== 'rejected') && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">Progression</span>
+              <span className="text-sm font-medium text-gray-700">Progression des documents</span>
               <span className="text-sm font-semibold text-primary-600">
                 {completionPercentage}%
               </span>
@@ -370,19 +493,21 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
         )}
 
         {/* Info Box */}
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl mb-6">
-          <div className="flex gap-3">
-            <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-blue-800">
-              <p className="font-semibold mb-1">Documents acceptés</p>
-              <ul className="space-y-1 text-blue-700">
-                <li>• PDF - Maximum 10Mo par fichier</li>
-                <li>• Images (JPG, PNG) - Maximum 5Mo par fichier</li>
-                <li>• Documents lisibles et en couleurs</li>
-              </ul>
+        {application?.status !== 'approved' && application?.status !== 'rejected' && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl mb-6">
+            <div className="flex gap-3">
+              <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-800">
+                <p className="font-semibold mb-1">Documents acceptes</p>
+                <ul className="space-y-1 text-blue-700">
+                  <li>• PDF - Maximum 10Mo par fichier</li>
+                  <li>• Images (JPG, PNG) - Maximum 5Mo par fichier</li>
+                  <li>• Documents lisibles et en couleurs</li>
+                </ul>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Documents Upload Grid */}
@@ -415,87 +540,82 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
         </div>
       </div>
 
-      {/* Submit Button */}
+      {/* Submit Button Section */}
       <div className="flex justify-end pt-4 border-t border-gray-200">
-        {!canSubmit && missingRequiredDocs.length > 0 && (
-          <p className="text-sm text-amber-600 mr-4 flex items-center">
-            <AlertCircle className="w-4 h-4 mr-2" />
-            Documents manquants: {missingRequiredDocs.map((d) => d.label).join(', ')}
-          </p>
-        )}
-        <Button
-          onClick={handleSubmit}
-          disabled={!canSubmit || submitting}
-          className="flex items-center gap-2"
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Soumission...
-            </>
-          ) : (
-            <>
-              <Send className="w-4 h-4" />
-              Soumettre le dossier
-            </>
-          )}
-        </Button>
+        {!application ? (
+          /* Aucune application - afficher le bouton de soumission */
+          <>
+            {!canSubmit && missingRequiredDocs.length > 0 && (
+              <p className="text-sm text-amber-600 mr-4 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-2" />
+                Documents manquants: {missingRequiredDocs.map((d) => d.label).join(', ')}
+              </p>
+            )}
+            <Button
+              onClick={handleSubmit}
+              disabled={!canSubmit || submitting}
+              className="flex items-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Soumission...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  Soumettre le dossier
+                </>
+              )}
+            </Button>
+          </>
+        ) : application.status === 'draft' || application.status === 'more_info_requested' ? (
+          /* Brouillon ou infos demandees - afficher le bouton */
+          <>
+            {!canSubmit && missingRequiredDocs.length > 0 && (
+              <p className="text-sm text-amber-600 mr-4 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-2" />
+                Documents manquants: {missingRequiredDocs.map((d) => d.label).join(', ')}
+              </p>
+            )}
+            <Button
+              onClick={handleSubmit}
+              disabled={!canSubmit || submitting}
+              className="flex items-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Soumission...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  {application.status === 'more_info_requested' ? 'Ressoumettre le dossier' : 'Soumettre le dossier'}
+                </>
+              )}
+            </Button>
+          </>
+        ) : application.status === 'pending' || application.status === 'in_review' ? (
+          /* En attente ou en cours - afficher message */
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Clock className="w-4 h-4" />
+            <span>Dossier en cours de verification</span>
+          </div>
+        ) : application.status === 'approved' ? (
+          /* Approuve */
+          <div className="flex items-center gap-2 text-sm text-green-600">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Dossier valide</span>
+          </div>
+        ) : application.status === 'rejected' ? (
+          /* Refuse */
+          <div className="flex items-center gap-2 text-sm text-red-600">
+            <XCircle className="w-4 h-4" />
+            <span>Dossier refuse - Veuillez reessayer</span>
+          </div>
+        ) : null}
       </div>
-
-      {/* Success Message */}
-      {application?.status === 'approved' && (
-        <div className="p-6 bg-green-50 border border-green-200 rounded-xl">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-green-100 rounded-full flex-shrink-0">
-              <CheckCircle2 className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-semibold text-green-900 mb-1">
-                Dossier approuvé !
-              </h4>
-              <p className="text-sm text-green-700">
-                Votre dossier a été validé par l'équipe ANSUT. Vous êtes maintenant certifié.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rejection Message */}
-      {application?.status === 'rejected' && application.rejection_reason && (
-        <div className="p-6 bg-red-50 border border-red-200 rounded-xl">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-red-100 rounded-full flex-shrink-0">
-              <AlertCircle className="w-6 h-6 text-red-600" />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-semibold text-red-900 mb-1">Dossier rejeté</h4>
-              <p className="text-sm text-red-700 mb-3">{application.rejection_reason}</p>
-              <p className="text-xs text-red-600">
-                Vous pouvez mettre à jour vos documents et soumettre à nouveau.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* More Info Requested Message */}
-      {application?.status === 'more_info_requested' && application.rejection_reason && (
-        <div className="p-6 bg-purple-50 border border-purple-200 rounded-xl">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-purple-100 rounded-full flex-shrink-0">
-              <AlertCircle className="w-6 h-6 text-purple-600" />
-            </div>
-            <div className="flex-1">
-              <h4 className="font-semibold text-purple-900 mb-1">Informations supplémentaires demandées</h4>
-              <p className="text-sm text-purple-700 mb-3">{application.rejection_reason}</p>
-              <p className="text-xs text-purple-600">
-                Veuillez compléter votre dossier avec les documents manquants.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

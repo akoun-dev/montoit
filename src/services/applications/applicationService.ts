@@ -29,6 +29,10 @@ export interface ApplicationWithDetails {
   credit_score?: number | null;
   applied_at: string;
   updated_at: string | null;
+  created_at?: string | null;
+  // Informations sur le contrat associé s'il existe
+  contract_id?: string | null;
+  contract_status?: string | null;
   property: {
     id: string;
     title: string;
@@ -145,6 +149,23 @@ export async function getOwnerApplications(
     fullProfiles?.map((p) => [p.id, { email: p.email, phone: p.phone }]) || []
   );
 
+  // Map pour suivre les contrats existants (par property_id + tenant_id)
+  // Comme application_id n'existe pas, on cherche par combinaison property+tenant
+  const existingContractIds = new Map<string, string>(); // key -> contract_id
+  if (applications && applications.length > 0) {
+    const uniquePropertyIds = [...new Set(applications.map((a) => a.property_id))];
+
+    const { data: allContracts } = await supabase
+      .from('lease_contracts')
+      .select('id, property_id, tenant_id, status')
+      .in('property_id', uniquePropertyIds);
+
+    allContracts?.forEach((contract: any) => {
+      const key = `${contract.property_id}-${contract.tenant_id}`;
+      existingContractIds.set(key, contract.id);
+    });
+  }
+
   // Combiner les données
   let result: ApplicationWithDetails[] = applications
     .filter((app) => app.status !== null) // Filter out null status
@@ -152,11 +173,19 @@ export async function getOwnerApplications(
       const profile = profilesMap.get(app.tenant_id);
       const emailData = emailsMap.get(app.tenant_id);
 
+      // Vérifier si un contrat existe pour cette combinaison property+tenant
+      const contractKey = `${app.property_id}-${app.tenant_id}`;
+      const contractId = existingContractIds.get(contractKey);
+      const hasContract = !!contractId;
+
       return {
         ...app,
         applicant_id: app.tenant_id,
         status: app.status as string,
         applied_at: app.applied_at,
+        created_at: app.applied_at,
+        contract_id: contractId || null,
+        contract_status: hasContract ? 'exists' : null,
         property: propertiesMap.get(app.property_id) || null,
         applicant: profile
           ? {

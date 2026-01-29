@@ -192,14 +192,30 @@ export default function DocumentsPage() {
       const { data } = await supabase
         .from('lease_contracts')
         .select(`
-          *,
-          properties(title, address, city)
+          id,
+          contract_number,
+          start_date,
+          end_date,
+          status,
+          property_id,
+          properties (
+            title,
+            address,
+            city,
+            monthly_rent
+          )
         `)
         .eq('tenant_id', user.id)
         .eq('status', 'actif')
         .maybeSingle();
 
-      setCurrentContract(data as LeaseContract | null);
+      // Map properties.monthly_rent to monthly_rent
+      const contract = data ? {
+        ...data,
+        monthly_rent: data.properties?.monthly_rent || 0,
+      } : null;
+
+      setCurrentContract(contract as LeaseContract | null);
     } catch (error) {
       console.error('Error loading contract:', error);
     }

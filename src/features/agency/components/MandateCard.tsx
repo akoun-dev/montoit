@@ -274,8 +274,8 @@ export default function MandateCard({
           </p>
         )}
 
-        {/* Sign button for active mandates without signature */}
-        {mandate.status === 'active' && !mandate.signed_mandate_url && onSign && (
+        {/* Sign button for active or pending mandates without signature */}
+        {(mandate.status === 'active' || mandate.status === 'pending') && !mandate.signed_mandate_url && onSign && (
           <button
             onClick={() => onSign(mandate)}
             className="w-full flex items-center justify-center gap-1.5 bg-primary hover:bg-primary/90 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors mt-2"

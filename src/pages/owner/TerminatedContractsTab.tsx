@@ -25,7 +25,6 @@ interface TerminatedContract {
   start_date: string;
   end_date: string;
   terminated_at: string | null;
-  termination_reason: string | null;
   document_url: string | null;
   properties: {
     id: string;
@@ -57,7 +56,7 @@ const PERIOD_FILTERS: PeriodFilterOption[] = [
 ];
 
 interface TerminatedContractsTabProps {
-  stats: { resilie: number };
+  stats: { resilie: number; annule: number };
   onRefresh: () => void;
 }
 
@@ -92,7 +91,6 @@ export default function TerminatedContractsTab({ stats, onRefresh }: TerminatedC
           end_at,
           document_url,
           terminated_at,
-          termination_reason,
           tenant_id,
           properties!lease_contracts_property_id_fkey (
             id,
@@ -103,7 +101,7 @@ export default function TerminatedContractsTab({ stats, onRefresh }: TerminatedC
         `
         )
         .eq('owner_id', user.id)
-        .eq('status', 'resilie')
+        .in('status', ['resilie', 'annule'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -189,8 +187,8 @@ export default function TerminatedContractsTab({ stats, onRefresh }: TerminatedC
             <XCircle className="h-6 w-6 text-red-600" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Contrats Résiliés</h2>
-            <p className="text-sm text-gray-500">{stats.resilie} contrat(s)</p>
+            <h2 className="text-xl font-bold text-gray-900">Contrats Terminés</h2>
+            <p className="text-sm text-gray-500">{stats.resilie + stats.annule} contrat(s)</p>
           </div>
         </div>
 
@@ -292,18 +290,18 @@ export default function TerminatedContractsTab({ stats, onRefresh }: TerminatedC
       {loading ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center shadow-sm">
           <Loader2 className="h-12 w-12 animate-spin text-red-600 mx-auto mb-4" />
-          <p className="text-gray-600">Chargement des contrats résiliés...</p>
+          <p className="text-gray-600">Chargement des contrats terminés...</p>
         </div>
       ) : filteredContracts.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center shadow-sm">
           <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
             <XCircle className="h-10 w-10 text-gray-400" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900 mb-2">Aucun contrat résilié</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-2">Aucun contrat terminé</h3>
           <p className="text-gray-500">
             {searchQuery || periodFilter !== 'all'
               ? 'Aucun contrat ne correspond aux critères de recherche'
-              : 'Vous n\'avez pas encore de contrat résilié'}
+              : 'Vous n\'avez pas encore de contrat résilié ou annulé'}
           </p>
         </div>
       ) : (
@@ -339,9 +337,13 @@ export default function TerminatedContractsTab({ stats, onRefresh }: TerminatedC
                           <span className="font-mono text-sm text-gray-500">
                             {contract.contract_number}
                           </span>
-                          <span className="px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 bg-red-100 text-red-700">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${
+                            contract.status === 'annule'
+                              ? 'bg-gray-100 text-gray-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}>
                             <XCircle className="h-3 w-3" />
-                            Résilié
+                            {contract.status === 'annule' ? 'Annulé' : 'Résilié'}
                           </span>
                         </div>
                         <h3 className="text-xl font-bold text-gray-900 mb-1">
@@ -373,21 +375,25 @@ export default function TerminatedContractsTab({ stats, onRefresh }: TerminatedC
                           {formatDate(contract.end_date)}
                         </p>
                       </div>
-                      <div className="bg-red-50 rounded-xl p-3 border border-red-100">
-                        <p className="text-xs text-red-600 mb-1">Résilié le</p>
-                        <p className="text-sm font-bold text-red-900">
-                          {formatDate(contract.terminated_at)}
+                      <div className={`rounded-xl p-3 border ${
+                        contract.status === 'annule'
+                          ? 'bg-gray-50 border-gray-200'
+                          : 'bg-red-50 border border-red-100'
+                      }`}>
+                        <p className={`text-xs mb-1 ${
+                          contract.status === 'annule' ? 'text-gray-600' : 'text-red-600'
+                        } font-medium`}>
+                          {contract.status === 'annule' ? 'Annulé le' : 'Résilié le'}
+                        </p>
+                        <p className={`text-sm font-bold ${
+                          contract.status === 'annule' ? 'text-gray-900' : 'text-red-900'
+                        }`}>
+                          {contract.terminated_at
+                            ? formatDate(contract.terminated_at)
+                            : 'N/A'}
                         </p>
                       </div>
                     </div>
-
-                    {/* Termination Reason */}
-                    {contract.termination_reason && (
-                      <div className="mb-4 p-3 bg-amber-50 rounded-xl border border-amber-100">
-                        <p className="text-xs text-amber-600 font-medium mb-1">Motif de résiliation</p>
-                        <p className="text-sm text-gray-900">{contract.termination_reason}</p>
-                      </div>
-                    )}
 
                     {/* Tenant Contact Info */}
                     {(contract.tenant_profile?.email || contract.tenant_profile?.phone) && (

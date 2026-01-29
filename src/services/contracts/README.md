@@ -20,7 +20,7 @@ Ce document présente les services créés pour la gestion des contrats de locat
 
 **Tables nécessaires** :
 - `electronic_signature_logs` (logs des signatures électroniques)
-- `lease_contracts` (colonnes : `landlord_signed_at`, `tenant_signed_at`, `is_electronically_signed`)
+- `lease_contracts` (colonnes : `owner_signed_at`, `tenant_signed_at`)
 
 **Intégration** : [`ContractDetailPage.tsx`](../../pages/tenant/ContractDetailPage.tsx:1)
 

@@ -8,7 +8,7 @@ const env = import.meta.env;
 
 export const APP_CONFIG = {
   name: 'Mon Toit',
-  version: env['VITE_APP_VERSION'] || '3.2.28',
+  version: env['VITE_APP_VERSION'] || '3.3.0',
   branch: env['VITE_GIT_BRANCH'] || 'main',
   commitHash: env['VITE_GIT_COMMIT_HASH'] || '',
   description: "Plateforme de location immobilière sécurisée en Côte d'Ivoire",

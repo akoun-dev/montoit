@@ -2,19 +2,16 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useContextualRoles } from '@/hooks/shared/useContextualRoles';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { User, Key, Building2, Loader2, Home, PlusCircle, Search } from 'lucide-react';
+import { User, Key, Loader2, Home, PlusCircle, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // Lazy load tab content
 const TenantDashboardContent = lazy(
   () => import('@/features/tenant/components/TenantDashboardContent')
 );
-const OwnerDashboardContent = lazy(
-  () => import('@/features/owner/components/OwnerDashboardContent')
-);
 const ProfileContent = lazy(() => import('@/features/auth/components/ProfileContent'));
 
-type TabId = 'profile' | 'tenant' | 'owner';
+type TabId = 'profile' | 'tenant';
 
 interface Tab {
   id: TabId;
@@ -35,9 +32,7 @@ export default function UnifiedDashboardPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const {
-    isOwner,
     isTenant,
-    propertiesCount,
     activeLeasesAsTenantCount,
     loading: rolesLoading,
   } = useContextualRoles();
@@ -45,12 +40,11 @@ export default function UnifiedDashboardPage() {
   // Determine initial tab from URL or defaults
   const getInitialTab = (): TabId => {
     const urlTab = searchParams.get('tab') as TabId;
-    if (urlTab && ['profile', 'tenant', 'owner'].includes(urlTab)) {
+    if (urlTab && ['profile', 'tenant'].includes(urlTab)) {
       return urlTab;
     }
     // Default to first available contextual role
     if (isTenant) return 'tenant';
-    if (isOwner) return 'owner';
     return 'profile';
   };
 
@@ -63,10 +57,9 @@ export default function UnifiedDashboardPage() {
       if (!urlTab) {
         // No URL tab specified, set default based on roles
         if (isTenant) setActiveTab('tenant');
-        else if (isOwner) setActiveTab('owner');
       }
     }
-  }, [rolesLoading, isTenant, isOwner, searchParams]);
+  }, [rolesLoading, isTenant, searchParams]);
 
   // Sync URL with active tab
   const handleTabChange = (tabId: TabId) => {
@@ -89,17 +82,10 @@ export default function UnifiedDashboardPage() {
       available: isTenant,
       count: activeLeasesAsTenantCount,
     },
-    {
-      id: 'owner',
-      label: 'Mes Propriétés',
-      icon: Building2,
-      available: isOwner,
-      count: propertiesCount,
-    },
   ];
 
   const availableTabs = tabs.filter((t) => t.available);
-  const hasNoContextualRoles = !isTenant && !isOwner && !rolesLoading;
+  const hasNoContextualRoles = !isTenant && !rolesLoading;
 
   if (!user) {
     navigate('/connexion');
@@ -129,13 +115,9 @@ export default function UnifiedDashboardPage() {
                   Bonjour, {profile?.full_name?.split(' ')[0] || 'Bienvenue'} 👋
                 </h1>
                 <p className="text-[#6B5A4E] mt-1">
-                  {isOwner && isTenant
-                    ? 'Gérez vos locations et vos propriétés'
-                    : isOwner
-                      ? 'Gérez vos propriétés et locataires'
-                      : isTenant
-                        ? 'Gérez votre location et vos paiements'
-                        : 'Bienvenue sur Mon Toit'}
+                  {isTenant
+                    ? 'Gérez votre location et vos paiements'
+                    : 'Bienvenue sur Mon Toit'}
                 </p>
               </div>
 
@@ -148,15 +130,6 @@ export default function UnifiedDashboardPage() {
                   <Search className="h-4 w-4" />
                   <span className="font-medium">Rechercher</span>
                 </Link>
-                {(profile?.user_type === 'proprietaire' || profile?.user_type === 'agence') && (
-                  <Link
-                    to="/ajouter-propriete"
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F16522] text-white hover:bg-[#D95318] transition-colors shadow-lg shadow-orange-500/20"
-                  >
-                    <PlusCircle className="h-4 w-4" />
-                    <span className="font-medium">Publier</span>
-                  </Link>
-                )}
               </div>
             </div>
 
@@ -210,9 +183,7 @@ export default function UnifiedDashboardPage() {
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-[#2C1810]">Bienvenue sur Mon Toit !</h3>
                   <p className="text-[#6B5A4E] mt-1">
-                    {profile?.user_type === 'proprietaire' || profile?.user_type === 'agence'
-                      ? 'Vous n\'avez pas encore de propriété. Publiez votre première annonce pour commencer.'
-                      : 'Vous n\'avez pas encore de location. Commencez par rechercher un logement.'}
+                    Vous n'avez pas encore de location. Commencez par rechercher un logement.
                   </p>
                   <div className="flex flex-wrap gap-3 mt-4">
                     <Link
@@ -222,15 +193,6 @@ export default function UnifiedDashboardPage() {
                       <Search className="h-4 w-4" />
                       Rechercher un logement
                     </Link>
-                    {(profile?.user_type === 'proprietaire' || profile?.user_type === 'agence') && (
-                      <Link
-                        to="/ajouter-propriete"
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#F16522] text-white hover:bg-[#D95318] transition-colors font-medium shadow-lg shadow-orange-500/20"
-                      >
-                        <PlusCircle className="h-4 w-4" />
-                        Publier une propriété
-                      </Link>
-                    )}
                   </div>
                 </div>
               </div>
@@ -248,7 +210,6 @@ export default function UnifiedDashboardPage() {
         >
           {activeTab === 'profile' && <ProfileContent />}
           {activeTab === 'tenant' && isTenant && <TenantDashboardContent />}
-          {activeTab === 'owner' && isOwner && <OwnerDashboardContent />}
         </Suspense>
       </div>
     </div>

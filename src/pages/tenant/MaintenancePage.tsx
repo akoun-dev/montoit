@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Wrench, Plus, Clock, CheckCircle, XCircle, Calendar } from 'lucide-react';
-import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 
 interface MaintenanceRequest {
   id: string;
@@ -129,16 +128,16 @@ export default function TenantMaintenance() {
 
   if (loading) {
     return (
-      <TenantDashboardLayout title="Maintenance">
+      <div>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
         </div>
-      </TenantDashboardLayout>
+      </div>
     );
   }
 
   return (
-    <TenantDashboardLayout title="Maintenance">
+    <div>
       <div className="w-full">
         {/* Header Banner */}
         <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8">
@@ -292,6 +291,6 @@ export default function TenantMaintenance() {
           )}
         </div>
       </div>
-    </TenantDashboardLayout>
+    </div>
   );
 }

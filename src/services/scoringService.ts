@@ -42,6 +42,18 @@ export interface HistoryScoreDetails {
   total: number;
 }
 
+export interface AgencyScoreDetails {
+  agencyInfo: boolean; // Nom, description
+  contactInfo: boolean; // Email, téléphone, ville
+  logo: boolean; // Logo de l'agence
+  website: boolean; // Site web
+  address: boolean; // Adresse
+  representative: boolean; // Nom complet du représentant
+  representativeAvatar: boolean; // Photo du représentant
+  representativePhone: boolean; // Téléphone du représentant
+  total: number;
+}
+
 // Pondérations des sous-scores
 const WEIGHTS = {
   profile: 0.2, // 20%
@@ -184,7 +196,170 @@ export const ScoringService = {
   },
 
   /**
+   * Calcule le score spécifique pour les agences immobilières
+   * Dossier approuvé → 100%
+   * Sinon: Infos agence (50%) + Représentant (25%) + Vérifications (25%)
+   */
+  async calculateAgencyScore(userId: string, profile: Profile | null): Promise<ScoreBreakdown> {
+    // Récupérer les infos de l'agence
+    const { data: agency } = await supabase
+      .from('agencies')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    // Vérifier si un dossier de certification agence est approuvé
+    const { data: approvedDossier } = await supabase
+      .from('verification_applications')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('status', 'approved')
+      .eq('dossier_type', 'agency')
+      .maybeSingle();
+
+    // Si dossier approuvé, score = 100%
+    if (approvedDossier) {
+      return {
+        profileScore: 100,
+        verificationScore: 100,
+        historyScore: 100,
+        globalScore: 100,
+        recommendation: 'approved',
+        details: {
+          profile: {
+            fullName: !!profile?.full_name,
+            phone: !!profile?.phone,
+            city: !!agency?.city || !!profile?.city,
+            bio: !!agency?.description,
+            avatar: !!profile?.avatar_url,
+            address: !!agency?.address || !!profile?.address,
+            total: 100,
+          },
+          verification: {
+            oneci: !!profile?.oneci_verified,
+            facial: profile?.facial_verification_status === 'verified',
+            total: 100,
+          },
+          history: {
+            paymentReliability: 100,
+            propertyCondition: 100,
+            leaseCompliance: 100,
+            total: 100,
+          },
+        },
+      };
+    }
+
+    // Calcul du score d'agence
+    const agencyInfoScore = this.calculateAgencyInfoScore(agency, profile);
+    const representativeScore = this.calculateRepresentativeScore(profile);
+    const verificationScore = this.calculateAgencyVerificationScore(profile);
+
+    // Score total: Infos agence (50%) + Représentant (25%) + Vérifications (25%)
+    const globalScore = Math.round(
+      agencyInfoScore * 0.5 +
+        representativeScore * 0.25 +
+        verificationScore * 0.25
+    );
+
+    // Arrondir à 100 si très proche
+    const finalScore = globalScore >= 99.5 ? 100 : globalScore;
+
+    // Déterminer la recommandation
+    let recommendation: 'approved' | 'conditional' | 'rejected';
+    if (finalScore >= 70) {
+      recommendation = 'approved';
+    } else if (finalScore >= 50) {
+      recommendation = 'conditional';
+    } else {
+      recommendation = 'rejected';
+    }
+
+    return {
+      profileScore: agencyInfoScore,
+      verificationScore: verificationScore,
+      historyScore: representativeScore,
+      globalScore: finalScore,
+      recommendation,
+      details: {
+        profile: {
+          fullName: !!profile?.full_name,
+          phone: !!profile?.phone,
+          city: !!agency?.city || !!profile?.city,
+          bio: !!agency?.description,
+          avatar: !!profile?.avatar_url,
+          address: !!agency?.address || !!profile?.address,
+          total: agencyInfoScore,
+        },
+        verification: {
+          oneci: !!profile?.oneci_verified,
+          facial: profile?.facial_verification_status === 'verified',
+          total: verificationScore,
+        },
+        history: {
+          paymentReliability: representativeScore,
+          propertyCondition: representativeScore,
+          leaseCompliance: representativeScore,
+          total: representativeScore,
+        },
+      },
+    };
+  },
+
+  /**
+   * Calcule le score des infos agence (max 100)
+   */
+  calculateAgencyInfoScore(agency: any, profile: Profile | null): number {
+    let score = 0;
+    // Nom de l'agence (20 points)
+    if (agency?.agency_name || profile?.agency_name) score += 20;
+    // Description (15 points)
+    if (agency?.description || profile?.agency_description) score += 15;
+    // Logo (15 points)
+    if (agency?.logo_url || profile?.agency_logo) score += 15;
+    // Email de contact (10 points)
+    if (agency?.email) score += 10;
+    // Téléphone (10 points)
+    if (agency?.phone || profile?.phone) score += 10;
+    // Site web (10 points)
+    if (agency?.website) score += 10;
+    // Ville (10 points)
+    if (agency?.city || profile?.city) score += 10;
+    // Adresse (10 points)
+    if (agency?.address || profile?.address) score += 10;
+    return Math.min(score, 100);
+  },
+
+  /**
+   * Calcule le score du représentant (max 100)
+   */
+  calculateRepresentativeScore(profile: Profile | null): number {
+    let score = 0;
+    // Nom complet du représentant (35 points)
+    if (profile?.full_name) score += 35;
+    // Photo du représentant (35 points)
+    if (profile?.avatar_url) score += 35;
+    // Téléphone du représentant (30 points)
+    if (profile?.phone) score += 30;
+    return Math.min(score, 100);
+  },
+
+  /**
+   * Calcule le score de vérification agence (max 100)
+   */
+  calculateAgencyVerificationScore(profile: Profile | null): number {
+    let score = 0;
+    // Email vérifié (50 points - toujours vrai avec Supabase Auth)
+    score += 50;
+    // ONECI vérifié (50 points)
+    if (profile?.oneci_verified) score += 50;
+    return Math.min(score, 100);
+  },
+
+  /**
    * Calcule le Global Trust Score complet
+   * Si le dossier (verification_application) est approuvé, retourne directement 100%
+   * Sinon, calcule le score basé sur les vérifications complétées
    */
   async calculateGlobalTrustScore(
     userId: string,
@@ -194,23 +369,88 @@ export const ScoringService = {
     // Récupérer le profil utilisateur
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
 
-    // Calculer les 3 sous-scores
-    const profileResult = this.calculateProfileScore(profile);
-    const verificationResult = this.calculateVerificationScore(profile);
-    const historyResult = await this.calculateHistoryScore(userId, propertyId, monthlyRent);
+    // Vérifier si c'est une agence
+    const userType = profile?.user_type?.toLowerCase();
+    const isAgency = userType === 'agence' || userType === 'agency';
 
-    // Calculer le score global pondéré
+    // Pour les agences, utiliser le calcul spécifique
+    if (isAgency) {
+      return await this.calculateAgencyScore(userId, profile);
+    }
+
+    // Vérifier si un dossier est approuvé (priorité absolue)
+    const { data: approvedDossier } = await supabase
+      .from('verification_applications')
+      .select('id, status, dossier_type')
+      .eq('user_id', userId)
+      .eq('status', 'approved')
+      .maybeSingle();
+
+    // Si un dossier est approuvé, score = 100% immédiatement
+    if (approvedDossier) {
+      return {
+        profileScore: 100,
+        verificationScore: 100,
+        historyScore: 100,
+        globalScore: 100,
+        recommendation: 'approved',
+        details: {
+          profile: {
+            fullName: !!profile?.full_name,
+            phone: !!profile?.phone,
+            city: !!profile?.city,
+            bio: !!profile?.bio,
+            avatar: !!profile?.avatar_url,
+            address: !!profile?.address,
+            total: 100,
+          },
+          verification: {
+            oneci: !!profile?.oneci_verified,
+            facial: profile?.facial_verification_status === 'verified',
+            total: 100,
+          },
+          history: {
+            paymentReliability: 100,
+            propertyCondition: 100,
+            leaseCompliance: 100,
+            total: 100,
+          },
+        },
+      };
+    }
+
+    // Calculer les sous-scores
+    const profileResult = this.calculateProfileScore(profile);
+
+    // Email toujours vérifié avec Supabase Auth
+    const isEmailVerified = !!profile?.email_verified || true;
+    const verificationScore = this.calculateEnhancedVerificationScore(profile, isEmailVerified);
+
+    // SANS DOSSIER: Historique = 100 (ne pas pénaliser les nouveaux utilisateurs)
+    // Le score est basé uniquement sur Profil + Vérifications
+    const historyScore = 100;
+    const historyDetails: HistoryScoreDetails = {
+      paymentReliability: 100,
+      propertyCondition: 100,
+      leaseCompliance: 100,
+      total: 100,
+    };
+
+    // CALCUL : Profil (50%) + Vérifications (50%) = 100% possible sans dossier
+    // Profil complet (100) + Vérifications complètes (100) = 100%
     const globalScore = Math.round(
-      profileResult.score * WEIGHTS.profile +
-        verificationResult.score * WEIGHTS.verification +
-        historyResult.score * WEIGHTS.history
+      profileResult.score * 0.5 +
+        verificationScore * 0.5
     );
+
+    // Arrondir à 100 si c'est très proche
+    const finalScore = globalScore >= 99.5 ? 100 : globalScore;
 
     // Déterminer la recommandation
     let recommendation: 'approved' | 'conditional' | 'rejected';
-    if (globalScore >= 70) {
+    if (finalScore >= 70) {
       recommendation = 'approved';
-    } else if (globalScore >= 50) {
+    } else if (finalScore >= 50) {
       recommendation = 'conditional';
     } else {
       recommendation = 'rejected';
@@ -218,33 +458,73 @@ export const ScoringService = {
 
     return {
       profileScore: profileResult.score,
-      verificationScore: verificationResult.score,
-      historyScore: historyResult.score,
-      globalScore,
+      verificationScore: verificationScore,
+      historyScore: historyScore,
+      globalScore: finalScore,
       recommendation,
       details: {
         profile: profileResult.details,
-        verification: verificationResult.details,
-        history: historyResult.details,
+        verification: {
+          oneci: !!profile?.oneci_verified,
+          facial: profile?.facial_verification_status === 'verified',
+          total: verificationScore,
+        },
+        history: historyDetails,
       },
     };
   },
 
   /**
-   * Calcule un score simple pour les candidatures (sans appel async)
+   * Calcule le score de vérification ENHANCÉ (incluant email et facial)
+   * Email: 33 points, ONECI: 33 points, Facial: 34 points = 100 max
    */
-  calculateSimpleScore(profile: Profile | null): number {
+  calculateEnhancedVerificationScore(profile: Profile | null, isEmailVerified: boolean = true): number {
+    let score = 0;
+
+    // Email vérifié (toujours vrai avec Supabase Auth)
+    if (isEmailVerified) score += 33;
+
+    // ONECI vérifié
+    if (profile?.oneci_verified) score += 33;
+
+    // Reconnaissance faciale vérifiée
+    if (profile?.facial_verification_status === 'verified') score += 34;
+
+    return Math.min(score, 100);
+  },
+
+  /**
+   * Calcule un score simple pour les candidatures
+   * Si un dossier est approuvé, retourne 100%
+   * Sinon, calcul basé sur Profil (50%) + Vérifications (50%)
+   */
+  async calculateSimpleScore(profile: Profile | null, userId?: string): Promise<number> {
+    // Vérifier si un dossier est approuvé
+    if (userId) {
+      const { data: approvedDossier } = await supabase
+        .from('verification_applications')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('status', 'approved')
+        .maybeSingle();
+
+      if (approvedDossier) {
+        return 100;
+      }
+    }
+
     const profileResult = this.calculateProfileScore(profile);
-    const verificationResult = this.calculateVerificationScore(profile);
+    // Email toujours vérifié avec Supabase Auth
+    const verificationScore = this.calculateEnhancedVerificationScore(profile, true);
 
-    // Score simplifié sans l'historique (pour les nouvelles candidatures)
-    const baseHistoryScore = 50; // Score par défaut
-
-    return Math.round(
-      profileResult.score * WEIGHTS.profile +
-        verificationResult.score * WEIGHTS.verification +
-        baseHistoryScore * WEIGHTS.history
+    // CALCUL : Profil (50%) + Vérifications (50%) = 100% possible
+    const score = Math.round(
+      profileResult.score * 0.5 +
+        verificationScore * 0.5
     );
+
+    // Arrondir à 100 si très proche
+    return score >= 99.5 ? 100 : score;
   },
 
   /**

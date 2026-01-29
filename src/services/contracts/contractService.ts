@@ -249,28 +249,46 @@ export async function sendSignatureReminder(leaseId: string, tenantId: string): 
 /**
  * Résilie un contrat actif
  */
-export async function terminateContract(leaseId: string, _reason: string): Promise<void> {
+export async function terminateContract(leaseId: string, reason: string): Promise<void> {
   // Get lease details first
   const { data: lease } = await supabase
     .from('lease_contracts')
-    .select('property_id')
+    .select('property_id, tenant_id, status')
     .eq('id', leaseId)
     .single();
 
-  const { error } = await supabase
+  if (!lease) {
+    throw new Error('Contrat introuvable');
+  }
+
+  // Vérifier que le contrat peut être résilié
+  if (lease.status !== 'actif') {
+    throw new Error(`Seuls les contrats actifs peuvent être résiliés. Statut actuel: ${lease.status}`);
+  }
+
+  console.log('Tentative de résiliation du contrat', leaseId, 'avec statut', lease.status);
+
+  const { data, error } = await supabase
     .from('lease_contracts')
     .update({
       status: 'resilie',
+      terminated_at: new Date().toISOString(),
+      termination_notice_days: 0,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', leaseId);
+    .eq('id', leaseId)
+    .select()
+    .single();
 
   if (error) {
+    console.error('Erreur lors de la résiliation:', error);
     throw new Error(`Erreur lors de la résiliation: ${error.message}`);
   }
 
+  console.log('Contrat résilié avec succès:', data);
+
   // Update property status back to available
-  if (lease?.property_id) {
+  if (lease.property_id) {
     await supabase.from('properties').update({ status: 'disponible' }).eq('id', lease.property_id);
   }
 
@@ -281,5 +299,68 @@ export async function terminateContract(leaseId: string, _reason: string): Promi
     await notifyLeaseTerminated(leaseId);
   } catch (notifError) {
     console.error('Error sending termination notification:', notifError);
+  }
+}
+
+/**
+ * Annule un contrat en attente de signature ou brouillon
+ */
+export async function cancelContract(leaseId: string, reason: string): Promise<void> {
+  // Get lease details first
+  const { data: lease } = await supabase
+    .from('lease_contracts')
+    .select('status, property_id, tenant_id, contract_number')
+    .eq('id', leaseId)
+    .single();
+
+  if (!lease) {
+    throw new Error('Contrat introuvable');
+  }
+
+  // Vérifier que le contrat peut être annulé
+  if (lease.status !== 'brouillon' && lease.status !== 'en_attente_signature') {
+    throw new Error(`Seuls les brouillons et les contrats en attente peuvent être annulés. Statut actuel: ${lease.status}`);
+  }
+
+  console.log('Tentative d\'annulation du contrat', leaseId, 'avec statut', lease.status);
+
+  // Changer le statut à 'annule' au lieu de supprimer
+  const { data, error } = await supabase
+    .from('lease_contracts')
+    .update({
+      status: 'annule',
+      updated_at: new Date().toISOString(),
+      notes: reason || 'Contrat annulé par le propriétaire',
+    })
+    .eq('id', leaseId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Erreur lors de l\'annulation:', error);
+    throw new Error(`Erreur lors de l'annulation: ${error.message}`);
+  }
+
+  console.log('Contrat annulé avec succès:', data);
+
+  // Update property status back to available
+  if (lease.property_id) {
+    await supabase.from('properties').update({ status: 'disponible' }).eq('id', lease.property_id);
+  }
+
+  // Envoyer une notification au locataire si le contrat était en attente
+  if (lease.status === 'en_attente_signature' && lease.tenant_id) {
+    try {
+      await supabase.from('notifications').insert({
+        user_id: lease.tenant_id,
+        title: 'Contrat annulé',
+        message: reason || 'Le contrat a été annulé par le propriétaire.',
+        type: 'warning',
+        action_url: null,
+        channel: 'in_app',
+      });
+    } catch (notifError) {
+      console.error('Error sending cancellation notification:', notifError);
+    }
   }
 }

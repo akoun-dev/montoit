@@ -66,25 +66,25 @@ export async function saveContractSignature(signatureData: SignatureData): Promi
 
     // Mettre à jour le statut du contrat
     const updateData: {
-      landlord_signed_at?: string;
+      owner_signed_at?: string;
       tenant_signed_at?: string;
       status?: string;
-      is_electronically_signed?: boolean;
     } = {};
-    
+
     if (signatureData.signatureType === 'landlord') {
-      updateData.landlord_signed_at = signatureData.signedAt;
-      updateData.is_electronically_signed = true;
+      updateData.owner_signed_at = signatureData.signedAt;
     } else {
       updateData.tenant_signed_at = signatureData.signedAt;
-      updateData.is_electronically_signed = true;
     }
 
     // Si les deux parties ont signé, mettre à jour le statut
-    if (contract.landlord_signed_at && contract.tenant_signed_at) {
+    const ownerWillSign = updateData.owner_signed_at || contract.owner_signed_at;
+    const tenantWillSign = updateData.tenant_signed_at || contract.tenant_signed_at;
+
+    if (ownerWillSign && tenantWillSign) {
       updateData.status = 'actif';
-    } else if (contract.landlord_signed_at || contract.tenant_signed_at) {
-      updateData.status = 'partiellement_signe';
+    } else if (ownerWillSign || tenantWillSign) {
+      updateData.status = 'en_attente_signature';
     }
 
     const { error: updateError } = await supabase
@@ -111,7 +111,7 @@ export async function saveContractSignature(signatureData: SignatureData): Promi
 export async function hasUserSigned(contractId: string, userId: string, signatureType: 'landlord' | 'tenant'): Promise<boolean> {
   const { data: contract, error } = await supabase
     .from('lease_contracts')
-    .select('landlord_signed_at, tenant_signed_at')
+    .select('owner_signed_at, tenant_signed_at')
     .eq('id', contractId)
     .single();
 
@@ -122,7 +122,7 @@ export async function hasUserSigned(contractId: string, userId: string, signatur
   if (!contract) return false;
 
   if (signatureType === 'landlord') {
-    return !!contract.landlord_signed_at;
+    return !!contract.owner_signed_at;
   } else {
     return !!contract.tenant_signed_at;
   }

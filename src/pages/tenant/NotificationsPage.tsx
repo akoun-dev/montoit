@@ -17,7 +17,6 @@ import {
   CheckCircle,
   Info,
 } from 'lucide-react';
-import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 
 interface Notification {
   id: string;
@@ -227,7 +226,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <TenantDashboardLayout title="Notifications">
+    <div>
       <div className="w-full">
         {/* Header Banner */}
         <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8">
@@ -430,6 +429,6 @@ export default function NotificationsPage() {
           )}
         </div>
       </div>
-    </TenantDashboardLayout>
+    </div>
   );
 }

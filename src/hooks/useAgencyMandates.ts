@@ -100,10 +100,17 @@ export interface AgencyMandate {
     title: string;
     city: string;
     neighborhood: string | null;
-    monthly_rent?: number;
+    price?: number;
     main_image: string | null;
   };
   agency?: Agency;
+  owner?: {
+    id: string;
+    full_name: string | null;
+    email: string | null;
+    phone: string | null;
+    city: string | null;
+  };
 }
 
 export interface CreateMandateParams {
@@ -116,6 +123,18 @@ export interface CreateMandateParams {
   permissions?: Partial<MandatePermissions>;
   notes?: string;
 }
+
+export interface UpdateMandateParams {
+  property_id?: string | null;
+  mandate_scope?: MandateScope;
+  start_date?: string;
+  end_date?: string;
+  commission_rate?: number;
+  permissions?: Partial<MandatePermissions>;
+  notes?: string;
+}
+
+const DEFAULT_COMMISSION_RATE = 8; // Taux de commission par défaut (8%)
 
 const DEFAULT_PERMISSIONS: MandatePermissions = {
   can_view_properties: true,
@@ -143,19 +162,21 @@ export function useAgencyMandates() {
   const fetchMyAgency = useCallback(async () => {
     if (!user) return null;
 
-    const { data, error: err } = await supabase
+    // Get from agencies table
+    const { data: agenciesData, error: agenciesError } = await supabase
       .from('agencies')
       .select('*')
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (err) {
-      console.error('Error fetching agency:', err);
+    if (agenciesError) {
+      console.error('Error fetching agency:', agenciesError);
+      setMyAgency(null);
       return null;
     }
 
-    setMyAgency(data as Agency | null);
-    return data as Agency | null;
+    setMyAgency((agenciesData || null) as Agency | null);
+    return (agenciesData || null) as Agency | null;
   }, [user]);
 
   // Fetch all mandates (for owners and agencies)
@@ -166,15 +187,14 @@ export function useAgencyMandates() {
     setError(null);
 
     try {
+      // Fetch mandates with agencies join
       const { data, error: err } = await supabase
         .from('agency_mandates')
-        .select(
-          `
+        .select(`
           *,
           property:properties(id, title, city, neighborhood, main_image),
           agency:agencies(*)
-        `
-        )
+        `)
         .order('created_at', { ascending: false });
 
       if (err) throw err;
@@ -190,18 +210,28 @@ export function useAgencyMandates() {
 
   // Fetch all active agencies (for property owners to invite)
   const fetchAgencies = useCallback(async () => {
-    const { data, error: err } = await supabase
+    // Fetch from agencies table
+    const { data: agenciesData, error: agenciesError } = await supabase
       .from('agencies')
       .select('*')
       .eq('status', 'active')
       .order('agency_name');
 
-    if (err) {
-      console.error('Error fetching agencies:', err);
+    if (agenciesError) {
+      console.error('Error fetching agencies:', agenciesError);
       return;
     }
 
-    setAgencies((data || []) as Agency[]);
+    console.log('fetchAgencies - Found agencies:', {
+      count: agenciesData?.length || 0,
+      agencies: agenciesData?.map((a: any) => ({
+        id: a.id,
+        name: a.agency_name,
+        city: a.city,
+      })) || [],
+    });
+
+    setAgencies((agenciesData || []) as Agency[]);
   }, []);
 
   // Create a new mandate (owner invites agency)
@@ -230,18 +260,15 @@ export function useAgencyMandates() {
           mandate_scope: mandateScope,
           start_date: params.start_date || new Date().toISOString(),
           end_date: params.end_date || null,
-          commission_rate: params.commission_rate || 10,
+          commission_rate: params.commission_rate ?? DEFAULT_COMMISSION_RATE,
           notes: params.notes || null,
           status: 'pending',
           ...permissions,
         })
-        .select(
-          `
-        *,
-        property:properties(id, title, city, neighborhood, monthly_rent, main_image),
-        agency:agencies(*)
-      `
-        )
+        .select(`
+          *,
+          property:properties(id, title, city, neighborhood, price, main_image)
+        `)
         .single();
 
       if (err) {
@@ -250,12 +277,27 @@ export function useAgencyMandates() {
         return null;
       }
 
+      // Fetch agency info separately from profiles
+      const { data: agencyProfile } = await supabase
+        .from('profiles')
+        .select('id, agency_name, email, phone, city')
+        .eq('id', params.agency_id)
+        .maybeSingle();
+
+      const mandateWithAgency = {
+        ...data,
+        agency: agencyProfile || {
+          id: params.agency_id,
+          agency_name: 'Agence',
+        },
+      };
+
       // Send notification to agency
-      await notifyMandateCreated(data.id);
+      await notifyMandateCreated(mandateWithAgency.id);
 
       toast.success("Invitation envoyée à l'agence");
       await fetchMandates();
-      return data as unknown as AgencyMandate;
+      return mandateWithAgency as unknown as AgencyMandate;
     },
     [user, fetchMandates]
   );
@@ -447,6 +489,215 @@ export function useAgencyMandates() {
     [fetchMandates]
   );
 
+  // Update mandate dates (start_date, end_date)
+  const updateMandateDates = useCallback(
+    async (mandateId: string, startDate: string, endDate?: string | null): Promise<boolean> => {
+      const { error: err } = await supabase
+        .from('agency_mandates')
+        .update({
+          start_date: startDate,
+          end_date: endDate || null,
+        })
+        .eq('id', mandateId);
+
+      if (err) {
+        console.error('Error updating mandate dates:', err);
+        toast.error('Erreur lors de la mise à jour des dates');
+        return false;
+      }
+
+      toast.success('Dates mises à jour');
+      await fetchMandates();
+      return true;
+    },
+    [fetchMandates]
+  );
+
+  // Update mandate notes
+  const updateMandateNotes = useCallback(
+    async (mandateId: string, notes: string | null): Promise<boolean> => {
+      const { error: err } = await supabase
+        .from('agency_mandates')
+        .update({ notes })
+        .eq('id', mandateId);
+
+      if (err) {
+        console.error('Error updating mandate notes:', err);
+        toast.error('Erreur lors de la mise à jour des notes');
+        return false;
+      }
+
+      toast.success('Notes mises à jour');
+      await fetchMandates();
+      return true;
+    },
+    [fetchMandates]
+  );
+
+  // Update mandate scope (single_property vs all_properties)
+  const updateMandateScope = useCallback(
+    async (mandateId: string, scope: MandateScope, propertyId?: string | null): Promise<boolean> => {
+      // Validate: single_property requires property_id
+      if (scope === 'single_property' && !propertyId) {
+        toast.error('Veuillez sélectionner un bien pour ce type de mandat');
+        return false;
+      }
+
+      const updateData: any = {
+        mandate_scope: scope,
+        property_id: scope === 'all_properties' ? null : propertyId,
+      };
+
+      const { error: err } = await supabase
+        .from('agency_mandates')
+        .update(updateData)
+        .eq('id', mandateId);
+
+      if (err) {
+        console.error('Error updating mandate scope:', err);
+        toast.error('Erreur lors de la mise à jour de la portée');
+        return false;
+      }
+
+      toast.success('Portée mise à jour');
+      await fetchMandates();
+      return true;
+    },
+    [fetchMandates]
+  );
+
+  // Delete a mandate (owner only, for pending mandates)
+  const deleteMandate = useCallback(
+    async (mandateId: string): Promise<boolean> => {
+      if (!user) return false;
+
+      // Check if user is the owner
+      const mandate = mandates.find((m) => m.id === mandateId);
+      if (!mandate) {
+        toast.error('Mandat introuvable');
+        return false;
+      }
+
+      if (mandate.owner_id !== user.id) {
+        toast.error('Seul le propriétaire peut supprimer ce mandat');
+        return false;
+      }
+
+      // Only allow deletion of pending mandates
+      if (mandate.status !== 'pending') {
+        toast.error('Seuls les mandats en attente peuvent être supprimés');
+        return false;
+      }
+
+      const { error: err } = await supabase
+        .from('agency_mandates')
+        .delete()
+        .eq('id', mandateId);
+
+      if (err) {
+        console.error('Error deleting mandate:', err);
+        toast.error('Erreur lors de la suppression du mandat');
+        return false;
+      }
+
+      toast.success('Mandat supprimé');
+      await fetchMandates();
+      return true;
+    },
+    [user, mandates, fetchMandates]
+  );
+
+  // Get a single mandate by ID
+  const getMandateById = useCallback(
+    async (mandateId: string): Promise<AgencyMandate | null> => {
+      const { data, error } = await supabase
+        .from('agency_mandates')
+        .select(`
+          *,
+          property:properties(id, title, city, neighborhood, price, main_image),
+          agency:agencies(*)
+        `)
+        .eq('id', mandateId)
+        .single();
+
+      if (error || !data) {
+        console.error('Error fetching mandate:', error);
+        return null;
+      }
+
+      return data as AgencyMandate;
+    },
+    []
+  );
+
+  // Extend mandate end date
+  const extendMandate = useCallback(
+    async (mandateId: string, newEndDate: string): Promise<boolean> => {
+      const { error: err } = await supabase
+        .from('agency_mandates')
+        .update({ end_date: newEndDate })
+        .eq('id', mandateId);
+
+      if (err) {
+        console.error('Error extending mandate:', err);
+        toast.error('Erreur lors de l\'extension du mandat');
+        return false;
+      }
+
+      toast.success('Mandat étendu');
+      await fetchMandates();
+      return true;
+    },
+    [fetchMandates]
+  );
+
+  // Generic update mandate - update multiple fields at once
+  const updateMandate = useCallback(
+    async (mandateId: string, params: UpdateMandateParams): Promise<boolean> => {
+      if (!user) return false;
+
+      // Validate: single_property requires property_id
+      if (params.mandate_scope === 'single_property' && !params.property_id) {
+        toast.error('Veuillez sélectionner un bien pour ce type de mandat');
+        return false;
+      }
+
+      const updateData: any = {};
+
+      if (params.property_id !== undefined) updateData.property_id = params.property_id;
+      if (params.mandate_scope !== undefined) {
+        updateData.mandate_scope = params.mandate_scope;
+        // If scope is all_properties, set property_id to null
+        if (params.mandate_scope === 'all_properties') {
+          updateData.property_id = null;
+        }
+      }
+      if (params.start_date !== undefined) updateData.start_date = params.start_date;
+      if (params.end_date !== undefined) updateData.end_date = params.end_date;
+      if (params.commission_rate !== undefined) updateData.commission_rate = params.commission_rate;
+      if (params.notes !== undefined) updateData.notes = params.notes;
+      if (params.permissions) {
+        Object.assign(updateData, params.permissions);
+      }
+
+      const { error: err } = await supabase
+        .from('agency_mandates')
+        .update(updateData)
+        .eq('id', mandateId);
+
+      if (err) {
+        console.error('Error updating mandate:', err);
+        toast.error('Erreur lors de la mise à jour du mandat');
+        return false;
+      }
+
+      toast.success('Mandat mis à jour');
+      await fetchMandates();
+      return true;
+    },
+    [user, fetchMandates]
+  );
+
   // Download mandate PDF
   const downloadMandate = useCallback(
     async (mandateId: string): Promise<boolean> => {
@@ -477,7 +728,7 @@ export function useAgencyMandates() {
               title: mandate.property.title,
               city: mandate.property.city,
               neighborhood: mandate.property.neighborhood || undefined,
-              monthlyRent: mandate.property.monthly_rent,
+              monthlyRent: mandate.property.price,
             }
           : undefined,
         startDate: mandate.start_date,
@@ -551,15 +802,26 @@ export function useAgencyMandates() {
     ownerMandates,
     agencyMandates,
 
-    // Actions
+    // CRUD Operations
     createMandate,
+    getMandateById,
+    updateMandate,
+    updateMandatePermissions,
+    updateCommissionRate,
+    updateMandateDates,
+    updateMandateNotes,
+    updateMandateScope,
+    deleteMandate,
+
+    // Status actions
     acceptMandate,
     refuseMandate,
     terminateMandate,
     suspendMandate,
     reactivateMandate,
-    updateMandatePermissions,
-    updateCommissionRate,
+    extendMandate,
+
+    // Documents
     downloadMandate,
 
     // Refresh

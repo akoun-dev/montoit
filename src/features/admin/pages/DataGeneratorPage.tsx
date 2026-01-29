@@ -219,7 +219,6 @@ export default function DataGeneratorPage() {
       const leaseStatuses = [
         { status: 'brouillon', description: 'Brouillon - PDF non généré' },
         { status: 'en_attente_signature', description: 'En attente de signature' },
-        { status: 'partiellement_signe', description: 'Partiellement signé (proprio OK)' },
         { status: 'actif', description: 'Actif - signé par tous' },
         { status: 'signature_electronique_pending', description: 'Signature CryptoNeo en cours' },
       ];
@@ -252,10 +251,8 @@ export default function DataGeneratorPage() {
         };
 
         // Ajouter les signatures selon le statut
-        if (leaseStatus.status === 'partiellement_signe' || leaseStatus.status === 'actif') {
-          insertData['landlord_signed_at'] = new Date().toISOString();
-        }
         if (leaseStatus.status === 'actif') {
+          insertData['owner_signed_at'] = new Date().toISOString();
           insertData['tenant_signed_at'] = new Date().toISOString();
           insertData['signed_at'] = new Date().toISOString();
         }

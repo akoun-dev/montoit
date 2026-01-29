@@ -18,7 +18,6 @@ import { Badge } from '@/shared/ui/badge';
 import Button from '@/shared/ui/Button';
 import { Skeleton } from '@/shared/ui/Skeleton';
 import TrustScoreCard from '@/shared/ui/TrustScoreCard';
-import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 
 const ScorePage: React.FC = () => {
   const navigate = useNavigate();
@@ -82,23 +81,13 @@ const ScorePage: React.FC = () => {
   ];
 
   const verificationItems = [
-    { key: 'oneci', label: 'Vérification ONECI', points: 30, description: 'Identité nationale' },
-    {
-      key: 'facial',
-      label: 'Vérification faciale',
-      points: 25,
-      description: 'Reconnaissance faciale',
-    },
-    {
-      key: 'ansut',
-      label: 'Certification ANSUT',
-      points: 20,
-      description: 'Certification officielle',
-    },
+    { key: 'email', label: 'Email vérifié', points: 33, description: 'Adresse email confirmée', alwaysVerified: true },
+    { key: 'oneci', label: 'Vérification ONECI', points: 33, description: 'Carte d\'identité nationale' },
+    { key: 'facial', label: 'Reconnaissance faciale', points: 34, description: 'Vérification biométrique' },
   ];
 
   return (
-    <TenantDashboardLayout title="Mon Score">
+    <div>
       <div className="w-full">
         {/* Header Banner */}
         <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8">
@@ -160,60 +149,66 @@ const ScorePage: React.FC = () => {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <FileCheck className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium text-sm">Ajouter des vérifications</span>
+                          <span className="font-medium text-sm">Vérifications</span>
                         </div>
                         <Badge variant="secondary">
                           +{100 - scoreBreakdown.verificationScore} pts
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
-                        Vérifiez votre identité pour gagner la confiance des propriétaires
+                        ONECI (33 pts) + Reconnaissance faciale (34 pts)
                       </p>
-                      <Button
-                        variant="outline"
-                        size="small"
-                        onClick={() => navigate('/verification')}
-                        className="w-full"
-                      >
-                        Lancer une vérification
-                      </Button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          variant="outline"
+                          size="small"
+                          onClick={() => navigate('/locataire/verification-oneci')}
+                          className="w-full text-xs"
+                        >
+                          ONECI
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="small"
+                          onClick={() => navigate('/verification-biometrique?reset=true')}
+                          className="w-full text-xs"
+                        >
+                          Reconnaissance faciale
+                        </Button>
+                      </div>
                     </div>
                   )}
 
-                  {/* Historique */}
-                  {scoreBreakdown.historyScore < 70 && (
-                    <div className="p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <History className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium text-sm">
-                            Déclarer vos locations passées
-                          </span>
-                        </div>
-                        <Badge variant="secondary">+5 à +50 pts</Badge>
+                  {/* Certification ANSUT */}
+                  <div className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Award className="h-4 w-4 text-orange-600" />
+                        <span className="font-medium text-sm text-orange-900">Certification ANSUT</span>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Ajoutez vos locations passées pour améliorer votre score d'historique
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="small"
-                        onClick={() => navigate('/profil/historique-locations')}
-                        className="w-full"
-                      >
-                        Ajouter mon historique
-                      </Button>
+                      <Badge className="bg-orange-100 text-orange-800 border-orange-300">Bonus 100%</Badge>
                     </div>
-                  )}
+                    <p className="text-sm text-orange-700 mb-2">
+                      Dossier validé = Score 100% automatique
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="small"
+                      onClick={() => navigate('/locataire/profil?tab=dossier')}
+                      className="w-full bg-orange-100 hover:bg-orange-200 text-orange-900 border-orange-300"
+                    >
+                      Commencer le dossier
+                    </Button>
+                  </div>
                 </>
               )}
 
-              {scoreBreakdown.globalScore >= 70 && (
+              {scoreBreakdown.globalScore >= 100 && (
                 <div className="text-center py-4">
                   <Award className="h-12 w-12 mx-auto text-green-500 mb-2" />
-                  <p className="font-medium text-green-600">Excellent score !</p>
+                  <p className="font-medium text-green-600">Score parfait !</p>
                   <p className="text-sm text-muted-foreground">
-                    Vous avez un profil de confiance élevé
+                    Félicitations ! Vous avez atteint le score maximum
                   </p>
                 </div>
               )}
@@ -269,8 +264,8 @@ const ScorePage: React.FC = () => {
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2">
               {verificationItems.map((item) => {
-                const isVerified =
-                  details.verification[item.key as keyof typeof details.verification];
+                // Email est toujours vérifié avec Supabase Auth
+                const isVerified = item.alwaysVerified || details.verification[item.key as keyof typeof details.verification];
                 return (
                   <div
                     key={item.key}
@@ -300,6 +295,22 @@ const ScorePage: React.FC = () => {
                 );
               })}
             </div>
+
+            {/* Certification ANSUT - Bonus direct à 100% */}
+            <div className="mt-4 p-4 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <span className="font-medium text-orange-900">Certification ANSUT</span>
+                  <p className="text-sm text-orange-700">Dossier de certification complet</p>
+                </div>
+                <Badge className="bg-orange-100 text-orange-800 border-orange-300">
+                  Bonus 100%
+                </Badge>
+              </div>
+              <p className="text-xs text-orange-600">
+                Si votre dossier de certification est approuvé, votre score passe automatiquement à 100%
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -313,22 +324,29 @@ const ScorePage: React.FC = () => {
           </CardHeader>
           <CardContent className="prose prose-sm max-w-none">
             <p className="text-muted-foreground">
-              Le Trust Score est calculé à partir de trois composantes pondérées :
+              Le Trust Score est calculé à partir de deux composantes :
             </p>
             <ul className="text-sm text-muted-foreground space-y-2 mt-3">
               <li>
-                <strong>Score de Profil (20%)</strong> : Basé sur la complétude de votre profil
-                (nom, téléphone, adresse, photo, etc.)
+                <strong>Score de Profil (50%)</strong> : Basé sur la complétude de votre profil
+                (nom, téléphone, ville, photo, bio, adresse)
               </li>
               <li>
-                <strong>Score de Vérification (40%)</strong> : Basé sur les vérifications
-                officielles (ONECI, CNAM, reconnaissance faciale, ANSUT)
-              </li>
-              <li>
-                <strong>Score d'Historique (40%)</strong> : Basé sur vos locations précédentes et
-                les évaluations des propriétaires
+                <strong>Score de Vérification (50%)</strong> : Basé sur 3 vérifications :
+                <span className="ml-2 text-xs">Email vérifié (33 pts) + ONECI (33 pts) + Reconnaissance faciale (34 pts)</span>
               </li>
             </ul>
+            <div className="mt-4 p-4 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg">
+              <p className="text-sm text-orange-900">
+                <strong>🎯 Bonus Certification ANSUT :</strong> Si votre dossier de certification est approuvé,
+                votre score passe automatiquement à <span className="font-bold text-orange-600">100%</span> !
+              </p>
+            </div>
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-900">
+                <strong>💡 Astuce :</strong> Profil complet + Toutes les vérifications (Email + ONECI + Facial) = <span className="font-bold text-blue-600">100%</span> !
+              </p>
+            </div>
             <div className="mt-4 p-3 bg-primary/5 rounded-lg">
               <p className="text-sm">
                 <strong>Recommandation :</strong> Un score de 70+ vous donne le statut "Approuvé",
@@ -338,7 +356,7 @@ const ScorePage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
-    </TenantDashboardLayout>
+    </div>
   );
 };
 

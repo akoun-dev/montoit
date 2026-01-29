@@ -117,7 +117,7 @@ export default function TenantDashboard() {
         );
 
         setNextPayment({
-          amount: lease.monthly_rent,
+          amount: propertyData?.monthly_rent || 0,
           dueDate: nextPaymentDate.toISOString(),
           daysRemaining,
         });

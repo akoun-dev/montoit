@@ -212,7 +212,10 @@ export async function submitVerificationApplication(
 
   const { data: application, error } = await supabase
     .from('verification_applications')
-    .update({ status: 'pending' })
+    .update({
+      status: 'pending',
+      submitted_at: new Date().toISOString(),
+    })
     .eq('id', applicationId)
     .select()
     .single();

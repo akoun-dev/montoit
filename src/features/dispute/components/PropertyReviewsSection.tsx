@@ -55,7 +55,6 @@ export default function PropertyReviewsSection({
         .from('reviews')
         .select('*')
         .eq('property_id', propertyId)
-        .eq('moderation_status', 'approved');
 
       if (filterRating !== 'all') {
         query = query.eq('rating', parseInt(filterRating));

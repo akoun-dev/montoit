@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
-import { Button } from './Button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './Card';
+import { Camera, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw, Sparkles, Shield, Eye } from 'lucide-react';
+import { Card } from '@/shared/ui/Card';
 import { supabase } from '@/integrations/supabase/client';
 
 interface NeofaceVerificationProps {
@@ -76,16 +75,9 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
       throw new Error('La photo du document est requise avant la vérification');
     }
 
-    console.log('[NeoFace UI] URL de la photo CNI:', cniPhotoUrl);
-
-    // Extraire les informations de l'URL pour éviter les problèmes avec les URLs signées
     let bucket: string;
     let path: string;
-
-    // Nettoyer l'URL pour enlever les paramètres
     const cleanUrl = cniPhotoUrl.split('?')[0];
-
-    // Détecter le type d'URL et extraire bucket et path
     const signMatch = cleanUrl.match(/\/storage\/v1\/object\/sign\/([^\/]+)\/(.+)/);
     const publicMatch = cleanUrl.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)/);
     const authMatch = cleanUrl.match(/\/storage\/v1\/object\/authenticated\/([^\/]+)\/(.+)/);
@@ -100,12 +92,8 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
       bucket = authMatch[1];
       path = authMatch[2];
     } else {
-      console.error("[NeoFace UI] Format d'URL non reconnu:", cniPhotoUrl);
       throw new Error("Format d'URL de stockage non reconnu");
     }
-
-    console.log('[NeoFace UI] Bucket détecté:', bucket);
-    console.log('[NeoFace UI] Chemin détecté:', path);
 
     const { data, error } = await supabase.functions.invoke('neoface-verify', {
       body: {
@@ -128,8 +116,6 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
     verifyId: string
   ): Promise<StatusResponse> => {
     try {
-      console.log('[NeoFace] Checking status:', { docId, verifyId, attempts });
-
       const { data, error } = await supabase.functions.invoke('neoface-verify', {
         body: {
           action: 'check_status',
@@ -137,8 +123,6 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
           verification_id: verifyId,
         },
       });
-
-      console.log('[NeoFace] Status response:', { data, error });
 
       if (error) {
         throw new Error(error.message || 'Échec de la vérification du statut');
@@ -150,23 +134,16 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
 
       return data as StatusResponse;
     } catch (err) {
-      console.error('[NeoFace] Erreur lors de la vérification du statut:', err);
-
-      // En cas d'erreur 403 ou de timeout, on simule un échec après quelques tentatives
       if (err instanceof Error && (err.message.includes('403') || err.message.includes('timeout'))) {
-        // Simuler une réponse d'échec après quelques tentatives
         const maxRetries = 5;
         if (attempts >= maxRetries) {
           return {
             status: 'failed',
-            message:
-              'Vérification échouée: problème de connexion avec NeoFace. Veuillez réessayer plus tard.',
+            message: 'Vérification échouée: problème de connexion avec NeoFace. Veuillez réessayer plus tard.',
             document_id: docId,
             provider: 'neoface',
           };
         }
-
-        // Simuler "waiting" pour permettre d'autres tentatives
         return {
           status: 'waiting',
           message: 'Vérification en cours de traitement...',
@@ -174,7 +151,6 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
           provider: 'neoface',
         };
       }
-
       throw err;
     }
   };
@@ -192,15 +168,12 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
         windowCheckIntervalRef.current = null;
         selfieWindowRef.current = null;
         setWindowClosed(true);
-        // Donner plus de temps pour la vérification après fermeture de la fenêtre
-        // Le selfie peut être validé après fermeture
       }
     }, 1000);
   };
 
   const handleCancel = () => {
     setIsCancelling(true);
-    // Arrêter tous les timers et intervals
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
@@ -230,7 +203,7 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
     const hasWindow = Boolean(selfieWindowRef.current && !selfieWindowRef.current.closed);
     setWindowClosed(!hasWindow);
     let pollAttempts = 0;
-    const maxAttempts = 40; // 40 * 3 secondes = 2 minutes au lieu de 5 minutes
+    const maxAttempts = 40;
 
     timeoutRef.current = setTimeout(
       () => {
@@ -238,15 +211,13 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
           clearInterval(pollingIntervalRef.current);
         }
         setStatus('error');
-        setError(
-          "Timeout: La vérification n'a pas été complétée dans les délais (2 minutes). Veuillez réessayer."
-        );
+        setError("Timeout: La vérification n'a pas été complétée dans les délais (2 minutes). Veuillez réessayer.");
         if (selfieWindowRef.current && !selfieWindowRef.current.closed) {
           selfieWindowRef.current.close();
         }
       },
       2 * 60 * 1000
-    ); // 2 minutes au lieu de 5 minutes
+    );
 
     if (hasWindow) {
       startWindowMonitor();
@@ -312,8 +283,6 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
             message = 'Limite de débit NeoFace atteinte. Réessayez dans quelques instants.';
           } else if (err.message.includes('403') || err.message.includes('Forbidden')) {
             message = 'Accès refusé par NeoFace. Veuillez réessayer ou contacter le support.';
-          } else if (err.message.includes('401') || err.message.includes('Unauthorized')) {
-            message = 'Token NeoFace invalide. Contactez le support.';
           } else {
             message = err.message;
           }
@@ -351,7 +320,7 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
       selfieWindowRef.current = popup;
       popup.document.title = 'Vérification NeoFace';
       popup.document.body.innerHTML =
-        '<p style="font-family: Arial, sans-serif; padding: 24px; color: #3C2A1E;">Chargement de la vérification...</p>';
+        '<style>body{font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:linear-gradient(135deg,#F16522 0%,#d9571d 100%);color:white}</style><div style="text-align:center"><div style="width:60px;height:60px;border:4px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px"></div><p>Chargement de la vérification...</p></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
       popup.focus();
     } else {
       setWindowClosed(true);
@@ -359,11 +328,6 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
 
     try {
       const uploadData = await uploadDocument();
-
-      console.log('[NeoFace UI] Upload response:', uploadData);
-      console.log('[NeoFace UI] Document ID:', uploadData.document_id);
-      console.log('[NeoFace UI] Selfie URL:', uploadData.selfie_url);
-      console.log('[NeoFace UI] Verification ID:', uploadData.verification_id);
 
       setDocumentId(uploadData.document_id);
       setSelfieUrl(uploadData.selfie_url);
@@ -373,16 +337,10 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
       setStatus('waiting');
       setProgress('Redirection vers la page de vérification NeoFace...');
 
-      // Vérifier si l'URL est valide
       if (!uploadData.selfie_url || !uploadData.selfie_url.startsWith('http')) {
         throw new Error(`URL NeoFace invalide: ${uploadData.selfie_url}`);
       }
 
-      console.log('[NeoFace UI] Redirection vers:', uploadData.selfie_url);
-
-      // NOTE: NeoFace utilise X-Frame-Options: DENY, donc pas d'iframe.
-      // On ouvre une nouvelle fenêtre pour permettre au bouton "Quitter" de fonctionner.
-      // On stocke les infos de vérification pour les récupérer au retour
       sessionStorage.setItem(
         'neoface_verification',
         JSON.stringify({
@@ -393,7 +351,6 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
         })
       );
 
-      // Ouvrir NeoFace dans une nouvelle fenêtre pour permettre le bouton "Quitter"
       const openSelfieWindow = () => {
         if (selfieWindowRef.current && !selfieWindowRef.current.closed) {
           selfieWindowRef.current.location.href = uploadData.selfie_url;
@@ -418,12 +375,10 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
         );
       }
 
-      // Démarrer le polling immédiatement (pas besoin de retour manuel)
       startPolling(uploadData.document_id, uploadData.verification_id);
       setIsVerifying(false);
     } catch (err) {
       let errorMessage = err instanceof Error ? err.message : 'Erreur lors de la vérification';
-      console.error('[NeoFace UI] Erreur lors de la vérification:', err);
 
       if (errorMessage.includes('429') || errorMessage.toLowerCase().includes('too many')) {
         errorMessage =
@@ -453,14 +408,8 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
         const data = JSON.parse(verificationData);
         const timeDiff = Date.now() - data.timestamp;
 
-        // Si ça fait moins de 30 minutes, on considère que c'est valide
         if (timeDiff < 30 * 60 * 1000 && data.document_id && data.verification_id) {
-          console.log('[NeoFace UI] Retour de NeoFace détecté, démarrage du polling');
-
-          // Nettoyer le sessionStorage
           sessionStorage.removeItem('neoface_verification');
-
-          // Démarrer le polling pour vérifier le statut
           setStatus('polling');
           setProgress('Vérification du statut en cours...');
           setDocumentId(data.document_id);
@@ -468,7 +417,6 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
           startPolling(data.document_id, data.verification_id);
         }
       } catch (e) {
-        console.error('[NeoFace UI] Erreur lors de la lecture des données de retour:', e);
         sessionStorage.removeItem('neoface_verification');
       }
     }
@@ -518,50 +466,53 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
   };
 
   return (
-    <Card className="border-2 border-[#3C2A1E]/10 shadow-lg overflow-hidden">
-      <CardHeader className="bg-gradient-to-r from-[#3C2A1E] to-[#5D4037] text-white">
-        <CardTitle className="flex items-center gap-2 text-white">
-          <Camera className="h-5 w-5" />
-          Vérification Faciale NeoFace
-        </CardTitle>
-        <CardDescription className="text-white/80">
-          Vérification biométrique gratuite avec détection de vivacité
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4 p-6 bg-[#FDF6E3]">
+    <Card className="border-2 border-[#3C2A1E]/10 shadow-xl overflow-hidden bg-gradient-to-br from-white to-[#FDF6E3]/30">
+      {/* Header avec couleurs originales */}
+      <div className="bg-gradient-to-r from-[#3C2A1E] to-[#5D4037] p-6 text-white">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-[#F16522]/20 backdrop-blur rounded-2xl flex items-center justify-center shadow-lg">
+            <Sparkles className="h-7 w-7 text-white" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-xl font-bold">Vérification Faciale NeoFace</h3>
+            <p className="text-white/80 text-sm">Technologie avec détection de vivacité</p>
+          </div>
+          <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+            <Shield className="h-5 w-5 text-white" />
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-6">
+        {/* Document preview */}
         {cniPhotoUrl && (
-          <div className="flex justify-center">
-            <div className="relative">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#F16522]/20 to-[#d9571d]/20 rounded-2xl transform rotate-1"></div>
+            <div className="relative bg-white rounded-2xl p-4 flex justify-center shadow-md">
               <img
                 src={cniPhotoUrl}
                 alt="Photo CNI"
-                className="max-w-xs rounded-xl border-2 border-[#3C2A1E]/20 shadow-md"
+                className="max-w-xs rounded-xl border-2 border-[#3C2A1E]/20"
                 onError={(e) => {
                   console.error("[NeoFace] Erreur de chargement de l'image:", e);
                   e.currentTarget.src = '';
                   e.currentTarget.style.display = 'none';
                 }}
-                onLoad={(e) => {
-                  console.log('[NeoFace] Image chargée avec succès');
-                  e.currentTarget.style.display = 'block';
-                }}
               />
-              {!cniPhotoUrl && (
-                <div className="w-64 h-40 bg-gray-200 rounded-xl flex items-center justify-center">
-                  <p className="text-gray-500">Chargement de l'image...</p>
-                </div>
-              )}
             </div>
           </div>
         )}
 
+        {/* Error: No document */}
         {!hasDocument && status === 'idle' && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="h-5 w-5 text-white" />
+              </div>
               <div>
-                <p className="text-sm font-medium text-amber-900">Photo requise</p>
-                <p className="text-sm text-amber-700 mt-1">
+                <p className="font-semibold text-amber-900">Photo requise</p>
+                <p className="text-amber-700 text-sm mt-1">
                   Ajoutez la photo de votre document d'identité avant de lancer la vérification.
                 </p>
               </div>
@@ -569,152 +520,192 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
           </div>
         )}
 
+        {/* Progress indicator */}
         {status !== 'idle' && status !== 'success' && status !== 'cancelled' && (
-          <div className="bg-[#F16522]/10 border border-[#F16522]/30 rounded-xl p-4">
-            <div className="flex items-center gap-3">
-              <Loader2 className="h-5 w-5 text-[#F16522] animate-spin flex-shrink-0" />
+          <div className="bg-gradient-to-r from-[#F16522]/10 to-[#d9571d]/10 border-2 border-[#F16522]/30 rounded-2xl p-5">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#F16522] to-[#d9571d] rounded-xl flex items-center justify-center">
+                  {isCancelling ? (
+                    <XCircle className="h-6 w-6 text-white" />
+                  ) : (
+                    <Loader2 className="h-6 w-6 text-white animate-spin" />
+                  )}
+                </div>
+                {!isCancelling && status !== 'error' && (
+                  <div className="absolute inset-0 bg-[#F16522] rounded-xl animate-ping opacity-20"></div>
+                )}
+              </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-[#3C2A1E]">{progress}</p>
+                <p className="font-semibold text-[#3C2A1E]">{progress}</p>
                 {attempts > 0 && (
-                  <p className="text-xs text-[#F16522] mt-1">Tentative {attempts}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-[#F16522] to-[#d9571d] transition-all duration-300"
+                        style={{ width: `${Math.min((attempts / 10) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-xs text-[#F16522] font-medium whitespace-nowrap">
+                      {attempts}/10
+                    </span>
+                  </div>
                 )}
               </div>
               {(status === 'polling' || status === 'waiting' || status === 'uploading') && !isCancelling && (
-                <Button
+                <button
                   onClick={handleCancel}
-                  variant="outline"
-                  size="small"
-                  className="border-red-300 text-red-600 hover:bg-red-50 text-xs px-3 py-1.5"
+                  className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl text-sm font-medium transition-colors"
                   disabled={isCancelling}
                 >
                   {isCancelling ? 'Annulation...' : 'Annuler'}
-                </Button>
+                </button>
               )}
             </div>
           </div>
         )}
 
+        {/* Window closed warning */}
         {selfieUrl && (status === 'waiting' || windowClosed) && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-amber-900">
+          <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-amber-400 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Eye className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-amber-900">
                   {windowClosed ? 'Fenêtre fermée' : 'Fenêtre de capture ouverte'}
                 </p>
-                <p className="text-sm text-amber-700 mt-1">
+                <p className="text-amber-700 text-sm mt-1">
                   {windowClosed
-                    ? "La fenêtre de vérification a été fermée. Vous pouvez la rouvrir pour terminer la capture."
+                    ? "La fenêtre de vérification a été fermée. Rouvrez-la pour terminer la capture."
                     : 'Suivez les instructions dans la fenêtre popup pour capturer votre selfie.'}
                 </p>
-                <Button
+                <button
                   onClick={handleReopenWindow}
-                  variant="outline"
-                  size="small"
-                  className="mt-2 border-[#F16522] text-[#F16522] hover:bg-[#F16522]/10"
+                  className="mt-3 w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-medium transition-colors"
                 >
                   Rouvrir la fenêtre
-                </Button>
+                </button>
               </div>
             </div>
           </div>
         )}
 
+        {/* Success state */}
         {status === 'success' && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-            <div className="flex items-start gap-2">
-              <CheckCircle className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-green-900">Identité Vérifiée !</p>
-                <p className="text-sm text-green-700 mt-1">
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-5">
+            <div className="flex items-start gap-3">
+              <div className="relative">
+                <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
+                  <CheckCircle className="h-6 w-6 text-white" />
+                </div>
+                <div className="absolute inset-0 bg-green-500 rounded-xl animate-ping opacity-30"></div>
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-green-900 text-lg">Identité Vérifiée !</p>
+                <p className="text-green-700 text-sm mt-1">
                   Votre identité a été vérifiée avec succès via NeoFace.
                 </p>
                 {matchingScore !== null && (
-                  <p className="text-sm text-green-600 mt-2 font-medium">
-                    Score de correspondance : {(matchingScore * 100).toFixed(1)}%
-                  </p>
+                  <div className="mt-3 inline-flex items-center gap-2 bg-white rounded-xl px-4 py-2 shadow-md">
+                    <span className="text-sm text-green-600">Score:</span>
+                    <span className="text-lg font-bold text-green-700">
+                      {(matchingScore * 100).toFixed(1)}%
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
           </div>
         )}
 
+        {/* Error state */}
         {status === 'error' && error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-            <div className="flex items-start gap-2">
-              <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                <XCircle className="h-5 w-5 text-white" />
+              </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-red-800">Erreur de vérification</p>
-                <p className="text-sm text-red-600 mt-1">{error}</p>
+                <p className="font-semibold text-red-900">Erreur de vérification</p>
+                <p className="text-red-700 text-sm mt-1">{error}</p>
               </div>
             </div>
           </div>
         )}
 
+        {/* Cancelled state */}
         {status === 'cancelled' && error && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="bg-gray-50 border-2 border-gray-200 rounded-2xl p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-gray-400 rounded-xl flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="h-5 w-5 text-white" />
+              </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-amber-900">Vérification annulée</p>
-                <p className="text-sm text-amber-700 mt-1">{error}</p>
+                <p className="font-semibold text-gray-900">Vérification annulée</p>
+                <p className="text-gray-700 text-sm mt-1">{error}</p>
               </div>
             </div>
           </div>
         )}
 
+        {/* Action buttons */}
         {status === 'idle' && (
-          <Button
+          <button
             onClick={handleVerification}
             disabled={isVerifying || !hasDocument}
-            className="w-full bg-[#F16522] hover:bg-[#D95318] text-white font-semibold py-3 rounded-xl shadow-md transition-all duration-200"
+            className="group w-full py-4 bg-gradient-to-r from-[#F16522] to-[#d9571d] text-white rounded-2xl font-semibold hover:from-[#d9571d] hover:to-[#F16522] transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-3"
           >
             {isVerifying ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="h-5 w-5 animate-spin" />
                 Vérification en cours...
               </>
             ) : (
               <>
+                <Sparkles className="h-5 w-5" />
                 {hasDocument ? 'Commencer la Vérification' : 'Ajoutez une photo pour commencer'}
               </>
             )}
-          </Button>
+          </button>
         )}
 
         {status === 'error' && (
-          <Button
+          <button
             onClick={handleRetry}
-            variant="outline"
-            className="w-full border-[#3C2A1E] text-[#3C2A1E] hover:bg-[#3C2A1E]/5"
+            className="group w-full py-4 border-2 border-[#3C2A1E]/20 text-[#3C2A1E] rounded-2xl font-semibold hover:bg-[#3C2A1E]/5 transition-colors flex items-center justify-center gap-2"
           >
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <RefreshCw className="h-5 w-5 group-hover:rotate-180 transition-transform duration-300" />
             Réessayer
-          </Button>
+          </button>
         )}
 
         {status === 'cancelled' && (
-          <Button
+          <button
             onClick={handleRetry}
-            variant="outline"
-            className="w-full border-[#3C2A1E] text-[#3C2A1E] hover:bg-[#3C2A1E]/5"
+            className="group w-full py-4 border-2 border-[#3C2A1E]/20 text-[#3C2A1E] rounded-2xl font-semibold hover:bg-[#3C2A1E]/5 transition-colors flex items-center justify-center gap-2"
           >
+            <RefreshCw className="h-5 w-5 group-hover:rotate-180 transition-transform duration-300" />
             Recommencer
-          </Button>
+          </button>
         )}
 
-        <div className="border-t border-[#3C2A1E]/10 pt-4 space-y-2">
-          <p className="text-xs text-[#3C2A1E] font-semibold uppercase tracking-wide">
-            🔒 Vérification Sécurisée
-          </p>
-          <ul className="text-xs text-[#5D4037] space-y-1">
-            <li>✓ Détection de vivacité (clignement des yeux)</li>
-            <li>✓ Reconnaissance faciale par IA</li>
-            <li>✓ Service 100% gratuit (0 FCFA)</li>
-            <li>✓ Données cryptées et sécurisées</li>
-          </ul>
+        {/* Features */}
+        <div className="grid grid-cols-2 gap-3 pt-4 border-t border-[#3C2A1E]/10">
+          {[
+            { icon: Eye, text: 'Détection de vivacité' },
+            { icon: Sparkles, text: 'IA de reconnaissance' },
+            { icon: Shield, text: '100% Gratuit' },
+            { icon: Shield, text: 'Sécurisé' },
+          ].map((feature, idx) => (
+            <div key={idx} className="flex items-center gap-2 text-xs text-[#5D4037]">
+              <feature.icon className="h-4 w-4 text-[#F16522]" />
+              <span>{feature.text}</span>
+            </div>
+          ))}
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 };

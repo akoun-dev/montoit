@@ -21,10 +21,13 @@ import {
   Clock,
   Wrench,
   Ban,
+  Handshake,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { toast } from 'sonner';
+import InviteAgencyDialog from '@/features/agency/components/InviteAgencyDialog';
+import { useAgencyMandates, type Agency } from '@/hooks/useAgencyMandates';
 
 interface Property {
   id: string;
@@ -151,6 +154,10 @@ export default function MyPropertiesPage() {
   const [filter, setFilter] = useState<'all' | 'disponible' | 'loue' | 'en_attente' | 'maintenance'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showMandateDialog, setShowMandateDialog] = useState(false);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | undefined>();
+
+  const { agencies, createMandate } = useAgencyMandates();
 
   useEffect(() => {
     fetchProperties();
@@ -266,6 +273,15 @@ export default function MyPropertiesPage() {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const handleAssignMandate = (propertyId: string) => {
+    setSelectedPropertyId(propertyId);
+    setShowMandateDialog(true);
+  };
+
+  const handleInvite = async (params: Parameters<typeof createMandate>[0]) => {
+    return await createMandate(params);
   };
 
   if (!user) {
@@ -557,19 +573,26 @@ export default function MyPropertiesPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => navigate(`/propriete/${property.id}`)}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-colors"
                       >
                         <Eye className="w-4 h-4" />
-                        <span>Voir</span>
+                        <span className="hidden sm:inline">Voir</span>
                       </button>
                       <button
                         onClick={() =>
                           navigate(`/proprietaire/ajouter-propriete?edit=${property.id}`)
                         }
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-colors"
                       >
                         <Edit className="w-4 h-4" />
-                        <span>Modifier</span>
+                        <span className="hidden sm:inline">Modifier</span>
+                      </button>
+                      <button
+                        onClick={() => handleAssignMandate(property.id)}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        <Handshake className="w-4 h-4" />
+                        <span className="hidden sm:inline">Mandat</span>
                       </button>
                       <button
                         onClick={() => handleDeleteProperty(property.id)}
@@ -590,6 +613,24 @@ export default function MyPropertiesPage() {
           </div>
         )}
       </div>
+
+      {/* Invite Agency Dialog */}
+      <InviteAgencyDialog
+        isOpen={showMandateDialog}
+        onClose={() => {
+          setShowMandateDialog(false);
+          setSelectedPropertyId(undefined);
+        }}
+        onInvite={handleInvite}
+        properties={properties.map((p) => ({
+          id: p.id,
+          title: p.title,
+          city: p.city,
+          price: p.price,
+        }))}
+        agencies={agencies}
+        selectedPropertyId={selectedPropertyId}
+      />
     </div>
   );
 }

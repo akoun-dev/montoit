@@ -81,7 +81,7 @@ export default function MyContracts() {
       if (filter === 'active') {
         query = query.eq('status', 'actif');
       } else if (filter === 'pending') {
-        query = query.in('status', ['brouillon', 'en_attente_signature', 'partiellement_signe']);
+        query = query.in('status', ['brouillon', 'en_attente_signature']);
       } else if (filter === 'expired') {
         query = query.in('status', ['expire', 'resilie', 'annule']);
       }
@@ -120,7 +120,6 @@ export default function MyContracts() {
     const styles = {
       brouillon: 'bg-gray-100 text-gray-800',
       en_attente_signature: 'bg-yellow-100 text-yellow-800',
-      partiellement_signe: 'bg-blue-100 text-blue-800',
       actif: 'bg-green-100 text-green-800',
       expire: 'bg-red-100 text-red-800',
       resilie: 'bg-red-100 text-red-800',
@@ -130,7 +129,6 @@ export default function MyContracts() {
     const labels = {
       brouillon: 'Brouillon',
       en_attente_signature: 'En attente',
-      partiellement_signe: 'Partiellement signé',
       actif: 'Actif',
       expire: 'Expiré',
       resilie: 'Résilié',

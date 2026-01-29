@@ -25,6 +25,10 @@ const SignLease = lazyWithRetry(() => import('@/pages/tenant/SignLeasePage'));
 const ApplicationForm = lazyWithRetry(() => import('@/pages/tenant/ApplicationFormPage'));
 // MyMandatesPage can be used by both owners and agencies
 const MyMandatesPage = lazyWithRetry(() => import('@/pages/agency/MyMandatesPage'));
+// HandwrittenSignaturePage for signing mandates
+const HandwrittenSignaturePage = lazyWithRetry(() => import('@/pages/mandates/HandwrittenSignaturePage'));
+// MandateDetailPage for mandate details
+const MandateDetailPage = lazyWithRetry(() => import('@/components/mandates/MandateDetailPage'));
 // MessagesPage is shared across all user types
 const MessagesPage = lazyWithRetry(() => import('@/pages/messaging/MessagesPage'));
 
@@ -75,6 +79,14 @@ export const ownerRoutes: RouteObject[] = [
         element: <OwnerContracts />,
       },
       {
+        path: 'contrats/nouveau',
+        element: (
+          <ProtectedRoute allowedRoles={[...PROPERTY_MANAGER_ROLES]}>
+            <CreateContract />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: 'contrat/:id',
         element: (
           <ProtectedRoute allowedRoles={[...PROPERTY_MANAGER_ROLES]}>
@@ -113,6 +125,14 @@ export const ownerRoutes: RouteObject[] = [
       {
         path: 'mes-mandats',
         element: <MyMandatesPage />,
+      },
+      {
+        path: 'mes-mandats/:id',
+        element: <MandateDetailPage />,
+      },
+      {
+        path: 'mes-mandats/signer/:id',
+        element: <HandwrittenSignaturePage />,
       },
 
       // Messages (shared across all user types)

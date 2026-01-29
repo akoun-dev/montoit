@@ -115,7 +115,7 @@ export default function SignLeasePage() {
       const [propertyRes, ownerRes, tenantRes] = await Promise.all([
         supabase
           .from('properties')
-          .select('title, address, city')
+          .select('title, address, city, monthly_rent')
           .eq('id', leaseData.property_id)
           .single(),
         supabase
@@ -471,7 +471,7 @@ export default function SignLeasePage() {
                     <div>
                       <p className="text-sm text-[#8B7355]">Loyer mensuel</p>
                       <p className="text-xl font-bold text-[#F16522]">
-                        {lease.monthly_rent.toLocaleString('fr-FR')} FCFA
+                        {(property?.monthly_rent || 0).toLocaleString('fr-FR')} FCFA
                       </p>
                     </div>
                     <div>

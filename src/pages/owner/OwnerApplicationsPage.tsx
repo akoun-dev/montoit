@@ -158,6 +158,7 @@ const ApplicationRow = ({
   onViewDetails: (app: ApplicationWithDetails) => void;
   loading: boolean;
 }) => {
+  const navigate = useNavigate();
   const statusConfig = STATUS_CONFIG[application.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.en_attente;
   const StatusIcon = statusConfig.icon;
 
@@ -323,9 +324,23 @@ const ApplicationRow = ({
               </button>
             )}
             {application.status === 'acceptee' && (
-              <span className="text-sm text-green-600 font-medium">
-                ✓ Vous pouvez créer un contrat
-              </span>
+              application.contract_id ? (
+                <button
+                  onClick={() => navigate(`/contrat/${application.contract_id}`)}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-1.5 shadow-md hover:shadow-lg"
+                >
+                  <FileText className="h-4 w-4" />
+                  Voir le contrat
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate(`/proprietaire/contrats/nouveau?applicationId=${application.id}`)}
+                  className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-1.5 shadow-md hover:shadow-lg"
+                >
+                  <FileText className="h-4 w-4" />
+                  Créer le contrat
+                </button>
+              )
             )}
           </div>
         </div>
@@ -911,6 +926,25 @@ export default function OwnerApplicationsPage() {
                           >
                             Visite
                           </button>
+                        )}
+                        {application.status === 'acceptee' && (
+                          application.contract_id ? (
+                            <button
+                              onClick={() => navigate(`/contrat/${application.contract_id}`)}
+                              className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-1.5"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              Voir le contrat
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => navigate(`/proprietaire/contrats/nouveau?applicationId=${application.id}`)}
+                              className="px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-1.5"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              Créer le contrat
+                            </button>
+                          )
                         )}
                       </div>
                     </div>

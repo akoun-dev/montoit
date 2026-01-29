@@ -21,7 +21,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { useAgencyMandates, type AgencyMandate } from '@/hooks/useAgencyMandates';
+import type { AgencyMandate } from '@/hooks/useAgencyMandates';
 import { FormStepper, FormStepContent, useFormStepper } from '@/shared/ui/FormStepper';
 import Button from '@/shared/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/ui/Card';
@@ -38,7 +38,6 @@ export default function SignMandatePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, profile } = useAuth();
-  const { mandates, refresh } = useAgencyMandates();
 
   const [mandate, setMandate] = useState<AgencyMandate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,28 +49,100 @@ export default function SignMandatePage() {
 
   const { step: currentStep, slideDirection, goToStep, nextStep, prevStep } = useFormStepper(3);
 
-  // Fetch mandate data
+  // Fetch mandate data - fetch directly from DB instead of relying on local list
   useEffect(() => {
-    if (!id) return;
+    const fetchMandate = async () => {
+      if (!id) return;
 
-    const foundMandate = mandates.find((m) => m.id === id);
-    if (foundMandate) {
-      setMandate(foundMandate);
+      setLoading(true);
 
-      // Determine signer type
-      if (foundMandate.owner_id === user?.id) {
-        setSignerType('owner');
-      } else if (foundMandate.agency?.user_id === user?.id) {
-        setSignerType('agency');
+      try {
+        // Fetch mandate directly from database
+        const { data: mandateData, error } = await supabase
+          .from('agency_mandates')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching mandate:', error);
+          toast.error('Erreur lors du chargement du mandat');
+          navigate('/agences/mandats');
+          return;
+        }
+
+        if (!mandateData) {
+          toast.error('Mandat introuvable');
+          navigate('/agences/mandats');
+          return;
+        }
+
+        // Fetch related data separately
+        let agencyData = null;
+        let propertyData = null;
+        let ownerData = null;
+
+        // Fetch agency if exists
+        if (mandateData.agency_id) {
+          const { data: agency } = await supabase
+            .from('agencies')
+            .select('agency_name, user_id, logo_url')
+            .eq('id', mandateData.agency_id)
+            .maybeSingle();
+          agencyData = agency;
+        }
+
+        // Fetch property if exists
+        if (mandateData.property_id) {
+          const { data: property } = await supabase
+            .from('properties')
+            .select('id, title, city, neighborhood, monthly_rent')
+            .eq('id', mandateData.property_id)
+            .maybeSingle();
+          propertyData = property;
+        }
+
+        // Fetch owner with more details
+        const { data: owner, error: ownerError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, phone, city')
+          .eq('id', mandateData.owner_id)
+          .single();
+
+        if (ownerError || !owner) {
+          console.error('Error fetching owner:', ownerError);
+        } else {
+          ownerData = owner;
+        }
+
+        // Combine all data
+        const completeMandate: AgencyMandate = {
+          ...mandateData,
+          agency: agencyData,
+          property: propertyData,
+          owner: ownerData,
+        } as AgencyMandate;
+
+        setMandate(completeMandate);
+
+        // Determine signer type
+        if (mandateData.owner_id === user?.id) {
+          setSignerType('owner');
+        } else if (agencyData?.user_id === user?.id) {
+          setSignerType('agency');
+        }
+
+      } catch (err) {
+        console.error('Error loading mandate:', err);
+        toast.error('Erreur lors du chargement du mandat');
+        navigate('/agences/mandats');
+      } finally {
+        setLoading(false);
       }
+    };
 
-      setLoading(false);
-    } else if (mandates.length > 0) {
-      // Mandate not found in list
-      toast.error('Mandat introuvable');
-      navigate('/mes-mandats');
-    }
-  }, [id, mandates, user, navigate]);
+    fetchMandate();
+  }, [id, user, navigate]);
 
   // Check if already signed by current user
   const alreadySigned =
@@ -117,7 +188,6 @@ export default function SignMandatePage() {
 
       setSignatureComplete(true);
       nextStep();
-      await refresh();
 
       if (data?.isComplete) {
         toast.success('🎉 Mandat signé par les deux parties !');
@@ -170,7 +240,7 @@ export default function SignMandatePage() {
           <Card className="p-8 text-center">
             <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Mandat introuvable</h2>
-            <Button onClick={() => navigate('/mes-mandats')}>Retour aux mandats</Button>
+            <Button onClick={() => navigate('/agences/mandats')}>Retour aux mandats</Button>
           </Card>
         </div>
       </div>
@@ -184,7 +254,7 @@ export default function SignMandatePage() {
           {/* Header */}
           <div className="mb-8">
             <button
-              onClick={() => navigate('/mes-mandats')}
+              onClick={() => navigate('/agences/mandats')}
               className="inline-flex items-center gap-2 mb-4 text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -241,7 +311,7 @@ export default function SignMandatePage() {
           )}
 
           {/* Step 1: Mandate Details */}
-          <FormStepContent step={0} currentStep={currentStep} slideDirection={slideDirection}>
+          <FormStepContent step={1} currentStep={currentStep} slideDirection={slideDirection}>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -263,8 +333,9 @@ export default function SignMandatePage() {
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      ID: {mandate.owner_id.slice(0, 8)}...
+                    <p className="text-sm font-medium">{mandate.owner?.full_name || 'Propriétaire'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {mandate.owner?.email || mandate.owner_id.slice(0, 8) + '...'}
                     </p>
                     {mandate.owner_signed_at && (
                       <Badge variant="outline" className="mt-2 text-green-600 border-green-300">
@@ -392,7 +463,7 @@ export default function SignMandatePage() {
           </FormStepContent>
 
           {/* Step 2: Acceptance */}
-          <FormStepContent step={1} currentStep={currentStep} slideDirection={slideDirection}>
+          <FormStepContent step={2} currentStep={currentStep} slideDirection={slideDirection}>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -496,7 +567,7 @@ export default function SignMandatePage() {
           </FormStepContent>
 
           {/* Step 3: Confirmation */}
-          <FormStepContent step={2} currentStep={currentStep} slideDirection={slideDirection}>
+          <FormStepContent step={3} currentStep={currentStep} slideDirection={slideDirection}>
             <Card className="border-green-200 bg-green-50/50">
               <CardContent className="pt-8 text-center">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -563,10 +634,10 @@ export default function SignMandatePage() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Button variant="outline" onClick={() => navigate('/mes-mandats')}>
+                  <Button variant="outline" onClick={() => navigate('/agences/mandats')}>
                     Voir mes mandats
                   </Button>
-                  <Button onClick={() => navigate(`/mandat/${mandate.id}`)}>
+                  <Button onClick={() => navigate(`/agences/mandats/${mandate.id}`)}>
                     Voir le détail du mandat
                   </Button>
                 </div>

@@ -40,10 +40,15 @@ import {
   Calendar,
   Target,
   Award,
+  CheckCircle,
+  Copy,
+  Mail as MailIcon,
+  X,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import type { Json } from '@/integrations/supabase/types';
+import { agentInvitationService } from '../services/agentInvitation.service';
 
 interface Agent {
   id: string;
@@ -96,6 +101,12 @@ export default function TeamManagementPage() {
     target_monthly: 0,
     bio: '',
   });
+
+  // State for invitation success dialog
+  const [invitationLink, setInvitationLink] = useState<string>('');
+  const [showInvitationDialog, setShowInvitationDialog] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [invitedEmail, setInvitedEmail] = useState<string>('');
 
   useEffect(() => {
     loadAgency();
@@ -157,25 +168,66 @@ export default function TeamManagementPage() {
   };
 
   const handleAddAgent = async () => {
-    if (!agencyId) return;
+    console.log('handleAddAgent called', { agencyId, email: newAgent.email });
 
+    if (!agencyId) {
+      toast.error('Agence non trouvée. Veuillez recharger la page.');
+      return;
+    }
+
+    // Validation
+    if (!newAgent.full_name || !newAgent.full_name.trim()) {
+      toast.error('Veuillez entrer le nom complet de l\'agent');
+      return;
+    }
+
+    if (!newAgent.email || !newAgent.email.includes('@')) {
+      toast.error('Veuillez entrer une adresse email valide');
+      return;
+    }
+
+    // Séparer nom et prénom
+    const nameParts = newAgent.full_name.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    console.log('Starting agent invitation...', { firstName, lastName, email: newAgent.email });
     try {
-      const { error } = await supabase.from('agency_agents').insert({
-        agency_id: agencyId,
+      // Create invitation using the service
+      const result = await agentInvitationService.inviteAgent({
+        agencyId,
         email: newAgent.email,
+        first_name: firstName,
+        last_name: lastName,
         phone: newAgent.phone,
         role: newAgent.role,
         commission_split: newAgent.commission_split,
         target_monthly: newAgent.target_monthly,
         bio: newAgent.bio,
-        status: 'pending',
       });
 
-      if (error) throw error;
+      if (!result.success) {
+        toast.error(result.error || "Erreur lors de la création de l'invitation");
+        return;
+      }
 
-      toast.success('Agent ajouté avec succès');
+      // Get invitation link
+      const link = agentInvitationService.getInvitationLink(result.token!);
+      setInvitationLink(link);
+      setInvitedEmail(newAgent.email);
+      setLinkCopied(false);
+
+      // Close add modal and show success dialog
       setShowAddModal(false);
+      setShowInvitationDialog(true);
+
+      // Copy link to clipboard automatically
+      await navigator.clipboard.writeText(link);
+      setLinkCopied(true);
+
+      // Reset form
       setNewAgent({
+        full_name: '',
         email: '',
         phone: '',
         role: 'agent',
@@ -183,11 +235,18 @@ export default function TeamManagementPage() {
         target_monthly: 0,
         bio: '',
       });
-      loadAgents(agencyId);
+
+      toast.success('Invitation créée avec succès !');
     } catch (error) {
       console.error('Error adding agent:', error);
-      toast.error("Erreur lors de l'ajout de l'agent");
+      toast.error("Erreur lors de la création de l'invitation");
     }
+  };
+
+  const handleCopyLink = async () => {
+    await navigator.clipboard.writeText(invitationLink);
+    setLinkCopied(true);
+    toast.success('Lien copié dans le presse-papier');
   };
 
   const handleUpdateStatus = async (agentId: string, newStatus: string) => {
@@ -268,7 +327,13 @@ export default function TeamManagementPage() {
             <h1 className="text-3xl font-bold text-[#2C1810]">Gestion de l'équipe</h1>
             <p className="text-[#2C1810]/60 mt-1">Gérez les agents de votre agence</p>
           </div>
-          <Button onClick={() => setShowAddModal(true)} className="bg-[#F16522] hover:bg-[#D14E12]">
+          <Button
+            onClick={() => {
+              console.log('Opening add agent modal');
+              setShowAddModal(true);
+            }}
+            className="bg-[#F16522] hover:bg-[#D14E12]"
+          >
             <UserPlus className="w-4 h-4 mr-2" />
             Ajouter un agent
           </Button>
@@ -475,7 +540,17 @@ export default function TeamManagementPage() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Email</Label>
+                <Label>Nom complet *</Label>
+                <Input
+                  value={newAgent.full_name}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setNewAgent({ ...newAgent, full_name: e.target.value })
+                  }
+                  placeholder="Jean Kouassi"
+                />
+              </div>
+              <div>
+                <Label>Email *</Label>
                 <Input
                   type="email"
                   value={newAgent.email}
@@ -549,10 +624,101 @@ export default function TeamManagementPage() {
               <Button variant="outline" onClick={() => setShowAddModal(false)}>
                 Annuler
               </Button>
-              <Button onClick={handleAddAgent} className="bg-[#F16522] hover:bg-[#D14E12]">
-                Ajouter
+              <Button
+                onClick={handleAddAgent}
+                className="bg-[#F16522] hover:bg-[#D14E12]"
+                disabled={
+                  !newAgent.full_name?.trim() ||
+                  !newAgent.email?.includes('@')
+                }
+              >
+                Inviter l'agent
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Invitation Success Dialog */}
+        <Dialog open={showInvitationDialog} onOpenChange={setShowInvitationDialog}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <button
+                onClick={() => setShowInvitationDialog(false)}
+                className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Fermer</span>
+              </button>
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                </div>
+                <DialogTitle className="text-center text-xl">
+                  Invitation créée avec succès !
+                </DialogTitle>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <p className="text-center text-[#2C1810]/70">
+                L'agent a été invité à rejoindre votre agence. Partagez le lien d'invitation ci-dessous avec lui.
+              </p>
+
+              {/* Invitation Link */}
+              <div className="bg-[#FAF7F4] rounded-lg p-3 border border-[#EFEBE9]">
+                <p className="text-xs text-[#2C1810]/60 mb-2">Lien d'invitation</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={invitationLink}
+                    readOnly
+                    className="flex-1 bg-white border border-[#EFEBE9] rounded px-3 py-2 text-sm text-[#2C1810] truncate"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCopyLink}
+                    className="shrink-0"
+                  >
+                    {linkCopied ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-1 text-green-600" />
+                        Copié
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 mr-1" />
+                        Copier
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    window.location.href = `mailto:${invitedEmail}?subject=Invitation à rejoindre votre agence&body=Bonjour, vous avez été invité à rejoindre notre agence sur MonToit. Cliquez sur le lien suivant pour accepter l'invitation : ${invitationLink}`;
+                  }}
+                >
+                  <MailIcon className="w-4 h-4 mr-2" />
+                  Envoyer par email
+                </Button>
+                <Button
+                  onClick={() => setShowInvitationDialog(false)}
+                  className="flex-1 bg-[#F16522] hover:bg-[#D14E12]"
+                >
+                  Terminé
+                </Button>
+              </div>
+
+              <p className="text-xs text-center text-[#2C1810]/50">
+                L'invitation expire dans 7 jours. Vous pouvez retrouver toutes les invitations dans l'onglet "Invitations".
+              </p>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

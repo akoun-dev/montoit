@@ -68,7 +68,7 @@ export default function SignMandatePage() {
     } else if (mandates.length > 0) {
       // Mandate not found in list
       toast.error('Mandat introuvable');
-      navigate('/mes-mandats');
+      navigate('/agences/mandats');
     }
   }, [id, mandates, user, navigate]);
 
@@ -162,7 +162,7 @@ export default function SignMandatePage() {
         <Card className="p-8 text-center">
           <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
           <h2 className="text-xl font-semibold mb-2">Mandat introuvable</h2>
-          <Button onClick={() => navigate('/mes-mandats')}>Retour aux mandats</Button>
+          <Button onClick={() => navigate('/agences/mandats')}>Retour aux mandats</Button>
         </Card>
       </div>
     );
@@ -174,7 +174,7 @@ export default function SignMandatePage() {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate('/mes-mandats')}
+            onClick={() => navigate('/agences/mandats')}
             className="inline-flex items-center gap-2 mb-4 text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -553,7 +553,7 @@ export default function SignMandatePage() {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button variant="outline" onClick={() => navigate('/mes-mandats')}>
+                <Button variant="outline" onClick={() => navigate('/agences/mandats')}>
                   Voir mes mandats
                 </Button>
                 <Button onClick={() => navigate(`/mandat/${mandate.id}`)}>

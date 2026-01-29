@@ -34,7 +34,7 @@ interface Property {
   id: string;
   title: string;
   city: string;
-  monthly_rent: number;
+  price: number;
 }
 
 export default function MyMandatesPage() {
@@ -69,23 +69,28 @@ export default function MyMandatesPage() {
     updateMandatePermissions,
   } = useAgencyMandates();
 
-  // Detect if user is an agency
+  // Detect if user is an agency (but don't auto-switch, let user choose)
   useEffect(() => {
-    if (myAgency) {
+    // Only set to agency if user is ONLY an agency (not also an owner with properties)
+    if (myAgency && myProperties.length === 0) {
       setViewMode('agency');
+    } else if (!myAgency && myProperties.length > 0) {
+      setViewMode('owner');
     }
-  }, [myAgency]);
+    // If user has both, let them choose (default to owner)
+  }, [myAgency, myProperties]);
 
   // Load user's properties if owner
   useEffect(() => {
     const loadProperties = async () => {
       if (!user) return;
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('properties')
-        .select('id, title, city, monthly_rent')
+        .select('id, title, city, price')
         .eq('owner_id', user.id);
 
+      console.log('MyMandatesPage - Loaded properties:', { count: data?.length || 0, data, error });
       setMyProperties((data || []) as Property[]);
     };
 
@@ -150,6 +155,7 @@ export default function MyMandatesPage() {
   };
 
   const handleSign = (mandate: AgencyMandate) => {
+    // Both owners and agencies go through the choice page
     navigate(`/mandat/signer/${mandate.id}`);
   };
 
@@ -366,7 +372,7 @@ export default function MyMandatesPage() {
               </div>
             </div>
 
-            {viewMode === 'owner' && myProperties.length > 0 && (
+            {viewMode === 'owner' && (
               <button
                 onClick={() => setShowInviteDialog(true)}
                 className="flex items-center gap-2 bg-[#F16522] hover:bg-[#d9571d] text-white px-6 py-3 rounded-xl font-medium transition-colors"
@@ -377,7 +383,7 @@ export default function MyMandatesPage() {
             )}
           </div>
 
-          {myAgency && myProperties.length > 0 && (
+          {myAgency && (
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => setViewMode('owner')}
@@ -673,7 +679,7 @@ export default function MyMandatesPage() {
                 ? 'Invitez une agence pour gérer vos biens'
                 : 'Les propriétaires peuvent vous confier la gestion de leurs biens'}
             </p>
-            {viewMode === 'owner' && myProperties.length > 0 && (
+            {viewMode === 'owner' && (
               <button
                 onClick={() => setShowInviteDialog(true)}
                 className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-xl font-medium transition-colors"

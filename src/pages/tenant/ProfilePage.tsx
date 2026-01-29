@@ -6,7 +6,6 @@ import { User, Phone, MapPin, Shield, Camera, Save, CheckCircle, AlertCircle, Fi
 import { Button } from '@/shared/ui/Button';
 import Input from '@/shared/ui/Input';
 import { toast } from '@/hooks/shared/useSafeToast';
-import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 import OwnerDashboardLayout from '@/features/owner/components/OwnerDashboardLayout';
 import ONECIFormTest from '@/features/verification/components/ONECIFormTest';
 import { AddressValue, formatAddress } from '@/shared/utils/address';

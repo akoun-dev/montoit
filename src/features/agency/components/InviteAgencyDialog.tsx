@@ -22,7 +22,7 @@ interface Property {
   id: string;
   title: string;
   city: string;
-  monthly_rent: number;
+  price: number;
 }
 
 interface InviteAgencyDialogProps {
@@ -121,33 +121,42 @@ export default function InviteAgencyDialog({
     'single_property'
   );
   const [selectedProperty, setSelectedProperty] = useState<string>(selectedPropertyId || '');
+  const [selectedProperties, setSelectedProperties] = useState<string[]>([]);
   const [selectedAgency, setSelectedAgency] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(addMonths(new Date(), 12), 'yyyy-MM-dd'));
-  const [commissionRate, setCommissionRate] = useState(10);
+  const [commissionRate, setCommissionRate] = useState(8);
   const [permissions, setPermissions] = useState<MandatePermissions>(DEFAULT_PERMISSIONS);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    console.log('InviteAgencyDialog - properties:', properties.length, properties);
+    console.log('InviteAgencyDialog - agencies:', agencies.length, agencies);
     if (selectedPropertyId) {
-      setSelectedProperty(selectedPropertyId);
+      setSelectedProperties([selectedPropertyId]);
       setMandateScope('single_property');
     }
-  }, [selectedPropertyId]);
+    // Always set scope based on current properties count
+    if (!selectedPropertyId) {
+      setMandateScope(properties.length > 0 ? 'single_property' : 'all_properties');
+      setSelectedProperties([]);
+    }
+  }, [selectedPropertyId, properties.length, agencies]);
 
-  const filteredAgencies = agencies.filter(
-    (agency) =>
-      agency.agency_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      agency.city?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredAgencies = agencies.filter((agency) => {
+    const query = searchQuery.toLowerCase();
+    const nameMatch = agency.agency_name.toLowerCase().includes(query);
+    const cityMatch = agency.city && agency.city.toLowerCase().includes(query);
+    return nameMatch || cityMatch;
+  });
 
   const handleContinue = () => {
     // Pour all_properties, on n'a pas besoin de selectedProperty
     const canProceed =
       mandateScope === 'all_properties'
         ? selectedAgency !== ''
-        : selectedProperty !== '' && selectedAgency !== '';
+        : selectedProperties.length > 0 && selectedAgency !== '';
 
     if (canProceed) {
       setStep('configure');
@@ -156,20 +165,55 @@ export default function InviteAgencyDialog({
 
   const handleInvite = async () => {
     setLoading(true);
-    const mandate = await onInvite({
-      property_id: mandateScope === 'all_properties' ? null : selectedProperty,
-      agency_id: selectedAgency,
-      mandate_scope: mandateScope,
-      start_date: new Date(startDate).toISOString(),
-      end_date: new Date(endDate).toISOString(),
-      commission_rate: commissionRate,
-      permissions,
-    });
-    setLoading(false);
 
-    if (mandate) {
-      setCreatedMandateId(mandate.id);
-      setStep('success');
+    // Determine property_ids to create mandates for
+    const propertyIds =
+      mandateScope === 'all_properties'
+        ? null // null means all properties
+        : selectedProperties.length > 0
+          ? selectedProperties // multiple selected properties
+          : [selectedProperty]; // single property (fallback)
+
+    // For multiple properties, create mandates for each
+    if (propertyIds && propertyIds.length > 1) {
+      // Create mandates for all selected properties
+      const mandates = await Promise.all(
+        propertyIds.map((propId) =>
+          onInvite({
+            property_id: propId,
+            agency_id: selectedAgency,
+            mandate_scope: 'single_property',
+            start_date: new Date(startDate).toISOString(),
+            end_date: new Date(endDate).toISOString(),
+            commission_rate: commissionRate,
+            permissions,
+          })
+        )
+      );
+
+      setLoading(false);
+
+      if (mandates.every((m) => m !== null)) {
+        setCreatedMandateId(mandates[0]?.id || null);
+        setStep('success');
+      }
+    } else {
+      // Single mandate (all_properties or one property)
+      const mandate = await onInvite({
+        property_id: mandateScope === 'all_properties' ? null : propertyIds?.[0] || null,
+        agency_id: selectedAgency,
+        mandate_scope: mandateScope,
+        start_date: new Date(startDate).toISOString(),
+        end_date: new Date(endDate).toISOString(),
+        commission_rate: commissionRate,
+        permissions,
+      });
+      setLoading(false);
+
+      if (mandate) {
+        setCreatedMandateId(mandate.id);
+        setStep('success');
+      }
     }
   };
 
@@ -185,6 +229,8 @@ export default function InviteAgencyDialog({
     setTimeout(() => {
       setStep('select');
       setMandateScope('single_property');
+      setSelectedProperty('');
+      setSelectedProperties([]);
       setSelectedAgency('');
       setSearchQuery('');
       setPermissions(DEFAULT_PERMISSIONS);
@@ -199,14 +245,13 @@ export default function InviteAgencyDialog({
   if (!isOpen) return null;
 
   const selectedAgencyData = agencies.find((a) => a.id === selectedAgency);
-  const selectedPropertyData = properties.find((p) => p.id === selectedProperty);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
 
-        <div className="relative bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+        <div className="relative bg-white rounded-2xl shadow-xl max-w-7xl w-full max-h-[98vh] overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-neutral-200">
             <div>
@@ -234,7 +279,7 @@ export default function InviteAgencyDialog({
           </div>
 
           {/* Content */}
-          <div className="p-4 overflow-y-auto max-h-[calc(90vh-180px)]">
+          <div className="p-4 overflow-y-auto max-h-[calc(98vh-180px)]">
             {step === 'success' ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -271,38 +316,50 @@ export default function InviteAgencyDialog({
             ) : step === 'select' ? (
               <>
                 {/* Mandate Scope Selection */}
-                {!selectedPropertyId && properties.length > 0 && (
+                {!selectedPropertyId && (
                   <div className="mb-6">
                     <label className="block text-sm font-medium text-neutral-700 mb-3">
                       Portée du mandat
                     </label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setMandateScope('single_property')}
-                        className={`flex-1 py-3 px-4 rounded-xl border-2 text-center font-medium transition-all ${
-                          mandateScope === 'single_property'
-                            ? 'border-primary bg-primary/5 text-primary'
-                            : 'border-neutral-200 hover:border-neutral-300 text-neutral-600'
-                        }`}
-                      >
-                        Un bien spécifique
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMandateScope('all_properties');
-                          setSelectedProperty('');
-                        }}
-                        className={`flex-1 py-3 px-4 rounded-xl border-2 text-center font-medium transition-all ${
-                          mandateScope === 'all_properties'
-                            ? 'border-primary bg-primary/5 text-primary'
-                            : 'border-neutral-200 hover:border-neutral-300 text-neutral-600'
-                        }`}
-                      >
-                        Tous mes biens ({properties.length})
-                      </button>
-                    </div>
+                    {properties.length > 0 ? (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setMandateScope('single_property')}
+                          className={`flex-1 py-3 px-4 rounded-xl border-2 text-center font-medium transition-all ${
+                            mandateScope === 'single_property'
+                              ? 'border-primary bg-primary/5 text-primary'
+                              : 'border-neutral-200 hover:border-neutral-300 text-neutral-600'
+                          }`}
+                        >
+                          Un bien spécifique
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMandateScope('all_properties');
+                            setSelectedProperty('');
+                          }}
+                          className={`flex-1 py-3 px-4 rounded-xl border-2 text-center font-medium transition-all ${
+                            mandateScope === 'all_properties'
+                              ? 'border-primary bg-primary/5 text-primary'
+                              : 'border-neutral-200 hover:border-neutral-300 text-neutral-600'
+                          }`}
+                        >
+                          Tous mes biens ({properties.length})
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                        <p className="text-sm text-blue-800 font-medium mb-1">
+                          Tous mes biens (y compris les futurs)
+                        </p>
+                        <p className="text-xs text-blue-600">
+                          Vous n'avez pas encore de propriétés. Ce mandat permettra à l'agence de
+                          gérer tous vos biens actuels et futurs.
+                        </p>
+                      </div>
+                    )}
                     {mandateScope === 'all_properties' && (
                       <p className="mt-2 text-sm text-neutral-500 bg-amber-50 p-3 rounded-lg border border-amber-100">
                         ⚠️ L'agence aura accès à toutes vos propriétés actuelles et futures.
@@ -311,27 +368,73 @@ export default function InviteAgencyDialog({
                   </div>
                 )}
 
-                {/* Property Selection - Only for single_property */}
-                {mandateScope === 'single_property' && !selectedPropertyId && (
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-neutral-700 mb-2">
-                      Sélectionnez un bien
-                    </label>
-                    <select
-                      value={selectedProperty}
-                      onChange={(e) => setSelectedProperty(e.target.value)}
-                      className="w-full px-4 py-3 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                    >
-                      <option value="">Choisir un bien...</option>
-                      {properties.map((property) => (
-                        <option key={property.id} value={property.id}>
-                          {property.title} - {property.city} (
-                          {property.monthly_rent.toLocaleString()} FCFA)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                {/* Property Selection - Multiple checkboxes for single_property */}
+                {mandateScope === 'single_property' &&
+                  !selectedPropertyId &&
+                  properties.length > 0 && (
+                    <div className="mb-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="block text-sm font-medium text-neutral-700">
+                          Sélectionnez les biens à confier
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedProperties.length === properties.length) {
+                              setSelectedProperties([]);
+                            } else {
+                              setSelectedProperties(properties.map((p) => p.id));
+                            }
+                          }}
+                          className="text-xs text-primary hover:text-primary-700 font-medium"
+                        >
+                          {selectedProperties.length === properties.length
+                            ? 'Tout désélectionner'
+                            : `Tout sélectionner (${properties.length})`}
+                        </button>
+                      </div>
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                        {properties.map((property) => (
+                          <label
+                            key={property.id}
+                            className={`flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition-colors ${
+                              selectedProperties.includes(property.id)
+                                ? 'bg-primary/5 border-primary'
+                                : 'bg-neutral-50 border-neutral-200 hover:bg-neutral-100'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedProperties.includes(property.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedProperties([...selectedProperties, property.id]);
+                                } else {
+                                  setSelectedProperties(
+                                    selectedProperties.filter((id) => id !== property.id)
+                                  );
+                                }
+                              }}
+                              className="mt-1 h-4 w-4 rounded border-neutral-300 text-primary focus:ring-primary"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-neutral-900 truncate">
+                                {property.title}
+                              </p>
+                              <p className="text-xs text-neutral-500">
+                                {property.city} • {property.price.toLocaleString()} FCFA/mois
+                              </p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      {selectedProperties.length > 0 && (
+                        <p className="mt-2 text-sm text-primary bg-primary/5 px-3 py-2 rounded-lg">
+                          {selectedProperties.length} bien(s) sélectionné(s)
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                 {/* Search Agencies */}
                 <div className="mb-4">
@@ -402,8 +505,10 @@ export default function InviteAgencyDialog({
                   </div>
                   <p className="text-sm text-neutral-600">
                     {mandateScope === 'all_properties'
-                      ? `Gestion de tous vos biens (${properties.length} propriétés)`
-                      : `Gestion de : ${selectedPropertyData?.title}`}
+                      ? `Gestion de tous vos biens (${properties.length} propriété${properties.length > 1 ? 's' : ''})`
+                      : selectedProperties.length > 1
+                        ? `Gestion de ${selectedProperties.length} bien(s) sélectionné(s)`
+                        : `Gestion de : ${properties.find((p) => p.id === selectedProperties[0])?.title || 'Bien sélectionné'}`}
                   </p>
                 </div>
 
@@ -454,13 +559,11 @@ export default function InviteAgencyDialog({
                       {commissionRate}%
                     </span>
                   </div>
-                  {mandateScope === 'single_property' && selectedPropertyData && (
+                  {mandateScope === 'single_property' && selectedProperties.length > 0 && (
                     <p className="text-sm text-neutral-500 mt-1">
-                      Soit{' '}
-                      {Math.round(
-                        (selectedPropertyData.monthly_rent * commissionRate) / 100
-                      ).toLocaleString()}{' '}
-                      FCFA/mois
+                      {selectedProperties.length === 1
+                        ? `Soit ${Math.round(((properties.find((p) => p.id === selectedProperties[0])?.price || 0) * commissionRate) / 100).toLocaleString()} FCFA/mois`
+                        : `Total: ${Math.round((selectedProperties.reduce((sum, id) => sum + (properties.find((p) => p.id === id)?.price || 0), 0) * commissionRate) / 100).toLocaleString()} FCFA/mois pour ${selectedProperties.length} bien(s)`}
                     </p>
                   )}
                 </div>
@@ -530,7 +633,7 @@ export default function InviteAgencyDialog({
                     onClick={handleContinue}
                     disabled={
                       mandateScope === 'single_property'
-                        ? !selectedProperty || !selectedAgency
+                        ? selectedProperties.length === 0 || !selectedAgency
                         : !selectedAgency
                     }
                     className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"

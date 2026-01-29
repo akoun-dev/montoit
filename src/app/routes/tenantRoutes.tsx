@@ -8,9 +8,6 @@ import {
   ALL_AUTHENTICATED,
 } from '@/shared/constants/roles';
 
-// Dashboard Router - redirects based on user type
-const DashboardRouter = lazyWithRetry(() => import('@/shared/ui/DashboardRouter'));
-
 // Tenant dashboard pages
 const TenantDashboard = lazyWithRetry(() => import('@/pages/tenant/DashboardPage'));
 const TenantCalendar = lazyWithRetry(() => import('@/pages/tenant/CalendarPage'));
@@ -26,7 +23,6 @@ const UnifiedDashboard = lazyWithRetry(() => import('@/pages/dashboard/UnifiedDa
 
 // Profile page
 const ProfilePage = lazyWithRetry(() => import('@/pages/tenant/EnhancedProfilePage'));
-const OriginalProfilePage = lazyWithRetry(() => import('@/pages/tenant/ProfilePage'));
 const ONECIVerificationPage = lazyWithRetry(() => import('@/pages/tenant/ONECIVerificationPage'));
 
 // Favorites & saved searches
@@ -52,36 +48,86 @@ const PaymentHistory = lazyWithRetry(() => import('@/pages/tenant/PaymentHistory
 // Messaging
 const MessagesPage = lazyWithRetry(() => import('@/pages/messaging/MessagesPage'));
 
-// Tenant layout with sidebar
-const TenantDashboardLayout = lazyWithRetry(
-  () => import('@/features/tenant/components/TenantDashboardLayout')
-);
 // TenantSidebarLayout is used for universal routes that need role-based layout switching
 const TenantSidebarLayout = lazyWithRetry(
   () => import('@/features/tenant/components/TenantSidebarLayout')
 );
 
 export const tenantRoutes: RouteObject[] = [
-  // Profile
-  {
-    path: 'profil',
-    element: (
-      <ProtectedRoute>
-        <ProfilePage />
-      </ProtectedRoute>
-    ),
-  },
+  // ONECI verification page - standalone (no sidebar)
   {
     path: 'verification-oneci',
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
         <ONECIVerificationPage />
       </ProtectedRoute>
     ),
   },
   { path: 'verification', element: <Navigate to="/locataire/profil?tab=verification" replace /> },
 
-  // Favorites & saved searches (tenant only)
+  // Dashboard - has its own layout (TenantDashboardLayout)
+  {
+    path: 'dashboard',
+    element: (
+      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
+        <TenantDashboard />
+      </ProtectedRoute>
+    ),
+  },
+
+  // Routes with TenantSidebarLayout (for pages without TenantDashboardLayout)
+  {
+    element: (
+      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
+        <TenantSidebarLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      // Profile & Notifications - simple pages without internal layout
+      { path: 'profil', element: <ProfilePage /> },
+      { path: 'notifications', element: <Notifications /> },
+
+      // Saved searches
+      { path: 'recherches-sauvegardees', element: <SavedSearches /> },
+
+      // Payments
+      { path: 'mes-paiements', element: <PaymentHistory /> },
+
+      // Other tenant pages
+      { path: 'maintenance', element: <TenantMaintenance /> },
+      { path: 'mon-score', element: <TenantScorePage /> },
+      { path: 'profil/historique-locations', element: <RentalHistoryPage /> },
+
+      // Unified dashboard
+      { path: 'mon-espace', element: <UnifiedDashboard /> },
+
+      // Calendar
+      { path: 'dashboard/calendrier', element: <TenantCalendar /> },
+
+      // Maintenance request
+      { path: 'maintenance/nouvelle', element: <MaintenanceRequest /> },
+
+      // Visit & application forms
+      { path: 'visiter/:id', element: <ScheduleVisit /> },
+      { path: 'candidature/:id', element: <ApplicationForm /> },
+
+      // Contract detail & signing
+      { path: 'contrat/:id', element: <ContractDetail /> },
+      { path: 'signer-bail/:id', element: <SignLease /> },
+    ],
+  },
+
+  // Payments - has own layout (TenantDashboardLayout)
+  {
+    path: 'effectuer-paiement',
+    element: (
+      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
+        <MakePayment />
+      </ProtectedRoute>
+    ),
+  },
+
+  // Pages with TenantDashboardLayout (they have their own layout with sidebar)
   {
     path: 'favoris',
     element: (
@@ -99,16 +145,6 @@ export const tenantRoutes: RouteObject[] = [
     ),
   },
   {
-    path: 'notifications',
-    element: (
-      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-        <Notifications />
-      </ProtectedRoute>
-    ),
-  },
-
-  // Applications
-  {
     path: 'mes-candidatures',
     element: (
       <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
@@ -116,8 +152,6 @@ export const tenantRoutes: RouteObject[] = [
       </ProtectedRoute>
     ),
   },
-
-  // Visits
   {
     path: 'mes-visites',
     element: (
@@ -126,8 +160,6 @@ export const tenantRoutes: RouteObject[] = [
       </ProtectedRoute>
     ),
   },
-
-  // Reviews
   {
     path: 'avis',
     element: (
@@ -136,8 +168,6 @@ export const tenantRoutes: RouteObject[] = [
       </ProtectedRoute>
     ),
   },
-
-  // Contracts
   {
     path: 'mes-contrats',
     element: (
@@ -147,131 +177,16 @@ export const tenantRoutes: RouteObject[] = [
     ),
   },
 
-  // Payments
+  // Messages - accessible to all authenticated users with role-based layout
   {
-    path: 'mes-paiements',
+    path: 'messages',
     element: (
-      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-        <PaymentHistory />
-      </ProtectedRoute>
-    ),
-  },
-
-  // Tenant specific routes
-  {
-    path: 'dashboard',
-    element: (
-      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-        <TenantDashboard />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: 'maintenance',
-    element: (
-      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-        <TenantMaintenance />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: 'mon-score',
-    element: (
-      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-        <TenantScorePage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: 'profil/historique-locations',
-    element: (
-      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-        <RentalHistoryPage />
-      </ProtectedRoute>
-    ),
-  },
-
-  // Routes that should keep the tenant sidebar visible
-  {
-    element: (
-      <ProtectedRoute allowedRoles={[...ALL_AUTHENTICATED]}>
+      <ProtectedRoute allowedRoles={[...TENANT_ROLES, ...OWNER_ROLES, ...AGENCY_ROLES]}>
         <TenantSidebarLayout />
       </ProtectedRoute>
     ),
     children: [
-      { path: 'mon-espace', element: <UnifiedDashboard /> },
-      {
-        path: 'recherches-sauvegardees',
-        element: (
-          <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-            <SavedSearches />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'messages',
-        element: (
-          <ProtectedRoute allowedRoles={[...TENANT_ROLES, ...OWNER_ROLES, ...AGENCY_ROLES]}>
-            <MessagesPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'dashboard/calendrier',
-        element: (
-          <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-            <TenantCalendar />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'maintenance/nouvelle',
-        element: (
-          <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-            <MaintenanceRequest />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'visiter/:id',
-        element: (
-          <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-            <ScheduleVisit />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'candidature/:id',
-        element: (
-          <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-            <ApplicationForm />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'contrat/:id',
-        element: (
-          <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-            <ContractDetail />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'signer-bail/:id',
-        element: (
-          <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-            <SignLease />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'effectuer-paiement',
-        element: (
-          <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-            <MakePayment />
-          </ProtectedRoute>
-        ),
-      },
+      { index: true, element: <MessagesPage /> },
     ],
   },
 ];

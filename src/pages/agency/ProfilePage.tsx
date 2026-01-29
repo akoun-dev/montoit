@@ -24,7 +24,6 @@ import {
   Download,
   Loader2,
   Clock,
-  FolderOpen,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import Input from '@/shared/ui/Input';
@@ -33,6 +32,7 @@ import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
 import RoleSwitcher from '@/components/role/RoleSwitcher';
 import { DossierSubmissionTab } from '@/shared/ui/verification/DossierSubmissionTab';
+import verificationApplicationsService from '@/features/verification/services/verificationApplications.service';
 
 interface AgencyProfile {
   id: string;
@@ -81,15 +81,50 @@ export default function AgencyProfilePage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [documents, setDocuments] = useState<VerificationDocument[]>([]);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [dossierApplication, setDossierApplication] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const DOCUMENT_TYPES = [
-    { value: 'title_deed', label: 'Titre foncier', icon: FileText, description: 'Document prouvant la propriété', color: 'bg-blue-100 text-blue-600' },
-    { value: 'cadastral', label: 'Document cadastral', icon: MapPin, description: 'Plan cadastral du bien', color: 'bg-green-100 text-green-600' },
-    { value: 'official_attestation', label: 'Attestation officielle', icon: CheckCircle, description: 'Document officiel d\'agrément', color: 'bg-purple-100 text-purple-600' },
-    { value: 'notarized_deed', label: 'Acte notarié', icon: File, description: 'Contrat ou acte notarié', color: 'bg-amber-100 text-amber-600' },
-    { value: 'insurance', label: 'Assurance', icon: Shield, description: 'Attestation d\'assurance RC Pro', color: 'bg-red-100 text-red-600' },
-    { value: 'other', label: 'Autre document', icon: FileText, description: 'Autre document justificatif', color: 'bg-gray-100 text-gray-600' },
+    {
+      value: 'agrement_ministere',
+      label: 'Attestation d\'agrément',
+      icon: CheckCircle,
+      description: 'Délivrée par le Ministère de la Construction, du Logement et de l\'Urbanisme',
+      color: 'bg-blue-100 text-blue-600',
+      required: true,
+    },
+    {
+      value: 'enseigne_agrement',
+      label: 'Enseigne distinctive',
+      icon: Shield,
+      description: '"Agence immobilière agréée" octroyée par la chambre professionnelle',
+      color: 'bg-green-100 text-green-600',
+      required: true,
+    },
+    {
+      value: 'cni_passeport',
+      label: 'CNI ou Passeport',
+      icon: User,
+      description: 'Copie de la Carte Nationale d\'Identité ou du Passeport',
+      color: 'bg-purple-100 text-purple-600',
+      required: true,
+    },
+    {
+      value: 'dfe',
+      label: 'Déclaration Fiscale d\'Existence',
+      icon: FileText,
+      description: 'DFE de l\'entreprise',
+      color: 'bg-amber-100 text-amber-600',
+      required: true,
+    },
+    {
+      value: 'rccm',
+      label: 'RCCM',
+      icon: File,
+      description: 'Registre du Commerce et du Crédit Mobilier de l\'entreprise',
+      color: 'bg-orange-100 text-orange-600',
+      required: true,
+    },
   ];
   const [formData, setFormData] = useState({
     full_name: '',
@@ -108,8 +143,26 @@ export default function AgencyProfilePage() {
     if (user) {
       loadProfile();
       loadDocuments();
+      loadDossierApplication();
     }
   }, [user]);
+
+  const loadDossierApplication = async () => {
+    if (!user) return;
+
+    try {
+      const applications = await verificationApplicationsService.getUserApplications(user.id, 'agency');
+      const activeApp = applications.find(
+        (app) => app.status === 'pending' || app.status === 'in_review' || app.status === 'more_info_requested'
+      ) || applications[0] || null;
+
+      if (activeApp) {
+        setDossierApplication(activeApp);
+      }
+    } catch (error) {
+      console.error('Error loading dossier application:', error);
+    }
+  };
 
   const loadProfile = async () => {
     try {
@@ -158,6 +211,22 @@ export default function AgencyProfilePage() {
           agency_phone: profileData.agency_phone || '',
           agency_email: profileData.agency_email || '',
         });
+
+        // Recalculer le score agence et mettre à jour si différent
+        try {
+          const { ScoringService } = await import('@/services/scoringService');
+          const scoreBreakdown = await ScoringService.calculateGlobalTrustScore(user.id);
+          const newScore = scoreBreakdown.globalScore;
+
+          if (profileData.trust_score !== newScore) {
+            // Mettre à jour dans la table profiles
+            await supabase.from('profiles').update({ trust_score: newScore }).eq('id', user.id);
+            // Mettre à jour le profil local
+            setProfile({ ...profileData, trust_score: newScore });
+          }
+        } catch (scoreError) {
+          console.error('Error recalculating agency score:', scoreError);
+        }
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -405,7 +474,6 @@ export default function AgencyProfilePage() {
     { id: 'agency', label: 'Agence', icon: Building2 },
     { id: 'contact', label: 'Contact', icon: Mail },
     { id: 'verification', label: 'Vérifications', icon: Shield },
-    { id: 'dossier', label: 'Dossier', icon: FolderOpen },
     { id: 'stats', label: 'Statistiques', icon: TrendingUp },
   ];
 
@@ -707,7 +775,7 @@ export default function AgencyProfilePage() {
         {activeTab === 'verification' && (
           <div className="space-y-6">
             {/* Status Section */}
-            <div>
+            <div className="mb-6">
               <h3 className="text-lg font-semibold mb-4">Statut de vérification</h3>
               <div className="space-y-3">
                 <VerificationItem
@@ -720,186 +788,23 @@ export default function AgencyProfilePage() {
                   description="Agrément professionnel vérifié"
                   verified={profile?.oneci_verified}
                 />
+                <VerificationItem
+                  title="Dossier de certification agence"
+                  description="Documents verifies pour obtenir la certification ANSUT"
+                  verified={dossierApplication?.status === 'approved'}
+                  status={dossierApplication?.status === 'rejected' ? 'failed' : dossierApplication?.status === 'approved' ? 'verified' : dossierApplication?.status === 'pending' || dossierApplication?.status === 'in_review' ? 'in_review' : 'pending'}
+                  onVerify={() => setActiveTab('dossier')}
+                  extraInfo={dossierApplication?.rejection_reason}
+                  isDossier={true}
+                  allowRetry={dossierApplication?.status === 'rejected' || dossierApplication?.status === 'more_info_requested'}
+                />
               </div>
             </div>
 
-            {/* Documents Upload Section */}
+            {/* Dossier de certification - using shared component */}
             <div className="border-t pt-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Documents de vérification</h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Complétez votre dossier pour augmenter votre score de confiance
-                  </p>
-                </div>
-                {documents.length > 0 && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700">
-                    <File className="w-4 h-4 mr-1" />
-                    {documents.length} document{documents.length > 1 ? 's' : ''}
-                  </span>
-                )}
-              </div>
-
-              {/* Document Types Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                {DOCUMENT_TYPES.map((docType) => {
-                  const Icon = docType.icon;
-                  return (
-                    <div
-                      key={docType.value}
-                      onClick={() => fileInputRef.current?.click()}
-                      className="group cursor-pointer border-2 border-dashed border-gray-300 hover:border-primary-400 hover:border-solid hover:bg-primary-50/50 rounded-xl p-5 transition-all"
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className={`p-3 rounded-xl ${docType.color || 'bg-gray-100 text-gray-600'} group-hover:scale-110 transition-transform`}>
-                          <Icon className="w-6 h-6" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-gray-900 group-hover:text-primary-700 transition-colors">
-                            {docType.label}
-                          </h4>
-                          <p className="text-sm text-gray-500 mt-1">{docType.description}</p>
-                          <p className="text-xs text-gray-400 mt-2">PDF uniquement - Max 10Mo</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Upload Status */}
-              {uploadingDoc && (
-                <div className="mb-4 p-4 bg-gradient-to-r from-primary-50 to-blue-50 border border-primary-200 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 text-primary-600 animate-spin" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-primary-900">Téléchargement en cours...</p>
-                      <p className="text-xs text-primary-600">Veuillez patienter</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Documents List */}
-              {documents.length > 0 ? (
-                <div className="space-y-3">
-                  {documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:shadow-md transition-all"
-                    >
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <div className="p-3 bg-red-50 rounded-xl">
-                          <File className="w-6 h-6 text-red-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate">{doc.name}</p>
-                          <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
-                            <span>{formatFileSize(doc.file_size)}</span>
-                            <span>•</span>
-                            <span>
-                              {new Date(doc.uploaded_at).toLocaleDateString('fr-FR', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
-                              })}
-                            </span>
-                            <span>•</span>
-                            <span className="text-gray-400">PDF</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                        <button
-                          onClick={() => {
-                            // Download from base64 or URL
-                            if (doc.file_data) {
-                              const binaryString = atob(doc.file_data);
-                              const bytes = new Uint8Array(binaryString.length);
-                              for (let i = 0; i < binaryString.length; i++) {
-                                bytes[i] = binaryString.charCodeAt(i);
-                              }
-                              const blob = new Blob([bytes], { type: 'application/pdf' });
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = doc.name;
-                              document.body.appendChild(a);
-                              a.click();
-                              document.body.removeChild(a);
-                              URL.revokeObjectURL(url);
-                            } else if (doc.file_url) {
-                              window.open(doc.file_url, '_blank');
-                            }
-                          }}
-                          className="p-2.5 rounded-lg hover:bg-gray-100 transition-colors"
-                          title="Télécharger"
-                        >
-                          <Download className="w-5 h-5 text-gray-600" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteDocument(doc.id)}
-                          className="p-2.5 rounded-lg hover:bg-red-50 transition-colors"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="w-5 h-5 text-red-600" />
-                        </button>
-                        <span
-                          className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap flex items-center gap-1.5 ${
-                            doc.status === 'verified'
-                              ? 'bg-green-100 text-green-700'
-                              : doc.status === 'rejected'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-amber-100 text-amber-700'
-                          }`}
-                        >
-                          {doc.status === 'verified' && <CheckCircle className="w-4 h-4" />}
-                          {doc.status === 'rejected' && <AlertCircle className="w-4 h-4" />}
-                          {doc.status === 'pending' && <Clock className="w-4 h-4" />}
-                          {doc.status === 'verified'
-                            ? 'Vérifié'
-                            : doc.status === 'rejected'
-                            ? 'Rejeté'
-                            : 'En attente'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl border border-dashed border-gray-300">
-                  <FileText className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-                  <h4 className="text-lg font-semibold text-gray-700 mb-2">Aucun document téléchargé</h4>
-                  <p className="text-gray-500 text-sm mb-4">
-                    Commencez par ajouter vos documents officiels
-                  </p>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium"
-                  >
-                    <Upload className="w-5 h-5" />
-                    Ajouter un document
-                  </button>
-                </div>
-              )}
-
-              {/* Hidden file input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf"
-                onChange={handleDocumentUpload}
-                className="hidden"
-                disabled={uploadingDoc}
-              />
+              <DossierSubmissionTab dossierType="agency" />
             </div>
-          </div>
-        )}
-
-        {activeTab === 'dossier' && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-semibold">Dossier de certification agence</h3>
-            <DossierSubmissionTab dossierType="agency" />
           </div>
         )}
 
@@ -959,31 +864,100 @@ function VerificationItem({
   title,
   description,
   verified,
+  onVerify,
+  status = 'pending',
+  extraInfo,
+  isDossier = false,
+  allowRetry = false,
 }: {
   title: string;
   description: string;
   verified: boolean | null;
+  onVerify?: () => void;
+  status?: 'pending' | 'verified' | 'failed' | 'in_review' | null;
+  extraInfo?: string | null;
+  isDossier?: boolean;
+  allowRetry?: boolean;
 }) {
+  const getStatusConfig = () => {
+    if (verified || status === 'verified') {
+      return {
+        icon: CheckCircle,
+        color: 'text-green-600',
+        bgColor: 'bg-green-100',
+        label: 'Vérifié',
+      };
+    }
+    if (status === 'failed') {
+      return {
+        icon: AlertCircle,
+        color: 'text-red-600',
+        bgColor: 'bg-red-100',
+        label: 'Échoué',
+      };
+    }
+    if (status === 'in_review') {
+      return {
+        icon: Clock,
+        color: 'text-blue-600',
+        bgColor: 'bg-blue-100',
+        label: 'En cours',
+      };
+    }
+    return {
+      icon: AlertCircle,
+      color: 'text-amber-500',
+      bgColor: 'bg-amber-100',
+      label: 'En attente',
+    };
+  };
+
+  const statusConfig = getStatusConfig();
+  const StatusIcon = statusConfig.icon;
+  const shouldShowButton = onVerify && (!verified || allowRetry || (isDossier && (status === 'failed' || status === 'more_info_requested' || !verified)));
+
   return (
     <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-      <div className="flex items-center gap-3">
-        {verified ? (
-          <CheckCircle className="w-6 h-6 text-green-600" />
-        ) : (
-          <AlertCircle className="w-6 h-6 text-amber-500" />
-        )}
-        <div>
+      <div className="flex items-center gap-3 flex-1">
+        <StatusIcon className={`w-6 h-6 ${statusConfig.color} flex-shrink-0`} />
+        <div className="min-w-0 flex-1">
           <h3 className="font-medium text-foreground">{title}</h3>
           <p className="text-sm text-muted-foreground">{description}</p>
+          {extraInfo && (
+            <p className="text-xs text-red-600 mt-1">
+              {extraInfo}
+            </p>
+          )}
         </div>
       </div>
-      <span
-        className={`px-3 py-1 rounded-full text-sm font-medium ${
-          verified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-        }`}
-      >
-        {verified ? 'Vérifié' : 'En attente'}
-      </span>
+      <div className="flex items-center gap-3 ml-4 flex-shrink-0">
+        <span
+          className={`px-3 py-1 rounded-full text-sm font-medium ${
+            verified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+          }`}
+        >
+          {statusConfig.label}
+        </span>
+        {shouldShowButton && (
+          <Button
+            onClick={onVerify}
+            variant="outline"
+            size="small"
+            className="whitespace-nowrap px-5 py-2.5"
+          >
+            <span className="inline-flex items-center gap-2">
+              {isDossier
+                ? (status === 'failed' || status === 'more_info_requested'
+                    ? 'Compléter le dossier'
+                    : verified || status === 'verified'
+                      ? 'Voir le dossier'
+                      : 'Commencer le dossier')
+                : (status === 'failed' ? 'Réessayer' : 'Vérifier')
+              }
+            </span>
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

@@ -23,7 +23,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
-import { saveContractSignature, canvasToBase64 } from '@/services/contracts/signatureService';
+import { canvasToBase64 } from '@/services/contracts/signatureService';
 import { ElectronicSignatureModal } from '@/shared/ui/electronic-signature';
 import { apiKeysConfig } from '@/shared/config/api-keys.config';
 import { Button } from '@/shared/ui/Button';
@@ -39,12 +39,15 @@ interface LeaseContract {
   status: string | null;
   start_date: string;
   end_date: string;
+  end_at?: string | null;
   monthly_rent: number;
   deposit_amount: number | null;
   charges_amount: number | null;
   custom_clauses: string | null;
   document_url?: string;
-  landlord_signed_at?: string | null;
+  draft_document_url?: string;
+  inventory_details?: Record<string, any>;
+  owner_signed_at?: string | null;
   tenant_signed_at?: string | null;
   created_at: string;
   updated_at: string;
@@ -68,7 +71,12 @@ interface Profile {
 }
 
 // Helper component for stat cards
-const StatCard = ({ icon: Icon, label, value, color = 'gray' }: {
+const StatCard = ({
+  icon: Icon,
+  label,
+  value,
+  color = 'gray',
+}: {
   icon: React.ElementType;
   label: string;
   value: string | number;
@@ -89,6 +97,53 @@ const StatCard = ({ icon: Icon, label, value, color = 'gray' }: {
         <span className="text-sm font-medium">{label}</span>
       </div>
       <p className="text-xl font-bold">{value}</p>
+    </div>
+  );
+};
+
+// Contract status badge component
+const ContractStatusBadge = ({ status }: { status: string | null }) => {
+  const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+    brouillon: {
+      label: 'Brouillon',
+      color: 'bg-gray-100 text-gray-700 border-gray-300',
+      icon: <FileText className="w-4 h-4" />,
+    },
+    en_attente_signature: {
+      label: 'En attente de signature',
+      color: 'bg-amber-100 text-amber-700 border-amber-300',
+      icon: <Clock className="w-4 h-4" />,
+    },
+    actif: {
+      label: 'Actif',
+      color: 'bg-green-100 text-green-700 border-green-300',
+      icon: <CheckCircle2 className="w-4 h-4" />,
+    },
+    expire: {
+      label: 'Expiré',
+      color: 'bg-red-100 text-red-700 border-red-300',
+      icon: <AlertCircle className="w-4 h-4" />,
+    },
+    resilie: {
+      label: 'Résilié',
+      color: 'bg-purple-100 text-purple-700 border-purple-300',
+      icon: <X className="w-4 h-4" />,
+    },
+    annule: {
+      label: 'Annulé',
+      color: 'bg-red-100 text-red-700 border-red-300',
+      icon: <X className="w-4 h-4" />,
+    },
+  };
+
+  const config = statusConfig[status || 'brouillon'] || statusConfig.brouillon;
+
+  return (
+    <div
+      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${config.color}`}
+    >
+      {config.icon}
+      <span className="text-sm font-medium">{config.label}</span>
     </div>
   );
 };
@@ -169,9 +224,21 @@ export default function ContractDetailPage() {
 
       // Load related data
       const [propData, ownerData, tenantData] = await Promise.all([
-        supabase.from('properties').select('title, address, city, property_type, surface_area, bedrooms, bathrooms').eq('id', contractData.property_id).single(),
-        supabase.from('profiles').select('full_name, email, phone').eq('id', contractData.owner_id).single(),
-        supabase.from('profiles').select('full_name, email, phone').eq('id', contractData.tenant_id).single(),
+        supabase
+          .from('properties')
+          .select('title, address, city, property_type, surface_area, bedrooms, bathrooms')
+          .eq('id', contractData.property_id)
+          .single(),
+        supabase
+          .from('profiles')
+          .select('full_name, email, phone')
+          .eq('id', contractData.owner_id)
+          .single(),
+        supabase
+          .from('profiles')
+          .select('full_name, email, phone')
+          .eq('id', contractData.tenant_id)
+          .single(),
       ]);
 
       if (propData.data) setProperty({ ...propData.data, id: contractData.property_id });
@@ -193,6 +260,171 @@ export default function ContractDetailPage() {
     }
   };
 
+  const handleDownloadDraft = async () => {
+    if (!contract?.draft_document_url) return;
+    try {
+      await downloadContract(
+        contract.draft_document_url,
+        `brouillon-${contract.contract_number}.pdf`
+      );
+    } catch (error) {
+      console.error('Error downloading draft:', error);
+    }
+  };
+
+  const handleDownloadInventory = async () => {
+    if (!contract?.inventory_details) {
+      alert('Aucun inventaire disponible pour ce contrat');
+      return;
+    }
+    try {
+      // Create a JSON file from inventory details
+      const dataStr = JSON.stringify(contract.inventory_details, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `inventaire-${contract.contract_number}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading inventory:', error);
+    }
+  };
+
+  const handleDownloadDiagnostic = async () => {
+    try {
+      // Générer un diagnostic technique basé sur les informations du contrat et de la propriété
+      const diagnosticData = {
+        contract_number: contract.contract_number,
+        property_id: contract.property_id,
+        property_title: property?.title,
+        property_address: property?.address ? formatAddress(property.address as AddressValue) : '',
+        city: property?.city,
+        property_type: property?.property_type,
+        surface_area: property?.surface_area,
+        bedrooms: property?.bedrooms,
+        diagnostic_date: new Date().toISOString(),
+        diagnostic_type: 'Diagnostic technique immobilier',
+        performance_energetique: {
+          classe: 'En attente',
+          valeur: null,
+        },
+        gaz: {
+          classe: 'En attente',
+          valeur: null,
+        },
+        electricite: {
+          classe: 'En attente',
+          valeur: null,
+        },
+        plomb: {
+          presence: 'En attente',
+          valeur: null,
+        },
+        amiante: {
+          presence: 'En attente',
+          valeur: null,
+        },
+      };
+
+      const dataStr = JSON.stringify(diagnosticData, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `diagnostic-${contract.contract_number}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading diagnostic:', error);
+    }
+  };
+
+  const handleDownloadEtatDesLieux = async () => {
+    try {
+      // Générer un état des lieux
+      const etatDesLieuxData = {
+        contract_number: contract.contract_number,
+        property_id: contract.property_id,
+        property_title: property?.title,
+        property_address: property?.address ? formatAddress(property.address as AddressValue) : '',
+        city: property?.city,
+        tenant_name: tenant?.full_name,
+        owner_name: owner?.full_name,
+        start_date: contract.start_date,
+        end_date: contract.end_date || contract.end_at,
+        etat_entree: {
+          date: contract.start_date,
+          etat: 'En attente de réalisation',
+          observations: [],
+        },
+        etat_sortie: {
+          date: contract.end_date || contract.end_at,
+          etat: 'À réaliser',
+          observations: [],
+        },
+        inventory: contract.inventory_details || {},
+      };
+
+      const dataStr = JSON.stringify(etatDesLieuxData, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `etat-des-lieux-${contract.contract_number}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading etat des lieux:', error);
+    }
+  };
+
+  const handleDownloadJustificatifDomicile = async () => {
+    try {
+      // Générer un justificatif de domicile
+      const proofData = {
+        type_document: 'Justificatif de Domicile',
+        contract_number: contract.contract_number,
+        date_generation: new Date().toISOString(),
+        locataire: {
+          nom: tenant?.full_name,
+          email: tenant?.email,
+        },
+        proprietaire: {
+          nom: owner?.full_name,
+          email: owner?.email,
+        },
+        logement: {
+          titre: property?.title,
+          adresse: property?.address ? formatAddress(property.address as AddressValue) : '',
+          ville: property?.city,
+          type: property?.property_type,
+          surface: property?.surface_area,
+        },
+        contrat: {
+          date_debut: contract.start_date,
+          date_fin: contract.end_date || contract.end_at,
+          loyer_mensuel: contract.monthly_rent,
+          statut: contract.status,
+        },
+        document_url: contract.document_url,
+        signature_status: isFullySigned ? 'Signé par les deux parties' : 'En attente de signature',
+      };
+
+      const dataStr = JSON.stringify(proofData, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `justificatif-domicile-${contract.contract_number}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading justificatif:', error);
+    }
+  };
+
   const handleRegenerate = async () => {
     if (!contract) return;
     try {
@@ -206,14 +438,16 @@ export default function ContractDetailPage() {
     }
   };
 
-  const calculateDuration = (startDate: string, endDate: string) => {
+  const calculateDuration = (startDate: string, endDate?: string | null, endAt?: string | null) => {
     const start = new Date(startDate);
-    const end = new Date(endDate);
+    const end = new Date(endDate || endAt || '');
     return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
   };
 
   // Canvas drawing handlers
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const startDrawing = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+  ) => {
     setIsDrawing(true);
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -268,27 +502,49 @@ export default function ContractDetailPage() {
       const signatureType = contract.owner_id === user.id ? 'landlord' : 'tenant';
       const now = new Date().toISOString();
 
-      await saveContractSignature({
-        contractId: contract.id,
-        userId: user.id,
-        signatureType,
-        signatureData,
-        signedAt: now,
+      // Enregistrer le log de signature électronique
+      await supabase.from('electronic_signature_logs').insert({
+        lease_id: contract.id,
+        initiated_by: user.id,
+        operation_id: `sig-${user.id}-${Date.now()}`,
+        status: 'completed',
+        cryptoneo_response: {
+          signature_type: signatureType,
+          signature_data: signatureData,
+          signed_at: now,
+        },
       });
 
       const updates: any = { updated_at: now };
       if (signatureType === 'landlord') {
-        updates.landlord_signed_at = now;
-        if (!contract.tenant_signed_at) updates.status = 'partiellement_signe';
+        updates.owner_signed_at = now;
+        // Si le locataire a déjà signé, passer le contrat à actif
+        if (contract.tenant_signed_at) {
+          updates.status = 'actif';
+        } else {
+          updates.status = 'en_attente_signature';
+        }
       } else {
         updates.tenant_signed_at = now;
-        if (contract.landlord_signed_at) {
+        // Si le propriétaire a déjà signé, passer le contrat à actif
+        if (contract.owner_signed_at) {
           updates.status = 'actif';
-          updates.is_electronically_signed = true;
         }
       }
 
-      await supabase.from('lease_contracts').update(updates).eq('id', contract.id);
+      console.log('Mise à jour du contrat:', updates);
+
+      const { error: updateError } = await supabase
+        .from('lease_contracts')
+        .update(updates)
+        .eq('id', contract.id);
+
+      if (updateError) {
+        console.error('Erreur lors de la mise à jour:', updateError);
+        throw updateError;
+      }
+
+      console.log('Contrat mis à jour avec succès');
 
       setSignatureMethod(null);
       await loadContract(contractId);
@@ -318,7 +574,7 @@ export default function ContractDetailPage() {
     );
   }
 
-  const isFullySigned = contract.landlord_signed_at && contract.tenant_signed_at;
+  const isFullySigned = contract.owner_signed_at && contract.tenant_signed_at;
 
   return (
     <div className="w-full min-h-screen bg-gray-50">
@@ -345,6 +601,7 @@ export default function ContractDetailPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              <ContractStatusBadge status={contract.status} />
               <Button
                 variant="outline"
                 size="small"
@@ -371,16 +628,16 @@ export default function ContractDetailPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Contract Details */}
-          <div className="lg:col-span-2 space-y-6">
+      <div className="px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 gap-6">
+          {/* Contract Details - Full Width */}
+          <div className="space-y-6">
             {/* Status Banner */}
-            <div className={`p-4 rounded-xl border ${
-              isFullySigned
-                ? 'bg-green-50 border-green-200'
-                : 'bg-amber-50 border-amber-200'
-            }`}>
+            <div
+              className={`p-4 rounded-xl border ${
+                isFullySigned ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'
+              }`}
+            >
               <div className="flex items-center gap-3">
                 {isFullySigned ? (
                   <CheckCircle2 className="w-6 h-6 text-green-600" />
@@ -389,7 +646,9 @@ export default function ContractDetailPage() {
                 )}
                 <div>
                   <p className="font-semibold text-gray-900">
-                    {isFullySigned ? 'Contrat entièrement signé' : 'Contrat en attente de signature'}
+                    {isFullySigned
+                      ? 'Contrat entièrement signé'
+                      : 'Contrat en attente de signature'}
                   </p>
                   <p className="text-sm text-gray-600">
                     {isFullySigned
@@ -419,7 +678,7 @@ export default function ContractDetailPage() {
                 <StatCard
                   icon={Calendar}
                   label="Durée"
-                  value={`${calculateDuration(contract.start_date, contract.end_date)} mois`}
+                  value={`${calculateDuration(contract.start_date, contract.end_date, contract.end_at)} mois`}
                   color="purple"
                 />
               </div>
@@ -446,10 +705,12 @@ export default function ContractDetailPage() {
                       <span className="font-medium">{property?.surface_area} m²</span> de surface
                     </span>
                     <span className="text-gray-600">
-                      <span className="font-medium">{property?.bedrooms}</span> chambre{property?.bedrooms > 1 ? 's' : ''}
+                      <span className="font-medium">{property?.bedrooms}</span> chambre
+                      {property?.bedrooms > 1 ? 's' : ''}
                     </span>
                     <span className="text-gray-600">
-                      <span className="font-medium">{property?.bathrooms}</span> salle{property?.bathrooms > 1 ? 's' : ''} de bain
+                      <span className="font-medium">{property?.bathrooms}</span> salle
+                      {property?.bathrooms > 1 ? 's' : ''} de bain
                     </span>
                   </div>
                 </div>
@@ -472,7 +733,7 @@ export default function ContractDetailPage() {
                     <p className="text-sm text-gray-500">{owner?.phone}</p>
                   </div>
                   <div className="pl-7">
-                    <StatusBadge status="owner" signedAt={contract.landlord_signed_at} />
+                    <StatusBadge status="owner" signedAt={contract.owner_signed_at} />
                   </div>
                 </div>
 
@@ -494,137 +755,133 @@ export default function ContractDetailPage() {
               </div>
             </div>
 
-            {/* Contract Content Preview */}
+            {/* Documents Section */}
             <div className="bg-white rounded-xl shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Contenu du contrat</h2>
-              <div className="prose prose-sm max-w-none">
-                <pre className="whitespace-pre-wrap font-sans text-gray-700 text-sm leading-relaxed bg-gray-50 p-4 rounded-lg overflow-x-auto">
-                  {`CONTRAT DE LOCATION N° ${contract.contract_number}
+              {/* Shared Documents Section */}
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-[#F16522]" />
+                  Documents du contrat
+                </h2>
 
-Entre les soussignés :
-
-Le Propriétaire : ${owner?.full_name}
-Email : ${owner?.email}
-Téléphone : ${owner?.phone || 'Non spécifié'}
-
-Et le Locataire : ${tenant?.full_name}
-Email : ${tenant?.email}
-Téléphone : ${tenant?.phone || 'Non spécifié'}
-
-Il a été convenu ce qui suit :
-
-ARTICLE 1 - OBJET DU CONTRAT
-Le Propriétaire loue au Locataire le bien immobilier suivant :
-${property?.title}
-${property?.address ? formatAddress(property.address as AddressValue) : ''}
-${property?.city}
-
-Caractéristiques du bien :
-- Surface : ${property?.surface_area} m²
-- Nombre de chambres : ${property?.bedrooms}
-- Nombre de salles de bain : ${property?.bathrooms}
-
-ARTICLE 2 - DURÉE DU CONTRAT
-Le présent contrat est conclu pour une durée de ${calculateDuration(contract.start_date, contract.end_date)} mois,
-à compter du ${new Date(contract.start_date).toLocaleDateString('fr-FR')}
-jusqu'au ${new Date(contract.end_date).toLocaleDateString('fr-FR')}.
-
-ARTICLE 3 - LOYER ET CHARGES
-Le loyer mensuel est fixé à ${contract.monthly_rent?.toLocaleString()} FCFA.
-Le dépôt de garantie s'élève à ${contract.deposit_amount?.toLocaleString() || '0'} FCFA.
-Les charges s'élèvent à ${contract.charges_amount?.toLocaleString() || '0'} FCFA.
-
-ARTICLE 4 - CONDITIONS PARTICULIÈRES
-${contract.custom_clauses || 'Aucune condition particulière'}
-
-Fait à ${new Date().toLocaleDateString('fr-FR', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  })}`}
-                </pre>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Signature Actions */}
-          <div className="space-y-6">
-            {/* Shared Documents Section */}
-            <div className="bg-white rounded-xl shadow-sm border p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-[#F16522]" />
-                Documents du contrat
-              </h2>
-
-              <div className="space-y-3">
-                {/* Inventaire */}
-                <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-[#F16522]/10 rounded-lg">
-                      <FileText className="w-5 h-5 text-[#F16522]" />
+                <div className="space-y-3">
+                  {/* Contrat signé */}
+                  {contract.document_url && (
+                    <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 rounded-lg">
+                          <FileText className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-[#2C1810]">Contrat signé</p>
+                          <p className="text-sm text-gray-500">
+                            Document final signé par les parties
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="small"
+                        onClick={handleDownload}
+                        className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <div>
-                      <p className="font-medium text-[#2C1810]">Inventaire du logement</p>
-                      <p className="text-sm text-gray-500">État des lieux, photos, équipements</p>
+                  )}
+
+                  {/* Brouillon du contrat */}
+                  {contract.draft_document_url && (
+                    <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-gray-100 rounded-lg">
+                          <FileText className="w-5 h-5 text-gray-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-[#2C1810]">Brouillon du contrat</p>
+                          <p className="text-sm text-gray-500">Version avant signature</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="small"
+                        onClick={handleDownloadDraft}
+                        className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
+                      >
+                        <Download className="w-4 h-4" />
+                      </Button>
                     </div>
+                  )}
+
+                  {/* Inventaire */}
+                  {contract.inventory_details &&
+                    Object.keys(contract.inventory_details).length > 0 && (
+                      <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-[#F16522]/10 rounded-lg">
+                            <FileText className="w-5 h-5 text-[#F16522]" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-[#2C1810]">Inventaire du logement</p>
+                            <p className="text-sm text-gray-500">
+                              État des lieux, photos, équipements
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="small"
+                          onClick={handleDownloadInventory}
+                          className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+
+                  {/* Diagnostic */}
+                  <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-[#2C1810]">Diagnostic technique</p>
+                        <p className="text-sm text-gray-500">Consommation, diagnostics</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="small"
+                      onClick={handleDownloadDiagnostic}
+                      className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="small"
-                    onClick={async () => {
-                      // TODO: implémenter le téléchargement de l'inventaire
-                      alert('Fonctionnalité disponible prochainement');
-                    }}
-                    className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
-                  >
-                    <Download className="w-4 h-4" />
-                  </Button>
-                </div>
 
-                {/* Diagnostic */}
-                <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                  {/* états des lieux */}
+                  <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-[#2C1810]">État des lieux</p>
+                        <p className="text-sm text-gray-500">Signé à l'entrée et à la sortie</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-[#2C1810]">Diagnostic technique</p>
-                      <p className="text-sm text-gray-500">Consommation, diagnostics</p>
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="small"
+                      onClick={handleDownloadEtatDesLieux}
+                      className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="small"
-                    disabled
-                    className="text-gray-400 border-gray-300"
-                  >
-                    <Download className="w-4 h-4" />
-                  </Button>
-                </div>
 
-                {/* états des lieux */}
-                <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <CheckCircle2 className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-[#2C1810]">État des lieux</p>
-                      <p className="text-sm text-gray-500">Signé à l'entrée et à la sortie</p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="small"
-                    disabled
-                    className="text-gray-400 border-gray-300"
-                  >
-                    <Download className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                {/* Justificatif de domicile */}
-                {contract.tenant_signed_at && (
+                  {/* Justificatif de domicile */}
                   <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-purple-100 rounded-lg">
@@ -632,29 +889,30 @@ Fait à ${new Date().toLocaleDateString('fr-FR', {
                       </div>
                       <div>
                         <p className="font-medium text-[#2C1810]">Justificatif de domicile</p>
-                        <p className="text-sm text-gray-500">Disponible après signature</p>
+                        <p className="text-sm text-gray-500">
+                          {isFullySigned
+                            ? 'Document officiel'
+                            : 'Document provisoire (en attente de signature)'}
+                        </p>
                       </div>
                     </div>
                     <Button
                       variant="outline"
                       size="small"
-                      onClick={async () => {
-                        // TODO: générer et télécharger le justificatif
-                        alert('Fonctionnalité disponible prochainement');
-                      }}
+                      onClick={handleDownloadJustificatifDomicile}
                       className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
                     >
                       <Download className="w-4 h-4" />
                     </Button>
                   </div>
-                )}
-              </div>
+                </div>
 
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-xs text-blue-700">
-                  💡 Ces documents sont partagés entre le propriétaire et le locataire. Les
-                  justificatifs sont disponibles une fois le contrat signé par les deux parties.
-                </p>
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-blue-700">
+                    💡 Ces documents sont partagés entre le propriétaire et le locataire. Les
+                    justificatifs sont disponibles une fois le contrat signé par les deux parties.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -718,7 +976,7 @@ Fait à ${new Date().toLocaleDateString('fr-FR', {
                       <Users className="w-4 h-4 text-orange-500" />
                       <span className="text-sm font-medium">Propriétaire</span>
                     </div>
-                    <StatusBadge status="owner" signedAt={contract.landlord_signed_at} />
+                    <StatusBadge status="owner" signedAt={contract.owner_signed_at} />
                   </div>
 
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -736,99 +994,95 @@ Fait à ${new Date().toLocaleDateString('fr-FR', {
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                   <p className="text-xs text-blue-700">
-                    La signature électronique CryptoNeo a la même valeur légale qu'une signature notariée.
+                    La signature électronique CryptoNeo a la même valeur légale qu'une signature
+                    notariée.
                   </p>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Manual Signature Modal */}
-      {signatureMethod === 'manual' && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">Signature manuscrite</h3>
-                <p className="text-sm text-gray-500 mt-1">Dessinez votre signature dans le cadre ci-dessous</p>
+        {/* Manual Signature Modal */}
+        {signatureMethod === 'manual' && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Signature manuscrite</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Dessinez votre signature dans le cadre ci-dessous
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSignatureMethod(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
               </div>
-              <button
-                onClick={() => setSignatureMethod(null)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
 
-            <div className="border-2 border-gray-300 rounded-xl mb-4 overflow-hidden">
-              <canvas
-                ref={canvasRef}
-                width={600}
-                height={200}
-                className="w-full h-48 cursor-crosshair touch-none bg-white"
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-                onTouchStart={startDrawing}
-                onTouchMove={draw}
-                onTouchEnd={stopDrawing}
-              />
-            </div>
+              <div className="border-2 border-gray-300 rounded-xl mb-4 overflow-hidden">
+                <canvas
+                  ref={canvasRef}
+                  width={600}
+                  height={200}
+                  className="w-full h-48 cursor-crosshair touch-none bg-white"
+                  onMouseDown={startDrawing}
+                  onMouseMove={draw}
+                  onMouseUp={stopDrawing}
+                  onMouseLeave={stopDrawing}
+                  onTouchStart={startDrawing}
+                  onTouchMove={draw}
+                  onTouchEnd={stopDrawing}
+                />
+              </div>
 
-            <div className="flex items-center justify-between">
-              <Button
-                variant="outline"
-                onClick={clearSignature}
-              >
-                Effacer
-              </Button>
-              <Button
-                onClick={handleSign}
-                disabled={signing}
-                className="min-w-[160px]"
-              >
-                {signing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Signature...
-                  </>
-                ) : (
-                  <>
-                    <Shield className="w-4 h-4 mr-2" />
-                    Confirmer
-                  </>
-                )}
-              </Button>
+              <div className="flex items-center justify-between">
+                <Button variant="outline" onClick={clearSignature}>
+                  Effacer
+                </Button>
+                <Button onClick={handleSign} disabled={signing} className="min-w-[160px]">
+                  {signing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Signature...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="w-4 h-4 mr-2" />
+                      Confirmer
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Electronic Signature Modal */}
-      {contract?.document_url && (
-        <ElectronicSignatureModal
-          isOpen={signatureMethod === 'electronic'}
-          onClose={() => setSignatureMethod(null)}
-          documents={[
-            {
-              id: contract.id,
-              url: contract.document_url,
-              title: `Contrat de location n° ${contract.contract_number}`,
-            },
-          ]}
-          contractId={contract.id}
-          onSuccess={() => {
-            setSignatureMethod(null);
-            loadContract(contractId);
-          }}
-          onError={() => {
-            // Modal stays open on error
-          }}
-        />
-      )}
+        {/* Electronic Signature Modal */}
+        {contract?.document_url && (
+          <ElectronicSignatureModal
+            isOpen={signatureMethod === 'electronic'}
+            onClose={() => setSignatureMethod(null)}
+            documents={[
+              {
+                id: contract.id,
+                url: contract.document_url,
+                title: `Contrat de location n° ${contract.contract_number}`,
+              },
+            ]}
+            contractId={contract.id}
+            onSuccess={() => {
+              setSignatureMethod(null);
+              loadContract(contractId);
+            }}
+            onError={() => {
+              // Modal stays open on error
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

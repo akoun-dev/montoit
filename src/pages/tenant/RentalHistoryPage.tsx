@@ -23,7 +23,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/badge';
 import Button from '@/shared/ui/Button';
 import { Skeleton } from '@/shared/ui/Skeleton';
-import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -283,18 +282,18 @@ const RentalHistoryPage: React.FC = () => {
 
   if (loading) {
     return (
-      <TenantDashboardLayout title="Historique des Locations">
+      <div>
         <div className="w-full space-y-6">
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-48 w-full" />
           <Skeleton className="h-48 w-full" />
         </div>
-      </TenantDashboardLayout>
+      </div>
     );
   }
 
   return (
-    <TenantDashboardLayout title="Historique des Locations">
+    <div>
       <div className="w-full">
         {/* Header Banner */}
         <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8">
@@ -738,7 +737,7 @@ const RentalHistoryPage: React.FC = () => {
           </Button>
         </div>
       </div>
-    </TenantDashboardLayout>
+    </div>
   );
 };
 
