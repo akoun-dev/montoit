@@ -3,14 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Briefcase,
-  Building2,
   Shield,
   CheckCircle2,
   XCircle,
   Mail,
   Phone,
   MapPin,
-  Users,
   FileText,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';
@@ -20,28 +18,35 @@ import { Textarea } from '@/shared/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/ui/dialog';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { toast } from '@/hooks/shared/useSafeToast';
+import { supabase } from '@/integrations/supabase/client';
 
 // Interfaces for Agency Dossier
 interface AgencyDossier {
   id: string;
   user_id: string;
   agency_name: string;
-  contact_person: string;
   email: string;
-  phone: string;
-  address: string;
-  city: string;
-  license_number: string | null;
-  license_verified: boolean;
-  agents_count: number;
-  agents_verified: boolean;
-  portfolio_count: number;
-  portfolio_verified: boolean;
-  insurance_verified: boolean;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  registration_number: string | null;
+  tax_id: string | null;
+  registration_document_url: string | null;
+  registration_document_verified: boolean;
+  registration_document_verified_at: string | null;
+  tax_certificate_url: string | null;
+  tax_certificate_verified: boolean;
+  tax_certificate_verified_at: string | null;
+  insurance_proof_url: string | null;
+  insurance_proof_verified: boolean;
+  insurance_proof_verified_at: string | null;
   verification_status: 'pending' | 'in_review' | 'approved' | 'rejected';
   submitted_at: string;
   reviewed_at: string | null;
+  reviewed_by: string | null;
   rejection_reason: string | null;
+  notes: string | null;
 }
 
 const STATUS_CONFIG = {
@@ -52,10 +57,9 @@ const STATUS_CONFIG = {
 };
 
 const VERIFICATION_STEPS = [
-  { id: 'license', label: 'License commerciale', icon: FileText },
-  { id: 'agents', label: 'Agents certifiés', icon: Users },
-  { id: 'portfolio', label: 'Portefeuille', icon: Building2 },
-  { id: 'insurance', label: 'Assurance', icon: Shield },
+  { id: 'registration', label: 'Registre commercial', icon: FileText, field: 'registration_document_verified' as const },
+  { id: 'tax', label: 'Fiscalité', icon: Shield, field: 'tax_certificate_verified' as const },
+  { id: 'insurance', label: 'Assurance', icon: Shield, field: 'insurance_proof_verified' as const },
 ];
 
 export default function AgencyDossierValidationPage() {
@@ -73,39 +77,32 @@ export default function AgencyDossierValidationPage() {
     if (id) {
       loadDossier(id);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadDossier = async (dossierId: string) => {
     try {
       setLoading(true);
 
-      // Mock dossier for demo
-      const mockDossier: AgencyDossier = {
-        id: dossierId,
-        user_id: user?.id || '',
-        agency_name: 'Agence Immobilière ABC',
-        contact_person: 'Marie Kouassi',
-        email: 'contact@agenceabc.ci',
-        phone: '+225 01 02 03 04 05',
-        address: '123 Rue du Commerce',
-        city: 'Abidjan, Cocody',
-        license_number: 'AG-2024-001234',
-        license_verified: false,
-        agents_count: 5,
-        agents_verified: false,
-        portfolio_count: 12,
-        portfolio_verified: false,
-        insurance_verified: false,
-        verification_status: 'pending',
-        submitted_at: new Date().toISOString(),
-        reviewed_at: null,
-        rejection_reason: null,
-      };
+      const { data, error } = await supabase
+        .from('agency_applications')
+        .select('*')
+        .eq('id', dossierId)
+        .single();
 
-      setDossier(mockDossier);
+      if (error) throw error;
+
+      if (!data) {
+        toast.error('Dossier introuvable');
+        navigate('/trust-agent/dossiers');
+        return;
+      }
+
+      setDossier(data as AgencyDossier);
     } catch (error) {
       console.error('Error loading dossier:', error);
       toast.error('Erreur lors du chargement du dossier');
+      navigate('/trust-agent/dossiers');
     } finally {
       setLoading(false);
     }
@@ -113,15 +110,52 @@ export default function AgencyDossierValidationPage() {
 
   const handleApprove = async () => {
     if (!dossier) return;
-    toast.success('Dossier approuvé avec succès');
-    setShowApprovalDialog(false);
+
+    try {
+      const { error } = await supabase
+        .from('agency_applications')
+        .update({
+          verification_status: 'approved',
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: user?.id,
+        })
+        .eq('id', dossier.id);
+
+      if (error) throw error;
+
+      toast.success('Dossier approuvé avec succès');
+      setShowApprovalDialog(false);
+      loadDossier(dossier.id);
+    } catch (error) {
+      console.error('Error approving dossier:', error);
+      toast.error('Erreur lors de l\'approbation');
+    }
   };
 
   const handleReject = async () => {
     if (!dossier || !rejectionReason.trim()) return;
-    toast.success('Dossier rejeté');
-    setShowRejectDialog(false);
-    setRejectionReason('');
+
+    try {
+      const { error } = await supabase
+        .from('agency_applications')
+        .update({
+          verification_status: 'rejected',
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: user?.id,
+          rejection_reason: rejectionReason,
+        })
+        .eq('id', dossier.id);
+
+      if (error) throw error;
+
+      toast.success('Dossier rejeté');
+      setShowRejectDialog(false);
+      setRejectionReason('');
+      loadDossier(dossier.id);
+    } catch (error) {
+      console.error('Error rejecting dossier:', error);
+      toast.error('Erreur lors du rejet');
+    }
   };
 
   if (loading) {
@@ -214,13 +248,6 @@ export default function AgencyDossierValidationPage() {
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Contact</p>
-                        <p className="font-medium">{dossier.contact_person}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
                       <Mail className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <p className="text-xs text-muted-foreground">Email</p>
@@ -231,7 +258,7 @@ export default function AgencyDossierValidationPage() {
                       <Phone className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <p className="text-xs text-muted-foreground">Téléphone</p>
-                        <p className="font-medium">{dossier.phone}</p>
+                        <p className="font-medium">{dossier.phone || 'Non renseigné'}</p>
                       </div>
                     </div>
                   </div>
@@ -240,32 +267,17 @@ export default function AgencyDossierValidationPage() {
                       <MapPin className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <p className="text-xs text-muted-foreground">Adresse</p>
-                        <p className="font-medium">{dossier.address}</p>
-                        <p className="text-xs text-muted-foreground">{dossier.city}</p>
+                        <p className="font-medium">{dossier.address || 'Non renseignée'}</p>
+                        <p className="text-xs text-muted-foreground">{dossier.city || ''} {dossier.country || ''}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="text-xs text-muted-foreground">License</p>
-                        <p className="font-medium">{dossier.license_number || 'Non renseigné'}</p>
+                        <p className="text-xs text-muted-foreground">Numéro d'enregistrement</p>
+                        <p className="font-medium">{dossier.registration_number || 'Non renseigné'}</p>
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-6 border-t grid grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Agents</p>
-                    <p className="font-medium">{dossier.agents_count}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Portefeuille</p>
-                    <p className="font-medium">{dossier.portfolio_count} biens</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">License</p>
-                    <p className="font-medium">{dossier.license_verified ? 'Vérifiée' : 'En attente'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -283,11 +295,7 @@ export default function AgencyDossierValidationPage() {
                 <div className="space-y-4">
                   {VERIFICATION_STEPS.map((step) => {
                     const StepIcon = step.icon;
-                    const isVerified =
-                      step.id === 'license' && dossier.license_verified ||
-                      step.id === 'agents' && dossier.agents_verified ||
-                      step.id === 'portfolio' && dossier.portfolio_verified ||
-                      step.id === 'insurance' && dossier.insurance_verified;
+                    const isVerified = dossier[step.field] as boolean;
 
                     return (
                       <div key={step.id} className="flex items-center justify-between p-4 rounded-lg border">

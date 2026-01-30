@@ -1,167 +1,287 @@
 /**
- * Service de paiement via API InTouch
- * Documentation: https://developers.intouchgroup.net/documentation
- *
- * Méthodes disponibles:
- * - Payment Link: Envoie un lien de paiement par SMS/email/WhatsApp
- * - Direct API: Intègre le flux de paiement directement
+ * Service de paiement Mobile Money via API InTouch
+ * Documentation: https://apidist.gutouch.net/apidist/sec
  */
 
-interface InTouchPaymentLinkRequest {
-  email: string;
-  destinataire: string; // Numéro de téléphone du client
-  motif: string; // Description du paiement
-  montant: number; // Montant en FCFA
-  langue?: 'fr' | 'en'; // Langue du message (défaut: fr)
+export type MobileMoneyOperator = 'OM' | 'MTN' | 'MOOV' | 'WAVE';
+
+export interface PaymentRequest {
+  amount: number;
+  recipient_phone_number: string;
+  partner_transaction_id: string;
+  callback_url: string;
+  operator: MobileMoneyOperator;
 }
 
-interface InTouchPaymentLinkResponse {
-  service_id: string;
-  destinataire: string;
-  motif: string;
-  email: string;
-  link: string; // Lien de paiement
-  montant: number;
-  statut: string; // "202" pour succès
+export interface PaymentResponse {
+  transaction_id: string;
+  status: 'PENDING' | 'SUCCESS' | 'FAILED';
   message: string;
 }
 
-// Note: Les codes de service ne sont plus nécessaires pour Payment Link API
-// Ils étaient utilisés pour l'ancienne API Direct paiement
+// Service IDs pour chaque opérateur Mobile Money
+const SERVICE_IDS: Record<MobileMoneyOperator, string> = {
+  'OM': 'CASHINOMCIPART2',
+  'MTN': 'CASHINMTNPART2',
+  'MOOV': 'CASHINMOOVPART2',
+  'WAVE': 'CI_CASHIN_WAVE_PART',
+};
 
-class InTouchPaymentService {
-  private supabaseUrl: string;
-  private supabaseAnonKey: string;
-
-  constructor() {
-    // Récupérer l'URL Supabase et la clé anon
-    this.supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-    this.supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-  }
+class InTouchService {
+  private baseUrl = import.meta.env.VITE_INTOUCH_BASE_URL || import.meta.env.VITE_INTOUCH_API_URL || 'https://apidist.gutouch.net/apidist/sec';
+  private username = import.meta.env.VITE_INTOUCH_USERNAME || '';
+  private password = import.meta.env.VITE_INTOUCH_PASSWORD || '';
+  private partnerId = import.meta.env.VITE_INTOUCH_PARTNER_ID || 'CI300373';
+  private loginApi = import.meta.env.VITE_INTOUCH_LOGIN_API || '07084598370';
+  private passwordApi = import.meta.env.VITE_INTOUCH_PASSWORD_API || '';
 
   /**
    * Vérifie si le service InTouch est configuré
    */
   isConfigured(): boolean {
-    return !!(this.supabaseUrl && this.supabaseAnonKey);
+    return !!(
+      this.baseUrl &&
+      this.username &&
+      this.password &&
+      this.partnerId
+    );
   }
 
   /**
-   * Envoie un lien de paiement par SMS/email/WhatsApp (Payment Link)
-   * C'est la méthode recommandée pour les paiements de loyer
+   * Initie un paiement Mobile Money
    */
-  async sendPaymentLink(params: InTouchPaymentLinkRequest): Promise<{
-    success: boolean;
-    data?: InTouchPaymentLinkResponse;
-    error?: string;
-  }> {
+  async initiatePayment(data: PaymentRequest): Promise<PaymentResponse> {
     if (!this.isConfigured()) {
-      return {
-        success: false,
-        error: 'Service InTouch non configuré. Veuillez contacter l\'administrateur.',
-      };
+      throw new Error('Service InTouch non configuré');
     }
 
-    try {
-      // Appeler l'Edge Function Supabase pour éviter les problèmes CORS
-      const response = await fetch(
-        `${this.supabaseUrl}/functions/v1/intouch-send-link`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.supabaseAnonKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: params.email,
-            destinataire: params.destinataire,
-            motif: params.motif,
-            montant: params.montant,
-            langue: params.langue || 'fr',
-          }),
-        }
-      );
+    const { operator, ...paymentData } = data;
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        return {
-          success: false,
-          error: errorData.error || 'Erreur lors de l\'envoi du lien de paiement',
-        };
-      }
+    const serviceId = SERVICE_IDS[operator];
+    const endpoint = operator === 'WAVE'
+      ? `${this.baseUrl}/touchpayapi/ANSUT13287/transaction`
+      : `${this.baseUrl}/ANSUT13287/cashin`;
 
-      const data = await response.json();
+    const payload = this.buildPaymentPayload(serviceId, paymentData, operator);
 
-      if (data.success && data.data) {
-        return {
-          success: true,
-          data: data.data as InTouchPaymentLinkResponse,
-        };
-      } else {
-        return {
-          success: false,
-          error: data.error || 'Erreur lors de la création du lien de paiement',
-        };
-      }
-    } catch (error) {
-      console.error('InTouch Payment Link Error:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Erreur de connexion au service de paiement',
-      };
+    console.log('[InTouch] Initiating payment:', { endpoint, operator, payload });
+
+    const response = await fetch(endpoint, {
+      method: operator === 'WAVE' ? 'PUT' : 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${btoa(`${this.username}:${this.password}`)}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[InTouch] Payment failed:', response.status, errorText);
+      throw new Error(`Payment initiation failed: ${response.statusText} - ${errorText}`);
     }
+
+    const result = await response.json();
+    console.log('[InTouch] Payment response:', result);
+
+    return result;
   }
 
   /**
-   * Initie un paiement direct via l'API Direct
-   * NOTE: Cette méthode nécessite une Edge Function séparée
-   * Pour les paiements de loyer, préférez sendPaymentLink()
+   * Construit le payload selon l'opérateur
    */
-  async initiateDirectPayment(params: {
-    idFromClient: string;
-    recipientEmail: string;
-    recipientFirstName: string;
-    recipientLastName: string;
-    recipientNumber: string;
-    amount: number;
-    callback: string;
-    serviceCode?: keyof typeof SERVICE_CODES;
-  }): Promise<{
-    success: boolean;
-    data?: InTouchDirectPaymentResponse;
-    paymentUrl?: string;
-    error?: string;
-  }> {
-    // Cette méthode n'est pas encore implémentée
-    // Utilisez sendPaymentLink() pour les paiements de loyer
+  private buildPaymentPayload(
+    serviceId: string,
+    data: Omit<PaymentRequest, 'operator'>,
+    operator: MobileMoneyOperator
+  ): Record<string, unknown> {
+    if (operator === 'WAVE') {
+      return {
+        idFromClient: data.partner_transaction_id,
+        additionnalInfos: {
+          recipientEmail: '',
+          recipientFirstName: '',
+          recipientLastName: '',
+          destinataire: data.recipient_phone_number,
+          partner_name: 'MonToit',
+          return_url: `${window.location.origin}/payment/success`,
+          cancel_url: `${window.location.origin}/payment/cancel`,
+        },
+        amount: data.amount,
+        callback: data.callback_url,
+        recipientNumber: data.recipient_phone_number,
+        serviceCode: 'CI_PAIEMENTWAVE_TP',
+      };
+    }
+
     return {
-      success: false,
-      error: 'Le paiement direct n\'est pas encore disponible. Utilisez le lien de paiement SMS.',
+      service_id: serviceId,
+      recipient_phone_number: data.recipient_phone_number,
+      amount: data.amount,
+      partner_id: this.partnerId,
+      partner_transaction_id: data.partner_transaction_id,
+      login_api: this.loginApi,
+      password_api: this.passwordApi,
+      call_back_url: data.callback_url,
     };
   }
 
   /**
-   * Vérifie le statut d'une transaction
-   * NOTE: Cette fonctionnalité sera ajoutée ultérieurement
-   * Pour l'instant, utilisez les webhooks InTouch pour les notifications de statut
+   * Vérifie le statut d'un paiement
    */
-  async checkTransactionStatus(transactionId: string): Promise<{
-    success: boolean;
-    status?: string;
-    error?: string;
-  }> {
-    return {
-      success: false,
-      error: 'La vérification de statut sera disponible prochainement. Utilisez les webhooks pour les notifications.',
-    };
+  async checkPaymentStatus(transactionId: string): Promise<any> {
+    if (!this.isConfigured()) {
+      throw new Error('Service InTouch non configuré');
+    }
+
+    const response = await fetch(
+      `${this.baseUrl}/ANSUT13287/status/${transactionId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Basic ${btoa(`${this.username}:${this.password}`)}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to check payment status: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Récupère le solde du compte InTouch
+   */
+  async getBalance(): Promise<any> {
+    if (!this.isConfigured()) {
+      throw new Error('Service InTouch non configuré');
+    }
+
+    const response = await fetch(
+      `${this.baseUrl}/ANSUT13287/get_balance`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Basic ${btoa(`${this.username}:${this.password}`)}`,
+        },
+        body: JSON.stringify({
+          partner_id: this.partnerId,
+          login_api: this.loginApi,
+          password_api: this.passwordApi,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to get balance: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  /**
+   * Formate un numéro de téléphone pour l'API InTouch
+   * Nouveau format Côte d'Ivoire : 10 chiffres (depuis 31/01/2021)
+   */
+  formatPhoneNumber(phone: string): string {
+    // Supprimer tous les caractères non numériques
+    let formatted = phone.replace(/\D/g, '');
+
+    // Supprimer l'indicatif pays 225 si présent
+    if (formatted.startsWith('225')) {
+      formatted = formatted.substring(3);
+    }
+
+    // NE PAS supprimer le 0 au début (c'est le préfixe opérateur)
+    // Les nouveaux numéros font 10 chiffres avec le 0 inclus
+
+    return formatted;
+  }
+
+  /**
+   * Valide un numéro de téléphone ivoirien
+   * Nouveau format : 10 chiffres (depuis le 31/01/2021)
+   */
+  validatePhoneNumber(phone: string): {
+    valid: boolean;
+    formatted: string;
+    error?: string
+  } {
+    const cleaned = phone.replace(/\D/g, '');
+
+    // Accepter 10 chiffres (nouveau format) ou 12 avec l'indicatif 225
+    if (cleaned.length < 10) {
+      return {
+        valid: false,
+        formatted: cleaned,
+        error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${cleaned.length})`
+      };
+    }
+
+    if (cleaned.length > 12) {
+      return {
+        valid: false,
+        formatted: cleaned,
+        error: 'Numéro de téléphone invalide (trop long)'
+      };
+    }
+
+    const formatted = this.formatPhoneNumber(phone);
+
+    // Après formatage, on doit avoir 10 chiffres
+    if (formatted.length !== 10) {
+      return {
+        valid: false,
+        formatted,
+        error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${formatted.length})`
+      };
+    }
+
+    // Préfixes opérateurs Mobile Money en Côte d'Ivoire (nouveau format 2021)
+    const validMobilePrefixes = [
+      '01', // Moov
+      '05', // MTN
+      '07', // Orange
+      '04', // Wave (aussi disponible)
+    ];
+
+    // Préfixes fixes (non mobiles mais valides)
+    const validFixedPrefixes = [
+      '02', '03', '08', '09', '20', '21', '22', '23', '24', '25',
+      '26', '27', '28', '29', '30', '31', '32', '33', '34', '35',
+      '36', '37', '38', '39', '40', '41', '42', '43', '44', '45',
+      '46', '47', '48', '49', '50', '51', '52', '53', '54', '55',
+      '56', '57', '58', '59', '60', '61', '62', '63', '64', '65',
+      '66', '67', '68', '69', '70', '71', '72', '73', '74', '75',
+      '76', '77', '78', '79', '80', '81', '82', '83', '84', '85',
+      '86', '87', '88', '89'
+    ];
+
+    // Vérifier le préfixe (2 premiers chiffres)
+    const prefix = formatted.substring(0, 2);
+    const allValidPrefixes = [...validMobilePrefixes, ...validFixedPrefixes];
+
+    if (!allValidPrefixes.includes(prefix)) {
+      return {
+        valid: false,
+        formatted,
+        error: `Préfixe de numéro invalide pour la Côte d'Ivoire (${prefix}). Préfixes Mobile Money: 01 (Moov), 05 (MTN), 07 (Orange), 04 (Wave)`
+      };
+    }
+
+    return { valid: true, formatted };
   }
 }
 
 // Export singleton instance
-export const intouchPaymentService = new InTouchPaymentService();
+export const intouchService = new InTouchService();
 
 // Export types
 export type {
-  InTouchPaymentLinkRequest,
-  InTouchPaymentLinkResponse,
+  PaymentRequest,
+  PaymentResponse,
+  MobileMoneyOperator,
 };

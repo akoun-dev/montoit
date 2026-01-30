@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import { Badge } from '@/shared/ui/badge';
+import { Card } from '@/shared/ui/Card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/shared/useSafeToast';
 
@@ -29,11 +30,13 @@ type DossierStatus = 'pending' | 'in_review' | 'approved' | 'rejected';
 
 interface Dossier {
   id: string;
-  type: DossierType;
+  user_id: string;
+  dossier_type: DossierType;
   full_name: string;
   email: string;
   phone: string | null;
   verification_status: DossierStatus;
+  status: DossierStatus;
   submitted_at: string;
   reviewed_at: string | null;
 }
@@ -72,23 +75,73 @@ export default function DossiersListPage() {
     try {
       setLoading(true);
 
-      const { data: tenantData, error: tenantError } = await supabase
-        .from('tenant_applications')
-        .select('id, full_name, email, phone, verification_status, submitted_at, reviewed_at')
+      // Load all verification applications
+      const { data: applications, error } = await supabase
+        .from('verification_applications')
+        .select('*')
         .order('submitted_at', { ascending: false });
 
-      if (tenantError && tenantError.code !== 'PGRST116') {
-        console.error('Error loading tenant dossiers:', tenantError);
+      if (error) {
+        console.error('Error loading dossiers:', error);
+        // If table doesn't exist, set empty arrays
+        setDossiers({
+          tenant: [],
+          owner: [],
+          agency: [],
+        });
+        return;
       }
 
-      setDossiers({
-        tenant: (tenantData || []) as Dossier[],
-        owner: [],
-        agency: [],
+      // Get unique user IDs and fetch their profiles
+      const userIds = [...new Set((applications || []).map((app: any) => app.user_id))];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, phone')
+        .in('id', userIds);
+
+      // Create a map for quick lookup
+      const profilesMap = new Map((profilesData || []).map((p: any) => [p.id, p]));
+
+      // Transform and group by dossier_type
+      const transformedData = {
+        tenant: [] as Dossier[],
+        owner: [] as Dossier[],
+        agency: [] as Dossier[],
+      };
+
+      (applications || []).forEach((app: any) => {
+        const profile = profilesMap.get(app.user_id);
+        const dossier: Dossier = {
+          id: app.id,
+          user_id: app.user_id,
+          dossier_type: app.dossier_type,
+          full_name: profile?.full_name || app.personal_info?.full_name || 'Non renseigné',
+          email: profile?.email || app.personal_info?.email || 'Non renseigné',
+          phone: profile?.phone || app.personal_info?.phone || null,
+          verification_status: app.status,
+          status: app.status,
+          submitted_at: app.submitted_at,
+          reviewed_at: app.reviewed_at,
+        };
+
+        if (app.dossier_type === 'tenant') {
+          transformedData.tenant.push(dossier);
+        } else if (app.dossier_type === 'owner') {
+          transformedData.owner.push(dossier);
+        } else if (app.dossier_type === 'agency') {
+          transformedData.agency.push(dossier);
+        }
       });
+
+      setDossiers(transformedData);
     } catch (error) {
       console.error('Error loading dossiers:', error);
       toast.error('Erreur lors du chargement des dossiers');
+      setDossiers({
+        tenant: [],
+        owner: [],
+        agency: [],
+      });
     } finally {
       setLoading(false);
     }
@@ -96,7 +149,9 @@ export default function DossiersListPage() {
 
   const filteredDossiers = useMemo(() => {
     return dossiers[activeTab]?.filter((dossier) => {
-      if (statusFilter !== 'all' && dossier.verification_status !== statusFilter) {
+      // Filter by status (check both verification_status and status for compatibility)
+      const dossierStatus = dossier.verification_status || dossier.status;
+      if (statusFilter !== 'all' && dossierStatus !== statusFilter) {
         return false;
       }
 
@@ -116,16 +171,17 @@ export default function DossiersListPage() {
   const stats = useMemo(() => {
     const currentStats = {
       total: dossiers[activeTab].length,
-      pending: dossiers[activeTab].filter((d) => d.verification_status === 'pending').length,
-      in_review: dossiers[activeTab].filter((d) => d.verification_status === 'in_review').length,
-      approved: dossiers[activeTab].filter((d) => d.verification_status === 'approved').length,
-      rejected: dossiers[activeTab].filter((d) => d.verification_status === 'rejected').length,
+      pending: dossiers[activeTab].filter((d) => (d.verification_status || d.status) === 'pending').length,
+      in_review: dossiers[activeTab].filter((d) => (d.verification_status || d.status) === 'in_review').length,
+      approved: dossiers[activeTab].filter((d) => (d.verification_status || d.status) === 'approved').length,
+      rejected: dossiers[activeTab].filter((d) => (d.verification_status || d.status) === 'rejected').length,
     };
     return currentStats;
   }, [dossiers, activeTab]);
 
   const handleDossierClick = (dossier: Dossier) => {
-    navigate(`/trust-agent/dossiers/${activeTab}/${dossier.id}`);
+    // Use unified dossier validation page
+    navigate(`/trust-agent/dossiers/${dossier.id}`);
   };
 
   const handleClearFilters = () => {
@@ -199,7 +255,7 @@ export default function DossiersListPage() {
               <Building className="h-4 w-4" />
               Propriétaires
               <Badge variant="secondary" className="data-[state=active]:bg-white/20 data-[state=active]:text-white">
-                0
+                {dossiers.owner.length}
               </Badge>
             </TabsTrigger>
             <TabsTrigger
@@ -209,7 +265,7 @@ export default function DossiersListPage() {
               <Briefcase className="h-4 w-4" />
               Agences
               <Badge variant="secondary" className="data-[state=active]:bg-white/20 data-[state=active]:text-white">
-                0
+                {dossiers.agency.length}
               </Badge>
             </TabsTrigger>
           </TabsList>

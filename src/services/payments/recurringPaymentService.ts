@@ -1,4 +1,19 @@
-import { supabase } from '@/services/supabase/client';
+/**
+ * Service de gestion des paiements récurrents via InTouch
+ * Permet de planifier et traiter automatiquement les paiements mensuels
+ */
+
+import { intouchService, type MobileMoneyOperator } from './intouchPaymentService';
+import { supabase } from '@/integrations/supabase/client';
+
+export interface RecurringPaymentConfig {
+  leaseId: string;
+  amount: number;
+  phoneNumber: string;
+  operator: MobileMoneyOperator;
+  startDate: Date;
+  frequency?: 'weekly' | 'biweekly' | 'monthly';
+}
 
 export interface RecurringPayment {
   id: string;
@@ -219,3 +234,195 @@ export async function getContractRecurringPayment(
   if (error) return null;
   return data;
 }
+
+/**
+ * Service de paiements récurrents via InTouch Direct API
+ * Ajoute les méthodes spécifiées dans intouch.txt
+ */
+export class RecurringPaymentService {
+  /**
+   * Planifier un paiement récurrent mensuel
+   */
+  static async scheduleMonthlyPayment(config: RecurringPaymentConfig) {
+    const { leaseId, amount, phoneNumber, operator, startDate, frequency = 'monthly' } = config;
+
+    // Valider le numéro de téléphone
+    const validation = intouchService.validatePhoneNumber(phoneNumber);
+    if (!validation.valid) {
+      throw new Error(validation.error || 'Numéro de téléphone invalide');
+    }
+
+    const formattedPhone = validation.formatted;
+
+    // Créer une entrée dans la table recurring_payments
+    const { data, error } = await supabase
+      .from('recurring_payments')
+      .insert({
+        lease_id: leaseId,
+        amount,
+        phone_number: formattedPhone,
+        provider: operator.toLowerCase(),
+        start_date: startDate.toISOString(),
+        frequency: frequency === 'monthly' ? 'monthly' : 'quarterly',
+        status: 'active',
+        next_payment_date: startDate.toISOString(),
+        is_active: true,
+        payment_day: startDate.getDate(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return data;
+  }
+
+  /**
+   * Processus automatisé (à exécuter via cron job ou edge function)
+   */
+  static async processDuePayments() {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Récupérer tous les paiements dus aujourd'hui
+    const { data: payments, error } = await supabase
+      .from('recurring_payments')
+      .select(`
+        *,
+        leases (
+          tenant_id,
+          property_id,
+          property_owner_id
+        )
+      `)
+      .eq('next_payment_date', today)
+      .eq('status', 'active');
+
+    if (error) throw error;
+
+    // Traiter chaque paiement
+    for (const payment of payments) {
+      try {
+        // Initier le paiement
+        const result = await intouchService.initiatePayment({
+          amount: payment.amount,
+          recipient_phone_number: payment.phone_number,
+          partner_transaction_id: `REC_${payment.id}_${Date.now()}`,
+          callback_url: `${window.location.origin}/functions/v1/payment-callback`,
+          operator: payment.provider.toUpperCase() as MobileMoneyOperator,
+        });
+
+        // Enregistrer le paiement ponctuel
+        await supabase.from('rent_payments').insert({
+          lease_id: payment.lease_id,
+          recurring_payment_id: payment.id,
+          transaction_id: result.transaction_id,
+          amount: payment.amount,
+          payment_date: new Date().toISOString(),
+          status: 'pending',
+        });
+
+        // Mettre à jour la prochaine date de paiement
+        const nextDate = new Date(payment.next_payment_date);
+
+        if (payment.frequency === 'weekly') {
+          nextDate.setDate(nextDate.getDate() + 7);
+        } else if (payment.frequency === 'biweekly') {
+          nextDate.setDate(nextDate.getDate() + 14);
+        } else {
+          // monthly (default)
+          nextDate.setMonth(nextDate.getMonth() + 1);
+        }
+
+        await supabase
+          .from('recurring_payments')
+          .update({ next_payment_date: nextDate.toISOString() })
+          .eq('id', payment.id);
+
+        console.log(`[RecurringPayment] Processed payment ${payment.id} successfully`);
+
+      } catch (error) {
+        console.error(`[RecurringPayment] Failed to process payment ${payment.id}:`, error);
+
+        // Enregistrer l'échec
+        await supabase.from('failed_payments').insert({
+          recurring_payment_id: payment.id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          attempted_at: new Date().toISOString(),
+        });
+
+        // Gérer les échecs répétés (3 tentatives max)
+        const { data: failedAttempts } = await supabase
+          .from('failed_payments')
+          .select('count')
+          .eq('recurring_payment_id', payment.id);
+
+        if (failedAttempts && failedAttempts.length >= 3) {
+          await supabase
+            .from('recurring_payments')
+            .update({ status: 'suspended' })
+            .eq('id', payment.id);
+
+          console.warn(`[RecurringPayment] Suspended payment ${payment.id} after 3 failed attempts`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Suspendre un paiement récurrent
+   */
+  static async suspendRecurringPayment(recurringPaymentId: string) {
+    const { error } = await supabase
+      .from('recurring_payments')
+      .update({ status: 'suspended' })
+      .eq('id', recurringPaymentId);
+
+    if (error) throw error;
+  }
+
+  /**
+   * Réactiver un paiement récurrent suspendu
+   */
+  static async reactivateRecurringPayment(recurringPaymentId: string) {
+    // Reset failed attempts
+    await supabase
+      .from('failed_payments')
+      .delete()
+      .eq('recurring_payment_id', recurringPaymentId);
+
+    const { error } = await supabase
+      .from('recurring_payments')
+      .update({ status: 'active' })
+      .eq('id', recurringPaymentId);
+
+    if (error) throw error;
+  }
+
+  /**
+   * Annuler un paiement récurrent
+   */
+  static async cancelRecurringPayment(recurringPaymentId: string) {
+    const { error } = await supabase
+      .from('recurring_payments')
+      .update({ status: 'cancelled', is_active: false })
+      .eq('id', recurringPaymentId);
+
+    if (error) throw error;
+  }
+
+  /**
+   * Récupère tous les paiements récurrents pour un bail
+   */
+  static async getRecurringPayments(leaseId: string) {
+    const { data, error } = await supabase
+      .from('recurring_payments')
+      .select('*')
+      .eq('lease_id', leaseId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
+  }
+}
+
+export const recurringPaymentService = new RecurringPaymentService();

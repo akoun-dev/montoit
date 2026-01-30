@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Clock, MapPin, Calendar, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Clock, MapPin, Calendar, AlertTriangle, ChevronRight, User } from 'lucide-react';
 import { Badge } from '@/shared/ui/badge';
 import { cn } from '@/shared/lib/utils';
 
@@ -16,6 +16,10 @@ export interface MissionCardProps {
     title: string;
     address: string;
     city: string;
+  };
+  agent?: {
+    name: string;
+    phone?: string;
   };
   scheduledDate?: Date;
   progress?: number;
@@ -67,6 +71,7 @@ export function MissionCard({
   urgency,
   urgencyLabel,
   property,
+  agent,
   scheduledDate,
   progress = 0,
   onClick,
@@ -142,6 +147,14 @@ export function MissionCard({
                 <MapPin className="h-3 w-3" />
                 {property.address}, {property.city}
               </p>
+            </div>
+          )}
+
+          {/* Assigned Agent */}
+          {agent && (
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-gray-600">
+              <User className="h-3.5 w-3.5" />
+              <span>Assigné à <span className="font-medium">{agent.name}</span></span>
             </div>
           )}
 

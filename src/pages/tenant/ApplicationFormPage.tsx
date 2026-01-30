@@ -59,6 +59,8 @@ export default function ApplicationForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [existingApplication, setExistingApplication] = useState(false);
+  const [applicationScore, setApplicationScore] = useState(0);
+  const [scoreLoading, setScoreLoading] = useState(true);
 
   // Form stepper
   const { step, slideDirection, goToStep, nextStep, prevStep } = useFormStepper(1, 2);
@@ -78,7 +80,22 @@ export default function ApplicationForm() {
     } else if (property) {
       setLoading(false);
     }
-  }, [user, navigate, routeId, property]);
+
+    // Calculate application score
+    if (profile) {
+      ScoringService.calculateSimpleScore(profile)
+        .then(score => {
+          setApplicationScore(score);
+          setScoreLoading(false);
+        })
+        .catch(err => {
+          console.error('Error calculating score:', err);
+          setApplicationScore(50); // Default score on error
+          setScoreLoading(false);
+        });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, navigate, routeId, property, profile]);
 
   const loadProperty = async (id: string) => {
     try {
@@ -135,7 +152,7 @@ export default function ApplicationForm() {
     setError('');
 
     try {
-      const applicationScore = calculateApplicationScore();
+      const finalScore = await ScoringService.calculateSimpleScore(profile);
 
       const { data: applicationData, error: insertError } = await supabase
         .from('rental_applications')
@@ -143,7 +160,7 @@ export default function ApplicationForm() {
           property_id: property.id,
           tenant_id: user.id,
           application_message: coverLetter,
-          credit_score: applicationScore,
+          credit_score: finalScore,
           status: 'en_attente',
         } as never)
         .select('id')
@@ -165,15 +182,11 @@ export default function ApplicationForm() {
       setTimeout(() => {
         navigate('/');
       }, 2000);
-    } catch (err: any) {
-      setError(err.message || 'Erreur lors de la soumission de la candidature');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de la soumission de la candidature');
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const calculateApplicationScore = () => {
-    return ScoringService.calculateSimpleScore(profile);
   };
 
   if (loading) {
@@ -227,7 +240,6 @@ export default function ApplicationForm() {
     );
   }
 
-  const applicationScore = calculateApplicationScore();
   const facialStatus = profile?.facial_verification_status?.toLowerCase() || '';
   const isFaceVerified = facialStatus === 'verified' || facialStatus === 'verifie';
   const isOneciVerified = profile?.oneci_verified ?? false;
@@ -469,13 +481,13 @@ export default function ApplicationForm() {
                   <span>Score de candidature</span>
                 </h3>
                 <span className="text-3xl font-bold" style={{ color: 'var(--form-orange)' }}>
-                  {applicationScore}/100
+                  {scoreLoading ? '...' : `${applicationScore}/100`}
                 </span>
               </div>
               <div className="bg-white rounded-full h-4 overflow-hidden shadow-inner">
                 <div
                   className="h-full transition-all duration-500"
-                  style={{ width: `${applicationScore}%`, backgroundColor: 'var(--form-orange)' }}
+                  style={{ width: scoreLoading ? '0%' : `${applicationScore}%`, backgroundColor: 'var(--form-orange)' }}
                 />
               </div>
             </div>

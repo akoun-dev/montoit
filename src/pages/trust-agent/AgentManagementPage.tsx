@@ -27,6 +27,8 @@ import {
   Trash2,
   Shield,
   UserPlus,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { Card, CardContent } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/badge';
@@ -57,6 +59,20 @@ type AutoReassignDialogState = {
 
 type CreateAgentDialogState = {
   isOpen: boolean;
+  mode: 'promote' | 'create';
+};
+
+type NewAgentForm = {
+  email: string;
+  password: string;
+  full_name: string;
+  phone: string;
+  role: 'manager' | 'agent';
+};
+
+type PromoteAgentForm = {
+  email: string;
+  role: 'manager' | 'agent';
 };
 
 type EditAgentDialogState = {
@@ -80,12 +96,23 @@ export default function AgentManagementPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [reassignmentDialog, setReassignmentDialog] = useState<ReassignmentDialogState>(null);
   const [autoReassignDialog, setAutoReassignDialog] = useState<AutoReassignDialogState>(null);
-  const [createAgentDialog, setCreateAgentDialog] = useState<CreateAgentDialogState>({ isOpen: false });
+  const [createAgentDialog, setCreateAgentDialog] = useState<CreateAgentDialogState>({ isOpen: false, mode: 'promote' });
   const [editAgentDialog, setEditAgentDialog] = useState<EditAgentDialogState>(null);
   const [deleteAgentDialog, setDeleteAgentDialog] = useState<DeleteAgentDialogState>(null);
 
   // Form states
   const [newAgentEmail, setNewAgentEmail] = useState('');
+  const [promoteAgentForm, setPromoteAgentForm] = useState<PromoteAgentForm>({
+    email: '',
+    role: 'agent',
+  });
+  const [newAgentForm, setNewAgentForm] = useState<NewAgentForm>({
+    email: '',
+    password: '',
+    full_name: '',
+    phone: '',
+    role: 'agent',
+  });
   const [reassignmentReason, setReassignmentReason] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [availableAgents, setAvailableAgents] = useState<AvailableAgent[]>([]);
@@ -129,74 +156,208 @@ export default function AgentManagementPage() {
     }
   };
 
-  const openCreateDialog = () => {
-    loadAvailableUsers();
-    setCreateAgentDialog({ isOpen: true });
+  const openCreateDialog = (mode: 'promote' | 'create' = 'promote') => {
+    if (mode === 'promote') {
+      loadAvailableUsers();
+    }
+    setCreateAgentDialog({ isOpen: true, mode });
     setNewAgentEmail('');
+    setNewAgentForm({
+      email: '',
+      password: '',
+      full_name: '',
+      phone: '',
+    });
+  };
+
+  const resetCreateDialog = () => {
+    setCreateAgentDialog({ isOpen: false, mode: 'promote' });
+    setNewAgentEmail('');
+    setPromoteAgentForm({ email: '', role: 'agent' });
+    setNewAgentForm({
+      email: '',
+      password: '',
+      full_name: '',
+      phone: '',
+      role: 'agent',
+    });
   };
 
   const handleCreateAgent = async () => {
-    if (!newAgentEmail) {
-      toast.error('Veuillez sélectionner un utilisateur');
-      return;
-    }
-
     try {
       setIsProcessing(true);
 
-      // Get user ID from email
-      const { data: userData, error: userError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', newAgentEmail)
-        .single();
+      if (createAgentDialog.mode === 'promote') {
+        // Promote existing user
+        if (!promoteAgentForm.email) {
+          toast.error('Veuillez sélectionner un utilisateur');
+          return;
+        }
 
-      if (userError || !userData) {
-        toast.error('Utilisateur introuvable');
-        return;
-      }
+        // Get user ID from email
+        const { data: userData, error: userError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', promoteAgentForm.email)
+          .single();
 
-      // Check if user is already a trust agent
-      const { data: existingRole } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('user_id', userData.id)
-        .eq('role', 'trust_agent')
-        .single();
+        if (userError || !userData) {
+          toast.error('Utilisateur introuvable');
+          return;
+        }
 
-      if (existingRole) {
-        toast.error('Cet utilisateur est déjà un agent de confiance');
-        return;
-      }
+        // Check if user is already a trust agent
+        const { data: existingRole } = await supabase
+          .from('user_roles')
+          .select('*')
+          .eq('user_id', userData.id)
+          .eq('role', 'trust_agent')
+          .single();
 
-      // Promote user to trust agent
-      const { error: insertError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: userData.id,
-          role: 'trust_agent',
+        if (existingRole) {
+          toast.error('Cet utilisateur est déjà un agent de confiance');
+          return;
+        }
+
+        // Promote user to trust agent
+        const { error: insertError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: userData.id,
+            role: 'trust_agent',
+          });
+
+        if (insertError) throw insertError;
+
+        // Create trust agent profile with role
+        const { error: profileError } = await supabase
+          .from('trust_agent_profiles')
+          .insert({
+            user_id: userData.id,
+            role: promoteAgentForm.role,
+          });
+
+        if (profileError) {
+          console.warn('Failed to create trust agent profile:', profileError);
+        }
+
+        // Create notification for the new agent
+        await supabase
+          .from('trust_agent_notifications')
+          .insert({
+            user_id: userData.id,
+            type: 'dossier_approved',
+            title: `Vous êtes maintenant ${promoteAgentForm.role === 'manager' ? 'Manager' : 'Agent'} de Confiance`,
+            message: `Félicitations ! Vous avez été promu au rôle d'${promoteAgentForm.role === 'manager' ? 'Manager' : 'Agent'} de Confiance ANSUT.`,
+            priority: 'high',
+          })
+          .then(({ error }) => {
+            if (error && error.code !== 'PGRST116' && error.code !== 'PGRST205') {
+              console.warn('Failed to create notification:', error);
+            }
+          });
+
+        toast.success(`${promoteAgentForm.role === 'manager' ? 'Manager' : 'Agent'} de confiance créé avec succès`);
+      } else {
+        // Create new user and promote to trust agent
+        if (!newAgentForm.email || !newAgentForm.password || !newAgentForm.full_name) {
+          toast.error('Veuillez remplir tous les champs requis');
+          return;
+        }
+
+        // Store current session to restore it later
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUser = user;
+
+        // Create auth user with user_type in metadata
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: newAgentForm.email,
+          password: newAgentForm.password,
+          options: {
+            data: {
+              full_name: newAgentForm.full_name,
+              phone: newAgentForm.phone || '',
+              user_type: 'trust_agent',
+            },
+          },
         });
 
-      if (insertError) throw insertError;
-
-      // Create notification for the new agent
-      await supabase
-        .from('trust_agent_notifications')
-        .insert({
-          user_id: userData.id,
-          type: 'dossier_approved',
-          title: 'Vous êtes maintenant Agent de Confiance',
-          message: 'Félicitations ! Vous avez été promu au rôle d\'Agent de Confiance ANSUT.',
-          priority: 'high',
-        })
-        .then(({ error }) => {
-          if (error && error.code !== 'PGRST116' && error.code !== 'PGRST205') {
-            console.warn('Failed to create notification:', error);
+        if (authError) {
+          // Check if user already exists
+          if (authError.message.includes('User already registered')) {
+            toast.error('Un utilisateur avec cet email existe déjà');
+          } else {
+            throw authError;
           }
-        });
+          return;
+        }
 
-      toast.success('Agent de confiance créé avec succès');
-      setCreateAgentDialog({ isOpen: false });
+        if (!authData.user) {
+          toast.error('Erreur lors de la création du compte');
+          return;
+        }
+
+        // Wait for profile to be created by trigger with correct user_type
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Verify and update the profile if needed (fallback)
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('user_type')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (profileData?.user_type !== 'trust_agent') {
+          const { error: updateProfileError } = await supabase
+            .from('profiles')
+            .update({
+              user_type: 'trust_agent',
+              full_name: newAgentForm.full_name,
+              phone: newAgentForm.phone || null,
+            })
+            .eq('id', authData.user.id);
+
+          if (updateProfileError) {
+            console.warn('Failed to update profile user_type:', updateProfileError);
+          }
+        }
+
+        // Add trust_agent role
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: authData.user.id,
+            role: 'trust_agent',
+          });
+
+        if (roleError) {
+          console.warn('Failed to assign trust_agent role:', roleError);
+        }
+
+        // Create trust agent profile with role
+        const { error: profileError } = await supabase
+          .from('trust_agent_profiles')
+          .insert({
+            user_id: authData.user.id,
+            role: newAgentForm.role,
+          });
+
+        if (profileError) {
+          console.warn('Failed to create trust agent profile:', profileError);
+        }
+
+        // Sign back in with the original user to restore session
+        if (session?.access_token && currentUser) {
+          await supabase.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          });
+        }
+
+        toast.success(`${newAgentForm.role === 'manager' ? 'Manager' : 'Agent'} de confiance créé avec succès. Un email de confirmation a été envoyé.`);
+      }
+
+      resetCreateDialog();
       loadAgentsWorkload();
     } catch (error: unknown) {
       console.error('Error creating agent:', error);
@@ -388,17 +549,24 @@ export default function AgentManagementPage() {
           {
             label: 'Nouvel Agent',
             icon: <Plus className="h-4 w-4" />,
-            onClick: openCreateDialog,
+            onClick: () => openCreateDialog('create'),
             variant: 'primary',
+          },
+          {
+            label: 'Promouvoir',
+            icon: <UserPlus className="h-4 w-4" />,
+            onClick: () => openCreateDialog('promote'),
+            variant: 'outline',
           },
           {
             label: 'Actualiser',
             icon: <RefreshCw className="h-4 w-4" />,
             onClick: () => {
               loadAgentsWorkload();
+              loadAvailableUsers();
               toast.success('Liste actualisée');
             },
-            variant: 'outline',
+            variant: 'ghost',
           },
         ]}
       />
@@ -569,57 +737,448 @@ export default function AgentManagementPage() {
       </main>
 
       {/* Create Agent Dialog */}
-      <Dialog open={createAgentDialog.isOpen} onOpenChange={(open) => setCreateAgentDialog({ isOpen: open })}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={createAgentDialog.isOpen} onOpenChange={(open) => {
+        if (!open) resetCreateDialog();
+        else setCreateAgentDialog({ ...createAgentDialog, isOpen: open });
+      }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary-500" />
-              Ajouter un Agent de Confiance
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Shield className="h-6 w-6 text-primary-500" />
+              {createAgentDialog.mode === 'create' ? 'Créer un Agent de Confiance' : 'Promouvoir un Agent de Confiance'}
             </DialogTitle>
-            <DialogDescription>
-              Sélectionnez un utilisateur existant pour le promouvoir au rôle d'Agent de Confiance
+            <DialogDescription className="text-base">
+              {createAgentDialog.mode === 'create'
+                ? 'Créez un compte utilisateur avec le rôle Agent de Confiance ANSUT'
+                : 'Attribuez le rôle d\'Agent de Confiance à un utilisateur existant'
+              }
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="text-sm font-medium">Utilisateur</label>
-              <select
-                value={newAgentEmail}
-                onChange={(e) => setNewAgentEmail(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="">Sélectionner un utilisateur...</option>
-                {availableUsers.map((user) => (
-                  <option key={user.id} value={user.email}>
-                    {user.full_name || user.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
-              <Shield className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-700">
-                <p className="font-medium">Rôle d'Agent de Confiance</p>
-                <p className="mt-1">
-                  Cet utilisateur aura accès à la gestion des missions CEV, des litiges et des certifications ANSUT.
-                </p>
-              </div>
-            </div>
+          {/* Mode Toggle */}
+          <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-xl mb-6">
+            <button
+              onClick={() => setCreateAgentDialog({ ...createAgentDialog, mode: 'create' })}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-medium transition-all ${
+                createAgentDialog.mode === 'create'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+              }`}
+            >
+              <UserPlus className="h-4 w-4" />
+              Créer un nouveau compte
+            </button>
+            <button
+              onClick={() => setCreateAgentDialog({ ...createAgentDialog, mode: 'promote' })}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-medium transition-all ${
+                createAgentDialog.mode === 'promote'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+              }`}
+            >
+              <Briefcase className="h-4 w-4" />
+              Promouvoir un existant
+            </button>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateAgentDialog({ isOpen: false })} disabled={isProcessing}>
+          <div className="space-y-5 py-4">
+            {createAgentDialog.mode === 'create' ? (
+              <>
+                {/* Create New User Form */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Email *</label>
+                    <Input
+                      type="email"
+                      value={newAgentForm.email}
+                      onChange={(e) => setNewAgentForm({ ...newAgentForm, email: e.target.value })}
+                      placeholder="agent@example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Mot de passe *</label>
+                    <Input
+                      type="password"
+                      value={newAgentForm.password}
+                      onChange={(e) => setNewAgentForm({ ...newAgentForm, password: e.target.value })}
+                      placeholder="Min. 8 caractères"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Nom complet *</label>
+                    <Input
+                      value={newAgentForm.full_name}
+                      onChange={(e) => setNewAgentForm({ ...newAgentForm, full_name: e.target.value })}
+                      placeholder="Jean Kouassi"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Téléphone</label>
+                    <Input
+                      value={newAgentForm.phone}
+                      onChange={(e) => setNewAgentForm({ ...newAgentForm, phone: e.target.value })}
+                      placeholder="+225 01 02 03 04 05"
+                    />
+                  </div>
+                </div>
+
+                {/* Role Selection */}
+                <div>
+                  <label className="block text-sm font-medium mb-3">Rôle dans l'équipe *</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setNewAgentForm({ ...newAgentForm, role: 'manager' })}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        newAgentForm.role === 'manager'
+                          ? 'border-primary-500 bg-primary-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          newAgentForm.role === 'manager' ? 'border-primary-500' : 'border-gray-300'
+                        }`}>
+                          {newAgentForm.role === 'manager' && (
+                            <div className="w-2.5 h-2.5 rounded-full bg-primary-500" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">Manager</p>
+                          <p className="text-xs text-gray-500">Voit toutes les missions et gère l'équipe</p>
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewAgentForm({ ...newAgentForm, role: 'agent' })}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        newAgentForm.role === 'agent'
+                          ? 'border-primary-500 bg-primary-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          newAgentForm.role === 'agent' ? 'border-primary-500' : 'border-gray-300'
+                        }`}>
+                          {newAgentForm.role === 'agent' && (
+                            <div className="w-2.5 h-2.5 rounded-full bg-primary-500" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">Agent</p>
+                          <p className="text-xs text-gray-500">Voit uniquement ses missions assignées</p>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Capabilities Info */}
+                <div className="bg-gradient-to-r from-primary-50 to-primary-50/30 rounded-xl p-5 border border-primary-100">
+                  <div className="flex items-start gap-4">
+                    <Shield className="h-8 w-8 text-primary-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-semibold text-primary-900 mb-2">
+                        {newAgentForm.role === 'manager' ? 'Rôle de Manager' : 'Rôle d\'Agent'}
+                      </h4>
+                      <p className="text-sm text-primary-700 mb-3">
+                        {newAgentForm.role === 'manager'
+                          ? 'Le manager aura accès à toutes les fonctionnalités de gestion :'
+                          : 'L\'agent aura un accès limité à ses propres missions :'
+                        }
+                      </p>
+                      <ul className="space-y-2">
+                        {newAgentForm.role === 'manager' ? (
+                          <>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Voir toutes les missions de l'équipe
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Gérer tous les agents de terrain
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Créer et modifier toutes les missions
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Résolution des litiges
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Validation des dossiers
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Gestion des autres agents de confiance
+                            </li>
+                          </>
+                        ) : (
+                          <>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Voir uniquement ses missions assignées
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Gérer ses propres agents de terrain
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Créer des missions pour ses agents
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Modifier ses missions
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Voir les dossiers assignés
+                            </li>
+                          </>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Account Info */}
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-blue-700">
+                      <p className="font-medium">Compte créé automatiquement</p>
+                      <p className="mt-1">
+                        Un email de confirmation sera envoyé à <strong>{newAgentForm.email || 'l\'adresse email'}</strong>.
+                        L'utilisateur sera créé avec le rôle <strong>{newAgentForm.role === 'manager' ? 'Manager' : 'Agent'}</strong> et pourra se connecter immédiatement.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* Promote Existing User */
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Sélectionner un utilisateur</label>
+                  <select
+                    value={promoteAgentForm.email}
+                    onChange={(e) => setPromoteAgentForm({ ...promoteAgentForm, email: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="">-- Choisir un utilisateur à promouvoir --</option>
+                    {availableUsers.length === 0 ? (
+                      <option disabled>Aucun utilisateur disponible</option>
+                    ) : (
+                      availableUsers.map((user) => (
+                        <option key={user.id} value={user.email}>
+                          {user.full_name || user.email}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  {availableUsers.length === 0 && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Tous les utilisateurs sont déjà des agents de confiance
+                    </p>
+                  )}
+                </div>
+
+                {/* Selected User Preview */}
+                {promoteAgentForm.email && (
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white font-semibold text-lg">
+                        {availableUsers.find(u => u.email === promoteAgentForm.email)?.full_name?.charAt(0) || '?'}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">
+                          {availableUsers.find(u => u.email === promoteAgentForm.email)?.full_name || 'Utilisateur'}
+                        </p>
+                        <p className="text-sm text-gray-500">{promoteAgentForm.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Role Selection */}
+                {promoteAgentForm.email && (
+                  <div>
+                    <label className="block text-sm font-medium mb-3">Rôle dans l'équipe *</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setPromoteAgentForm({ ...promoteAgentForm, role: 'manager' })}
+                        className={`p-4 rounded-xl border-2 transition-all text-left ${
+                          promoteAgentForm.role === 'manager'
+                            ? 'border-primary-500 bg-primary-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                            promoteAgentForm.role === 'manager' ? 'border-primary-500' : 'border-gray-300'
+                          }`}>
+                            {promoteAgentForm.role === 'manager' && (
+                              <div className="w-2.5 h-2.5 rounded-full bg-primary-500" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">Manager</p>
+                            <p className="text-xs text-gray-500">Voit toutes les missions et gère l'équipe</p>
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPromoteAgentForm({ ...promoteAgentForm, role: 'agent' })}
+                        className={`p-4 rounded-xl border-2 transition-all text-left ${
+                          promoteAgentForm.role === 'agent'
+                            ? 'border-primary-500 bg-primary-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                            promoteAgentForm.role === 'agent' ? 'border-primary-500' : 'border-gray-300'
+                          }`}>
+                            {promoteAgentForm.role === 'agent' && (
+                              <div className="w-2.5 h-2.5 rounded-full bg-primary-500" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">Agent</p>
+                            <p className="text-xs text-gray-500">Voit uniquement ses missions assignées</p>
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Capabilities Info */}
+                <div className="bg-gradient-to-r from-primary-50 to-primary-50/30 rounded-xl p-5 border border-primary-100">
+                  <div className="flex items-start gap-4">
+                    <Shield className="h-8 w-8 text-primary-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-semibold text-primary-900 mb-2">
+                        {promoteAgentForm.role === 'manager' ? 'Rôle de Manager' : 'Rôle d\'Agent'}
+                      </h4>
+                      <p className="text-sm text-primary-700 mb-3">
+                        {promoteAgentForm.role === 'manager'
+                          ? 'L\'utilisateur recevra les permissions complètes de gestion :'
+                          : 'L\'utilisateur recevra un accès limité à ses propres missions :'
+                        }
+                      </p>
+                      <ul className="space-y-2">
+                        {promoteAgentForm.role === 'manager' ? (
+                          <>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Voir toutes les missions de l'équipe
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Gérer tous les agents de terrain
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Créer et modifier toutes les missions
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Résolution des litiges
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Validation des dossiers
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Gestion des autres agents de confiance
+                            </li>
+                          </>
+                        ) : (
+                          <>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Voir uniquement ses missions assignées
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Gérer ses propres agents de terrain
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Créer des missions pour ses agents
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Modifier ses missions
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-primary-700">
+                              <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                              Voir les dossiers assignés
+                            </li>
+                          </>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notification Info */}
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-blue-700">
+                      <p className="font-medium">Notification automatique</p>
+                      <p className="mt-1">
+                        Un email sera envoyé à l'utilisateur pour l'informer de sa nouvelle nomination en tant que {promoteAgentForm.role === 'manager' ? 'Manager' : 'Agent'} de Confiance ANSUT.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          <DialogFooter className="gap-3">
+            <Button variant="outline" onClick={resetCreateDialog} disabled={isProcessing} className="min-w-[100px]">
               Annuler
             </Button>
             <Button
               onClick={handleCreateAgent}
-              disabled={!newAgentEmail || isProcessing}
+              disabled={isProcessing || (createAgentDialog.mode === 'create' && (!newAgentForm.email || !newAgentForm.password || !newAgentForm.full_name)) || (createAgentDialog.mode === 'promote' && !promoteAgentForm.email)}
               loading={isProcessing}
+              className="min-w-[150px]"
             >
-              <UserPlus className="h-4 w-4 mr-2" />
-              Ajouter
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Traitement...
+                </>
+              ) : (
+                <>
+                  {createAgentDialog.mode === 'create' ? (
+                    <>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Créer {newAgentForm.role === 'manager' ? 'le manager' : 'l\'agent'}
+                    </>
+                  ) : (
+                    <>
+                      <Briefcase className="h-4 w-4 mr-2" />
+                      Promouvoir en {promoteAgentForm.role === 'manager' ? 'manager' : 'agent'}
+                    </>
+                  )}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

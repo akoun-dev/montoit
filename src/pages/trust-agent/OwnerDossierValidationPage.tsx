@@ -3,19 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Building,
-  FileCheck,
   Shield,
-  AlertTriangle,
   CheckCircle2,
   XCircle,
-  Download,
-  Eye,
   MapPin,
   Phone,
   Mail,
-  Home,
   FileText,
-  Camera,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/badge';
@@ -32,22 +26,27 @@ interface OwnerDossier {
   user_id: string;
   full_name: string;
   email: string;
-  phone: string;
-  // Property ownership verification
-  properties_count: number;
-  properties_verified: boolean;
-  // Identity verification
+  phone: string | null;
+  date_of_birth: string | null;
+  national_id: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  // Document URLs
   id_document_url: string | null;
   id_document_verified: boolean;
-  // Tax compliance
-  tax_compliance_url: string | null;
-  tax_compliance_verified: boolean;
-  // Property documentation
-  property_documents_verified: boolean;
+  id_document_verified_at: string | null;
+  property_proof_url: string | null;
+  property_proof_verified: boolean;
+  property_proof_verified_at: string | null;
+  income_proof_url: string | null;
+  income_proof_verified: boolean;
+  income_proof_verified_at: string | null;
   // Status
   verification_status: 'pending' | 'in_review' | 'approved' | 'rejected';
   submitted_at: string;
   reviewed_at: string | null;
+  reviewed_by: string | null;
   rejection_reason: string | null;
   notes: string | null;
 }
@@ -60,10 +59,9 @@ const STATUS_CONFIG = {
 };
 
 const VERIFICATION_STEPS = [
-  { id: 'identity', label: 'Identité', icon: Shield },
-  { id: 'ownership', label: 'Propriété', icon: Building },
-  { id: 'tax', label: 'Fiscalité', icon: FileText },
-  { id: 'documents', label: 'Documents', icon: FileCheck },
+  { id: 'identity', label: 'Identité', icon: Shield, field: 'id_document_verified' as const },
+  { id: 'ownership', label: 'Propriété', icon: Building, field: 'property_proof_verified' as const },
+  { id: 'income', label: 'Revenus', icon: FileText, field: 'income_proof_verified' as const },
 ];
 
 export default function OwnerDossierValidationPage() {
@@ -76,44 +74,37 @@ export default function OwnerDossierValidationPage() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
-  const [previewDocument, setPreviewDocument] = useState<{ url: string; title: string } | null>(null);
 
   useEffect(() => {
     if (id) {
       loadDossier(id);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadDossier = async (dossierId: string) => {
     try {
       setLoading(true);
 
-      // For demo purposes, we'll use a mock dossier
-      // In a real implementation, this would fetch from the database
-      const mockDossier: OwnerDossier = {
-        id: dossierId,
-        user_id: user?.id || '',
-        full_name: 'Jean Dupont',
-        email: 'jean.dupont@example.com',
-        phone: '+225 01 02 03 04 05',
-        properties_count: 3,
-        properties_verified: false,
-        id_document_url: null,
-        id_document_verified: false,
-        tax_compliance_url: null,
-        tax_compliance_verified: false,
-        property_documents_verified: false,
-        verification_status: 'pending',
-        submitted_at: new Date().toISOString(),
-        reviewed_at: null,
-        rejection_reason: null,
-        notes: null,
-      };
+      const { data, error } = await supabase
+        .from('owner_applications')
+        .select('*')
+        .eq('id', dossierId)
+        .single();
 
-      setDossier(mockDossier);
+      if (error) throw error;
+
+      if (!data) {
+        toast.error('Dossier introuvable');
+        navigate('/trust-agent/dossiers');
+        return;
+      }
+
+      setDossier(data as OwnerDossier);
     } catch (error) {
       console.error('Error loading dossier:', error);
       toast.error('Erreur lors du chargement du dossier');
+      navigate('/trust-agent/dossiers');
     } finally {
       setLoading(false);
     }
@@ -123,6 +114,17 @@ export default function OwnerDossierValidationPage() {
     if (!dossier) return;
 
     try {
+      const { error } = await supabase
+        .from('owner_applications')
+        .update({
+          verification_status: 'approved',
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: user?.id,
+        })
+        .eq('id', dossier.id);
+
+      if (error) throw error;
+
       toast.success('Dossier approuvé avec succès');
       setShowApprovalDialog(false);
       loadDossier(dossier.id);
@@ -136,6 +138,18 @@ export default function OwnerDossierValidationPage() {
     if (!dossier || !rejectionReason.trim()) return;
 
     try {
+      const { error } = await supabase
+        .from('owner_applications')
+        .update({
+          verification_status: 'rejected',
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: user?.id,
+          rejection_reason: rejectionReason,
+        })
+        .eq('id', dossier.id);
+
+      if (error) throw error;
+
       toast.success('Dossier rejeté');
       setShowRejectDialog(false);
       setRejectionReason('');
@@ -248,16 +262,16 @@ export default function OwnerDossierValidationPage() {
                       <Phone className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <p className="text-xs text-muted-foreground">Téléphone</p>
-                        <p className="font-medium">{dossier.phone}</p>
+                        <p className="font-medium">{dossier.phone || 'Non renseigné'}</p>
                       </div>
                     </div>
                   </div>
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
-                      <Home className="h-4 w-4 text-muted-foreground" />
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="text-xs text-muted-foreground">Propriétés</p>
-                        <p className="font-medium">{dossier.properties_count} bien(s)</p>
+                        <p className="text-xs text-muted-foreground">Adresse</p>
+                        <p className="font-medium">{dossier.address || dossier.city || 'Non renseignée'}</p>
                       </div>
                     </div>
                   </div>
@@ -277,11 +291,7 @@ export default function OwnerDossierValidationPage() {
                 <div className="space-y-4">
                   {VERIFICATION_STEPS.map((step) => {
                     const StepIcon = step.icon;
-                    const isVerified =
-                      step.id === 'identity' && dossier.id_document_verified ||
-                      step.id === 'ownership' && dossier.properties_verified ||
-                      step.id === 'tax' && dossier.tax_compliance_verified ||
-                      step.id === 'documents' && dossier.property_documents_verified;
+                    const isVerified = dossier[step.field] as boolean;
 
                     return (
                       <div key={step.id} className="flex items-center justify-between p-4 rounded-lg border">

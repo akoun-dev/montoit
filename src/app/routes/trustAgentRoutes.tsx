@@ -16,6 +16,7 @@ const DocumentValidation = lazyWithRetry(
 );
 const EtatDesLieux = lazyWithRetry(() => import('@/pages/trust-agent/EtatDesLieuxPage'));
 const MissionsList = lazyWithRetry(() => import('@/pages/trust-agent/MissionsListPage'));
+const NewMission = lazyWithRetry(() => import('@/pages/trust-agent/NewMissionPage'));
 const UserCertification = lazyWithRetry(() => import('@/pages/trust-agent/UserCertificationPage'));
 const PropertyCertification = lazyWithRetry(
   () => import('@/pages/trust-agent/PropertyCertificationPage')
@@ -34,6 +35,9 @@ const UserCertificationDetails = lazyWithRetry(
 );
 
 // Dossier Validation pages
+const DossierValidation = lazyWithRetry(
+  () => import('@/pages/trust-agent/DossierValidationPage')
+);
 const TenantDossierValidation = lazyWithRetry(
   () => import('@/pages/trust-agent/TenantDossierValidationPage')
 );
@@ -67,6 +71,7 @@ const Stats = lazyWithRetry(() => import('@/pages/trust-agent/StatsPage'));
 
 // Agent Management page
 const AgentManagement = lazyWithRetry(() => import('@/pages/trust-agent/AgentManagementPage'));
+const FieldAgents = lazyWithRetry(() => import('@/pages/trust-agent/FieldAgentsPage'));
 
 export const trustAgentRoutes: RouteObject = {
   path: 'trust-agent',
@@ -80,6 +85,7 @@ export const trustAgentRoutes: RouteObject = {
     { path: 'dashboard', element: <TrustAgentDashboard /> },
     { path: 'calendar', element: <TrustAgentCalendar /> },
     { path: 'missions', element: <MissionsList /> },
+    { path: 'missions/new', element: <NewMission /> },
     { path: 'mission/:id', element: <MissionDetail /> },
     { path: 'photos/:id', element: <PhotoVerification /> },
     { path: 'documents/:id', element: <DocumentValidation /> },
@@ -93,6 +99,7 @@ export const trustAgentRoutes: RouteObject = {
 
     // Dossier Validation routes
     { path: 'dossiers', element: <DossiersList /> },
+    { path: 'dossiers/:id', element: <DossierValidation /> },
     { path: 'dossiers/tenants/:id', element: <TenantDossierValidation /> },
     { path: 'dossiers/owners/:id', element: <OwnerDossierValidation /> },
     { path: 'dossiers/agencies/:id', element: <AgencyDossierValidation /> },
@@ -113,7 +120,8 @@ export const trustAgentRoutes: RouteObject = {
     // Stats route
     { path: 'stats', element: <Stats /> },
 
-    // Agent Management route (admin only)
+    // Agent Management routes
+    { path: 'field-agents', element: <FieldAgents /> },
     { path: 'agents', element: <AgentManagement /> },
   ],
 };

@@ -39,6 +39,11 @@ interface Mission {
     address: AddressValue;
     city: string;
   };
+  agent?: {
+    full_name: string;
+    email: string;
+    phone: string | null;
+  };
 }
 
 const STATUS_CONFIG = {
@@ -67,6 +72,10 @@ const MISSION_TYPE_CONFIG: Record<string, { label: string; icon: React.ElementTy
   verification: { label: 'Vérification', icon: CheckCircle2 },
 };
 
+interface TrustAgentProfile {
+  role: 'manager' | 'agent';
+}
+
 export default function MissionsListPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -75,13 +84,18 @@ export default function MissionsListPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [agentProfile, setAgentProfile] = useState<TrustAgentProfile | null>(null);
 
   const loadMissions = useCallback(async () => {
     try {
+      // Load all missions (RLS will filter based on role)
       const { data, error } = await supabase
         .from('cev_missions')
-        .select('*, property:properties(title, address, city)')
-        .eq('assigned_agent_id', user?.id ?? '')
+        .select(`
+          *,
+          property:properties(title, address, city),
+          agent:field_agents(full_name, email, phone)
+        `)
         .order('urgency', { ascending: false })
         .order('scheduled_date', { ascending: true });
 
@@ -92,13 +106,33 @@ export default function MissionsListPage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const loadAgentProfile = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('trust_agent_profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading agent profile:', error);
+      }
+
+      setAgentProfile(data as TrustAgentProfile | null);
+    } catch (error) {
+      console.error('Error loading agent profile:', error);
+    }
   }, [user]);
 
   useEffect(() => {
     if (user) {
       loadMissions();
+      loadAgentProfile();
     }
-  }, [user, loadMissions]);
+  }, [user, loadMissions, loadAgentProfile]);
 
   const filteredMissions = useMemo(() => {
     return missions.filter((mission) => {
@@ -158,6 +192,10 @@ export default function MissionsListPage() {
         title="Mes Missions"
         subtitle="Gérez vos missions de vérification"
         badges={[
+          ...(agentProfile ? [{
+            label: agentProfile.role === 'manager' ? 'Manager' : 'Agent',
+            variant: agentProfile.role === 'manager' ? 'info' as const : 'default' as const,
+          }] : []),
           { label: `${stats.pending} en attente`, variant: stats.pending > 0 ? 'warning' : 'secondary' },
           { label: `${stats.in_progress} en cours`, variant: stats.in_progress > 0 ? 'info' : 'secondary' },
         ]}
@@ -279,6 +317,10 @@ export default function MissionsListPage() {
                         title: mission.property.title,
                         address: mission.property.address,
                         city: mission.property.city,
+                      } : undefined}
+                      agent={mission.agent ? {
+                        name: mission.agent.full_name,
+                        phone: mission.agent.phone || undefined,
                       } : undefined}
                       scheduledDate={mission.scheduled_date ? new Date(mission.scheduled_date) : undefined}
                       progress={mission.status === 'completed' ? 100 : mission.status === 'in_progress' ? 50 : 0}
