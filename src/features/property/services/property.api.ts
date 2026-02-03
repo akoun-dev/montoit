@@ -280,20 +280,23 @@ export const propertyApi = {
 
   /**
    * Récupère les propriétés en vedette (avec cache)
+   * Uniquement les propriétés certifiées ANSUT
    */
   getFeatured: async () => {
     return withErrorHandling(async () => {
-      const cacheKey = `${CACHE_PREFIX}featured`;
+      const cacheKey = `${CACHE_PREFIX}featured_ansut`;
       const cached = cacheService.get<PropertyWithOwnerScore[]>(cacheKey);
 
-      // Vérifier si le cache contient des données complètes (avec ansut_verified)
-      // Si le champ est manquant, c'est que le cache est obsolète (avant migration)
-      const hasMissingFields = cached?.some(
-        (p) => p.ansut_verified === undefined || !('ansut_verified' in p)
-      );
-
-      if (cached && cached.length > 0 && !hasMissingFields) {
-        return cached;
+      // Utiliser le cache seulement si les données sont valides et récentes (5 min max)
+      // On réduit le TTL pour s'assurer que les nouvelles propriétés certifiées apparaissent rapidement
+      if (cached && cached.length > 0) {
+        // Vérifier que toutes les propriétés sont certifiées ANSUT
+        const allVerified = cached.every((p) => p.ansut_verified === true);
+        if (allVerified) {
+          return cached;
+        }
+        // Sinon, invalider le cache et recharger
+        cacheService.remove(cacheKey);
       }
 
       // Use public view for anonymous access
@@ -301,6 +304,7 @@ export const propertyApi = {
       const { data, error } = await supabase
         .from('public_properties_view')
         .select('*')
+        .eq('ansut_verified', true) // Uniquement les propriétés certifiées ANSUT
         .order('featured', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(6);
@@ -309,11 +313,9 @@ export const propertyApi = {
 
       if (data) {
         const enrichedData = await enrichPropertiesWithOwners(data);
-        // Ne pas figer un cache vide : on veut pouvoir rafraîchir si de nouvelles annonces arrivent
+        // Cache avec TTL réduit (5 minutes) pour les propriétés certifiées
         if (enrichedData.length > 0) {
-          cacheService.set(cacheKey, enrichedData, CACHE_TTL_MINUTES);
-        } else {
-          cacheService.remove(cacheKey);
+          cacheService.set(cacheKey, enrichedData, 5);
         }
         return enrichedData;
       }

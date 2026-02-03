@@ -19,6 +19,7 @@ interface UseInfinitePropertiesOptions {
   bedrooms?: string;
   sortBy?: 'recent' | 'price_asc' | 'price_desc';
   pageSize?: number;
+  ansutVerifiedOnly?: boolean;
 }
 
 interface UseInfinitePropertiesResult {
@@ -93,17 +94,24 @@ async function fetchProperties({
   orderColumn,
   ascending,
   pageSize,
+  ansutVerifiedOnly,
 }: {
   pageParam: number;
   filters: Filters;
   orderColumn: string;
   ascending: boolean;
   pageSize: number;
+  ansutVerifiedOnly?: boolean;
 }) {
   let query = supabase
     .from('properties')
     .select('*', { count: 'exact' })
     .eq('status', 'disponible');
+
+  // Filtrer uniquement les propriétés certifiées ANSUT si demandé
+  if (ansutVerifiedOnly) {
+    query = query.eq('ansut_verified', true);
+  }
 
   if (filters.cityOrNeighborhood) {
     query = query.or(
@@ -198,6 +206,7 @@ export function useInfiniteProperties(
     bedrooms,
     sortBy = 'recent',
     pageSize = DEFAULT_PAGE_SIZE,
+    ansutVerifiedOnly,
   } = options;
 
   const queryClient = useQueryClient();
@@ -233,6 +242,7 @@ export function useInfiniteProperties(
         orderColumn,
         ascending,
         pageSize,
+        ansutVerifiedOnly,
       }),
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
@@ -336,6 +346,7 @@ export function useInfiniteProperties(
               orderColumn,
               ascending,
               pageSize,
+              ansutVerifiedOnly,
             }),
           initialPageParam: 0,
           pages: pageNumber + 1,

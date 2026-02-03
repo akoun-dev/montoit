@@ -45,6 +45,7 @@ export function useHomeMapProperties() {
           'id, title, latitude, longitude, price, property_type, city, neighborhood, main_image, bedrooms, surface_area, status'
         )
         .eq('status', 'disponible')
+        .eq('ansut_verified', true) // Uniquement les propriétés certifiées ANSUT
         .not('latitude', 'is', null)
         .not('longitude', 'is', null)
         .gte('latitude', bounds.south)
@@ -103,6 +104,7 @@ export function useHomeMapProperties() {
           'id, title, latitude, longitude, price, property_type, city, neighborhood, main_image, bedrooms, surface_area, status'
         )
         .eq('status', 'disponible')
+        .eq('ansut_verified', true) // Uniquement les propriétés certifiées ANSUT
         .not('latitude', 'is', null)
         .not('longitude', 'is', null)
         .limit(50);

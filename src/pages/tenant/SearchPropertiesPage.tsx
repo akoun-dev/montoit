@@ -17,7 +17,6 @@ import {
   Loader2,
   Filter,
   Bookmark,
-  Layers,
 } from 'lucide-react';
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb';
 import MapWrapper from '@/shared/ui/MapWrapper';
@@ -48,7 +47,6 @@ export default function SearchPropertiesPage() {
   const [activeView, setActiveView] = useState<'list' | 'map'>('map');
   const [sortBy, setSortBy] = useState<'recent' | 'price_asc' | 'price_desc'>('recent');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [useClusterMode, setUseClusterMode] = useState(true);
 
   // Applied filters (synced with URL params)
   const [appliedFilters, setAppliedFilters] = useState({
@@ -65,7 +63,7 @@ export default function SearchPropertiesPage() {
   // Prefetch properties hook
   const { prefetchProperties } = usePrefetchProperties();
 
-  // Infinite scroll hook with sorting
+  // Infinite scroll hook with sorting - ANSUT certified only
   const {
     properties,
     loading,
@@ -74,7 +72,7 @@ export default function SearchPropertiesPage() {
     hasMore,
     loadMore,
     totalCount,
-  } = useInfiniteProperties({ ...appliedFilters, sortBy, pageSize: 99999 });
+  } = useInfiniteProperties({ ...appliedFilters, sortBy, pageSize: 99999, ansutVerifiedOnly: true });
 
   // Prefetch first 6 properties when they are loaded (for faster detail page navigation)
   const propertiesToPrefetch = useMemo(() => properties.slice(0, 6).map((p) => p.id), [properties]);
@@ -357,8 +355,8 @@ export default function SearchPropertiesPage() {
 
         {/* CONTENU (Liste ou Carte) */}
         <div className="flex gap-8 items-start">
-          {/* GRILLE DES BIENS */}
-          <div className={`flex-1 ${activeView === 'map' ? 'hidden lg:block' : ''}`}>
+          {/* GRILLE DES BIENS - cachée en mode carte */}
+          <div className={`flex-1 ${activeView === 'map' ? 'hidden' : ''}`}>
             <InfiniteScroll
               onLoadMore={loadMore}
               hasMore={hasMore}
@@ -644,43 +642,9 @@ export default function SearchPropertiesPage() {
 
           {/* MAP (Visible seulement si mode Carte activé) */}
           {activeView === 'map' && (
-            <div className="block w-[45%] h-[800px] sticky top-24">
-              {/* Toggle Cluster/Marqueurs */}
-              <div className="flex justify-end mb-3">
-                <div
-                  className="bg-white border rounded-full p-1 flex items-center gap-1 shadow-sm"
-                  style={{ borderColor: COLORS.border }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setUseClusterMode(true)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-xs font-medium`}
-                    style={{
-                      backgroundColor: useClusterMode ? COLORS.orange : 'transparent',
-                      color: useClusterMode ? 'white' : COLORS.grisNeutre,
-                    }}
-                    title="Regrouper les propriétés proches en clusters"
-                  >
-                    <Layers className="w-3.5 h-3.5" />
-                    <span>Clusters</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUseClusterMode(false)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-xs font-medium`}
-                    style={{
-                      backgroundColor: !useClusterMode ? COLORS.orange : 'transparent',
-                      color: !useClusterMode ? 'white' : COLORS.grisNeutre,
-                    }}
-                    title="Afficher chaque propriété individuellement"
-                  >
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span>Marqueurs</span>
-                  </button>
-                </div>
-              </div>
+            <div className="block w-full h-[800px]">
               <div
-                className="w-full h-[calc(100%-44px)] rounded-[24px] overflow-hidden shadow-inner border relative"
+                className="w-full h-full rounded-[24px] overflow-hidden shadow-inner border relative"
                 style={{ borderColor: COLORS.border }}
               >
                 {/* Map counter badge - shows geolocated properties count */}
@@ -707,7 +671,6 @@ export default function SearchPropertiesPage() {
                     properties={geolocatedProperties as unknown[]}
                     height="100%"
                     fitBounds={properties.length > 0}
-                    useClusterMode={useClusterMode}
                     onMarkerClick={(property: { id: string }) => {
                       navigate(`/proprietes/${property.id}`);
                     }}
@@ -741,38 +704,6 @@ export default function SearchPropertiesPage() {
         {/* Vue carte mobile */}
         {activeView === 'map' && (
           <div className="lg:hidden space-y-6">
-            {/* Toggle Cluster/Marqueurs Mobile */}
-            <div className="flex justify-end">
-              <div
-                className="bg-white border rounded-full p-1 flex items-center gap-1 shadow-sm"
-                style={{ borderColor: COLORS.border }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setUseClusterMode(true)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-xs font-medium`}
-                  style={{
-                    backgroundColor: useClusterMode ? COLORS.orange : 'transparent',
-                    color: useClusterMode ? 'white' : COLORS.grisNeutre,
-                  }}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Clusters</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUseClusterMode(false)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-xs font-medium`}
-                  style={{
-                    backgroundColor: !useClusterMode ? COLORS.orange : 'transparent',
-                    color: !useClusterMode ? 'white' : COLORS.grisNeutre,
-                  }}
-                >
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span>Marqueurs</span>
-                </button>
-              </div>
-            </div>
             <div
               className="h-[400px] rounded-2xl overflow-hidden shadow-lg border relative"
               style={{ borderColor: COLORS.border }}
@@ -801,7 +732,6 @@ export default function SearchPropertiesPage() {
                   properties={geolocatedProperties as unknown[]}
                   height="100%"
                   fitBounds={properties.length > 0}
-                  useClusterMode={useClusterMode}
                   onMarkerClick={(property: { id: string }) => {
                     navigate(`/proprietes/${property.id}`);
                   }}
