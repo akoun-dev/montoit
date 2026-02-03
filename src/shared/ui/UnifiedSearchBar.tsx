@@ -63,6 +63,9 @@ export default function UnifiedSearchBar({
     { value: 'appartement', label: 'Appartements', icon: Home },
     { value: 'studio', label: 'Studios', icon: Home },
     { value: 'villa', label: 'Villas', icon: Home },
+    { value: 'maison', label: 'Maisons', icon: Home },
+    { value: 'duplex', label: 'Duplex', icon: Home },
+    { value: 'chambre', label: 'Chambres', icon: Home },
   ];
 
   const budgetQuickSelect = [

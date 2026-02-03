@@ -43,8 +43,8 @@ export default function SearchPropertiesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // State for view mode
-  const [activeView, setActiveView] = useState<'list' | 'map'>('map');
+  // State for view mode - liste par défaut
+  const [activeView, setActiveView] = useState<'list' | 'map'>('list');
   const [sortBy, setSortBy] = useState<'recent' | 'price_asc' | 'price_desc'>('recent');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
 

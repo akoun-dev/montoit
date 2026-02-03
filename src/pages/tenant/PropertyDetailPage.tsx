@@ -545,6 +545,49 @@ export default function PropertyDetailPage() {
           />
         </section>
 
+        {/* CTA Section - Desktop - Déplacé plus haut */}
+        <div className="hidden md:block">
+          <div className="bg-[#2C1810] rounded-2xl p-6 md:p-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              <div>
+                <h3 className="text-xl md:text-2xl font-bold text-white mb-2">
+                  Intéressé par ce bien ?
+                </h3>
+                <p className="text-[#E8D4C5]">
+                  Contactez le propriétaire ou planifiez une visite dès maintenant
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                {isOwnerOrAgency ? (
+                  <button
+                    onClick={() => navigate(getCreateContractRoute(property.id))}
+                    className="px-6 py-3 bg-white text-[#2C1810] font-semibold rounded-xl hover:bg-[#FAF7F4] transition-colors flex items-center justify-center gap-2"
+                  >
+                    <FileText className="h-5 w-5" />
+                    Créer un contrat
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => navigate(`/locataire/visiter/${property.id}`, { state: { property } })}
+                      className="px-6 py-3 bg-[#FAF7F4] text-[#2C1810] font-semibold rounded-xl hover:bg-white transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Calendar className="h-5 w-5" />
+                      Planifier une visite
+                    </button>
+                    <button
+                      onClick={() => navigate(`/locataire/candidature/${property.id}`, { state: { property } })}
+                      className="px-6 py-3 bg-[#F16522] text-white font-semibold rounded-xl hover:bg-[#d9571d] transition-colors"
+                    >
+                      Postuler maintenant
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Tabs */}
         <section className="bg-white rounded-2xl border border-[#EFEBE9] overflow-hidden">
           {/* Tab Headers */}
@@ -762,49 +805,6 @@ export default function PropertyDetailPage() {
             )}
           </div>
         </section>
-
-        {/* CTA Section - Desktop */}
-        <div className="hidden md:block">
-          <div className="bg-[#2C1810] rounded-2xl p-6 md:p-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-              <div>
-                <h3 className="text-xl md:text-2xl font-bold text-white mb-2">
-                  Intéressé par ce bien ?
-                </h3>
-                <p className="text-[#E8D4C5]">
-                  Contactez le propriétaire ou planifiez une visite dès maintenant
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3">
-                {isOwnerOrAgency ? (
-                  <button
-                    onClick={() => navigate(getCreateContractRoute(property.id))}
-                    className="px-6 py-3 bg-white text-[#2C1810] font-semibold rounded-xl hover:bg-[#FAF7F4] transition-colors flex items-center justify-center gap-2"
-                  >
-                    <FileText className="h-5 w-5" />
-                    Créer un contrat
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => navigate(`/locataire/visiter/${property.id}`, { state: { property } })}
-                      className="px-6 py-3 bg-[#FAF7F4] text-[#2C1810] font-semibold rounded-xl hover:bg-white transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Calendar className="h-5 w-5" />
-                      Planifier une visite
-                    </button>
-                    <button
-                      onClick={() => navigate(`/locataire/candidature/${property.id}`, { state: { property } })}
-                      className="px-6 py-3 bg-[#F16522] text-white font-semibold rounded-xl hover:bg-[#d9571d] transition-colors"
-                    >
-                      Postuler maintenant
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
       </main>
 
       {/* Contact Modal */}
