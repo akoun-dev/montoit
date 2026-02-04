@@ -301,8 +301,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) return { error };
 
+      // SECURITY FIX: If a session was auto-created (because enable_confirmations=false),
+      // sign out the user immediately to prevent auto-login after registration.
+      // Users should only be able to sign in after email confirmation.
+      if (data.session) {
+        await supabase.auth.signOut();
+
+        // Send OTP email for verification
+        try {
+          const { data: { session: adminSession } } = await supabase.auth.admin.getSession();
+          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-otp`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${adminSession?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email,
+              purpose: 'email_verification',
+            }),
+          });
+        } catch (emailError) {
+          console.error('Failed to send verification email:', emailError);
+          // Continue even if email fails - user can request another OTP
+        }
+
+        return {
+          error: null,
+          requiresConfirmation: true,
+          message: 'Compte créé avec succès. Un code de vérification a été envoyé à votre adresse email.',
+          email: email
+        };
+      }
+
+      // Email confirmation flow (when enable_confirmations=true)
       if (data.user && !data.session) {
-        return { error: null };
+        // Send OTP email for verification
+        try {
+          const { data: { session: adminSession } } = await supabase.auth.admin.getSession();
+          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-otp`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${adminSession?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email,
+              purpose: 'email_verification',
+            }),
+          });
+        } catch (emailError) {
+          console.error('Failed to send verification email:', emailError);
+        }
+
+        return {
+          error: null,
+          requiresConfirmation: true,
+          message: 'Compte créé avec succès. Un code de vérification a été envoyé à votre adresse email.',
+          email: email
+        };
       }
 
       return { error: null };

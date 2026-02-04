@@ -311,7 +311,7 @@ export default function SearchPropertiesPage() {
                 }}
               >
                 <List className="w-4 h-4" />
-                <span className="hidden sm:inline">Liste</span>
+                <span>Liste</span>
               </button>
               <button
                 type="button"
@@ -327,7 +327,7 @@ export default function SearchPropertiesPage() {
                 }}
               >
                 <MapIcon className="w-4 h-4" />
-                <span className="hidden sm:inline">Carte</span>
+                <span>Carte</span>
               </button>
             </div>
           </div>
@@ -354,7 +354,7 @@ export default function SearchPropertiesPage() {
         )}
 
         {/* CONTENU (Liste ou Carte) */}
-        <div className="flex gap-8 items-start">
+        <div className="flex gap-4 md:gap-8 items-start">
           {/* GRILLE DES BIENS - cachée en mode carte */}
           <div className={`flex-1 ${activeView === 'map' ? 'hidden' : ''}`}>
             <InfiniteScroll
@@ -642,7 +642,7 @@ export default function SearchPropertiesPage() {
 
           {/* MAP (Visible seulement si mode Carte activé) */}
           {activeView === 'map' && (
-            <div className="block w-full h-[800px]">
+            <div className="block w-full h-[50vh] md:h-[70vh] lg:h-[800px]">
               <div
                 className="w-full h-full rounded-[24px] overflow-hidden shadow-inner border relative"
                 style={{ borderColor: COLORS.border }}
@@ -703,9 +703,9 @@ export default function SearchPropertiesPage() {
 
         {/* Vue carte mobile */}
         {activeView === 'map' && (
-          <div className="lg:hidden space-y-6">
+          <div className="lg:hidden space-y-4 md:space-y-6">
             <div
-              className="h-[400px] rounded-2xl overflow-hidden shadow-lg border relative"
+              className="h-[40vh] md:h-[50vh] rounded-2xl overflow-hidden shadow-lg border relative"
               style={{ borderColor: COLORS.border }}
             >
               {/* Map counter badge - mobile */}
@@ -772,7 +772,7 @@ export default function SearchPropertiesPage() {
                           'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400'
                         }
                         alt={property.title || 'Propriété'}
-                        className="w-24 h-24 object-cover rounded-lg flex-shrink-0"
+                        className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg flex-shrink-0"
                         loading="lazy"
                       />
                       <div className="flex-1 min-w-0">

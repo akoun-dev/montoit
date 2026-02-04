@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { useAuth } from '@/contexts/AuthContext';
 
 const RegisterForm = () => {
   const { signUp } = useAuth();
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,11 +27,14 @@ const RegisterForm = () => {
 
     setLoading(true);
     try {
-      const { error: signUpError } = await signUp(email, password, { full_name: fullName });
-      if (signUpError) {
-        setError(signUpError.message || 'Erreur lors de la création du compte');
+      const result = await signUp(email, password, { full_name: fullName });
+      if (result.error) {
+        setError(result.error.message || 'Erreur lors de la création du compte');
       } else {
-        setSuccess('Compte créé, vérifiez vos emails.');
+        // Redirect to email verification page
+        navigate(`/verifier-email?email=${encodeURIComponent(email)}`, {
+          replace: true,
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la création du compte');

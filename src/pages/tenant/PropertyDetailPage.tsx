@@ -485,23 +485,23 @@ export default function PropertyDetailPage() {
       </header>
 
       {/* Sticky Price Bar - Mobile */}
-      <div className="md:hidden sticky top-[60px] z-30 bg-white border-b border-[#EFEBE9] px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div>
+      <div className="md:hidden sticky top-[60px] z-30 bg-white border-b border-[#EFEBE9] px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <p className="text-xs text-[#6B5A4E]">Loyer mensuel</p>
-            <p className="text-2xl font-bold text-[#F16522]">{formattedPrice ?? 'Prix sur demande'}</p>
+            <p className="text-lg md:text-2xl font-bold text-[#F16522] truncate">{formattedPrice ?? 'Prix sur demande'}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 flex-shrink-0">
             <button
               onClick={() => navigate(`/locataire/visiter/${property.id}`, { state: { property } })}
-              className="px-4 py-2 border-2 border-[#F16522] text-[#F16522] font-semibold rounded-xl text-sm"
+              className="px-3 py-2 min-h-[40px] border-2 border-[#F16522] text-[#F16522] font-semibold rounded-xl text-xs flex items-center"
             >
-              <Calendar className="h-4 w-4 inline mr-1" />
+              <Calendar className="h-3.5 w-3.5 inline mr-1" />
               Visiter
             </button>
             <button
               onClick={() => navigate(`/locataire/candidature/${property.id}`, { state: { property } })}
-              className="px-4 py-2 bg-[#F16522] text-white font-semibold rounded-xl text-sm"
+              className="px-3 py-2 min-h-[40px] bg-[#F16522] text-white font-semibold rounded-xl text-xs flex items-center"
             >
               Postuler
             </button>

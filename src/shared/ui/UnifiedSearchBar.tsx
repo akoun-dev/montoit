@@ -225,10 +225,10 @@ export default function UnifiedSearchBar({
           </div>
           <button
             onClick={handleSearch}
-            className="px-6 sm:px-8 bg-[#FF6C2F] hover:bg-[#e05519] text-white font-semibold rounded-none transition-all hover:scale-[1.02] shadow-lg shadow-[#FF6C2F]/30 flex items-center gap-2"
+            className="px-4 sm:px-6 md:px-8 min-h-[44px] bg-[#FF6C2F] hover:bg-[#e05519] text-white font-semibold rounded-none transition-all hover:scale-[1.02] shadow-lg shadow-[#FF6C2F]/30 flex items-center gap-1.5 sm:gap-2"
           >
-            <Search className="w-5 h-5" />
-            <span className="hidden sm:inline">Rechercher</span>
+            <Search className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span>Rechercher</span>
           </button>
         </div>
 
@@ -347,7 +347,7 @@ export default function UnifiedSearchBar({
                     value={customBudget}
                     onChange={(e) => setCustomBudget(e.target.value)}
                     placeholder="Ex: 200000"
-                    className="px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/30 w-44"
+                    className="px-3 py-1.5 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/30 w-full sm:w-44"
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   />
                   <span className="text-xs text-neutral-500">FCFA</span>
@@ -463,7 +463,7 @@ export default function UnifiedSearchBar({
                           value={customBudget}
                           onChange={(e) => setCustomBudget(e.target.value)}
                           placeholder="Ex: 200000"
-                          className="px-4 py-2.5 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/30 flex-1 min-w-[200px]"
+                          className="px-4 py-2.5 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/30 flex-1 min-w-[150px] sm:min-w-[200px]"
                           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                         />
                         <button

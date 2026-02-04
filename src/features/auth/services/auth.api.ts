@@ -70,7 +70,15 @@ export const authApi = {
 
     if (authError) throw authError;
 
-    return { data: authData, error: null };
+    // SECURITY FIX: Sign out any auto-created session to prevent auto-login after registration
+    if (authData.session) {
+      await supabase.auth.signOut();
+    }
+
+    return {
+      data: { ...authData, requiresConfirmation: true },
+      error: null
+    };
   },
 
   /**

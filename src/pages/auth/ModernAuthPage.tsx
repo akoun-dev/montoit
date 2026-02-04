@@ -211,59 +211,45 @@ export default function ModernAuthPage() {
   const sendResendOtp = async (
     targetEmail: string
   ): Promise<{ code: string; viaFallback: boolean }> => {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(code);
-    sessionStorage.setItem(`otp:${targetEmail}`, code);
-
-    // En développement local, utiliser directement le fallback pour éviter les erreurs 401
-    if (isLocalDevEnv()) {
-      console.log('[sendResendOtp] Local dev environment - using OTP fallback directly');
-      return { code, viaFallback: true };
-    }
-
     try {
-      const { data, error } = await supabase.functions.invoke('send-email-brevo', {
-        body: {
-          type: 'otp',
-          to: targetEmail,
-          otp: code,
-          toName: fullName || targetEmail.split('@')[0],
+      // Appeler notre edge function send-verification-otp qui utilise Resend
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
+        body: JSON.stringify({
+          email: targetEmail,
+          purpose: 'email_verification',
+        }),
       });
 
-      if (error) {
-        console.error('Error sending OTP email:', error);
-        throw new Error(error.message || 'Envoi du code impossible');
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('[sendResendOtp] Error sending OTP:', result);
+        throw new Error(result.error || 'Envoi du code impossible');
       }
 
-      // Vérifier la réponse de Brevo
-      if (data?.status !== 'ok') {
-        console.error('Brevo error:', data);
-        throw new Error(data?.reason || "Erreur lors de l'envoi de l'email");
+      // Afficher l'OTP dans la console navigateur
+      if (result.devOtp) {
+        console.log('%c========================================', 'color: #f97316; font-weight: bold');
+        console.log('%c📧 OTP EMAIL VÉRIFICATION', 'color: #f97316; font-weight: bold; font-size: 14px');
+        console.log('%c========================================', 'color: #f97316; font-weight: bold');
+        console.log(`Email:   %c${targetEmail}`, 'color: #2C1810; font-weight: bold');
+        console.log(`OTP:    %c${result.devOtp}`, 'color: #f97316; font-size: 18px; font-weight: bold; font-size: 24px;');
+        console.log(`Valide:  %c10 minutes`, 'color: #6B7280');
+        console.log('%c========================================\n', 'color: #f97316; font-weight: bold');
       }
 
+      const code = result.devOtp || '(voir email)';
+      console.log('[sendResendOtp] OTP envoyé avec succès via Resend');
       return { code, viaFallback: false };
+
     } catch (err: unknown) {
-      console.error('Failed to send OTP email:', err);
-
-      // En local, autoriser un fallback pour débloquer les tests même si l'Edge Function n'est pas disponible
-      const message = err instanceof Error ? (err.message || '').toLowerCase() : '';
-      const shouldFallback =
-        isLocalDevEnv() &&
-        (message.includes('edge function') ||
-          message.includes('404') ||
-          message.includes('401') ||
-          message.includes('unauthorized') ||
-          message.includes('not found') ||
-          message.includes('cors') ||
-          message.includes('failed to fetch'));
-
-      if (shouldFallback) {
-        setSuccess(`Code de test (local) : ${code}`);
-        console.warn('Edge Function indisponible, fallback OTP local utilisé.');
-        return { code, viaFallback: true };
-      }
-
+      console.error('Failed to send OTP email via edge function:', err);
       throw new Error(err instanceof Error ? err.message : 'Envoi du code impossible');
     }
   };
@@ -451,11 +437,30 @@ export default function ModernAuthPage() {
     setLoading(true);
     try {
       const targetEmail = pendingEmail || email;
-      const expected = generatedOtp || sessionStorage.getItem(`otp:${targetEmail}`) || '';
-      if (emailOtp !== expected) {
-        throw new Error('Code invalide ou expiré');
+
+      // Vérifier l'OTP via l'edge function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-email-otp`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            email: targetEmail,
+            code: emailOtp,
+            purpose: 'email_verification',
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Code invalide ou expiré');
       }
-      sessionStorage.removeItem(`otp:${targetEmail}`);
 
       // Se connecter pour créer la session
       const { error: loginError } = await supabase.auth.signInWithPassword({
