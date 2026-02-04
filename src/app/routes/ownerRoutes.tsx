@@ -29,8 +29,8 @@ const MyMandatesPage = lazyWithRetry(() => import('@/pages/agency/MyMandatesPage
 const HandwrittenSignaturePage = lazyWithRetry(() => import('@/pages/mandates/HandwrittenSignaturePage'));
 // MandateDetailPage for mandate details
 const MandateDetailPage = lazyWithRetry(() => import('@/components/mandates/MandateDetailPage'));
-// MessagesPage is shared across all user types
-const MessagesPage = lazyWithRetry(() => import('@/pages/messaging/MessagesPage'));
+// Layout-agnostic messaging view
+const MessagesView = lazyWithRetry(() => import('@/features/messaging/components/MessagesView'));
 
 export const ownerRoutes: RouteObject[] = [
   // Routes avec sidebar
@@ -135,10 +135,10 @@ export const ownerRoutes: RouteObject[] = [
         element: <HandwrittenSignaturePage />,
       },
 
-      // Messages (shared across all user types)
+      // Messages (layout-agnostic view wrapped in OwnerDashboardLayout)
       {
         path: 'messages',
-        element: <MessagesPage />,
+        element: <MessagesView />,
       },
 
       // Visits

@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react';
-import { Home, ArrowLeft, MoreVertical, Phone, Video, MessageCircle } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Home, ArrowLeft, MoreVertical, Phone, Video, MessageCircle, AlertCircle, ChevronUp, MoreHorizontal, Search } from 'lucide-react';
 import { Message, Conversation, Attachment } from '../services/messaging.service';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
 import { SoundToggle } from './SoundToggle';
+import { typingIndicatorService } from '../services/typingIndicator.service';
+import { MessageSearch } from './MessageSearch';
 
 interface MessageThreadProps {
   conversation: Conversation;
@@ -13,6 +15,11 @@ interface MessageThreadProps {
   sending: boolean;
   onSend: (receiverId: string, content: string, attachment?: Attachment | null) => Promise<unknown>;
   onBack?: () => void;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  isError?: boolean;
+  onEditMessage?: (messageId: string, newContent: string) => Promise<void>;
+  onDeleteMessage?: (messageId: string) => Promise<void>;
 }
 
 function getDefaultAvatar(name: string | null) {
@@ -32,12 +39,78 @@ export function MessageThread({
   sending,
   onSend,
   onBack,
+  hasMore = false,
+  onLoadMore,
+  isError = false,
 }: MessageThreadProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredMessages, setFilteredMessages] = useState<Message[]>([]);
+  const [isSearchActive, setIsSearchActive] = useState(false);
+
+  const handleEditMessage = async (messageId: string, newContent: string) => {
+    if (onEditMessage) {
+      await onEditMessage(messageId, newContent);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (onDeleteMessage) {
+      await onDeleteMessage(messageId);
+    }
+  };
+
+  // Search handler
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setIsSearchActive(query.length > 0);
+
+    if (query) {
+      const filtered = messages.filter((msg) =>
+        msg.content?.toLowerCase().includes(query.toLowerCase())
+      );
+      setFilteredMessages(filtered);
+    } else {
+      setFilteredMessages([]);
+    }
+  };
+
+  // Messages to display (filtered or all)
+  const displayMessages = isSearchActive ? filteredMessages : messages;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setShowScrollToBottom(false);
   };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    const { scrollTop, scrollHeight, clientHeight } = target;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 200;
+    setShowScrollToBottom(!isNearBottom);
+  };
+
+  // Subscribe to typing indicators
+  useEffect(() => {
+    typingIndicatorService.subscribeToTyping(conversation.id, {
+      onTypingStart: (userId) => {
+        setTypingUsers(prev => new Set(prev).add(userId));
+      },
+      onTypingStop: (userId) => {
+        setTypingUsers(prev => {
+          const next = new Set(prev);
+          next.delete(userId);
+          return next;
+        });
+      },
+    });
+
+    return () => {
+      typingIndicatorService.unsubscribe(conversation.id);
+    };
+  }, [conversation.id]);
 
   useEffect(() => {
     scrollToBottom();
@@ -134,6 +207,11 @@ export function MessageThread({
 
         {/* Action buttons */}
         <div className="flex items-center gap-1">
+          <MessageSearch
+            messages={messages}
+            onSearch={handleSearch}
+            resultCount={filteredMessages.length}
+          />
           <SoundToggle />
           {hasWhatsApp && (
             <button
@@ -169,7 +247,24 @@ export function MessageThread({
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4" onScroll={handleScroll}>
+        {/* Error State */}
+        {isError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-900">Erreur de chargement</p>
+              <p className="text-xs text-red-700">Impossible de charger les messages. Réessayez...</p>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="text-xs font-medium text-red-700 hover:text-red-900 underline"
+            >
+              Réessayer
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#F16522] border-t-transparent" />
@@ -184,6 +279,29 @@ export function MessageThread({
           </div>
         ) : (
           <>
+            {/* Load More Button (at top) */}
+            {hasMore && onLoadMore && (
+              <div className="flex justify-center mb-4">
+                <button
+                  onClick={onLoadMore}
+                  disabled={loading}
+                  className="px-4 py-2 bg-white border border-[#EFEBE9] rounded-full text-sm font-medium text-[#6B5A4E] hover:bg-[#FAF7F4] transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-[#F16522] border-t-transparent" />
+                      Chargement...
+                    </>
+                  ) : (
+                    <>
+                      <ChevronUp className="h-4 w-4" />
+                      Charger plus de messages
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
             {/* Subject banner */}
             {conversation.subject && (
               <div className="bg-[#F16522]/10 rounded-xl p-3 text-center mx-auto max-w-md mb-4">
@@ -206,20 +324,78 @@ export function MessageThread({
               </div>
             )}
 
-            {messages.map((message) => (
+            {displayMessages.map((message) => (
               <MessageBubble
                 key={message.id}
                 message={message}
                 isOwn={message.sender_id === currentUserId}
+                onEdit={handleEditMessage}
+                onDelete={handleDeleteMessage}
+                currentUserId={currentUserId}
               />
             ))}
+
+            {isSearchActive && displayMessages.length === 0 && (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-[#FAF7F4] rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search className="h-8 w-8 text-[#A69B95]" />
+                </div>
+                <p className="text-[#6B5A4E] font-medium">Aucun résultat</p>
+                <p className="text-sm text-[#A69B95] mt-1">
+                  Essayez d'autres mots-clés
+                </p>
+              </div>
+            )}
+
+            {isSearchActive && displayMessages.length > 0 && (
+              <div className="text-center py-4">
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setIsSearchActive(false);
+                    setFilteredMessages([]);
+                  }}
+                  className="text-sm text-[#F16522] font-medium hover:underline"
+                >
+                  Afficher tous les messages
+                </button>
+              </div>
+            )}
+
+            {/* Typing indicator */}
+            {typingUsers.size > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-[#FAF7F4] rounded-full mx-auto max-w-fit">
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 bg-[#F16522] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 bg-[#F16522] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 bg-[#F16522] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <span className="text-xs text-[#6B5A4E] font-medium">
+                  {typingUsers.size === 1
+                    ? `${conversation.other_participant?.full_name || 'Quelqu\'un'} est en train d'écrire...`
+                    : `${typingUsers.size} personnes sont en train d'écrire...`}
+                  </span>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </>
         )}
       </div>
 
+      {/* Scroll to Bottom Button */}
+      {showScrollToBottom && messages.length > 0 && (
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-24 right-6 p-3 bg-[#F16522] text-white rounded-full shadow-lg hover:bg-[#d9571d] transition-colors"
+          title="Descendre en bas"
+        >
+          <ChevronUp className="h-5 w-5 rotate-180" />
+        </button>
+      )}
+
       {/* Input */}
-      <MessageInput onSend={handleSend} sending={sending} />
+      <MessageInput onSend={handleSend} sending={sending} conversationId={conversation.id} />
     </div>
   );
 }

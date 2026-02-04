@@ -6,7 +6,7 @@ export {
   useDebouncedFilters,
   useDebouncedAutoSave,
   DEBOUNCE_DELAYS,
-} from '../useDebounce';
+} from './useDebounce';
 
 // Export all shared hooks
 export { useAnalytics } from './useAnalytics';

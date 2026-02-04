@@ -45,8 +45,8 @@ const SignLease = lazyWithRetry(() => import('@/pages/tenant/SignLeasePage'));
 const MakePayment = lazyWithRetry(() => import('@/pages/tenant/MakePaymentPage'));
 const PaymentHistory = lazyWithRetry(() => import('@/pages/tenant/PaymentHistoryPage'));
 
-// Messaging
-const MessagesPage = lazyWithRetry(() => import('@/pages/messaging/MessagesPage'));
+// Layout-agnostic messaging view
+const MessagesView = lazyWithRetry(() => import('@/features/messaging/components/MessagesView'));
 
 // TenantSidebarLayout is used for universal routes that need role-based layout switching
 const TenantSidebarLayout = lazyWithRetry(
@@ -114,6 +114,9 @@ export const tenantRoutes: RouteObject[] = [
       // Contract detail & signing
       { path: 'contrat/:id', element: <ContractDetail /> },
       { path: 'signer-bail/:id', element: <SignLease /> },
+
+      // Messages - tenant-specific, wrapped in TenantSidebarLayout
+      { path: 'messages', element: <MessagesView /> },
     ],
   },
 
@@ -175,18 +178,5 @@ export const tenantRoutes: RouteObject[] = [
         <MyContracts />
       </ProtectedRoute>
     ),
-  },
-
-  // Messages - accessible to all authenticated users with role-based layout
-  {
-    path: 'messages',
-    element: (
-      <ProtectedRoute allowedRoles={[...TENANT_ROLES, ...OWNER_ROLES, ...AGENCY_ROLES]}>
-        <TenantSidebarLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      { index: true, element: <MessagesPage /> },
-    ],
   },
 ];

@@ -1,0 +1,18 @@
+{
+  "logo": {
+    "source": "public/logo1024.png",
+    "platforms": {
+      "android": {
+        "icon": {
+          "source": "public/logo1024.png",
+          "foreground": "public/logo.png",
+          "backgroundColor": "#ffffff"
+        },
+        "splash": {
+          "source": "public/logo1024.png",
+          "backgroundColor": "#ffffff"
+        }
+      }
+    }
+  }
+}

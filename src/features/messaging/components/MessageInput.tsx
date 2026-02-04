@@ -1,12 +1,14 @@
-import { useState, useRef, FormEvent, KeyboardEvent } from 'react';
+import { useState, useRef, FormEvent, KeyboardEvent, useEffect, useCallback } from 'react';
 import { Send, Smile, Paperclip, Mic, Image as ImageIcon, FileText } from 'lucide-react';
 import { Attachment } from '../services/messaging.service';
 import { AttachmentPreview } from './AttachmentPreview';
+import { typingIndicatorService } from '../services/typingIndicator.service';
 
 interface MessageInputProps {
   onSend: (content: string, attachment?: Attachment | null) => Promise<void>;
   disabled?: boolean;
   sending?: boolean;
+  conversationId?: string | null;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -17,13 +19,55 @@ const ACCEPTED_DOC_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
 
-export function MessageInput({ onSend, disabled, sending }: MessageInputProps) {
+const TYPING_DEBOUNCE_MS = 500;
+
+export function MessageInput({ onSend, disabled, sending, conversationId }: MessageInputProps) {
   const [content, setContent] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileType, setFileType] = useState<'image' | 'document'>('image');
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Send typing indicator when user types
+  useEffect(() => {
+    if (!conversationId || !content.trim()) return;
+
+    // Send typing start immediately
+    typingIndicatorService.sendTypingStart(conversationId);
+
+    // Debounce - send typing stop after user stops typing
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      typingIndicatorService.sendTypingStop(conversationId);
+    }, TYPING_DEBOUNCE_MS);
+
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [content, conversationId]);
+
+  // Send typing stop when message is sent
+  useEffect(() => {
+    if (!sending && conversationId) {
+      typingIndicatorService.sendTypingStop(conversationId);
+    }
+  }, [sending, conversationId]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (conversationId) {
+        typingIndicatorService.sendTypingStop(conversationId);
+      }
+    };
+  }, [conversationId]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -82,12 +126,25 @@ export function MessageInput({ onSend, disabled, sending }: MessageInputProps) {
     setContent('');
     setSelectedFile(null);
     setPreviewUrl(null);
+
+    // Send typing stop after sending
+    if (conversationId) {
+      typingIndicatorService.sendTypingStop(conversationId);
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter to send, Shift+Enter for new line
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
+    }
+    // Escape to cancel/clear input
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setContent('');
+      setSelectedFile(null);
+      setPreviewUrl(null);
     }
   };
 
@@ -117,6 +174,7 @@ export function MessageInput({ onSend, disabled, sending }: MessageInputProps) {
           <button
             type="button"
             className="p-3 hover:bg-white rounded-full transition-colors text-[#A69B95] hover:text-[#6B5A4E]"
+            title="Emoji (à venir)"
           >
             <Smile className="h-5 w-5" />
           </button>
@@ -127,13 +185,14 @@ export function MessageInput({ onSend, disabled, sending }: MessageInputProps) {
               type="button"
               onClick={() => setShowAttachMenu(!showAttachMenu)}
               className="p-3 hover:bg-white rounded-full transition-colors text-[#A69B95] hover:text-[#6B5A4E]"
+              title="Joindre un fichier"
             >
               <Paperclip className="h-5 w-5" />
             </button>
 
             {/* Attachment menu */}
             {showAttachMenu && (
-              <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-lg border border-[#EFEBE9] overflow-hidden">
+              <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-lg border border-[#EFEBE9] overflow-hidden z-10">
                 <button
                   type="button"
                   onClick={() => openFilePicker('image')}
@@ -178,6 +237,7 @@ export function MessageInput({ onSend, disabled, sending }: MessageInputProps) {
               type="submit"
               disabled={!hasContent || disabled || sending}
               className="p-3 bg-[#F16522] hover:bg-[#D95318] rounded-full transition-all shadow-md shadow-[#F16522]/20 disabled:opacity-50 hover:scale-105"
+              title="Entrée pour envoyer"
             >
               <Send className={`h-5 w-5 text-white ${sending ? 'animate-pulse' : ''}`} />
             </button>
@@ -185,10 +245,17 @@ export function MessageInput({ onSend, disabled, sending }: MessageInputProps) {
             <button
               type="button"
               className="p-3 hover:bg-white rounded-full transition-colors text-[#A69B95] hover:text-[#6B5A4E]"
+              title="Message vocal (à venir)"
             >
               <Mic className="h-5 w-5" />
             </button>
           )}
+        </div>
+
+        {/* Keyboard shortcuts hint */}
+        <div className="text-xs text-[#A69B95] mt-2 px-2">
+          <span className="hidden sm:inline">Entrée pour envoyer • Shift+Entrée pour nouvelle ligne • Échap pour annuler</span>
+          <span className="sm:hidden">Appuyez sur → pour envoyer</span>
         </div>
       </form>
     </div>

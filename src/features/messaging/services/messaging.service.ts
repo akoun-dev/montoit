@@ -341,6 +341,81 @@ class MessagingService {
       )
       .subscribe();
   }
+
+  /**
+   * Edit a message (only within 5 minutes of sending)
+   */
+  async editMessage(messageId: string, newContent: string, userId: string): Promise<Message | null> {
+    // First check if the message exists and belongs to the user
+    const { data: message } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('id', messageId)
+      .eq('sender_id', userId)
+      .single();
+
+    if (!message) {
+      throw new Error('Message non trouvé ou non autorisé');
+    }
+
+    // Check if within the 5-minute window
+    const messageAge = Date.now() - new Date(message.created_at).getTime();
+    const EDIT_TIME_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+    if (messageAge > EDIT_TIME_WINDOW_MS) {
+      throw new Error('Le délai pour modifier ce message est expiré (5 minutes)');
+    }
+
+    // Update the message
+    const { data, error } = await supabase
+      .from('messages')
+      .update({
+        content: newContent,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', messageId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error editing message:', error);
+      return null;
+    }
+
+    return data as Message;
+  }
+
+  /**
+   * Soft delete a message
+   */
+  async deleteMessage(messageId: string, userId: string): Promise<boolean> {
+    // Verify the message belongs to the user
+    const { data: message } = await supabase
+      .from('messages')
+      .select('sender_id')
+      .eq('id', messageId)
+      .single();
+
+    if (!message || message.sender_id !== userId) {
+      throw new Error('Non autorisé à supprimer ce message');
+    }
+
+    // Soft delete
+    const { error } = await supabase
+      .from('messages')
+      .update({
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+        content: null, // Clear content for privacy
+      })
+      .eq('id', messageId);
+
+    if (error) {
+      console.error('Error deleting message:', error);
+      return false;
+    }
+
+    return true;
+  }
 }
 
 export const messagingService = new MessagingService();

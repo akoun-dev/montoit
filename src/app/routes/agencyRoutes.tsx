@@ -21,7 +21,8 @@ const AgencyProfilePage = lazyWithRetry(() => import('@/pages/agency/ProfilePage
 const AgencyCandidaturesPage = lazyWithRetry(() => import('@/pages/agency/CandidaturesPage'));
 const AgencyContratsPage = lazyWithRetry(() => import('@/pages/agency/ContratsPage'));
 const CreateContractPage = lazyWithRetry(() => import('@/pages/owner/CreateContractPage'));
-const MessagesPage = lazyWithRetry(() => import('@/pages/messaging/MessagesPage'));
+// Layout-agnostic messaging view
+const MessagesView = lazyWithRetry(() => import('@/features/messaging/components/MessagesView'));
 const AgencyVisitsPage = lazyWithRetry(() => import('@/pages/agency/VisitsPage'));
 const AgencyPaymentsPage = lazyWithRetry(() => import('@/pages/agency/PaymentsPage'));
 const AgencyDocumentsPage = lazyWithRetry(() => import('@/pages/agency/DocumentsPage'));
@@ -121,7 +122,7 @@ export const agencyRoutes: RouteObject[] = [
       },
       {
         path: 'messages',
-        element: <MessagesPage />,
+        element: <MessagesView />,
       },
       {
         path: 'visites',

@@ -1,14 +1,19 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Check, CheckCheck, FileText, Download } from 'lucide-react';
+import { Check, CheckCheck, FileText, Download, MoreHorizontal, Pencil, Trash2, X, Check as CheckIcon } from 'lucide-react';
 import { Message } from '../services/messaging.service';
 import { ImageLightbox } from './ImageLightbox';
 
 interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
+  onEdit?: (messageId: string, newContent: string) => Promise<void>;
+  onDelete?: (messageId: string) => Promise<void>;
+  currentUserId?: string;
 }
+
+const EDIT_TIME_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
@@ -20,11 +25,26 @@ const getFileExtension = (name: string): string => {
   return name.split('.').pop()?.toUpperCase() || 'FILE';
 };
 
-export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
+export function MessageBubble({ message, isOwn, onEdit, onDelete, currentUserId }: MessageBubbleProps) {
   const [showLightbox, setShowLightbox] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(message.content || '');
+  const [showMenu, setShowMenu] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const canEdit = isOwn && onEdit && Date.now() - new Date(message.created_at).getTime() < EDIT_TIME_WINDOW_MS;
+  const canDelete = isOwn && onDelete;
 
   const hasAttachment = message.attachment_url && message.attachment_type;
   const isImage = message.attachment_type === 'image';
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [editedContent, isEditing]);
 
   const handleDownload = () => {
     if (!message.attachment_url || !message.attachment_name) return;
@@ -37,9 +57,30 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
     document.body.removeChild(link);
   };
 
+  const handleSaveEdit = async () => {
+    if (onEdit && editedContent.trim() !== message.content) {
+      await onEdit(message.id, editedContent.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditedContent(message.content || '');
+    setIsEditing(false);
+  };
+
+  const handleDelete = async () => {
+    if (window.confirm('Supprimer ce message ?')) {
+      if (onDelete) {
+        await onDelete(message.id);
+      }
+    }
+    setShowMenu(false);
+  };
+
   return (
     <>
-      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-1`}>
+      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-1 group`}>
         {/* Bubble Premium Ivorian */}
         <div
           className={`relative max-w-[85%] md:max-w-[65%] shadow-sm ${
@@ -89,17 +130,62 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
 
           {/* Message content */}
           {message.content && (
-            <p
-              className={`text-sm whitespace-pre-wrap break-words leading-relaxed ${hasAttachment ? 'px-2 pt-1' : ''}`}
-            >
-              {message.content}
-            </p>
+            <>
+              {isEditing ? (
+                <div className="flex items-end gap-2">
+                  <textarea
+                    ref={textareaRef}
+                    value={editedContent}
+                    onChange={(e) => setEditedContent(e.target.value)}
+                    className="w-full px-2 py-1 bg-white/20 text-white placeholder-white/50 rounded-lg text-sm resize-none"
+                    rows={1}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSaveEdit();
+                      }
+                      if (e.key === 'Escape') {
+                        handleCancelEdit();
+                      }
+                    }}
+                  />
+                  <div className="flex gap-1">
+                    <button
+                      onClick={handleSaveEdit}
+                      className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                      title="Sauvegarder (Entrée)"
+                    >
+                      <CheckIcon className="h-3.5 w-3.5 text-white" />
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                      title="Annuler (Échap)"
+                    >
+                      <X className="h-3.5 w-3.5 text-white" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p
+                  className={`text-sm whitespace-pre-wrap break-words leading-relaxed ${hasAttachment ? 'px-2 pt-1' : ''}`}
+                >
+                  {message.content}
+                </p>
+              )}
+            </>
           )}
 
           {/* Time and read status */}
           <div
             className={`flex items-center justify-end gap-1 mt-1 ${hasAttachment ? 'px-2 pb-1' : ''}`}
           >
+            {message.updated_at && message.updated_at !== message.created_at && !isEditing && (
+              <span className={`text-[10px] ${isOwn ? 'text-white/50' : 'text-[#A69B95]/50'}`}>
+                Modifié
+              </span>
+            )}
             <span className={`text-[11px] ${isOwn ? 'text-white/70' : 'text-[#A69B95]'}`}>
               {format(new Date(message.created_at), 'HH:mm', { locale: fr })}
             </span>
@@ -111,6 +197,44 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
               ))}
           </div>
         </div>
+
+        {/* Action menu button (visible on hover for own messages) */}
+        {isOwn && (canEdit || canDelete) && !isEditing && (
+          <div className="relative ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-1.5 hover:bg-[#FAF7F4] rounded-full transition-colors"
+            >
+              <MoreHorizontal className="h-4 w-4 text-[#6B5A4E]" />
+            </button>
+
+            {showMenu && (
+              <div className="absolute bottom-full right-0 mb-1 bg-white rounded-xl shadow-lg border border-[#EFEBE9] overflow-hidden min-w-[140px]">
+                {canEdit && (
+                  <button
+                    onClick={() => {
+                      setIsEditing(true);
+                      setShowMenu(false);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 hover:bg-[#FAF7F4] w-full text-left text-sm text-[#2C1810]"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Modifier
+                  </button>
+                )}
+                {canDelete && (
+                  <button
+                    onClick={handleDelete}
+                    className="flex items-center gap-2 px-4 py-2.5 hover:bg-red-50 w-full text-left text-sm text-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Supprimer
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Image Lightbox */}
