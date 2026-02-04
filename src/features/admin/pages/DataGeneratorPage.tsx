@@ -314,15 +314,14 @@ export default function DataGeneratorPage() {
           const { error } = await supabase.from('payments').insert({
             contract_id: lease.id,
             property_id: lease.property_id,
-            payer_id: lease.tenant_id,
-            receiver_id: lease.owner_id,
+            tenant_id: lease.tenant_id,
             amount: lease.monthly_rent,
             payment_type: 'loyer',
             status,
             due_date: dueDate.toISOString().split('T')[0],
-            paid_date: status === 'completed' ? dueDate.toISOString() : null,
+            paid_at: status === 'completed' ? dueDate.toISOString() : null,
             payment_method: status === 'completed' ? 'mobile_money' : null,
-            transaction_ref: status === 'completed' ? `TXN-${Date.now()}-${count}` : null,
+            transaction_id: status === 'completed' ? `TXN-${Date.now()}-${count}` : null,
           });
 
           if (!error) count++;
@@ -436,7 +435,7 @@ export default function DataGeneratorPage() {
       }
 
       // Supprimer dans l'ordre inverse des dépendances
-      await supabase.from('payments').delete().eq('payer_id', user.id);
+      await supabase.from('payments').delete().eq('tenant_id', user.id);
       await supabase.from('lease_contracts').delete().eq('owner_id', user.id);
       await supabase.from('properties').delete().eq('owner_id', user.id);
 

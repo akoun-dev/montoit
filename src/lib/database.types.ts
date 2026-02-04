@@ -461,7 +461,7 @@ export interface Database {
         Row: {
           id: string;
           lease_id: string;
-          payer_id: string;
+          tenant_id: string;
           amount: number;
           payment_type: PaymentType;
           payment_method: PaymentMethod;
@@ -475,7 +475,7 @@ export interface Database {
         Insert: {
           id?: string;
           lease_id: string;
-          payer_id: string;
+          tenant_id: string;
           amount: number;
           payment_type: PaymentType;
           payment_method: PaymentMethod;
@@ -489,7 +489,7 @@ export interface Database {
         Update: {
           id?: string;
           lease_id?: string;
-          payer_id?: string;
+          tenant_id?: string;
           amount?: number;
           payment_type?: PaymentType;
           payment_method?: PaymentMethod;

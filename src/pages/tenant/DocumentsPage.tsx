@@ -228,7 +228,7 @@ export default function DocumentsPage() {
       const { data } = await supabase
         .from('payments')
         .select('*')
-        .eq('payer_id', user.id)
+        .eq('tenant_id', user.id)
         .order('payment_date', { ascending: false })
         .limit(12);
 

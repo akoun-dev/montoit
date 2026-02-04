@@ -1,6 +1,6 @@
 /**
  * Page de réinitialisation du mot de passe
- * L'utilisateur arrive ici via le lien envoyé par email
+ * L'utilisateur arrive ici via le lien envoyé par email (méthode native Supabase)
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -21,7 +21,9 @@ interface PasswordCriteria {
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  // Supabase utilise access_token au lieu de token
+  const accessToken = searchParams.get('access_token');
+  const type = searchParams.get('type');
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -30,12 +32,12 @@ const ResetPasswordPage = () => {
   const [loading, setLoading] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
 
-  // Vérifier la présence du token
+  // Vérifier la présence du token et le type
   useEffect(() => {
-    if (!token) {
+    if (!accessToken || type !== 'recovery') {
       setTokenError('Lien de réinitialisation invalide. Veuillez demander un nouveau lien.');
     }
-  }, [token]);
+  }, [accessToken, type]);
 
   // Validation des critères du mot de passe
   const criteria: PasswordCriteria = useMemo(
@@ -52,36 +54,24 @@ const ResetPasswordPage = () => {
   const isPasswordValid =
     criteria.minLength && criteria.hasUppercase && criteria.hasLowercase && criteria.hasNumber;
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
-  const canSubmit = isPasswordValid && passwordsMatch && !loading && token;
+  const canSubmit = isPasswordValid && passwordsMatch && !loading && accessToken;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!canSubmit || !token) return;
+    if (!canSubmit || !accessToken) return;
 
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('verify-reset-token', {
-        body: { token, newPassword: password },
-      });
+      // Utiliser la méthode native de Supabase avec le access_token
+      const { error } = await supabase.auth.updateUser(
+        { password },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
 
       if (error) {
         throw new Error(error.message || 'Erreur lors de la réinitialisation');
-      }
-
-      if (data?.error) {
-        // Erreurs spécifiques du backend
-        if (data.tokenExpired) {
-          setTokenError('Ce lien a expiré. Veuillez demander un nouveau lien de réinitialisation.');
-        } else if (data.tokenUsed) {
-          setTokenError('Ce lien a déjà été utilisé. Veuillez demander un nouveau lien.');
-        } else if (data.tokenInvalid) {
-          setTokenError('Lien de réinitialisation invalide. Veuillez demander un nouveau lien.');
-        } else {
-          throw new Error(data.error);
-        }
-        return;
       }
 
       toast.success('Mot de passe mis à jour avec succès !');

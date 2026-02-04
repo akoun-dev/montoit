@@ -126,7 +126,7 @@ export default function TenantDashboard() {
         const { data: paymentsData } = await supabase
           .from('payments')
           .select('*')
-          .eq('payer_id', user.id)
+          .eq('tenant_id', user.id)
           .order('created_at', { ascending: false })
           .limit(5);
 

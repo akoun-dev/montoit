@@ -129,7 +129,7 @@ serve(async (req) => {
     const { data: payments, error: paymentsError } = await supabase
       .from('payments')
       .select('status, due_date, paid_date')
-      .eq('payer_id', applicantId);
+      .eq('tenant_id', applicantId);
 
     if (paymentsError) {
       console.error('Error fetching payments:', paymentsError);

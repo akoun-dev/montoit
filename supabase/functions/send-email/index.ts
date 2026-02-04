@@ -876,46 +876,42 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Envoi via Brevo (Sendinblue)
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
+    // Envoi via Resend
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
-    if (!brevoApiKey) {
-      console.error('[send-email] BREVO_API_KEY not configured');
+    if (!resendApiKey) {
+      console.error('[send-email] RESEND_API_KEY not configured');
       return new Response(
         JSON.stringify({
           error: 'Email service not configured',
-          detail: 'BREVO_API_KEY environment variable is missing'
+          detail: 'RESEND_API_KEY environment variable is missing'
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const fromEmail = Deno.env.get('BREVO_SENDER_EMAIL') || Deno.env.get('RESEND_FROM_EMAIL') || 'no-reply@montoit.ci';
-    const fromName = Deno.env.get('BREVO_SENDER_NAME') || 'Mon Toit';
+    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'no-reply@notifications.ansut.ci';
 
     const toList = Array.isArray(to) ? to : [to];
 
-    // Valider les destinataires (limite Brevo: 100 / requête)
-    if (toList.length > 100) {
+    // Valider les destinataires (limite Resend: 50 / requête)
+    if (toList.length > 50) {
       return new Response(
-        JSON.stringify({ error: 'Too many recipients. Maximum allowed is 100.' }),
+        JSON.stringify({ error: 'Too many recipients. Maximum allowed is 50.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Payload Brevo (https://developers.brevo.com/reference/sendtransacemail)
+    // Payload Resend (https://resend.com/docs/api-reference/emails/send)
     const emailBody = {
-      sender: {
-        email: fromEmail,
-        name: fromName,
-      },
-      to: toList.map((recipient: string) => ({
-        email: recipient,
-        name: data?.name || recipient,
-      })),
+      from: fromEmail,
+      to: toList,
       subject: emailTemplate.subject,
-      htmlContent: emailTemplate.html(data),
-      tags: ['mon-toit', template],
+      html: emailTemplate.html(data),
+      tags: [
+        { name: 'category', value: 'mon-toit' },
+        { name: 'template', value: template }
+      ]
     };
 
     let response: Response | null = null;
@@ -933,12 +929,11 @@ Deno.serve(async (req: Request) => {
           console.log(`[send-email] Retry attempt ${retryCount}/${maxRetries} after ${delay}ms`);
         }
 
-        response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        response = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
-            'api-key': brevoApiKey,
+            'Authorization': `Bearer ${resendApiKey}`,
             'Content-Type': 'application/json',
-            'accept': 'application/json',
           },
           body: JSON.stringify(emailBody),
         });
@@ -955,7 +950,7 @@ Deno.serve(async (req: Request) => {
             ? parseInt(retryAfterHeader, 10) * 1000
             : baseDelay * Math.pow(2, retryCount);
 
-          console.warn(`[send-email] Brevo throttled/server error (${response.status}). Waiting ${waitTime}ms before retry ${retryCount + 1}/${maxRetries}`);
+          console.warn(`[send-email] Resend throttled/server error (${response.status}). Waiting ${waitTime}ms before retry ${retryCount + 1}/${maxRetries}`);
 
           if (retryCount < maxRetries) {
             retryCount++;
@@ -981,7 +976,7 @@ Deno.serve(async (req: Request) => {
 
         return new Response(
           JSON.stringify({
-            error: 'Network error calling Brevo',
+            error: 'Network error calling Resend',
             detail: fetchErr?.message || fetchErr,
             retryCount,
           }),
@@ -1005,7 +1000,7 @@ Deno.serve(async (req: Request) => {
     const resultText = await response.text();
 
     if (!response.ok) {
-      console.error('[send-email] Brevo error:', {
+      console.error('[send-email] Resend error:', {
         status: response.status,
         statusText: response.statusText,
         body: resultText,
@@ -1015,9 +1010,9 @@ Deno.serve(async (req: Request) => {
       // Analyser l'erreur pour un message plus clair
       let errorMessage = 'Failed to send email';
       if (response.status === 401) {
-        errorMessage = 'Invalid API key (Brevo)';
+        errorMessage = 'Invalid API key (Resend)';
       } else if (response.status === 403) {
-        errorMessage = 'Brevo forbidden - verify sender domain or credits';
+        errorMessage = 'Resend forbidden - verify sender domain or credits';
       } else if (response.status === 400 || response.status === 422) {
         errorMessage = 'Invalid email parameters';
       } else if (response.status === 429) {
@@ -1035,25 +1030,25 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Parser la réponse Brevo qui contient messageId
+    // Parser la réponse Resend qui contient messageId
     let result;
     try {
       result = JSON.parse(resultText);
     } catch (_parseErr) {
-      console.warn('[send-email] Could not parse Brevo response as JSON');
+      console.warn('[send-email] Could not parse Resend response as JSON');
       result = { raw: resultText };
     }
 
     console.log(
       `[send-email] Email sent successfully to ${to}, template: ${template}, ID: ${
-        result?.messageId || result?.messageIds?.[0] || 'unknown'
+        result?.id || 'unknown'
       }`
     );
 
     return new Response(
       JSON.stringify({
         success: true,
-        id: result?.messageId || result?.messageIds?.[0],
+        id: result?.id,
         template,
         to,
         retryCount,

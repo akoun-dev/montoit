@@ -353,40 +353,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     try {
-      const { data, error: functionError } = await supabase.functions.invoke(
-        'send-password-reset',
-        {
-          body: { email },
-        }
-      );
+      // Utiliser la méthode native de Supabase pour la réinitialisation du mot de passe
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reinitialiser-mot-de-passe`,
+      });
 
-      if (functionError) {
-        logger.error('Error calling send-password-reset', functionError as Error);
+      if (error) {
+        logger.error('Error resetting password', error);
         return {
           error: {
-            message:
-              functionError.message || "Erreur lors de l'envoi de l'email de réinitialisation",
-            status: 500,
-            name: 'AuthError',
-          } as AuthError,
-        };
-      }
-
-      if (data?.emailNotFound) {
-        return {
-          error: {
-            message: 'Aucun compte associé à cette adresse email',
-            status: 404,
-            name: 'AuthError',
-          } as AuthError,
-        };
-      }
-
-      if (data?.error) {
-        return {
-          error: {
-            message: data.error,
-            status: 500,
+            message: error.message || "Erreur lors de l'envoi de l'email de réinitialisation",
+            status: error.status || 500,
             name: 'AuthError',
           } as AuthError,
         };

@@ -55,7 +55,7 @@ serve(async (req) => {
     }
 
     // Vérifier que l'utilisateur est le payeur
-    if (payment.payer_id !== user.id) {
+    if (payment.tenant_id !== user.id) {
       return new Response(
         JSON.stringify({ error: 'Accès non autorisé' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

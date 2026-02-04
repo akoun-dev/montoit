@@ -104,7 +104,7 @@ export default function TenantCalendar() {
       const { data: paymentsData } = await supabase
         .from('payments' as any)
         .select('*')
-        .eq('payer_id', user.id)
+        .eq('tenant_id', user.id)
         .gte('created_at', startOfMonth.toISOString())
         .lte('created_at', endOfMonth.toISOString())
         .eq('status', 'complete');

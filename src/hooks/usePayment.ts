@@ -3,7 +3,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { intouchService, type PaymentRequest, type MobileMoneyOperator } from '@/services/payments/intouchPaymentService';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -15,17 +15,6 @@ export const usePayment = () => {
     onSuccess: (response) => {
       setTransactionId(response.transaction_id);
     },
-  });
-
-  const checkStatus = useMutation({
-    mutationFn: (transactionId: string) => intouchService.checkPaymentStatus(transactionId),
-  });
-
-  const { data: balance, refetch: refetchBalance } = useQuery({
-    queryKey: ['paymentBalance'],
-    queryFn: () => intouchService.getBalance(),
-    staleTime: 60000, // 1 minute
-    enabled: intouchService.isConfigured(),
   });
 
   const processRentalPayment = useCallback(async (
@@ -42,19 +31,20 @@ export const usePayment = () => {
     }
 
     const formattedPhone = validation.formatted;
-    const transactionId = `MT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const txnId = `MT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     try {
       // Initier le paiement via InTouch
       const result = await initiatePayment.mutateAsync({
         amount,
         recipient_phone_number: formattedPhone,
-        partner_transaction_id: transactionId,
-        callback_url: `${window.location.origin}/functions/v1/payment-callback`,
+        partner_transaction_id: txnId,
         operator,
       });
 
       // Enregistrer la transaction dans Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+
       const { error: insertError } = await supabase
         .from('transactions')
         .insert({
@@ -66,7 +56,7 @@ export const usePayment = () => {
           description,
           type: 'rental_payment',
           lease_id: leaseId || null,
-          tenant_id: (await supabase.auth.getUser()).data?.user?.id || null,
+          tenant_id: user?.id || null,
         });
 
       if (insertError) {
@@ -82,10 +72,7 @@ export const usePayment = () => {
 
   return {
     initiatePayment,
-    checkStatus,
     processRentalPayment,
-    balance,
-    refetchBalance,
     transactionId,
     isProcessing: initiatePayment.isPending,
     error: initiatePayment.error,
