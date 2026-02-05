@@ -40,8 +40,19 @@
     background-color: var(--color-background-surface);
   }
 
-  * {
-    cursor: inherit;
+  /* Cursor behavior - explicit cursor rules for interactive elements */
+  button {
+    cursor: pointer;
+  }
+
+  a {
+    cursor: pointer;
+  }
+
+  input,
+  textarea,
+  select {
+    cursor: text;
   }
 }
 

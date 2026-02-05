@@ -1,17 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Home,
   Plus,
   Building2,
   MapPin,
   Users,
-  Calendar,
   Search,
   Filter,
-  MoreVertical,
   Edit,
   Trash2,
   Eye,
@@ -20,12 +17,10 @@ import {
   Bed,
   Bath,
   Maximize,
-  Euro,
   TrendingUp,
   CheckCircle2,
   Clock,
   XCircle,
-  AlertCircle,
 } from 'lucide-react';
 
 interface Property {
@@ -82,9 +77,9 @@ export default function AgencyPropertiesPage() {
     if (user) {
       loadAgencyAndProperties();
     }
-  }, [user]);
+  }, [user, loadAgencyAndProperties]);
 
-  const loadAgencyAndProperties = async () => {
+  const loadAgencyAndProperties = useCallback(async () => {
     try {
       // Get agency_id for this user
       const { data: agencyData } = await supabase
@@ -125,7 +120,7 @@ export default function AgencyPropertiesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   const calculateStats = (props: Property[]) => {
     const disponible = props.filter((p) => p.status === 'disponible').length;
@@ -199,18 +194,6 @@ export default function AgencyPropertiesPage() {
     }
   };
 
-  const getPropertyTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      apartment: 'Appartement',
-      house: 'Maison',
-      studio: 'Studio',
-      duplex: 'Duplex',
-      villa: 'Villa',
-      commercial: 'Local commercial',
-    };
-    return labels[type] || type;
-  };
-
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('fr-FR').format(price);
   };
@@ -250,7 +233,7 @@ export default function AgencyPropertiesPage() {
     <div className="bg-[#FAF7F4] min-h-screen pb-8">
       {/* Header */}
       <div className="bg-[#2C1810] rounded-b-2xl lg:rounded-[28px] px-4 sm:px-6 lg:px-8 py-6 shadow-lg">
-        <div className="max-w-7xl mx-auto">
+        <div className="w-full">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center shadow-md">
@@ -276,7 +259,7 @@ export default function AgencyPropertiesPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-2xl border-2 border-[#EFEBE9] p-4 sm:p-6 shadow-sm">

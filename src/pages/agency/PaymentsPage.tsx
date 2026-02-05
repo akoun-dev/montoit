@@ -104,7 +104,7 @@ const StatCard = ({
   color = 'gray',
   trend,
 }: {
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string | number;
   subtitle?: string;
@@ -238,16 +238,16 @@ export default function AgencyPaymentsPage() {
     try {
       setLoading(true);
 
-      // Fetch agency ID from user profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('user_id', user.id)
-        .single();
+      // Use RPC function to get user's agency (bypasses RLS)
+      const { data: agencyData } = await supabase
+        .rpc('get_user_agency', {
+          user_uuid: user.id
+        });
 
-      const agencyId = profileData?.agency_id;
+      const agencyId = agencyData?.[0]?.id || null;
+
       if (!agencyId) {
-        toast.error('Profil agence non trouvé');
+        toast.error('Profil agence non trouvé. Veuillez contacter le support.');
         setLoading(false);
         return;
       }
@@ -279,12 +279,12 @@ export default function AgencyPaymentsPage() {
       if (contractsError) throw contractsError;
 
       // Filter contracts by agency_id in properties
-      const agencyContracts = (contractsData || []).filter((c: any) =>
+      const agencyContracts = (contractsData || []).filter((c: { properties?: { agency_id?: string } | null }) =>
         c.properties?.agency_id === agencyId
       );
 
       // Get tenant profiles
-      const tenantIds = agencyContracts.map((c: any) => c.tenant_id).filter(Boolean);
+      const tenantIds = agencyContracts.map((c: { tenant_id: string }) => c.tenant_id).filter(Boolean);
       const { data: tenantsData } = await supabase.rpc('get_public_profiles', {
         profile_user_ids: tenantIds as string[],
       });
@@ -293,7 +293,7 @@ export default function AgencyPaymentsPage() {
 
       // Get payments for each contract
       const contractsWithDetails = await Promise.all(
-        agencyContracts.map(async (contract: any) => {
+        agencyContracts.map(async (contract: { id: string; properties?: unknown; tenant_id: string }) => {
           const { data: paymentsData } = await supabase
             .from('payments')
             .select('*')
@@ -315,11 +315,11 @@ export default function AgencyPaymentsPage() {
       // Fetch charges (if the table exists)
       try {
         const propertyIds = contractsWithDetails
-          .map((c: any) => c.property?.id)
+          .map((c: { property?: { id: string } | null }) => c.property?.id)
           .filter(Boolean);
 
         if (propertyIds.length > 0) {
-          const { data: chargesData } = await (supabase as any)
+          const { data: chargesData } = await (supabase as unknown as { from: (table: string) => { select: (cols: string) => { in: (col: string, vals: string[]) => { order: (col: string, opts: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: Charge[] | null }> } } } })
             .from('property_charges')
             .select('*')
             .in('property_id', propertyIds)
@@ -421,7 +421,7 @@ export default function AgencyPaymentsPage() {
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter((item: any) => {
+      result = result.filter((item: { contract: { tenant?: { full_name?: string } | null; property?: { title?: string } | null } } }) => {
         const matchesTenant = item.contract.tenant?.full_name?.toLowerCase().includes(query);
         const matchesProperty = item.contract.property?.title?.toLowerCase().includes(query);
         return matchesTenant || matchesProperty;
@@ -429,7 +429,7 @@ export default function AgencyPaymentsPage() {
     }
 
     if (statusFilter !== 'all') {
-      result = result.filter((item: any) => {
+      result = result.filter((item: { status: string; due_date?: string | null }) => {
         if (statusFilter === 'paid') return item.status === 'completed';
         if (statusFilter === 'pending') return item.status === 'pending';
         if (statusFilter === 'late') {
@@ -440,7 +440,7 @@ export default function AgencyPaymentsPage() {
     }
 
     if (propertyFilter !== 'all') {
-      result = result.filter((item: any) => item.contract.property?.id === propertyFilter);
+      result = result.filter((item: { contract: { property?: { id: string } | null } }) => item.contract.property?.id === propertyFilter);
     }
 
     return result;
@@ -722,7 +722,7 @@ export default function AgencyPaymentsPage() {
                           )}
                         </div>
                       ) : (
-                        filteredPayments.map((payment: any) => (
+                        filteredPayments.map((payment: Payment & { contract: ContractWithPayments }) => (
                           <div
                             key={payment.id}
                             className="p-4 bg-gray-50 rounded-xl border hover:bg-gray-100 transition-colors"

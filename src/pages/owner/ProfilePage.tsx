@@ -26,7 +26,7 @@ import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
 import RoleSwitcher from '@/components/role/RoleSwitcher';
 import { RoleSwitchModal } from '@/shared/ui/Modal';
 import { DossierSubmissionTab } from '@/shared/ui/verification/DossierSubmissionTab';
-import verificationApplicationsService from '@/features/verification/services/verificationApplications.service';
+import verificationApplicationsService, { type VerificationApplication } from '@/features/verification/services/verificationApplications.service';
 
 interface Profile {
   id: string;
@@ -60,7 +60,7 @@ const StatCard = ({
   value,
   color = 'gray',
 }: {
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string | number;
   color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple';
@@ -234,7 +234,7 @@ export default function OwnerProfilePage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [becomingTenant, setBecomingTenant] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [dossierApplication, setDossierApplication] = useState<any>(null);
+  const [dossierApplication, setDossierApplication] = useState<VerificationApplication | null>(null);
   const [formData, setFormData] = useState({
     full_name: '',
     phone: '',
@@ -323,10 +323,33 @@ export default function OwnerProfilePage() {
 
   const handleSaveProfile = async (e: ChangeEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Validation des champs obligatoires
+    if (!formData.full_name?.trim()) {
+      toast.error('Le nom complet est obligatoire');
+      return;
+    }
+    if (!formData.phone?.trim()) {
+      toast.error('Le téléphone est obligatoire');
+      return;
+    }
+    if (!formData.city?.trim()) {
+      toast.error('La ville est obligatoire');
+      return;
+    }
+    if (!formData.address?.trim()) {
+      toast.error('L\'adresse est obligatoire');
+      return;
+    }
+    if (!formData.gender) {
+      toast.error('Le genre est obligatoire');
+      return;
+    }
+
     setSaving(true);
 
     try {
-      const updates: any = {
+      const updates: Record<string, unknown> = {
         ...formData,
         updated_at: new Date().toISOString(),
       };
@@ -587,13 +610,16 @@ export default function OwnerProfilePage() {
             <form onSubmit={handleSaveProfile} className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Nom complet</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nom complet <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={formData.full_name}
                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                     placeholder="Votre nom complet"
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                    required
                   />
                 </div>
                 <div>
@@ -609,7 +635,9 @@ export default function OwnerProfilePage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Téléphone <span className="text-red-500">*</span>
+                  </label>
                   <div className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:border-orange-500">
                     <Phone className="w-4 h-4 text-gray-400" />
                     <input
@@ -618,15 +646,19 @@ export default function OwnerProfilePage() {
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       placeholder="Votre numéro de téléphone"
                       className="flex-1 outline-none"
+                      required
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Genre</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Genre <span className="text-red-500">*</span>
+                  </label>
                   <select
                     value={formData.gender}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'Homme' | 'Femme' | 'Non spécifié' | '' })}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                    required
                   >
                     <option value="">Sélectionner...</option>
                     <option value="Homme">Homme</option>
@@ -635,7 +667,9 @@ export default function OwnerProfilePage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Ville</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Ville <span className="text-red-500">*</span>
+                  </label>
                   <div className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:border-orange-500">
                     <MapPin className="w-4 h-4 text-gray-400" />
                     <input
@@ -644,18 +678,22 @@ export default function OwnerProfilePage() {
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       placeholder="Votre ville"
                       className="flex-1 outline-none"
+                      required
                     />
                   </div>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Adresse <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   placeholder="Votre adresse complète"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  required
                 />
               </div>
               <div>

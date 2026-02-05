@@ -32,7 +32,7 @@ import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
 import RoleSwitcher from '@/components/role/RoleSwitcher';
 import { DossierSubmissionTab } from '@/shared/ui/verification/DossierSubmissionTab';
-import verificationApplicationsService from '@/features/verification/services/verificationApplications.service';
+import verificationApplicationsService, { type VerificationApplication } from '@/features/verification/services/verificationApplications.service';
 
 interface AgencyProfile {
   id: string;
@@ -81,7 +81,7 @@ export default function AgencyProfilePage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [documents, setDocuments] = useState<VerificationDocument[]>([]);
   const [uploadingDoc, setUploadingDoc] = useState(false);
-  const [dossierApplication, setDossierApplication] = useState<any>(null);
+  const [dossierApplication, setDossierApplication] = useState<VerificationApplication | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const DOCUMENT_TYPES = [
@@ -132,6 +132,7 @@ export default function AgencyProfilePage() {
     city: '',
     address: '',
     bio: '',
+    gender: '' as 'Homme' | 'Femme' | 'Non spécifié' | '',
     agency_name: '',
     agency_description: '',
     agency_website: '',
@@ -245,7 +246,7 @@ export default function AgencyProfilePage() {
         .single();
 
       if (profileData?.verification_documents && Array.isArray(profileData.verification_documents)) {
-        const jsonDocs = profileData.verification_documents.map((doc: any) => ({
+        const jsonDocs = profileData.verification_documents.map((doc: VerificationDocument) => ({
           id: doc.id,
           name: doc.name,
           type: doc.type,
@@ -298,8 +299,8 @@ export default function AgencyProfilePage() {
       const base64Data = await base64Promise;
 
       // Store document metadata and base64 content in profile.verification_documents JSON field
-      const existingDocs = (profile as any)?.verification_documents || [];
-      const newDoc = {
+      const existingDocs = (profile as AgencyProfile & { verification_documents?: VerificationDocument[] })?.verification_documents || [];
+      const newDoc: VerificationDocument = {
         id: Date.now().toString(),
         name: file.name,
         type: 'other',
@@ -365,10 +366,33 @@ export default function AgencyProfilePage() {
 
   const handleSaveProfile = async (e: ChangeEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Validation des champs obligatoires
+    if (!formData.full_name?.trim()) {
+      toast.error('Le nom complet est obligatoire');
+      return;
+    }
+    if (!formData.phone?.trim()) {
+      toast.error('Le téléphone est obligatoire');
+      return;
+    }
+    if (!formData.city?.trim()) {
+      toast.error('La ville est obligatoire');
+      return;
+    }
+    if (!formData.address?.trim()) {
+      toast.error('L\'adresse est obligatoire');
+      return;
+    }
+    if (!formData.gender) {
+      toast.error('Le genre est obligatoire');
+      return;
+    }
+
     setSaving(true);
 
     try {
-      const updates: any = {
+      const updates: Record<string, unknown> = {
         ...formData,
         updated_at: new Date().toISOString(),
       };
@@ -576,13 +600,14 @@ export default function AgencyProfilePage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nom du représentant
+                  Nom du représentant <span className="text-red-500">*</span>
                 </label>
                 <Input
                   type="text"
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                   placeholder="Votre nom complet"
+                  required
                 />
               </div>
               <div>
@@ -593,33 +618,56 @@ export default function AgencyProfilePage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Téléphone personnel
+                  Téléphone personnel <span className="text-red-500">*</span>
                 </label>
                 <Input
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="Votre numéro de téléphone"
+                  required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Ville</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Ville <span className="text-red-500">*</span>
+                </label>
                 <Input
                   type="text"
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   placeholder="Votre ville"
+                  required
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Adresse</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Adresse <span className="text-red-500">*</span>
+              </label>
               <Input
                 type="text"
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 placeholder="Votre adresse complète"
+                required
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Genre <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.gender}
+                onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'Homme' | 'Femme' | 'Non spécifié' | '' })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                required
+              >
+                <option value="">Sélectionner...</option>
+                <option value="Homme">Homme</option>
+                <option value="Femme">Femme</option>
+                <option value="Non spécifié">Non spécifié</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>

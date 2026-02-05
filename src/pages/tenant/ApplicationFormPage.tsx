@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
-  ArrowLeft,
   FileText,
   CheckCircle,
+  XCircle,
   User,
-  Mail,
   Phone,
   MapPin,
   Shield,
   Award,
   ChevronRight,
+  ChevronLeft,
+  AlertCircle,
+  FolderOpen,
+  Home,
+  Star,
 } from 'lucide-react';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -18,7 +22,12 @@ import { ScoringService } from '@/services/scoringService';
 import { notifyApplicationReceived } from '@/services/notifications/applicationNotificationService';
 import { ValidationService } from '@/services/validation';
 import { useFormValidation } from '@/hooks/shared/useFormValidation';
-import { ValidatedTextarea, FormStepper, FormStepContent, useFormStepper } from '@/shared/ui';
+import { ValidatedTextarea } from '@/shared/ui';
+import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
+import verificationApplicationsService, {
+  type VerificationApplication,
+  type DossierStatus,
+} from '@/features/verification/services/verificationApplications.service';
 import type { Database } from '@/shared/lib/database.types';
 
 type Property = Database['public']['Tables']['properties']['Row'];
@@ -27,7 +36,6 @@ interface ApplicationFormData {
   coverLetter: string;
 }
 
-// Extended profile type with new columns
 interface ExtendedProfile {
   id: string;
   user_id: string | null;
@@ -45,6 +53,17 @@ interface ExtendedProfile {
   bio?: string;
 }
 
+interface VerificationItem {
+  id: string;
+  label: string;
+  description: string;
+  points: number;
+  completed: boolean;
+  actionLink: string;
+  actionLabel: string;
+  icon: React.ReactNode;
+}
+
 export default function ApplicationForm() {
   const { user, profile: authProfile } = useAuth();
   const { id: routeId } = useParams<{ id: string }>();
@@ -60,12 +79,10 @@ export default function ApplicationForm() {
   const [success, setSuccess] = useState(false);
   const [existingApplication, setExistingApplication] = useState(false);
   const [applicationScore, setApplicationScore] = useState(0);
-  const [scoreLoading, setScoreLoading] = useState(true);
+  const [showVerificationPanel, setShowVerificationPanel] = useState(false);
+  const [dossierApplication, setDossierApplication] = useState<VerificationApplication | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  // Form stepper
-  const { step, slideDirection, goToStep, nextStep, prevStep } = useFormStepper(1, 2);
-
-  // Form validation
   const { validateField, getFieldState, touched } = useFormValidation<ApplicationFormData>();
 
   useEffect(() => {
@@ -81,21 +98,29 @@ export default function ApplicationForm() {
       setLoading(false);
     }
 
-    // Calculate application score
     if (profile) {
       ScoringService.calculateSimpleScore(profile)
-        .then(score => {
-          setApplicationScore(score);
-          setScoreLoading(false);
-        })
-        .catch(err => {
-          console.error('Error calculating score:', err);
-          setApplicationScore(50); // Default score on error
-          setScoreLoading(false);
-        });
+        .then(setApplicationScore)
+        .catch(() => setApplicationScore(50));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    if (user) {
+      loadDossierApplication();
+    }
   }, [user, navigate, routeId, property, profile]);
+
+  const loadDossierApplication = async () => {
+    if (!user) return;
+    try {
+      const applications = await verificationApplicationsService.getUserApplications(user.id, 'tenant');
+      const activeApp = applications.find(
+        (app) => ['pending', 'in_review', 'more_info_requested', 'approved'].includes(app.status)
+      ) || applications[0] || null;
+      setDossierApplication(activeApp);
+    } catch (err) {
+      console.error('Error loading dossier:', err);
+    }
+  };
 
   const loadProperty = async (id: string) => {
     try {
@@ -113,7 +138,6 @@ export default function ApplicationForm() {
 
       setProperty(data);
 
-      // Check for existing application (duplicate detection)
       if (user) {
         const { data: existing } = await supabase
           .from('rental_applications')
@@ -139,21 +163,79 @@ export default function ApplicationForm() {
     e.preventDefault();
     if (!user || !property) return;
 
-    // Validate cover letter
+    console.log('[ApplicationForm] Submit started', {
+      userId: user.id,
+      propertyId: property.id,
+      propertyName: property.title,
+      applicationScore,
+      coverLetterLength: coverLetter.length,
+      timestamp: new Date().toISOString(),
+    });
+
     const coverLetterValid = validateField('coverLetter', () =>
       ValidationService.validateMinLength(coverLetter, 50, 'La lettre de motivation')
     );
 
     if (!coverLetterValid) {
+      console.warn('[ApplicationForm] Validation failed', {
+        field: 'coverLetter',
+        length: coverLetter.length,
+        required: 50,
+      });
       return;
     }
 
+    console.log('[ApplicationForm] Validation passed');
+
+    // Si score < 70, afficher le modal de confirmation
+    if (applicationScore < 70) {
+      const missingItems: string[] = [];
+      if (!isFaceVerified) missingItems.push('Reconnaissance faciale');
+      if (!isOneciVerified) missingItems.push('Vérification ONECI');
+      if (!profile?.profile_setup_completed) missingItems.push('Profil complet');
+      if (!dossierApplication || dossierApplication.status !== 'approved') {
+        missingItems.push('Dossier de vérification');
+      }
+
+      console.log('[ApplicationForm] Low score - showing confirmation modal', {
+        score: applicationScore,
+        missingItems,
+        missingCount: missingItems.length,
+      });
+
+      setMissingConfirmItems(missingItems);
+      setShowConfirmModal(true);
+      return;
+    }
+
+    // Score OK, soumettre directement
+    console.log('[ApplicationForm] Score OK, proceeding to submission');
+    await submitApplication();
+  };
+
+  const [missingConfirmItems, setMissingConfirmItems] = useState<string[]>([]);
+
+  const submitApplication = async () => {
+    if (!user || !property) return;
+
+    console.log('[ApplicationForm] Starting application submission', {
+      userId: user.id,
+      propertyId: property.id,
+      timestamp: new Date().toISOString(),
+    });
+
     setSubmitting(true);
     setError('');
+    setShowConfirmModal(false);
 
     try {
+      // Calculer le score final
+      console.log('[ApplicationForm] Calculating final score...');
       const finalScore = await ScoringService.calculateSimpleScore(profile);
+      console.log('[ApplicationForm] Final score calculated', { finalScore });
 
+      // Insérer la candidature
+      console.log('[ApplicationForm] Inserting application into database...');
       const { data: applicationData, error: insertError } = await supabase
         .from('rental_applications')
         .insert({
@@ -166,48 +248,68 @@ export default function ApplicationForm() {
         .select('id')
         .single();
 
-      if (insertError) throw insertError;
-
-      // Send notification to owner
-      try {
-        const appId = (applicationData as { id: string } | null)?.id;
-        if (appId) {
-          await notifyApplicationReceived(appId);
-        }
-      } catch (notifError) {
-        console.error('Failed to send notification:', notifError);
+      if (insertError) {
+        console.error('[ApplicationForm] Insert error', {
+          error: insertError,
+          message: insertError.message,
+          code: insertError.code,
+        });
+        throw insertError;
       }
 
+      const appId = (applicationData as { id: string } | null)?.id;
+      console.log('[ApplicationForm] Application inserted successfully', {
+        applicationId: appId,
+        finalScore,
+      });
+
+      // Envoyer la notification
+      if (appId) {
+        console.log('[ApplicationForm] Sending notification to owner...');
+        await notifyApplicationReceived(appId).catch((notifErr) => {
+          console.warn('[ApplicationForm] Notification failed (non-critical)', {
+            error: notifErr,
+          });
+        });
+        console.log('[ApplicationForm] Notification sent');
+      }
+
+      console.log('[ApplicationForm] Application submitted successfully', {
+        applicationId: appId,
+        propertyId: property.id,
+        score: finalScore,
+      });
+
       setSuccess(true);
-      setTimeout(() => {
-        navigate('/');
-      }, 2000);
+      setTimeout(() => navigate('/locataire/mes-candidatures'), 2000);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erreur lors de la soumission de la candidature');
+      const errorMsg = err instanceof Error ? err.message : 'Erreur lors de la soumission';
+      console.error('[ApplicationForm] Submission failed', {
+        error: err,
+        message: errorMsg,
+      });
+      setError(errorMsg);
     } finally {
+      console.log('[ApplicationForm] Submission process ended');
       setSubmitting(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="form-page-container flex items-center justify-center">
-        <div
-          className="animate-spin rounded-full h-16 w-16 border-b-4"
-          style={{ borderColor: 'var(--form-orange)' }}
-        ></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
       </div>
     );
   }
 
   if (!property) {
     return (
-      <div className="form-page-container flex items-center justify-center">
-        <div className="form-section-premium text-center max-w-md">
-          <p className="mb-4" style={{ color: 'var(--form-sable)' }}>
-            Propriété introuvable ou inaccessible.
-          </p>
-          <Link to="/recherche" className="form-button-primary">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 text-center max-w-md shadow-sm">
+          <Home className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600 mb-4">Propriété introuvable</p>
+          <Link to="/recherche" className="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-xl font-semibold hover:bg-orange-600 transition">
             Retour à la recherche
           </Link>
         </div>
@@ -217,24 +319,14 @@ export default function ApplicationForm() {
 
   if (success) {
     return (
-      <div className="form-page-container flex items-center justify-center p-4">
-        <div className="form-section-premium max-w-md text-center animate-scale-in">
-          <div
-            className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6"
-            style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)' }}
-          >
-            <CheckCircle className="h-12 w-12" style={{ color: 'var(--form-success)' }} />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 text-center max-w-md shadow-sm">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="h-10 w-10 text-green-500" />
           </div>
-          <h2 className="text-3xl font-bold mb-3" style={{ color: 'var(--form-chocolat)' }}>
-            Candidature envoyée!
-          </h2>
-          <p className="text-lg mb-6" style={{ color: 'var(--form-sable)' }}>
-            Votre candidature a été envoyée avec succès au propriétaire. Vous serez notifié de sa
-            réponse.
-          </p>
-          <p className="text-sm font-medium animate-pulse" style={{ color: 'var(--form-orange)' }}>
-            Redirection en cours...
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Candidature envoyée !</h2>
+          <p className="text-gray-600 mb-4">Votre candidature a été envoyée au propriétaire</p>
+          <p className="text-sm text-orange-500 animate-pulse">Redirection...</p>
         </div>
       </div>
     );
@@ -244,356 +336,358 @@ export default function ApplicationForm() {
   const isFaceVerified = facialStatus === 'verified' || facialStatus === 'verifie';
   const isOneciVerified = profile?.oneci_verified ?? false;
 
-  const stepLabels = ['Informations', 'Motivation'];
+  // Calculer les pourcentages individuels de chaque vérification
+  const profilePercentage = ScoringService.calculateProfileScore(profile).score;
+
+  // Reconnaissance faciale = 34% du score de vérification (sur 100)
+  const facialPercentage = isFaceVerified ? 34 : 0;
+
+  // ONECI = 33% du score de vérification (sur 100)
+  const oneciPercentage = isOneciVerified ? 33 : 0;
+
+  const verificationItems: VerificationItem[] = [
+    {
+      id: 'profile',
+      label: 'Profil complet',
+      description: 'Informations de base renseignées',
+      points: profilePercentage,
+      completed: profile?.profile_setup_completed ?? false,
+      actionLink: '/locataire/profil',
+      actionLabel: 'Compléter',
+      icon: <User className="h-5 w-5" />,
+    },
+    {
+      id: 'facial',
+      label: 'Reconnaissance faciale',
+      description: 'Selfie + CNI vérifiés',
+      points: facialPercentage,
+      completed: isFaceVerified,
+      actionLink: '/verification-biometrique?reset=true',
+      actionLabel: 'Vérifier',
+      icon: <Shield className="h-5 w-5" />,
+    },
+    {
+      id: 'oneci',
+      label: 'Vérification ONECI',
+      description: 'Document CNI authentifié',
+      points: oneciPercentage,
+      completed: isOneciVerified,
+      actionLink: '/locataire/verification-oneci',
+      actionLabel: 'Vérifier',
+      icon: <Award className="h-5 w-5" />,
+    },
+  ];
+
+  const getDossierStatus = () => {
+    if (!dossierApplication) return { label: 'Non commencé', color: 'gray', points: 0 };
+    if (dossierApplication.status === 'approved') return { label: 'Validé', color: 'green', points: dossierApplication.completion_percentage || 100 };
+    if (dossierApplication.status === 'pending') return { label: 'En attente', color: 'yellow', points: dossierApplication.completion_percentage || 0 };
+    if (dossierApplication.status === 'in_review') return { label: 'En vérification', color: 'blue', points: dossierApplication.completion_percentage || 0 };
+    if (dossierApplication.status === 'rejected') return { label: 'Refusé', color: 'red', points: 0 };
+    return { label: 'À compléter', color: 'purple', points: dossierApplication.completion_percentage || 0 };
+  };
+
+  const dossierStatus = getDossierStatus();
+  const totalScore = verificationItems.reduce((sum, item) => sum + (item.completed ? item.points : 0), 0) + (dossierStatus.points || 0);
+  const maxScore = 100 + 100; // Profile verifications + Dossier
 
   return (
-    <div className="form-page-container">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
-      <div
-        className="form-section-premium mb-6"
-        style={{ borderRadius: 0, border: 'none', borderBottom: '1px solid var(--form-border)' }}
-      >
-        <div className="max-w-4xl mx-auto px-4 py-4">
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
+        <div className="w-full px-4 py-4 flex items-center justify-between">
           <button
             onClick={() => window.history.back()}
-            className="flex items-center space-x-2 font-medium transition-all duration-300 hover:scale-105"
-            style={{ color: 'var(--form-orange)' }}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ChevronLeft className="h-5 w-5" />
             <span>Retour</span>
           </button>
-        </div>
-      </div>
-
-      <div className="form-content-wrapper px-4">
-        {/* Property Info Header */}
-        <div className="form-section-premium mb-6">
-          <div className="flex items-center gap-3 mb-4">
-            <FileText className="h-8 w-8" style={{ color: 'var(--form-orange)' }} />
-            <h1
-              className="text-2xl md:text-3xl font-bold"
-              style={{ color: 'var(--form-chocolat)' }}
-            >
-              Postuler pour cette propriété
-            </h1>
+          <div className="flex items-center gap-2">
+            <Star className={`h-5 w-5 ${applicationScore >= 70 ? 'text-green-500 fill-green-500' : 'text-orange-500'}`} />
+            <span className={`font-bold ${applicationScore >= 70 ? 'text-green-600' : 'text-orange-600'}`}>
+              {applicationScore}%
+            </span>
           </div>
-          <div
-            className="p-4 rounded-xl"
-            style={{
-              backgroundColor: 'var(--form-ivoire)',
-              border: '1px solid var(--form-border)',
-            }}
-          >
-            <p className="font-bold text-lg" style={{ color: 'var(--form-chocolat)' }}>
-              {property.title}
-            </p>
-            <p className="flex items-center gap-2 mt-1" style={{ color: 'var(--form-sable)' }}>
-              <MapPin className="h-4 w-4" />
-              <span>
+        </div>
+      </header>
+
+      <main className="w-full px-4 py-6 space-y-6">
+        {/* Property Card */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <div className="flex gap-4">
+            {property.image_url && (
+              <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
+                <img src={property.image_url} alt={property.title} className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <h1 className="font-bold text-gray-900 truncate">{property.title}</h1>
+              <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                <MapPin className="h-3.5 w-3.5" />
                 {property.city}, {property.neighborhood}
-              </span>
-            </p>
-            <p className="font-bold text-lg mt-2" style={{ color: 'var(--form-orange)' }}>
-              {(property.monthly_rent ?? property.price) != null
-                ? `${(property.monthly_rent ?? property.price).toLocaleString()} FCFA/mois`
-                : 'Prix sur demande'}
-            </p>
+              </p>
+              <p className="text-lg font-bold text-orange-500 mt-2">
+                {(property.monthly_rent ?? property.price)?.toLocaleString()} FCFA/mois
+              </p>
+            </div>
           </div>
-        </div>
-
-        {/* Stepper */}
-        <div className="mb-8">
-          <FormStepper
-            currentStep={step}
-            totalSteps={2}
-            onStepChange={goToStep}
-            labels={stepLabels}
-          />
         </div>
 
         {error && (
-          <div className="form-error-message mb-6">
-            <strong>Erreur:</strong> {error}
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+            <XCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
-        {!isFaceVerified && (
-          <div className="form-error-message mb-6 flex-col items-start gap-3">
+        {/* Verification Score Card */}
+        <div className={`rounded-2xl p-4 border-2 ${
+          applicationScore >= 70
+            ? 'bg-green-50 border-green-200'
+            : 'bg-orange-50 border-orange-200'
+        }`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              {applicationScore >= 70 ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-orange-600" />
+              )}
+              <span className="font-bold text-gray-900">
+                {applicationScore >= 70 ? 'Profil solide' : 'Profil à compléter'}
+              </span>
+            </div>
+            <span className={`text-2xl font-bold ${
+              applicationScore >= 70 ? 'text-green-600' : 'text-orange-600'
+            }`}>
+              {applicationScore}%
+            </span>
+          </div>
+          <div className="w-full bg-white rounded-full h-2 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                applicationScore >= 70 ? 'bg-green-500' : 'bg-orange-500'
+              }`}
+              style={{ width: `${applicationScore}%` }}
+            />
+          </div>
+          <p className="text-xs text-gray-600 mt-2">
+            {applicationScore >= 70
+              ? 'Votre profil est bien complété, bonnes chances de succès !'
+              : 'Complétez votre profil pour augmenter vos chances'}
+          </p>
+        </div>
+
+        {/* Verification Items - Collapsible */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <button
+            onClick={() => setShowVerificationPanel(!showVerificationPanel)}
+            className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition"
+          >
             <div className="flex items-center gap-3">
-              <Shield className="h-6 w-6" />
-              <strong>Reconnaissance faciale OBLIGATOIRE</strong>
+              <Shield className="h-5 w-5 text-orange-500" />
+              <span className="font-semibold text-gray-900">Mes vérifications</span>
             </div>
-            <p>Vous devez compléter la reconnaissance faciale (NeoFace) avant de postuler.</p>
-            <Link to="/locataire/profil" className="form-button-primary mt-2">
-              Compléter ma reconnaissance faciale →
-            </Link>
+            <ChevronRight className={`h-5 w-5 text-gray-400 transition ${showVerificationPanel ? 'rotate-90' : ''}`} />
+          </button>
+
+          {showVerificationPanel && (
+            <div className="p-4 pt-0 space-y-3">
+              {verificationItems.map((item) => (
+                <div
+                  key={item.id}
+                  className={`flex items-center justify-between p-3 rounded-xl border ${
+                    item.completed
+                      ? 'bg-green-50 border-green-200'
+                      : 'bg-gray-50 border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${item.completed ? 'bg-green-100' : 'bg-gray-100'}`}>
+                      {item.completed ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <div className="text-gray-400">{item.icon}</div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">{item.label}</p>
+                      <p className="text-xs text-gray-500">{item.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                      item.points > 0 ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {item.points}%
+                    </span>
+                    {!item.completed && (
+                      <Link to={item.actionLink} className="text-xs font-semibold text-orange-500 hover:text-orange-600">
+                        {item.actionLabel}
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* Dossier Verification */}
+              <div
+                className={`flex items-center justify-between p-3 rounded-xl border ${
+                  dossierStatus.color === 'green'
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-gray-50 border-gray-200'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${
+                    dossierStatus.color === 'green' ? 'bg-green-100' : 'bg-gray-100'
+                  }`}>
+                    {dossierStatus.color === 'green' ? (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <FolderOpen className="h-4 w-4 text-gray-400" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">Dossier de vérification</p>
+                    <p className="text-xs text-gray-500">{dossierStatus.label}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                    dossierStatus.color === 'green' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    +{dossierStatus.points}%
+                  </span>
+                  {dossierStatus.color !== 'green' && (
+                    <Link to="/locataire/verification" className="text-xs font-semibold text-orange-500 hover:text-orange-600">
+                      {dossierStatus.label === 'Non commencé' ? 'Commencer' : 'Voir'}
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Compact Tips Section - Responsive */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Star className="h-4 w-4 text-orange-500" />
+              <span className="text-sm font-semibold text-gray-700">Boostez vos chances</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                Lettre personnalisée
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                Profil complet
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
+                Dossier validé
+              </span>
+              <span className="font-semibold text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
+                {applicationScore >= 70 ? '✓' : '?'} 3x plus de réponses
+              </span>
+            </div>
           </div>
-        )}
+        </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* STEP 1: Informations personnelles */}
-          <FormStepContent
-            step={1}
-            currentStep={step}
-            slideDirection={slideDirection}
-            className="space-y-6"
-          >
-            {/* Personal Info */}
-            <div className="form-section-premium">
-              <h2
-                className="text-xl font-bold mb-6 flex items-center gap-2"
-                style={{ color: 'var(--form-chocolat)' }}
-              >
-                <User className="h-5 w-5" style={{ color: 'var(--form-orange)' }} />
-                <span>Informations personnelles</span>
-              </h2>
-              <div className="space-y-4">
-                <div
-                  className="flex items-center justify-between py-3 border-b"
-                  style={{ borderColor: 'var(--form-border)' }}
-                >
-                  <div className="flex items-center gap-3">
-                    <User className="h-5 w-5" style={{ color: 'var(--form-sable)' }} />
-                    <span className="form-label-premium mb-0">Nom complet</span>
-                  </div>
-                  <span className="font-bold" style={{ color: 'var(--form-chocolat)' }}>
-                    {profile?.full_name || 'Non renseigné'}
-                  </span>
-                </div>
-                <div
-                  className="flex items-center justify-between py-3 border-b"
-                  style={{ borderColor: 'var(--form-border)' }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-5 w-5" style={{ color: 'var(--form-sable)' }} />
-                    <span className="form-label-premium mb-0">Email</span>
-                  </div>
-                  <span className="font-bold" style={{ color: 'var(--form-chocolat)' }}>
-                    {user?.email}
-                  </span>
-                </div>
-                <div
-                  className="flex items-center justify-between py-3 border-b"
-                  style={{ borderColor: 'var(--form-border)' }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Phone className="h-5 w-5" style={{ color: 'var(--form-sable)' }} />
-                    <span className="form-label-premium mb-0">Téléphone</span>
-                  </div>
-                  <span className="font-bold" style={{ color: 'var(--form-chocolat)' }}>
-                    {profile?.phone || 'Non renseigné'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between py-3">
-                  <div className="flex items-center gap-3">
-                    <MapPin className="h-5 w-5" style={{ color: 'var(--form-sable)' }} />
-                    <span className="form-label-premium mb-0">Ville</span>
-                  </div>
-                  <span className="font-bold" style={{ color: 'var(--form-chocolat)' }}>
-                    {profile?.city || 'Non renseignée'}
-                  </span>
-                </div>
-              </div>
-              <Link
-                to="/profil"
-                className="text-sm font-bold mt-4 inline-block transition-all hover:scale-105"
-                style={{ color: 'var(--form-orange)' }}
-              >
-                Modifier mes informations →
+        {/* Cover Letter */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <label className="flex items-center gap-2 font-semibold text-gray-900 mb-3">
+              <FileText className="h-5 w-5 text-orange-500" />
+              <span>Lettre de motivation</span>
+              <span className="text-xs font-normal text-red-500">*</span>
+            </label>
+            <ValidatedTextarea
+              name="coverLetter"
+              value={coverLetter}
+              onChange={(e) => setCoverLetter(e.target.value)}
+              onBlur={() =>
+                validateField('coverLetter', () =>
+                  ValidationService.validateMinLength(coverLetter, 50, 'La lettre de motivation')
+                )
+              }
+              rows={6}
+              required
+              placeholder="Présentez-vous et expliquez pourquoi vous souhaitez louer cette propriété..."
+              error={getFieldState('coverLetter').error}
+              touched={touched['coverLetter']}
+              isValid={getFieldState('coverLetter').isValid}
+              showCharCount
+              maxLength={2000}
+              className="w-full resize-none"
+              helperText={coverLetter.length < 50 ? `${coverLetter.length}/50 min.` : undefined}
+            />
+          </div>
+
+          {/* Terms */}
+          <label className="flex items-start gap-3 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer">
+            <input type="checkbox" required className="mt-0.5 w-4 h-4 text-orange-500 rounded" />
+            <span className="text-sm text-gray-600">
+              Je confirme les informations exactes et j'accepte les{' '}
+              <Link to="/conditions-utilisation" className="text-orange-500 font-semibold hover:underline">
+                conditions d'utilisation
               </Link>
-            </div>
+            </span>
+          </label>
 
-            {/* Verification Status */}
-            <div className="form-section-premium">
-              <h2
-                className="text-xl font-bold mb-6 flex items-center gap-2"
-                style={{ color: 'var(--form-chocolat)' }}
-              >
-                <Shield className="h-5 w-5" style={{ color: 'var(--form-orange)' }} />
-                <span>Statut de vérification</span>
-              </h2>
-              <div className="space-y-4">
-                <div
-                  className="flex items-center justify-between py-3 border-b"
-                  style={{ borderColor: 'var(--form-border)' }}
-                >
-                  <div>
-                    <span className="form-label-premium mb-0">Reconnaissance faciale (NeoFace)</span>
-                    <span className="text-xs block" style={{ color: 'var(--form-sable)' }}>
-                      Selfie + CNI (obligatoire pour postuler)
-                    </span>
-                  </div>
-                  <span
-                    className="font-bold px-4 py-2 rounded-full text-sm"
-                    style={{
-                      backgroundColor: isFaceVerified ? 'var(--form-success)' : 'var(--form-ivoire)',
-                      color: isFaceVerified ? 'white' : 'var(--form-sable)',
-                    }}
-                  >
-                    {isFaceVerified ? '✓ Vérifié' : '✗ Non vérifié'}
-                  </span>
-                </div>
-                <div
-                  className="flex items-center justify-between py-3 border-b"
-                  style={{ borderColor: 'var(--form-border)' }}
-                >
-                  <div>
-                    <span className="form-label-premium mb-0">Vérification d'identité</span>
-                    <span className="text-xs block" style={{ color: 'var(--form-sable)' }}>
-                      Document CNI authentifié via ONECI/CNAM
-                    </span>
-                  </div>
-                  <span
-                    className="font-bold px-4 py-2 rounded-full text-sm"
-                    style={{
-                      backgroundColor: isOneciVerified ? 'var(--form-success)' : 'var(--form-ivoire)',
-                      color: isOneciVerified ? 'white' : 'var(--form-sable)',
-                    }}
-                  >
-                    {isOneciVerified ? '✓ Vérifié' : '✗ Non vérifié'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between py-3">
-                  <span className="form-label-premium mb-0">Profil complet</span>
-                  <span
-                    className={`font-bold px-4 py-2 rounded-full text-sm`}
-                    style={{
-                      backgroundColor: profile?.profile_setup_completed
-                        ? 'var(--form-success)'
-                        : 'var(--form-ivoire)',
-                      color: profile?.profile_setup_completed ? 'white' : 'var(--form-sable)',
-                    }}
-                  >
-                    {profile?.profile_setup_completed ? '✓ Complet' : '✗ Incomplet'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Score Preview */}
-            <div className="form-section-premium" style={{ backgroundColor: 'var(--form-ivoire)' }}>
-              <div className="flex items-center justify-between mb-4">
-                <h3
-                  className="font-bold text-lg flex items-center gap-2"
-                  style={{ color: 'var(--form-chocolat)' }}
-                >
-                  <Award className="h-6 w-6" style={{ color: 'var(--form-orange)' }} />
-                  <span>Score de candidature</span>
-                </h3>
-                <span className="text-3xl font-bold" style={{ color: 'var(--form-orange)' }}>
-                  {scoreLoading ? '...' : `${applicationScore}/100`}
-                </span>
-              </div>
-              <div className="bg-white rounded-full h-4 overflow-hidden shadow-inner">
-                <div
-                  className="h-full transition-all duration-500"
-                  style={{ width: scoreLoading ? '0%' : `${applicationScore}%`, backgroundColor: 'var(--form-orange)' }}
-                />
-              </div>
-            </div>
-
-            {/* Next Button */}
-            <div className="form-actions">
-              <div></div>
-              <button type="button" onClick={nextStep} className="form-button-primary">
-                <span>Continuer</span>
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </div>
-          </FormStepContent>
-
-          {/* STEP 2: Lettre de motivation */}
-          <FormStepContent
-            step={2}
-            currentStep={step}
-            slideDirection={slideDirection}
-            className="space-y-6"
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={submitting || existingApplication}
+            className={`w-full py-4 rounded-xl font-bold text-white text-lg transition-all ${
+              submitting || existingApplication
+                ? 'bg-gray-300 cursor-not-allowed'
+                : applicationScore >= 70
+                  ? 'bg-green-500 hover:bg-green-600'
+                  : 'bg-orange-500 hover:bg-orange-600'
+            }`}
           >
-            <div className="form-section-premium">
-              <h2
-                className="text-xl font-bold mb-6 flex items-center gap-2"
-                style={{ color: 'var(--form-chocolat)' }}
-              >
-                <FileText className="h-5 w-5" style={{ color: 'var(--form-orange)' }} />
-                <span>Lettre de motivation</span>
-              </h2>
-              <ValidatedTextarea
-                name="coverLetter"
-                value={coverLetter}
-                onChange={(e) => setCoverLetter(e.target.value)}
-                onBlur={() =>
-                  validateField('coverLetter', () =>
-                    ValidationService.validateMinLength(coverLetter, 50, 'La lettre de motivation')
-                  )
-                }
-                rows={10}
-                required
-                placeholder="Présentez-vous et expliquez pourquoi vous souhaitez louer cette propriété... (minimum 50 caractères)"
-                error={getFieldState('coverLetter').error}
-                touched={touched['coverLetter']}
-                isValid={getFieldState('coverLetter').isValid}
-                showCharCount
-                maxLength={2000}
-                helperText={
-                  coverLetter.length < 50
-                    ? `${coverLetter.length}/50 caractères minimum`
-                    : undefined
-                }
-              />
-            </div>
+            {submitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                Envoi...
+              </span>
+            ) : existingApplication ? (
+              'Candidature envoyée'
+            ) : applicationScore >= 70 ? (
+              'Envoyer ma candidature'
+            ) : (
+              'Envoyer quand même'
+            )}
+          </button>
 
-            {/* Terms */}
-            <div className="form-section-premium">
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="terms"
-                  required
-                  className="mt-1 w-5 h-5 rounded"
-                  style={{ accentColor: 'var(--form-orange)' }}
-                />
-                <label
-                  htmlFor="terms"
-                  className="text-sm"
-                  style={{ color: 'var(--form-chocolat)' }}
-                >
-                  Je confirme que toutes les informations fournies sont exactes et j'accepte les{' '}
-                  <Link
-                    to="/conditions-utilisation"
-                    className="font-bold"
-                    style={{ color: 'var(--form-orange)' }}
-                  >
-                    conditions d'utilisation
-                  </Link>
-                  .
-                </label>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="form-actions">
-              <button type="button" onClick={prevStep} className="form-button-secondary">
-                <ArrowLeft className="h-5 w-5" />
-                <span>Retour</span>
-              </button>
-              <button
-                type="submit"
-                disabled={submitting || !!error || !isFaceVerified || existingApplication}
-                className="form-button-primary"
-              >
-                <FileText className="h-5 w-5" />
-                <span>
-                  {!isFaceVerified
-                    ? 'Reconnaissance faciale requise'
-                    : submitting
-                      ? 'Envoi en cours...'
-                      : 'Envoyer ma candidature'}
-                </span>
-              </button>
-            </div>
-          </FormStepContent>
+          {applicationScore < 70 && !existingApplication && (
+            <p className="text-xs text-center text-gray-500">
+              💡 Votre profil sera encore plus attractif avec les vérifications complètes
+            </p>
+          )}
         </form>
-      </div>
+      </main>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        onClose={() => {
+          console.log('[ApplicationForm] Confirmation modal cancelled');
+          setShowConfirmModal(false);
+        }}
+        onConfirm={submitApplication}
+        title="Profil incomplet"
+        message={`Votre score actuel est de ${applicationScore}%. Voulez-vous quand même envoyer votre candidature ?`}
+        details={missingConfirmItems}
+        confirmText="Envoyer quand même"
+        cancelText="Compléter d'abord"
+        variant="warning"
+      />
     </div>
   );
 }

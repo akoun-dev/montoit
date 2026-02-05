@@ -7,17 +7,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import {
-  User,
   Building2,
   Home,
   FileText,
   Upload,
   Send,
-  AlertCircle,
   CheckCircle2,
   Info,
   Loader2,
-  ChevronRight,
   Clock,
   XCircle,
   Eye,
@@ -288,15 +285,21 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
   const handleSubmit = async () => {
     console.log('handleSubmit called', { application, documents, requiredDocs, dossierType });
 
-    // Vérifier que tous les documents requis sont présents
+    // Vérifier si tous les documents requis sont présents
     const missingRequired = requiredDocs.filter((doc) => !documents[doc.type]);
     console.log('Missing required docs:', missingRequired);
 
+    // Nouvelle approche : ne plus bloquer, mais avertir
     if (missingRequired.length > 0) {
-      toast.error(
-        `Veuillez uploader tous les documents requis: ${missingRequired.map((d) => d.label).join(', ')}`
+      const confirmed = window.confirm(
+        `Certains documents requis sont manquants :\n\n${missingRequired.map((d) => `• ${d.label}`).join('\n')}\n\n` +
+        `Voulez-vous tout de même soumettre votre dossier ?\n\n` +
+        `⚠️ Note : Un dossier complet sera traité plus rapidement.`
       );
-      return;
+
+      if (!confirmed) {
+        return;
+      }
     }
 
     try {

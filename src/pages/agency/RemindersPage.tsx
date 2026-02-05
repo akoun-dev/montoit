@@ -212,18 +212,19 @@ export default function AgencyRemindersPage() {
     if (!user) return;
 
     try {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('user_id', user.id)
-        .single();
+      // Use RPC function to get user's agency (bypasses RLS)
+      const { data: agencyData } = await supabase
+        .rpc('get_user_agency', {
+          user_uuid: user.id
+        });
 
-      const id = profileData?.agency_id;
-      setAgencyId(id || null);
-      if (id) {
-        loadData(id);
+      const agencyId = agencyData?.[0]?.id || null;
+
+      setAgencyId(agencyId);
+      if (agencyId) {
+        loadData(agencyId);
       } else {
-        toast.error('Profil agence non trouvé');
+        toast.error('Profil agence non trouvé. Veuillez contacter le support.');
         setLoading(false);
       }
     } catch (error) {
@@ -389,7 +390,7 @@ export default function AgencyRemindersPage() {
       setSaving(true);
 
       // Try agency_reminder_settings first
-      let error = await (supabase as any)
+      const result1 = await (supabase as unknown as { from: (table: string) => { upsert: (data: Record<string, unknown>) => Promise<{ error: { error?: { message: string } } | null }> } })
         .from('agency_reminder_settings')
         .upsert({
           agency_id: agencyId,
@@ -401,8 +402,8 @@ export default function AgencyRemindersPage() {
         });
 
       // If agency table doesn't exist, try owner_settings
-      if (error.error && error.error.message.includes('relation')) {
-        error = await (supabase as any)
+      if (result1.error?.error?.message?.includes('relation')) {
+        const result2 = await (supabase as unknown as { from: (table: string) => { upsert: (data: Record<string, unknown>) => Promise<{ error: { error?: { message: string } } | null }> } })
           .from('reminder_settings')
           .upsert({
             owner_id: user.id,
@@ -412,9 +413,11 @@ export default function AgencyRemindersPage() {
             renewal_reminders_enabled: settings.renewal_reminders_enabled,
             renewal_reminder_days: settings.renewal_reminder_days,
           });
-      }
 
-      if (error.error) throw error.error;
+        if (result2.error?.error) throw result2.error.error;
+      } else if (result1.error?.error) {
+        throw result1.error.error;
+      }
 
       toast.success('Configuration sauvegardée');
     } catch (error: unknown) {
@@ -443,7 +446,7 @@ export default function AgencyRemindersPage() {
 
       const contract = contracts.find((c) => c.id === newReminder.contract_id);
 
-      const error = await (supabase as any)
+      const result = await (supabase as unknown as { from: (table: string) => { insert: (data: Record<string, unknown>) => Promise<{ error: { error?: { message: string } } | null }> } })
         .from('payment_reminders')
         .insert({
           agency_id: agencyId,
@@ -459,7 +462,7 @@ export default function AgencyRemindersPage() {
           status: 'pending',
         });
 
-      if (error.error) throw error.error;
+      if (result.error?.error) throw result.error.error;
 
       toast.success('Rappel créé avec succès');
       setShowCreateModal(false);
@@ -547,7 +550,7 @@ export default function AgencyRemindersPage() {
 
   const handleSendReminder = async (reminderId: string) => {
     try {
-      await (supabase as any)
+      await (supabase as unknown as { from: (table: string) => { update: (data: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<{ error: null }> } } })
         .from('payment_reminders')
         .update({ status: 'sent', sent_date: new Date().toISOString() })
         .eq('id', reminderId);
@@ -563,7 +566,7 @@ export default function AgencyRemindersPage() {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce rappel ?')) return;
 
     try {
-      await (supabase as any)
+      await (supabase as unknown as { from: (table: string) => { delete: () => { eq: (col: string, val: string) => Promise<{ error: null }> } } })
         .from('payment_reminders')
         .delete()
         .eq('id', reminderId);

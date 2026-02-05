@@ -68,7 +68,7 @@ const StatCard = ({
   value,
   color = 'gray',
 }: {
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string | number;
   color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple';
@@ -172,16 +172,16 @@ export default function AgencyDocumentsPage() {
     try {
       setLoading(true);
 
-      // Fetch agency ID from user profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('user_id', user.id)
-        .single();
+      // Use RPC function to get user's agency (bypasses RLS)
+      const { data: agencyData } = await supabase
+        .rpc('get_user_agency', {
+          user_uuid: user.id
+        });
 
-      const agencyId = profileData?.agency_id;
+      const agencyId = agencyData?.[0]?.id || null;
+
       if (!agencyId) {
-        toast.error('Profil agence non trouvé');
+        toast.error('Profil agence non trouvé. Veuillez contacter le support.');
         setLoading(false);
         return;
       }
@@ -200,7 +200,7 @@ export default function AgencyDocumentsPage() {
       let docsError;
 
       try {
-        const result = await (supabase as any)
+        const result = await (supabase as unknown as { from: (table: string) => { select: (cols: string) => { eq: (col: string, val: string) => { order: (col: string, opts: { ascending: boolean }) => Promise<{ data: Document[] | null; error: { message: string } | null }> } } } })
           .from('agency_documents')
           .select('*, properties(id, title, city, main_image)')
           .eq('agency_id', agencyId)
@@ -214,9 +214,9 @@ export default function AgencyDocumentsPage() {
       if (docsError) {
         console.log('agency_documents table does not exist yet, trying owner_documents:', docsError.message);
         // Fallback to owner_documents filtered by agency properties
-        const propertyIds = (propertiesData || []).map((p: any) => p.id);
+        const propertyIds = (propertiesData || []).map((p: Property) => p.id);
         if (propertyIds.length > 0) {
-          const { data: ownerDocs } = await (supabase as any)
+          const { data: ownerDocs } = await (supabase as unknown as typeof supabase & { from: (table: string) => { select: (cols: string) => { in: (col: string, vals: string[]) => { order: (col: string, opts: { ascending: boolean }) => Promise<{ data: Document[] | null; error: { message: string } | null }> } } } })
             .from('owner_documents')
             .select('*, properties(id, title, city, main_image)')
             .in('property_id', propertyIds)
@@ -256,18 +256,24 @@ export default function AgencyDocumentsPage() {
 
   const handleFileSelect = async (files: FileList) => {
     if (!files.length) return;
+    if (!files.length) return;
 
     setUploading(true);
 
     try {
-      // Fetch agency ID
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('agency_id')
-        .eq('user_id', user!.id)
-        .single();
+      // Use RPC function to get user's agency (bypasses RLS)
+      const { data: agencyData } = await supabase
+        .rpc('get_user_agency', {
+          user_uuid: user!.id
+        });
 
-      const agencyId = profileData?.agency_id;
+      const agencyId = agencyData?.[0]?.id || null;
+
+      if (!agencyId) {
+        toast.error('Profil agence non trouvé');
+        setUploading(false);
+        return;
+      }
       if (!agencyId) {
         toast.error('Profil agence non trouvé');
         return;
@@ -319,24 +325,24 @@ export default function AgencyDocumentsPage() {
 
         // Try agency-documents bucket first, fallback to owner-documents
         let bucketName = 'agency-documents';
-        let uploadError = await supabase.storage
+        let uploadResult = await supabase.storage
           .from(bucketName)
           .upload(filePath, file);
 
-        if (uploadError.error && uploadError.error.message.includes('bucket not found')) {
+        if (uploadResult.error && uploadResult.error.message.includes('bucket not found')) {
           bucketName = 'owner-documents';
-          uploadError = await supabase.storage
+          uploadResult = await supabase.storage
             .from(bucketName)
             .upload(filePath, file);
         }
 
-        if (uploadError.error) {
-          console.error('Storage upload error:', uploadError.error);
-          if (uploadError.error.message.includes('bucket not found') || uploadError.error.message.includes('The resource was not found')) {
+        if (uploadResult.error) {
+          console.error('Storage upload error:', uploadResult.error);
+          if (uploadResult.error.message.includes('bucket not found') || uploadResult.error.message.includes('The resource was not found')) {
             toast.error('Bucket de stockage non configure. Contactez l\'administrateur.');
             return;
           }
-          throw uploadError.error;
+          throw uploadResult.error;
         }
 
         const { data: urlData } = supabase.storage
@@ -344,11 +350,8 @@ export default function AgencyDocumentsPage() {
           .getPublicUrl(filePath);
 
         // Try agency_documents table first
-        let dbError;
-        let tableName = 'agency_documents';
-
-        dbError = await (supabase as any)
-          .from(tableName)
+        const dbResult1 = await (supabase as unknown as { from: (table: string) => { insert: (data: Record<string, unknown>) => Promise<{ error: { error?: { message: string } } | null }>} })
+          .from('agency_documents')
           .insert({
             agency_id: agencyId,
             name: file.name,
@@ -363,10 +366,9 @@ export default function AgencyDocumentsPage() {
             signed: false,
           });
 
-        if (dbError.error && dbError.error.message.includes('relation')) {
-          tableName = 'owner_documents';
-          dbError = await (supabase as any)
-            .from(tableName)
+        if (dbResult1.error?.error?.message?.includes('relation')) {
+          const dbResult2 = await (supabase as unknown as { from: (table: string) => { insert: (data: Record<string, unknown>) => Promise<{ error: { error?: { message: string } } | null }>} })
+            .from('owner_documents')
             .insert({
               owner_id: user!.id,
               name: file.name,
@@ -380,15 +382,22 @@ export default function AgencyDocumentsPage() {
               ocr_text: ocrResult.success ? ocrResult.text : null,
               signed: false,
             });
-        }
 
-        if (dbError.error) {
-          console.error('Database insert error:', dbError.error);
-          if (dbError.error.message.includes('relation') || dbError.error.message.includes('does not exist')) {
+          if (dbResult2.error?.error) {
+            console.error('Database insert error:', dbResult2.error.error);
+            if (dbResult2.error.error.message.includes('relation') || dbResult2.error.error.message.includes('does not exist')) {
+              toast.error(`Table de documents non configuree. Contactez l\'administrateur.`);
+              return;
+            }
+            throw dbResult2.error.error;
+          }
+        } else if (dbResult1.error?.error) {
+          console.error('Database insert error:', dbResult1.error.error);
+          if (dbResult1.error.error.message.includes('relation') || dbResult1.error.error.message.includes('does not exist')) {
             toast.error(`Table de documents non configuree. Contactez l\'administrateur.`);
             return;
           }
-          throw dbError.error;
+          throw dbResult1.error.error;
         }
 
         if (ocrResult.success) {
@@ -431,19 +440,21 @@ export default function AgencyDocumentsPage() {
 
     try {
       // Try agency_documents first
-      let error = await (supabase as any)
+      const result1 = await (supabase as unknown as { from: (table: string) => { delete: () => { eq: (col: string, val: string) => Promise<{ error: { error?: { message: string } } | null }> } } })
         .from('agency_documents')
         .delete()
         .eq('id', docId);
 
-      if (error.error) {
-        error = await (supabase as any)
+      if (result1.error?.error) {
+        const result2 = await (supabase as unknown as { from: (table: string) => { delete: () => { eq: (col: string, val: string) => Promise<{ error: { error?: { message: string } } | null }> } } })
           .from('owner_documents')
           .delete()
           .eq('id', docId);
-      }
 
-      if (error.error) throw error.error;
+        if (result2.error?.error) throw result2.error.error;
+      } else if (result1.error?.error) {
+        throw result1.error.error;
+      }
 
       toast.success('Document supprime');
       loadData();
