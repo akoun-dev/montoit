@@ -335,7 +335,7 @@ export default function CreateContractPage() {
       setSuccess('Contrat créé et PDF généré avec succès!');
 
       setTimeout(() => {
-        navigate(`/contrat/${data.id}`);
+        navigate(`/proprietaire/contrats/${data.id}`);
       }, 2000);
     } catch (err: unknown) {
       console.error('Error creating contract:', err);

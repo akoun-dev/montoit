@@ -326,7 +326,7 @@ const ApplicationRow = ({
             {application.status === 'acceptee' && (
               application.contract_id ? (
                 <button
-                  onClick={() => navigate(`/contrat/${application.contract_id}`)}
+                  onClick={() => navigate(`/proprietaire/contrats/${application.contract_id}`)}
                   className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-1.5 shadow-md hover:shadow-lg"
                 >
                   <FileText className="h-4 w-4" />
@@ -930,7 +930,7 @@ export default function OwnerApplicationsPage() {
                         {application.status === 'acceptee' && (
                           application.contract_id ? (
                             <button
-                              onClick={() => navigate(`/contrat/${application.contract_id}`)}
+                              onClick={() => navigate(`/proprietaire/contrats/${application.contract_id}`)}
                               className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm font-medium rounded-lg transition-all flex items-center gap-1.5"
                             >
                               <FileText className="h-3.5 w-3.5" />

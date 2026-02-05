@@ -421,7 +421,7 @@ export default function TerminatedContractsTab({ stats, onRefresh }: TerminatedC
                   {/* Actions */}
                   <div className="flex flex-row lg:flex-col gap-2 flex-shrink-0">
                     <Link
-                      to={`/contrat/${contract.id}`}
+                      to={`/proprietaire/contrats/${contract.id}`}
                       className="flex-1 lg:flex-none px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-700 transition-colors flex items-center justify-center gap-2"
                     >
                       <Eye className="h-4 w-4" />

@@ -187,7 +187,7 @@ async function sendSignatureNotification(signatureData: SignatureData): Promise<
         title: 'Nouvelle signature',
         message: `${signerName} a signé le contrat ${contract.contract_number}`,
         type: 'info',
-        action_url: `/contrat/${signatureData.contractId}`,
+        action_url: `/proprietaire/contrats/${signatureData.contractId}`,
         channel: 'in_app',
       });
 

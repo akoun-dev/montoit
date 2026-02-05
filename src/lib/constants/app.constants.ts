@@ -27,7 +27,7 @@ export const ROUTES = {
   MESSAGES: '/messages',
   CONTRACTS: {
     LIST: '/proprietaire/contrats',
-    DETAIL: '/proprietaire/contrat/:id',
+    DETAIL: '/proprietaire/contrats/:id',
     CREATE: '/proprietaire/creer-contrat/:propertyId',
     SIGN: '/proprietaire/signer-bail/:id',
   },

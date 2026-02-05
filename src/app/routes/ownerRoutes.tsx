@@ -87,10 +87,18 @@ export const ownerRoutes: RouteObject[] = [
         ),
       },
       {
-        path: 'contrat/:id',
+        path: 'contrats/:id',
         element: (
           <ProtectedRoute allowedRoles={[...PROPERTY_MANAGER_ROLES]}>
             <ContractDetail />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'contrats/:id/editer',
+        element: (
+          <ProtectedRoute allowedRoles={[...PROPERTY_MANAGER_ROLES]}>
+            <CreateContract />
           </ProtectedRoute>
         ),
       },

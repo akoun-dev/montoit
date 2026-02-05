@@ -802,7 +802,7 @@ export default function OwnerContractsPage() {
                               <Button
                                 variant="outline"
                                 size="small"
-                                onClick={() => navigate(`/contrat/${contract.id}`)}
+                                onClick={() => navigate(`/proprietaire/contrats/${contract.id}`)}
                                 className="flex items-center gap-2"
                               >
                                 <Eye className="w-4 h-4" />
@@ -831,7 +831,7 @@ export default function OwnerContractsPage() {
                                   <Button
                                     variant="outline"
                                     size="small"
-                                    onClick={() => navigate(`/contrat/${contract.id}/editer`)}
+                                    onClick={() => navigate(`/proprietaire/contrats/${contract.id}/editer`)}
                                     className="flex items-center gap-2"
                                   >
                                     <RefreshCw className="w-4 h-4" />
@@ -908,7 +908,7 @@ export default function OwnerContractsPage() {
                                   <Button
                                     variant="outline"
                                     size="small"
-                                    onClick={() => navigate(`/contrat/${contract.id}`)}
+                                    onClick={() => navigate(`/proprietaire/contrats/${contract.id}`)}
                                     className="flex items-center gap-2"
                                   >
                                     <Eye className="w-4 h-4" />

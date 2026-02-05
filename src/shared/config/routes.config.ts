@@ -62,8 +62,8 @@ export const ROUTES = {
 
   CONTRACTS: {
     LIST: '/proprietaire/contrats',
-    DETAIL: '/proprietaire/contrat/:id',
-    DETAIL_ENHANCED: '/proprietaire/contrat/:id/detaille',
+    DETAIL: '/proprietaire/contrats/:id',
+    DETAIL_ENHANCED: '/proprietaire/contrats/:id/detaille',
     CREATE: '/proprietaire/creer-contrat/:propertyId',
     SIGN: '/proprietaire/signer-bail/:id',
   },

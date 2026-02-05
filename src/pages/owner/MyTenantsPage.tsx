@@ -604,7 +604,7 @@ export default function MyTenantsPage() {
                             {isExpanded ? 'Masquer' : 'Voir les paiements'}
                           </button>
                           <Link
-                            to={`/contrat/${contract.id}`}
+                            to={`/proprietaire/contrats/${contract.id}`}
                             className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-sm font-medium transition-colors"
                           >
                             <Home className="w-4 h-4" />
