@@ -191,7 +191,7 @@ export default function MyTenantsPage() {
           const { data: paymentsData } = await supabase
             .from('payments')
             .select('*')
-            .eq('contract_id', contract.id)
+            .eq('lease_id', contract.id)
             .order('due_date', { ascending: false })
             .limit(12);
 

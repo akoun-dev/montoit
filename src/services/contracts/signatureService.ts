@@ -83,6 +83,17 @@ export async function saveContractSignature(signatureData: SignatureData): Promi
 
     if (ownerWillSign && tenantWillSign) {
       updateData.status = 'actif';
+
+      // Mettre à jour le statut de la propriété à "loue"
+      const { error: propertyUpdateError } = await supabase
+        .from('properties')
+        .update({ status: 'loue' })
+        .eq('id', contract.property_id);
+
+      if (propertyUpdateError) {
+        console.error('Erreur lors de la mise à jour du statut de la propriété:', propertyUpdateError);
+        // Ne pas bloquer le processus si la mise à jour de la propriété échoue
+      }
     } else if (ownerWillSign || tenantWillSign) {
       updateData.status = 'en_attente_signature';
     }

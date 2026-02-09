@@ -11,7 +11,7 @@
  * - BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { getCorsHeaders } from '../_shared/cors.ts';
 
 interface OtpRequest {

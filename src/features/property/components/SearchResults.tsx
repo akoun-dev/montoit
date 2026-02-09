@@ -1,5 +1,6 @@
 import { MapPin, Bed, Bath, Maximize, Home, Heart } from 'lucide-react';
 import { PropertyCardSkeleton } from '@/shared/ui/Skeleton';
+import { clsx } from 'clsx';
 import type { Database } from '@/shared/lib/database.types';
 
 type Property = Database['public']['Tables']['properties']['Row'];
@@ -66,19 +67,55 @@ function PropertyCard({ property, onClick }: PropertyCardProps) {
   const images = Array.isArray(property.images) ? property.images : [];
   const mainImage = images[0] || 'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg';
 
+  // Helper to get status badge
+  const getStatusBadge = () => {
+    if (!property.status) return null;
+    const status = property.status.toLowerCase();
+
+    const statusConfig: Record<string, { label: string; className: string; icon: string }> = {
+      disponible: { label: 'Disponible', className: 'bg-emerald-600 text-white', icon: '✓' },
+      loue: { label: 'Louée', className: 'bg-blue-600 text-white', icon: '🔑' },
+      louee: { label: 'Louée', className: 'bg-blue-600 text-white', icon: '🔑' },
+      en_attente: { label: 'En cours', className: 'bg-amber-500 text-white', icon: '⏳' },
+      reservee: { label: 'Réservée', className: 'bg-purple-600 text-white', icon: '📋' },
+      indisponible: { label: 'Indisponible', className: 'bg-gray-500 text-white', icon: '✕' },
+      maintenance: { label: 'Maintenance', className: 'bg-red-600 text-white', icon: '🔧' },
+    };
+
+    const config = statusConfig[status];
+    if (!config) return null;
+
+    return (
+      <div className={`absolute top-3 left-3 ${config.className} px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg flex items-center gap-1`}>
+        <span>{config.icon}</span> {config.label}
+      </div>
+    );
+  };
+
+  const isUnavailable = property.status === 'loue' || property.status === 'louee' || property.status === 'en_attente' || property.status === 'indisponible' || property.status === 'maintenance';
+
   return (
     <div
       onClick={onClick}
-      className="group premium-card card-hover-premium overflow-hidden cursor-pointer"
+      className={clsx(
+        "group premium-card card-hover-premium overflow-hidden cursor-pointer",
+        isUnavailable && "opacity-75"
+      )}
     >
       {/* Image - 60%+ de la carte */}
       <div className="relative h-56 sm:h-64 overflow-hidden">
         <img
           src={mainImage}
           alt={property.title}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className={clsx(
+            "w-full h-full object-cover transition-transform duration-500",
+            !isUnavailable && "group-hover:scale-105"
+          )}
           loading="lazy"
         />
+
+        {/* Status Badge - Top Left */}
+        {getStatusBadge()}
 
         {/* Prix en Overlay - Bottom Left */}
         <div className="absolute bottom-3 left-3 px-4 py-2 bg-[var(--color-chocolat)]/90 backdrop-blur-sm rounded-xl text-white shadow-lg">
@@ -88,8 +125,8 @@ function PropertyCard({ property, onClick }: PropertyCardProps) {
           <span className="text-xs opacity-80 ml-1">/mois</span>
         </div>
 
-        {/* Badge Type - Top Left */}
-        {property.property_category === 'commercial' && (
+        {/* Badge Type - Top Left (secondary position) */}
+        {property.property_category === 'commercial' && !isUnavailable && (
           <div className="absolute top-3 left-3 bg-[var(--color-orange)] text-white px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg">
             Commercial
           </div>

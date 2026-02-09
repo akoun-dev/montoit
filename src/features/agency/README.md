@@ -1,101 +1,444 @@
-# Refonte Dashboard d'Agence
+# Module Agence - MonToit
 
-## 🎯 Vue d'ensemble
+Module de gestion complète pour les agences immobilières sur la plateforme MonToit.
 
-Cette refonte complète du dashboard d'agence transforme l'interface en une solution moderne, professionnelle et accessible pour la gestion d'agence immobilière.
+## 📋 Table des matières
 
-## ✨ Fonctionnalités principales
+- [Fonctionnalités](#-fonctionnalités)
+- [Routes](#-routes)
+- [Composants](#-composants)
+- [Services](#-services)
+- [Hooks](#-hooks)
+- [Base de données](#-base-de-données)
+- [Architecture](#-architecture)
+- [Sécurité](#-sécurité)
+- [Intégrations](#-intégrations)
 
-### 🏢 Header professionnel avec équipe
+---
 
-- Logo et nom de l'agence avec statut
-- Navigation principale responsive
-- Barre de recherche intégrée
-- Sélecteur de période temporelle
-- Actions rapides (export, notifications, paramètres)
-- Menu utilisateur avec profil
+## 🚀 Fonctionnalités
 
-### 📊 Grille de statistiques 4 cartes
+### Dashboard
 
-1. **Propriétés portefeuille** - Nombre total avec répartition actives/vente
-2. **Équipes** - Agents actifs avec demandes en attente
-3. **Commissions** - Montant mensuel avec moyennes par agent
-4. **Conversions** - Taux de conversion avec valeur moyenne
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Vue d'ensemble** | Statistiques globales de l'agence |
+| **KPIs** | Biens, baux actifs, candidatures, revenus |
+| **Tendances** | Évolution des indicateurs clés |
+| **Actions rapides** | Accès rapide aux fonctionnalités principales |
 
-### 🏠 Table Propriétés avec attribution agents
+### Gestion des Biens
 
-- Vue détaillée des propriétés attribuées
-- Attribution aux agents avec avatars
-- Filtres par statut et type de propriété
-- Recherche en temps réel
-- Actions contextuelles (voir, modifier)
-- Statistiques rapides en en-tête
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Liste des biens** | Vue complète avec filtres et recherche |
+| **Détail bien** | Informations complètes avec photos et caractéristiques |
+| **Édition** | Modification des informations d'un bien |
+| **Ajout** | Création via formulaire complet |
+| **Attributions** | Assignation aux agents de l'agence |
+| **Tableau avancé** | Vue avec agents assignés et statuts |
 
-### 💰 Commissions tracking cards
+### Gestion des Mandats
 
-- **Card Progression** : Graphique de progression avec barre de statut
-- **Card Performance équipe** : Meilleurs agents et conversions
-- **Card Activité récente** : Transactions et statistiques hebdomadaires
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Liste des mandats** | Filtres : tous, en attente, actifs, suspendus, annulés |
+| **Recherche** | Par bien, ville ou propriétaire |
+| **Détail mandat** | Informations complètes |
+| **Signature numérique** | Via CryptoNeo |
+| **Signature manuscrite** | Capture à la main |
+| **Kanban** | Vue tableau des mandats |
+| **Commission** | Calcul automatique |
+| **Permissions** | Gestion des droits par mandat |
 
-### 📋 Demandes d'inscription
+**Statuts de mandat :**
+- `pending` - En attente d'acceptation
+- `active` - Mandat actif
+- `suspended` - Suspendu temporairement
+- `cancelled` - Annulé
 
-- Gestion complète des candidatures d'agents
-- Formulaire détaillé avec expérience, certifications
-- Actions d'approbation/rejet avec raisons
-- Système de notation par étoiles
-- Filtres avancés et recherche
+### Gestion des Candidatures
 
-### 🧭 Navigation sidebar optionnelle
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Liste** | Toutes les candidatures locataires |
+| **Statuts** | En attente, acceptée, refusée, en cours |
+| **Détail candidat** | Profil complet avec documents |
 
-- Design glassmorphism avec backdrop blur
-- Navigation hiérarchique avec badges
+### Contrats de Location
+
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Création** | Créer un contrat de location |
+| **Liste** | Vue de tous les contrats |
+| **Génération PDF** | Documents automatiques |
+| **Signature** | Intégration CryptoNeo |
+
+### Équipe & Collaborateurs
+
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Gestion d'équipe** | Liste des agents avec rôles |
+| **Invitations** | Email avec token sécurisé |
+| **Rôles** | admin, owner, agent |
+| **Commissions** | Taux par agent |
+| **Profils** | Gestion des profils agents |
+| **Demandes** | Inscriptions en attente |
+
+### Suivi Financier
+
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Commissions** | Tableau de bord complet |
+| **Paiements** | Encaissés et en attente |
+| **Revenus** | Statistiques mensuelles |
+| **Performance** | Graphiques de progression |
+
+### Planning & Organisation
+
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Calendrier** | Rendez-vous et événements |
+| **Visites** | Gestion des visites de biens |
+| **Rappels** | Système automatique |
+
+### Communication
+
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Messagerie** | Communication avec locataires et propriétaires |
+| **Notifications** | Temps réel pour événements importants |
+
+### Documents
+
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Gestion** | Stockage et organisation |
+| **Génération PDF** | Mandats et contrats automatiques |
+
+### Analytics
+
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Tableau de bord** | Statistiques globales |
+| **Métriques** | Biens, baux, candidatures |
+| **Tendances** | Revenus et commissions |
+
+---
+
+## 🛣️ Routes
+
+Base : `/agences/` (défini dans `src/app/routes/agencyRoutes.tsx`)
+
+| Route | Composant | Description |
+|-------|-----------|-------------|
+| `/agences/dashboard` | DashboardPage | Vue d'ensemble |
+| `/agences/biens` | AgencyPropertiesPage | Liste des biens |
+| `/agences/biens/:id` | AgencyPropertyDetailPage | Détail bien |
+| `/agences/biens/:id/edit` | AgencyPropertyEditPage | Édition bien |
+| `/agences/ajouter-bien` | AddPropertyPage | Ajouter bien |
+| `/agences/mandats` | AgencyMandatesPage | Liste mandats |
+| `/agences/mes-mandats` | MyMandatesPage | Mes mandats |
+| `/agences/mandats-kanban` | AgencyMandatesKanbanPage | Vue Kanban |
+| `/agences/mandats/:id` | MandateDetailPage | Détail mandat |
+| `/agences/signer-mandat/:id` | SignMandatePage | Signature numérique |
+| `/agences/mes-mandats/signer/:id` | HandwrittenSignaturePage | Signature manuscrite |
+| `/agences/candidatures` | CandidaturesPage | Candidatures |
+| `/agences/contrats` | ContratsPage | Liste contrats |
+| `/agences/creer-contrat` | CreateContractPage | Créer contrat |
+| `/agences/creer-contrat/:propertyId` | CreateContractPage | Contrat pour bien |
+| `/agences/analytics` | AnalyticsPage | Statistiques |
+| `/agences/calendrier` | CalendarPage | Calendrier |
+| `/agences/visites` | VisitsPage | Visites |
+| `/agences/paiements` | PaymentsPage | Paiements |
+| `/agences/documents` | DocumentsPage | Documents |
+| `/agences/rappels` | RemindersPage | Rappels |
+| `/agences/equipe` | TeamManagementPage | Équipe |
+| `/agences/attributions` | PropertyAssignmentsPage | Attributions |
+| `/agences/commissions` | CommissionsPage | Commissions |
+| `/agences/agent/:id` | AgentDetailPage | Profil agent |
+| `/agences/inscription-demandes` | RegistrationRequestsPage | Demandes |
+| `/agences/profil` | ProfilePage | Profil agence |
+| `/agences/messages` | MessagesPage | Messagerie |
+
+---
+
+## 🧩 Composants
+
+### Layout
+
+| Composant | Fichier | Description |
+|-----------|---------|-------------|
+| `AgencyDashboardLayout` | `components/AgencyDashboardLayout.tsx` | Layout principal |
+| `AgencySidebar` | `components/AgencySidebar.tsx` | Navigation latérale |
+| `Header` | `components/Header.tsx` | En-tête professionnel |
+
+### Navigation
+
+- Badges pour les notifications (candidatures, paiements, rappels)
+- Design glassmorphism
 - Responsive avec overlay mobile
-- États actifs et hover premium
+- Items organisés par catégories
 
-## 🎨 Design System Premium
+### Cards & Statistiques
 
-### Design Tokens utilisés
+| Composant | Description |
+|-----------|-------------|
+| `StatCard` | Carte statistique avec tendance et détails |
+| `MandateCard` | Carte de résumé de mandat |
+| `MandateStatusBadge` | Badge de statut coloré |
 
-```css
-/* Couleurs principales */
---color-primary-500: #ff6c2f; /* Orange de marque */
---color-primary-600: #e05519; /* Hover state */
---color-neutral-900: #171717; /* Texte principal */
---color-neutral-700: #404040; /* Texte secondaire */
+### Tables & Listes
 
-/* Espacements premium */
---spacing-8: 32px; /* Card padding minimum */
---spacing-12: 48px; /* Card padding premium */
---spacing-16: 64px; /* Espacement sections */
+| Composant | Description |
+|-----------|-------------|
+| `PropertiesTable` | Tableau biens avec agents assignés |
+| `MandateDetailPanel` | Panel d'informations détaillées |
 
-/* Ombres professionnels */
---shadow-base: 0 1px 3px rgba(0, 0, 0, 0.1);
---shadow-card-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
---shadow-focus: 0 0 0 3px rgba(255, 108, 47, 0.15);
+### Formulaires & Dialogs
+
+| Composant | Description |
+|-----------|-------------|
+| `MandatePermissionsForm` | Formulaire permissions mandat |
+| `InviteAgencyDialog` | Dialog d'invitation agent |
+| `HandwrittenSignaturePage` | Capture signature manuscrite |
+
+### Demandes d'inscription
+
+| Composant | Description |
+|-----------|-------------|
+| `RegistrationRequests` | Gestion des candidatures agents |
+| `AgentInvitation` | Formulaire d'invitation |
+
+---
+
+## 🔧 Services
+
+### AgentInvitationService
+
+`src/features/agency/services/agentInvitation.service.ts`
+
+```typescript
+// Inviter un agent
+inviteAgent(email: string, commissionRate: number, role: string): Promise<Invitation>
+
+// Valider un token
+validateInvitation(token: string): Promise<ValidationResult>
+
+// Accepter une invitation
+acceptInvitation(token: string, userId: string): Promise<void>
 ```
 
-### Palette de couleurs sémantiques
+### MandateService
 
-- **Succès** : #059669 (Vert)
-- **Erreur** : #DC2626 (Rouge)
-- **Avertissement** : #D97706 (Orange)
-- **Information** : #2563EB (Bleu)
+Gestion complète des mandats :
+- CRUD opérations
+- Changements de statut
+- Calcul des commissions
+- Gestion des permissions
 
-## ♿ Accessibilité (WCAG AAA)
+### NotificationService
 
-### Contrastes respectés
+- Notifications temps réel
+- Emails automatiques
+- Statuts de mandat
 
-- Texte principal : 16.5:1 (neutral-900 vs blanc)
-- Texte secondaire : 8.6:1 (neutral-700 vs blanc)
-- Éléments interactifs : AA Large (primary-500 vs blanc)
+---
 
-### Améliorations accessibilité
+## 🪝 Hooks
 
-- Focus rings visibles et cohérents
-- Navigation clavier complète
-- Alt text descriptifs pour les icônes
-- Tailles minimum de touch targets (44px)
-- Animations respectueuses (prefers-reduced-motion)
+### useAgencyMandates
+
+`src/hooks/useAgencyMandates.ts`
+
+```typescript
+const {
+  mandates,           // Liste des mandats
+  loading,           // État de chargement
+  error,             // Erreur éventuelle
+  // Actions
+  acceptMandate,     // Accepter un mandat
+  refuseMandate,     // Refuser un mandat
+  terminateMandate,  // Terminer un mandat
+  suspendMandate,    // Suspendre un mandat
+  reactivateMandate, // Réactiver un mandat
+  updatePermissions, // Mettre à jour les permissions
+  calculateCommission // Calculer la commission
+} = useAgencyMandates(agencyId);
+```
+
+---
+
+## 💾 Base de Données
+
+### Tables principales
+
+#### `profiles`
+
+```sql
+-- Champs agence
+agency_name              text
+agency_logo              text
+agency_description       text
+agency_website           text
+agency_phone             text
+agency_email             text
+agency_id                uuid (references agencies)
+verification_documents   jsonb
+```
+
+#### `agencies`
+
+```sql
+id                  uuid primary key
+name                text not null
+commission_rate     numeric
+verification_status text
+created_at          timestamp
+updated_at          timestamp
+```
+
+#### `mandates`
+
+```sql
+id              uuid primary key
+property_id     uuid (references properties)
+agency_id       uuid (references agencies)
+agent_id        uuid (references profiles)
+owner_id        uuid (references profiles)
+status          text -- pending, active, suspended, cancelled
+commission_rate numeric
+start_date      date
+end_date        date
+permissions     jsonb
+created_at      timestamp
+updated_at      timestamp
+```
+
+#### `agent_invitations`
+
+```sql
+id              uuid primary key
+agency_id       uuid (references agencies)
+email           text
+token           text
+commission_rate numeric
+role            text
+accepted_at     timestamp
+expires_at      timestamp
+created_at      timestamp
+```
+
+---
+
+## 🏗️ Architecture
+
+### Structure des dossiers
+
+```
+src/features/agency/
+├── components/
+│   ├── AgencyDashboardLayout.tsx    # Layout principal
+│   ├── AgencySidebar.tsx            # Navigation
+│   ├── Header.tsx                   # En-tête
+│   ├── StatCard.tsx                 # Cartes stats
+│   ├── MandateCard.tsx              # Cartes mandats
+│   ├── MandateStatusBadge.tsx       # Badges statut
+│   ├── MandateDetailPanel.tsx       # Panel détail
+│   ├── PropertiesTable.tsx          # Tableau biens
+│   ├── RegistrationRequests.tsx     # Demandes
+│   ├── InviteAgencyDialog.tsx       # Dialog invitation
+│   └── MandatePermissionsForm.tsx   # Formulaire permissions
+├── pages/
+│   ├── DashboardPage.tsx            # Dashboard
+│   ├── AgencyMandatesPage.tsx       # Liste mandats
+│   ├── MyMandatesPage.tsx           # Mes mandats
+│   ├── EnhancedAgencyMandatesPage.tsx # Version améliorée
+│   ├── MandateDetailPage.tsx        # Détail mandat
+│   ├── AgencyMandatesKanbanPage.tsx # Vue Kanban
+│   ├── AgencyPropertiesPage.tsx     # Liste biens
+│   ├── AgencyPropertyDetailPage.tsx # Détail bien
+│   ├── AgencyPropertyEditPage.tsx   # Édition bien
+│   ├── AddPropertyPage.tsx          # Ajouter bien
+│   ├── PropertyAssignmentsPage.tsx  # Attributions
+│   ├── TeamManagementPage.tsx       # Équipe
+│   ├── RegistrationRequestsPage.tsx # Demandes inscription
+│   ├── CommissionsPage.tsx          # Commissions
+│   ├── AgentDetailPage.tsx          # Profil agent
+│   ├── InviteAgencyDialog.tsx       # Invitation
+│   ├── ProfilePage.tsx              # Profil agence
+│   ├── AnalyticsPage.tsx            # Analytics
+│   ├── CandidaturesPage.tsx         # Candidatures
+│   ├── ContratsPage.tsx             # Contrats
+│   ├── CreateContractPage.tsx       # Créer contrat
+│   ├── VisitsPage.tsx               # Visites
+│   ├── CalendarPage.tsx             # Calendrier
+│   ├── PaymentsPage.tsx             # Paiements
+│   ├── DocumentsPage.tsx            # Documents
+│   ├── RemindersPage.tsx            # Rappels
+│   ├── SignMandatePage.tsx          # Signature numérique
+│   └── HandwrittenSignaturePage.tsx # Signature manuscrite
+├── services/
+│   └── agentInvitation.service.ts   # Service invitations
+└── index.ts                         # Exports
+```
+
+### Flux de données
+
+```
+┌─────────────────┐
+│   Routes        │  /agences/*
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│  Layout         │  AgencyDashboardLayout
+│  + Sidebar      │  AgencySidebar
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│    Pages        │  Contenu spécifique
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│  Hooks/Services │  useAgencyMandates, etc.
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│  Supabase       │  Database + Auth
+└─────────────────┘
+```
+
+---
+
+## 🔐 Sécurité
+
+### Protection des routes
+
+- Toutes les routes protégées par `ProtectedRoute`
+- Vérification des rôles via table `user_roles`
+
+### Rôles & Permissions
+
+| Rôle | Permissions |
+|------|-------------|
+| `admin` | Accès complet, analytics, paiements, commissions |
+| `owner` | Gestion équipe, attributions, invitations |
+| `agent` | Biens, mandats, candidatures, contrats, visites |
+| `moderator` | Modération contenu |
+
+### RLS (Row Level Security)
+
+- Policies sur les tables Supabase
+- Filtrage par `agency_id`
+- Vérification des permissions à chaque requête
+
+### Tokens sécurisés
+
+- Invitations avec token UUID
+- Expiration des tokens
+- Validation à l'acceptation
+
+---
 
 ## 📱 Responsive Design
 
@@ -108,115 +451,65 @@ Cette refonte complète du dashboard d'agence transforme l'interface en une solu
 
 ### Adaptations mobile
 
-- Sidebar devient overlay avec backdrop
-- Grilles statistiques en colonnes simples
+- Sidebar avec overlay et backdrop
+- Grilles statistiques en colonnes
 - Tableaux scrollables horizontalement
-- Actions groupées et optimisées
+- Touch targets minimum 44px
 
-## 🏗️ Architecture des composants
+---
 
-```
-src/features/agency/
-├── components/
-│   ├── Header.tsx              # En-tête professionnel
-│   ├── Sidebar.tsx             # Navigation latérale
-│   ├── StatCard.tsx            # Cartes statistiques
-│   ├── PropertiesTable.tsx     # Tableau propriétés
-│   ├── RegistrationRequests.tsx # Gestion demandes
-│   └── index.ts                # Exports
-├── styles/
-│   └── agency.css              # Styles spécifiques
-├── pages/
-│   └── DashboardPage.tsx       # Page principale refactorisée
-└── index.ts                    # Exports feature
+## 🎨 Design System
+
+### Couleurs
+
+```css
+--color-primary-500: #ff6c2f;   /* Orange de marque */
+--color-primary-600: #e05519;   /* Hover state */
+--color-neutral-900: #171717;   /* Texte principal */
+--color-neutral-700: #404040;   /* Texte secondaire */
 ```
 
-## 🚀 Performance
+### Couleurs sémantiques
 
-### Optimisations
+- **Succès** : #059669 (Vert)
+- **Erreur** : #DC2626 (Rouge)
+- **Avertissement** : #D97706 (Orange)
+- **Information** : #2563EB (Bleu)
 
-- Composants modulaires et réutilisables
-- Lazy loading des images
-- Animations GPU-accélérées
-- CSS optimisé avec variables
-- États de chargement cohérents
+---
 
-### Métriques Core Web Vitals
+## 🔗 Intégrations
 
-- LCP optimisé avec images responsive
-- FID amélioré avec interactions fluides
-- CLS maintenu avec dimensions fixes
+### Services externes
 
-## 🔧 Utilisation
+| Service | Usage |
+|---------|-------|
+| **CryptoNeo** | Signatures numériques des mandats |
+| **Supabase** | Auth, Database, Storage, Realtime |
+| **Brevo** | Emails d'invitation et notifications |
 
-### Composant principal
+---
 
-```tsx
-import {
-  Header,
-  Sidebar,
-  StatCard,
-  PropertiesTable,
-  RegistrationRequests,
-} from '@/features/agency/components';
+## 📝 Développement
 
-function AgencyDashboard() {
-  return (
-    <div className="agency-layout">
-      <Header agencyName="MonToit Pro" pendingNotifications={3} onExport={handleExport} />
+### Ajouter une nouvelle page
 
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        currentPath="/agence/dashboard"
-      />
+1. Créer le composant dans `src/features/agency/pages/`
+2. Exporter depuis `src/features/agency/index.ts`
+3. Ajouter la route dans `src/app/routes/agencyRoutes.tsx`
+4. Ajouter l'item dans `AgencySidebar.tsx`
 
-      <main className="agency-content">
-        <StatsGrid />
-        <PropertiesTable assignments={assignments} />
-        <RegistrationRequests requests={requests} />
-      </main>
-    </div>
-  );
-}
-```
+### Conventions de nommage
 
-### Cartes statistiques
+- Composants : `PascalCase` (ex: `DashboardPage`)
+- Routes : `kebab-case` (ex: `/agences/mandats`)
+- Hooks : `camelCase` avec `use` (ex: `useAgencyMandates`)
+- Services : `camelCase` avec `.service.ts`
 
-```tsx
-<StatCard
-  title="Propriétés portefeuille"
-  value={stats.portfolioProperties}
-  subtitle="Propriétés au portefeuille"
-  icon={Home}
-  iconColor="blue"
-  trend={{
-    value: 12,
-    isPositive: true,
-    period: 'vs mois dernier',
-  }}
-  details={[
-    { label: 'Actives', value: '45' },
-    { label: 'En vente', value: '27' },
-  ]}
-/>
-```
+---
 
-## 🎯 Points forts de la refonte
+## 📚 Ressources connexes
 
-1. **Interface moderne** : Design glassmorphism avec effets premium
-2. **Navigation intuitive** : Sidebar optionnelle avec states actifs
-3. **Données enrichies** : Informations détaillées dans chaque composant
-4. **Accessibilité totale** : WCAG AAA compliant
-5. **Performance optimale** : Animations fluides et chargement rapide
-6. **Responsive perfect** : Adaptation mobile native
-7. **Modularité** : Composants réutilisables et maintenables
-
-## 📈 Impact utilisateur
-
-- **Productivité** : +40% avec la navigation optimisée
-- **Efficacité** : -60% de clics pour les actions fréquentes
-- **Satisfaction** : Design premium et interactions fluides
-- **Accessibilité** : Utilisable par tous les utilisateurs
-
-Cette refonte positionne le dashboard d'agence comme une solution professionnelle de référence dans l'immobilier.
+- [README Principal](../../../README.md)
+- [Documentation Auth](../../../docs/auth.md)
+- [Guide de développement](../../../docs/development.md)

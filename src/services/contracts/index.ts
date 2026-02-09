@@ -59,3 +59,12 @@ export {
   sendSignatureReminder,
   terminateContract,
 } from './contractService';
+
+// Générateur de contrat PDF basé sur HTML
+export {
+  generateLeaseContractHTML,
+  generateLeaseContractPDF,
+  downloadLeaseContractPDF,
+  previewLeaseContractHTML,
+  type LeaseContractData,
+} from './htmlContractGenerator';

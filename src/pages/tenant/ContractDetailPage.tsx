@@ -203,20 +203,31 @@ export default function ContractDetailPage() {
 
       if (error) throw error;
       if (!data) {
-        navigate('/locataire/contrats');
+        const isOwner = user?.user_type === 'owner' || user?.user_type === 'proprietaire';
+        navigate(isOwner ? '/proprietaire/contrats' : '/locataire/contrats');
         return;
       }
 
       const contractData = data as unknown as LeaseContract;
 
-      // Check access
-      const hasAccess =
-        contractData.owner_id === user?.id ||
-        contractData.tenant_id === user?.id ||
-        (contractData.agency_id && contractData.agency_id === user?.id);
+      // Check access and determine user role
+      const isOwner = contractData.owner_id === user?.id;
+      const isTenant = contractData.tenant_id === user?.id;
+      const isAgency = contractData.agency_id && contractData.agency_id === user?.id;
+      const hasAccess = isOwner || isTenant || isAgency;
 
       if (!hasAccess) {
-        navigate('/locataire/contrats');
+        // Try to determine redirect path from current URL
+        const currentPath = window.location.pathname;
+        const isOwnerPath = currentPath.includes('/proprietaire/');
+        const isAgencyPath = currentPath.includes('/agences/');
+        if (isOwnerPath) {
+          navigate('/proprietaire/contrats');
+        } else if (isAgencyPath) {
+          navigate('/agences/contrats');
+        } else {
+          navigate('/locataire/contrats');
+        }
         return;
       }
 
@@ -529,6 +540,8 @@ export default function ContractDetailPage() {
         // Si le propriétaire a déjà signé, passer le contrat à actif
         if (contract.owner_signed_at) {
           updates.status = 'actif';
+        } else {
+          updates.status = 'en_attente_signature';
         }
       }
 

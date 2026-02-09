@@ -138,6 +138,21 @@ export default function ApplicationForm() {
 
       setProperty(data);
 
+      // Vérifier si la propriété est disponible
+      if (data.status === 'loue' || data.status === 'louee') {
+        setError('Cette propriété est déjà louée. Les candidatures ne sont plus acceptées.');
+        setExistingApplication(true); // Réutiliser ce flag pour bloquer le formulaire
+        setLoading(false);
+        return;
+      }
+
+      if (data.status === 'en_attente') {
+        setError('Cette propriété est déjà en cours de location. Les candidatures ne sont plus acceptées.');
+        setExistingApplication(true); // Réutiliser ce flag pour bloquer le formulaire
+        setLoading(false);
+        return;
+      }
+
       if (user) {
         const { data: existing } = await supabase
           .from('rental_applications')

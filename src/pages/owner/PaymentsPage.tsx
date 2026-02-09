@@ -25,6 +25,7 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, isPast } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { FEATURES } from '@/shared/config/features.config';
 
 // COLORS (keep for backward compatibility with existing styles)
 const COLORS = {
@@ -277,7 +278,7 @@ export default function PaymentsPage() {
           const { data: paymentsData } = await supabase
             .from('payments')
             .select('*')
-            .eq('contract_id', contract.id)
+            .eq('lease_id', contract.id)
             .order('due_date', { ascending: false })
             .limit(12);
 
@@ -292,27 +293,29 @@ export default function PaymentsPage() {
 
       setContracts(contractsWithDetails);
 
-      // Fetch charges (if the table exists, otherwise use empty array)
-      try {
-        const propertyIds = (contractsWithDetails || [])
-          .map((c: any) => c.property?.id)
-          .filter(Boolean);
+      // Fetch charges (if the feature flag is enabled and table exists)
+      if (FEATURES.PROPERTY_CHARGES) {
+        try {
+          const propertyIds = (contractsWithDetails || [])
+            .map((c: any) => c.property?.id)
+            .filter(Boolean);
 
-        if (propertyIds.length > 0) {
-          // Using any to bypass type checking for property_charges table which may not exist yet
-          const { data: chargesData } = await (supabase as any)
-            .from('property_charges')
-            .select('*')
-            .in('property_id', propertyIds)
-            .order('created_at', { ascending: false })
-            .limit(50);
+          if (propertyIds.length > 0) {
+            const { data: chargesData } = await (supabase as any)
+              .from('property_charges')
+              .select('*')
+              .in('property_id', propertyIds)
+              .order('created_at', { ascending: false })
+              .limit(50);
 
-          setCharges((chargesData ?? []) as Charge[]);
-        } else {
+            setCharges((chargesData ?? []) as Charge[]);
+          } else {
+            setCharges([]);
+          }
+        } catch (e) {
           setCharges([]);
         }
-      } catch (e) {
-        // Charges table might not exist yet
+      } else {
         setCharges([]);
       }
 

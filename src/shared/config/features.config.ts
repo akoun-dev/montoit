@@ -20,6 +20,7 @@ export interface FeatureFlags {
   // Paiements
   MOBILE_MONEY_PAYMENT: boolean;
   CARD_PAYMENT: boolean;
+  PROPERTY_CHARGES: boolean;
 
   // Signature électronique
   CRYPTONEO_SIGNATURE: boolean;
@@ -57,6 +58,7 @@ export const FEATURES: FeatureFlags = {
   // Paiements
   MOBILE_MONEY_PAYMENT: true, // ✅ Activé - Orange Money, MTN Money, Moov Money
   CARD_PAYMENT: false, // ❌ Désactivé - À venir
+  PROPERTY_CHARGES: false, // ❌ Désactivé - Table property_charges non créée
 
   // Signature électronique
   CRYPTONEO_SIGNATURE: true, // ✅ Activé - Cachet électronique ANSUT

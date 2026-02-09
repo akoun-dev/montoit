@@ -53,6 +53,17 @@ function getStatusConfig(status?: string | null) {
   return statusConfig[status.toLowerCase()] || null;
 }
 
+// Check if property is available for applications
+function isPropertyAvailable(status?: string | null): boolean {
+  if (!status) return true;
+  const normalizedStatus = status.toLowerCase();
+  return !(
+    normalizedStatus === 'loue' ||
+    normalizedStatus === 'louee' ||
+    normalizedStatus === 'en_attente'
+  );
+}
+
 // Extended property type with new columns and owner profile
 interface Property {
   id: string;
@@ -295,6 +306,7 @@ export default function PropertyDetailPage() {
   const { user, profile } = useAuth();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'overview' | 'location' | 'reviews'>('overview');
   const [showContactModal, setShowContactModal] = useState(false);
@@ -501,9 +513,15 @@ export default function PropertyDetailPage() {
             </button>
             <button
               onClick={() => navigate(`/locataire/candidature/${property.id}`, { state: { property } })}
-              className="px-3 py-2 min-h-[40px] bg-[#F16522] text-white font-semibold rounded-xl text-xs flex items-center"
+              disabled={!isPropertyAvailable(property.status)}
+              className={cn(
+                "px-3 py-2 min-h-[40px] font-semibold rounded-xl text-xs flex items-center",
+                isPropertyAvailable(property.status)
+                  ? "bg-[#F16522] text-white"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              )}
             >
-              Postuler
+              {property.status === 'loue' || property.status === 'louee' ? 'Louée' : property.status === 'en_attente' ? 'En cours' : 'Postuler'}
             </button>
           </div>
         </div>
@@ -547,14 +565,25 @@ export default function PropertyDetailPage() {
 
         {/* CTA Section - Desktop - Déplacé plus haut */}
         <div className="hidden md:block">
-          <div className="bg-[#2C1810] rounded-2xl p-6 md:p-8">
+          <div className={cn(
+            "rounded-2xl p-6 md:p-8",
+            isPropertyAvailable(property.status)
+              ? "bg-[#2C1810]"
+              : "bg-gray-400"
+          )}>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
               <div>
                 <h3 className="text-xl md:text-2xl font-bold text-white mb-2">
-                  Intéressé par ce bien ?
+                  {isPropertyAvailable(property.status)
+                    ? 'Intéressé par ce bien ?'
+                    : property.status === 'loue' || property.status === 'louee'
+                      ? 'Ce bien est déjà loué'
+                      : 'Ce bien est en cours de location'}
                 </h3>
                 <p className="text-[#E8D4C5]">
-                  Contactez le propriétaire ou planifiez une visite dès maintenant
+                  {isPropertyAvailable(property.status)
+                    ? 'Contactez le propriétaire ou planifiez une visite dès maintenant'
+                    : 'Ce bien n\'est plus disponible à la location'}
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
@@ -570,16 +599,28 @@ export default function PropertyDetailPage() {
                   <>
                     <button
                       onClick={() => navigate(`/locataire/visiter/${property.id}`, { state: { property } })}
-                      className="px-6 py-3 bg-[#FAF7F4] text-[#2C1810] font-semibold rounded-xl hover:bg-white transition-colors flex items-center justify-center gap-2"
+                      disabled={!isPropertyAvailable(property.status)}
+                      className={cn(
+                        "px-6 py-3 font-semibold rounded-xl transition-colors flex items-center justify-center gap-2",
+                        isPropertyAvailable(property.status)
+                          ? "bg-[#FAF7F4] text-[#2C1810] hover:bg-white"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      )}
                     >
                       <Calendar className="h-5 w-5" />
                       Planifier une visite
                     </button>
                     <button
                       onClick={() => navigate(`/locataire/candidature/${property.id}`, { state: { property } })}
-                      className="px-6 py-3 bg-[#F16522] text-white font-semibold rounded-xl hover:bg-[#d9571d] transition-colors"
+                      disabled={!isPropertyAvailable(property.status)}
+                      className={cn(
+                        "px-6 py-3 font-semibold rounded-xl transition-colors",
+                        isPropertyAvailable(property.status)
+                          ? "bg-[#F16522] text-white hover:bg-[#d9571d]"
+                          : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      )}
                     >
-                      Postuler maintenant
+                      {property.status === 'loue' || property.status === 'louee' ? 'Bien loué' : property.status === 'en_attente' ? 'En cours de location' : 'Postuler maintenant'}
                     </button>
                   </>
                 )}

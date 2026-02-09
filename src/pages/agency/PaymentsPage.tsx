@@ -25,6 +25,7 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, isPast } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { FEATURES } from '@/shared/config/features.config';
 
 // COLORS
 const COLORS = {
@@ -297,7 +298,7 @@ export default function AgencyPaymentsPage() {
           const { data: paymentsData } = await supabase
             .from('payments')
             .select('*')
-            .eq('contract_id', contract.id)
+            .eq('lease_id', contract.id)
             .order('due_date', { ascending: false })
             .limit(12);
 
@@ -312,25 +313,39 @@ export default function AgencyPaymentsPage() {
 
       setContracts(contractsWithDetails);
 
-      // Fetch charges (if the table exists)
-      try {
-        const propertyIds = contractsWithDetails
-          .map((c: { property?: { id: string } | null }) => c.property?.id)
-          .filter(Boolean);
+      // Fetch charges (if the feature flag is enabled and table exists)
+      if (FEATURES.PROPERTY_CHARGES) {
+        try {
+          const propertyIds = contractsWithDetails
+            .map((c: { property?: { id: string } | null }) => c.property?.id)
+            .filter(Boolean);
 
-        if (propertyIds.length > 0) {
-          const { data: chargesData } = await (supabase as unknown as { from: (table: string) => { select: (cols: string) => { in: (col: string, vals: string[]) => { order: (col: string, opts: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: Charge[] | null }> } } } })
-            .from('property_charges')
-            .select('*')
-            .in('property_id', propertyIds)
-            .order('created_at', { ascending: false })
-            .limit(50);
+          if (propertyIds.length > 0) {
+            const { data: chargesData } = await (supabase as unknown as {
+              from: (table: string) => {
+                select: (cols: string) => {
+                  in: (col: string, vals: string[]) => {
+                    order: (col: string, opts: { ascending: boolean }) => {
+                      limit: (n: number) => Promise<{ data: Charge[] | null }>;
+                    };
+                  };
+                };
+              };
+            })
+              .from('property_charges')
+              .select('*')
+              .in('property_id', propertyIds)
+              .order('created_at', { ascending: false })
+              .limit(50);
 
-          setCharges((chargesData ?? []) as Charge[]);
-        } else {
+            setCharges((chargesData ?? []) as Charge[]);
+          } else {
+            setCharges([]);
+          }
+        } catch (e) {
           setCharges([]);
         }
-      } catch (e) {
+      } else {
         setCharges([]);
       }
 
@@ -421,7 +436,7 @@ export default function AgencyPaymentsPage() {
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter((item: { contract: { tenant?: { full_name?: string } | null; property?: { title?: string } | null } } }) => {
+      result = result.filter((item: { contract: { tenant?: { full_name?: string } | null; property?: { title?: string } | null } }) => {
         const matchesTenant = item.contract.tenant?.full_name?.toLowerCase().includes(query);
         const matchesProperty = item.contract.property?.title?.toLowerCase().includes(query);
         return matchesTenant || matchesProperty;

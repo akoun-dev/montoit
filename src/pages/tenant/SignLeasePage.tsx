@@ -162,8 +162,10 @@ export default function SignLeasePage() {
       if (otherSigned) {
         // Both parties have signed - contract is now active
         updateData['status'] = 'actif';
+      } else {
+        // Only one party signed - contract is waiting for the other signature
+        updateData['status'] = 'en_attente_signature';
       }
-      // If only one party signed, keep current status (en_attente_signature)
 
       const { error: updateError } = await supabase
         .from('lease_contracts')
