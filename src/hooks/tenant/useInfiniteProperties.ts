@@ -106,7 +106,7 @@ async function fetchProperties({
   let query = supabase
     .from('properties')
     .select('*', { count: 'exact' })
-    .eq('status', 'disponible');
+    .eq('status', 'available');
 
   // Filtrer uniquement les propriétés certifiées ANSUT si demandé
   if (ansutVerifiedOnly) {
@@ -293,7 +293,7 @@ export function useInfiniteProperties(
                 .from('properties')
                 .select('*')
                 .eq('id', property.id)
-                .eq('status', 'disponible')
+                .eq('status', 'available')
                 .single();
 
               if (!data) return null;

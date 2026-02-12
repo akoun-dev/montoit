@@ -38,7 +38,7 @@ export default function TenantDashboardLayout({ children, title }: TenantDashboa
   };
 
   return (
-    <div className="flex h-screen bg-neutral-50 overflow-hidden">
+    <div className="flex min-h-[100svh] bg-neutral-50 overflow-hidden lg:h-screen">
       {/* Sidebar */}
       <TenantSidebar
         isOpen={sidebarOpen}
@@ -47,7 +47,7 @@ export default function TenantDashboardLayout({ children, title }: TenantDashboa
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
         {/* Mobile Header */}
         <header className="lg:hidden flex-shrink-0 bg-white border-b border-neutral-200 px-3 py-2 sm:px-4 sm:py-3 sticky top-0 z-20">
           <div className="flex items-center justify-between">
@@ -86,8 +86,10 @@ export default function TenantDashboardLayout({ children, title }: TenantDashboa
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto" id="main-content">
-          <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6">{children}</div>
+        <main className="flex-1 min-h-0 overflow-auto" id="main-content">
+          <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 pb-10 sm:pb-12">
+            {children}
+          </div>
         </main>
       </div>
     </div>

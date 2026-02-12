@@ -17,13 +17,8 @@ import { Card } from '@/shared/ui/Card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/shared/useSafeToast';
 
-// New Trust Agent UI Components
-import {
-  KPICard,
-  EmptyState,
-  FilterBar,
-  TrustAgentPageHeader,
-} from '@/shared/ui/trust-agent';
+// New Tiers de confiance UI Components
+import { KPICard, EmptyState, FilterBar, TrustAgentPageHeader } from '@/shared/ui/trust-agent';
 
 type DossierType = 'tenant' | 'owner' | 'agency';
 type DossierStatus = 'pending' | 'in_review' | 'approved' | 'rejected';
@@ -42,10 +37,34 @@ interface Dossier {
 }
 
 const STATUS_CONFIG = {
-  pending: { label: 'En attente', variant: 'secondary' as const, bg: 'bg-gray-100', text: 'text-gray-700', icon: Clock },
-  in_review: { label: 'En cours', variant: 'default' as const, bg: 'bg-blue-100', text: 'text-blue-700', icon: Eye },
-  approved: { label: 'Approuvé', variant: 'secondary' as const, bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle2 },
-  rejected: { label: 'Rejeté', variant: 'destructive' as const, bg: 'bg-red-100', text: 'text-red-700', icon: XCircle },
+  pending: {
+    label: 'En attente',
+    variant: 'secondary' as const,
+    bg: 'bg-gray-100',
+    text: 'text-gray-700',
+    icon: Clock,
+  },
+  in_review: {
+    label: 'En cours',
+    variant: 'default' as const,
+    bg: 'bg-blue-100',
+    text: 'text-blue-700',
+    icon: Eye,
+  },
+  approved: {
+    label: 'Approuvé',
+    variant: 'secondary' as const,
+    bg: 'bg-green-100',
+    text: 'text-green-700',
+    icon: CheckCircle2,
+  },
+  rejected: {
+    label: 'Rejeté',
+    variant: 'destructive' as const,
+    bg: 'bg-red-100',
+    text: 'text-red-700',
+    icon: XCircle,
+  },
 };
 
 const TYPE_CONFIG = {
@@ -148,33 +167,42 @@ export default function DossiersListPage() {
   };
 
   const filteredDossiers = useMemo(() => {
-    return dossiers[activeTab]?.filter((dossier) => {
-      // Filter by status (check both verification_status and status for compatibility)
-      const dossierStatus = dossier.verification_status || dossier.status;
-      if (statusFilter !== 'all' && dossierStatus !== statusFilter) {
-        return false;
-      }
+    return (
+      dossiers[activeTab]?.filter((dossier) => {
+        // Filter by status (check both verification_status and status for compatibility)
+        const dossierStatus = dossier.verification_status || dossier.status;
+        if (statusFilter !== 'all' && dossierStatus !== statusFilter) {
+          return false;
+        }
 
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        return (
-          dossier.full_name.toLowerCase().includes(query) ||
-          dossier.email.toLowerCase().includes(query) ||
-          dossier.phone?.includes(query)
-        );
-      }
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          return (
+            dossier.full_name.toLowerCase().includes(query) ||
+            dossier.email.toLowerCase().includes(query) ||
+            dossier.phone?.includes(query)
+          );
+        }
 
-      return true;
-    }) || [];
+        return true;
+      }) || []
+    );
   }, [dossiers, activeTab, statusFilter, searchQuery]);
 
   const stats = useMemo(() => {
     const currentStats = {
       total: dossiers[activeTab].length,
-      pending: dossiers[activeTab].filter((d) => (d.verification_status || d.status) === 'pending').length,
-      in_review: dossiers[activeTab].filter((d) => (d.verification_status || d.status) === 'in_review').length,
-      approved: dossiers[activeTab].filter((d) => (d.verification_status || d.status) === 'approved').length,
-      rejected: dossiers[activeTab].filter((d) => (d.verification_status || d.status) === 'rejected').length,
+      pending: dossiers[activeTab].filter((d) => (d.verification_status || d.status) === 'pending')
+        .length,
+      in_review: dossiers[activeTab].filter(
+        (d) => (d.verification_status || d.status) === 'in_review'
+      ).length,
+      approved: dossiers[activeTab].filter(
+        (d) => (d.verification_status || d.status) === 'approved'
+      ).length,
+      rejected: dossiers[activeTab].filter(
+        (d) => (d.verification_status || d.status) === 'rejected'
+      ).length,
     };
     return currentStats;
   }, [dossiers, activeTab]);
@@ -226,7 +254,10 @@ export default function DossiersListPage() {
         title="Validation des Dossiers"
         subtitle="Gérez les dossiers de vérification des locataires, propriétaires et agences"
         badges={[
-          { label: `${stats.pending} en attente`, variant: stats.pending > 0 ? 'warning' : 'secondary' },
+          {
+            label: `${stats.pending} en attente`,
+            variant: stats.pending > 0 ? 'warning' : 'secondary',
+          },
           { label: `${stats.approved} approuvés`, variant: 'success' },
         ]}
         showSearch
@@ -235,7 +266,11 @@ export default function DossiersListPage() {
       />
 
       <main className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-8">
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as DossierType)} className="space-y-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as DossierType)}
+          className="space-y-6"
+        >
           {/* Tabs */}
           <TabsList className="grid w-full grid-cols-3 h-auto p-1 bg-white border border-gray-200 rounded-xl">
             <TabsTrigger
@@ -244,7 +279,10 @@ export default function DossiersListPage() {
             >
               <User className="h-4 w-4" />
               Locataires
-              <Badge variant="secondary" className="data-[state=active]:bg-white/20 data-[state=active]:text-white">
+              <Badge
+                variant="secondary"
+                className="data-[state=active]:bg-white/20 data-[state=active]:text-white"
+              >
                 {stats.total}
               </Badge>
             </TabsTrigger>
@@ -254,7 +292,10 @@ export default function DossiersListPage() {
             >
               <Building className="h-4 w-4" />
               Propriétaires
-              <Badge variant="secondary" className="data-[state=active]:bg-white/20 data-[state=active]:text-white">
+              <Badge
+                variant="secondary"
+                className="data-[state=active]:bg-white/20 data-[state=active]:text-white"
+              >
                 {dossiers.owner.length}
               </Badge>
             </TabsTrigger>
@@ -264,7 +305,10 @@ export default function DossiersListPage() {
             >
               <Briefcase className="h-4 w-4" />
               Agences
-              <Badge variant="secondary" className="data-[state=active]:bg-white/20 data-[state=active]:text-white">
+              <Badge
+                variant="secondary"
+                className="data-[state=active]:bg-white/20 data-[state=active]:text-white"
+              >
                 {dossiers.agency.length}
               </Badge>
             </TabsTrigger>
@@ -290,13 +334,34 @@ export default function DossiersListPage() {
                   type: 'radio',
                   options: [
                     { value: 'all', label: 'Tous', count: stats.total },
-                    { value: 'pending', label: 'En attente', count: stats.pending, icon: <Clock className="h-3 w-3" /> },
-                    { value: 'in_review', label: 'En cours', count: stats.in_review, icon: <Eye className="h-3 w-3" /> },
-                    { value: 'approved', label: 'Approuvés', count: stats.approved, icon: <CheckCircle2 className="h-3 w-3" /> },
-                    { value: 'rejected', label: 'Rejetés', count: stats.rejected, icon: <XCircle className="h-3 w-3" /> },
+                    {
+                      value: 'pending',
+                      label: 'En attente',
+                      count: stats.pending,
+                      icon: <Clock className="h-3 w-3" />,
+                    },
+                    {
+                      value: 'in_review',
+                      label: 'En cours',
+                      count: stats.in_review,
+                      icon: <Eye className="h-3 w-3" />,
+                    },
+                    {
+                      value: 'approved',
+                      label: 'Approuvés',
+                      count: stats.approved,
+                      icon: <CheckCircle2 className="h-3 w-3" />,
+                    },
+                    {
+                      value: 'rejected',
+                      label: 'Rejetés',
+                      count: stats.rejected,
+                      icon: <XCircle className="h-3 w-3" />,
+                    },
                   ],
                   selected: statusFilter === 'all' ? [] : [statusFilter],
-                  onChange: (values) => setStatusFilter((values[0] || 'all') as DossierStatus | 'all'),
+                  onChange: (values) =>
+                    setStatusFilter((values[0] || 'all') as DossierStatus | 'all'),
                 },
               ]}
               activeFiltersCount={activeFiltersCount}
@@ -316,8 +381,8 @@ export default function DossiersListPage() {
                 title={activeFiltersCount > 0 ? 'Aucun dossier trouvé' : 'Aucun dossier'}
                 description={
                   activeFiltersCount > 0
-                    ? 'Essayez d\'ajuster vos critères de recherche'
-                    : 'Aucun dossier de vérification pour le moment'
+                    ? "Essayez d'ajuster vos critères de recherche"
+                    : 'Aucun Dossier locataire pour le moment'
                 }
                 actionLabel={activeFiltersCount > 0 ? 'Effacer les filtres' : undefined}
                 onAction={activeFiltersCount > 0 ? handleClearFilters : undefined}
@@ -346,14 +411,19 @@ export default function DossiersListPage() {
                             <div>
                               <div className="flex items-center gap-2">
                                 <h3 className="font-semibold text-gray-900">{dossier.full_name}</h3>
-                                <Badge className={statusConfig.bg + ' ' + statusConfig.text + ' border-0'}>
+                                <Badge
+                                  className={
+                                    statusConfig.bg + ' ' + statusConfig.text + ' border-0'
+                                  }
+                                >
                                   <StatusIcon className="h-3 w-3 mr-1" />
                                   {statusConfig.label}
                                 </Badge>
                               </div>
                               <p className="text-sm text-gray-500 mt-0.5">{dossier.email}</p>
                               <p className="text-xs text-gray-400 mt-1">
-                                Soumis le {new Date(dossier.submitted_at).toLocaleDateString('fr-FR')}
+                                Soumis le{' '}
+                                {new Date(dossier.submitted_at).toLocaleDateString('fr-FR')}
                               </p>
                             </div>
                           </div>

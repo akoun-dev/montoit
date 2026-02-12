@@ -26,7 +26,7 @@ async function fetchProperty(id: string): Promise<PropertyWithOwner | null> {
     .from('properties')
     .select('*')
     .eq('id', id)
-    .eq('status', 'disponible')
+    .eq('status', 'available')
     .single();
 
   if (error || !data) {

@@ -34,7 +34,7 @@ interface Contract {
 
 interface PendingPayment {
   contractId: string;
-  paymentType: 'loyer' | 'depot_garantie' | 'charges';
+  paymentType: 'rent' | 'security_deposit' | 'service_charges';
   amount: number;
   leaseId: string | null;
 }
@@ -71,7 +71,7 @@ export default function MakePaymentPage() {
 
       // Filter for active contracts
       const activeContracts = (tenantContracts || []).filter(
-        c => c.status === 'actif'
+        c => c.status === 'active'
       );
 
       console.log('🔍 MakePaymentPage - Active contracts:', activeContracts);
@@ -134,7 +134,7 @@ export default function MakePaymentPage() {
 
   const handlePayment = (
     contractId: string,
-    paymentType: 'loyer' | 'depot_garantie' | 'charges',
+    paymentType: 'rent' | 'security_deposit' | 'service_charges',
     amount: number
   ) => {
     const contract = contracts.find((c) => c.id === contractId);
@@ -298,7 +298,7 @@ export default function MakePaymentPage() {
                       {/* Mobile Money Button */}
                       <button
                         onClick={() =>
-                          handlePayment(contract.id, 'loyer', contract.monthly_rent)
+                          handlePayment(contract.id, 'rent', contract.monthly_rent)
                         }
                         className="w-full p-3 bg-gradient-to-r from-[#F16522] to-[#d9571d] hover:from-[#d9571d] hover:to-[#F16522] text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
                       >
@@ -322,7 +322,7 @@ export default function MakePaymentPage() {
                       </div>
                       <button
                         onClick={() =>
-                          handlePayment(contract.id, 'depot_garantie', contract.deposit_amount || 0)
+                          handlePayment(contract.id, 'security_deposit', contract.deposit_amount || 0)
                         }
                         disabled={!contract.deposit_amount}
                         className="px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
@@ -371,9 +371,9 @@ export default function MakePaymentPage() {
           onOpenChange={setModalOpen}
           amount={pendingPayment.amount}
           description={
-            pendingPayment.paymentType === 'loyer'
+            pendingPayment.paymentType === 'rent'
               ? 'Paiement de loyer mensuel'
-              : pendingPayment.paymentType === 'depot_garantie'
+              : pendingPayment.paymentType === 'security_deposit'
               ? 'Paiement du dépôt de garantie'
               : 'Paiement de charges'
           }

@@ -245,14 +245,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return false;
 
+      const rawUserType = userData.user.user_metadata?.['user_type'];
+      const normalizedUserType = rawUserType ? translateUserType(rawUserType) : null;
+      const fullName = userData.user.user_metadata?.['full_name'] || null;
+      const phone =
+        userData.user.phone || userData.user.user_metadata?.['phone'] || null;
+
       const { error } = await supabase.from('profiles').upsert(
         {
           id: userId,
-          user_id: userId,
-          email: userData.user.email,
-          full_name: userData.user.user_metadata?.['full_name'] || '',
-          user_type: translateUserType(userData.user.user_metadata?.['user_type']),
-          phone: userData.user.user_metadata?.['phone'] || '',
+          email: userData.user.email || null,
+          full_name: fullName,
+          user_type: normalizedUserType,
+          phone,
         },
         { onConflict: 'id' }
       );

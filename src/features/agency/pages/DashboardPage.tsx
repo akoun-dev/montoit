@@ -57,7 +57,7 @@ export default function AgencyDashboardPage() {
       return;
     }
 
-    if (profile && profile.user_type !== 'agent' && profile.user_type !== 'agence') {
+    if (profile && profile.user_type !== 'agency') {
       navigate('/dashboard');
       return;
     }
@@ -84,7 +84,7 @@ export default function AgencyDashboardPage() {
         .from('lease_contracts')
         .select('id, monthly_rent')
         .eq('owner_id', user.id)
-        .eq('status', 'actif');
+        .eq('status', 'active');
 
       const activeLeases = leasesData || [];
       const monthlyRevenue = activeLeases.reduce(
@@ -100,7 +100,7 @@ export default function AgencyDashboardPage() {
           .from('rental_applications')
           .select('id')
           .in('property_id', propertyIds)
-          .eq('status', 'en_attente');
+          .eq('status', 'pending');
         pendingApplications = applicationsData?.length || 0;
       }
 
@@ -269,16 +269,16 @@ export default function AgencyDashboardPage() {
                       <div className="flex flex-col gap-2">
                         <span
                           className={`text-xs px-3 py-1 rounded-full font-medium ${
-                            property.status === 'disponible'
+                            property.status === 'available'
                               ? 'bg-green-100 text-green-700'
-                              : property.status === 'loue'
+                              : property.status === 'rented'
                                 ? 'bg-blue-100 text-blue-700'
                                 : 'bg-[#EFEBE9] text-[#6B5A4E]'
                           }`}
                         >
-                          {property.status === 'disponible'
+                          {property.status === 'available'
                             ? 'Disponible'
-                            : property.status === 'loue'
+                            : property.status === 'rented'
                               ? 'Loué'
                               : property.status}
                         </span>

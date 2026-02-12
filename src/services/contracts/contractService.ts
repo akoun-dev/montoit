@@ -209,7 +209,7 @@ export async function deleteContract(leaseId: string): Promise<void> {
     throw new Error('Contrat introuvable');
   }
 
-  if (contract.status !== 'brouillon') {
+  if (contract.status !== 'draft') {
     throw new Error('Seuls les brouillons peuvent être supprimés');
   }
 
@@ -262,7 +262,7 @@ export async function terminateContract(leaseId: string, reason: string): Promis
   }
 
   // Vérifier que le contrat peut être résilié
-  if (lease.status !== 'actif') {
+  if (lease.status !== 'active') {
     throw new Error(`Seuls les contrats actifs peuvent être résiliés. Statut actuel: ${lease.status}`);
   }
 
@@ -271,7 +271,7 @@ export async function terminateContract(leaseId: string, reason: string): Promis
   const { data, error } = await supabase
     .from('lease_contracts')
     .update({
-      status: 'resilie',
+      status: 'terminated',
       terminated_at: new Date().toISOString(),
       termination_notice_days: 0,
       updated_at: new Date().toISOString(),
@@ -289,7 +289,7 @@ export async function terminateContract(leaseId: string, reason: string): Promis
 
   // Update property status back to available
   if (lease.property_id) {
-    await supabase.from('properties').update({ status: 'disponible' }).eq('id', lease.property_id);
+    await supabase.from('properties').update({ status: 'available' }).eq('id', lease.property_id);
   }
 
   // Send termination notification
@@ -318,17 +318,17 @@ export async function cancelContract(leaseId: string, reason: string): Promise<v
   }
 
   // Vérifier que le contrat peut être annulé
-  if (lease.status !== 'brouillon' && lease.status !== 'en_attente_signature') {
+  if (lease.status !== 'draft' && lease.status !== 'pending_signature') {
     throw new Error(`Seuls les brouillons et les contrats en attente peuvent être annulés. Statut actuel: ${lease.status}`);
   }
 
   console.log('Tentative d\'annulation du contrat', leaseId, 'avec statut', lease.status);
 
-  // Changer le statut à 'annule' au lieu de supprimer
+  // Changer le statut à 'cancelled' au lieu de supprimer
   const { data, error } = await supabase
     .from('lease_contracts')
     .update({
-      status: 'annule',
+      status: 'cancelled',
       updated_at: new Date().toISOString(),
       notes: reason || 'Contrat annulé par le propriétaire',
     })
@@ -345,11 +345,11 @@ export async function cancelContract(leaseId: string, reason: string): Promise<v
 
   // Update property status back to available
   if (lease.property_id) {
-    await supabase.from('properties').update({ status: 'disponible' }).eq('id', lease.property_id);
+    await supabase.from('properties').update({ status: 'available' }).eq('id', lease.property_id);
   }
 
   // Envoyer une notification au locataire si le contrat était en attente
-  if (lease.status === 'en_attente_signature' && lease.tenant_id) {
+  if (lease.status === 'pending_signature' && lease.tenant_id) {
     try {
       await supabase.from('notifications').insert({
         user_id: lease.tenant_id,

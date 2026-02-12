@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Home,
@@ -18,6 +18,7 @@ import {
   DollarSign,
   Camera,
   CheckCircle2,
+  BadgeCheck,
   Clock,
   Wrench,
   Ban,
@@ -36,7 +37,10 @@ interface Property {
   city: string;
   neighborhood: string;
   price: number;
-  status: 'disponible' | 'loue' | 'en_attente' | 'retire' | 'maintenance';
+  status: 'available' | 'rented' | 'pending' | 'inactive' | 'maintenance' | 'unavailable';
+  is_verified?: boolean | null;
+  ansut_verified?: boolean | null;
+  ansut_verification_date?: string | null;
   created_at: string;
   applications_count?: number;
   views_count: number;
@@ -52,19 +56,19 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; color: string; bg: string; icon: any }
 > = {
-  disponible: {
+  available: {
     label: 'Disponible',
     color: 'text-green-700',
     bg: 'bg-green-100',
     icon: CheckCircle2,
   },
-  loue: {
+  rented: {
     label: 'Loué',
     color: 'text-blue-700',
     bg: 'bg-blue-100',
     icon: Users,
   },
-  en_attente: {
+  pending: {
     label: 'En attente',
     color: 'text-purple-700',
     bg: 'bg-purple-100',
@@ -76,7 +80,13 @@ const STATUS_CONFIG: Record<
     bg: 'bg-amber-100',
     icon: Wrench,
   },
-  retire: {
+  unavailable: {
+    label: 'Indisponible',
+    color: 'text-gray-700',
+    bg: 'bg-gray-100',
+    icon: Ban,
+  },
+  inactive: {
     label: 'Retiré',
     color: 'text-red-700',
     bg: 'bg-red-100',
@@ -86,11 +96,52 @@ const STATUS_CONFIG: Record<
 
 const FILTER_OPTIONS = [
   { value: 'all', label: 'Tous' },
-  { value: 'disponible', label: 'Disponibles' },
-  { value: 'loue', label: 'Loués' },
-  { value: 'en_attente', label: 'En attente' },
+  { value: 'available', label: 'Disponibles' },
+  { value: 'rented', label: 'Loués' },
+  { value: 'pending', label: 'En attente' },
   { value: 'maintenance', label: 'Maintenance' },
 ];
+
+const LEGACY_STATUS_MAP: Record<string, Property['status']> = {
+  disponible: 'available',
+  available: 'available',
+  publie: 'available',
+  'publié': 'available',
+  loue: 'rented',
+  louee: 'rented',
+  'loué': 'rented',
+  'louée': 'rented',
+  rented: 'rented',
+  occupe: 'rented',
+  occupee: 'rented',
+  'occupé': 'rented',
+  'occupée': 'rented',
+  indisponible: 'unavailable',
+  unavailable: 'unavailable',
+  'en attente': 'pending',
+  en_attente: 'pending',
+  pending: 'pending',
+  maintenance: 'maintenance',
+  'en maintenance': 'maintenance',
+  en_maintenance: 'maintenance',
+  retire: 'inactive',
+  'retiré': 'inactive',
+  supprime: 'inactive',
+  'supprimé': 'inactive',
+  brouillon: 'inactive',
+  draft: 'inactive',
+  suspendu: 'inactive',
+  inactif: 'inactive',
+  inactive: 'inactive',
+};
+
+const normalizeStatus = (status?: string | null): Property['status'] => {
+  if (!status || typeof status !== 'string') {
+    return 'available';
+  }
+  const normalized = status.toLowerCase().trim();
+  return LEGACY_STATUS_MAP[normalized] ?? (normalized as Property['status']);
+};
 
 // Helper components
 const StatCard = ({
@@ -133,7 +184,8 @@ const StatCard = ({
 };
 
 const StatusBadge = ({ status }: { status: string }) => {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.disponible;
+  const normalizedStatus = normalizeStatus(status);
+  const config = STATUS_CONFIG[normalizedStatus] || STATUS_CONFIG.available;
   const Icon = config.icon;
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${config.bg} ${config.color}`}>
@@ -151,11 +203,12 @@ export default function MyPropertiesPage() {
   const navigate = useNavigate();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'disponible' | 'loue' | 'en_attente' | 'maintenance'>('all');
+  const [filter, setFilter] = useState<'all' | 'available' | 'rented' | 'pending' | 'maintenance'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showMandateDialog, setShowMandateDialog] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | undefined>();
+  const propertyImagesAvailableRef = useRef<boolean | null>(null);
 
   const { agencies, createMandate } = useAgencyMandates();
 
@@ -187,6 +240,8 @@ export default function MyPropertiesPage() {
       if (propertiesData) {
         const propertiesWithCounts = await Promise.all(
           propertiesData.map(async (property: any) => {
+            const normalizedStatus = normalizeStatus(property.status);
+
             // Count applications
             const { count: appsCount, error: appsError } = await supabase
               .from('rental_applications')
@@ -195,17 +250,18 @@ export default function MyPropertiesPage() {
 
             // Try to count total images from property_images table (may not exist)
             let imagesCount = 0;
-            try {
+            if (propertyImagesAvailableRef.current !== false) {
               const { count, error } = await supabase
                 .from('property_images')
                 .select('*', { count: 'exact', head: true })
                 .eq('property_id', property.id);
-              if (!error && count) {
+              if (error) {
+                if (error.code === 'PGRST404' || error.status === 404) {
+                  propertyImagesAvailableRef.current = false;
+                }
+              } else if (count) {
                 imagesCount = count;
               }
-            } catch {
-              // Table property_images doesn't exist, use 0 as default
-              imagesCount = 0;
             }
 
             // Determine if property has any image (from main_image or images count)
@@ -213,6 +269,10 @@ export default function MyPropertiesPage() {
 
             return {
               ...property,
+              status: normalizedStatus,
+              is_verified: property.is_verified ?? false,
+              ansut_verified: property.ansut_verified ?? false,
+              ansut_verification_date: property.ansut_verification_date ?? null,
               applications_count: appsError ? 0 : appsCount || 0,
               images_count: imagesCount,
               // Handle main_image field compatibility
@@ -302,9 +362,9 @@ export default function MyPropertiesPage() {
 
   // Calculate stats
   const totalRevenue = properties
-    .filter((p) => p.status === 'loue')
+    .filter((p) => p.status === 'rented')
     .reduce((sum, p) => sum + (p.price || 0), 0);
-  const availableProperties = properties.filter((p) => p.status === 'disponible').length;
+  const availableProperties = properties.filter((p) => p.status === 'available').length;
   const totalViews = properties.reduce((sum, p) => sum + (p.views_count || 0), 0);
   const pendingApplications = properties.reduce(
     (sum, p) => sum + (p.applications_count || 0),
@@ -355,13 +415,13 @@ export default function MyPropertiesPage() {
           <StatCard
             icon={Users}
             label="Loués"
-            value={properties.filter((p) => p.status === 'loue').length}
+            value={properties.filter((p) => p.status === 'rented').length}
             color="blue"
           />
           <StatCard
             icon={Clock}
             label="En attente"
-            value={properties.filter((p) => p.status === 'en_attente').length}
+            value={properties.filter((p) => p.status === 'pending').length}
             color="purple"
           />
           <StatCard
@@ -373,7 +433,7 @@ export default function MyPropertiesPage() {
           <StatCard
             icon={Ban}
             label="Retirés"
-            value={properties.filter((p) => p.status === 'retire').length}
+            value={properties.filter((p) => p.status === 'inactive').length}
             color="red"
           />
         </div>
@@ -510,9 +570,20 @@ export default function MyPropertiesPage() {
                       </div>
                     )}
 
-                    {/* Status badge */}
-                    <div className="absolute top-3 right-3">
+                    {/* Status badges */}
+                    <div className="absolute top-3 right-3 flex flex-col items-end gap-2">
                       <StatusBadge status={property.status} />
+                      {property.ansut_verified ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+                          <BadgeCheck className="w-3.5 h-3.5" />
+                          Certifié ANSUT
+                        </span>
+                      ) : property.is_verified ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Validé
+                        </span>
+                      ) : null}
                     </div>
                   </div>
 
@@ -530,6 +601,22 @@ export default function MyPropertiesPage() {
                         {property.city}, {property.neighborhood}
                       </span>
                     </div>
+
+                    {(property.ansut_verified || property.is_verified) && (
+                      <div className="flex items-center gap-2 mb-4">
+                        {property.ansut_verified ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <BadgeCheck className="w-3.5 h-3.5" />
+                            Certifié ANSUT
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Propriété validée
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Details */}
                     <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">

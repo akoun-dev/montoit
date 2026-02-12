@@ -70,16 +70,16 @@ interface PropertyFormData {
 }
 
 const propertyTypes = [
-  { value: 'appartement', label: 'Appartement', icon: '🏢' },
-  { value: 'maison', label: 'Maison', icon: '🏠' },
+  { value: 'apartment', label: 'Appartement', icon: '🏢' },
+  { value: 'house', label: 'Maison', icon: '🏠' },
   { value: 'studio', label: 'Studio', icon: '🏘️' },
   { value: 'duplex', label: 'Duplex', icon: '🏬' },
   { value: 'villa', label: 'Villa', icon: '🏡' },
-  { value: 'commerce', label: 'Local commercial', icon: '🏪' },
-  { value: 'bureau', label: 'Bureau', icon: '🏢' },
-  { value: 'chambre', label: 'Chambre', icon: '🛏️' },
-  { value: 'entrepot', label: 'Entrepôt', icon: '📦' },
-  { value: 'terrain', label: 'Terrain', icon: '🌳' },
+  { value: 'retail', label: 'Local commercial', icon: '🏪' },
+  { value: 'office', label: 'Bureau', icon: '🏢' },
+  { value: 'room', label: 'Chambre', icon: '🛏️' },
+  { value: 'warehouse', label: 'Entrepôt', icon: '📦' },
+  { value: 'land', label: 'Terrain', icon: '🌳' },
 ];
 
 export default function AgencyAddPropertyPage() {
@@ -95,7 +95,7 @@ export default function AgencyAddPropertyPage() {
   const [formData, setFormData] = useState<PropertyFormData>({
     mandate_id: '',
     title: '',
-    property_type: 'appartement',
+    property_type: 'apartment',
     address: '',
     city: '',
     neighborhood: '',
@@ -207,7 +207,7 @@ export default function AgencyAddPropertyPage() {
     const newFormData: PropertyFormData = {
       mandate_id: mandate.id,
       title: mandate.property_title || '',
-      property_type: 'appartement',
+      property_type: 'apartment',
       address: '',
       city: '',
       neighborhood: '',
@@ -226,7 +226,7 @@ export default function AgencyAddPropertyPage() {
     if (mandate.property_id && mandate.property) {
       const prop = mandate.property;
       newFormData.title = prop.title || '';
-      newFormData.property_type = prop.property_type || 'appartement';
+      newFormData.property_type = prop.property_type || 'apartment';
       newFormData.address = prop.address || '';
       newFormData.city = prop.city || '';
       newFormData.neighborhood = prop.neighborhood || '';
@@ -365,7 +365,7 @@ export default function AgencyAddPropertyPage() {
         managed_by_agency: agencyId,
         latitude: formData.latitude ?? null,
         longitude: formData.longitude ?? null,
-        status: 'disponible',
+        status: 'available',
         images: formData.images && formData.images.length > 0 ? formData.images : null,
         main_image: formData.images && formData.images.length > 0 ? formData.images[0] : null,
       };
@@ -651,7 +651,7 @@ export default function AgencyAddPropertyPage() {
                           {selectedMandate.owner_name}
                         </p>
                         <p className="text-sm text-[#6B5A4E]">
-                          Mandat {selectedMandate.status === 'active' ? 'actif' : 'en attente'} • {selectedMandate.commission_rate}% commission
+                          Mandat {selectedMandate.status === 'active' ? 'active' : 'en attente'} • {selectedMandate.commission_rate}% commission
                         </p>
                       </div>
                     </div>

@@ -172,7 +172,7 @@ VITE_SUPABASE_URL=https://xxx.supabase.co
 VITE_SUPABASE_ANON_KEY=xxx
 ```
 
-Optional services include Azure OpenAI, Mapbox, Google Maps, Brevo (SMS), etc.
+Optional services include Azure OpenAI, Mapbox, Google Maps, Azure SMS, Resend (Email), etc.
 
 ## Common Patterns
 

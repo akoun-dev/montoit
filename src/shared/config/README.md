@@ -78,7 +78,7 @@ const pageSize = APP_CONFIG.pagination.defaultPageSize;
 - **NeoFace/Smileless** : Vérification faciale
 - **CryptoNeo** : Signature électronique
 - **Resend** : Service d'emails
-- **Brevo** : Service SMS
+- **Azure SMS** : Service SMS
 - **Gemini/DeepSeek** : LLM alternatifs
 
 ## Variables d'Environnement

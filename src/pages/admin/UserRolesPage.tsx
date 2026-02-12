@@ -1,6 +1,6 @@
 /**
  * UserRolesPage - Page d'administration des rôles utilisateur
- * Gestion des rôles système (admin, trust_agent, moderator)
+ * Gestion des rôles système (admin, trust_agent)
  */
 
 import { useState, useEffect } from 'react';
@@ -17,7 +17,7 @@ import { AdminPageHeader } from '@/shared/ui/admin';
 
 interface UserRole {
   id: string;
-  role: 'admin' | 'trust_agent' | 'moderator' | 'user';
+  role: 'admin' | 'trust_agent';
   granted_at: string | null;
   granted_by: string | null;
   user_id: string;
@@ -28,7 +28,7 @@ interface UserRole {
   } | null;
 }
 
-type SystemRole = 'admin' | 'trust_agent' | 'moderator';
+type SystemRole = 'admin' | 'trust_agent';
 
 interface FoundUser {
   id: string;
@@ -54,7 +54,7 @@ export default function UserRolesPage() {
 
   // Vérification accès admin
   const userType = profile?.user_type?.toLowerCase();
-  const isAdmin = userType === 'admin_ansut' || userType === 'admin';
+  const isAdmin = userType === 'admin' || userType === 'admin';
 
   // Redirection si pas admin
   useEffect(() => {
@@ -95,7 +95,7 @@ export default function UserRolesPage() {
       return (data || []).map((role: unknown) => {
         const r = role as {
           id: string;
-          role: 'admin' | 'trust_agent' | 'moderator' | 'user';
+          role: 'admin' | 'trust_agent';
           granted_at: string | null;
           granted_by: string | null;
           user_id: string;
@@ -232,7 +232,6 @@ export default function UserRolesPage() {
     total: userRoles.length,
     admins: userRoles.filter((r) => r.role === 'admin').length,
     trustAgents: userRoles.filter((r) => r.role === 'trust_agent').length,
-    moderators: userRoles.filter((r) => r.role === 'moderator').length,
   };
 
   if (!isAdmin) {
@@ -244,14 +243,14 @@ export default function UserRolesPage() {
       <div className="w-full">
         <AdminPageHeader
           title="Gestion des Rôles Système"
-          description="Attribuez et gérez les rôles administrateur, trust agent et modérateur"
+          description="Attribuez et gérez les rôles administrateur et tiers de confiance"
           icon={Shield}
           onRefresh={() => refetch()}
           showExport={false}
         />
 
         {/* Statistiques */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-xl border border-[#EFEBE9] p-4">
             <p className="text-sm text-[#6B5A4E]">Total Rôles Attribués</p>
             <p className="text-2xl font-bold text-[#2C1810]">{roleStats.total}</p>
@@ -261,12 +260,8 @@ export default function UserRolesPage() {
             <p className="text-2xl font-bold text-red-600">{roleStats.admins}</p>
           </div>
           <div className="bg-white rounded-xl border border-[#EFEBE9] p-4">
-            <p className="text-sm text-[#6B5A4E]">Trust Agents</p>
+            <p className="text-sm text-[#6B5A4E]">Tiers de confiance</p>
             <p className="text-2xl font-bold text-purple-600">{roleStats.trustAgents}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-[#EFEBE9] p-4">
-            <p className="text-sm text-[#6B5A4E]">Modérateurs</p>
-            <p className="text-2xl font-bold text-blue-600">{roleStats.moderators}</p>
           </div>
         </div>
 
@@ -322,15 +317,8 @@ export default function UserRolesPage() {
                 <li className="flex items-start gap-2">
                   <div className="w-2 h-2 mt-1.5 rounded-full bg-purple-500 flex-shrink-0" />
                   <span>
-                    <strong>Trust Agent:</strong> Validation et certification des utilisateurs et
+                    <strong>Tiers de confiance:</strong> Validation et certification des utilisateurs et
                     propriétés.
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="w-2 h-2 mt-1.5 rounded-full bg-blue-500 flex-shrink-0" />
-                  <span>
-                    <strong>Modérateur:</strong> Modération du contenu, des avis et des
-                    signalements.
                   </span>
                 </li>
               </ul>

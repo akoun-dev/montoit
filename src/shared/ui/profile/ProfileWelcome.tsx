@@ -78,11 +78,11 @@ export default function ProfileWelcome() {
 
   const getWelcomeContent = () => {
     switch (profile?.user_type) {
-      case 'proprietaire':
+      case 'owner':
         return getOwnerWelcome();
-      case 'agence':
+      case 'agency':
         return getAgencyWelcome();
-      case 'locataire':
+      case 'tenant':
       default:
         return getTenantWelcome();
     }
@@ -93,11 +93,11 @@ export default function ProfileWelcome() {
 
   const getGradient = () => {
     switch (profile?.user_type) {
-      case 'proprietaire':
+      case 'owner':
         return 'from-terracotta-400 via-coral-400 to-amber-400';
-      case 'agence':
+      case 'agency':
         return 'from-olive-400 via-green-400 to-cyan-400';
-      case 'locataire':
+      case 'tenant':
       default:
         return 'from-cyan-400 via-blue-400 to-purple-400';
     }

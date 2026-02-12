@@ -752,7 +752,7 @@ export function useAgencyMandates() {
       };
 
       try {
-        const filename = `mandat-${mandate.agency?.agency_name?.replace(/\s+/g, '-').toLowerCase() || 'agence'}-${new Date().toISOString().split('T')[0]}.pdf`;
+        const filename = `mandat-${mandate.agency?.agency_name?.replace(/\s+/g, '-').toLowerCase() || 'agency'}-${new Date().toISOString().split('T')[0]}.pdf`;
         await downloadMandatePDF(pdfData, filename);
         toast.success('Document de mandat téléchargé');
         return true;

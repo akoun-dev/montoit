@@ -5168,6 +5168,7 @@ export type Database = {
           preferences: Json | null
           profile_setup_completed: boolean | null
           reliability_score: number | null
+          tenant_category: string | null
           trust_score: number | null
           updated_at: string | null
           user_type: Database["public"]["Enums"]["user_type"]
@@ -5204,6 +5205,7 @@ export type Database = {
           preferences?: Json | null
           profile_setup_completed?: boolean | null
           reliability_score?: number | null
+          tenant_category?: string | null
           trust_score?: number | null
           updated_at?: string | null
           user_type?: Database["public"]["Enums"]["user_type"]
@@ -5240,6 +5242,7 @@ export type Database = {
           preferences?: Json | null
           profile_setup_completed?: boolean | null
           reliability_score?: number | null
+          tenant_category?: string | null
           trust_score?: number | null
           updated_at?: string | null
           user_type?: Database["public"]["Enums"]["user_type"]
@@ -10536,17 +10539,18 @@ export type Database = {
         | "system_error"
         | "feature_flag_change"
       application_status:
-        | "en_attente"
-        | "acceptee"
-        | "refusee"
-        | "annulee"
-        | "en_negociation"
+        | "pending"
+        | "in_progress"
+        | "accepted"
+        | "rejected"
+        | "cancelled"
       chatbot_conversation_status: "active" | "archived" | "closed"
       chatbot_conversation_type:
         | "general"
         | "property"
         | "application"
-        | "lease"
+        | "contract"
+        | "support"
       chatbot_message_role: "user" | "assistant" | "system"
       email_template_category:
         | "welcome"
@@ -10562,19 +10566,20 @@ export type Database = {
         | "maintenance_request"
         | "custom"
       lease_contract_status:
-        | "brouillon"
-        | "en_attente_signature"
-        | "actif"
-        | "expire"
-        | "resilie"
-        | "annule"
+        | "draft"
+        | "pending_signature"
+        | "active"
+        | "expired"
+        | "terminated"
+        | "cancelled"
       lease_status:
-        | "brouillon"
-        | "en_attente_signature"
-        | "actif"
-        | "expire"
-        | "resilie"
-      lease_type: "courte_duree" | "longue_duree" | "saisonniere" | "mobilité"
+        | "draft"
+        | "pending"
+        | "active"
+        | "terminated"
+        | "cancelled"
+        | "expired"
+      lease_type: "short_term" | "long_term" | "seasonal" | "furnished" | "commercial"
       message_type:
         | "text"
         | "image"
@@ -10583,63 +10588,81 @@ export type Database = {
         | "audio"
         | "location"
         | "system"
-      notification_type: "info" | "success" | "warning" | "error" | "system"
+      notification_type:
+        | "info"
+        | "success"
+        | "warning"
+        | "error"
+        | "rent_due"
+        | "rent_overdue"
+        | "lease_expiry"
+        | "lease_renewal"
+        | "application"
+        | "message"
+        | "visit"
+        | "contract"
+        | "payment"
+        | "maintenance"
       payment_method:
         | "mobile_money"
-        | "carte_bancaire"
-        | "virement"
-        | "especes"
+        | "bank_transfer"
+        | "cash"
+        | "check"
+        | "card"
         | "orange_money"
+        | "mtn_money"
         | "moov_money"
         | "wave"
       payment_status:
-        | "en_attente"
-        | "complete"
-        | "echoue"
-        | "annule"
-        | "rembourse"
-        | "partiel"
+        | "pending"
+        | "completed"
+        | "failed"
+        | "overdue"
+        | "partial"
+        | "cancelled"
+        | "refunded"
       payment_type:
-        | "loyer"
-        | "depot_garantie"
-        | "charges"
-        | "frais_agence"
-        | "frais_dossier"
-        | "penalite"
+        | "rent"
+        | "security_deposit"
+        | "service_charges"
+        | "fees"
+        | "reservation"
+        | "refund"
       property_status:
-        | "disponible"
-        | "loue"
-        | "en_attente"
-        | "retire"
+        | "available"
+        | "rented"
+        | "unavailable"
+        | "pending"
         | "maintenance"
+        | "inactive"
       property_type:
-        | "appartement"
-        | "villa"
+        | "apartment"
+        | "house"
         | "studio"
-        | "chambre"
-        | "bureau"
-        | "commerce"
-        | "maison"
+        | "villa"
         | "duplex"
-        | "entrepot"
-        | "terrain"
-      user_role: "admin" | "user" | "agent" | "moderator" | "trust_agent"
+        | "room"
+        | "office"
+        | "retail"
+        | "warehouse"
+        | "land"
+      user_role: "admin" | "trust_agent"
       user_type:
-        | "locataire"
-        | "proprietaire"
-        | "agence"
-        | "admin_ansut"
+        | "tenant"
+        | "owner"
+        | "agency"
         | "trust_agent"
-      verification_status: "en_attente" | "verifie" | "rejete" | "expiré"
-      verification_type: "identity" | "address" | "income" | "professional"
+        | "admin"
+      verification_status: "pending" | "in_progress" | "approved" | "rejected" | "expired"
+      verification_type: "identity" | "income" | "employment" | "bank" | "rental_history" | "property" | "agency"
       visit_request_status:
-        | "en_attente"
-        | "confirmee"
-        | "planifie"
-        | "terminee"
-        | "annulee"
-      visit_status: "planifie" | "confirme" | "termine" | "annule"
-      visit_type: "physique" | "virtuelle" | "visioconference"
+        | "pending"
+        | "confirmed"
+        | "rejected"
+        | "cancelled"
+        | "completed"
+      visit_status: "scheduled" | "confirmed" | "in_progress" | "completed" | "cancelled" | "no_show"
+      visit_type: "in_person" | "virtual" | "video_call"
     }
     CompositeTypes: {
       api_rate_limit_config: {
@@ -10787,18 +10810,19 @@ export const Constants = {
         "feature_flag_change",
       ],
       application_status: [
-        "en_attente",
-        "acceptee",
-        "refusee",
-        "annulee",
-        "en_negociation",
+        "pending",
+        "in_progress",
+        "accepted",
+        "rejected",
+        "cancelled",
       ],
       chatbot_conversation_status: ["active", "archived", "closed"],
       chatbot_conversation_type: [
         "general",
         "property",
         "application",
-        "lease",
+        "contract",
+        "support",
       ],
       chatbot_message_role: ["user", "assistant", "system"],
       email_template_category: [
@@ -10816,21 +10840,22 @@ export const Constants = {
         "custom",
       ],
       lease_contract_status: [
-        "brouillon",
-        "en_attente_signature",
-        "actif",
-        "expire",
-        "resilie",
-        "annule",
+        "draft",
+        "pending_signature",
+        "active",
+        "expired",
+        "terminated",
+        "cancelled",
       ],
       lease_status: [
-        "brouillon",
-        "en_attente_signature",
-        "actif",
-        "expire",
-        "resilie",
+        "draft",
+        "pending",
+        "active",
+        "terminated",
+        "cancelled",
+        "expired",
       ],
-      lease_type: ["courte_duree", "longue_duree", "saisonniere", "mobilité"],
+      lease_type: ["short_term", "long_term", "seasonal", "furnished", "commercial"],
       message_type: [
         "text",
         "image",
@@ -10840,70 +10865,89 @@ export const Constants = {
         "location",
         "system",
       ],
-      notification_type: ["info", "success", "warning", "error", "system"],
+      notification_type: [
+        "info",
+        "success",
+        "warning",
+        "error",
+        "rent_due",
+        "rent_overdue",
+        "lease_expiry",
+        "lease_renewal",
+        "application",
+        "message",
+        "visit",
+        "contract",
+        "payment",
+        "maintenance",
+      ],
       payment_method: [
         "mobile_money",
-        "carte_bancaire",
-        "virement",
-        "especes",
+        "bank_transfer",
+        "cash",
+        "check",
+        "card",
         "orange_money",
+        "mtn_money",
         "moov_money",
         "wave",
       ],
       payment_status: [
-        "en_attente",
-        "complete",
-        "echoue",
-        "annule",
-        "rembourse",
-        "partiel",
+        "pending",
+        "completed",
+        "failed",
+        "overdue",
+        "partial",
+        "cancelled",
+        "refunded",
       ],
       payment_type: [
-        "loyer",
-        "depot_garantie",
-        "charges",
-        "frais_agence",
-        "frais_dossier",
-        "penalite",
+        "rent",
+        "security_deposit",
+        "service_charges",
+        "fees",
+        "reservation",
+        "refund",
       ],
       property_status: [
-        "disponible",
-        "loue",
-        "en_attente",
-        "retire",
+        "available",
+        "rented",
+        "unavailable",
+        "pending",
         "maintenance",
+        "inactive",
       ],
       property_type: [
-        "appartement",
-        "villa",
+        "apartment",
+        "house",
         "studio",
-        "chambre",
-        "bureau",
-        "commerce",
-        "maison",
+        "villa",
         "duplex",
-        "entrepot",
-        "terrain",
+        "room",
+        "office",
+        "retail",
+        "warehouse",
+        "land",
       ],
-      user_role: ["admin", "user", "agent", "moderator", "trust_agent"],
+      user_role: ["admin", "trust_agent"],
       user_type: [
-        "locataire",
-        "proprietaire",
-        "agence",
-        "admin_ansut",
+        "tenant",
+        "owner",
+        "agency",
         "trust_agent",
+        "admin",
       ],
-      verification_status: ["en_attente", "verifie", "rejete", "expiré"],
-      verification_type: ["identity", "address", "income", "professional"],
+      verification_status: ["pending", "in_progress", "approved", "rejected", "expired"],
+      verification_type: ["identity", "income", "employment", "bank", "rental_history", "property", "agency"],
       visit_request_status: [
-        "en_attente",
-        "confirmee",
-        "planifie",
-        "terminee",
-        "annulee",
+        "pending",
+        "confirmed",
+        "rejected",
+        "cancelled",
+        "completed",
       ],
-      visit_status: ["planifie", "confirme", "termine", "annule"],
-      visit_type: ["physique", "virtuelle", "visioconference"],
+      visit_status: ["scheduled", "confirmed", "in_progress", "completed", "cancelled", "no_show"],
+      visit_type: ["in_person", "virtual", "video_call"],
     },
   },
 } as const

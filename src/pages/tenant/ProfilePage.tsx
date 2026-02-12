@@ -166,7 +166,7 @@ export default function ProfilePage() {
     }
   };
 
-  const isOwner = authProfile?.user_type === 'owner' || authProfile?.user_type === 'proprietaire';
+  const isOwner = authProfile?.user_type === 'owner' || authProfile?.user_type === 'owner';
   const Layout = isOwner ? OwnerDashboardLayout : TenantDashboardLayout;
 
   if (loading) {
@@ -194,11 +194,11 @@ export default function ProfilePage() {
     '';
 
   const roleLabel =
-    rawRole === 'locataire'
+    rawRole === 'tenant'
       ? 'Locataire'
-      : rawRole === 'proprietaire' || rawRole === 'owner'
+      : rawRole === 'owner' || rawRole === 'owner'
         ? 'Propriétaire'
-        : rawRole === 'agence'
+        : rawRole === 'agency'
           ? 'Agence'
           : rawRole || 'Non renseigné';
 

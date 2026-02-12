@@ -146,9 +146,9 @@ export default function MapboxMap({
   );
 
   const getMarkerColor = (property: Property) => {
-    if (property.status === 'disponible') return '#10B981';
-    if (property.status === 'loue') return '#EF4444';
-    if (property.status === 'en_attente') return '#F59E0B';
+    if (property.status === 'available') return '#10B981';
+    if (property.status === 'rented') return '#EF4444';
+    if (property.status === 'pending') return '#F59E0B';
     return '#FF6B35';
   };
 
@@ -159,12 +159,12 @@ export default function MapboxMap({
     el.innerHTML = `
       <div style="
         background: white;
-        border: 2px solid ${property.status === 'disponible' ? '#FF6B35' : '#9CA3AF'};
+        border: 2px solid ${property.status === 'available' ? '#FF6B35' : '#9CA3AF'};
         border-radius: 20px;
         padding: 6px 12px;
         font-size: 13px;
         font-weight: 700;
-        color: ${property.status === 'disponible' ? '#1F2937' : '#6B7280'};
+        color: ${property.status === 'available' ? '#1F2937' : '#6B7280'};
         box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         cursor: pointer;
         white-space: nowrap;
@@ -181,7 +181,7 @@ export default function MapboxMap({
           height: 0;
           border-left: 6px solid transparent;
           border-right: 6px solid transparent;
-          border-top: 6px solid ${property.status === 'disponible' ? '#FF6B35' : '#9CA3AF'};
+          border-top: 6px solid ${property.status === 'available' ? '#FF6B35' : '#9CA3AF'};
         "></div>
       </div>
     `;
@@ -544,8 +544,8 @@ export default function MapboxMap({
             <p style="color: #ff6b35; font-weight: bold; font-size: 18px; margin-bottom: 8px;">${(property.monthly_rent || 0).toLocaleString()} FCFA/mois</p>
             ${
               property.status
-                ? `<span style="background: ${property.status === 'disponible' ? '#10B981' : '#EF4444'}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
-                ${property.status === 'disponible' ? 'Disponible' : property.status === 'loue' ? 'Loué' : 'En attente'}
+                ? `<span style="background: ${property.status === 'available' ? '#10B981' : '#EF4444'}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                ${property.status === 'available' ? 'Disponible' : property.status === 'rented' ? 'Loué' : 'En attente'}
               </span>`
                 : ''
             }

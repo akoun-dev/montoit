@@ -4,7 +4,6 @@ import {
   Shield,
   User,
   FileCheck,
-  History,
   CheckCircle,
   XCircle,
   TrendingUp,
@@ -12,7 +11,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { ScoringService, ScoreBreakdown } from '@/services/scoringService';
+import { ScoringService, ScoreBreakdown, TENANT_SCORING_WEIGHTS } from '@/services/scoringService';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/badge';
 import Button from '@/shared/ui/Button';
@@ -21,7 +21,7 @@ import TrustScoreCard from '@/shared/ui/TrustScoreCard';
 
 const ScorePage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,16 +31,114 @@ const ScorePage: React.FC = () => {
 
       try {
         const breakdown = await ScoringService.calculateGlobalTrustScore(user.id);
+        if (breakdown.globalScore === 0 && profile) {
+          const verificationTotal =
+            TENANT_SCORING_WEIGHTS.facial + TENANT_SCORING_WEIGHTS.oneci;
+          const profileResult = ScoringService.calculateProfileScore(profile);
+          const profileComplete = ScoringService.isProfileComplete(profileResult.details);
+          const facialVerified = profile.facial_verification_status === 'verified';
+          const oneciVerified = !!profile.oneci_verified;
+
+          const { data: approvedDossier } = await supabase
+            .from('verification_applications')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('status', 'approved')
+            .maybeSingle();
+          const dossierApproved = !!approvedDossier;
+
+          const profileContribution = profileComplete ? TENANT_SCORING_WEIGHTS.profileComplete : 0;
+          const facialContribution = facialVerified ? TENANT_SCORING_WEIGHTS.facial : 0;
+          const oneciContribution = oneciVerified ? TENANT_SCORING_WEIGHTS.oneci : 0;
+          const dossierContribution = dossierApproved ? TENANT_SCORING_WEIGHTS.dossier : 0;
+
+          const verificationScore = Math.round(
+            ((facialContribution + oneciContribution) / verificationTotal) * 100
+          );
+          const historyScore = dossierApproved ? 100 : 0;
+          const globalScore =
+            profileContribution + facialContribution + oneciContribution + dossierContribution;
+
+          const recommendation =
+            globalScore >= 70 ? 'approved' : globalScore >= 50 ? 'conditional' : 'rejected';
+
+          setScoreBreakdown({
+            profileScore: profileComplete ? 100 : 0,
+            verificationScore,
+            historyScore,
+            globalScore,
+            recommendation,
+            details: {
+              profile: profileResult.details,
+              verification: {
+                oneci: oneciVerified,
+                facial: facialVerified,
+                dossier: dossierApproved,
+                total: verificationScore,
+              },
+              history: {
+                paymentReliability: historyScore,
+                propertyCondition: historyScore,
+                leaseCompliance: historyScore,
+                total: historyScore,
+              },
+            },
+          });
+          return;
+        }
+
         setScoreBreakdown(breakdown);
       } catch (error) {
         console.error('Error loading score:', error);
+        if (profile) {
+          const verificationTotal =
+            TENANT_SCORING_WEIGHTS.facial + TENANT_SCORING_WEIGHTS.oneci;
+          const profileResult = ScoringService.calculateProfileScore(profile);
+          const profileComplete = ScoringService.isProfileComplete(profileResult.details);
+          const facialVerified = profile.facial_verification_status === 'verified';
+          const oneciVerified = !!profile.oneci_verified;
+
+          const profileContribution = profileComplete ? TENANT_SCORING_WEIGHTS.profileComplete : 0;
+          const facialContribution = facialVerified ? TENANT_SCORING_WEIGHTS.facial : 0;
+          const oneciContribution = oneciVerified ? TENANT_SCORING_WEIGHTS.oneci : 0;
+
+          const verificationScore = Math.round(
+            ((facialContribution + oneciContribution) / verificationTotal) * 100
+          );
+          const globalScore = profileContribution + facialContribution + oneciContribution;
+          const recommendation =
+            globalScore >= 70 ? 'approved' : globalScore >= 50 ? 'conditional' : 'rejected';
+
+          setScoreBreakdown({
+            profileScore: profileComplete ? 100 : 0,
+            verificationScore,
+            historyScore: 0,
+            globalScore,
+            recommendation,
+            details: {
+              profile: profileResult.details,
+              verification: {
+                oneci: oneciVerified,
+                facial: facialVerified,
+                dossier: false,
+                total: verificationScore,
+              },
+              history: {
+                paymentReliability: 0,
+                propertyCondition: 0,
+                leaseCompliance: 0,
+                total: 0,
+              },
+            },
+          });
+        }
       } finally {
         setLoading(false);
       }
     };
 
     loadScore();
-  }, [user?.id]);
+  }, [user?.id, profile]);
 
   if (loading) {
     return (
@@ -72,19 +170,32 @@ const ScorePage: React.FC = () => {
   const { details } = scoreBreakdown;
 
   const profileItems = [
-    { key: 'fullName', label: 'Nom complet', points: 15 },
-    { key: 'phone', label: 'Téléphone', points: 15 },
-    { key: 'city', label: 'Ville', points: 15 },
-    { key: 'bio', label: 'Biographie', points: 15 },
-    { key: 'avatar', label: 'Photo de profil', points: 20 },
-    { key: 'address', label: 'Adresse', points: 20 },
+    { key: 'fullName', label: 'Nom complet' },
+    { key: 'phone', label: 'Téléphone' },
+    { key: 'city', label: 'Ville' },
+    { key: 'address', label: 'Adresse' },
+    { key: 'gender', label: 'Genre' },
   ];
 
   const verificationItems = [
-    { key: 'email', label: 'Email vérifié', points: 33, description: 'Adresse email confirmée', alwaysVerified: true },
-    { key: 'oneci', label: 'Vérification ONECI', points: 33, description: 'Carte d\'identité nationale' },
-    { key: 'facial', label: 'Reconnaissance faciale', points: 34, description: 'Vérification biométrique' },
+    {
+      key: 'oneci',
+      label: 'Vérification ONECI',
+      points: TENANT_SCORING_WEIGHTS.oneci,
+      description: "Carte d'identité nationale",
+    },
+    {
+      key: 'facial',
+      label: 'NEOFACE',
+      points: TENANT_SCORING_WEIGHTS.facial,
+      description: 'Vérification biométrique',
+    },
   ];
+
+  const profileComplete = ScoringService.isProfileComplete(details.profile);
+  const missingVerificationPoints =
+    (details.verification.facial ? 0 : TENANT_SCORING_WEIGHTS.facial) +
+    (details.verification.oneci ? 0 : TENANT_SCORING_WEIGHTS.oneci);
 
   return (
     <div>
@@ -120,14 +231,16 @@ const ScorePage: React.FC = () => {
               {scoreBreakdown.globalScore < 100 && (
                 <>
                   {/* Profil incomplet */}
-                  {scoreBreakdown.profileScore < 100 && (
+                  {!profileComplete && (
                     <div className="p-3 bg-muted/50 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4 text-muted-foreground" />
                           <span className="font-medium text-sm">Compléter le profil</span>
                         </div>
-                        <Badge variant="secondary">+{100 - scoreBreakdown.profileScore} pts</Badge>
+                        <Badge variant="secondary">
+                          +{TENANT_SCORING_WEIGHTS.profileComplete}%
+                        </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
                         Ajoutez les informations manquantes à votre profil
@@ -151,12 +264,11 @@ const ScorePage: React.FC = () => {
                           <FileCheck className="h-4 w-4 text-muted-foreground" />
                           <span className="font-medium text-sm">Vérifications</span>
                         </div>
-                        <Badge variant="secondary">
-                          +{100 - scoreBreakdown.verificationScore} pts
-                        </Badge>
+                        <Badge variant="secondary">+{missingVerificationPoints}%</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mb-2">
-                        ONECI (33 pts) + Reconnaissance faciale (34 pts)
+                        ONECI ({TENANT_SCORING_WEIGHTS.oneci}%) + NEOFACE (
+                        {TENANT_SCORING_WEIGHTS.facial}%)
                       </p>
                       <div className="grid grid-cols-2 gap-2">
                         <Button
@@ -179,17 +291,21 @@ const ScorePage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Certification ANSUT */}
+                  {/* Dossier locataire */}
                   <div className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Award className="h-4 w-4 text-orange-600" />
-                        <span className="font-medium text-sm text-orange-900">Certification ANSUT</span>
+                        <span className="font-medium text-sm text-orange-900">
+                          Dossier locataire
+                        </span>
                       </div>
-                      <Badge className="bg-orange-100 text-orange-800 border-orange-300">Bonus 100%</Badge>
+                      <Badge className="bg-orange-100 text-orange-800 border-orange-300">
+                        +{TENANT_SCORING_WEIGHTS.dossier}%
+                      </Badge>
                     </div>
                     <p className="text-sm text-orange-700 mb-2">
-                      Dossier validé = Score 100% automatique
+                      Dossier locataire validé = +{TENANT_SCORING_WEIGHTS.dossier}% sur votre score
                     </p>
                     <Button
                       variant="outline"
@@ -197,7 +313,7 @@ const ScorePage: React.FC = () => {
                       onClick={() => navigate('/locataire/profil?tab=dossier')}
                       className="w-full bg-orange-100 hover:bg-orange-200 text-orange-900 border-orange-300"
                     >
-                      Commencer le dossier
+                      Commencer la vérification du dossier locataire
                     </Button>
                   </div>
                 </>
@@ -225,6 +341,9 @@ const ScorePage: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-3 text-sm text-muted-foreground">
+              Profil complet = <strong>+{TENANT_SCORING_WEIGHTS.profileComplete}%</strong>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {profileItems.map((item) => {
                 const isComplete = details.profile[item.key as keyof typeof details.profile];
@@ -244,7 +363,7 @@ const ScorePage: React.FC = () => {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {isComplete ? `+${item.points} points` : `${item.points} points disponibles`}
+                      {isComplete ? 'Renseigné' : 'Requis'}
                     </p>
                   </div>
                 );
@@ -264,8 +383,8 @@ const ScorePage: React.FC = () => {
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2">
               {verificationItems.map((item) => {
-                // Email est toujours vérifié avec Supabase Auth
-                const isVerified = item.alwaysVerified || details.verification[item.key as keyof typeof details.verification];
+                const isVerified =
+                  details.verification[item.key as keyof typeof details.verification];
                 return (
                   <div
                     key={item.key}
@@ -284,11 +403,9 @@ const ScorePage: React.FC = () => {
                     <p className="text-sm text-muted-foreground">{item.description}</p>
                     <p className="text-xs mt-2">
                       {isVerified ? (
-                        <span className="text-green-600">+{item.points} points obtenus</span>
+                        <span className="text-green-600">+{item.points}% obtenus</span>
                       ) : (
-                        <span className="text-muted-foreground">
-                          {item.points} points disponibles
-                        </span>
+                        <span className="text-muted-foreground">{item.points}% disponibles</span>
                       )}
                     </p>
                   </div>
@@ -296,19 +413,22 @@ const ScorePage: React.FC = () => {
               })}
             </div>
 
-            {/* Certification ANSUT - Bonus direct à 100% */}
+            {/* Dossier locataire */}
             <div className="mt-4 p-4 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <span className="font-medium text-orange-900">Certification ANSUT</span>
-                  <p className="text-sm text-orange-700">Dossier de certification complet</p>
+                  <span className="font-medium text-orange-900">Dossier locataire</span>
+                  <p className="text-sm text-orange-700">
+                    Dossier locataire validé par nos services
+                  </p>
                 </div>
                 <Badge className="bg-orange-100 text-orange-800 border-orange-300">
-                  Bonus 100%
+                  +{TENANT_SCORING_WEIGHTS.dossier}%
                 </Badge>
               </div>
               <p className="text-xs text-orange-600">
-                Si votre dossier de certification est approuvé, votre score passe automatiquement à 100%
+                Si votre dossier est approuvé, vous gagnez +{TENANT_SCORING_WEIGHTS.dossier}% sur
+                votre score
               </p>
             </div>
           </CardContent>
@@ -324,27 +444,40 @@ const ScorePage: React.FC = () => {
           </CardHeader>
           <CardContent className="prose prose-sm max-w-none">
             <p className="text-muted-foreground">
-              Le Trust Score est calculé à partir de deux composantes :
+              Le Trust Score locataire est calculé à partir de 4 composantes :
             </p>
             <ul className="text-sm text-muted-foreground space-y-2 mt-3">
               <li>
-                <strong>Score de Profil (50%)</strong> : Basé sur la complétude de votre profil
-                (nom, téléphone, ville, photo, bio, adresse)
+                <strong>Profil complet ({TENANT_SCORING_WEIGHTS.profileComplete}%)</strong> : Toutes
+                les informations requises du profil sont renseignées.
               </li>
               <li>
-                <strong>Score de Vérification (50%)</strong> : Basé sur 3 vérifications :
-                <span className="ml-2 text-xs">Email vérifié (33 pts) + ONECI (33 pts) + Reconnaissance faciale (34 pts)</span>
+                <strong>NEOFACE ({TENANT_SCORING_WEIGHTS.facial}%)</strong> : Vérification
+                biométrique.
+              </li>
+              <li>
+                <strong>Vérification ONECI ({TENANT_SCORING_WEIGHTS.oneci}%)</strong> : CNI
+                authentifiée.
+              </li>
+              <li>
+                <strong>Dossier locataire validé ({TENANT_SCORING_WEIGHTS.dossier}%)</strong> :
+                Dossier locataire approuvé.
               </li>
             </ul>
             <div className="mt-4 p-4 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg">
               <p className="text-sm text-orange-900">
-                <strong>🎯 Bonus Certification ANSUT :</strong> Si votre dossier de certification est approuvé,
-                votre score passe automatiquement à <span className="font-bold text-orange-600">100%</span> !
+                <strong>🎯 Dossier locataire validé :</strong> vous gagnez automatiquement
+                <span className="font-bold text-orange-600">
+                  {' '}
+                  +{TENANT_SCORING_WEIGHTS.dossier}%
+                </span>
+                .
               </p>
             </div>
             <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-900">
-                <strong>💡 Astuce :</strong> Profil complet + Toutes les vérifications (Email + ONECI + Facial) = <span className="font-bold text-blue-600">100%</span> !
+                <strong>💡 Astuce :</strong> Profil complet + Facial + ONECI + Dossier locataire
+                validé = <span className="font-bold text-blue-600">100%</span>.
               </p>
             </div>
             <div className="mt-4 p-3 bg-primary/5 rounded-lg">

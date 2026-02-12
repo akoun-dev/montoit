@@ -27,13 +27,13 @@ interface PropertyFormData {
 }
 
 const PROPERTY_TYPES = [
-  { value: 'appartement', label: 'Appartement' },
-  { value: 'maison', label: 'Maison' },
+  { value: 'apartment', label: 'Appartement' },
+  { value: 'house', label: 'Maison' },
   { value: 'villa', label: 'Villa' },
   { value: 'studio', label: 'Studio' },
-  { value: 'terrain', label: 'Terrain' },
-  { value: 'bureau', label: 'Bureau' },
-  { value: 'local-commercial', label: 'Local commercial' },
+  { value: 'land', label: 'Terrain' },
+  { value: 'office', label: 'Bureau' },
+  { value: 'commercial_space', label: 'Local commercial' },
 ];
 
 const CITIES = ['Abidjan', 'Yamoussoukro', 'Bouaké', 'San-Pédro', 'Korhogo', 'Daloa'];
@@ -45,7 +45,7 @@ export default function PropertyCreatePage() {
   const [formData, setFormData] = useState<PropertyFormData>({
     title: '',
     description: '',
-    property_type: 'appartement',
+    property_type: 'apartment',
     price: 0,
     surface_area: 0,
     rooms: 1,
@@ -54,7 +54,7 @@ export default function PropertyCreatePage() {
     city: 'Abidjan',
     address: '',
     furnished: false,
-    status: 'disponible',
+    status: 'available',
     is_public: true,
   });
 
@@ -71,7 +71,7 @@ export default function PropertyCreatePage() {
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('id')
-        .eq('user_type', 'admin_ansut')
+        .eq('user_type', 'admin')
         .limit(1);
 
       const ownerId = profilesData?.[0]?.id || user.id;
@@ -403,7 +403,7 @@ export default function PropertyCreatePage() {
                   onChange={(e) => updateField('status', e.target.value)}
                   className="w-full px-4 py-3 border border-[#EFEBE9] rounded-xl focus:ring-2 focus:ring-[#F16522] focus:border-[#F16522]"
                 >
-                  <option value="disponible">Disponible</option>
+                  <option value="available">Disponible</option>
                   <option value="loué">Loué</option>
                   <option value="unavailable">Indisponible</option>
                   <option value="pending">En attente</option>

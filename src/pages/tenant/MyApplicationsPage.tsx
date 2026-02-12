@@ -22,7 +22,7 @@ import {
 import { toast } from 'sonner';
 import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 
-type StatusFilter = 'all' | 'en_attente' | 'en_cours' | 'acceptee' | 'refusee' | 'annulee';
+type StatusFilter = 'all' | 'pending' | 'in_progress' | 'accepted' | 'rejected' | 'cancelled';
 
 export default function MyApplicationsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -109,10 +109,10 @@ export default function MyApplicationsPage() {
 
   const statusOptions: { value: StatusFilter; label: string; color: string }[] = [
     { value: 'all', label: 'Toutes', color: 'bg-neutral-100 text-neutral-700' },
-    { value: 'en_attente', label: 'En attente', color: 'bg-amber-100 text-amber-700' },
-    { value: 'en_cours', label: 'En cours', color: 'bg-blue-100 text-blue-700' },
-    { value: 'acceptee', label: 'Acceptées', color: 'bg-green-100 text-green-700' },
-    { value: 'refusee', label: 'Refusées', color: 'bg-red-100 text-red-700' },
+    { value: 'pending', label: 'En attente', color: 'bg-amber-100 text-amber-700' },
+    { value: 'in_progress', label: 'En cours', color: 'bg-blue-100 text-blue-700' },
+    { value: 'accepted', label: 'Acceptées', color: 'bg-green-100 text-green-700' },
+    { value: 'rejected', label: 'Refusées', color: 'bg-red-100 text-red-700' },
   ];
 
   if (authLoading || loading) {
@@ -161,9 +161,9 @@ export default function MyApplicationsPage() {
           </div>
 
           <div
-            onClick={() => setStatusFilter('en_attente')}
+            onClick={() => setStatusFilter('pending')}
             className={`bg-white rounded-xl p-4 border cursor-pointer transition-all hover:border-amber-300 ${
-              statusFilter === 'en_attente'
+              statusFilter === 'pending'
                 ? 'border-amber-500 ring-2 ring-amber-100'
                 : 'border-neutral-200'
             }`}
@@ -180,9 +180,9 @@ export default function MyApplicationsPage() {
           </div>
 
           <div
-            onClick={() => setStatusFilter('acceptee')}
+            onClick={() => setStatusFilter('accepted')}
             className={`bg-white rounded-xl p-4 border cursor-pointer transition-all hover:border-green-300 ${
-              statusFilter === 'acceptee'
+              statusFilter === 'accepted'
                 ? 'border-green-500 ring-2 ring-green-100'
                 : 'border-neutral-200'
             }`}
@@ -199,9 +199,9 @@ export default function MyApplicationsPage() {
           </div>
 
           <div
-            onClick={() => setStatusFilter('refusee')}
+            onClick={() => setStatusFilter('rejected')}
             className={`bg-white rounded-xl p-4 border cursor-pointer transition-all hover:border-red-300 ${
-              statusFilter === 'refusee'
+              statusFilter === 'rejected'
                 ? 'border-red-500 ring-2 ring-red-100'
                 : 'border-neutral-200'
             }`}

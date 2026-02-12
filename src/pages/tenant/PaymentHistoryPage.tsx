@@ -58,55 +58,76 @@ interface Payment {
 
 // Status configuration
 const STATUS_CONFIG = {
-  en_attente: {
+  pending: {
     label: 'En attente',
     color: 'bg-amber-100 text-amber-700 border-amber-200',
     icon: Clock,
   },
-  complete: {
+  completed: {
     label: 'Payé',
     color: 'bg-green-100 text-green-700 border-green-200',
     icon: CheckCircle,
   },
-  echoue: {
+  failed: {
     label: 'Échoué',
     color: 'bg-red-100 text-red-700 border-red-200',
     icon: XCircle,
   },
-  annule: {
+  overdue: {
+    label: 'En retard',
+    color: 'bg-orange-100 text-orange-700 border-orange-200',
+    icon: Clock,
+  },
+  partial: {
+    label: 'Partiel',
+    color: 'bg-blue-100 text-blue-700 border-blue-200',
+    icon: Clock,
+  },
+  cancelled: {
     label: 'Annulé',
     color: 'bg-gray-100 text-gray-700 border-gray-200',
     icon: XCircle,
   },
-  pending: {
-    label: 'En cours',
-    color: 'bg-blue-100 text-blue-700 border-blue-200',
-    icon: Clock,
+  refunded: {
+    label: 'Remboursé',
+    color: 'bg-purple-100 text-purple-700 border-purple-200',
+    icon: XCircle,
   },
 };
 
 // Payment type configuration
 const PAYMENT_TYPE_CONFIG = {
-  loyer: {
+  rent: {
     label: 'Loyer mensuel',
     icon: Building,
     color: 'text-blue-600 bg-blue-50',
   },
-  depot_garantie: {
+  security_deposit: {
     label: 'Dépôt de garantie',
     icon: Shield,
     color: 'text-purple-600 bg-purple-50',
   },
-  charges: {
+  service_charges: {
     label: 'Charges',
     icon: FileText,
     color: 'text-orange-600 bg-orange-50',
   },
-  frais_agence: {
+  fees: {
     label: "Frais d'agence",
     icon: CreditCard,
     color: 'text-pink-600 bg-pink-50',
   },
+  reservation: {
+    label: 'Réservation',
+    icon: Coins,
+    color: 'text-indigo-600 bg-indigo-50',
+  },
+  refund: {
+    label: 'Remboursement',
+    icon: Shield,
+    color: 'text-purple-600 bg-purple-50',
+  },
+  // Legacy fallbacks
   caution: {
     label: 'Caution',
     icon: Shield,
@@ -125,21 +146,37 @@ const PAYMENT_METHOD_CONFIG = {
     label: 'Mobile Money',
     icon: Smartphone,
   },
-  carte_bancaire: {
+  card: {
     label: 'Carte bancaire',
     icon: CreditCard,
   },
-  virement: {
+  bank_transfer: {
     label: 'Virement bancaire',
     icon: Building,
   },
-  especes: {
+  cash: {
     label: 'Espèces',
     icon: Coins,
   },
-  cheque: {
+  check: {
     label: 'Chèque',
     icon: FileText,
+  },
+  orange_money: {
+    label: 'Orange Money',
+    icon: Smartphone,
+  },
+  mtn_money: {
+    label: 'MTN Money',
+    icon: Smartphone,
+  },
+  moov_money: {
+    label: 'Moov Money',
+    icon: Smartphone,
+  },
+  wave: {
+    label: 'Wave',
+    icon: Smartphone,
   },
 };
 
@@ -149,7 +186,7 @@ export default function PaymentHistoryPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'en_attente' | 'complete' | 'echoue' | 'pending'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'failed'>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -182,7 +219,7 @@ export default function PaymentHistoryPage() {
       const formattedPayments: Payment[] = (data || []).map((payment: any) => ({
         id: payment.id,
         amount: payment.amount || 0,
-        payment_type: payment.payment_type || 'loyer',
+        payment_type: payment.payment_type || 'rent',
         payment_method: payment.payment_method,
         status: payment.status,
         created_at: payment.created_at,
@@ -319,7 +356,7 @@ export default function PaymentHistoryPage() {
     try {
       const { error } = await supabase
         .from('payments')
-        .update({ status: 'annule' })
+        .update({ status: 'cancelled' })
         .eq('id', payment.id);
 
       if (error) throw error;
@@ -395,11 +432,11 @@ export default function PaymentHistoryPage() {
 
   // Calculate stats
   const stats = {
-    totalPaid: payments.filter((p) => p.status === 'complete').reduce((sum, p) => sum + (p.amount || 0), 0),
-    totalPending: payments.filter((p) => p.status === 'en_attente' || p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0),
-    paidCount: payments.filter((p) => p.status === 'complete').length,
-    pendingCount: payments.filter((p) => p.status === 'en_attente' || p.status === 'pending').length,
-    failedCount: payments.filter((p) => p.status === 'echoue').length,
+    totalPaid: payments.filter((p) => p.status === 'completed').reduce((sum, p) => sum + (p.amount || 0), 0),
+    totalPending: payments.filter((p) => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0),
+    paidCount: payments.filter((p) => p.status === 'completed').length,
+    pendingCount: payments.filter((p) => p.status === 'pending').length,
+    failedCount: payments.filter((p) => p.status === 'failed').length,
   };
 
   useEffect(() => {
@@ -547,10 +584,10 @@ export default function PaymentHistoryPage() {
                 className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
               >
                 <option value="all">Tous les statuts</option>
-                <option value="en_attente">En attente</option>
+                <option value="pending">En attente</option>
                 <option value="pending">En cours</option>
-                <option value="complete">Payés</option>
-                <option value="echoue">Échoués</option>
+                <option value="completed">Payés</option>
+                <option value="failed">Échoués</option>
               </select>
 
               {/* Type Filter */}
@@ -560,10 +597,10 @@ export default function PaymentHistoryPage() {
                 className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
               >
                 <option value="all">Tous les types</option>
-                <option value="loyer">Loyer</option>
-                <option value="depot_garantie">Dépôt de garantie</option>
-                <option value="charges">Charges</option>
-                <option value="frais_agence">Frais d'agence</option>
+                <option value="rent">Loyer</option>
+                <option value="security_deposit">Dépôt de garantie</option>
+                <option value="service_charges">Charges</option>
+                <option value="agency_fees">Frais d'agence</option>
                 <option value="caution">Caution</option>
                 <option value="avance">Avance</option>
               </select>
@@ -594,7 +631,7 @@ export default function PaymentHistoryPage() {
         ) : (
           <div className="space-y-4">
             {filteredPayments.map((payment) => {
-              const statusConfig = STATUS_CONFIG[payment.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.en_attente;
+              const statusConfig = STATUS_CONFIG[payment.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
               const StatusIcon = statusConfig.icon;
               const typeConfig = PAYMENT_TYPE_CONFIG[payment.payment_type as keyof typeof PAYMENT_TYPE_CONFIG] || PAYMENT_TYPE_CONFIG.loyer;
               const TypeIcon = typeConfig.icon;
@@ -696,7 +733,7 @@ export default function PaymentHistoryPage() {
                           </button>
 
                           {/* Download Receipt (only for completed payments) */}
-                          {payment.status === 'complete' && (
+                          {payment.status === 'completed' && (
                             <button
                               onClick={() => handleDownloadReceipt(payment)}
                               className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
@@ -707,7 +744,7 @@ export default function PaymentHistoryPage() {
                           )}
 
                           {/* Retry Payment (for pending/failed payments) */}
-                          {(payment.status === 'en_attente' || payment.status === 'echoue' || payment.status === 'pending') && (
+                          {(payment.status === 'pending' || payment.status === 'failed') && (
                             <button
                               onClick={() => handleRetryPayment(payment)}
                               disabled={retrying === payment.id}
@@ -864,7 +901,7 @@ export default function PaymentHistoryPage() {
                           )}
 
                           {/* Cancel Payment (for pending) */}
-                          {(payment.status === 'en_attente' || payment.status === 'pending') && (
+                          {(payment.status === 'pending' || payment.status === 'pending') && (
                             <button
                               onClick={() => handleCancelPayment(payment)}
                               disabled={cancelingPayment === payment.id}
@@ -876,7 +913,7 @@ export default function PaymentHistoryPage() {
                           )}
 
                           {/* Contact Support (for failed) */}
-                          {payment.status === 'echoue' && (
+                          {payment.status === 'failed' && (
                             <button
                               onClick={() => handleContactSupport(payment)}
                               className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
@@ -890,7 +927,7 @@ export default function PaymentHistoryPage() {
                     )}
 
                     {/* Warning message for failed payments */}
-                    {payment.status === 'echoue' && (
+                    {payment.status === 'failed' && (
                       <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                         <div className="flex items-start gap-2">
                           <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
@@ -905,7 +942,7 @@ export default function PaymentHistoryPage() {
                     )}
 
                     {/* Info for pending payments */}
-                    {(payment.status === 'en_attente' || payment.status === 'pending') && (
+                    {(payment.status === 'pending' || payment.status === 'pending') && (
                       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                         <div className="flex items-start gap-2">
                           <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -959,11 +996,11 @@ export default function PaymentHistoryPage() {
               {/* Status Banner */}
               <div
                 className={`p-4 rounded-xl border ${
-                  selectedPayment.status === 'complete'
+                  selectedPayment.status === 'completed'
                     ? 'bg-green-50 border-green-200'
-                    : selectedPayment.status === 'echoue'
+                    : selectedPayment.status === 'failed'
                     ? 'bg-red-50 border-red-200'
-                    : selectedPayment.status === 'annule'
+                    : selectedPayment.status === 'cancelled'
                     ? 'bg-gray-50 border-gray-200'
                     : 'bg-blue-50 border-blue-200'
                 }`}
@@ -972,11 +1009,11 @@ export default function PaymentHistoryPage() {
                   {(() => {
                     const StatusIcon = STATUS_CONFIG[selectedPayment.status as keyof typeof STATUS_CONFIG]?.icon || Clock;
                     return <StatusIcon className={`h-6 w-6 ${
-                      selectedPayment.status === 'complete'
+                      selectedPayment.status === 'completed'
                         ? 'text-green-600'
-                        : selectedPayment.status === 'echoue'
+                        : selectedPayment.status === 'failed'
                         ? 'text-red-600'
-                        : selectedPayment.status === 'annule'
+                        : selectedPayment.status === 'cancelled'
                         ? 'text-gray-600'
                         : 'text-blue-600'
                     }`} />;
@@ -986,11 +1023,11 @@ export default function PaymentHistoryPage() {
                       {STATUS_CONFIG[selectedPayment.status as keyof typeof STATUS_CONFIG]?.label || selectedPayment.status}
                     </p>
                     <p className="text-sm text-gray-600">
-                      {selectedPayment.status === 'complete'
+                      {selectedPayment.status === 'completed'
                         ? 'Paiement effectué avec succès'
-                        : selectedPayment.status === 'echoue'
+                        : selectedPayment.status === 'failed'
                         ? 'Le paiement a échoué'
-                        : selectedPayment.status === 'annule'
+                        : selectedPayment.status === 'cancelled'
                         ? 'Paiement annulé'
                         : 'Paiement en cours de traitement'}
                     </p>
@@ -1121,7 +1158,7 @@ export default function PaymentHistoryPage() {
                       </p>
                     </div>
                   </div>
-                  {selectedPayment.status === 'complete' && (
+                  {selectedPayment.status === 'completed' && (
                     <div className="flex items-start gap-3">
                       <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
                         <CheckCircle className="h-3 w-3 text-green-600" />
@@ -1132,7 +1169,7 @@ export default function PaymentHistoryPage() {
                       </div>
                     </div>
                   )}
-                  {selectedPayment.status === 'echoue' && (
+                  {selectedPayment.status === 'failed' && (
                     <div className="flex items-start gap-3">
                       <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                         <XCircle className="h-3 w-3 text-red-600" />
@@ -1162,7 +1199,7 @@ export default function PaymentHistoryPage() {
                 </button>
 
                 {/* Download Receipt */}
-                {selectedPayment.status === 'complete' && (
+                {selectedPayment.status === 'completed' && (
                   <button
                     onClick={() => handleDownloadReceipt(selectedPayment)}
                     className="flex-1 px-4 py-3 bg-[#F16522] hover:bg-[#d9571d] text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
@@ -1173,7 +1210,7 @@ export default function PaymentHistoryPage() {
                 )}
 
                 {/* Retry for pending/failed */}
-                {(selectedPayment.status === 'en_attente' || selectedPayment.status === 'echoue' || selectedPayment.status === 'pending') && (
+                {(selectedPayment.status === 'pending' || selectedPayment.status === 'failed') && (
                   <button
                     onClick={() => {
                       handleRetryPayment(selectedPayment);

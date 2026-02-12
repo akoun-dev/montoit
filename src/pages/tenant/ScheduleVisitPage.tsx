@@ -9,10 +9,9 @@ import {
   MapPin,
   ArrowLeft,
   Check,
+  ChevronLeft,
   ChevronRight,
-  MessageSquare,
 } from 'lucide-react';
-import { FormStepper, FormStepContent, useFormStepper } from '@/shared/ui';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 
 interface Property {
@@ -52,12 +51,13 @@ export default function ScheduleVisit() {
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');
-  const [visitType, setVisitType] = useState<'physique' | 'virtuelle'>('physique');
-  const [notes, setNotes] = useState('');
+  const [visitType, setVisitType] = useState<'in_person' | 'virtual'>('in_person');
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
-
-  // Form stepper - 3 steps
-  const { step, slideDirection, goToStep, nextStep, prevStep } = useFormStepper(1, 3);
+  const [bookedTimes, setBookedTimes] = useState<string[]>([]);
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   const propertyId = routeId || window.location.pathname.split('/').pop();
 
@@ -114,20 +114,24 @@ export default function ScheduleVisit() {
         .from('visit_requests')
         .select('visit_date, visit_time')
         .eq('property_id', property.id)
-        .in('status', ['en_attente', 'confirmee'])
+        .in('status', ['pending', 'confirmed'])
         .gte('visit_date', dateStr)
         .lt('visit_date', nextStr);
 
-      const bookedTimes = new Set((existingVisits || []).map((v) => v.visit_time).filter(Boolean));
+      const bookedTimesSet = new Set(
+        (existingVisits || []).map((v) => v.visit_time).filter(Boolean)
+      );
 
       const slots = DEFAULT_TIME_SLOTS.map((slot) => ({
         ...slot,
-        available: !bookedTimes.has(slot.time),
+        available: !bookedTimesSet.has(slot.time),
       }));
 
+      setBookedTimes(Array.from(bookedTimesSet));
       setAvailableSlots(slots);
     } catch (error) {
       console.error('Error loading slots:', error);
+      setBookedTimes([]);
       setAvailableSlots(DEFAULT_TIME_SLOTS);
     }
   };
@@ -153,16 +157,15 @@ export default function ScheduleVisit() {
         visit_type: visitType,
         visit_date: selectedDate.toISOString().split('T')[0],
         visit_time: selectedTime,
-        notes: notes || null,
-        status: 'en_attente',
+        status: 'pending',
       } as never);
 
       if (error) throw error;
 
       setSuccess(true);
       setTimeout(() => {
-        navigate(`/propriete/${property.id}`);
-      }, 2000);
+        navigate('/locataire/mes-visites');
+      }, 1500);
     } catch (error) {
       console.error('Error scheduling visit:', error);
       alert('Erreur lors de la planification de la visite');
@@ -171,29 +174,42 @@ export default function ScheduleVisit() {
     }
   };
 
-  const getNextDays = (count: number) => {
-    const days = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  const formatMonthLabel = (date: Date) =>
+    date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 
-    for (let i = 1; i <= count; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      days.push(date);
+  const getCalendarDays = (month: Date) => {
+    const year = month.getFullYear();
+    const monthIndex = month.getMonth();
+    const firstDay = new Date(year, monthIndex, 1);
+    const startOffset = (firstDay.getDay() + 6) % 7; // Monday start
+    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+    const cells: Array<Date | null> = [];
+
+    for (let i = 0; i < startOffset; i += 1) {
+      cells.push(null);
     }
-    return days;
+
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      cells.push(new Date(year, monthIndex, day));
+    }
+
+    while (cells.length < 42) {
+      cells.push(null);
+    }
+
+    return cells;
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('fr-FR', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-    });
-  };
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
 
-  const canProceedToStep2 = visitType !== null;
-  const canProceedToStep3 = selectedDate && selectedTime;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const calendarDays = getCalendarDays(currentMonth);
+  const availableCount = availableSlots.filter((slot) => slot.available).length;
+  const isTimeBooked = selectedTime ? bookedTimes.includes(selectedTime) : false;
 
   if (!user) {
     return (
@@ -272,8 +288,6 @@ export default function ScheduleVisit() {
     );
   }
 
-  const stepLabels = ['Type de visite', 'Date & Heure', 'Confirmation'];
-
   return (
     <div className="form-page-container">
       <div className="form-content-wrapper px-4">
@@ -309,229 +323,271 @@ export default function ScheduleVisit() {
           </div>
         </div>
 
-        {/* Stepper */}
-        <div className="mb-8">
-          <FormStepper
-            currentStep={step}
-            totalSteps={3}
-            onStepChange={goToStep}
-            labels={stepLabels}
-          />
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          {/* STEP 1: Type de visite */}
-          <FormStepContent
-            step={1}
-            currentStep={step}
-            slideDirection={slideDirection}
-            className="space-y-6"
-          >
-            <div className="form-section-premium">
-              <label className="form-label-premium mb-4 block">Type de visite</label>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => setVisitType('physique')}
-                  className={`form-card-selectable p-6 text-center ${visitType === 'physique' ? 'selected' : ''}`}
-                >
-                  <MapPin
-                    className={`w-10 h-10 mx-auto mb-3 ${visitType === 'physique' ? '' : ''}`}
-                    style={{
-                      color: visitType === 'physique' ? 'var(--form-orange)' : 'var(--form-sable)',
-                    }}
-                  />
-                  <p className="font-semibold" style={{ color: 'var(--form-chocolat)' }}>
-                    Visite physique
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: 'var(--form-sable)' }}>
-                    Visitez le bien en personne
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setVisitType('virtuelle')}
-                  className={`form-card-selectable p-6 text-center ${visitType === 'virtuelle' ? 'selected' : ''}`}
-                >
-                  <Video
-                    className="w-10 h-10 mx-auto mb-3"
-                    style={{
-                      color: visitType === 'virtuelle' ? 'var(--form-orange)' : 'var(--form-sable)',
-                    }}
-                  />
-                  <p className="font-semibold" style={{ color: 'var(--form-chocolat)' }}>
-                    Visite virtuelle
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: 'var(--form-sable)' }}>
-                    Visitez par vidéo conférence
-                  </p>
-                </button>
-              </div>
-            </div>
-
-            <div className="form-actions">
-              <div></div>
-              <button
-                type="button"
-                onClick={nextStep}
-                disabled={!canProceedToStep2}
-                className="form-button-primary"
-              >
-                <span>Continuer</span>
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </div>
-          </FormStepContent>
-
-          {/* STEP 2: Date & Heure */}
-          <FormStepContent
-            step={2}
-            currentStep={step}
-            slideDirection={slideDirection}
-            className="space-y-6"
-          >
-            <div className="form-section-premium">
-              <label className="form-label-premium mb-4 flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Choisir une date
-              </label>
-              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                {getNextDays(14).map((date) => (
-                  <button
-                    key={date.toISOString()}
-                    type="button"
-                    onClick={() => {
-                      setSelectedDate(date);
-                      setSelectedTime('');
-                    }}
-                    className={`form-card-selectable p-3 text-center ${selectedDate?.toDateString() === date.toDateString() ? 'selected' : ''}`}
-                  >
-                    <p
-                      className="text-sm font-semibold"
-                      style={{
-                        color:
-                          selectedDate?.toDateString() === date.toDateString()
-                            ? 'var(--form-orange)'
-                            : 'var(--form-chocolat)',
-                      }}
-                    >
-                      {formatDate(date)}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {selectedDate && (
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid lg:grid-cols-[1.05fr,0.95fr] gap-6">
+            <div className="space-y-6 order-2 lg:order-1">
               <div className="form-section-premium">
-                <label className="form-label-premium mb-4 flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  Choisir un horaire
-                </label>
-                {availableSlots.length === 0 ? (
-                  <div className="text-center py-8" style={{ color: 'var(--form-sable)' }}>
-                    Aucun créneau disponible pour cette date
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <div>
+                    <h2 className="text-base font-semibold" style={{ color: 'var(--form-chocolat)' }}>
+                      Date & Heure
+                    </h2>
+                    <p className="text-xs" style={{ color: 'var(--form-sable)' }}>
+                      Choisissez votre créneau en un seul endroit.
+                    </p>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {availableSlots.map((slot) => (
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full border border-orange-200 bg-orange-50 text-orange-600">
+                    {availableCount} créneau(x) dispo
+                  </span>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
+                  <div className="max-w-[320px] mx-auto">
+                    <div className="flex items-center justify-between gap-2 mb-2">
                       <button
-                        key={slot.time}
                         type="button"
-                        onClick={() => setSelectedTime(slot.time)}
-                        disabled={!slot.available}
-                        className={`form-toggle-button justify-center ${selectedTime === slot.time ? 'active' : ''} ${!slot.available ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onClick={() =>
+                          setCurrentMonth(
+                            new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
+                          )
+                        }
+                        className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center hover:border-orange-300 hover:bg-orange-50 transition"
                       >
-                        {slot.time}
+                        <ChevronLeft className="w-4 h-4" style={{ color: 'var(--form-orange)' }} />
                       </button>
-                    ))}
+                      <span
+                        className="text-sm font-semibold capitalize"
+                        style={{ color: 'var(--form-chocolat)' }}
+                      >
+                        {formatMonthLabel(currentMonth)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCurrentMonth(
+                            new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+                          )
+                        }
+                        className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center hover:border-orange-300 hover:bg-orange-50 transition"
+                      >
+                        <ChevronRight className="w-4 h-4" style={{ color: 'var(--form-orange)' }} />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-7 text-center text-[10px] mb-2">
+                      {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day) => (
+                        <span key={day} style={{ color: 'var(--form-sable)' }}>
+                          {day}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1.5">
+                      {calendarDays.map((date, index) => {
+                        if (!date) {
+                          return <div key={`empty-${index}`} className="h-9 w-9" />;
+                        }
+                        const disabled = date < today;
+                        const selected = selectedDate ? isSameDay(date, selectedDate) : false;
+                        const isToday = isSameDay(date, today);
+                        return (
+                          <button
+                            key={date.toISOString()}
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => {
+                              setSelectedDate(date);
+                              setSelectedTime('');
+                            }}
+                            className={`h-9 w-9 rounded-lg border text-xs font-semibold flex items-center justify-center transition ${
+                              disabled
+                                ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                                : selected
+                                  ? 'bg-orange-500 text-white border-orange-500'
+                                  : 'border-gray-200 text-gray-700 hover:border-orange-300 hover:bg-orange-50'
+                            } ${isToday && !selected ? 'ring-1 ring-orange-200' : ''}`}
+                          >
+                            {date.getDate()}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                )}
+
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold" style={{ color: 'var(--form-sable)' }}>
+                        Heure souhaitée
+                      </label>
+                      <input
+                        type="time"
+                        value={selectedTime}
+                        onChange={(e) => setSelectedTime(e.target.value)}
+                        disabled={!selectedDate}
+                        className="form-input-premium disabled:opacity-50"
+                      />
+                      <p className="text-xs" style={{ color: 'var(--form-sable)' }}>
+                        {selectedDate
+                          ? "Saisissez l'heure exacte ou choisissez un créneau proposé."
+                          : "Choisissez d'abord une date pour activer l'heure."}
+                      </p>
+                      {isTimeBooked && (
+                        <p className="text-xs text-red-500">
+                          Ce créneau est déjà réservé. Choisissez une autre heure.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-gray-100 bg-white/60 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold" style={{ color: 'var(--form-sable)' }}>
+                          Créneaux proposés
+                        </span>
+                        <span className="text-[10px] font-semibold text-orange-500">
+                          {availableCount} dispo
+                        </span>
+                      </div>
+                      {!selectedDate ? (
+                        <div className="text-xs" style={{ color: 'var(--form-sable)' }}>
+                          Sélectionnez une date pour voir les propositions.
+                        </div>
+                      ) : availableSlots.length === 0 ? (
+                        <div className="text-center py-4 text-xs" style={{ color: 'var(--form-sable)' }}>
+                          Aucun créneau disponible pour cette date
+                        </div>
+                      ) : availableCount === 0 ? (
+                        <div className="text-center py-4 text-xs" style={{ color: 'var(--form-sable)' }}>
+                          Tous les créneaux sont déjà réservés
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {availableSlots.map((slot) => (
+                            <button
+                              key={slot.time}
+                              type="button"
+                              onClick={() => setSelectedTime(slot.time)}
+                              disabled={!slot.available}
+                              className={`form-toggle-button justify-center ${
+                                selectedTime === slot.time ? 'active' : ''
+                              } ${!slot.available ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                              {slot.time}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-            )}
 
-            <div className="form-actions">
-              <button type="button" onClick={prevStep} className="form-button-secondary">
-                <ArrowLeft className="h-5 w-5" />
-                <span>Retour</span>
-              </button>
-              <button
-                type="button"
-                onClick={nextStep}
-                disabled={!canProceedToStep3}
-                className="form-button-primary"
-              >
-                <span>Continuer</span>
-                <ChevronRight className="h-5 w-5" />
-              </button>
             </div>
-          </FormStepContent>
 
-          {/* STEP 3: Notes & Confirmation */}
-          <FormStepContent
-            step={3}
-            currentStep={step}
-            slideDirection={slideDirection}
-            className="space-y-6"
-          >
-            {/* Summary */}
-            <div className="form-section-premium" style={{ backgroundColor: 'var(--form-ivoire)' }}>
-              <h3 className="form-label-premium mb-4">Récapitulatif</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--form-sable)' }}>Type</span>
-                  <span className="font-semibold" style={{ color: 'var(--form-chocolat)' }}>
-                    {visitType === 'physique' ? 'Visite physique' : 'Visite virtuelle'}
-                  </span>
+            <div className="space-y-6 order-1 lg:order-2">
+              <div className="form-section-premium lg:sticky lg:top-6">
+                <h3 className="form-label-premium mb-4">Récapitulatif</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between gap-4">
+                    <span style={{ color: 'var(--form-sable)' }}>Bien</span>
+                    <span className="font-semibold text-right" style={{ color: 'var(--form-chocolat)' }}>
+                      {property.title}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span style={{ color: 'var(--form-sable)' }}>Type</span>
+                    <span className="font-semibold" style={{ color: 'var(--form-chocolat)' }}>
+                      {visitType === 'in_person' ? 'Visite physique' : 'Visite virtuelle'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span style={{ color: 'var(--form-sable)' }}>Date</span>
+                    <span className="font-semibold" style={{ color: 'var(--form-chocolat)' }}>
+                      {selectedDate
+                        ? selectedDate.toLocaleDateString('fr-FR', {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'long',
+                          })
+                        : 'Sélectionner une date'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span style={{ color: 'var(--form-sable)' }}>Heure</span>
+                    <span className="font-semibold" style={{ color: 'var(--form-orange)' }}>
+                      {selectedTime || 'Sélectionner une heure'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--form-sable)' }}>Date</span>
-                  <span className="font-semibold" style={{ color: 'var(--form-chocolat)' }}>
-                    {selectedDate?.toLocaleDateString('fr-FR', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                    })}
-                  </span>
+
+                <div className="mt-4 rounded-xl border border-orange-100 bg-orange-50 p-3 text-xs">
+                  {isTimeBooked
+                    ? 'Ce créneau est déjà réservé. Sélectionnez un autre horaire.'
+                    : selectedDate && selectedTime
+                      ? 'Créneau sélectionné. Votre demande sera envoyée au propriétaire.'
+                      : 'Choisissez une date et un horaire pour confirmer la visite.'}
                 </div>
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--form-sable)' }}>Heure</span>
-                  <span className="font-semibold" style={{ color: 'var(--form-orange)' }}>
-                    {selectedTime}
-                  </span>
+              </div>
+
+              <div className="form-section-premium">
+                <label className="form-label-premium mb-3 block">Type de visite</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setVisitType('in_person')}
+                    className={`form-card-selectable p-4 text-left ${visitType === 'in_person' ? 'selected' : ''}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center">
+                        <MapPin className="w-4 h-4" style={{ color: 'var(--form-orange)' }} />
+                      </span>
+                      <div>
+                        <p className="font-semibold" style={{ color: 'var(--form-chocolat)' }}>
+                          Visite physique
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--form-sable)' }}>
+                          Sur place avec le propriétaire
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVisitType('virtual')}
+                    className={`form-card-selectable p-4 text-left ${visitType === 'virtual' ? 'selected' : ''}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-9 h-9 rounded-full bg-orange-50 flex items-center justify-center">
+                        <Video className="w-4 h-4" style={{ color: 'var(--form-orange)' }} />
+                      </span>
+                      <div>
+                        <p className="font-semibold" style={{ color: 'var(--form-chocolat)' }}>
+                          Visite virtuelle
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--form-sable)' }}>
+                          En visio depuis chez vous
+                        </p>
+                      </div>
+                    </div>
+                  </button>
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="form-section-premium">
-              <label className="form-label-premium mb-2 flex items-center gap-2">
-                <MessageSquare className="w-4 h-4" />
-                Notes supplémentaires (optionnel)
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={4}
-                placeholder="Ajoutez des informations supplémentaires pour le propriétaire..."
-                className="form-input-premium form-textarea-premium"
-              />
-            </div>
-
-            <div className="form-actions">
-              <button type="button" onClick={prevStep} className="form-button-secondary">
-                <ArrowLeft className="h-5 w-5" />
-                <span>Retour</span>
-              </button>
-              <button
-                type="submit"
-                disabled={!selectedDate || !selectedTime || submitting}
-                className="form-button-primary"
-              >
-                <Check className="h-5 w-5" />
-                <span>{submitting ? 'Planification...' : 'Confirmer la visite'}</span>
-              </button>
-            </div>
-          </FormStepContent>
+          <div className="form-actions">
+            <button type="button" onClick={() => navigate(-1)} className="form-button-secondary">
+              <ArrowLeft className="h-5 w-5" />
+              <span>Retour</span>
+            </button>
+            <button
+              type="submit"
+              disabled={!selectedDate || !selectedTime || submitting || isTimeBooked}
+              className="form-button-primary"
+            >
+              <Check className="h-5 w-5" />
+              <span>{submitting ? 'Planification...' : 'Confirmer la visite'}</span>
+            </button>
+          </div>
         </form>
       </div>
     </div>

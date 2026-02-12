@@ -238,7 +238,7 @@ export default function ReportsPage() {
 
       if (format === 'pdf') {
         const pdfData: PDFReportData = {
-          title: 'Rapport d\'Activité Trust Agent',
+          title: 'Rapport d\'Activité Tiers de confiance',
           subtitle: `Période: ${timeRange.label}`,
           period: {
             startDate: startDate.toISOString(),

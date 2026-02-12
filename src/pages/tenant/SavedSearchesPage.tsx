@@ -152,10 +152,16 @@ export default function SavedSearches() {
 
     if (filters.property_type) {
       const types: Record<string, string> = {
-        appartement: 'Appartement',
-        maison: 'Maison',
+        apartment: 'Appartement',
+        house: 'Maison',
         studio: 'Studio',
         villa: 'Villa',
+        duplex: 'Duplex',
+        room: 'Chambre',
+        office: 'Bureau',
+        retail: 'Commerce',
+        warehouse: 'Entrepôt',
+        land: 'Terrain',
       };
       parts.push(types[filters.property_type] || filters.property_type);
     }

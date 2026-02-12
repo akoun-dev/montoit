@@ -13,7 +13,7 @@ import '@/styles/form-premium.css';
 const USER_TYPES = [
   { value: 'tenant', label: 'Locataire', description: 'Je cherche un logement' },
   { value: 'owner', label: 'Propriétaire', description: 'Je loue mes biens' },
-  { value: 'agent', label: 'Agence', description: 'Je gère des biens immobiliers' },
+  { value: 'agency', label: 'Agence', description: 'Je gère des biens immobiliers' },
 ] as const;
 
 const IVORIAN_CITIES = [
@@ -44,7 +44,7 @@ export default function ProfileCompletionPage() {
   const { user, profile, loading: authLoading, updateProfile } = useAuth();
 
   const [fullName, setFullName] = useState('');
-  const [userType, setUserType] = useState<'tenant' | 'owner' | 'agent'>('tenant');
+  const [userType, setUserType] = useState<'tenant' | 'owner' | 'agency'>('tenant');
   const [city, setCity] = useState('');
   const [bio, setBio] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -56,7 +56,7 @@ export default function ProfileCompletionPage() {
       setFullName(profile.full_name);
     }
     if (profile?.user_type) {
-      setUserType(profile.user_type as 'tenant' | 'owner' | 'agent');
+      setUserType(profile.user_type as 'tenant' | 'owner' | 'agency');
     }
     if (profile?.city) {
       setCity(profile.city);

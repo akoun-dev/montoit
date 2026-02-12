@@ -220,7 +220,7 @@ export const adminAuditService = {
       action: AuditActions.VALIDATE_DOCUMENT,
       entityType: AuditEntityTypes.VERIFICATION_DOCUMENT,
       entityId: documentId,
-      newValues: { verification_status: 'verified', verification_notes: notes },
+      newValues: { verification_status: 'approved', verification_notes: notes },
     });
   },
 
@@ -353,13 +353,13 @@ export const adminAuditService = {
 
       if (!profile) return null;
 
-      const isAdmin = profile.user_type === 'admin' || profile.user_type === 'admin_ansut';
+      const isAdmin = profile.user_type === 'admin' || profile.user_type === 'admin';
       if (!isAdmin) {
         const { data: roles } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id)
-          .in('role', ['admin', 'admin_ansut'])
+          .in('role', ['admin', 'admin'])
           .maybeSingle();
 
         if (!roles) return null;

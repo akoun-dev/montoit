@@ -26,7 +26,7 @@ import {
 import { supabase } from '@/services/supabase/client';
 import { InputWithIcon } from '@/shared/ui';
 import { PhoneInputWithCountry } from '@/shared/components/PhoneInputWithCountry';
-import { otpUnifiedService } from '@/services/brevo/otp-unified.service';
+import { otpService } from '@/services/auth/otp.service';
 
 // Regex de validation email conforme RFC 5322
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
@@ -90,8 +90,8 @@ export default function ModernAuthPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [profileType, setProfileType] = useState<'locataire' | 'proprietaire' | 'agence'>(
-    'locataire'
+  const [profileType, setProfileType] = useState<'tenant' | 'owner' | 'agency'>(
+    'tenant'
   );
   const [emailOtp, setEmailOtp] = useState('');
   const [pendingEmail, setPendingEmail] = useState('');
@@ -316,6 +316,12 @@ export default function ModernAuthPage() {
 
       if (signUpError) throw signUpError;
 
+      // Empêcher l'auto-connexion si confirmations email désactivées.
+      // L'utilisateur ne doit être connecté qu'après vérification OTP.
+      if (authData.session) {
+        await supabase.auth.signOut();
+      }
+
       setPendingEmail(email);
       setPendingPassword(password);
       setPendingUserId(authData.user?.id ?? null);
@@ -344,7 +350,7 @@ export default function ModernAuthPage() {
 
     try {
       // Vérifier le rate limiting
-      const rateLimitCheck = await otpUnifiedService.checkRateLimit(phoneNumber, 'otp-send', 5, 3);
+      const rateLimitCheck = await otpService.checkRateLimit(phoneNumber, 'otp-send', 5, 3);
       if (!rateLimitCheck.allowed && rateLimitCheck.remainingTime) {
         setResendTimer(rateLimitCheck.remainingTime);
         setError(`Patientez ${rateLimitCheck.remainingTime} secondes avant de réessayer`);
@@ -354,7 +360,7 @@ export default function ModernAuthPage() {
 
       // Envoyer l'OTP via le service unifié (utilise send-sms-azure pour SMS/WhatsApp)
       const method = sendMethod === 'whatsapp' ? 'whatsapp' : 'sms';
-      const result = await otpUnifiedService.sendOTP({
+      const result = await otpService.sendOTP({
         recipient: phoneNumber,
         method,
         purpose: 'auth',
@@ -515,7 +521,7 @@ export default function ModernAuthPage() {
     }
   };
 
-  const handleSelectRole = async (role: 'locataire' | 'proprietaire' | 'agence') => {
+  const handleSelectRole = async (role: 'tenant' | 'owner' | 'agency') => {
     setProfileType(role);
     setLoading(true);
     setError('');
@@ -912,19 +918,19 @@ export default function ModernAuthPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[
                       {
-                        value: 'locataire',
+                        value: 'tenant',
                         label: 'Locataire',
                         icon: Home,
                         bullets: ['Recherche & alertes', 'Candidature en 1 clic'],
                       },
                       {
-                        value: 'proprietaire',
+                        value: 'owner',
                         label: 'Propriétaire',
                         icon: Star,
                         bullets: ['Publier un bien', 'Contrats digitaux'],
                       },
                       {
-                        value: 'agence',
+                        value: 'agency',
                         label: 'Agence',
                         icon: Shield,
                         bullets: ['Mandats & équipe', 'Reporting & commissions'],
@@ -934,7 +940,7 @@ export default function ModernAuthPage() {
                         key={opt.value}
                         type="button"
                         onClick={() =>
-                          handleSelectRole(opt.value as 'locataire' | 'proprietaire' | 'agence')
+                          handleSelectRole(opt.value as 'tenant' | 'owner' | 'agency')
                         }
                         className={`flex items-start gap-3 px-4 py-4 rounded-2xl border transition text-left ${
                           profileType === opt.value
@@ -996,6 +1002,7 @@ export default function ModernAuthPage() {
                     icon={Lock}
                     label="Mot de passe"
                     type="password"
+                    isPassword
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
@@ -1018,6 +1025,7 @@ export default function ModernAuthPage() {
                       icon={Lock}
                       label="Confirmer le mot de passe"
                       type="password"
+                      isPassword
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="••••••••"

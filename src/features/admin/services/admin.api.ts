@@ -308,7 +308,7 @@ export const adminApi = {
       date_to?: string;
     }
   ): Promise<{ logs: unknown[]; total: number }> => {
-    await requireRole(['admin', 'admin_ansut']);
+    await requireRole(['admin', 'admin']);
 
     let query = supabase
       .from('audit_logs')
@@ -358,7 +358,7 @@ export const adminApi = {
    * Récupère les logs d'audit admin (table admin_audit_logs)
    */
   getAdminAuditLogs: async (limit = 20): Promise<unknown[]> => {
-    await requireRole(['admin', 'admin_ansut']);
+    await requireRole(['admin', 'admin']);
 
     const { data, error } = await supabase
       .from('admin_audit_logs')

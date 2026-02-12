@@ -169,7 +169,7 @@ export default function DossierValidationPage() {
       setUpdating(true);
       await verificationApplicationsService.updateDocumentStatus(
         documentId,
-        verified ? 'verified' : 'rejected',
+        verified ? 'approved' : 'rejected',
         verified ? 'Document vérifié' : 'Document rejeté'
       );
       toast.success(verified ? 'Document vérifié' : 'Document rejeté');
@@ -313,7 +313,7 @@ export default function DossierValidationPage() {
                         <div className="flex items-center gap-4">
                           <div
                             className={`p-2 rounded-lg ${
-                              doc.verification_status === 'verified'
+                              doc.verification_status === 'approved'
                                 ? 'bg-green-100'
                                 : doc.verification_status === 'rejected'
                                   ? 'bg-red-100'
@@ -322,7 +322,7 @@ export default function DossierValidationPage() {
                           >
                             <FileText
                               className={`h-5 w-5 ${
-                                doc.verification_status === 'verified'
+                                doc.verification_status === 'approved'
                                   ? 'text-green-600'
                                   : doc.verification_status === 'rejected'
                                     ? 'text-red-600'
@@ -340,7 +340,7 @@ export default function DossierValidationPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {doc.verification_status === 'verified' ? (
+                          {doc.verification_status === 'approved' ? (
                             <Badge className="bg-green-100 text-green-700">
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                               Vérifié
@@ -404,14 +404,14 @@ export default function DossierValidationPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Documents vérifiés</span>
                     <span className="text-sm font-semibold text-primary-600">
-                      {documents.filter((d) => d.verification_status === 'verified').length} / {documents.length}
+                      {documents.filter((d) => d.verification_status === 'approved').length} / {documents.length}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
                     <div
                       className="bg-gradient-to-r from-primary-500 to-primary-600 h-full rounded-full transition-all duration-500 ease-out"
                       style={{
-                        width: `${documents.length > 0 ? (documents.filter((d) => d.verification_status === 'verified').length / documents.length) * 100 : 0}%`,
+                        width: `${documents.length > 0 ? (documents.filter((d) => d.verification_status === 'approved').length / documents.length) * 100 : 0}%`,
                       }}
                     />
                   </div>

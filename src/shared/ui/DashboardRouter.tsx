@@ -39,7 +39,7 @@ export default function DashboardRouter() {
       }
 
       if (isTrustAgent) {
-        console.log('DashboardRouter - Trust agent, redirecting to /trust-agent/dashboard');
+        console.log('DashboardRouter - Tiers de confiance, redirecting to /trust-agent/dashboard');
         navigate('/trust-agent/dashboard', { replace: true });
         return;
       }

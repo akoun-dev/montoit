@@ -256,7 +256,7 @@ Catégories:
       tags.push('facture');
     }
     if (fileNameLower.includes('quittance')) {
-      tags.push('loyer', 'quittance');
+      tags.push('rent', 'quittance');
     }
     if (fileNameLower.includes('2024') || fileNameLower.includes('2025')) {
       tags.push(fileNameLower.includes('2024') ? '2024' : '2025');

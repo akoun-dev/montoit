@@ -214,23 +214,28 @@ export default function AgentPropertiesPage() {
   };
 
   const getStatusBadge = (status: string | null) => {
+    const normalizedStatus = status
+      ? status.toLowerCase()
+      : 'available';
     const styles: Record<string, string> = {
-      disponible: 'bg-green-100 text-green-800',
-      loue: 'bg-gray-100 text-gray-800',
-      en_attente: 'bg-yellow-100 text-yellow-800',
-      retire: 'bg-red-100 text-red-800',
+      available: 'bg-green-100 text-green-800',
+      rented: 'bg-gray-100 text-gray-800',
+      pending: 'bg-yellow-100 text-yellow-800',
+      unavailable: 'bg-gray-100 text-gray-800',
+      inactive: 'bg-red-100 text-red-800',
       maintenance: 'bg-orange-100 text-orange-800',
     };
     const labels: Record<string, string> = {
-      disponible: 'Disponible',
-      loue: 'Loué',
-      en_attente: 'En attente',
-      retire: 'Retiré',
+      available: 'Disponible',
+      rented: 'Loué',
+      pending: 'En attente',
+      unavailable: 'Indisponible',
+      inactive: 'Retiré',
       maintenance: 'En travaux',
     };
-    const s = status || 'disponible';
+    const s = normalizedStatus || 'available';
     return (
-      <Badge className={styles[s] || styles['disponible']}>{labels[s] || s}</Badge>
+      <Badge className={styles[s] || styles['available']}>{labels[s] || s}</Badge>
     );
   };
 
@@ -305,7 +310,7 @@ export default function AgentPropertiesPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-[#2C1810]">
-                    {properties.filter((p) => p.properties?.status === 'disponible').length}
+                    {properties.filter((p) => p.properties?.status === 'available').length}
                   </p>
                   <p className="text-sm text-[#2C1810]/60">Disponibles</p>
                 </div>
@@ -366,9 +371,9 @@ export default function AgentPropertiesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous les statuts</SelectItem>
-                  <SelectItem value="disponible">Disponible</SelectItem>
-                  <SelectItem value="loue">Loué</SelectItem>
-                  <SelectItem value="en_attente">En attente</SelectItem>
+                  <SelectItem value="available">Disponible</SelectItem>
+                  <SelectItem value="rented">Loué</SelectItem>
+                  <SelectItem value="pending">En attente</SelectItem>
                   <SelectItem value="maintenance">En travaux</SelectItem>
                 </SelectContent>
               </Select>

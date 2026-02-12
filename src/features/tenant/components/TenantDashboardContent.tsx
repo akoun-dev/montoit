@@ -115,13 +115,19 @@ export default function TenantDashboardContent() {
       string,
       { label: string; className: string; icon: React.ElementType }
     > = {
-      actif: { label: 'Actif', className: 'bg-green-100 text-green-700', icon: CheckCircle },
-      en_cours: { label: 'En cours', className: 'bg-blue-100 text-blue-700', icon: CheckCircle },
-      signé: { label: 'Signé', className: 'bg-green-100 text-green-700', icon: CheckCircle },
-      terminé: { label: 'Terminé', className: 'bg-gray-100 text-gray-700', icon: AlertCircle },
-      brouillon: defaultConfig,
+      draft: defaultConfig,
+      pending_signature: {
+        label: 'En attente de signature',
+        className: 'bg-amber-100 text-amber-700',
+        icon: AlertCircle,
+      },
+      active: { label: 'Actif', className: 'bg-green-100 text-green-700', icon: CheckCircle },
+      terminated: { label: 'Résilié', className: 'bg-purple-100 text-purple-700', icon: AlertCircle },
+      cancelled: { label: 'Annulé', className: 'bg-gray-100 text-gray-700', icon: AlertCircle },
+      expired: { label: 'Expiré', className: 'bg-red-100 text-red-700', icon: AlertCircle },
     };
-    const config = statusConfig[status || 'brouillon'] ?? defaultConfig;
+    const normalizedStatus = status ?? 'draft';
+    const config = statusConfig[normalizedStatus] ?? defaultConfig;
     const Icon = config.icon;
     return (
       <span
@@ -142,7 +148,7 @@ export default function TenantDashboardContent() {
     return { level: 'normal', className: 'text-gray-500', label: `${days} jour${days > 1 ? 's' : ''}` };
   };
 
-  const activeLease = leases.find((l) => ['actif', 'en_cours', 'signé'].includes(l.status));
+  const activeLease = leases.find((l) => ['active', 'pending_signature'].includes(l.status));
 
   if (loading) {
     return (
@@ -305,7 +311,7 @@ export default function TenantDashboardContent() {
                   <div key={payment.id} className="flex items-center justify-between bg-white rounded-lg p-3">
                     <div>
                       <p className="font-medium text-[#2C1810]">
-                        {payment.payment_type === 'loyer' ? 'Loyer' : payment.payment_type}
+                        {payment.payment_type === 'rent' ? 'Loyer' : payment.payment_type}
                       </p>
                       <p className={`text-xs ${urgency.className} flex items-center gap-1`}>
                         <Clock className="h-3 w-3" />
@@ -406,7 +412,7 @@ export default function TenantDashboardContent() {
                   <div key={payment.id} className="flex items-center justify-between p-3">
                     <div>
                       <p className="text-sm font-medium text-[#2C1810]">
-                        {payment.payment_type === 'loyer' ? 'Loyer' : payment.payment_type}
+                        {payment.payment_type === 'rent' ? 'Loyer' : payment.payment_type}
                       </p>
                       <p className={`text-xs ${urgency.className} flex items-center gap-1`}>
                         <Clock className="h-3 w-3" />

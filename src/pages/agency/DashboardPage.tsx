@@ -56,7 +56,7 @@ export default function AgencyDashboardPage() {
       return;
     }
 
-    if (profile && profile.user_type !== 'agent' && profile.user_type !== 'agence') {
+    if (profile && profile.user_type !== 'agency') {
       navigate('/dashboard');
       return;
     }
@@ -83,7 +83,7 @@ export default function AgencyDashboardPage() {
         .from('lease_contracts')
         .select('id, monthly_rent')
         .eq('owner_id', user.id)
-        .eq('status', 'actif');
+        .eq('status', 'active');
 
       const activeLeases = leasesData || [];
       const monthlyRevenue = activeLeases.reduce(
@@ -99,7 +99,7 @@ export default function AgencyDashboardPage() {
           .from('rental_applications')
           .select('id')
           .in('property_id', propertyIds)
-          .eq('status', 'en_attente');
+          .eq('status', 'pending');
         pendingApplications = applicationsData?.length || 0;
       }
 
@@ -262,12 +262,26 @@ export default function AgencyDashboardPage() {
                           </span>
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                              property.status === 'active'
+                              property.status === 'available'
                                 ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-100 text-gray-700'
+                                : property.status === 'rented'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : property.status === 'pending'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : property.status === 'maintenance'
+                                      ? 'bg-orange-100 text-orange-700'
+                                      : 'bg-gray-100 text-gray-700'
                             }`}
                           >
-                            {property.status === 'active' ? 'Actif' : 'En attente'}
+                            {property.status === 'available'
+                              ? 'Disponible'
+                              : property.status === 'rented'
+                                ? 'Loué'
+                                : property.status === 'pending'
+                                  ? 'En attente'
+                                  : property.status === 'maintenance'
+                                    ? 'Maintenance'
+                                    : 'Indisponible'}
                           </span>
                         </div>
                       </div>

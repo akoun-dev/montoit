@@ -4,18 +4,16 @@
  * Business Types (from profiles.user_type):
  * - tenant: Can search, apply, pay rent
  * - owner: Can add properties, manage contracts
- * - agent: Can manage properties for multiple owners
+ * - agency: Can manage properties for multiple owners
  *
  * System Roles (from user_roles table):
  * - admin: Full platform access
- * - moderator: Content moderation
  * - trust_agent: Property verification
- * - user: Default role
  */
 
 import { useMemo } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { useUserRoles, AppRole } from '@/hooks/shared/useUserRoles';
+import { useUserRoles, type SystemRole, type UserType } from '@/hooks/shared/useUserRoles';
 
 export interface Permissions {
   // Authentication state
@@ -25,11 +23,10 @@ export interface Permissions {
   // Business type checks
   isTenant: boolean;
   isOwner: boolean;
-  isAgent: boolean;
+  isAgency: boolean;
 
   // System role checks (from user_roles table)
   isAdmin: boolean;
-  isModerator: boolean;
   isTrustAgent: boolean;
 
   // Feature permissions
@@ -52,27 +49,30 @@ export interface Permissions {
 
   // User info
   userType: string | null;
-  systemRoles: AppRole[];
+  systemRoles: SystemRole[];
 }
 
 export function usePermissions(): Permissions {
   const { user, profile, loading: authLoading } = useAuth();
-  const { roles, loading: rolesLoading, isAdmin, isModerator, isTrustAgent } = useUserRoles();
+  const { systemRoles, loading: rolesLoading, isAdmin, isTrustAgent, userType: roleUserType } = useUserRoles();
 
   return useMemo(() => {
     const isAuthenticated = !!user;
     const isLoading = authLoading || rolesLoading;
 
     // Get user type from profile
-    const userType = profile?.user_type || profile?.active_role || null;
+    const baseUserType = (profile?.user_type || profile?.active_role || roleUserType || null) as
+      | UserType
+      | null;
+    const userType = isAdmin ? 'admin' : isTrustAgent ? 'trust_agent' : baseUserType;
 
     // Business type checks
-    const isTenant = userType === 'tenant' || userType === 'locataire';
-    const isOwner = userType === 'owner' || userType === 'proprietaire';
-    const isAgent = userType === 'agent' || userType === 'agence';
+    const isTenant = userType === 'tenant';
+    const isOwner = userType === 'owner';
+    const isAgency = userType === 'agency';
 
     // Property managers can add properties and manage contracts
-    const isPropertyManager = isOwner || isAgent;
+    const isPropertyManager = isOwner || isAgency;
 
     return {
       // Authentication state
@@ -82,11 +82,10 @@ export function usePermissions(): Permissions {
       // Business type checks
       isTenant,
       isOwner,
-      isAgent,
+      isAgency,
 
       // System role checks
       isAdmin,
-      isModerator,
       isTrustAgent,
 
       // Feature permissions
@@ -97,7 +96,7 @@ export function usePermissions(): Permissions {
       canCertifyProperty: isTrustAgent || isAdmin,
       canAccessAdmin: isAdmin,
       canManageUsers: isAdmin,
-      canModerateContent: isModerator || isAdmin,
+      canModerateContent: isAdmin,
       canViewAnalytics: isPropertyManager || isAdmin,
       canManageApiKeys: isAdmin,
       canAccessDashboard: isAuthenticated,
@@ -109,9 +108,9 @@ export function usePermissions(): Permissions {
 
       // User info
       userType,
-      systemRoles: roles,
+      systemRoles,
     };
-  }, [user, profile, authLoading, rolesLoading, roles, isAdmin, isModerator, isTrustAgent]);
+  }, [user, profile, roleUserType, authLoading, rolesLoading, systemRoles, isAdmin, isTrustAgent]);
 }
 
 export default usePermissions;

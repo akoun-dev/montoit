@@ -70,19 +70,18 @@ function PropertyCard({ property, onClick }: PropertyCardProps) {
   // Helper to get status badge
   const getStatusBadge = () => {
     if (!property.status) return null;
-    const status = property.status.toLowerCase();
+    const normalizedStatus = property.status.toLowerCase();
 
     const statusConfig: Record<string, { label: string; className: string; icon: string }> = {
-      disponible: { label: 'Disponible', className: 'bg-emerald-600 text-white', icon: '✓' },
-      loue: { label: 'Louée', className: 'bg-blue-600 text-white', icon: '🔑' },
-      louee: { label: 'Louée', className: 'bg-blue-600 text-white', icon: '🔑' },
-      en_attente: { label: 'En cours', className: 'bg-amber-500 text-white', icon: '⏳' },
-      reservee: { label: 'Réservée', className: 'bg-purple-600 text-white', icon: '📋' },
-      indisponible: { label: 'Indisponible', className: 'bg-gray-500 text-white', icon: '✕' },
+      available: { label: 'Disponible', className: 'bg-emerald-600 text-white', icon: '✓' },
+      rented: { label: 'Louée', className: 'bg-blue-600 text-white', icon: '🔑' },
+      pending: { label: 'En cours', className: 'bg-amber-500 text-white', icon: '⏳' },
+      unavailable: { label: 'Indisponible', className: 'bg-gray-500 text-white', icon: '✕' },
       maintenance: { label: 'Maintenance', className: 'bg-red-600 text-white', icon: '🔧' },
+      inactive: { label: 'Inactif', className: 'bg-gray-500 text-white', icon: '✕' },
     };
 
-    const config = statusConfig[status];
+    const config = statusConfig[normalizedStatus];
     if (!config) return null;
 
     return (
@@ -92,7 +91,12 @@ function PropertyCard({ property, onClick }: PropertyCardProps) {
     );
   };
 
-  const isUnavailable = property.status === 'loue' || property.status === 'louee' || property.status === 'en_attente' || property.status === 'indisponible' || property.status === 'maintenance';
+  const normalizedStatus = (() => {
+    const status = property.status?.toLowerCase();
+    if (!status) return null;
+    return status;
+  })();
+  const isUnavailable = normalizedStatus ? normalizedStatus !== 'available' : false;
 
   return (
     <div

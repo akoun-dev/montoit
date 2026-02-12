@@ -1,5 +1,5 @@
 /**
- * Page de statistiques pour l'agent de confiance
+ * Page de statistiques pour le tiers de confiance
  *
  * Affiche les statistiques avancées avec graphiques Recharts.
  */

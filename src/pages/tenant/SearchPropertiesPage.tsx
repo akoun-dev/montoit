@@ -523,15 +523,16 @@ export default function SearchPropertiesPage() {
                             const statusConfig = (() => {
                               const status = property.status?.toLowerCase();
                               if (!status) return null;
+                              const normalizedStatus = status;
                               const configs: Record<string, { label: string; className: string }> = {
-                                disponible: { label: 'Disponible', className: 'bg-green-500/90 text-white' },
-                                louee: { label: 'Louée', className: 'bg-blue-500/90 text-white' },
-                                en_attente: { label: 'En attente', className: 'bg-amber-500/90 text-white' },
-                                reservee: { label: 'Réservée', className: 'bg-purple-500/90 text-white' },
-                                indisponible: { label: 'Indisponible', className: 'bg-gray-500/90 text-white' },
+                                available: { label: 'Disponible', className: 'bg-green-500/90 text-white' },
+                                rented: { label: 'Louée', className: 'bg-blue-500/90 text-white' },
+                                pending: { label: 'En attente', className: 'bg-amber-500/90 text-white' },
+                                unavailable: { label: 'Indisponible', className: 'bg-gray-500/90 text-white' },
                                 maintenance: { label: 'Maintenance', className: 'bg-red-500/90 text-white' },
+                                inactive: { label: 'Inactif', className: 'bg-gray-500/90 text-white' },
                               };
-                              return configs[status] || null;
+                              return configs[normalizedStatus] || null;
                             })();
                             return statusConfig ? (
                               <span className={`${statusConfig.className} text-[10px] font-bold px-2 py-1 rounded-md uppercase shadow-sm backdrop-blur-sm`}>
@@ -790,15 +791,16 @@ export default function SearchPropertiesPage() {
                             const statusConfig = (() => {
                               const status = property.status?.toLowerCase();
                               if (!status) return null;
+                              const normalizedStatus = status;
                               const configs: Record<string, { label: string; className: string }> = {
-                                disponible: { label: 'Disponible', className: 'bg-green-100 text-green-700' },
-                                louee: { label: 'Louée', className: 'bg-blue-100 text-blue-700' },
-                                en_attente: { label: 'En attente', className: 'bg-amber-100 text-amber-700' },
-                                reservee: { label: 'Réservée', className: 'bg-purple-100 text-purple-700' },
-                                indisponible: { label: 'Indisponible', className: 'bg-gray-100 text-gray-700' },
+                                available: { label: 'Disponible', className: 'bg-green-100 text-green-700' },
+                                rented: { label: 'Louée', className: 'bg-blue-100 text-blue-700' },
+                                pending: { label: 'En attente', className: 'bg-amber-100 text-amber-700' },
+                                unavailable: { label: 'Indisponible', className: 'bg-gray-100 text-gray-700' },
                                 maintenance: { label: 'Maintenance', className: 'bg-red-100 text-red-700' },
+                                inactive: { label: 'Inactif', className: 'bg-gray-100 text-gray-700' },
                               };
-                              return configs[status] || null;
+                              return configs[normalizedStatus] || null;
                             })();
                             return statusConfig ? (
                               <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${statusConfig.className}`}>

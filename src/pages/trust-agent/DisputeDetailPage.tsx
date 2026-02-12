@@ -780,7 +780,7 @@ export default function DisputeDetailPage() {
                                   <span className="text-xs font-medium">
                                     {message.sender_role === 'tenant' ? 'Locataire' :
                                      message.sender_role === 'owner' ? 'Propriétaire' :
-                                     message.sender_role === 'trust_agent' ? 'Agent de confiance' :
+                                     message.sender_role === 'trust_agent' ? 'Tiers de confiance' :
                                      'Admin'}
                                   </span>
                                   <span className="text-xs opacity-70">

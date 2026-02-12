@@ -72,7 +72,7 @@ const INITIAL_FORM_DATA: PropertyFormData = {
   address: '',
   city: '',
   neighborhood: '',
-  property_type: 'appartement' as PropertyType,
+  property_type: 'apartment' as PropertyType,
   property_category: 'residential',
   bedrooms: 1,
   bathrooms: 1,
@@ -97,7 +97,7 @@ const STEPS = [
 ];
 
 const toDbCategory = (category: PropertyFormData['property_category']) =>
-  category === 'commercial' ? 'commercial' : 'residentiel';
+  category === 'commercial' ? 'commercial' : 'residential';
 
 const toUiCategory = (category?: string | null): PropertyFormData['property_category'] =>
   category === 'commercial' ? 'commercial' : 'residential';
@@ -212,7 +212,7 @@ export function AddPropertyContent() {
             address: addressValue,
             city: data.city || '',
             neighborhood: data.neighborhood || '',
-            property_type: (data.property_type as PropertyType) || 'appartement',
+            property_type: (data.property_type as PropertyType) || 'apartment',
             property_category: toUiCategory(data.property_category),
             bedrooms: data.bedrooms ?? 0,
             bathrooms: data.bathrooms ?? 0,
@@ -526,7 +526,7 @@ export function AddPropertyContent() {
         is_anonymous: !!formData.is_anonymous,
         latitude: formData.latitude ?? null,
         longitude: formData.longitude ?? null,
-        status: 'disponible' as const,
+        status: 'available' as const,
         images: [],
         main_image: null,
         views_count: 0,

@@ -55,7 +55,7 @@ export default function ProfileSelection() {
       hoverColor: 'hover:border-terracotta-500',
     },
     {
-      type: 'agent' as UserTypeEn,
+      type: 'agency' as UserTypeEn,
       icon: Briefcase,
       title: 'Agence Immobilière',
       subtitle: 'Je suis une agence professionnelle',
@@ -112,9 +112,9 @@ export default function ProfileSelection() {
       // Redirection selon le type sélectionné (utiliser window.location pour éviter le re-render)
       let dashboardUrl = '/locataire/dashboard';
       if (selectedType === 'owner') {
-        dashboardUrl = getDashboardRoute('proprietaire');
-      } else if (selectedType === 'agent') {
-        dashboardUrl = getDashboardRoute('agence');
+        dashboardUrl = getDashboardRoute('owner');
+      } else if (selectedType === 'agency') {
+        dashboardUrl = getDashboardRoute('agency');
       }
       window.location.href = dashboardUrl;
     } catch (err: unknown) {

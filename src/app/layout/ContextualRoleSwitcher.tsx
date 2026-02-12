@@ -54,7 +54,7 @@ export default function ContextualRoleSwitcher() {
       id: 'owner',
       label: 'Mes Propriétés',
       icon: Building2,
-      href: '/proprietaire/dashboard/proprietaire',
+      href: '/proprietaire/dashboard',
       count: propertiesCount,
       description: 'Gérer mes biens',
     });
@@ -63,14 +63,14 @@ export default function ContextualRoleSwitcher() {
   // If user has neither, show a "get started" state
   // But only show "Publish" button to owners/agencies, NOT tenants
   const hasNoRoles = !isTenant && !isOwner && !loading;
-  const canPublishProperties = profile?.user_type === 'proprietaire' || profile?.user_type === 'agence';
+  const canPublishProperties = profile?.user_type === 'owner' || profile?.user_type === 'agency';
 
   const isActiveTab = (href: string) => {
     if (href === '/locataire/profil') return location.pathname === '/locataire/profil';
     if (href === '/locataire/dashboard')
       return location.pathname.startsWith('/locataire/dashboard');
-    if (href === '/proprietaire/dashboard/proprietaire')
-      return location.pathname.startsWith('/proprietaire/dashboard/proprietaire');
+    if (href === '/proprietaire/dashboard')
+      return location.pathname.startsWith('/proprietaire/dashboard');
     return false;
   };
 

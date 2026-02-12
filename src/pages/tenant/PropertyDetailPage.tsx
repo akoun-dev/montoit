@@ -41,27 +41,29 @@ function cn(...inputs: (string | boolean | undefined | null)[]) {
 function getStatusConfig(status?: string | null) {
   if (!status) return null;
 
+  const normalizedStatus = status.toLowerCase();
   const statusConfig: Record<string, { label: string; className: string; icon?: string }> = {
-    disponible: { label: 'Disponible', className: 'bg-green-100 text-green-700 border-green-200', icon: '✓' },
-    louee: { label: 'Louée', className: 'bg-blue-100 text-blue-700 border-blue-200', icon: '🔑' },
-    en_attente: { label: 'En attente', className: 'bg-amber-100 text-amber-700 border-amber-200', icon: '⏳' },
-    reservee: { label: 'Réservée', className: 'bg-purple-100 text-purple-700 border-purple-200', icon: '📋' },
-    indisponible: { label: 'Indisponible', className: 'bg-gray-100 text-gray-700 border-gray-200', icon: '✕' },
+    available: { label: 'Disponible', className: 'bg-green-100 text-green-700 border-green-200', icon: '✓' },
+    rented: { label: 'Louée', className: 'bg-blue-100 text-blue-700 border-blue-200', icon: '🔑' },
+    pending: { label: 'En attente', className: 'bg-amber-100 text-amber-700 border-amber-200', icon: '⏳' },
+    unavailable: { label: 'Indisponible', className: 'bg-gray-100 text-gray-700 border-gray-200', icon: '✕' },
     maintenance: { label: 'Maintenance', className: 'bg-red-100 text-red-700 border-red-200', icon: '🔧' },
+    inactive: { label: 'Inactif', className: 'bg-gray-100 text-gray-700 border-gray-200', icon: '✕' },
   };
 
-  return statusConfig[status.toLowerCase()] || null;
+  return statusConfig[normalizedStatus] || null;
+}
+
+function normalizePropertyStatus(status?: string | null): string | null {
+  if (!status) return null;
+  return status.toLowerCase();
 }
 
 // Check if property is available for applications
 function isPropertyAvailable(status?: string | null): boolean {
   if (!status) return true;
-  const normalizedStatus = status.toLowerCase();
-  return !(
-    normalizedStatus === 'loue' ||
-    normalizedStatus === 'louee' ||
-    normalizedStatus === 'en_attente'
-  );
+  const normalizedStatus = normalizePropertyStatus(status);
+  return normalizedStatus === 'available';
 }
 
 // Extended property type with new columns and owner profile
@@ -316,8 +318,8 @@ export default function PropertyDetailPage() {
     user &&
     property &&
     (user.id === property.owner_id ||
-      profile?.user_type === 'agence' ||
-      profile?.user_type === 'proprietaire');
+      profile?.user_type === 'agency' ||
+      profile?.user_type === 'owner');
 
   useEffect(() => {
     if (id) {
@@ -438,16 +440,19 @@ export default function PropertyDetailPage() {
   const images = property.images?.length ? property.images : [FALLBACK_IMAGE];
   const displayPrice = property.monthly_rent ?? property.price;
   const formattedPrice = displayPrice != null ? displayPrice.toLocaleString('fr-FR') : null;
+  const normalizedStatus = normalizePropertyStatus(property.status);
 
   const propertyTypeLabels: Record<string, string> = {
-    maison: 'Maison',
-    appartement: 'Appartement',
+    apartment: 'Appartement',
+    house: 'Maison',
     villa: 'Villa',
     studio: 'Studio',
     duplex: 'Duplex',
-    chambre: 'Chambre',
-    bureau: 'Bureau',
-    commerce: 'Commerce',
+    room: 'Chambre',
+    office: 'Bureau',
+    retail: 'Commerce',
+    warehouse: 'Entrepôt',
+    land: 'Terrain',
   };
 
   return (
@@ -521,7 +526,11 @@ export default function PropertyDetailPage() {
                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
               )}
             >
-              {property.status === 'loue' || property.status === 'louee' ? 'Louée' : property.status === 'en_attente' ? 'En cours' : 'Postuler'}
+              {normalizedStatus === 'rented'
+                ? 'Louée'
+                : normalizedStatus === 'pending'
+                  ? 'En cours'
+                  : 'Postuler'}
             </button>
           </div>
         </div>
@@ -576,7 +585,7 @@ export default function PropertyDetailPage() {
                 <h3 className="text-xl md:text-2xl font-bold text-white mb-2">
                   {isPropertyAvailable(property.status)
                     ? 'Intéressé par ce bien ?'
-                    : property.status === 'loue' || property.status === 'louee'
+                    : normalizedStatus === 'rented'
                       ? 'Ce bien est déjà loué'
                       : 'Ce bien est en cours de location'}
                 </h3>
@@ -620,7 +629,11 @@ export default function PropertyDetailPage() {
                           : "bg-gray-300 text-gray-500 cursor-not-allowed"
                       )}
                     >
-                      {property.status === 'loue' || property.status === 'louee' ? 'Bien loué' : property.status === 'en_attente' ? 'En cours de location' : 'Postuler maintenant'}
+                      {normalizedStatus === 'rented'
+                        ? 'Bien loué'
+                        : normalizedStatus === 'pending'
+                          ? 'En cours de location'
+                          : 'Postuler maintenant'}
                     </button>
                   </>
                 )}
@@ -755,7 +768,7 @@ export default function PropertyDetailPage() {
                     canReview={
                       user &&
                       property.owner_id !== user.id &&
-                      profile?.user_type === 'locataire'
+                      profile?.user_type === 'tenant'
                     }
                   />
                 </div>
@@ -816,7 +829,7 @@ export default function PropertyDetailPage() {
                           latitude: property.latitude,
                           longitude: property.longitude,
                           monthly_rent: property.monthly_rent,
-                          status: property.status ?? 'disponible',
+                          status: property.status ?? 'available',
                           city: property.city,
                         },
                       ]}
@@ -840,7 +853,7 @@ export default function PropertyDetailPage() {
                 canReview={
                   user &&
                   property.owner_id !== user.id &&
-                  profile?.user_type === 'locataire'
+                  profile?.user_type === 'tenant'
                 }
               />
             )}

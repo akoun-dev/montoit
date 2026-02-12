@@ -80,7 +80,7 @@ export default function OwnerDashboardPage() {
       return;
     }
 
-    if (profile && profile.user_type !== 'owner' && profile.user_type !== 'proprietaire') {
+    if (profile && profile.user_type !== 'owner' && profile.user_type !== 'owner') {
       navigate('/dashboard');
       return;
     }
@@ -110,7 +110,7 @@ export default function OwnerDashboardPage() {
         .from('lease_contracts')
         .select('id, monthly_rent, property_id')
         .eq('owner_id', user.id)
-        .eq('status', 'actif');
+        .eq('status', 'active');
 
       const activeLeases = leasesData || [];
       const monthlyRevenue = activeLeases.reduce(
@@ -133,7 +133,7 @@ export default function OwnerDashboardPage() {
           .from('rental_applications')
           .select('id, property_id, created_at, profiles(full_name)')
           .in('property_id', propertyIds)
-          .eq('status', 'en_attente')
+          .eq('status', 'pending')
           .order('created_at', { ascending: false })
           .limit(5);
 
@@ -160,7 +160,7 @@ export default function OwnerDashboardPage() {
           .from('maintenance_requests')
           .select('id, property_id, created_at, title, status')
           .in('property_id', propertyIds)
-          .in('status', ['ouverte', 'en_cours'])
+          .in('status', ['ouverte', 'in_progress'])
           .order('created_at', { ascending: false })
           .limit(3);
 
@@ -450,16 +450,16 @@ export default function OwnerDashboardPage() {
                         <h3 className="font-semibold text-gray-900 line-clamp-1">{property.title}</h3>
                         <span
                           className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ml-2 ${
-                            property.status === 'disponible'
+                            property.status === 'available'
                               ? 'bg-green-100 text-green-700'
-                              : property.status === 'loue'
+                              : property.status === 'rented'
                                 ? 'bg-blue-100 text-blue-700'
                                 : 'bg-gray-100 text-gray-700'
                           }`}
                         >
-                          {property.status === 'disponible'
+                          {property.status === 'available'
                             ? 'Disponible'
-                            : property.status === 'loue'
+                            : property.status === 'rented'
                               ? 'Loué'
                               : property.status}
                         </span>

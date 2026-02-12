@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Trash2, Clock, Shield, UserCheck, Eye, User } from 'lucide-react';
+import { Trash2, Clock, Shield, UserCheck, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 interface UserWithRole {
   id: string;
-  role: 'admin' | 'trust_agent' | 'moderator' | 'user';
+  role: 'admin' | 'trust_agent';
   granted_at: string | null;
   granted_by: string | null;
   user_id: string;
@@ -37,21 +37,14 @@ const getRoleBadge = (role: string) => {
       return (
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
           <UserCheck className="h-3.5 w-3.5" />
-          Trust Agent
-        </span>
-      );
-    case 'moderator':
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-          <Eye className="h-3.5 w-3.5" />
-          Modérateur
+          Tiers de confiance
         </span>
       );
     default:
       return (
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
           <User className="h-3.5 w-3.5" />
-          Utilisateur
+          Rôle inconnu
         </span>
       );
   }

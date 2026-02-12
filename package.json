@@ -3,8 +3,12 @@
   "private": true,
   "version": "3.2.2",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "vite",
+    "functions:serve": "npx supabase functions serve --env-file supabase/.env",
     "build": "vite build --config vite.config.optimized.ts",
     "build:dev": "vite build",
     "build:standard": "vite build",

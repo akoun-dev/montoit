@@ -171,7 +171,7 @@ export default function MandateDetailPage() {
       case 'accept':
         await acceptMandate(id);
         break;
-      case 'refuse':
+      case 'rejected':
         await refuseMandate(id);
         break;
       case 'suspend':
@@ -623,7 +623,7 @@ export default function MandateDetailPage() {
                     </button>
 
                     <button
-                      onClick={() => handleAction('refuse')}
+                      onClick={() => handleAction('rejected')}
                       className="w-full flex items-center gap-3 px-4 py-3 bg-red-100 text-red-700 rounded-xl font-semibold hover:bg-red-200 transition-colors"
                     >
                       <XCircle className="h-5 w-5" />

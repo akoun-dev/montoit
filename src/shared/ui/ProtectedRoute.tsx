@@ -8,8 +8,8 @@ interface ProtectedRouteProps {
   children: ReactNode;
   /**
    * Allowed roles - can be:
-   * - Business types from profiles.user_type: 'tenant', 'owner', 'agent', 'locataire', 'proprietaire', 'agence'
-   * - System roles from user_roles table: 'admin', 'moderator', 'trust_agent', 'user'
+   * - Business types from profiles.user_type: 'tenant', 'owner', 'agency'
+   * - System roles from user_roles table: 'admin', 'trust_agent'
    */
   allowedRoles?: string[];
   /** If true, requires admin role from user_roles table */

@@ -21,10 +21,8 @@ export default function ProfileVerificationTab({
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'verifie':
       case 'verified':
         return <CheckCircle className="h-5 w-5 text-green-600" />;
-      case 'en_attente':
       case 'pending':
         return <AlertTriangle className="h-5 w-5 text-amber-500" />;
       default:
@@ -34,10 +32,8 @@ export default function ProfileVerificationTab({
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'verifie':
       case 'verified':
         return 'Vérifié';
-      case 'en_attente':
       case 'pending':
         return 'En attente';
       default:
@@ -47,10 +43,8 @@ export default function ProfileVerificationTab({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'verifie':
       case 'verified':
         return 'bg-green-50 border-green-200 text-green-700';
-      case 'en_attente':
       case 'pending':
         return 'bg-amber-50 border-amber-200 text-amber-700';
       default:
@@ -142,7 +136,7 @@ export default function ProfileVerificationTab({
             </div>
 
             {/* Show biometric action button if not verified */}
-            {facialStatus !== 'verified' && facialStatus !== 'verifie' && !showBiometricFlow && (
+            {facialStatus !== 'verified' && !showBiometricFlow && (
               <div className="mt-4 pt-4 border-t border-[#3C2A1E]/10">
                 <button
                   onClick={() => setShowBiometricFlow(true)}

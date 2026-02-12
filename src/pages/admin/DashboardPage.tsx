@@ -86,8 +86,8 @@ export default function AdminDashboard() {
         // Check admin access based on user_type instead of RPC
         const userType = profile?.user_type?.toLowerCase() || '';
 
-        // Allow access for admin_ansut or admin user types
-        const hasAdminAccess = userType === 'admin_ansut' || userType === 'admin';
+        // Allow access for admin user types
+        const hasAdminAccess = userType === 'admin' || userType === 'admin';
 
         if (!hasAdminAccess) {
           console.error('Access denied: user_type is', profile?.user_type);

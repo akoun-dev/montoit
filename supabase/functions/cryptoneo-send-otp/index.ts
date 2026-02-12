@@ -3,12 +3,12 @@
  *
  * Envoi de code OTP pour signature électronique
  * - Génère l'OTP localement
- * - Envoie via Azure SMS ou Brevo Email
+ * - Envoie via Azure SMS ou Resend Email
  * - Stocke dans la table otp_codes pour validation ultérieure
  *
  * Configuration requise dans Supabase Secrets:
  * - AZURE_SMS_URL, AZURE_SMS_USERNAME, AZURE_SMS_PASSWORD, AZURE_SMS_FROM
- * - BREVO_API_KEY, BREVO_SENDER_EMAIL, BREVO_SENDER_NAME
+ * - RESEND_API_KEY, RESEND_FROM_EMAIL
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
@@ -97,39 +97,37 @@ async function sendSmsViaAzure(phone: string, message: string): Promise<{ succes
 }
 
 /**
- * Envoie un email via Brevo
+ * Envoie un email via Resend
  */
-async function sendEmailViaBrevo(email: string, subject: string, htmlContent: string): Promise<{ success: boolean; error?: string }> {
-  const brevoApiKey = Deno.env.get('BREVO_API_KEY');
+async function sendEmailViaResend(email: string, subject: string, htmlContent: string): Promise<{ success: boolean; error?: string }> {
+  const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
-  if (!brevoApiKey) {
-    console.error('[cryptoneo-send-otp] Brevo API key missing');
+  if (!resendApiKey) {
+    console.error('[cryptoneo-send-otp] Resend API key missing');
     return { success: false, error: 'Service email non configuré' };
   }
 
-  const senderEmail = Deno.env.get('BREVO_SENDER_EMAIL') || 'no-reply@ansut.ci';
-  const senderName = Deno.env.get('BREVO_SENDER_NAME') || 'MonToit';
+  const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'no-reply@notifications.ansut.ci';
 
   console.log('[cryptoneo-send-otp] Sending email to:', email);
 
-  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+  const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
-      'accept': 'application/json',
-      'content-type': 'application/json',
-      'api-key': brevoApiKey,
+      'Authorization': `Bearer ${resendApiKey}`,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      sender: { email: senderEmail, name: senderName },
-      to: [{ email }],
+      from: fromEmail,
+      to: [email],
       subject,
-      htmlContent,
+      html: htmlContent,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('[cryptoneo-send-otp] Brevo error:', response.status, errorText);
+    console.error('[cryptoneo-send-otp] Resend error:', response.status, errorText);
 
     let errorDetail = errorText.substring(0, 200);
     try {
@@ -137,7 +135,7 @@ async function sendEmailViaBrevo(email: string, subject: string, htmlContent: st
       errorDetail = errorJson.message || errorJson.code || errorText;
     } catch {}
 
-    return { success: false, error: `Erreur Brevo (${response.status}): ${errorDetail}` };
+    return { success: false, error: `Erreur Resend (${response.status}): ${errorDetail}` };
   }
 
   console.log('[cryptoneo-send-otp] Email sent successfully');
@@ -300,7 +298,7 @@ Deno.serve(async (req: Request) => {
         </body>
         </html>
       `;
-      result = await sendEmailViaBrevo(email!, 'Votre code de signature MonToit', htmlContent);
+      result = await sendEmailViaResend(email!, 'Votre code de signature MonToit', htmlContent);
     }
 
     if (!result.success) {

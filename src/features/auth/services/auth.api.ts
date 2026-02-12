@@ -249,7 +249,7 @@ export const authApi = {
    */
   switchRole: async (userId: string, newRole: string) => {
     // Seuls les admins peuvent changer les rôles
-    await requireRole(['admin', 'admin_ansut']);
+    await requireRole(['admin', 'admin']);
 
     const { data, error } = await supabase
       .from('profiles')

@@ -49,7 +49,7 @@ const ROUTE_LABELS: Record<string, string> = {
   'gestion-roles': 'Gestion des rôles',
   'api-keys': 'Clés API',
   'cev-management': 'Gestion CEV',
-  'trust-agents': 'Agents de confiance',
+  'trust-agents': 'Tiers de confiance',
   nouvelle: 'Nouvelle demande',
   // Routes propriétaires
   'mes-biens': 'Mes biens',

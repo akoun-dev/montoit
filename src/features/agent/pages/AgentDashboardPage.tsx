@@ -121,7 +121,7 @@ export default function AgentDashboardPage() {
 
       const properties = (assignments as AssignedProperty[]) || [];
       const activeProperties = properties.filter(
-        (p) => p.properties?.status === 'disponible'
+        (p) => p.properties?.status === 'available'
       ).length;
       const totalRentValue = properties.reduce(
         (sum, p) => sum + (p.properties?.price || 0),
@@ -345,15 +345,15 @@ export default function AgentDashboardPage() {
                       </div>
                     )}
                     <div className="absolute top-2 right-2">
-                      {property.status === 'disponible' ? (
+                      {property.status === 'available' ? (
                         <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">
                           Disponible
                         </span>
-                      ) : property.status === 'loue' ? (
+                      ) : property.status === 'rented' ? (
                         <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
                           Loué
                         </span>
-                      ) : property.status === 'en_attente' ? (
+                      ) : property.status === 'pending' ? (
                         <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded">
                           En attente
                         </span>

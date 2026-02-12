@@ -1,5 +1,5 @@
 /**
- * Page de calendrier améliorée pour l'agent de confiance
+ * Page de calendrier améliorée pour le tiers de confiance
  *
  * Fonctionnalités:
  * - Drag-and-drop pour replanifier les missions

@@ -28,7 +28,7 @@ import { toast } from 'sonner';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { cn } from '@/shared/lib/utils';
 
-// New Trust Agent UI Components
+// New Tiers de confiance UI Components
 import {
   KPICard,
   EmptyState,
@@ -266,6 +266,7 @@ export default function PropertyCertificationPage() {
   const getStatusBadge = (status?: string) => {
     if (!status) return null;
 
+    const normalizedStatus = status.toLowerCase();
     const statusConfig: Record<
       string,
       {
@@ -274,27 +275,22 @@ export default function PropertyCertificationPage() {
         className: string;
       }
     > = {
-      disponible: {
+      available: {
         label: 'Disponible',
         variant: 'default',
         className: 'bg-green-100 text-green-700 border-green-200',
       },
-      louee: {
+      rented: {
         label: 'Louée',
         variant: 'secondary',
         className: 'bg-blue-100 text-blue-700 border-blue-200',
       },
-      en_attente: {
+      pending: {
         label: 'En attente',
         variant: 'outline',
         className: 'bg-amber-100 text-amber-700 border-amber-200',
       },
-      reservee: {
-        label: 'Réservée',
-        variant: 'outline',
-        className: 'bg-purple-100 text-purple-700 border-purple-200',
-      },
-      indisponible: {
+      unavailable: {
         label: 'Indisponible',
         variant: 'secondary',
         className: 'bg-gray-100 text-gray-700 border-gray-200',
@@ -304,9 +300,14 @@ export default function PropertyCertificationPage() {
         variant: 'destructive',
         className: 'bg-red-100 text-red-700 border-red-200',
       },
+      inactive: {
+        label: 'Inactif',
+        variant: 'secondary',
+        className: 'bg-gray-100 text-gray-700 border-gray-200',
+      },
     };
 
-    const config = statusConfig[status.toLowerCase()] || {
+    const config = statusConfig[normalizedStatus] || {
       label: status,
       variant: 'outline',
       className: 'bg-gray-100 text-gray-700 border-gray-200',

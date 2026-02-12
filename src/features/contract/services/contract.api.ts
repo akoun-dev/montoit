@@ -215,7 +215,7 @@ export const contractApi = {
       .select('id', { count: 'exact', head: true })
       .eq('property_id', contract.property_id)
       .eq('tenant_id', contract.tenant_id)
-      .in('status', ['brouillon', 'en_attente_signature', 'actif']);
+      .in('status', ['draft', 'pending_signature', 'active']);
 
     if (existingError) throw existingError;
     if ((existingContracts ?? 0) > 0) {
@@ -229,7 +229,7 @@ export const contractApi = {
       .insert({
         ...contract,
         contract_number: contractNumber,
-        status: 'brouillon',
+        status: 'draft',
         created_at: new Date().toISOString(),
       })
       .select(
@@ -273,7 +273,7 @@ export const contractApi = {
 
     if (!contract) throw new Error('Contrat non trouvé');
 
-    if (contract.status !== 'brouillon' && contract.status !== 'en_attente_signature') {
+    if (contract.status !== 'draft' && contract.status !== 'pending_signature') {
       throw new Error('Ce contrat ne peut plus être modifié');
     }
 
@@ -325,7 +325,7 @@ export const contractApi = {
 
     if (!contract) throw new Error('Contrat non trouvé');
 
-    if (contract.status !== 'brouillon') {
+    if (contract.status !== 'draft') {
       throw new Error('Seuls les brouillons peuvent être supprimés');
     }
 
@@ -367,7 +367,7 @@ export const contractApi = {
     }
 
     // Vérifier que le contrat est en attente de signature
-    if (contract.status !== 'en_attente_signature') {
+    if (contract.status !== 'pending_signature') {
       throw new Error("Ce contrat n'est pas en attente de signature");
     }
 
@@ -382,7 +382,7 @@ export const contractApi = {
       (signatureType === 'owner' && contract.tenant_signature) ||
       (signatureType === 'tenant' && contract.owner_signature)
     ) {
-      updateData.status = 'actif';
+      updateData.status = 'active';
       updateData.activated_at = new Date().toISOString();
     }
 
@@ -415,8 +415,8 @@ export const contractApi = {
     if (error) throw error;
 
     // Si le contrat est activé, mettre à jour le statut de la propriété
-    if (updateData.status === 'actif') {
-      await supabase.from('properties').update({ status: 'loue' }).eq('id', contract.property_id);
+    if (updateData.status === 'active') {
+      await supabase.from('properties').update({ status: 'rented' }).eq('id', contract.property_id);
     }
 
     return data as ContractWithDetails;
@@ -430,14 +430,14 @@ export const contractApi = {
 
     const contract = await this.getById(id);
 
-    if (contract.status !== 'actif') {
+    if (contract.status !== 'active') {
       throw new Error('Seuls les contrats actifs peuvent être résiliés');
     }
 
     const { data, error } = await supabase
       .from('lease_contracts')
       .update({
-        status: 'resilie',
+        status: 'terminated',
         termination_reason: reason,
         terminated_at: new Date().toISOString(),
       })
@@ -469,7 +469,7 @@ export const contractApi = {
     // Remettre la propriété comme disponible
     await supabase
       .from('properties')
-      .update({ status: 'disponible' })
+      .update({ status: 'available' })
       .eq('id', contract.property_id);
 
     return data as ContractWithDetails;
@@ -480,10 +480,10 @@ export const contractApi = {
    */
   getStats: async (): Promise<{
     total: number;
-    actifs: number;
-    brouillons: number;
-    en_attente: number;
-    resilies: number;
+    active: number;
+    draft: number;
+    pending_signature: number;
+    terminated: number;
   }> => {
     const hasAccess = await hasRole(['admin', 'trust_agent']);
     if (!hasAccess) {
@@ -492,17 +492,16 @@ export const contractApi = {
 
     const { data, error } = await supabase
       .from('lease_contracts')
-      .select('status')
-      .neq('status', 'supprime');
+      .select('status');
 
     if (error) throw error;
 
     const stats = {
       total: data?.length || 0,
-      actifs: data?.filter((c) => c.status === 'actif').length || 0,
-      brouillons: data?.filter((c) => c.status === 'brouillon').length || 0,
-      en_attente: data?.filter((c) => c.status === 'en_attente_signature').length || 0,
-      resilies: data?.filter((c) => c.status === 'resilie').length || 0,
+      active: data?.filter((c) => c.status === 'active').length || 0,
+      draft: data?.filter((c) => c.status === 'draft').length || 0,
+      pending_signature: data?.filter((c) => c.status === 'pending_signature').length || 0,
+      terminated: data?.filter((c) => c.status === 'terminated').length || 0,
     };
 
     return stats;

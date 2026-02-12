@@ -59,20 +59,20 @@ export const PROPERTY_CATEGORIES = {
 
 // Residential Property Types (Main focus of Mon Toit platform)
 export const RESIDENTIAL_PROPERTY_TYPES = [
-  { value: 'appartement', label: 'Appartement', category: 'residential', icon: '🏢' },
-  { value: 'maison', label: 'Maison individuelle', category: 'residential', icon: '🏠' },
+  { value: 'apartment', label: 'Appartement', category: 'residential', icon: '🏢' },
+  { value: 'house', label: 'Maison individuelle', category: 'residential', icon: '🏠' },
   { value: 'studio', label: 'Studio', category: 'residential', icon: '🚪' },
   { value: 'villa', label: 'Villa', category: 'residential', icon: '🏡' },
   { value: 'duplex', label: 'Duplex', category: 'residential', icon: '🏘️' },
-  { value: 'chambre', label: 'Chambre individuelle', category: 'residential', icon: '🛏️' },
+  { value: 'room', label: 'Chambre individuelle', category: 'residential', icon: '🛏️' },
 ] as const;
 
 // Commercial Property Types (For future "Mon Commerce" or "Mon Foncier" module)
 export const COMMERCIAL_PROPERTY_TYPES = [
-  { value: 'bureau', label: 'Bureau', category: 'commercial', icon: '💼' },
-  { value: 'commerce', label: 'Local commercial', category: 'commercial', icon: '🏪' },
-  { value: 'entrepot', label: 'Entrepôt', category: 'commercial', icon: '🏗️' },
-  { value: 'terrain', label: 'Terrain', category: 'commercial', icon: '🌾' },
+  { value: 'office', label: 'Bureau', category: 'commercial', icon: '💼' },
+  { value: 'retail', label: 'Local commercial', category: 'commercial', icon: '🏪' },
+  { value: 'warehouse', label: 'Entrepôt', category: 'commercial', icon: '🏗️' },
+  { value: 'land', label: 'Terrain', category: 'commercial', icon: '🌾' },
 ] as const;
 
 // All Property Types (combined for admin/advanced use)
@@ -147,8 +147,10 @@ export const PAGINATION = {
 // Verification Status
 export const VERIFICATION_STATUS = {
   PENDING: 'pending',
-  VERIFIED: 'verified',
+  IN_PROGRESS: 'in_progress',
+  APPROVED: 'approved',
   REJECTED: 'rejected',
+  EXPIRED: 'expired',
 } as const;
 
 // Score Thresholds

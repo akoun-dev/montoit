@@ -49,11 +49,11 @@ export default function CandidaturesPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'acceptee':
+      case 'accepted':
         return <CheckCircle className="h-5 w-5 text-green-600" />;
-      case 'refusee':
+      case 'rejected':
         return <XCircle className="h-5 w-5 text-red-600" />;
-      case 'en_cours':
+      case 'in_progress':
         return <Clock className="h-5 w-5 text-amber-600" />;
       default:
         return <Clock className="h-5 w-5 text-gray-500" />;
@@ -62,11 +62,11 @@ export default function CandidaturesPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'acceptee':
+      case 'accepted':
         return 'bg-green-100 text-green-700';
-      case 'refusee':
+      case 'rejected':
         return 'bg-red-100 text-red-700';
-      case 'en_cours':
+      case 'in_progress':
         return 'bg-amber-100 text-amber-700';
       default:
         return 'bg-gray-100 text-gray-700';
@@ -75,13 +75,13 @@ export default function CandidaturesPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'en_attente':
+      case 'pending':
         return 'En attente';
-      case 'acceptee':
+      case 'accepted':
         return 'Acceptée';
-      case 'refusee':
+      case 'rejected':
         return 'Refusée';
-      case 'en_cours':
+      case 'in_progress':
         return 'En cours';
       default:
         return status;
@@ -155,7 +155,7 @@ export default function CandidaturesPage() {
               <span className="text-sm text-[#6B5A4E]">Acceptées</span>
             </div>
             <p className="text-3xl font-bold text-[#2C1810]">
-              {applications.filter((a) => a.status === 'acceptee').length}
+              {applications.filter((a) => a.status === 'accepted').length}
             </p>
           </div>
 
@@ -167,7 +167,7 @@ export default function CandidaturesPage() {
               <span className="text-sm text-[#6B5A4E]">En attente</span>
             </div>
             <p className="text-3xl font-bold text-[#2C1810]">
-              {applications.filter((a) => a.status === 'en_attente').length}
+              {applications.filter((a) => a.status === 'pending').length}
             </p>
           </div>
 
@@ -179,7 +179,7 @@ export default function CandidaturesPage() {
               <span className="text-sm text-[#6B5A4E]">Refusées</span>
             </div>
             <p className="text-3xl font-bold text-[#2C1810]">
-              {applications.filter((a) => a.status === 'refusee').length}
+              {applications.filter((a) => a.status === 'rejected').length}
             </p>
           </div>
         </div>
@@ -193,26 +193,26 @@ export default function CandidaturesPage() {
             Toutes
           </button>
           <button
-            onClick={() => setFilter('en_attente')}
-            className={`px-4 py-2 rounded-xl font-medium ${filter === 'en_attente' ? 'bg-[#F16522] text-white' : 'bg-white text-[#6B5A4E] border border-[#EFEBE9]'}`}
+            onClick={() => setFilter('pending')}
+            className={`px-4 py-2 rounded-xl font-medium ${filter === 'pending' ? 'bg-[#F16522] text-white' : 'bg-white text-[#6B5A4E] border border-[#EFEBE9]'}`}
           >
             En attente
           </button>
           <button
-            onClick={() => setFilter('acceptee')}
-            className={`px-4 py-2 rounded-xl font-medium ${filter === 'acceptee' ? 'bg-[#F16522] text-white' : 'bg-white text-[#6B5A4E] border border-[#EFEBE9]'}`}
+            onClick={() => setFilter('accepted')}
+            className={`px-4 py-2 rounded-xl font-medium ${filter === 'accepted' ? 'bg-[#F16522] text-white' : 'bg-white text-[#6B5A4E] border border-[#EFEBE9]'}`}
           >
             Acceptées
           </button>
           <button
-            onClick={() => setFilter('refusee')}
-            className={`px-4 py-2 rounded-xl font-medium ${filter === 'refusee' ? 'bg-[#F16522] text-white' : 'bg-white text-[#6B5A4E] border border-[#EFEBE9]'}`}
+            onClick={() => setFilter('rejected')}
+            className={`px-4 py-2 rounded-xl font-medium ${filter === 'rejected' ? 'bg-[#F16522] text-white' : 'bg-white text-[#6B5A4E] border border-[#EFEBE9]'}`}
           >
             Refusées
           </button>
           <button
-            onClick={() => setFilter('en_cours')}
-            className={`px-4 py-2 rounded-xl font-medium ${filter === 'en_cours' ? 'bg-[#F16522] text-white' : 'bg-white text-[#6B5A4E] border border-[#EFEBE9]'}`}
+            onClick={() => setFilter('in_progress')}
+            className={`px-4 py-2 rounded-xl font-medium ${filter === 'in_progress' ? 'bg-[#F16522] text-white' : 'bg-white text-[#6B5A4E] border border-[#EFEBE9]'}`}
           >
             En cours
           </button>

@@ -8,10 +8,10 @@ import { useHomeMapProperties } from '../hooks/useHomeMapProperties';
 
 const PROPERTY_TYPES = [
   { value: 'all', label: 'Tout', icon: MapPin },
-  { value: 'appartement', label: 'Appartements', icon: Building2 },
+  { value: 'apartment', label: 'Appartements', icon: Building2 },
   { value: 'villa', label: 'Villas', icon: Home },
   { value: 'studio', label: 'Studios', icon: Tent },
-  { value: 'commerce', label: 'Bureaux', icon: Warehouse },
+  { value: 'retail', label: 'Bureaux', icon: Warehouse },
 ];
 
 const BUDGET_OPTIONS = [

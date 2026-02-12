@@ -55,7 +55,6 @@ export default function AdminApiKeys() {
 
   const serviceIcons = {
     resend: { icon: Mail, color: 'bg-blue-50 text-blue-600', name: 'Resend' },
-    brevo: { icon: Mail, color: 'bg-purple-50 text-purple-600', name: 'Brevo' },
     orange_money: { icon: Smartphone, color: 'bg-orange-50 text-orange-600', name: 'Orange Money' },
     mtn_money: { icon: Smartphone, color: 'bg-yellow-50 text-yellow-600', name: 'MTN Money' },
     moov_money: { icon: Smartphone, color: 'bg-blue-50 text-blue-600', name: 'Moov Money' },

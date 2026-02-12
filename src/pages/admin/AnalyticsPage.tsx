@@ -20,7 +20,7 @@ export default function AnalyticsPage() {
 
   // Vérification accès admin
   const userType = profile?.user_type?.toLowerCase();
-  const isAdmin = userType === 'admin_ansut' || userType === 'admin';
+  const isAdmin = userType === 'admin' || userType === 'admin';
 
   if (!isAdmin) {
     navigate('/');
@@ -87,7 +87,7 @@ export default function AnalyticsPage() {
     { label: 'Locataires', value: userGrowth.byType.locataires, color: '#22c55e' },
     { label: 'Propriétaires', value: userGrowth.byType.proprietaires, color: '#3b82f6' },
     { label: 'Agences', value: userGrowth.byType.agences, color: '#f59e0b' },
-    { label: 'Trust Agents', value: userGrowth.byType.trust_agents, color: '#06b6d4' },
+    { label: 'Tiers de confiance', value: userGrowth.byType.trust_agents, color: '#06b6d4' },
     { label: 'Admins', value: userGrowth.byType.admins, color: '#8b5cf6' },
   ];
 

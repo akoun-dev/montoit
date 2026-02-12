@@ -78,25 +78,25 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; color: string; bg: string; icon: any }
 > = {
-  en_attente: {
+  pending: {
     label: 'En attente',
     color: 'text-amber-700',
     bg: 'bg-amber-100',
     icon: Clock,
   },
-  confirmee: {
+  confirmed: {
     label: 'Confirmée',
     color: 'text-green-700',
     bg: 'bg-green-100',
     icon: Check,
   },
-  annulee: {
+  cancelled: {
     label: 'Annulée',
     color: 'text-red-700',
     bg: 'bg-red-100',
     icon: X,
   },
-  terminee: {
+  completed: {
     label: 'Terminée',
     color: 'text-blue-700',
     bg: 'bg-blue-100',
@@ -140,7 +140,7 @@ const StatCard = ({
 };
 
 const StatusBadge = ({ status }: { status: string }) => {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.en_attente;
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   const Icon = config.icon;
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${config.bg} ${config.color}`}>
@@ -247,10 +247,10 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
       if (filter === 'upcoming') {
         return (
           visitDate >= now &&
-          (visit.status === 'en_attente' || visit.status === 'confirmee' || !visit.status)
+          (visit.status === 'pending' || visit.status === 'confirmed' || !visit.status)
         );
       }
-      return visitDate < now || visit.status === 'terminee' || visit.status === 'annulee';
+      return visitDate < now || visit.status === 'completed' || visit.status === 'cancelled';
     });
   }, [filter, visits]);
 
@@ -299,12 +299,12 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
   const stats = useMemo(() => {
     const upcoming = visits.filter((v) => {
       const date = new Date(`${v.visit_date}T${v.visit_time || '12:00'}`);
-      return date >= new Date() && v.status !== 'annulee';
+      return date >= new Date() && v.status !== 'cancelled';
     }).length;
-    const pending = visits.filter((v) => v.status === 'en_attente').length;
-    const confirmed = visits.filter((v) => v.status === 'confirmee').length;
+    const pending = visits.filter((v) => v.status === 'pending').length;
+    const confirmed = visits.filter((v) => v.status === 'confirmed').length;
     const past = visits.length - upcoming;
-    const cancelled = visits.filter((v) => v.status === 'annulee').length;
+    const cancelled = visits.filter((v) => v.status === 'cancelled').length;
     return { total: visits.length, upcoming, pending, confirmed, past, cancelled };
   }, [visits]);
 
@@ -313,7 +313,7 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
     try {
       const { error } = await supabase
         .from('visit_requests')
-        .update({ status: 'confirmee' })
+        .update({ status: 'confirmed' })
         .eq('id', visitId)
         .eq('owner_id', user?.id);
 
@@ -333,7 +333,7 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
     try {
       const { error } = await supabase
         .from('visit_requests')
-        .update({ status: 'annulee' })
+        .update({ status: 'cancelled' })
         .eq('id', visitId)
         .eq('owner_id', user?.id);
 
@@ -350,7 +350,7 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
 
   const isUpcoming = (visit: VisitRow) => {
     const visitDate = new Date(`${visit.visit_date}T${visit.visit_time || '12:00'}`);
-    return visitDate >= new Date() && visit.status !== 'annulee' && visit.status !== 'terminee';
+    return visitDate >= new Date() && visit.status !== 'cancelled' && visit.status !== 'completed';
   };
 
   const title = mode === 'agency' ? 'Visites programmées' : 'Mes visites';
@@ -550,7 +550,7 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
         ) : (
           <div className="space-y-4">
             {displayedVisits.map((visit) => {
-              const statusKey = visit.status || 'en_attente';
+              const statusKey = visit.status || 'pending';
               const upcoming = isUpcoming(visit);
               const isLoading = actionLoading === visit.id;
 
@@ -616,7 +616,7 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
 
                           <div className="flex items-center gap-2">
                             <StatusBadge status={statusKey} />
-                            {visit.visit_type === 'virtuelle' && (
+                            {visit.visit_type === 'virtual' && (
                               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                                 <VideoIcon className="w-3.5 h-3.5" />
                                 Virtuelle
@@ -677,9 +677,9 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
                         </div>
 
                         {/* Actions */}
-                        {upcoming && visit.status !== 'annulee' && (
+                        {upcoming && visit.status !== 'cancelled' && (
                           <div className="flex gap-2">
-                            {visit.status === 'en_attente' && (
+                            {visit.status === 'pending' && (
                               <button
                                 onClick={() => handleConfirmVisit(visit.id)}
                                 disabled={isLoading}

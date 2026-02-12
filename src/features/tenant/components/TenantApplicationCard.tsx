@@ -25,31 +25,31 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; color: string; icon: typeof Clock; bgColor: string }
 > = {
-  en_attente: {
+  pending: {
     label: 'En attente',
     color: 'text-amber-700',
     icon: Clock,
     bgColor: 'bg-amber-100',
   },
-  en_cours: {
+  in_progress: {
     label: 'En cours',
     color: 'text-blue-700',
     icon: Clock,
     bgColor: 'bg-blue-100',
   },
-  acceptee: {
+  accepted: {
     label: 'Acceptée',
     color: 'text-green-700',
     icon: CheckCircle,
     bgColor: 'bg-green-100',
   },
-  refusee: {
+  rejected: {
     label: 'Refusée',
     color: 'text-red-700',
     icon: XCircle,
     bgColor: 'bg-red-100',
   },
-  annulee: {
+  cancelled: {
     label: 'Annulée',
     color: 'text-neutral-500',
     icon: AlertCircle,
@@ -57,7 +57,7 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const DEFAULT_STATUS = STATUS_CONFIG['en_attente']!;
+const DEFAULT_STATUS = STATUS_CONFIG.pending!;
 
 export default function TenantApplicationCard({
   application,
@@ -67,11 +67,13 @@ export default function TenantApplicationCard({
   const statusConfig = STATUS_CONFIG[application.status] ?? DEFAULT_STATUS;
   const StatusIcon = statusConfig.icon;
 
-  const formattedDate = application.created_at
-    ? format(new Date(application.created_at), 'd MMMM yyyy', { locale: fr })
+  const applicationDateSource =
+    application.applied_at || application.created_at || application.updated_at || null;
+  const formattedDate = applicationDateSource
+    ? format(new Date(applicationDateSource), 'd MMMM yyyy', { locale: fr })
     : 'Date inconnue';
 
-  const canCancel = application.status === 'en_attente';
+  const canCancel = application.status === 'pending';
 
   return (
     <div className="premium-card card-hover-premium overflow-hidden">
@@ -204,12 +206,12 @@ export default function TenantApplicationCard({
               )}
 
               {/* Status specific messages */}
-              {application.status === 'acceptee' && (
+              {application.status === 'accepted' && (
                 <span className="text-sm text-green-600 font-medium ml-auto">
                   🎉 Félicitations ! Votre candidature a été acceptée
                 </span>
               )}
-              {application.status === 'refusee' && (
+              {application.status === 'rejected' && (
                 <span className="text-sm text-red-500 ml-auto">
                   Candidature refusée par le propriétaire
                 </span>

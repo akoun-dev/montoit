@@ -107,27 +107,8 @@ serve(async (req) => {
       );
     }
 
-    // Vérifier le nombre de tentatives
+    // Incrémenter le compteur de tentatives (pas de blocage)
     const attempts = (otpRecord.attempts || 0) + 1;
-    const maxAttempts = otpRecord.max_attempts || 3;
-
-    if (attempts > maxAttempts) {
-      // Marquer l'OTP comme utilisé pour empêcher d'autres tentatives
-      await supabase
-        .from('otp_codes')
-        .update({ used: true, used_at: now, attempts })
-        .eq('id', otpRecord.id);
-
-      return new Response(
-        JSON.stringify({
-          error: 'Trop de tentatives. Veuillez demander un nouveau code.',
-          code: 'TOO_MANY_ATTEMPTS'
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Incrémenter le compteur de tentatives
     await supabase
       .from('otp_codes')
       .update({ attempts })

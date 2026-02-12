@@ -1,5 +1,5 @@
 /**
- * Trust Agent Pages Exports
+ * Tiers de confiance Pages Exports
  */
 
 export { default as DashboardPage } from './DashboardPage';

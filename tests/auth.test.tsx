@@ -138,7 +138,7 @@ describe('Edge Functions Security', () => {
     const mockResponse = {
       success: true,
       message: 'Code envoyé par SMS',
-      provider: 'brevo',
+      provider: 'azure',
       expiresIn: 600,
       // PAS de champ 'otp' ou 'devMode'
     };

@@ -172,7 +172,7 @@ export default function MyTenantsPage() {
           )
         `)
         .eq('owner_id', user.id)
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .order('created_at', { ascending: false });
 
       if (contractsError) throw contractsError;
@@ -280,7 +280,7 @@ export default function MyTenantsPage() {
   // Calculate stats
   const stats = {
     total: contracts.length,
-    active: contracts.filter((c) => c.status === 'actif').length,
+    active: contracts.filter((c) => c.status === 'active').length,
     totalRevenue: contracts.reduce((sum, c) => sum + c.monthly_rent, 0),
     onTimePayments: contracts.reduce((sum, c) => {
       const paid = c.payments.filter((p) => p.status === 'completed').length;

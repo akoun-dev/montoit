@@ -10,7 +10,7 @@ interface TrustAgentHeaderProps {
 
 export default function TrustAgentHeader({
   title,
-  subtitle = 'Agent tiers de confiance certifié',
+  subtitle = 'Tiers de confiance certifié',
   showStatus = true,
   showSettings = true,
 }: TrustAgentHeaderProps) {
@@ -52,7 +52,7 @@ export default function TrustAgentHeader({
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    {profile?.full_name || 'Agent'}
+                    {profile?.full_name || 'Tiers de confiance'}
                   </p>
                   <p className="text-xs text-gray-600">Agent Certifié Niv. 3</p>
                 </div>

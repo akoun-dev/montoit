@@ -3,7 +3,7 @@ import { Shield, CheckCircle, XCircle, User, FileCheck, History, TrendingUp } fr
 import { Card, CardContent, CardHeader, CardTitle } from './Card';
 import { Badge } from './badge';
 import { Progress } from './Progress';
-import { ScoreBreakdown, ScoringService } from '@/services/scoringService';
+import { ScoreBreakdown, ScoringService, TENANT_SCORING_WEIGHTS } from '@/services/scoringService';
 
 interface TrustScoreCardProps {
   scoreBreakdown: ScoreBreakdown;
@@ -117,7 +117,7 @@ const TrustScoreCard: React.FC<TrustScoreCardProps> = ({
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-muted-foreground" />
-                    <span>Profil (20%)</span>
+                    <span>Informations du profil ({TENANT_SCORING_WEIGHTS.profileComplete}%)</span>
                   </div>
                   <span className={`font-medium ${getScoreColor(profileScore)}`}>
                     {profileScore}/100
@@ -126,18 +126,40 @@ const TrustScoreCard: React.FC<TrustScoreCardProps> = ({
                 <Progress value={profileScore} className="h-2" />
               </div>
 
-              {/* Score Vérification */}
+              {/* NEOFACE */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <FileCheck className="h-4 w-4 text-muted-foreground" />
-                    <span>Vérifications (40%)</span>
+                    <span>NEOFACE ({TENANT_SCORING_WEIGHTS.facial}%)</span>
                   </div>
-                  <span className={`font-medium ${getScoreColor(verificationScore)}`}>
-                    {verificationScore}/100
+                  <span
+                    className={`font-medium ${getScoreColor(
+                      details.verification.facial ? 100 : 0
+                    )}`}
+                  >
+                    {details.verification.facial ? 100 : 0}/100
                   </span>
                 </div>
-                <Progress value={verificationScore} className="h-2" />
+                <Progress value={details.verification.facial ? 100 : 0} className="h-2" />
+              </div>
+
+              {/* ONECI */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <FileCheck className="h-4 w-4 text-muted-foreground" />
+                    <span>ONECI ({TENANT_SCORING_WEIGHTS.oneci}%)</span>
+                  </div>
+                  <span
+                    className={`font-medium ${getScoreColor(
+                      details.verification.oneci ? 100 : 0
+                    )}`}
+                  >
+                    {details.verification.oneci ? 100 : 0}/100
+                  </span>
+                </div>
+                <Progress value={details.verification.oneci ? 100 : 0} className="h-2" />
               </div>
 
               {/* Score Historique */}
@@ -145,7 +167,7 @@ const TrustScoreCard: React.FC<TrustScoreCardProps> = ({
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <History className="h-4 w-4 text-muted-foreground" />
-                    <span>Historique (40%)</span>
+                    <span>Dossier locataire ({TENANT_SCORING_WEIGHTS.dossier}%)</span>
                   </div>
                   <span className={`font-medium ${getScoreColor(historyScore)}`}>
                     {historyScore}/100
@@ -173,15 +195,15 @@ const TrustScoreCard: React.FC<TrustScoreCardProps> = ({
                   ) : (
                     <XCircle className="h-3 w-3 mr-1" />
                   )}
-                  Facial
+                  NEOFACE
                 </Badge>
-                <Badge variant={details.verification.ansut ? 'success' : 'secondary'}>
-                  {details.verification.ansut ? (
+                <Badge variant={details.verification.dossier ? 'success' : 'secondary'}>
+                  {details.verification.dossier ? (
                     <CheckCircle className="h-3 w-3 mr-1" />
                   ) : (
                     <XCircle className="h-3 w-3 mr-1" />
                   )}
-                  ANSUT
+                  Dossier
                 </Badge>
               </div>
             </div>

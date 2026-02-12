@@ -196,7 +196,7 @@ export async function canLeaveReview(contractId: string, userId: string): Promis
     .eq('id', contractId)
     .single();
 
-  if (!contract || contract.status !== 'actif') {
+  if (!contract || contract.status !== 'active') {
     return false;
   }
 

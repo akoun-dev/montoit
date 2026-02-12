@@ -1,14 +1,14 @@
 /**
- * Hook React pour l'authentification Brevo
+ * Hook React pour l'authentification OTP
  *
- * Simplifie l'utilisation du service d'authentification OTP de Brevo
+ * Simplifie l'utilisation du service d'authentification OTP
  * dans les composants React
  */
 
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/services/supabase/client';
-import { authBrevoService } from '@/services/brevo/auth-brevo.service';
+import { authService } from '@/services/auth/auth.service';
 
 // Regex de validation email conforme RFC 5322
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
@@ -16,7 +16,7 @@ const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-
 // Regex de validation nom complet (minimum 5 caractères, lettres avec accents, espaces, tirets, apostrophes)
 const FULL_NAME_REGEX = /^[\p{L}\s'-]{5,}$/u;
 
-export interface UseBrevoAuthState {
+export interface UseOtpAuthState {
   loading: boolean;
   error: string | null;
   success: string | null;
@@ -25,7 +25,7 @@ export interface UseBrevoAuthState {
   isNewUser: boolean;
 }
 
-export interface UseBrevoAuthActions {
+export interface UseOtpAuthActions {
   // Actions principales
   sendOTP: (data: {
     recipient: string;
@@ -37,7 +37,7 @@ export interface UseBrevoAuthActions {
 
   submitName: (fullName: string) => Promise<boolean>;
 
-  selectRole: (role: 'locataire' | 'proprietaire' | 'agence') => Promise<void>;
+  selectRole: (role: 'tenant' | 'owner' | 'agency') => Promise<void>;
 
   clearError: () => void;
 
@@ -46,10 +46,10 @@ export interface UseBrevoAuthActions {
   reset: () => void;
 }
 
-export function useBrevoAuth() {
+export function useOtpAuth() {
   const navigate = useNavigate();
 
-  const [state, setState] = useState<UseBrevoAuthState>({
+  const [state, setState] = useState<UseOtpAuthState>({
     loading: false,
     error: null,
     success: null,
@@ -65,7 +65,7 @@ export function useBrevoAuth() {
   } | null>(null);
 
   const setStateField = useCallback(
-    <K extends keyof UseBrevoAuthState>(field: K, value: UseBrevoAuthState[K]) => {
+    <K extends keyof UseOtpAuthState>(field: K, value: UseOtpAuthState[K]) => {
       setState((prev) => ({ ...prev, [field]: value }));
     },
     []
@@ -113,7 +113,7 @@ export function useBrevoAuth() {
       clearSuccess();
 
       try {
-        const result = await authBrevoService.initiateAuth({
+        const result = await authService.initiateAuth({
           method,
           [method]: recipient,
           fullName,
@@ -159,7 +159,7 @@ export function useBrevoAuth() {
       clearSuccess();
 
       try {
-        const result = await authBrevoService.verifyOTP(recipient, code, method);
+        const result = await authService.verifyOTP(recipient, code, method);
 
         if (result.success) {
           if (result.needsName) {
@@ -216,7 +216,7 @@ export function useBrevoAuth() {
         // Pour l'instant, nous allons créer l'utilisateur directement
         // Dans une vraie implémentation, il faudrait stocker l'OTP et le vérifier
 
-        const result = await authBrevoService.verifyOTP(
+        const result = await authService.verifyOTP(
           recipient,
           '', // Pas de code ici car on a déjà vérifié
           method,
@@ -250,7 +250,7 @@ export function useBrevoAuth() {
    * Sélectionne un rôle utilisateur
    */
   const selectRole = useCallback(
-    async (role: 'locataire' | 'proprietaire' | 'agence') => {
+    async (role: 'tenant' | 'owner' | 'agency') => {
       setStateField('loading', true);
       clearError();
       clearSuccess();
@@ -266,19 +266,19 @@ export function useBrevoAuth() {
           return;
         }
 
-        const result = await authBrevoService.updateProfileRole(user.id, role);
+        const result = await authService.updateProfileRole(user.id, role);
 
         if (result.success) {
           setStateField('success', 'Profil configuré ! Redirection...');
 
           // Redirection selon le rôle - IMPORTANT: Use correct routes matching roleRoutes.ts
           const dashboardRoutes = {
-            locataire: '/locataire/dashboard',
-            proprietaire: '/proprietaire/dashboard',
-            agence: '/agences/dashboard',
+            tenant: '/locataire/dashboard',
+            owner: '/proprietaire/dashboard',
+            agency: '/agences/dashboard',
           };
 
-          console.log('useBrevoAuth - Redirecting to:', dashboardRoutes[role], 'for role:', role);
+          console.log('useOtpAuth - Redirecting to:', dashboardRoutes[role], 'for role:', role);
           setTimeout(() => {
             navigate(dashboardRoutes[role]);
           }, 1000);
@@ -295,7 +295,7 @@ export function useBrevoAuth() {
     [setStateField, clearError, clearSuccess, navigate]
   );
 
-  const actions: UseBrevoAuthActions = {
+  const actions: UseOtpAuthActions = {
     sendOTP,
     verifyOTP,
     submitName,

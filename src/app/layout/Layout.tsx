@@ -57,7 +57,7 @@ const ownerSidebarPrefixes = [
 // Routes avec navigation latérale pour agence (éviter header + breadcrumb doublons)
 const agencySidebarPrefixes = ['/agences', '/agences/mandats', '/mandat'];
 
-// Routes avec layout dédié pour trust agent
+// Routes avec layout dédié pour tiers de confiance
 const trustAgentSidebarPrefixes = ['/trust-agent'];
 
 // Map routes to skeleton variants

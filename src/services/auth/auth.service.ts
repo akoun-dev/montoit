@@ -1,12 +1,12 @@
 /**
- * Auth Brevo Service
+ * Auth Service
  *
- * Service d'authentification utilisant le système OTP unifié de Brevo
- * Remplace les anciennes méthodes d'authentification
+ * Service d'authentification utilisant le système OTP unifié via Resend
+ * Gère l'inscription, la connexion et la vérification OTP
  */
 
 import { supabase } from '@/services/supabase/client';
-import { otpUnifiedService, type OTPRequest, type OTPVerification } from './otp-unified.service';
+import { otpService, type OTPRequest, type OTPVerification } from './otp.service';
 
 // Regex de validation email conforme RFC 5322
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
@@ -32,12 +32,12 @@ export interface AuthResult {
   otpSent?: boolean;
 }
 
-class AuthBrevoService {
+class AuthService {
   /**
    * Inscription ou connexion unifiée par OTP
    */
   async initiateAuth(data: SignUpData | SignInData): Promise<AuthResult> {
-    console.log('[auth-brevo] 🚀 initiateAuth appelé avec:', data);
+    console.log('[auth] 🚀 initiateAuth appelé avec:', data);
 
     const { method } = data;
 
@@ -49,10 +49,10 @@ class AuthBrevoService {
           ? data.phone
           : (data as SignInData).recipient;
 
-    console.log('[auth-brevo] Destinataire:', recipient, 'Méthode:', method);
+    console.log('[auth] Destinataire:', recipient, 'Méthode:', method);
 
     if (!recipient) {
-      console.error('[auth-brevo] ❌ Destinataire manquant');
+      console.error('[auth] ❌ Destinataire manquant');
       return {
         success: false,
         error: 'Email ou numéro de téléphone requis',
@@ -61,7 +61,7 @@ class AuthBrevoService {
 
     // Validation email
     if (method === 'email' && !EMAIL_REGEX.test(recipient)) {
-      console.error('[auth-brevo] ❌ Format email invalide');
+      console.error('[auth] ❌ Format email invalide');
       return {
         success: false,
         error: 'Format d\'email invalide. Ex: exemple@domaine.com',
@@ -69,16 +69,16 @@ class AuthBrevoService {
     }
 
     // Vérifier le rate limiting
-    console.log('[auth-brevo] Vérification rate limit...');
-    const rateLimitCheck = await otpUnifiedService.checkRateLimit(recipient);
+    console.log('[auth] Vérification rate limit...');
+    const rateLimitCheck = await otpService.checkRateLimit(recipient);
     if (!rateLimitCheck.allowed) {
-      console.error('[auth-brevo] ❌ Rate limit dépassé');
+      console.error('[auth] ❌ Rate limit dépassé');
       return {
         success: false,
         error: `Veuillez patienter ${rateLimitCheck.remainingTime} secondes avant de réessayer`,
       };
     }
-    console.log('[auth-brevo] ✅ Rate limit OK');
+    console.log('[auth] ✅ Rate limit OK');
 
     // Envoyer l'OTP
     const otpRequest: OTPRequest = {
@@ -89,21 +89,21 @@ class AuthBrevoService {
       expiresIn: 10,
     };
 
-    console.log('[auth-brevo] 📤 Envoi OTP avec params:', otpRequest);
+    console.log('[auth] 📤 Envoi OTP avec params:', otpRequest);
 
-    const otpResult = await otpUnifiedService.sendOTP(otpRequest);
+    const otpResult = await otpService.sendOTP(otpRequest);
 
-    console.log('[auth-brevo] Résultat OTP:', otpResult);
+    console.log('[auth] Résultat OTP:', otpResult);
 
     if (!otpResult.success) {
-      console.error('[auth-brevo] ❌ Erreur envoi OTP:', otpResult.error);
+      console.error('[auth] ❌ Erreur envoi OTP:', otpResult.error);
       return {
         success: false,
         error: otpResult.error || "Erreur lors de l'envoi du code de vérification",
       };
     }
 
-    console.log('[auth-brevo] ✅ OTP envoyé avec succès');
+    console.log('[auth] ✅ OTP envoyé avec succès');
     return {
       success: true,
       otpSent: true,
@@ -126,7 +126,7 @@ class AuthBrevoService {
       method: method === 'phone' ? 'whatsapp' : 'email',
     };
 
-    const verifyResult = await otpUnifiedService.verifyOTP(verification);
+    const verifyResult = await otpService.verifyOTP(verification);
 
     if (!verifyResult.success) {
       return {
@@ -192,7 +192,8 @@ class AuthBrevoService {
         };
       }
 
-      // Créer le profil dans la table profiles
+      // Créer le profil dans la table profiles (best-effort)
+      // Un trigger DB peut aussi créer le profil automatiquement.
       if (authData.user) {
         const { error: profileError } = await supabase.from('profiles').insert({
           id: authData.user.id,
@@ -204,11 +205,8 @@ class AuthBrevoService {
         });
 
         if (profileError) {
-          console.error('Erreur création profil:', profileError);
-          return {
-            success: false,
-            error: 'Erreur lors de la création du profil',
-          };
+          console.warn('Création profil échouée (non bloquant):', profileError);
+          // Ne bloque pas la création de compte: le trigger DB ou la récupération de profil prendra le relais.
         }
       }
 
@@ -278,7 +276,7 @@ class AuthBrevoService {
    */
   async updateProfileRole(
     userId: string,
-    role: 'locataire' | 'proprietaire' | 'agence'
+    role: 'tenant' | 'owner' | 'agency'
   ): Promise<AuthResult> {
     try {
       const { error } = await supabase
@@ -372,5 +370,5 @@ class AuthBrevoService {
 }
 
 // Export du singleton
-export const authBrevoService = new AuthBrevoService();
-export default authBrevoService;
+export const authService = new AuthService();
+export default authService;

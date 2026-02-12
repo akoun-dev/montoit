@@ -12,7 +12,7 @@ export interface ApiError {
 }
 
 // Types de base pour les candidatures
-export type ApplicationStatus = 'en_attente' | 'en_cours' | 'acceptee' | 'refusee' | 'annulee';
+export type ApplicationStatus = 'pending' | 'in_progress' | 'accepted' | 'rejected' | 'cancelled';
 
 export type ApplicationStep =
   | 'informations_personnelles'
@@ -154,7 +154,7 @@ export interface Guarantees {
   provider?: string;
   validityDate?: Date;
   documents: Document[];
-  status: 'en_attente' | 'valide' | 'refuse';
+  status: 'pending' | 'valide' | 'rejected';
 }
 
 // Notifications de candidature
@@ -212,11 +212,11 @@ export interface PaginatedApplications {
 // Statistiques de candidature
 export interface ApplicationStats {
   total: number;
-  en_attente: number;
-  en_cours: number;
-  acceptee: number;
-  refusee: number;
-  annulee: number;
+  pending: number;
+  in_progress: number;
+  accepted: number;
+  rejected: number;
+  cancelled: number;
   averageScore: number;
   conversionRate: number;
   averageProcessingTime: number; // en jours

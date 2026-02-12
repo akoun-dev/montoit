@@ -111,33 +111,40 @@ export class FormatService {
 
   static formatPropertyType(type: string): string {
     const types: Record<string, string> = {
-      appartement: 'Appartement',
-      maison: 'Maison',
+      apartment: 'Appartement',
+      house: 'Maison',
       studio: 'Studio',
       villa: 'Villa',
       duplex: 'Duplex',
-      bureau: 'Bureau',
-      local_commercial: 'Local commercial',
-      entrepot: 'Entrepôt',
-      terrain: 'Terrain',
+      room: 'Chambre',
+      office: 'Bureau',
+      retail: 'Local commercial',
+      warehouse: 'Entrepôt',
+      land: 'Terrain',
     };
     return types[type] || type;
   }
 
   static formatStatus(status: string): { text: string; color: string } {
     const statusMap: Record<string, { text: string; color: string }> = {
-      disponible: { text: 'Disponible', color: 'green' },
-      loue: { text: 'Loué', color: 'blue' },
-      reserve: { text: 'Réservé', color: 'yellow' },
-      indisponible: { text: 'Indisponible', color: 'gray' },
-      en_attente: { text: 'En attente', color: 'yellow' },
-      verifie: { text: 'Vérifié', color: 'green' },
-      rejete: { text: 'Rejeté', color: 'red' },
-      actif: { text: 'Actif', color: 'green' },
-      termine: { text: 'Terminé', color: 'gray' },
-      annule: { text: 'Annulé', color: 'red' },
-      en_cours: { text: 'En cours', color: 'blue' },
-      complete: { text: 'Complété', color: 'green' },
+      available: { text: 'Disponible', color: 'green' },
+      rented: { text: 'Loué', color: 'blue' },
+      pending: { text: 'En attente', color: 'yellow' },
+      unavailable: { text: 'Indisponible', color: 'gray' },
+      maintenance: { text: 'Maintenance', color: 'red' },
+      inactive: { text: 'Inactif', color: 'gray' },
+      approved: { text: 'Approuvé', color: 'green' },
+      rejected: { text: 'Rejeté', color: 'red' },
+      active: { text: 'Actif', color: 'green' },
+      terminated: { text: 'Résilié', color: 'red' },
+      cancelled: { text: 'Annulé', color: 'red' },
+      expired: { text: 'Expiré', color: 'gray' },
+      in_progress: { text: 'En cours', color: 'blue' },
+      completed: { text: 'Complété', color: 'green' },
+      failed: { text: 'Échoué', color: 'red' },
+      overdue: { text: 'En retard', color: 'red' },
+      partial: { text: 'Partiel', color: 'yellow' },
+      refunded: { text: 'Remboursé', color: 'gray' },
     };
 
     return statusMap[status] || { text: status, color: 'gray' };

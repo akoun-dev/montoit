@@ -63,7 +63,7 @@ function detectCategory(message: string): string {
   }
   if (
     lowerMsg.includes('payer') ||
-    lowerMsg.includes('loyer') ||
+    lowerMsg.includes('rent') ||
     lowerMsg.includes('paiement') ||
     lowerMsg.includes('argent')
   ) {
@@ -193,13 +193,13 @@ serve(async (req) => {
       // Réponses spécifiques selon la catégorie détectée
       switch (category) {
         case 'quartiers':
-          if (lowerMsg.includes('abidjan') || lowerMsg.includes('appartement')) {
+          if (lowerMsg.includes('abidjan') || lowerMsg.includes('apartment')) {
             return "🏠 Bonjour ! Je peux vous aider à trouver un appartement à Abidjan. Pour commencer, quel quartier vous intéresse le plus ? Cocody, Marcory, Yopougon, Plateau, ou un autre quartier ? N'oubliez jamais de visiter le bien avant de payer !";
           }
           return "🏘 Je peux vous aider à trouver un logement dans les différents quartiers d'Abidjan. Chaque quartier a ses particularités : Cocody (résidentiel et cher), Marcory (commercial et animé), Yopougon (abordable), Plateau (centre d'affaires). Quel type de quartier recherchez-vous ?";
           
         case 'paiement':
-          if (lowerMsg.includes('prix') || lowerMsg.includes('loyer')) {
+          if (lowerMsg.includes('prix') || lowerMsg.includes('rent')) {
             return "💰 Les loyers à Abidjan varient selon les quartiers : En moyenne, comptez entre 50 000 et 150 000 FCFA/mois pour un studio, et 80 000 à 300 000 FCFA pour un 2 pièces. Méfiez-vous des prix trop bas, c'est souvent le signe d'une arnaque !";
           }
           return "💳 Pour les paiements sécurisés, utilisez toujours la plateforme Mon Toit. Nous proposons plusieurs options : Mobile Money, carte bancaire, et portefeuille électronique. Tous les paiements sont protégés et tracés.";

@@ -213,7 +213,7 @@ export default function PaymentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [propertyFilter, setPropertyFilter] = useState<PropertyFilter>('all');
-  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'charges'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'service_charges'>('overview');
 
   // Stats
   const [stats, setStats] = useState({
@@ -259,7 +259,7 @@ export default function PaymentsPage() {
         `
         )
         .eq('owner_id', user.id)
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .order('created_at', { ascending: false });
 
       if (contractsError) throw contractsError;
@@ -538,9 +538,9 @@ export default function PaymentsPage() {
                   </div>
                 </button>
                 <button
-                  onClick={() => setActiveTab('charges')}
+                  onClick={() => setActiveTab('service_charges')}
                   className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${
-                    activeTab === 'charges'
+                    activeTab === 'service_charges'
                       ? 'text-white bg-[#F16522]'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
@@ -790,7 +790,7 @@ export default function PaymentsPage() {
                 )}
 
                 {/* Charges Tab */}
-                {activeTab === 'charges' && (
+                {activeTab === 'service_charges' && (
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-bold" style={{ color: COLORS.chocolat }}>

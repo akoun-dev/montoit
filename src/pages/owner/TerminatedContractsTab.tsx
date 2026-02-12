@@ -56,7 +56,7 @@ const PERIOD_FILTERS: PeriodFilterOption[] = [
 ];
 
 interface TerminatedContractsTabProps {
-  stats: { resilie: number; annule: number };
+  stats: { terminated: number; cancelled: number };
   onRefresh: () => void;
 }
 
@@ -101,7 +101,7 @@ export default function TerminatedContractsTab({ stats, onRefresh }: TerminatedC
         `
         )
         .eq('owner_id', user.id)
-        .in('status', ['resilie', 'annule'])
+        .in('status', ['terminated', 'cancelled'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -188,7 +188,7 @@ export default function TerminatedContractsTab({ stats, onRefresh }: TerminatedC
           </div>
           <div>
             <h2 className="text-xl font-bold text-gray-900">Contrats Terminés</h2>
-            <p className="text-sm text-gray-500">{stats.resilie + stats.annule} contrat(s)</p>
+            <p className="text-sm text-gray-500">{stats.terminated + stats.cancelled} contrat(s)</p>
           </div>
         </div>
 
@@ -338,12 +338,12 @@ export default function TerminatedContractsTab({ stats, onRefresh }: TerminatedC
                             {contract.contract_number}
                           </span>
                           <span className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${
-                            contract.status === 'annule'
+                            contract.status === 'cancelled'
                               ? 'bg-gray-100 text-gray-700'
                               : 'bg-red-100 text-red-700'
                           }`}>
                             <XCircle className="h-3 w-3" />
-                            {contract.status === 'annule' ? 'Annulé' : 'Résilié'}
+                            {contract.status === 'cancelled' ? 'Annulé' : 'Résilié'}
                           </span>
                         </div>
                         <h3 className="text-xl font-bold text-gray-900 mb-1">
@@ -376,17 +376,17 @@ export default function TerminatedContractsTab({ stats, onRefresh }: TerminatedC
                         </p>
                       </div>
                       <div className={`rounded-xl p-3 border ${
-                        contract.status === 'annule'
+                        contract.status === 'cancelled'
                           ? 'bg-gray-50 border-gray-200'
                           : 'bg-red-50 border border-red-100'
                       }`}>
                         <p className={`text-xs mb-1 ${
-                          contract.status === 'annule' ? 'text-gray-600' : 'text-red-600'
+                          contract.status === 'cancelled' ? 'text-gray-600' : 'text-red-600'
                         } font-medium`}>
-                          {contract.status === 'annule' ? 'Annulé le' : 'Résilié le'}
+                          {contract.status === 'cancelled' ? 'Annulé le' : 'Résilié le'}
                         </p>
                         <p className={`text-sm font-bold ${
-                          contract.status === 'annule' ? 'text-gray-900' : 'text-red-900'
+                          contract.status === 'cancelled' ? 'text-gray-900' : 'text-red-900'
                         }`}>
                           {contract.terminated_at
                             ? formatDate(contract.terminated_at)

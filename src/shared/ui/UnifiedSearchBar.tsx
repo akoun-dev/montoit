@@ -54,18 +54,18 @@ export default function UnifiedSearchBar({
 
   // Popular searches
   const popularSearches = [
-    { label: 'Appartement Cocody', type: 'appartement', city: 'Cocody', icon: Home },
+    { label: 'Appartement Cocody', type: 'apartment', city: 'Cocody', icon: Home },
     { label: 'Studio Plateau', type: 'studio', city: 'Plateau', icon: Home },
     { label: 'Villa Abidjan < 300k', type: '', city: 'Abidjan', budget: '300000', icon: TrendingUp },
   ];
 
   const quickFilters = [
-    { value: 'appartement', label: 'Appartements', icon: Home },
+    { value: 'apartment', label: 'Appartements', icon: Home },
     { value: 'studio', label: 'Studios', icon: Home },
     { value: 'villa', label: 'Villas', icon: Home },
-    { value: 'maison', label: 'Maisons', icon: Home },
+    { value: 'house', label: 'Maisons', icon: Home },
     { value: 'duplex', label: 'Duplex', icon: Home },
-    { value: 'chambre', label: 'Chambres', icon: Home },
+    { value: 'room', label: 'Chambres', icon: Home },
   ];
 
   const budgetQuickSelect = [

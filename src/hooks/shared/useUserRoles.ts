@@ -2,8 +2,8 @@
  * Hook useUserRoles - Gestion centralisée des rôles utilisateur
  *
  * Deux systèmes de rôles existent:
- * 1. user_type (business type) dans profiles: locataire, proprietaire, trust_agent, admin_ansut
- * 2. system roles dans user_roles table: admin, moderator, trust_agent, user
+ * 1. user_type (business type) dans profiles: tenant, owner, agency, trust_agent, admin
+ * 2. system roles dans user_roles table: admin, trust_agent
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -16,17 +16,16 @@ const userRolesRpcSkipped = { value: false };
 
 // Type user_type (business type) - stocké dans profiles.user_type
 export type UserType =
-  | "locataire"
-  | "proprietaire"
+  | "tenant"
+  | "owner"
+  | "agency"
   | "trust_agent"
-  | "admin_ansut";
+  | "admin";
 
 // Type system_role - stocké dans user_roles.role
 export type SystemRole =
   | "admin"
-  | "moderator"
-  | "trust_agent"
-  | "user";
+  | "trust_agent";
 
 export interface UseUserRolesReturn {
   // État - user_type depuis profiles
@@ -42,8 +41,7 @@ export interface UseUserRolesReturn {
   hasSystemRole: (role: SystemRole) => boolean;
 
   // Raccourcis pratiques
-  isAdmin: boolean;       // admin_ansut (user_type) OU admin (system role)
-  isModerator: boolean;   // moderator (system role)
+  isAdmin: boolean;       // admin (user_type) OU admin (system role)
   isTrustAgent: boolean;  // trust_agent (user_type ou system role)
   isUser: boolean;        // utilisateur standard (sans rôle spécial)
 
@@ -68,14 +66,31 @@ export function useUserRoles(): UseUserRolesReturn {
       return;
     }
 
-    // Environnement local: rôles par défaut pour le développement
+    // Environnement local: éviter d'imposer un rôle admin par défaut
     if (isLocalSupabase()) {
       skipRpc.value = true;
       userRolesRpcSkipped.value = true;
-      // Pour tester les pages admin en local
-      console.log('[useUserRoles] Local environment - setting admin role');
-      setUserType("admin_ansut");
-      setSystemRoles(["admin"]);
+      const profileUserType = profile?.user_type as UserType | null;
+      setUserType(profileUserType || null);
+
+      try {
+        const { data: systemRolesData, error: systemRolesError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id);
+        if (systemRolesError) {
+          console.warn("Erreur lors du chargement des system roles (local):", systemRolesError);
+          setSystemRoles([]);
+        } else {
+          const roles =
+            (systemRolesData?.map((r: { role: string }) => r.role) as SystemRole[]) || [];
+          setSystemRoles(roles);
+        }
+      } catch (err) {
+        console.warn("Erreur lors du chargement des system roles (local):", err);
+        setSystemRoles([]);
+      }
+
       setLoading(false);
       setError(null);
       return;
@@ -163,19 +178,16 @@ export function useUserRoles(): UseUserRolesReturn {
 
   const computedValues = useMemo(
     () => ({
-      // Admin: user_type = admin_ansut OU system role = admin
-      isAdmin: userType === "admin_ansut" || systemRoles.includes("admin"),
-      // Moderator: system role = moderator
-      isModerator: systemRoles.includes("moderator"),
-      // Trust Agent: user_type = trust_agent OU system role = trust_agent
+      // Admin: user_type = admin OU system role = admin
+      isAdmin: userType === "admin" || systemRoles.includes("admin"),
+      // Tiers de confiance: user_type = trust_agent OU system role = trust_agent
       isTrustAgent: userType === "trust_agent" || systemRoles.includes("trust_agent"),
       // User: utilisateur standard sans rôle spécial
       isUser:
-        (userType === "locataire" || userType === "proprietaire") &&
+        (userType === "tenant" || userType === "owner" || userType === "agency") &&
         !systemRoles.includes("admin") &&
-        !systemRoles.includes("moderator") &&
         !systemRoles.includes("trust_agent") &&
-        userType !== "admin_ansut" &&
+        userType !== "admin" &&
         userType !== "trust_agent",
     }),
     [userType, systemRoles]

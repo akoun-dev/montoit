@@ -398,7 +398,7 @@ export const propertyApi = {
       .or(
         `title.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,address.ilike.%${searchTerm}%,city.ilike.%${searchTerm}%`
       )
-      .eq('status', 'disponible')
+      .eq('status', 'available')
       .order('created_at', { ascending: false });
 
     if (error) throw error;

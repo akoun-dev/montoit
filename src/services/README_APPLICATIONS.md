@@ -51,7 +51,7 @@ await createApplication(propertyId, applicantId, formData);
 
 // Récupérer les candidatures avec filtres
 const { applications, loading } = useApplications({
-  filters: { status: ['en_attente', 'en_cours'] },
+  filters: { status: ['pending', 'in_progress'] },
   pagination: { page: 1, pageSize: 10 },
 });
 ```
@@ -83,11 +83,11 @@ const { applications, loading } = useApplications({
 
 | Statut       | Description              | Couleur | Actions           |
 | ------------ | ------------------------ | ------- | ----------------- |
-| `en_attente` | En attente de traitement | Jaune   | Éditer, Supprimer |
-| `en_cours`   | En cours d'examen        | Bleu    | Aucune            |
-| `acceptee`   | Acceptée                 | Vert    | Aucune            |
-| `refusee`    | Refusée                  | Rouge   | Supprimer         |
-| `annulee`    | Annulée                  | Gris    | Supprimer         |
+| `pending`    | En attente de traitement | Jaune   | Éditer, Supprimer |
+| `in_progress` | En cours d'examen       | Bleu    | Aucune            |
+| `accepted`   | Acceptée                 | Vert    | Aucune            |
+| `rejected`   | Refusée                  | Rouge   | Supprimer         |
+| `cancelled`  | Annulée                  | Gris    | Supprimer         |
 
 ## 🔧 Utilisation
 

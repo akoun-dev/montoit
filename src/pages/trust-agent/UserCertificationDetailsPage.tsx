@@ -104,16 +104,16 @@ export default function UserCertificationDetailsPage() {
 
   const getUserTypeLabel = (userType: string) => {
     switch (userType) {
-      case 'locataire':
+      case 'tenant':
         return 'Locataire';
-      case 'proprietaire':
+      case 'owner':
         return 'Propriétaire';
-      case 'agence':
+      case 'agency':
         return 'Agence';
-      case 'admin_ansut':
+      case 'admin':
         return 'Admin ANSUT';
       case 'trust_agent':
-        return 'Agent de confiance';
+        return 'Tiers de confiance';
       default:
         return userType;
     }
@@ -121,13 +121,13 @@ export default function UserCertificationDetailsPage() {
 
   const getUserTypeColor = (userType: string) => {
     switch (userType) {
-      case 'locataire':
+      case 'tenant':
         return 'bg-blue-100 text-blue-800';
-      case 'proprietaire':
+      case 'owner':
         return 'bg-purple-100 text-purple-800';
-      case 'agence':
+      case 'agency':
         return 'bg-orange-100 text-orange-800';
-      case 'admin_ansut':
+      case 'admin':
         return 'bg-red-100 text-red-800';
       case 'trust_agent':
         return 'bg-green-100 text-green-800';
@@ -153,28 +153,28 @@ export default function UserCertificationDetailsPage() {
 
   const getVerificationStatusBadge = (status: string) => {
     switch (status) {
-      case 'verifie':
+      case 'approved':
         return (
           <Badge className="bg-green-100 text-green-800">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             Vérifié
           </Badge>
         );
-      case 'en_attente':
+      case 'pending':
         return (
           <Badge variant="secondary">
             <XCircle className="h-3 w-3 mr-1" />
             En attente
           </Badge>
         );
-      case 'rejete':
+      case 'rejected':
         return (
           <Badge className="bg-red-100 text-red-800">
             <XCircle className="h-3 w-3 mr-1" />
             Rejeté
           </Badge>
         );
-      case 'expiré':
+      case 'expired':
         return (
           <Badge className="bg-amber-100 text-amber-800">
             <XCircle className="h-3 w-3 mr-1" />
@@ -309,7 +309,7 @@ export default function UserCertificationDetailsPage() {
               )}
 
               {/* Agency Info */}
-              {user.user_type === 'agence' && user.agency_name && (
+              {user.user_type === 'agency' && user.agency_name && (
                 <div>
                   <h4 className="font-medium mb-2">Informations Agence</h4>
                   <p className="text-sm font-medium">{user.agency_name}</p>

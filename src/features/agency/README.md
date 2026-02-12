@@ -424,7 +424,6 @@ src/features/agency/
 | `admin` | Accès complet, analytics, paiements, commissions |
 | `owner` | Gestion équipe, attributions, invitations |
 | `agent` | Biens, mandats, candidatures, contrats, visites |
-| `moderator` | Modération contenu |
 
 ### RLS (Row Level Security)
 
@@ -486,7 +485,7 @@ src/features/agency/
 |---------|-------|
 | **CryptoNeo** | Signatures numériques des mandats |
 | **Supabase** | Auth, Database, Storage, Realtime |
-| **Brevo** | Emails d'invitation et notifications |
+| **Resend** | Emails d'invitation et notifications |
 
 ---
 

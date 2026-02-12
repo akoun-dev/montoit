@@ -48,10 +48,16 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
   const [attempts, setAttempts] = useState(0);
   const [progress, setProgress] = useState('');
   const [windowClosed, setWindowClosed] = useState(false);
+  const [popupEverOpened, setPopupEverOpened] = useState(false);
   const selfieWindowRef = useRef<Window | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const windowCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const authTokenRef = useRef<string | null>(null);
+  const supabaseUrl =
+    import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+  const anonKey =
+    import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
 
   useEffect(() => {
     return () => {
@@ -69,6 +75,67 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
       }
     };
   }, []);
+
+  const ensureAccessToken = async () => {
+    if (authTokenRef.current) return authTokenRef.current;
+    const { data: sessionData } = await supabase.auth.getSession();
+    authTokenRef.current = sessionData.session?.access_token || null;
+    return authTokenRef.current;
+  };
+
+  const invokeNeoface = async <T,>(payload: Record<string, unknown>): Promise<T> => {
+    if (!supabaseUrl) {
+      throw new Error('SUPABASE_URL manquant');
+    }
+
+    const callFunction = async (token: string | null) => {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (anonKey) {
+        headers.apikey = anonKey;
+      }
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      } else if (anonKey) {
+        headers.Authorization = `Bearer ${anonKey}`;
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/neoface-verify`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      const text = await response.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { error: text };
+      }
+      return { response, data };
+    };
+
+    const token = await ensureAccessToken();
+    let result = await callFunction(token);
+
+    if (
+      !result.response.ok &&
+      (result.response.status === 401 ||
+        (typeof result.data?.msg === 'string' && result.data.msg.includes('Invalid JWT')) ||
+        (typeof result.data?.error === 'string' && result.data.error.includes('Invalid JWT')))
+    ) {
+      result = await callFunction(null);
+    }
+
+    if (!result.response.ok) {
+      const errorMessage = result.data?.error || result.data?.message || result.data?.msg || 'Erreur NeoFace';
+      throw new Error(errorMessage);
+    }
+
+    return result.data as T;
+  };
 
   const uploadDocument = async (): Promise<VerificationResponse> => {
     if (!cniPhotoUrl) {
@@ -95,20 +162,12 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
       throw new Error("Format d'URL de stockage non reconnu");
     }
 
-    const { data, error } = await supabase.functions.invoke('neoface-verify', {
-      body: {
-        action: 'upload_document',
-        bucket: bucket,
-        path: path,
-        user_id: userId,
-      },
+    return await invokeNeoface<VerificationResponse>({
+      action: 'upload_document',
+      bucket: bucket,
+      path: path,
+      user_id: userId,
     });
-
-    if (error) {
-      throw new Error(error.message || 'Échec du téléchargement du document');
-    }
-
-    return data as VerificationResponse;
   };
 
   const checkVerificationStatus = async (
@@ -116,23 +175,17 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
     verifyId: string
   ): Promise<StatusResponse> => {
     try {
-      const { data, error } = await supabase.functions.invoke('neoface-verify', {
-        body: {
-          action: 'check_status',
-          document_id: docId,
-          verification_id: verifyId,
-        },
+      const data = await invokeNeoface<StatusResponse>({
+        action: 'check_status',
+        document_id: docId,
+        verification_id: verifyId,
       });
-
-      if (error) {
-        throw new Error(error.message || 'Échec de la vérification du statut');
-      }
 
       if (!data) {
         throw new Error('Aucune donnée reçue du serveur');
       }
 
-      return data as StatusResponse;
+      return data;
     } catch (err) {
       if (err instanceof Error && (err.message.includes('403') || err.message.includes('timeout'))) {
         const maxRetries = 5;
@@ -308,25 +361,20 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
       return;
     }
 
-    setWindowClosed(false);
     setIsVerifying(true);
     setStatus('uploading');
     setError(null);
     setProgress('Téléchargement du document en cours...');
 
-    const popupFeatures = 'width=840,height=720,left=120,top=80';
-    const popup = window.open('', 'NeofaceVerification', popupFeatures);
-    if (popup) {
-      selfieWindowRef.current = popup;
-      popup.document.title = 'Vérification NeoFace';
-      popup.document.body.innerHTML =
-        '<style>body{font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:linear-gradient(135deg,#F16522 0%,#d9571d 100%);color:white}</style><div style="text-align:center"><div style="width:60px;height:60px;border:4px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px"></div><p>Chargement de la vérification...</p></div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
-      popup.focus();
-    } else {
-      setWindowClosed(true);
-    }
-
     try {
+      const accessToken = await ensureAccessToken();
+      if (!accessToken) {
+        setStatus('error');
+        setError('Session expirée. Veuillez vous reconnecter puis réessayer.');
+        setIsVerifying(false);
+        return;
+      }
+
       const uploadData = await uploadDocument();
 
       setDocumentId(uploadData.document_id);
@@ -335,7 +383,7 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
       setProgress('Document téléchargé avec succès !');
 
       setStatus('waiting');
-      setProgress('Redirection vers la page de vérification NeoFace...');
+      setProgress('Cliquez sur "Ouvrir la fenêtre" pour lancer la capture NeoFace.');
 
       if (!uploadData.selfie_url || !uploadData.selfie_url.startsWith('http')) {
         throw new Error(`URL NeoFace invalide: ${uploadData.selfie_url}`);
@@ -351,30 +399,7 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
         })
       );
 
-      const openSelfieWindow = () => {
-        if (selfieWindowRef.current && !selfieWindowRef.current.closed) {
-          selfieWindowRef.current.location.href = uploadData.selfie_url;
-          selfieWindowRef.current.focus();
-          return true;
-        }
-
-        const newWindow = window.open(uploadData.selfie_url, 'NeofaceVerification', popupFeatures);
-        if (newWindow) {
-          selfieWindowRef.current = newWindow;
-          newWindow.focus();
-          return true;
-        }
-        return false;
-      };
-
-      const opened = openSelfieWindow();
-      if (!opened) {
-        setWindowClosed(true);
-        setProgress(
-          'Fenêtre bloquée. Autorisez les popups, puis cliquez sur "Rouvrir la fenêtre".'
-        );
-      }
-
+      setWindowClosed(true);
       startPolling(uploadData.document_id, uploadData.verification_id);
       setIsVerifying(false);
     } catch (err) {
@@ -433,6 +458,7 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
     setProgress('');
     setIsVerifying(false);
     setWindowClosed(false);
+    setPopupEverOpened(false);
     setIsCancelling(false);
 
     if (pollingIntervalRef.current) {
@@ -457,6 +483,7 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
         'width=800,height=600,left=100,top=100'
       );
       if (selfieWindowRef.current) {
+        setPopupEverOpened(true);
         setWindowClosed(false);
         startWindowMonitor();
       } else {
@@ -574,18 +601,24 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
               </div>
               <div className="flex-1">
                 <p className="font-semibold text-amber-900">
-                  {windowClosed ? 'Fenêtre fermée' : 'Fenêtre de capture ouverte'}
+                  {windowClosed
+                    ? popupEverOpened
+                      ? 'Fenêtre fermée'
+                      : 'Fenêtre non ouverte'
+                    : 'Fenêtre de capture ouverte'}
                 </p>
                 <p className="text-amber-700 text-sm mt-1">
                   {windowClosed
-                    ? "La fenêtre de vérification a été fermée. Rouvrez-la pour terminer la capture."
+                    ? popupEverOpened
+                      ? "La fenêtre de vérification a été fermée. Rouvrez-la pour terminer la capture."
+                      : "Cliquez sur le bouton pour ouvrir la fenêtre de capture NeoFace."
                     : 'Suivez les instructions dans la fenêtre popup pour capturer votre selfie.'}
                 </p>
                 <button
                   onClick={handleReopenWindow}
                   className="mt-3 w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-medium transition-colors"
                 >
-                  Rouvrir la fenêtre
+                  {popupEverOpened ? 'Rouvrir la fenêtre' : 'Ouvrir la fenêtre'}
                 </button>
               </div>
             </div>

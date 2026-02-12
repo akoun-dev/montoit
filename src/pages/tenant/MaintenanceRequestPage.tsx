@@ -36,7 +36,7 @@ export default function MaintenanceRequest() {
         .from('lease_contracts')
         .select('*, properties(*)')
         .eq('tenant_id', user.id)
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .maybeSingle();
 
       if (error) throw error;

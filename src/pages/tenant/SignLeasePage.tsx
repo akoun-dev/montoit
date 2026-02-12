@@ -158,13 +158,13 @@ export default function SignLeasePage() {
       const otherSigned = isOwner ? lease.tenant_signed_at : lease.owner_signed_at;
 
       // Update status based on signature state
-      // Valid statuses in DB: brouillon, en_attente_signature, actif, expire, resilie, annule
+      // Valid statuses in DB: draft, pending_signature, active, expired, terminated, cancelled
       if (otherSigned) {
         // Both parties have signed - contract is now active
-        updateData['status'] = 'actif';
+        updateData['status'] = 'active';
       } else {
         // Only one party signed - contract is waiting for the other signature
-        updateData['status'] = 'en_attente_signature';
+        updateData['status'] = 'pending_signature';
       }
 
       const { error: updateError } = await supabase
@@ -208,7 +208,7 @@ export default function SignLeasePage() {
     setSuccess('🎉 Signature certifiée CryptoNeo réussie!');
     if (signedUrl) {
       setLease((prev) =>
-        prev ? { ...prev, signed_document_url: signedUrl, status: 'actif' } : null
+        prev ? { ...prev, signed_document_url: signedUrl, status: 'active' } : null
       );
     }
     loadLeaseData();
@@ -266,7 +266,7 @@ export default function SignLeasePage() {
   const hasUserSigned = isOwner ? !!lease.owner_signed_at : !!lease.tenant_signed_at;
   const hasOtherSigned = isOwner ? !!lease.tenant_signed_at : !!lease.owner_signed_at;
   const bothSigned = !!lease.owner_signed_at && !!lease.tenant_signed_at;
-  const isCertifiedSigned = lease.status === 'actif' && lease.signed_document_url;
+  const isCertifiedSigned = lease.status === 'active' && lease.signed_document_url;
 
   return (
     <>

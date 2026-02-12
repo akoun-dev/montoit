@@ -79,11 +79,11 @@ export default function MyContracts() {
         .order('created_at', { ascending: false });
 
       if (filter === 'active') {
-        query = query.eq('status', 'actif');
+        query = query.eq('status', 'active');
       } else if (filter === 'pending') {
-        query = query.in('status', ['brouillon', 'en_attente_signature']);
+        query = query.in('status', ['draft', 'pending_signature']);
       } else if (filter === 'expired') {
-        query = query.in('status', ['expire', 'resilie', 'annule']);
+        query = query.in('status', ['expired', 'terminated', 'cancelled']);
       }
 
       const { data, error } = await query;
@@ -118,21 +118,21 @@ export default function MyContracts() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      brouillon: 'bg-gray-100 text-gray-800',
-      en_attente_signature: 'bg-yellow-100 text-yellow-800',
-      actif: 'bg-green-100 text-green-800',
-      expire: 'bg-red-100 text-red-800',
-      resilie: 'bg-red-100 text-red-800',
-      annule: 'bg-red-100 text-red-800',
+      draft: 'bg-gray-100 text-gray-800',
+      pending_signature: 'bg-yellow-100 text-yellow-800',
+      active: 'bg-green-100 text-green-800',
+      expired: 'bg-red-100 text-red-800',
+      terminated: 'bg-red-100 text-red-800',
+      cancelled: 'bg-red-100 text-red-800',
     };
 
     const labels = {
-      brouillon: 'Brouillon',
-      en_attente_signature: 'En attente',
-      actif: 'Actif',
-      expire: 'Expiré',
-      resilie: 'Résilié',
-      annule: 'Annulé',
+      draft: 'Brouillon',
+      pending_signature: 'En attente',
+      active: 'Actif',
+      expired: 'Expiré',
+      terminated: 'Résilié',
+      cancelled: 'Annulé',
     };
 
     return (
@@ -379,7 +379,7 @@ export default function MyContracts() {
                         ) : null;
                       })()}
 
-                      {contract.status === 'brouillon' && isOwner(contract) && (
+                      {contract.status === 'draft' && isOwner(contract) && (
                         <a
                           href={`/locataire/contrat/${contract.id}/editer`}
                           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center space-x-2"

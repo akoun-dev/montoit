@@ -36,7 +36,7 @@ interface Property {
   bedrooms: number;
   bathrooms: number;
   description: string;
-  status: 'disponible' | 'loue' | 'maintenance' | 'en_attente' | 'retire';
+  status: 'available' | 'rented' | 'maintenance' | 'pending' | 'inactive';
   main_image?: string;
   created_at: string;
   owner_id: string;
@@ -49,8 +49,8 @@ interface Property {
 
 interface PropertyStats {
   total: number;
-  disponible: number;
-  loue: number;
+  available: number;
+  rented: number;
   maintenance: number;
   totalValue: number;
   avgRent: number;
@@ -65,8 +65,8 @@ export default function AgencyPropertiesPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [stats, setStats] = useState<PropertyStats>({
     total: 0,
-    disponible: 0,
-    loue: 0,
+    available: 0,
+    rented: 0,
     maintenance: 0,
     totalValue: 0,
     avgRent: 0,
@@ -123,16 +123,16 @@ export default function AgencyPropertiesPage() {
   }, [user]);
 
   const calculateStats = (props: Property[]) => {
-    const disponible = props.filter((p) => p.status === 'disponible').length;
-    const loue = props.filter((p) => p.status === 'loue').length;
+    const available = props.filter((p) => p.status === 'available').length;
+    const rented = props.filter((p) => p.status === 'rented').length;
     const maintenance = props.filter((p) => p.status === 'maintenance').length;
     const totalValue = props.reduce((sum, p) => sum + (p.price || 0), 0);
     const avgRent = props.length > 0 ? totalValue / props.length : 0;
 
     setStats({
       total: props.length,
-      disponible,
-      loue,
+      available,
+      rented,
       maintenance,
       totalValue,
       avgRent,
@@ -146,22 +146,25 @@ export default function AgencyPropertiesPage() {
       property.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
       property.neighborhood?.toLowerCase().includes(searchQuery.toLowerCase());
 
+    const normalizedStatus = property.status
+      ? property.status.toLowerCase()
+      : 'available';
     const matchesFilter =
-      filterStatus === 'all' || property.status === filterStatus;
+      filterStatus === 'all' || normalizedStatus === filterStatus;
 
     return matchesSearch && matchesFilter;
   });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'disponible':
+      case 'available':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
             <CheckCircle2 className="w-3 h-3 mr-1" />
             Disponible
           </span>
         );
-      case 'loue':
+      case 'rented':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
             <Users className="w-3 h-3 mr-1" />
@@ -175,14 +178,14 @@ export default function AgencyPropertiesPage() {
             En travaux
           </span>
         );
-      case 'en_attente':
+      case 'pending':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
             <Clock className="w-3 h-3 mr-1" />
             En attente
           </span>
         );
-      case 'retire':
+      case 'inactive':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
             <XCircle className="w-3 h-3 mr-1" />
@@ -281,7 +284,7 @@ export default function AgencyPropertiesPage() {
               <div>
                 <p className="text-[#6B5A4E] text-sm font-medium">Disponibles</p>
                 <p className="text-2xl sm:text-3xl font-bold text-green-600 mt-1">
-                  {stats.disponible}
+                  {stats.available}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center">
@@ -295,7 +298,7 @@ export default function AgencyPropertiesPage() {
               <div>
                 <p className="text-[#6B5A4E] text-sm font-medium">Louées</p>
                 <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-1">
-                  {stats.loue}
+                  {stats.rented}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
@@ -357,11 +360,11 @@ export default function AgencyPropertiesPage() {
                 className="px-4 py-3 bg-[#FAF7F4] border-2 border-[#EFEBE9] rounded-xl focus:outline-none focus:border-[#F16522] transition-colors pr-8"
               >
                 <option value="all">Tous les statuts</option>
-                <option value="disponible">Disponibles</option>
-                <option value="loue">Louées</option>
+                <option value="available">Disponibles</option>
+                <option value="rented">Louées</option>
                 <option value="maintenance">En travaux</option>
-                <option value="en_attente">En attente</option>
-                <option value="retire">Retirés</option>
+                <option value="pending">En attente</option>
+                <option value="inactive">Retirés</option>
               </select>
             </div>
           </div>

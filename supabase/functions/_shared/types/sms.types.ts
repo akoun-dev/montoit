@@ -45,21 +45,6 @@ export interface InTouchSMSResponse {
   status?: string;
 }
 
-export interface BrevoSMSRequest {
-  sender: string;
-  recipient: string;
-  content: string;
-  type: 'transactional' | 'marketing';
-}
-
-export interface BrevoSMSResponse {
-  messageId: string;
-  reference?: string;
-  smsCount?: number;
-  usedCredits?: number;
-  remainingCredits?: number;
-}
-
 export interface AzureSMSSendResult {
   successful: boolean;
   messageId?: string;
@@ -75,7 +60,6 @@ export type SMSProviderHandler = (
 export type SMSHandlers = {
   intouch?: SMSProviderHandler;
   azure?: SMSProviderHandler;
-  brevo?: SMSProviderHandler;
 };
 
 // OTP types

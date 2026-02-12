@@ -50,9 +50,9 @@ export default function HeroSimplified({
 
   const propertyTypes = [
     { value: '', label: 'Tous les types' },
-    { value: 'appartement', label: 'Appartement' },
+    { value: 'apartment', label: 'Appartement' },
     { value: 'villa', label: 'Villa' },
-    { value: 'maison', label: 'Maison' },
+    { value: 'house', label: 'Maison' },
     { value: 'studio', label: 'Studio' },
   ];
 

@@ -107,7 +107,7 @@ export default function CreateDisputePage() {
       `
       )
       .or(`owner_id.eq.${user.id},tenant_id.eq.${user.id}`)
-      .eq('status', 'actif');
+      .eq('status', 'active');
 
     if (!error && data) {
       const formattedContracts = await Promise.all(

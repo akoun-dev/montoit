@@ -151,11 +151,11 @@ async function getUserGrowthMetrics(startDate: string, endDate: string): Promise
 
   // Données par type
   const [locataires, proprietaires, agences, trustAgents, admins] = await Promise.all([
-    supabase.from('profiles').select('id', { count: 'exact' }).eq('user_type', 'locataire'),
-    supabase.from('profiles').select('id', { count: 'exact' }).eq('user_type', 'proprietaire'),
-    supabase.from('profiles').select('id', { count: 'exact' }).eq('user_type', 'agence'),
+    supabase.from('profiles').select('id', { count: 'exact' }).eq('user_type', 'tenant'),
+    supabase.from('profiles').select('id', { count: 'exact' }).eq('user_type', 'owner'),
+    supabase.from('profiles').select('id', { count: 'exact' }).eq('user_type', 'agency'),
     supabase.from('profiles').select('id', { count: 'exact' }).eq('user_type', 'trust_agent'),
-    supabase.from('profiles').select('id', { count: 'exact' }).in('user_type', ['admin', 'admin_ansut']),
+    supabase.from('profiles').select('id', { count: 'exact' }).in('user_type', ['admin', 'admin']),
   ]);
 
   const byType = {

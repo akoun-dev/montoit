@@ -149,10 +149,10 @@ export default function EnhancedSearch({
                   className="w-full h-12 px-5 rounded-xl bg-white/80 border-2 border-white/60 focus:border-terracotta-400 focus:outline-none transition-colors"
                 >
                   <option value="">Tous les types</option>
-                  <option value="appartement">Appartement</option>
+                  <option value="apartment">Appartement</option>
                   <option value="villa">Villa</option>
                   <option value="studio">Studio</option>
-                  <option value="chambre">Chambre</option>
+                  <option value="room">Chambre</option>
                 </select>
               </div>
 
@@ -211,7 +211,7 @@ export default function EnhancedSearch({
 
       {showQuickFilters && (
         <div className="space-y-4">
-          {profile?.user_type === 'locataire' && recentSearches.length > 0 && (
+          {profile?.user_type === 'tenant' && recentSearches.length > 0 && (
             <div className="flex items-start gap-3 p-4 bg-white/60 rounded-2xl border border-white/40">
               <Sparkles className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
               <div className="flex-1">

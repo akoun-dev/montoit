@@ -164,8 +164,8 @@ export default function HeroAfricanWow() {
                     className="flex-1 bg-transparent outline-none text-gray-900 cursor-pointer"
                   >
                     <option value="">Type de bien</option>
-                    <option value="appartement">Appartement</option>
-                    <option value="maison">Maison</option>
+                    <option value="apartment">Appartement</option>
+                    <option value="house">Maison</option>
                     <option value="villa">Villa</option>
                     <option value="studio">Studio</option>
                   </select>

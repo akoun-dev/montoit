@@ -104,39 +104,40 @@ const StatCard = ({
 // Contract status badge component
 const ContractStatusBadge = ({ status }: { status: string | null }) => {
   const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-    brouillon: {
+    draft: {
       label: 'Brouillon',
       color: 'bg-gray-100 text-gray-700 border-gray-300',
       icon: <FileText className="w-4 h-4" />,
     },
-    en_attente_signature: {
+    pending_signature: {
       label: 'En attente de signature',
       color: 'bg-amber-100 text-amber-700 border-amber-300',
       icon: <Clock className="w-4 h-4" />,
     },
-    actif: {
+    active: {
       label: 'Actif',
       color: 'bg-green-100 text-green-700 border-green-300',
       icon: <CheckCircle2 className="w-4 h-4" />,
     },
-    expire: {
+    expired: {
       label: 'Expiré',
       color: 'bg-red-100 text-red-700 border-red-300',
       icon: <AlertCircle className="w-4 h-4" />,
     },
-    resilie: {
+    terminated: {
       label: 'Résilié',
       color: 'bg-purple-100 text-purple-700 border-purple-300',
       icon: <X className="w-4 h-4" />,
     },
-    annule: {
+    cancelled: {
       label: 'Annulé',
       color: 'bg-red-100 text-red-700 border-red-300',
       icon: <X className="w-4 h-4" />,
     },
   };
 
-  const config = statusConfig[status || 'brouillon'] || statusConfig.brouillon;
+  const normalizedStatus = status ?? 'draft';
+  const config = statusConfig[normalizedStatus] || statusConfig.draft;
 
   return (
     <div
@@ -203,7 +204,7 @@ export default function ContractDetailPage() {
 
       if (error) throw error;
       if (!data) {
-        const isOwner = user?.user_type === 'owner' || user?.user_type === 'proprietaire';
+        const isOwner = user?.user_type === 'owner' || user?.user_type === 'owner';
         navigate(isOwner ? '/proprietaire/contrats' : '/locataire/contrats');
         return;
       }
@@ -531,17 +532,17 @@ export default function ContractDetailPage() {
         updates.owner_signed_at = now;
         // Si le locataire a déjà signé, passer le contrat à actif
         if (contract.tenant_signed_at) {
-          updates.status = 'actif';
+          updates.status = 'active';
         } else {
-          updates.status = 'en_attente_signature';
+          updates.status = 'pending_signature';
         }
       } else {
         updates.tenant_signed_at = now;
         // Si le propriétaire a déjà signé, passer le contrat à actif
         if (contract.owner_signed_at) {
-          updates.status = 'actif';
+          updates.status = 'active';
         } else {
-          updates.status = 'en_attente_signature';
+          updates.status = 'pending_signature';
         }
       }
 
@@ -592,29 +593,43 @@ export default function ContractDetailPage() {
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <header className="w-full bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          {/* Top row - Navigation and actions */}
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => navigate(-1)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Retour"
               >
-                <ArrowLeft className="w-5 h-5 text-gray-600" />
+                <ArrowLeft className="w-5 h-5 text-gray-700" />
               </button>
+              <div className="h-6 w-px bg-gray-200" />
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg">
+                <div className="flex items-center justify-center w-9 h-9 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-sm">
                   <FileText className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-lg font-semibold text-gray-900">Contrat de Location</h1>
-                  <p className="text-sm text-gray-500">N° {contract.contract_number}</p>
+                  <h1 className="text-base font-semibold text-gray-900 leading-tight">
+                    Contrat de Location
+                  </h1>
+                  <p className="text-xs text-gray-500">N° {contract.contract_number}</p>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <ContractStatusBadge status={contract.status} />
+              <Button
+                variant="ghost"
+                size="small"
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                className="hidden sm:flex"
+                title="Regénérer le contrat"
+              >
+                <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
+              </Button>
               <Button
                 variant="outline"
                 size="small"
@@ -623,28 +638,44 @@ export default function ContractDetailPage() {
                 className="flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Télécharger</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="small"
-                onClick={handleRegenerate}
-                disabled={regenerating}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{regenerating ? '...' : 'Regénérer'}</span>
+                <span className="hidden md:inline">Télécharger</span>
               </Button>
             </div>
           </div>
+
+          {/* Bottom row - Status bar */}
+          <div className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <ContractStatusBadge status={contract.status} />
+                <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    Du {new Date(contract.start_date).toLocaleDateString('fr-FR')}
+                    {' au '}
+                    {new Date(contract.end_date || contract.end_at || '').toLocaleDateString('fr-FR')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Mobile-only action button */}
+              <button
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                className="sm:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Regénérer le contrat"
+              >
+                <RefreshCw className={`w-4 h-4 text-gray-600 ${regenerating ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      </header>
 
       {/* Main Content */}
-      <div className="px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 gap-6">
-          {/* Contract Details - Full Width */}
-          <div className="space-y-6">
+      <main className="w-full">
+        <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+          <div className="max-w-6xl mx-auto space-y-6">
             {/* Status Banner */}
             <div
               className={`p-4 rounded-xl border ${
@@ -1015,9 +1046,10 @@ export default function ContractDetailPage() {
             </div>
           </div>
         </div>
+      </main>
 
-        {/* Manual Signature Modal */}
-        {signatureMethod === 'manual' && (
+      {/* Manual Signature Modal */}
+      {signatureMethod === 'manual' && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl">
               <div className="flex items-center justify-between mb-6">
@@ -1095,7 +1127,6 @@ export default function ContractDetailPage() {
             }}
           />
         )}
-      </div>
     </div>
   );
 }

@@ -27,10 +27,10 @@ interface VisitRow {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  en_attente: 'border-amber-500 bg-amber-50 text-amber-700',
-  confirmee: 'border-green-600 bg-green-50 text-green-700',
-  annulee: 'border-red-500 bg-red-50 text-red-700',
-  terminee: 'border-blue-500 bg-blue-50 text-blue-700',
+  pending: 'border-amber-500 bg-amber-50 text-amber-700',
+  confirmed: 'border-green-600 bg-green-50 text-green-700',
+  cancelled: 'border-red-500 bg-red-50 text-red-700',
+  completed: 'border-blue-500 bg-blue-50 text-blue-700',
 };
 
 export default function AgencyCalendarPage() {
@@ -110,7 +110,7 @@ export default function AgencyCalendarPage() {
         return (
           date &&
           date >= now &&
-          (v.status === 'en_attente' || v.status === 'confirmee' || !v.status)
+          (v.status === 'pending' || v.status === 'confirmed' || !v.status)
         );
       })
       .slice(0, 6);
@@ -119,9 +119,9 @@ export default function AgencyCalendarPage() {
   const stats = useMemo(() => {
     return {
       total: visits.length,
-      confirmed: visits.filter((v) => v.status === 'confirmee').length,
-      pending: visits.filter((v) => v.status === 'en_attente').length,
-      cancelled: visits.filter((v) => v.status === 'annulee').length,
+      confirmed: visits.filter((v) => v.status === 'confirmed').length,
+      pending: visits.filter((v) => v.status === 'pending').length,
+      cancelled: visits.filter((v) => v.status === 'cancelled').length,
     };
   }, [visits]);
 
@@ -190,7 +190,7 @@ export default function AgencyCalendarPage() {
                   })
                 : 'Date à confirmer';
               const statusClass =
-                STATUS_COLORS[visit.status || 'en_attente'] || STATUS_COLORS.en_attente;
+                STATUS_COLORS[visit.status || 'pending'] || STATUS_COLORS.pending;
               return (
                 <div key={visit.id} className="p-6 hover:bg-[#FAF7F4] transition-colors">
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -217,7 +217,7 @@ export default function AgencyCalendarPage() {
                           </span>
                           <span className="flex items-center gap-1">
                             <Home className="h-4 w-4" />
-                            {visit.visit_type === 'virtuelle' ? 'Visite virtuelle' : 'En physique'}
+                            {visit.visit_type === 'virtual' ? 'Visite virtuelle' : 'En physique'}
                           </span>
                           {visit.tenant && (
                             <span className="flex items-center gap-1">

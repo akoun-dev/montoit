@@ -213,7 +213,7 @@ export default function TrustAgentsPage() {
   const handleDeleteAgent = (agent: AgentWithStats) => {
     if (
       window.confirm(
-        `Êtes-vous sûr de vouloir supprimer l'agent ${agent.full_name || agent.email} ? Cette action désactivera son compte.`
+        `Êtes-vous sûr de vouloir supprimer le tiers de confiance ${agent.full_name || agent.email} ? Cette action désactivera son compte.`
       )
     ) {
       deleteMutation.mutate(agent.id);
@@ -278,7 +278,7 @@ export default function TrustAgentsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `agents-confiance-${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `tiers-confiance-${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -447,8 +447,8 @@ export default function TrustAgentsPage() {
     <div className="min-h-screen bg-[#FAF7F4] p-6">
       <div className="w-full">
         <AdminPageHeader
-          title="Agents de confiance"
-          description="Gérez les agents tiers de confiance certifiés ANSUT"
+          title="Tiers de confiance"
+          description="Gérez les tiers de confiance certifiés ANSUT"
           icon={Shield}
           onRefresh={handleRefresh}
           refreshing={refreshing}
@@ -456,7 +456,7 @@ export default function TrustAgentsPage() {
           onExport={handleExport}
           breadcrumbs={[
             { label: 'Administration', href: '/admin/tableau-de-bord' },
-            { label: 'Agents de confiance' },
+            { label: 'Tiers de confiance' },
           ]}
           actions={
             <button
@@ -464,7 +464,7 @@ export default function TrustAgentsPage() {
               className="px-4 py-2 bg-[#F16522] text-white font-medium rounded-xl hover:bg-[#d9571d] transition-colors flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
-              Ajouter un agent
+              Ajouter un tiers de confiance
             </button>
           }
         />
@@ -474,7 +474,7 @@ export default function TrustAgentsPage() {
           <div className="bg-white rounded-2xl border border-[#EFEBE9] p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-[#6B5A4E]">Agents total</p>
+                <p className="text-sm text-[#6B5A4E]">Tiers de confiance total</p>
                 <p className="text-3xl font-bold text-[#2C1810] mt-2">{totalAgents}</p>
               </div>
               <div className="p-3 bg-blue-100 rounded-xl">
@@ -559,7 +559,7 @@ export default function TrustAgentsPage() {
             columns={columns}
             data={paginatedData.data}
             loading={isLoading}
-            emptyMessage="Aucun agent de confiance trouvé"
+            emptyMessage="Aucun tiers de confiance trouvé"
             rowKey="id"
             onRowClick={handleViewAgent}
             pagination={paginatedData}
@@ -570,7 +570,7 @@ export default function TrustAgentsPage() {
             onSelectionChange={setSelectedAgents}
             showHeaderActions
             onSearch={setSearchQuery}
-            searchPlaceholder="Rechercher un agent par nom, email ou téléphone..."
+            searchPlaceholder="Rechercher un tiers de confiance par nom, email ou téléphone..."
           />
         </div>
 
@@ -614,7 +614,7 @@ export default function TrustAgentsPage() {
       <Modal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        title="Ajouter un agent de confiance"
+        title="Ajouter un tiers de confiance"
       >
         <form onSubmit={handleCreateAgent} className="space-y-4">
           <div>
@@ -627,7 +627,7 @@ export default function TrustAgentsPage() {
               value={createForm.email}
               onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
               className="w-full px-3 py-2 border border-[#EFEBE9] rounded-xl focus:ring-2 focus:ring-[#F16522] focus:border-[#F16522]"
-              placeholder="agent@exemple.com"
+              placeholder="tiers@exemple.com"
             />
           </div>
 
@@ -692,7 +692,7 @@ export default function TrustAgentsPage() {
                   Création...
                 </>
               ) : (
-                'Créer l\'agent'
+                'Créer le tiers de confiance'
               )}
             </button>
           </div>
@@ -703,7 +703,7 @@ export default function TrustAgentsPage() {
       <Modal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        title="Modifier l'agent de confiance"
+        title="Modifier le tiers de confiance"
       >
         {selectedAgent && (
           <form onSubmit={handleUpdateAgent} className="space-y-4">

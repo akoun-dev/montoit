@@ -42,7 +42,7 @@ const navGroups = [
     label: 'Missions & Tâches',
     items: [
       { path: '/trust-agent/missions', label: 'Mes Missions', icon: ClipboardList },
-      { path: '/trust-agent/dossiers', label: 'Validation Dossiers', icon: FileCheck },
+      { path: '/trust-agent/dossiers', label: 'Validation de dossiers', icon: FileCheck },
     ],
   },
   {
@@ -127,7 +127,7 @@ export default function TrustAgentLayout() {
               <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600">
                 <Shield className="h-4 w-4 text-white" />
               </div>
-              <span className="font-semibold text-gray-900">Trust Agent</span>
+              <span className="font-semibold text-gray-900">Tiers de confiance</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -163,7 +163,7 @@ export default function TrustAgentLayout() {
               <Shield className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-gray-900 text-lg">Trust Agent</h1>
+              <h1 className="font-bold text-gray-900 text-lg">Tiers de confiance</h1>
               <p className="text-xs text-gray-500">Espace de vérification</p>
             </div>
           </div>
@@ -282,7 +282,7 @@ export default function TrustAgentLayout() {
               <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600">
                 <Shield className="h-4 w-4 text-white" />
               </div>
-              <span className="font-semibold text-gray-900">Trust Agent</span>
+              <span className="font-semibold text-gray-900">Tiers de confiance</span>
             </div>
             <Button
               variant="ghost"

@@ -6,19 +6,17 @@ import type { Json } from '@/integrations/supabase/types';
 // Priorités par défaut pour chaque service
 const DEFAULT_PRIORITIES: Record<string, Record<string, number>> = {
   sms: {
-    brevo: 1,
+    azure: 1,
     intouch: 2,
     sinch: 3,
   },
   whatsapp: {
     intouch: 1,
-    brevo: 2,
-    sinch: 3,
+    sinch: 2,
   },
   email: {
     resend: 1,
-    brevo: 2,
-    sendgrid: 3,
+    sendgrid: 2,
   },
 };
 

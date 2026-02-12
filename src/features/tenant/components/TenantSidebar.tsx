@@ -16,7 +16,6 @@ import {
   LogOut,
   Folder,
   Bell,
-  Menu,
   Star,
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -32,33 +31,46 @@ interface TenantSidebarProps {
   unreadMessages?: number;
 }
 
-const navItems = [
-  { label: 'Tableau de bord', href: '/locataire/dashboard', icon: LayoutDashboard },
-  { label: 'Mon Espace', href: '/locataire/mon-espace', icon: Home },
-  { label: 'Rechercher', href: '/recherche', icon: Search },
-  { label: 'Mes Favoris', href: '/locataire/favoris', icon: Heart },
-  { label: 'Mes Candidatures', href: '/locataire/mes-candidatures', icon: Users },
-  { label: 'Mes Visites', href: '/locataire/mes-visites', icon: Calendar },
-  { label: 'Mes Avis', href: '/locataire/avis', icon: Star },
-  { label: 'Mes Contrats', href: '/locataire/mes-contrats', icon: FileText },
-  { label: 'Mes Paiements', href: '/locataire/mes-paiements', icon: CreditCard },
-  { label: 'Maintenance', href: '/locataire/maintenance', icon: Wrench },
-  { label: 'Historique', href: '/locataire/profil/historique-locations', icon: Folder },
-  { label: 'Messages', href: '/locataire/messages', icon: MessageSquare, hasBadge: true },
-  { label: 'Notifications', href: '/locataire/notifications', icon: Bell },
-  { label: 'Mon Profil', href: '/locataire/profil', icon: User },
-  { label: 'Mon Score', href: '/locataire/mon-score', icon: Award },
+const navSections = [
+  {
+    title: 'Espace',
+    items: [
+      { label: 'Tableau de bord', href: '/locataire/dashboard', icon: LayoutDashboard },
+      { label: 'Mon Espace', href: '/locataire/mon-espace', icon: Home },
+      { label: 'Rechercher', href: '/recherche', icon: Search },
+      { label: 'Mes Favoris', href: '/locataire/favoris', icon: Heart },
+    ],
+  },
+  {
+    title: 'Activité',
+    items: [
+      { label: 'Mes Candidatures', href: '/locataire/mes-candidatures', icon: Users },
+      { label: 'Mes Visites', href: '/locataire/mes-visites', icon: Calendar },
+      { label: 'Mes Avis', href: '/locataire/avis', icon: Star },
+      { label: 'Mes Contrats', href: '/locataire/mes-contrats', icon: FileText },
+      { label: 'Mes Paiements', href: '/locataire/mes-paiements', icon: CreditCard },
+      { label: 'Maintenance', href: '/locataire/maintenance', icon: Wrench },
+      { label: 'Historique', href: '/locataire/profil/historique-locations', icon: Folder },
+    ],
+  },
+  {
+    title: 'Communication',
+    items: [
+      { label: 'Messages', href: '/locataire/messages', icon: MessageSquare, hasBadge: true },
+      { label: 'Notifications', href: '/locataire/notifications', icon: Bell },
+    ],
+  },
 ];
-
-const bottomItems = [{ label: 'Rechercher', href: '/recherche', icon: Search }];
 
 export default function TenantSidebar({ isOpen, onClose, unreadMessages = 0 }: TenantSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, profile } = useAuth();
   const currentPath = location.pathname;
   const sidebarRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<number | null>(null);
+  const displayName = profile?.full_name?.trim() || 'Locataire';
+  const trustScore = typeof profile?.trust_score === 'number' ? profile.trust_score : 0;
 
   const isActive = (href: string) => {
     if (href === '/locataire/dashboard') {
@@ -185,7 +197,7 @@ export default function TenantSidebar({ isOpen, onClose, unreadMessages = 0 }: T
       <aside
         ref={sidebarRef}
         className={cn(
-          'fixed top-0 left-0 z-50 h-full bg-white border-r border-neutral-200 transform transition-transform duration-300 ease-out lg:translate-x-0 lg:z-30',
+          'fixed top-0 left-0 z-50 h-full bg-white border-r border-neutral-200 transform transition-transform duration-300 ease-out lg:translate-x-0 lg:z-30 flex flex-col',
           // Desktop: always visible, full width
           'lg:w-72 lg:static lg:transform-none',
           // Mobile: slide-in from left, reduced width for better visibility
@@ -197,7 +209,7 @@ export default function TenantSidebar({ isOpen, onClose, unreadMessages = 0 }: T
         aria-label="Menu de navigation latéral"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-neutral-100">
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-neutral-100 bg-gradient-to-r from-[#FFF5EE] via-white to-white">
           <Link to="/" className="flex items-center gap-2" onClick={onClose}>
             <div className="w-9 h-9 sm:w-10 sm:h-10 bg-primary-500 rounded-xl flex items-center justify-center flex-shrink-0">
               <Home className="h-5 w-5 text-white" />
@@ -216,66 +228,92 @@ export default function TenantSidebar({ isOpen, onClose, unreadMessages = 0 }: T
           </button>
         </div>
 
+        {/* User Card */}
+        <div className="px-3 sm:px-4 pt-4">
+          <div className="rounded-2xl border border-[#F1E7DE] bg-gradient-to-br from-white to-[#FFF6EF] p-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#F16522]/10 text-[#F16522] flex items-center justify-center font-semibold">
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[#2C1810] truncate">{displayName}</p>
+                <p className="text-xs text-[#8B7355] truncate">Locataire</p>
+              </div>
+              <span className="ml-auto text-xs font-semibold text-[#9C3D0D] bg-[#FFF2E6] border border-[#F5D9C6] px-2 py-1 rounded-full">
+                {Math.round(trustScore)}%
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <Link
+                to="/locataire/profil"
+                onClick={onClose}
+                className="text-xs font-semibold text-[#2C1810] bg-white border border-[#EFE3D8] rounded-lg px-3 py-2 text-center hover:border-[#F16522] hover:text-[#F16522] transition-colors"
+              >
+                Mon Profil
+              </Link>
+              <Link
+                to="/locataire/mon-score"
+                onClick={onClose}
+                className="text-xs font-semibold text-white bg-[#F16522] rounded-lg px-3 py-2 text-center hover:bg-[#D95318] transition-colors"
+              >
+                Mon Score
+              </Link>
+            </div>
+          </div>
+        </div>
+
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 sm:px-4">
-          <ul className="space-y-0.5">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.href);
+        <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 sm:px-4">
+          <div className="space-y-4">
+            {navSections.map((section) => (
+              <div key={section.title}>
+                <p className="px-2 text-[11px] uppercase tracking-[0.18em] text-neutral-400 mb-2">
+                  {section.title}
+                </p>
+                <ul className="space-y-1">
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.href);
 
-              return (
-                <li key={item.href}>
-                  <Link
-                    to={item.href}
-                    onClick={onClose}
-                    className={cn(
-                      'flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl font-medium transition-all min-h-[44px] touch-manipulation',
-                      active
-                        ? 'bg-primary-50 text-primary-600 border border-primary-100'
-                        : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
-                    )}
-                  >
-                    <Icon className={cn('h-5 w-5 flex-shrink-0', active ? 'text-primary-500' : '')} />
-                    <span className="flex-1 truncate text-sm">{item.label}</span>
-                    {item.hasBadge && unreadMessages > 0 && (
-                      <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center animate-pulse flex-shrink-0">
-                        {unreadMessages > 99 ? '99+' : unreadMessages}
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-
-          {/* Separator */}
-          <div className="my-3 sm:my-4 border-t border-neutral-100" />
-
-          {/* Bottom Items */}
-          <ul className="space-y-0.5">
-            {bottomItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.href);
-
-              return (
-                <li key={item.href}>
-                  <Link
-                    to={item.href}
-                    onClick={onClose}
-                    className={cn(
-                      'flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl font-medium transition-all min-h-[44px] touch-manipulation',
-                      active
-                        ? 'bg-primary-50 text-primary-600 border border-primary-100'
-                        : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
-                    )}
-                  >
-                    <Icon className={cn('h-5 w-5 flex-shrink-0', active ? 'text-primary-500' : '')} />
-                    <span className="text-sm">{item.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          to={item.href}
+                          onClick={onClose}
+                          className={cn(
+                            'group relative flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all min-h-[44px] touch-manipulation',
+                            active
+                              ? 'bg-[#FFF2E6] text-[#9C3D0D] border border-[#F5D9C6]'
+                              : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                          )}
+                        >
+                          {active && (
+                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-[#F16522]" />
+                          )}
+                          <span
+                            className={cn(
+                              'h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0',
+                              active
+                                ? 'bg-white text-[#F16522]'
+                                : 'bg-neutral-100 text-neutral-600 group-hover:text-[#F16522]'
+                            )}
+                          >
+                            <Icon className="h-5 w-5" />
+                          </span>
+                          <span className="flex-1 truncate text-sm">{item.label}</span>
+                          {item.hasBadge && unreadMessages > 0 && (
+                            <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center animate-pulse flex-shrink-0">
+                              {unreadMessages > 99 ? '99+' : unreadMessages}
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
         </nav>
 
         {/* Footer */}

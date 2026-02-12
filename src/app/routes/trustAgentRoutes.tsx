@@ -3,7 +3,7 @@ import { lazyWithRetry } from '@/shared/utils/lazyLoad';
 import ProtectedRoute from '@/shared/ui/ProtectedRoute';
 import { ROLES } from '@/shared/constants/roles';
 
-// Trust Agent pages
+// Tiers de confiance pages
 const TrustAgentLayout = lazyWithRetry(
   () => import('@/pages/trust-agent/layouts/TrustAgentLayout')
 );

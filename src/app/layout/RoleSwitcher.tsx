@@ -12,7 +12,7 @@ export default function RoleSwitcher() {
   const [showInfo, setShowInfo] = useState(false);
 
   // Simplified: only use user_type from profile
-  const activeRole = profile?.user_type || 'locataire';
+  const activeRole = profile?.user_type || 'tenant';
 
   // For now, only show the current role (no multi-role support without DB tables)
   const availableRoles = [activeRole];
@@ -36,11 +36,11 @@ export default function RoleSwitcher() {
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'locataire':
+      case 'tenant':
         return User;
-      case 'proprietaire':
+      case 'owner':
         return Building2;
-      case 'agence':
+      case 'agency':
         return Briefcase;
       default:
         return User;
@@ -49,11 +49,11 @@ export default function RoleSwitcher() {
 
   const getRoleLabel = (role: string) => {
     switch (role) {
-      case 'locataire':
+      case 'tenant':
         return 'Locataire';
-      case 'proprietaire':
+      case 'owner':
         return 'Propriétaire';
-      case 'agence':
+      case 'agency':
         return 'Agence';
       case 'admin':
         return 'Administrateur';
@@ -64,11 +64,11 @@ export default function RoleSwitcher() {
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'locataire':
+      case 'tenant':
         return 'from-cyan-500 to-blue-500';
-      case 'proprietaire':
+      case 'owner':
         return 'from-terracotta-500 to-coral-500';
-      case 'agence':
+      case 'agency':
         return 'from-olive-500 to-green-500';
       default:
         return 'from-gray-500 to-gray-600';

@@ -179,9 +179,8 @@ class ApiKeysConfig {
       domain: import.meta.env['RESEND_DOMAIN'] || 'notifications.ansut.ci',
       isConfigured: !!import.meta.env['RESEND_API_KEY'],
     } as EmailConfig,
-    // SMS/WhatsApp : passent par les Edge Functions Supabase (send-sms-brevo, send-whatsapp-hybrid)
-    // La clé BREVO_API_KEY est stockée dans Supabase Secrets, jamais côté client
-    // Voir: docs/security/brevo-ip-whitelist.md
+    // SMS/WhatsApp : passent par les Edge Functions Supabase (send-sms-azure)
+    // La clé Azure SMS est stockée dans Supabase Secrets, jamais côté client
   };
 
   readonly llm = {
@@ -255,7 +254,7 @@ class ApiKeysConfig {
       oneciVerification: this.verification.oneci.isConfigured,
       cryptoneoSignature: this.signature.cryptoneo.isConfigured,
       emailService: this.communication.email.isConfigured,
-      // SMS/WhatsApp: toujours disponible via Edge Functions (send-sms-brevo, send-whatsapp-hybrid)
+      // SMS/WhatsApp: toujours disponible via Edge Functions (send-sms-azure)
       smsService: true, // Géré par Supabase Edge Functions
       geminiLLM: this.llm.gemini.isConfigured,
       deepseekLLM: this.llm.deepseek.isConfigured,

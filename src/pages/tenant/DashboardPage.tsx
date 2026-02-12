@@ -90,7 +90,7 @@ export default function TenantDashboard() {
         .from('lease_contracts')
         .select('*')
         .eq('tenant_id', user.id)
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .maybeSingle();
 
       if (leaseData) {
@@ -159,7 +159,7 @@ export default function TenantDashboard() {
         .from('maintenance_requests')
         .select('id')
         .eq('tenant_id', user.id)
-        .in('status', ['ouverte', 'en_cours']);
+        .in('status', ['ouverte', 'in_progress']);
 
       setStats((prev) => ({ ...prev, maintenanceRequests: maintenanceData?.length || 0 }));
 
@@ -187,7 +187,7 @@ export default function TenantDashboard() {
       return;
     }
 
-    if (profile && profile.user_type !== 'locataire') {
+    if (profile && profile.user_type !== 'tenant') {
       navigate('/');
       return;
     }
@@ -380,7 +380,7 @@ export default function TenantDashboard() {
                       className="bg-[#FAF7F4] border border-[#EFEBE9] rounded-xl p-4 flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
-                        {payment.status === 'complete' ? (
+                        {payment.status === 'completed' ? (
                           <CheckCircle className="h-6 w-6 text-green-600" />
                         ) : (
                           <Clock className="h-6 w-6 text-amber-600" />
@@ -400,12 +400,12 @@ export default function TenantDashboard() {
                       </div>
                       <span
                         className={`text-xs px-3 py-1 rounded-full font-medium ${
-                          payment.status === 'complete'
+                          payment.status === 'completed'
                             ? 'bg-green-100 text-green-700'
                             : 'bg-amber-100 text-amber-700'
                         }`}
                       >
-                        {payment.status === 'complete' ? 'Payé' : 'En attente'}
+                        {payment.status === 'completed' ? 'Payé' : 'En attente'}
                       </span>
                     </div>
                   ))}

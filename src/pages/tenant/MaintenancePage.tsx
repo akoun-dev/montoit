@@ -24,7 +24,7 @@ export default function TenantMaintenance() {
   const navigate = useNavigate();
   const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'ouverte' | 'en_cours' | 'resolue'>('all');
+  const [filter, setFilter] = useState<'all' | 'ouverte' | 'in_progress' | 'resolue'>('all');
 
   useEffect(() => {
     if (!user) {
@@ -179,9 +179,9 @@ export default function TenantMaintenance() {
             En attente
           </button>
           <button
-            onClick={() => setFilter('en_cours')}
+            onClick={() => setFilter('in_progress')}
             className={`px-4 py-2 rounded-lg font-medium ${
-              filter === 'en_cours' ? 'bg-purple-600 text-white' : 'bg-white text-gray-600'
+              filter === 'in_progress' ? 'bg-purple-600 text-white' : 'bg-white text-gray-600'
             }`}
           >
             En cours

@@ -22,13 +22,13 @@ import { cn } from '@/shared/lib/utils';
 
 const navItems = [
   { path: '/trust-agent/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/trust-agent/missions', label: 'Mes Missions', icon: ClipboardList },
+  { path: '/trust-agent/missions', label: 'Mes missions', icon: ClipboardList },
   { path: '/trust-agent/calendar', label: 'Calendrier', icon: Calendar },
-  { path: '/trust-agent/dossiers', label: 'Validation Dossiers', icon: FileCheck },
+  { path: '/trust-agent/dossiers', label: 'Validation de dossiers', icon: FileCheck },
   { path: '/trust-agent/disputes', label: 'Litiges', icon: Scale },
-  { path: '/trust-agent/certifications/users', label: 'Certifier Utilisateurs', icon: UserCheck },
-  { path: '/trust-agent/certifications/properties', label: 'Certifier Propriétés', icon: Home },
-  { path: '/trust-agent/properties', label: 'Gestion des Propriétés', icon: Building },
+  { path: '/trust-agent/certifications/users', label: 'Certifier utilisateurs', icon: UserCheck },
+  { path: '/trust-agent/certifications/properties', label: 'Certifier propriétés', icon: Home },
+  { path: '/trust-agent/properties', label: 'Gestion des propriétés', icon: Building },
   { path: '/trust-agent/reports', label: 'Rapports', icon: BarChart3 },
   { path: '/trust-agent/history', label: 'Historique', icon: History },
 ];
@@ -56,7 +56,7 @@ export default function TrustAgentLayout() {
             </Button>
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
-              <span className="font-semibold">Trust Agent</span>
+              <span className="font-semibold">Tiers de confiance</span>
             </div>
           </div>
           <Button variant="ghost" size="small" className="p-2 h-auto w-auto">
@@ -73,7 +73,7 @@ export default function TrustAgentLayout() {
             <Shield className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="font-semibold">Trust Agent</h1>
+            <h1 className="font-semibold">Tiers de confiance</h1>
             <p className="text-xs text-muted-foreground">Mon Toit</p>
           </div>
         </div>
@@ -136,7 +136,7 @@ export default function TrustAgentLayout() {
         <div className="flex items-center justify-between px-4 py-4 border-b">
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
-            <span className="font-semibold">Trust Agent</span>
+            <span className="font-semibold">Tiers de confiance</span>
           </div>
           <Button
             variant="ghost"

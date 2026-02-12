@@ -115,7 +115,7 @@ export function DocumentUploadCard({
 
   const getStatusConfig = () => {
     switch (status) {
-      case 'verified':
+      case 'approved':
         return {
           icon: CheckCircle,
           color: 'text-green-600',

@@ -177,19 +177,19 @@ export function RoleSwitchModal({
   loading = false,
 }: RoleSwitchModalProps) {
   const roleConfig: Record<string, { label: string; icon: any; color: string; description: string }> = {
-    locataire: {
+    tenant: {
       label: 'Locataire',
       icon: Key,
       color: 'blue',
       description: 'Vous pourrez rechercher des biens, postuler des candidatures, gérer vos contrats de location et vos paiements.',
     },
-    proprietaire: {
+    owner: {
       label: 'Propriétaire',
       icon: Home,
       color: 'orange',
       description: 'Vous pourrez gérer vos biens immobiliers, publier des annonces, gérer les contrats et les locataires.',
     },
-    agence: {
+    agency: {
       label: 'Agence',
       icon: Building2,
       color: 'purple',
@@ -197,8 +197,8 @@ export function RoleSwitchModal({
     },
   };
 
-  const from = roleConfig[fromRole] || roleConfig.proprietaire;
-  const to = roleConfig[toRole] || roleConfig.locataire;
+  const from = roleConfig[fromRole] || roleConfig.owner;
+  const to = roleConfig[toRole] || roleConfig.tenant;
   const FromIcon = from.icon;
   const ToIcon = to.icon;
 

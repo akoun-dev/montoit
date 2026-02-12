@@ -914,7 +914,6 @@ data.txt
 !CLAUDE.md
 !README.md
 !COMMIT_GUIDELINES.md
-!BREVO_INTEGRATION.md
 
 # Security and audit reports (prefer in docs/audit/)
 /*-report.json

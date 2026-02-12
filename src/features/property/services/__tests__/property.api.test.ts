@@ -19,7 +19,7 @@ describe('propertyApi', () => {
     city: 'Abidjan',
     monthly_rent: 300000,
     bedrooms: 3,
-    status: 'disponible',
+    status: 'available',
   };
 
   it('should fetch all properties', async () => {

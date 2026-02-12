@@ -206,7 +206,7 @@ export default function DocumentsPage() {
           )
         `)
         .eq('tenant_id', user.id)
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .maybeSingle();
 
       // Map properties.monthly_rent to monthly_rent
@@ -376,7 +376,7 @@ export default function DocumentsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-[#2C1810]">
-                  {payments.filter(p => p.status === 'complete').length}
+                  {payments.filter(p => p.status === 'completed').length}
                 </p>
                 <p className="text-xs text-[#6B5A4E]">Payés</p>
               </div>
@@ -419,7 +419,7 @@ export default function DocumentsPage() {
               <div>
                 <p className="text-lg font-bold text-[#2C1810]">
                   {payments
-                    .filter(p => p.status === 'complete')
+                    .filter(p => p.status === 'completed')
                     .reduce((sum, p) => sum + p.amount, 0)
                     .toLocaleString()} FCFA
                 </p>
@@ -440,9 +440,9 @@ export default function DocumentsPage() {
                 <div key={payment.id} className="p-4 flex items-center justify-between hover:bg-[#FAF7F4] transition-colors">
                   <div className="flex items-center gap-4">
                     <div className={`p-2.5 rounded-lg ${
-                      payment.status === 'complete' ? 'bg-green-100' : 'bg-amber-100'
+                      payment.status === 'completed' ? 'bg-green-100' : 'bg-amber-100'
                     }`}>
-                      {payment.status === 'complete' ? (
+                      {payment.status === 'completed' ? (
                         <CheckCircle className="h-5 w-5 text-green-600" />
                       ) : (
                         <Clock className="h-5 w-5 text-amber-600" />
@@ -458,7 +458,7 @@ export default function DocumentsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {getStatusBadge(payment.status === 'complete' ? 'valid' : 'pending')}
+                    {getStatusBadge(payment.status === 'completed' ? 'valid' : 'pending')}
                     {payment.receipt_url && (
                       <button
                         onClick={() => handleDownload(payment.receipt_url!, `Quittance_${payment.id}.pdf`)}

@@ -15,13 +15,12 @@ import { AuditLogsList } from '../components/AuditLogsList';
 interface RoleStats {
   admin: number;
   trust_agent: number;
-  moderator: number;
   total: number;
 }
 
 interface UserWithRole {
   id: string;
-  role: 'admin' | 'trust_agent' | 'moderator' | 'user';
+  role: 'admin' | 'trust_agent';
   granted_at: string | null;
   granted_by: string | null;
   user_id: string;
@@ -50,7 +49,6 @@ export default function UserRolesPage() {
   const [stats, setStats] = useState<RoleStats>({
     admin: 0,
     trust_agent: 0,
-    moderator: 0,
     total: 0,
   });
   const [usersWithRoles, setUsersWithRoles] = useState<UserWithRole[]>([]);
@@ -89,7 +87,7 @@ export default function UserRolesPage() {
           }
           return acc;
         },
-        { admin: 0, trust_agent: 0, moderator: 0 } as Omit<RoleStats, 'total'>
+        { admin: 0, trust_agent: 0 } as Omit<RoleStats, 'total'>
       );
 
       // Load total users
@@ -285,7 +283,7 @@ export default function UserRolesPage() {
             Gestion des Rôles Système
           </h1>
           <p className="text-sm text-gray-600 mt-1">
-            Attribuez et gérez les rôles admin, trust_agent et moderator
+            Attribuez et gérez les rôles admin et trust_agent
           </p>
         </div>
         <button

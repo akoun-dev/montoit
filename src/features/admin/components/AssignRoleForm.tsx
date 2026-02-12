@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, User, Shield, UserCheck, Eye, Plus } from 'lucide-react';
+import { Search, User, Shield, UserCheck, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -12,7 +12,7 @@ interface FoundUser {
   avatar_url: string | null;
 }
 
-type SystemRole = 'admin' | 'trust_agent' | 'moderator';
+type SystemRole = 'admin' | 'trust_agent';
 
 interface AssignRoleFormProps {
   onRoleAssigned: () => void;
@@ -23,7 +23,9 @@ interface AssignRoleFormProps {
 const userTypeLabels: Record<string, { label: string; color: string }> = {
   tenant: { label: 'Locataire', color: 'cyan' },
   owner: { label: 'Propriétaire', color: 'orange' },
-  agent: { label: 'Agent', color: 'green' },
+  agency: { label: 'Agence', color: 'green' },
+  trust_agent: { label: 'Tiers de confiance', color: 'purple' },
+  admin: { label: 'Admin', color: 'red' },
 };
 
 const systemRoles: {
@@ -42,17 +44,10 @@ const systemRoles: {
   },
   {
     value: 'trust_agent',
-    label: 'Trust Agent',
+    label: 'Tiers de confiance',
     icon: UserCheck,
     color: 'purple',
     description: 'Validation et certification des utilisateurs',
-  },
-  {
-    value: 'moderator',
-    label: 'Modérateur',
-    icon: Eye,
-    color: 'blue',
-    description: 'Modération du contenu et des avis',
   },
 ];
 
@@ -185,6 +180,8 @@ export function AssignRoleForm({
       cyan: 'bg-cyan-100 text-cyan-700',
       orange: 'bg-orange-100 text-orange-700',
       green: 'bg-green-100 text-green-700',
+      purple: 'bg-purple-100 text-purple-700',
+      red: 'bg-red-100 text-red-700',
     };
     const colorClass = colorClasses[typeInfo.color] ?? 'bg-cyan-100 text-cyan-700';
     return (

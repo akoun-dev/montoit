@@ -66,7 +66,7 @@ export { default as ScheduleVisitPage } from './tenant/ScheduleVisitPage';
 export { default as ScorePage } from './tenant/ScorePage';
 export { default as SearchPropertiesPage } from './tenant/SearchPropertiesPage';
 
-// Trust Agent pages
+// Tiers de confiance pages
 export { default as TrustAgentDashboardPage } from './trust-agent/DashboardPage';
 export { default as TrustAgentCalendarPage } from './trust-agent/CalendarPage';
 export { default as CertificationHistoryPage } from './trust-agent/CertificationHistoryPage';

@@ -229,7 +229,7 @@ describe('Security Tests', () => {
   describe('Contract Security', () => {
     it('should prevent unauthorized contract modification', async () => {
       try {
-        await contractApi.update('unauthorized-contract-id', { status: 'actif' });
+        await contractApi.update('unauthorized-contract-id', { status: 'active' });
         expect.fail('Should have thrown error');
       } catch (error: any) {
         // L'erreur peut varier selon l'implémentation
@@ -249,8 +249,8 @@ describe('Security Tests', () => {
 
     it('should prevent contract deletion for active contracts', async () => {
       // Simuler la tentative de suppression d'un contrat actif
-      const testContract = { status: 'actif' };
-      expect(testContract.status).toBe('actif');
+      const testContract = { status: 'active' };
+      expect(testContract.status).toBe('active');
 
       // La vraie logique serait dans le service, ceci est un exemple de test structurel
     });

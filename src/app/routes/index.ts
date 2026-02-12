@@ -9,4 +9,3 @@ export { agencyRoutes } from './agencyRoutes';
 export { agentRoutes } from './agentRoutes';
 export { adminRoutes } from './adminRoutes';
 export { trustAgentRoutes } from './trustAgentRoutes';
-export { moderatorRoutes } from './moderatorRoutes';

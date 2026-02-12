@@ -38,9 +38,9 @@ interface UserFilters {
 
 const USER_TYPES = [
   { value: '', label: 'Tous les types' },
-  { value: 'locataire', label: 'Locataire' },
-  { value: 'proprietaire', label: 'Propriétaire' },
-  { value: 'agence', label: 'Agence' },
+  { value: 'tenant', label: 'Locataire' },
+  { value: 'owner', label: 'Propriétaire' },
+  { value: 'agency', label: 'Agence' },
   { value: 'admin', label: 'Administrateur' },
 ];
 
@@ -158,11 +158,11 @@ export default function AdminUsers() {
     switch (userType) {
       case 'admin':
         return 'bg-purple-100 text-purple-800';
-      case 'proprietaire':
+      case 'owner':
         return 'bg-blue-100 text-blue-800';
-      case 'agence':
+      case 'agency':
         return 'bg-green-100 text-green-800';
-      case 'locataire':
+      case 'tenant':
         return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -173,7 +173,7 @@ export default function AdminUsers() {
     switch (userType) {
       case 'admin':
         return Shield;
-      case 'proprietaire':
+      case 'owner':
         return Building;
       case 'trust_agent':
         return UserCheck;
@@ -285,13 +285,13 @@ export default function AdminUsers() {
             </span>
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => handleBulkAction('proprietaire')}
+                onClick={() => handleBulkAction('owner')}
                 className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
               >
                 Rendre Propriétaire
               </button>
               <button
-                onClick={() => handleBulkAction('locataire')}
+                onClick={() => handleBulkAction('tenant')}
                 className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded hover:bg-green-200"
               >
                 Rendre Locataire
@@ -390,7 +390,7 @@ export default function AdminUsers() {
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${getUserTypeColor(userProfile.user_type)}`}
                         >
-                          {userProfile.user_type || 'locataire'}
+                          {userProfile.user_type || 'tenant'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">{userProfile.city || '-'}</td>

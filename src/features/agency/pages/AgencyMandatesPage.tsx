@@ -97,7 +97,7 @@ export default function AgencyMandatesPage() {
       case 'accept':
         await acceptMandate(mandateId);
         break;
-      case 'refuse':
+      case 'rejected':
         await refuseMandate(mandateId);
         break;
       case 'suspend':
@@ -401,7 +401,7 @@ export default function AgencyMandatesPage() {
                                   Accepter
                                 </button>
                                 <button
-                                  onClick={() => handleStatusChange(mandate.id, 'refuse')}
+                                  onClick={() => handleStatusChange(mandate.id, 'rejected')}
                                   className="w-full px-4 py-3 text-left hover:bg-[#FAF7F4] flex items-center gap-3 text-sm text-red-600"
                                 >
                                   <XCircle className="h-4 w-4" />

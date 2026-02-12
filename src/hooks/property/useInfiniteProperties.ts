@@ -95,14 +95,14 @@ export function useInfiniteProperties(
       let query = supabase
         .from('properties')
         .select('id', { count: 'exact', head: true })
-        .eq('status', 'disponible')
+        .eq('status', 'available')
         .in('owner_id', verifiedOwnerIds);
 
       // Appliquer les filtres
       if (filters.propertyCategory) {
         query = query.eq('property_category', filters.propertyCategory);
       } else {
-        query = query.eq('property_category', 'residentiel');
+        query = query.eq('property_category', 'residential');
       }
 
       if (filters.city) {
@@ -195,13 +195,13 @@ export function useInfiniteProperties(
         }
 
         // Construire la requête
-        let query = supabase.from('properties').select('*').eq('status', 'disponible');
+        let query = supabase.from('properties').select('*').eq('status', 'available');
 
         // Appliquer les filtres
         if (filters.propertyCategory) {
           query = query.eq('property_category', filters.propertyCategory);
         } else {
-          query = query.eq('property_category', 'residentiel');
+          query = query.eq('property_category', 'residential');
         }
 
         if (filters.city && filters.city.trim() !== '' && filters.city !== 'Toutes les villes') {

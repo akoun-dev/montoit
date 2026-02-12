@@ -263,7 +263,7 @@ Deno.serve(async (req: Request) => {
       phone: normalizedPhone,
       email: generatedEmail,
       full_name: fullName,
-      user_type: 'locataire',
+      user_type: 'tenant',
       trust_score: 1.0,
       profile_setup_completed: false,
     });

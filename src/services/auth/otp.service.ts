@@ -1,8 +1,8 @@
 /**
- * OTP Unified Service - Brevo Integration
+ * OTP Unified Service - Resend Integration
  *
- * Service unifié pour la gestion des codes OTP via Brevo
- * Supporte Email, SMS et WhatsApp pour l'authentification
+ * Service unifié pour la gestion des codes OTP via Resend
+ * Supporte Email et SMS pour l'authentification
  */
 
 import { supabase } from "@/services/supabase/client";
@@ -71,7 +71,7 @@ class OTPUnifiedService {
   }
 
   /**
-   * Formate le numéro pour Brevo
+   * Formate le numéro pour l'API SMS
    */
   private formatPhoneNumber(phone: string): string {
     // Nettoyer le numéro
@@ -135,7 +135,7 @@ class OTPUnifiedService {
   }
 
   /**
-   * Envoie un OTP par email via Brevo
+   * Envoie un OTP par email via Resend
    */
   private async sendEmailOTP(
     recipient: string,
@@ -144,13 +144,17 @@ class OTPUnifiedService {
   ): Promise<OTPResult> {
     try {
       const { data, error } = await supabase.functions.invoke(
-        "send-email-brevo",
+        "send-email",
         {
           body: {
-            type: "otp",
             to: recipient,
-            otp,
-            toName: userName,
+            template: "email-verification",
+            data: {
+              otp,
+              name: userName || "utilisateur",
+              email: recipient,
+              expiresIn: 10,
+            },
           },
         },
       );
@@ -164,9 +168,9 @@ class OTPUnifiedService {
       }
 
       return {
-        success: data?.status === "ok",
-        error: data?.status === "error" ? data?.reason : undefined,
-        messageId: data?.brevoMessageId,
+        success: data?.success === true,
+        error: data?.error,
+        messageId: data?.id,
       };
     } catch (error) {
       console.error("Exception envoi OTP email:", error);
@@ -344,6 +348,7 @@ class OTPUnifiedService {
       recipient,
       "otp-send",
       5,
+      3,
       3,
     );
     if (!rateLimitCheck.allowed) {
@@ -544,5 +549,5 @@ class OTPUnifiedService {
 }
 
 // Export du singleton
-export const otpUnifiedService = new OTPUnifiedService();
-export default otpUnifiedService;
+export const otpService = new OTPUnifiedService();
+export default otpService;

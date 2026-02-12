@@ -63,17 +63,21 @@ const RegisterForm = () => {
       <Input
         label="Mot de passe"
         type="password"
+        isPassword
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         placeholder="••••••••"
+        autoComplete="new-password"
         required
       />
       <Input
         label="Confirmer le mot de passe"
         type="password"
+        isPassword
         value={confirm}
         onChange={(e) => setConfirm(e.target.value)}
         placeholder="••••••••"
+        autoComplete="new-password"
         required
       />
       {error && <p className="text-sm text-red-600">{error}</p>}

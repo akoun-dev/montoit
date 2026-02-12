@@ -1,4 +1,4 @@
-import { RouteObject } from 'react-router-dom';
+import { RouteObject, Navigate, useLocation } from 'react-router-dom';
 import Layout from '@/app/layout/Layout';
 import ErrorBoundary from '@/shared/ui/ErrorBoundary';
 import { lazyWithRetry } from '@/shared/utils/lazyLoad';
@@ -18,7 +18,6 @@ import {
   agentRoutes,
   adminRoutes,
   trustAgentRoutes,
-  moderatorRoutes,
 } from './routes/index';
 
 // Lazy load AgencyProfilePage for /agence/profile route
@@ -29,6 +28,15 @@ const MyMandatesPage = lazyWithRetry(() => import('@/pages/agency/MyMandatesPage
 const SignMandateWithOTPPage = lazyWithRetry(() => import('@/features/mandates/SignMandateWithOTPPage'));
 // Lazy load SignMandateChoicePage for /mandat/signer route (no auth required - public link)
 const SignMandateChoicePage = lazyWithRetry(() => import('@/pages/mandates/SignMandateChoicePage'));
+
+function AliasRedirect({ fromPrefix, toPrefix }: { fromPrefix: string; toPrefix: string }) {
+  const location = useLocation();
+  const pathname = location.pathname;
+  const nextPath = pathname.startsWith(fromPrefix)
+    ? `${toPrefix}${pathname.slice(fromPrefix.length)}`
+    : toPrefix;
+  return <Navigate to={`${nextPath}${location.search}${location.hash}`} replace />;
+}
 
 /**
  * Main application routes
@@ -54,6 +62,16 @@ export const routes: RouteObject[] = [
             <DashboardRouter />
           </ProtectedRoute>
         ),
+      },
+
+      // Compatibility aliases (English -> French)
+      {
+        path: 'tenant/*',
+        element: <AliasRedirect fromPrefix="/tenant" toPrefix="/locataire" />,
+      },
+      {
+        path: 'owner/*',
+        element: <AliasRedirect fromPrefix="/owner" toPrefix="/proprietaire" />,
       },
 
       // Tenant routes under /locataire prefix
@@ -116,14 +134,8 @@ export const routes: RouteObject[] = [
         ),
       },
 
-      // Trust Agent routes (nested with layout)
+      // Tiers de confiance routes (nested with layout)
       trustAgentRoutes,
-
-      // Moderator routes under /moderator prefix
-      {
-        path: 'moderator',
-        children: moderatorRoutes,
-      },
 
       // Admin routes (nested with layout)
       adminRoutes,

@@ -989,7 +989,7 @@ Deno.serve(async (req: Request) => {
     if (!response) {
       return new Response(
         JSON.stringify({
-          error: 'Failed to connect to Brevo API',
+          error: 'Failed to connect to Resend API',
           detail: 'Max retries exceeded without successful connection',
           retryCount,
         }),

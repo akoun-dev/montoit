@@ -120,7 +120,7 @@ export default function DocumentValidationPage() {
       // Mettre à jour le statut de la propriété
       const { error: propError } = await supabase
         .from('properties')
-        .update({ status: 'disponible' })
+        .update({ status: 'available' })
         .eq('id', property.id);
 
       if (propError) throw propError;
@@ -170,7 +170,7 @@ export default function DocumentValidationPage() {
       // Mettre à jour le statut de la propriété
       const { error: propError } = await supabase
         .from('properties')
-        .update({ status: 'rejete' })
+        .update({ status: 'inactive' })
         .eq('id', selectedProperty.id);
 
       if (propError) throw propError;

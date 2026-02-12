@@ -64,7 +64,7 @@ const navigationItems = [
         color: 'text-orange-600',
       },
       {
-        name: 'Trust Agents',
+        name: 'Tiers de confiance',
         href: '/admin/trust-agents',
         icon: UserCheck,
         color: 'text-cyan-600',

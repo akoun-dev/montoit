@@ -12,16 +12,17 @@ const FALLBACK_IMAGE = '/images/hero-villa-cocody.jpg';
 function getStatusConfig(status?: string | null) {
   if (!status) return null;
 
+  const normalizedStatus = status.toLowerCase();
   const statusConfig: Record<string, { label: string; className: string; icon?: string }> = {
-    disponible: { label: 'Disponible', className: 'bg-green-500/95 text-white', icon: '✓' },
-    louee: { label: 'Louée', className: 'bg-blue-500/95 text-white', icon: '🔑' },
-    en_attente: { label: 'En attente', className: 'bg-amber-500/95 text-white', icon: '⏳' },
-    reservee: { label: 'Réservée', className: 'bg-purple-500/95 text-white', icon: '📋' },
-    indisponible: { label: 'Indisponible', className: 'bg-gray-500/95 text-white', icon: '✕' },
+    available: { label: 'Disponible', className: 'bg-green-500/95 text-white', icon: '✓' },
+    rented: { label: 'Louée', className: 'bg-blue-500/95 text-white', icon: '🔑' },
+    pending: { label: 'En attente', className: 'bg-amber-500/95 text-white', icon: '⏳' },
+    unavailable: { label: 'Indisponible', className: 'bg-gray-500/95 text-white', icon: '✕' },
     maintenance: { label: 'Maintenance', className: 'bg-red-500/95 text-white', icon: '🔧' },
+    inactive: { label: 'Inactif', className: 'bg-gray-500/95 text-white', icon: '✕' },
   };
 
-  return statusConfig[status.toLowerCase()] || null;
+  return statusConfig[normalizedStatus] || null;
 }
 
 function handleImageError(e: React.SyntheticEvent<HTMLImageElement>) {

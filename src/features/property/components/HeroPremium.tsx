@@ -62,7 +62,7 @@ export default function HeroPremium() {
   const [showCustomBudget, setShowCustomBudget] = useState(false);
 
   const propertyTypes = [
-    { value: 'appartement', label: 'Appartements' },
+    { value: 'apartment', label: 'Appartements' },
     { value: 'studio', label: 'Studios' },
     { value: 'villa', label: 'Villas' },
   ];

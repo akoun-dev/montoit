@@ -72,32 +72,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Vérifier le rate limiting (max 3 OTPs par heure par email)
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const { data: recentOtps, error: countError } = await supabase
-      .from('otp_codes')
-      .select('id')
-      .eq('recipient', email)
-      .eq('purpose', purpose)
-      .gte('created_at', oneHourAgo);
-
-    if (countError) {
-      console.error('Erreur lors de la vérification rate limit:', countError);
-      return new Response(
-        JSON.stringify({ error: 'Erreur lors de la vérification' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (recentOtps && recentOtps.length >= 3) {
-      return new Response(
-        JSON.stringify({
-          error: 'Trop de tentatives. Veuillez réessayer dans 1 heure.',
-          code: 'RATE_LIMIT_EXCEEDED'
-        }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Rate limiting volontairement désactivé
 
     // Générer un OTP de 6 chiffres
     const code = Math.floor(100000 + Math.random() * 900000).toString();
