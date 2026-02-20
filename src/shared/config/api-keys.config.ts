@@ -23,7 +23,7 @@ interface AzureOpenAIConfig extends ApiConfig {
   apiVersion: string;
 }
 
-interface AzureAIServicesConfig extends ApiConfig {}
+type AzureAIServicesConfig = ApiConfig;
 
 interface AzureSpeechConfig extends ApiConfig {
   region: string;
@@ -31,7 +31,7 @@ interface AzureSpeechConfig extends ApiConfig {
   ttsEndpoint: string;
 }
 
-interface MapConfig extends ApiConfig {}
+type MapConfig = ApiConfig;
 
 interface PaymentConfig {
   baseUrl: string;
@@ -59,12 +59,13 @@ interface EmailConfig extends ApiConfig {
   domain: string;
 }
 
-interface LLMConfig extends ApiConfig {}
+type LLMConfig = ApiConfig;
 
 interface ONECIConfig extends ApiConfig {
   apiBase: string;
   cevEndpoint: string;
   secretKey: string;
+  apiKey: string;
 }
 
 class ApiKeysConfig {
@@ -150,11 +151,14 @@ class ApiKeysConfig {
 
     oneci: {
       key: import.meta.env['VITE_ONECI_API_KEY'] || '',
-      endpoint: import.meta.env['VITE_ONECI_API_URL'] || 'https://api-rnpp.verif.ci/api/v1',
-      apiBase: import.meta.env['VITE_ONECI_API_URL'] || 'https://api-rnpp.verif.ci/api/v1',
-      cevEndpoint: '/cev',
+      endpoint: import.meta.env['VITE_ONECI_API_URL'] || 'https://api-rnpp.verif.ci',
+      apiBase: import.meta.env['VITE_ONECI_API_URL'] || 'https://api-rnpp.verif.ci',
+      cevEndpoint: '/api/v1/cev',
       secretKey: import.meta.env['VITE_ONECI_SECRET_KEY'] || '',
-      isConfigured: !!import.meta.env['VITE_ONECI_API_KEY'],
+      apiKey: import.meta.env['VITE_ONECI_API_KEY'] || '',
+      isConfigured: !!(
+        import.meta.env['VITE_ONECI_API_KEY'] && import.meta.env['VITE_ONECI_SECRET_KEY']
+      ),
     } as ONECIConfig,
   };
 
