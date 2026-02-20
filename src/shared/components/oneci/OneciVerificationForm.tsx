@@ -16,7 +16,7 @@ import {
   isValidNni,
 } from '@/services/oneci';
 import { apiKeysConfig } from '@/shared/config/api-keys.config';
-import { cn } from '@/lib/helpers';
+import { cn } from '@/shared/lib/utils';
 
 export interface OneciFormData {
   nni: string;

@@ -15,7 +15,7 @@ import {
   Fingerprint,
   User,
 } from 'lucide-react';
-import { cn } from '@/lib/helpers';
+import { cn } from '@/shared/lib/utils';
 
 export type OneciVerificationStatus =
   | 'not_started'
