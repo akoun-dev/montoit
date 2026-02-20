@@ -7,9 +7,8 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/Card';
-import { Input } from '@/shared/ui/Input';
 import { Button } from '@/shared/ui/Button';
-import { Loader2, AlertCircle, CheckCircle, User, Calendar, Fingerprint } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle, User, Fingerprint } from 'lucide-react';
 import {
   verifyPersonAttributes,
   type OneciPersonMatchResponse,
@@ -17,6 +16,7 @@ import {
 } from '@/services/oneci';
 import { apiKeysConfig } from '@/shared/config/api-keys.config';
 import { cn } from '@/shared/lib/utils';
+import { SimpleInput } from './SimpleInput';
 
 export interface OneciFormData {
   nni: string;
@@ -36,7 +36,6 @@ export interface OneciVerificationFormProps {
   onError?: (error: string) => void;
   className?: string;
   initialData?: Partial<OneciFormData>;
-  showFaceAuth?: boolean;
 }
 
 export function OneciVerificationForm({
@@ -44,7 +43,6 @@ export function OneciVerificationForm({
   onError,
   className,
   initialData = {},
-  showFaceAuth = false,
 }: OneciVerificationFormProps) {
   const [formData, setFormData] = useState<OneciFormData>({
     nni: initialData.nni || '',
@@ -160,22 +158,6 @@ export function OneciVerificationForm({
     }
   };
 
-  if (!isOneciConfigured) {
-    return (
-      <Card className={cn('border-amber-200 bg-amber-50', className)}>
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-3 text-amber-800">
-            <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-medium">Service non disponible</p>
-              <p className="text-sm mt-1">Le service de vérification ONECI n'est pas configuré.</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card className={className}>
       <CardHeader>
@@ -184,27 +166,25 @@ export function OneciVerificationForm({
           Vérification d'Identité ONECI
         </CardTitle>
         <CardDescription>
-          Entrez vos informations personnelles pour vérifier votre identité auprès de l'Office National
-          de l'État Civil.
+          Entrez vos informations personnelles pour vérifier votre identité auprès de l'Office
+          National de l'État Civil.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* NNI */}
           <div className="space-y-2">
-            <label htmlFor="nni" className="text-sm font-medium text-[#2C1810]">
-              Numéro National d'Identification (NNI)
-            </label>
-            <Input
+            <SimpleInput
               id="nni"
+              label="Numéro National d'Identification (NNI)"
               type="text"
               inputMode="numeric"
               placeholder="Ex: 123456789012"
               value={formData.nni}
               onChange={(e) => handleInputChange('nni', e.target.value)}
-              className={errors.nni ? 'border-red-500' : ''}
-              disabled={loading}
+              error={!!errors.nni}
               maxLength={12}
+              disabled={loading}
             />
             {errors.nni && <p className="text-xs text-red-500">{errors.nni}</p>}
           </div>
@@ -212,32 +192,28 @@ export function OneciVerificationForm({
           {/* Nom et Prénom */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label htmlFor="firstName" className="text-sm font-medium text-[#2C1810]">
-                Prénom(s)
-              </label>
-              <Input
+              <SimpleInput
                 id="firstName"
+                label="Prénom(s)"
                 type="text"
                 placeholder="Votre prénom"
                 value={formData.firstName}
                 onChange={(e) => handleInputChange('firstName', e.target.value)}
-                className={errors.firstName ? 'border-red-500' : ''}
+                error={!!errors.firstName}
                 disabled={loading}
               />
               {errors.firstName && <p className="text-xs text-red-500">{errors.firstName}</p>}
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="lastName" className="text-sm font-medium text-[#2C1810]">
-                Nom
-              </label>
-              <Input
+              <SimpleInput
                 id="lastName"
+                label="Nom"
                 type="text"
                 placeholder="Votre nom"
                 value={formData.lastName}
                 onChange={(e) => handleInputChange('lastName', e.target.value)}
-                className={errors.lastName ? 'border-red-500' : ''}
+                error={!!errors.lastName}
                 disabled={loading}
               />
               {errors.lastName && <p className="text-xs text-red-500">{errors.lastName}</p>}
@@ -246,16 +222,13 @@ export function OneciVerificationForm({
 
           {/* Date de naissance */}
           <div className="space-y-2">
-            <label htmlFor="birthDate" className="text-sm font-medium text-[#2C1810] flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Date de naissance
-            </label>
-            <Input
+            <SimpleInput
               id="birthDate"
+              label="Date de naissance"
               type="date"
               value={formData.birthDate}
               onChange={(e) => handleInputChange('birthDate', e.target.value)}
-              className={errors.birthDate ? 'border-red-500' : ''}
+              error={!!errors.birthDate}
               disabled={loading}
               max={new Date().toISOString().split('T')[0]}
             />
@@ -264,7 +237,7 @@ export function OneciVerificationForm({
 
           {/* Genre */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-[#2C1810] flex items-center gap-2">
+            <label className="block text-sm font-medium text-[#2C1810] mb-3 flex items-center gap-2">
               <User className="h-4 w-4" />
               Genre
             </label>
@@ -280,7 +253,6 @@ export function OneciVerificationForm({
                 )}
                 disabled={loading}
               >
-                <User className="h-5 w-5" />
                 Masculin
               </button>
               <button
@@ -294,7 +266,6 @@ export function OneciVerificationForm({
                 )}
                 disabled={loading}
               >
-                <User className="h-5 w-5" />
                 Féminin
               </button>
             </div>
@@ -330,7 +301,7 @@ export function OneciVerificationForm({
 
           {/* Résultat de la vérification */}
           {verificationResult && (
-            <OneciVerificationResult result={verificationResult} showFaceAuth={showFaceAuth} />
+            <OneciVerificationResult result={verificationResult} />
           )}
         </form>
       </CardContent>
@@ -365,8 +336,8 @@ function OneciVerificationResult({ result }: OneciVerificationResultProps) {
         <div className="flex-1">
           <p className="font-medium text-amber-800">Informations non correspondantes</p>
           <p className="text-sm text-amber-600 mt-1">
-            Les informations saisies ne correspondent pas aux registres ONECI. Veuillez vérifier vos
-            données.
+            Les informations saisies ne correspondent pas aux registres ONECI. Veuillez
+            vérifier vos données.
           </p>
         </div>
       </div>
@@ -385,7 +356,9 @@ function OneciVerificationResult({ result }: OneciVerificationResultProps) {
 
         {result.person && (
           <div className="mt-3 p-3 bg-white rounded-lg border border-green-100">
-            <p className="text-xs font-medium text-neutral-600 mb-2">Informations ONECI:</p>
+            <p className="text-xs font-medium text-neutral-600 mb-2">
+              Informations ONECI:
+            </p>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <span className="text-neutral-500">NNI:</span>{' '}
@@ -405,14 +378,10 @@ function OneciVerificationResult({ result }: OneciVerificationResultProps) {
               </div>
               <div>
                 <span className="text-neutral-500">Sexe:</span>{' '}
-                <span className="font-medium">{result.person.gender === 'M' ? 'Masculin' : 'Féminin'}</span>
+                <span className="font-medium">
+                  {result.person.gender === 'M' ? 'Masculin' : 'Féminin'}
+                </span>
               </div>
-              {result.person.birthPlace && (
-                <div>
-                  <span className="text-neutral-500">Lieu de naissance:</span>{' '}
-                  <span className="font-medium">{result.person.birthPlace}</span>
-                </div>
-              )}
             </div>
           </div>
         )}

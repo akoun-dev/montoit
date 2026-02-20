@@ -5,6 +5,7 @@
  */
 
 export { OneciVerificationForm } from './OneciVerificationForm';
+export { SimpleInput } from './SimpleInput';
 export type {
   OneciFormData,
   OneciVerificationFormProps,
