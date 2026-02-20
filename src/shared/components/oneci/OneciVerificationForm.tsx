@@ -26,8 +26,13 @@ export interface OneciFormData {
   gender: 'M' | 'F';
 }
 
+export interface OneciVerificationSuccessData {
+  result: OneciPersonMatchResponse;
+  formData: OneciFormData;
+}
+
 export interface OneciVerificationFormProps {
-  onSuccess?: (result: OneciPersonMatchResponse) => void;
+  onSuccess?: (data: OneciVerificationSuccessData) => void;
   onError?: (error: string) => void;
   className?: string;
   initialData?: Partial<OneciFormData>;
@@ -142,7 +147,7 @@ export function OneciVerificationForm({
       setVerificationResult(result);
 
       if (result.success && result.match) {
-        onSuccess?.(result);
+        onSuccess?.({ result, formData });
       } else if (!result.success) {
         onError?.(result.error || result.message || 'Erreur lors de la vérification');
       }

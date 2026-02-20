@@ -8,6 +8,7 @@ export { OneciVerificationForm } from './OneciVerificationForm';
 export type {
   OneciFormData,
   OneciVerificationFormProps,
+  OneciVerificationSuccessData,
 } from './OneciVerificationForm';
 
 export { OneciFaceAuth } from './OneciFaceAuth';
