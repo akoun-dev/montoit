@@ -11,7 +11,6 @@ import {
   Calendar,
   DollarSign,
   User,
-  Home,
   ArrowLeft,
   Loader,
   CheckCircle,
@@ -92,7 +91,7 @@ export default function CreateContractPage() {
   const [paymentDay, setPaymentDay] = useState('5');
   const [customClauses, setCustomClauses] = useState('');
 
-  const { validateField, getFieldState, touched, setFieldError, clearFieldError } =
+  const { validateField, getFieldState, setFieldError, clearFieldError } =
     useFormValidation<ContractFormData>();
 
   const validateStep1 = (): boolean => {
@@ -151,6 +150,7 @@ export default function CreateContractPage() {
 
   useEffect(() => {
     if (user) loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, applicationId]);
 
   useEffect(() => {
@@ -163,6 +163,7 @@ export default function CreateContractPage() {
         clearFieldError('depositAmount');
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProperty, properties]);
 
   useEffect(() => {
@@ -227,7 +228,7 @@ export default function CreateContractPage() {
           .eq('status', 'available');
 
         if (propsError) throw propsError;
-        const normalized = (propsData || []).map((p: any) => ({
+        const normalized = (propsData || []).map((p: Property) => ({
           ...p,
           monthly_rent: p.price ?? 0,
         }));
@@ -726,15 +727,14 @@ export default function CreateContractPage() {
                                 {app.profiles?.full_name || 'Nom non renseigné'}
                               </h3>
                               {app.profiles?.trust_score !== undefined && app.profiles?.trust_score !== null && (
-                                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold"
-                                  className={cn(
-                                    app.profiles.trust_score >= 70
-                                      ? "bg-green-100 text-green-700"
-                                      : app.profiles.trust_score >= 50
-                                      ? "bg-amber-100 text-amber-700"
-                                      : "bg-red-100 text-red-700"
-                                  )}
-                                >
+                                <div className={cn(
+                                  "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold",
+                                  app.profiles.trust_score >= 70
+                                    ? "bg-green-100 text-green-700"
+                                    : app.profiles.trust_score >= 50
+                                    ? "bg-amber-100 text-amber-700"
+                                    : "bg-red-100 text-red-700"
+                                )}>
                                   <Star className="w-3 h-3" />
                                   {app.profiles.trust_score}/100
                                 </div>

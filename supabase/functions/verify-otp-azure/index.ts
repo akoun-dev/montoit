@@ -6,6 +6,7 @@
  * Compatible avec send-sms-azure pour l'envoi des codes
  */
 
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { getCorsHeaders } from '../_shared/cors.ts';
 import { getServiceRoleClient } from '../_shared/service-role.ts';
 
@@ -14,13 +15,6 @@ interface VerifyRequest {
   code: string;
   fullName?: string;
   siteUrl?: string;
-}
-
-interface ProfileRecord {
-  id: string;
-  full_name: string | null;
-  email: string | null;
-  phone: string | null;
 }
 
 function normalizeSessionUrl(sessionUrl: string, redirectTo: string): string {
@@ -40,15 +34,18 @@ function normalizeSessionUrl(sessionUrl: string, redirectTo: string): string {
   }
 }
 
-Deno.serve(async (req: Request) => {
+serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
+    console.log('[verify-otp-azure] Début de la fonction, URL:', Deno.env.get('SUPABASE_URL'));
     const body = await req.json();
     const { phoneNumber, code, fullName, siteUrl }: VerifyRequest = body;
+
+    console.log('[verify-otp-azure] Données reçues:', { phoneNumber, code, fullName, siteUrl });
 
     if (!phoneNumber || !code) {
       return new Response(JSON.stringify({ error: 'Numéro et code requis' }), {
@@ -81,14 +78,14 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('[verify-otp-azure] ❌ Variables d\'environnement manquantes:', {
+      console.error("[verify-otp-azure] ❌ Variables d'environnement manquantes:", {
         hasUrl: !!supabaseUrl,
         hasKey: !!supabaseServiceKey,
       });
-      return new Response(
-        JSON.stringify({ error: 'Configuration serveur manquante' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Configuration serveur manquante' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabaseAdmin = getServiceRoleClient();
@@ -101,7 +98,11 @@ Deno.serve(async (req: Request) => {
     }
     const e164Phone = '+' + normalizedPhone;
 
-    console.log('[verify-otp-azure] Numéro normalisé:', { original: phoneNumber, normalized: normalizedPhone, e164: e164Phone });
+    console.log('[verify-otp-azure] Numéro normalisé:', {
+      original: phoneNumber,
+      normalized: normalizedPhone,
+      e164: e164Phone,
+    });
     console.log('[verify-otp-azure] Recherche OTP avec recipient:', e164Phone);
 
     // Vérifier le code OTP dans la table otp_codes
@@ -142,7 +143,7 @@ Deno.serve(async (req: Request) => {
     console.log('[verify-otp-azure] Recherche profil 1 (sans +):', {
       normalizedPhone,
       found: !!existingProfile,
-      error: profileError?.message
+      error: profileError?.message,
     });
 
     // 2. Si pas trouvé, essayer avec le format E.164 (ex: +2250556462404)
@@ -157,7 +158,7 @@ Deno.serve(async (req: Request) => {
       console.log('[verify-otp-azure] Recherche profil 2 (avec +):', {
         e164Phone,
         found: !!profileWithE164,
-        error: e164Error?.message
+        error: e164Error?.message,
       });
 
       if (profileWithE164) {
@@ -177,13 +178,15 @@ Deno.serve(async (req: Request) => {
       console.log('[verify-otp-azure] Recherche profil 3 (par email):', {
         derivedEmail,
         found: !!profileByEmail,
-        error: emailError?.message
+        error: emailError?.message,
       });
 
       if (profileByEmail) {
         finalProfile = profileByEmail;
       }
     }
+
+    console.log('[verify-otp-azure] finalProfile après recherches:', finalProfile);
 
     // ========== CAS 1: UTILISATEUR EXISTANT → CONNEXION ==========
     if (finalProfile) {
@@ -219,8 +222,11 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    console.log('[verify-otp-azure] Aucun profil trouvé, fullName:', fullName);
+
     // ========== CAS 2: NOUVEL UTILISATEUR, PAS DE NOM → DEMANDER NOM ==========
     if (!fullName?.trim()) {
+      console.log('[verify-otp-azure] CAS 2: needsName, retour immédiat');
       return new Response(
         JSON.stringify({
           success: true,
@@ -257,19 +263,29 @@ Deno.serve(async (req: Request) => {
 
     const userId = createdUser.user.id;
 
-    // Créer le profil
-    const { error: insertProfileError } = await supabaseAdmin.from('profiles').insert({
-      id: userId,
-      phone: normalizedPhone,
-      email: generatedEmail,
-      full_name: fullName,
-      user_type: 'tenant',
-      trust_score: 1.0,
-      profile_setup_completed: false,
-    });
+    // Créer ou mettre à jour le profil
+    console.log('[verify-otp-azure] Création/mise à jour du profil pour userId:', userId);
+    const { error: upsertProfileError } = await supabaseAdmin.from('profiles').upsert(
+      {
+        id: userId,
+        phone: normalizedPhone,
+        email: generatedEmail,
+        full_name: fullName,
+        user_type: 'tenant',
+        trust_score: 1.0,
+        profile_setup_completed: false,
+      },
+      {
+        onConflict: 'id',
+        ignoreDuplicates: false,
+      }
+    );
 
-    if (insertProfileError) {
-      console.error('Error creating profile:', insertProfileError);
+    if (upsertProfileError) {
+      console.error('[verify-otp-azure] ❌ Erreur upsert profil:', upsertProfileError);
+      // On continue quand même car l'utilisateur est créé, mais on log l'erreur
+    } else {
+      console.log('[verify-otp-azure] ✅ Profil créé/mis à jour avec succès');
     }
 
     // Générer le magic link
@@ -299,7 +315,6 @@ Deno.serve(async (req: Request) => {
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error in verify-otp-azure:', error);
     return new Response(

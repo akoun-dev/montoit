@@ -32,17 +32,20 @@ export default function AuthCallback() {
           return;
         }
 
-        // Vérifier si le profil a un user_type défini
-        // Si oui, DashboardRouter redirigera vers le bon dashboard
-        // Si non, l'utilisateur doit choisir son rôle
-        if (profile?.user_type) {
-          console.log('[CallbackPage] user_type trouvé:', profile.user_type, '-> /dashboard');
+        // Vérifier si le profil a un user_type défini ET si profile_setup_completed est true
+        // Si profile_setup_completed est false, rediriger vers choix de profil
+        if (profile?.user_type && profile?.profile_setup_completed) {
+          console.log(
+            '[CallbackPage] user_type trouvé et profil complété:',
+            profile.user_type,
+            '-> /dashboard'
+          );
           navigate('/dashboard');
           return;
         }
 
-        // Pas de user_type -> rediriger vers choix de profil
-        console.log('[CallbackPage] Pas de user_type -> /choix-profil');
+        // Si pas de user_type ou profil non complété -> rediriger vers choix de profil
+        console.log('[CallbackPage] Pas de user_type ou profil non complété -> /choix-profil');
         navigate('/choix-profil');
       }
     };

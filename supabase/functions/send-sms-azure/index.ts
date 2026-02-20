@@ -1,22 +1,23 @@
 /**
  * Edge Function: send-sms-azure
  *
- * Envoi de SMS via Azure MTN SMS Gateway
+ * Envoi de SMS via l'API Azure MTN avec les credentials ANSUT
  * Architecture: Frontend → Supabase Edge Function → Azure MTN API
  *
  * Configuration requise dans Supabase Secrets:
- * - AZURE_SMS_URL: URL de la passerelle SMS Azure
+ * - AZURE_SMS_URL: URL de la passerelle SMS Azure (https://ansuthub.westeurope.cloudapp.azure.com/gateway/api)
  * - AZURE_SMS_USERNAME: Nom d'utilisateur Azure
  * - AZURE_SMS_PASSWORD: Mot de passe Azure
  * - AZURE_SMS_FROM: Identifiant de l'expéditeur
  */
 
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { getCorsHeaders } from '../_shared/cors.ts';
 
 interface SmsRequest {
-  phone: string;    // Format E.164: +2250700000000
-  message: string;  // Contenu SMS
-  tag?: string;     // Label optionnel pour tracking (ex: "OTP", "NOTIF")
+  phone: string; // Format E.164: +2250700000000
+  message: string; // Contenu SMS
+  tag?: string; // Label optionnel pour tracking (ex: "OTP", "NOTIF")
 }
 
 interface SmsResponse {
@@ -49,7 +50,10 @@ function validatePayload(body: unknown): { valid: boolean; error?: string; data?
   }
 
   if (!validatePhone(phone)) {
-    return { valid: false, error: 'Format de téléphone invalide. Utilisez le format E.164 (ex: +2250700000000)' };
+    return {
+      valid: false,
+      error: 'Format de téléphone invalide. Utilisez le format E.164 (ex: +2250700000000)',
+    };
   }
 
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
@@ -76,10 +80,16 @@ function validatePayload(body: unknown): { valid: boolean; error?: string; data?
  */
 function buildAzureUrl(phone: string, message: string): string {
   // L'URL de base CORRECTE est /gateway/api (pas /client/)
-  const baseUrl = Deno.env.get('AZURE_SMS_URL') || 'https://ansuthub.westeurope.cloudapp.azure.com/gateway/api';
+  const baseUrl =
+    Deno.env.get('AZURE_SMS_URL') || 'https://ansuthub.westeurope.cloudapp.azure.com/gateway/api';
 
   // Si l'URL configurée contient /client/, la remplacer par /gateway/api
-  const cleanBaseUrl = baseUrl.replace(/\/client\/$/, '/gateway/api/');
+  let cleanBaseUrl = baseUrl.replace(/\/client\/$/, '/gateway/api');
+
+  // S'assurer que l'URL se termine par un slash
+  if (!cleanBaseUrl.endsWith('/')) {
+    cleanBaseUrl += '/';
+  }
 
   const username = Deno.env.get('AZURE_SMS_USERNAME') || '';
   const password = Deno.env.get('AZURE_SMS_PASSWORD') || '';
@@ -96,7 +106,7 @@ function buildAzureUrl(phone: string, message: string): string {
   return `${cleanBaseUrl}SendSMS?Username=${encodedUsername}&Password=${encodedPassword}&From=${encodedFrom}&To=${phone};&Text=${encodedText}&dlrUrl=`;
 }
 
-Deno.serve(async (req: Request) => {
+serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
 
   // Handle CORS preflight
@@ -137,7 +147,10 @@ Deno.serve(async (req: Request) => {
     if (!azureUrl || !azureUsername || !azurePassword || !azureFrom) {
       console.error('[send-sms-azure] Azure SMS configuration missing');
       return new Response(
-        JSON.stringify({ status: 'error', reason: 'Service SMS Azure non configuré' } as SmsResponse),
+        JSON.stringify({
+          status: 'error',
+          reason: 'Service SMS Azure non configuré',
+        } as SmsResponse),
         { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -147,18 +160,48 @@ Deno.serve(async (req: Request) => {
 
     console.log('[send-sms-azure] Sending SMS to:', phone.substring(0, 6) + '****');
     console.log('[send-sms-azure] Message length:', message.length);
+    console.log(
+      '[send-sms-azure] Using URL (sanitized):',
+      smsUrl.replace(/Username=[^&]*/, 'Username=***').replace(/Password=[^&]*/, 'Password=***')
+    );
 
-    // Call Azure MTN SMS API
-    const azureResponse = await fetch(smsUrl, {
-      method: 'GET',
-      headers: {
-        'Accept': 'text/plain',
-      },
-    });
+    // Call Azure MTN SMS API with better error handling
+    let azureResponse: Response;
+    let responseText = '';
 
-    const responseText = await azureResponse.text();
-    console.log('[send-sms-azure] Azure response status:', azureResponse.status);
-    console.log('[send-sms-azure] Azure response:', responseText.substring(0, 200));
+    try {
+      console.log('[send-sms-azure] Attempting fetch to Azure MTN API...');
+      console.log(
+        '[send-sms-azure] Full URL (sanitized):',
+        smsUrl.replace(/Username=[^&]*/, 'Username=***').replace(/Password=[^&]*/, 'Password=***')
+      );
+      azureResponse = await fetch(smsUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'text/plain',
+        },
+      });
+
+      responseText = await azureResponse.text();
+      console.log('[send-sms-azure] Azure response status:', azureResponse.status);
+      console.log('[send-sms-azure] Azure response length:', responseText.length);
+      console.log(
+        '[send-sms-azure] Azure response (first 500 chars):',
+        responseText.substring(0, 500)
+      );
+    } catch (fetchError) {
+      console.error('[send-sms-azure] Fetch error:', fetchError);
+      return new Response(
+        JSON.stringify({
+          status: 'error',
+          reason: `Erreur réseau Azure MTN: ${fetchError instanceof Error ? fetchError.message : 'Unknown fetch error'}`,
+        } as SmsResponse),
+        {
+          status: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     if (!azureResponse.ok) {
       console.error('[send-sms-azure] Azure error:', azureResponse.status, responseText);
@@ -166,27 +209,70 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           status: 'error',
-          reason: `Erreur Azure MTN: ${responseText.substring(0, 200)}`
+          reason: `Erreur Azure MTN (${azureResponse.status}): ${responseText.substring(0, 200) || 'No response text'}`,
         } as SmsResponse),
-        { status: azureResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        {
+          status: azureResponse.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
       );
     }
 
+    // Analyser la réponse Azure - elle peut contenir des infos de statut détaillées
+    let azureStatus = 'unknown';
+    let azureReason = '';
+
+    try {
+      const responseData = JSON.parse(responseText);
+      console.log('[send-sms-azure] Azure response data:', responseData);
+
+      if (Array.isArray(responseData) && responseData.length > 0) {
+        azureStatus = responseData[0].status || 'unknown';
+        if (azureStatus === 'Rejected') {
+          azureReason = 'Message rejeté par Azure MTN (vérifiez crédentials/credits)';
+        } else if (azureStatus === 'Delivered') {
+          azureReason = 'Message délivré avec succès';
+        }
+      }
+    } catch {
+      // Réponse non JSON, on garde le texte brut
+      azureReason = responseText.substring(0, 100);
+    }
+
+    console.log('[send-sms-azure] Azure status:', azureStatus, 'reason:', azureReason);
+
     // Générer un ID de message unique basé sur le timestamp et le numéro
     const messageId = `AZURE_${Date.now()}_${phone.substring(phone.length - 6)}`;
+
+    // Si le statut est Rejected, on retourne une erreur même si HTTP 200
+    if (azureStatus === 'Rejected') {
+      return new Response(
+        JSON.stringify({
+          status: 'error',
+          reason: azureReason,
+          azureStatus,
+        } as SmsResponse),
+        {
+          status: 422, // Unprocessable Entity - message valid mais rejeté par le provider
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     console.log('[send-sms-azure] SMS sent successfully, messageId:', messageId);
 
     return new Response(
       JSON.stringify({
         status: 'ok',
-        messageId: messageId
+        messageId: messageId,
       } as SmsResponse),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
-    console.error('[send-sms-azure] Unexpected error:', error instanceof Error ? error.message : 'Unknown');
+    console.error(
+      '[send-sms-azure] Unexpected error:',
+      error instanceof Error ? error.message : 'Unknown'
+    );
     return new Response(
       JSON.stringify({ status: 'error', reason: 'Erreur interne du service SMS' } as SmsResponse),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

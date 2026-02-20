@@ -29,7 +29,8 @@ import { PhoneInputWithCountry } from '@/shared/components/PhoneInputWithCountry
 import { otpService } from '@/services/auth/otp.service';
 
 // Regex de validation email conforme RFC 5322
-const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+const EMAIL_REGEX =
+  /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 
 // Regex de validation nom complet (minimum 5 caractères, lettres avec accents, espaces, tirets, apostrophes)
 const FULL_NAME_REGEX = /^[\p{L}\s'-]{5,}$/u;
@@ -52,13 +53,15 @@ const AUTH_SLIDES = [
   {
     image:
       'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&auto=format&fit=crop&q=80',
-    quote: 'J\'ai trouvé mon appartement à Cocody en moins d\'une semaine. Vraiment efficace et sécurisé !',
+    quote:
+      "J'ai trouvé mon appartement à Cocody en moins d'une semaine. Vraiment efficace et sécurisé !",
     author: 'Sarah & Marc, Cocody',
   },
   {
     image:
       'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop&q=80',
-    quote: 'La signature numérique et le paiement par Mobile Money ont rendu ma location super simple.',
+    quote:
+      'La signature numérique et le paiement par Mobile Money ont rendu ma location super simple.',
     author: 'Aïcha K., Plateau',
   },
   {
@@ -90,14 +93,11 @@ export default function ModernAuthPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [profileType, setProfileType] = useState<'tenant' | 'owner' | 'agency'>(
-    'tenant'
-  );
+  const [profileType, setProfileType] = useState<'tenant' | 'owner' | 'agency'>('tenant');
   const [emailOtp, setEmailOtp] = useState('');
   const [pendingEmail, setPendingEmail] = useState('');
   const [pendingPassword, setPendingPassword] = useState('');
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
-  const [generatedOtp, setGeneratedOtp] = useState('');
 
   // Phone fields
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -108,12 +108,6 @@ export default function ModernAuthPage() {
   // WhatsApp désactivé - SMS uniquement
   const [sendMethod] = useState<'sms'>('sms');
   const [resendTimer, setResendTimer] = useState(0);
-
-  const isLocalDevEnv = () => {
-    if (typeof window === 'undefined') return import.meta.env.DEV;
-    const host = window.location.hostname;
-    return import.meta.env.DEV || host === 'localhost' || host === '127.0.0.1';
-  };
 
   // Rotation automatique des slides
   useEffect(() => {
@@ -213,18 +207,21 @@ export default function ModernAuthPage() {
   ): Promise<{ code: string; viaFallback: boolean }> => {
     try {
       // Appeler notre edge function send-verification-otp qui utilise Resend
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({
-          email: targetEmail,
-          purpose: 'email_verification',
-        }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-otp`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            email: targetEmail,
+            purpose: 'email_verification',
+          }),
+        }
+      );
 
       const result = await response.json();
 
@@ -235,19 +232,33 @@ export default function ModernAuthPage() {
 
       // Afficher l'OTP dans la console navigateur
       if (result.devOtp) {
-        console.log('%c========================================', 'color: #f97316; font-weight: bold');
-        console.log('%c📧 OTP EMAIL VÉRIFICATION', 'color: #f97316; font-weight: bold; font-size: 14px');
-        console.log('%c========================================', 'color: #f97316; font-weight: bold');
+        console.log(
+          '%c========================================',
+          'color: #f97316; font-weight: bold'
+        );
+        console.log(
+          '%c📧 OTP EMAIL VÉRIFICATION',
+          'color: #f97316; font-weight: bold; font-size: 14px'
+        );
+        console.log(
+          '%c========================================',
+          'color: #f97316; font-weight: bold'
+        );
         console.log(`Email:   %c${targetEmail}`, 'color: #2C1810; font-weight: bold');
-        console.log(`OTP:    %c${result.devOtp}`, 'color: #f97316; font-size: 18px; font-weight: bold; font-size: 24px;');
+        console.log(
+          `OTP:    %c${result.devOtp}`,
+          'color: #f97316; font-size: 18px; font-weight: bold; font-size: 24px;'
+        );
         console.log(`Valide:  %c10 minutes`, 'color: #6B7280');
-        console.log('%c========================================\n', 'color: #f97316; font-weight: bold');
+        console.log(
+          '%c========================================\n',
+          'color: #f97316; font-weight: bold'
+        );
       }
 
       const code = result.devOtp || '(voir email)';
       console.log('[sendResendOtp] OTP envoyé avec succès via Resend');
       return { code, viaFallback: false };
-
     } catch (err: unknown) {
       console.error('Failed to send OTP email via edge function:', err);
       throw new Error(err instanceof Error ? err.message : 'Envoi du code impossible');
@@ -263,7 +274,7 @@ export default function ModernAuthPage() {
     try {
       // Validation email
       if (!EMAIL_REGEX.test(email)) {
-        throw new Error('Format d\'email invalide. Ex: exemple@domaine.com');
+        throw new Error("Format d'email invalide. Ex: exemple@domaine.com");
       }
 
       console.log('Attempting login with email:', email);
@@ -293,7 +304,7 @@ export default function ModernAuthPage() {
     try {
       // Validation email
       if (!EMAIL_REGEX.test(email)) {
-        throw new Error('Format d\'email invalide. Ex: exemple@domaine.com');
+        throw new Error("Format d'email invalide. Ex: exemple@domaine.com");
       }
       // Validation nom complet (minimum 5 caractères, lettres uniquement)
       if (!FULL_NAME_REGEX.test(fullName.trim())) {
@@ -431,10 +442,10 @@ export default function ModernAuthPage() {
       setError('Le nom complet doit contenir au moins 5 lettres');
       return;
     }
-    // Sauvegarder le nom complet dans sessionStorage pour la page de choix de profil
-    sessionStorage.setItem('pending_full_name', fullName.trim());
-    // Rediriger vers la page de choix de profil
-    navigate('/choix-profil');
+    // Appeler handleVerifyOTP avec withName = true pour créer le compte avec le nom
+    // Cela va authentifier l'utilisateur et rediriger vers sessionUrl
+    // Note: le code OTP est déjà vérifié, mais verify-otp-azure acceptera la requête
+    await handleVerifyOTP(true);
   };
 
   // ===================== EMAIL OTP FLOW =====================
@@ -451,8 +462,8 @@ export default function ModernAuthPage() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
           },
           body: JSON.stringify({
             email: targetEmail,
@@ -705,7 +716,8 @@ export default function ModernAuthPage() {
                   {/* Info */}
                   <div className="p-3 bg-[#F16522]/5 border border-[#F16522]/20 rounded-xl">
                     <p className="text-sm text-[#2C1810]">
-                      💡 Un code à 6 chiffres sera envoyé par <span className="font-semibold">SMS</span> à votre numéro MTN.
+                      💡 Un code à 6 chiffres sera envoyé par{' '}
+                      <span className="font-semibold">SMS</span> à votre numéro MTN.
                       <span className="font-medium"> Nouveau ?</span> Votre compte sera créé
                       automatiquement.
                     </p>
@@ -939,9 +951,7 @@ export default function ModernAuthPage() {
                       <button
                         key={opt.value}
                         type="button"
-                        onClick={() =>
-                          handleSelectRole(opt.value as 'tenant' | 'owner' | 'agency')
-                        }
+                        onClick={() => handleSelectRole(opt.value as 'tenant' | 'owner' | 'agency')}
                         className={`flex items-start gap-3 px-4 py-4 rounded-2xl border transition text-left ${
                           profileType === opt.value
                             ? 'border-[#F16522] bg-[#F16522]/10 text-[#F16522] shadow-lg'

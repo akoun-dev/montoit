@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useUserRoles } from '@/hooks/shared/useUserRoles';
 import { Loader2 } from 'lucide-react';
@@ -25,6 +25,7 @@ export default function ProtectedRoute({
   requireTrustAgent,
 }: ProtectedRouteProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading, profile } = useAuth();
   const { isAdmin, isTrustAgent, loading: rolesLoading, userType, systemRoles } = useUserRoles();
   const [accessChecked, setAccessChecked] = useState(false);
@@ -33,6 +34,17 @@ export default function ProtectedRoute({
 
   useEffect(() => {
     if (isLoading) return;
+
+    // Exception pour la page /choix-profil pendant l'inscription
+    // Permettre l'accès si l'utilisateur n'est pas encore authentifié mais a un pending_full_name
+    if (location.pathname === '/choix-profil' || location.pathname.endsWith('/choix-profil')) {
+      const pendingFullName = sessionStorage.getItem('pending_full_name');
+      if (!user && pendingFullName) {
+        console.log("[ProtectedRoute] Accès autorisé à /choix-profil pendant l'inscription");
+        setAccessChecked(true);
+        return;
+      }
+    }
 
     // Not logged in - redirect to login
     if (!user) {
@@ -69,7 +81,8 @@ export default function ProtectedRoute({
 
       // Check if user has any of the allowed roles
       // First check business type (from profile or hook)
-      const hasBusinessType = (userType || profileUserType) && allowedRoles.includes(userType || profileUserType);
+      const hasBusinessType =
+        (userType || profileUserType) && allowedRoles.includes(userType || profileUserType);
 
       // Then check system roles (from user_roles table)
       const hasSystemRole = systemRoles.some((role) => allowedRoles.includes(role));
@@ -98,6 +111,7 @@ export default function ProtectedRoute({
     userType,
     systemRoles,
     navigate,
+    location.pathname,
   ]);
 
   if (isLoading) {
@@ -111,11 +125,18 @@ export default function ProtectedRoute({
     );
   }
 
-  if (!user) {
+  // Wait for access check to complete before rendering
+  // Si accessChecked est vrai (exception appliquée), rendre les enfants même sans user
+  if (!accessChecked) {
     return null;
   }
 
-  // Wait for access check to complete before rendering
+  // Si user est null mais accessChecked est vrai (exception), rendre les enfants
+  if (!user && accessChecked) {
+    return <>{children}</>;
+  }
+
+  // Vérification des rôles (seulement si user existe)
   if (allowedRoles && allowedRoles.length > 0 && !accessChecked) {
     return null;
   }
