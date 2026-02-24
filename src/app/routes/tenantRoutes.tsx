@@ -1,12 +1,7 @@
 import { RouteObject, Navigate } from 'react-router-dom';
 import { lazyWithRetry } from '@/shared/utils/lazyLoad';
 import ProtectedRoute from '@/shared/ui/ProtectedRoute';
-import {
-  OWNER_ROLES,
-  AGENCY_ROLES,
-  TENANT_ROLES,
-  ALL_AUTHENTICATED,
-} from '@/shared/constants/roles';
+import { TENANT_ROLES } from '@/shared/constants/roles';
 
 // Tenant dashboard pages
 const TenantDashboard = lazyWithRetry(() => import('@/pages/tenant/DashboardPage'));
@@ -54,7 +49,7 @@ const TenantSidebarLayout = lazyWithRetry(
 );
 
 export const tenantRoutes: RouteObject[] = [
-  // ONECI verification page - standalone (no sidebar)
+  // ONECI verification page (dedicated view)
   {
     path: 'verification-oneci',
     element: (

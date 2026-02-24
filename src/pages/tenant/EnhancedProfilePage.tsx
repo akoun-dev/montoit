@@ -1,6 +1,6 @@
 import { useState, useEffect, ChangeEvent, useCallback } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   User,
@@ -24,6 +24,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
+import Modal from '@/shared/ui/Modal';
 import Input from '@/shared/ui/Input';
 import { toast } from '@/hooks/shared/useSafeToast';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
@@ -217,19 +218,20 @@ const TENANT_DOCUMENTS: TenantDocumentRequirement[] = [
 ];
 
 export default function EnhancedProfilePage() {
-  const { user, updateProfile } = useAuth();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'infos');
   const [profile, setProfile] = useState<TenantProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [, setUploadingAvatar] = useState(false);
   const [becomingOwner, setBecomingOwner] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showOneciChoiceModal, setShowOneciChoiceModal] = useState(false);
 
   // Stats dynamiques
-  const [stats, setStats] = useState({
+  const [, setStats] = useState({
     activeLeases: 0,
     pendingApplications: 0,
     upcomingVisits: 0,
@@ -249,7 +251,7 @@ export default function EnhancedProfilePage() {
   const [selectedCategory, setSelectedCategory] = useState<TenantCategory | null>(null);
   const [documents, setDocuments] = useState<Record<string, string>>({});
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
-  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [, setDocumentsLoading] = useState(false);
   const [submittingDossier, setSubmittingDossier] = useState(false);
   const [dossierApplication, setDossierApplication] = useState<VerificationApplication | null>(
     null
@@ -440,7 +442,7 @@ export default function EnhancedProfilePage() {
       loadStats();
       loadDossierApplication();
     }
-  }, [user, loadProfile, loadStats]);
+  }, [user, loadProfile, loadStats, loadDossierApplication]);
 
   useEffect(() => {
     if (profile?.avatar_url) {
@@ -609,6 +611,13 @@ export default function EnhancedProfilePage() {
     // Note: setBecomingOwner(false) n'est pas appelé en cas de succès car on redirige
   };
 
+  const handleOpenOneciChoiceModal = () => setShowOneciChoiceModal(true);
+  const handleCloseOneciChoiceModal = () => setShowOneciChoiceModal(false);
+  const handleRedirectFromOneciChoice = (path: string) => {
+    handleCloseOneciChoiceModal();
+    navigate(path);
+  };
+
   // Get documents for selected category
   const getRequiredDocumentsForCategory = (category: TenantCategory) => {
     return TENANT_DOCUMENTS.filter((doc) => doc.categories.includes(category));
@@ -635,13 +644,13 @@ export default function EnhancedProfilePage() {
         .eq('id', user.id)
         .then(() => {
           // Load existing documents for this category
-          loadDocumentsForCategory(category);
+          loadDocumentsForCategory();
         });
     }
   };
 
   // Load documents for the selected category
-  const loadDocumentsForCategory = async (category: TenantCategory) => {
+  const loadDocumentsForCategory = async () => {
     if (!user) return;
 
     try {
@@ -785,7 +794,7 @@ export default function EnhancedProfilePage() {
 
       await verificationApplicationsService.submit(currentApp.id);
       toast.success('Dossier soumis avec succès !');
-      await loadDocumentsForCategory(selectedCategory);
+      await loadDocumentsForCategory();
     } catch (error) {
       console.error('Error submitting dossier:', error);
       toast.error('Erreur lors de la soumission du dossier');
@@ -818,7 +827,7 @@ export default function EnhancedProfilePage() {
     .map((item) => item.label);
   const dossierHasDocs = dossierDocCount > 0;
   const dossierStatus = dossierHasDocs ? dossierApplication?.status : null;
-  const dossierSubmitted = !!dossierApplication
+  const dossierSubmitted = dossierApplication
     ? dossierApplication.status !== 'pending' ||
       dossierApplication.submitted_at !== dossierApplication.created_at
     : false;
@@ -1323,7 +1332,7 @@ export default function EnhancedProfilePage() {
                         </p>
                         {!profile?.oneci_verified && (
                           <button
-                            onClick={() => navigate('/locataire/verification-oneci')}
+                            onClick={handleOpenOneciChoiceModal}
                             className="mt-2 text-sm text-[#F16522] hover:underline font-medium"
                           >
                             Vérifier maintenant →
@@ -1935,6 +1944,33 @@ export default function EnhancedProfilePage() {
         </div>
       </div>
 
+      <Modal
+        isOpen={showOneciChoiceModal}
+        onClose={handleCloseOneciChoiceModal}
+        title="Choisissez votre parcours"
+        size="sm"
+      >
+        <p className="text-sm text-[#6B5A4E]">
+          Sélectionnez la page qui reflète votre méthode de vérification pour continuer.
+        </p>
+        <div className="mt-5 flex flex-col gap-2">
+          <Button
+            onClick={() =>
+              handleRedirectFromOneciChoice('/locataire/verification-oneci?source=modal&method=attributes')
+            }
+          >
+            Vérification ONECI complète
+          </Button>
+          <p className="text-xs text-[#6B5A4E]">
+            La reconnaissance faciale autonome est gérée via la carte « Reconnaissance faciale »
+            dans l’onglet des vérifications.
+          </p>
+          <Button variant="ghost" onClick={handleCloseOneciChoiceModal}>
+            Annuler
+          </Button>
+        </div>
+      </Modal>
+
       {/* Modal de switch de rôle */}
       <RoleSwitchModal
         isOpen={showRoleModal}
@@ -1945,152 +1981,5 @@ export default function EnhancedProfilePage() {
         loading={becomingOwner}
       />
     </>
-  );
-}
-
-function VerificationItem({
-  title,
-  description,
-  verified,
-  score,
-  onVerify,
-  showButton = true,
-  status = 'pending',
-  allowRetry = false,
-  extraInfo,
-  isDossier = false,
-}: {
-  title: string;
-  description: string;
-  verified: boolean | null;
-  score?: number | null;
-  onVerify?: () => void;
-  showButton?: boolean;
-  status?: 'pending' | 'verified' | 'failed' | null;
-  allowRetry?: boolean;
-  extraInfo?: string | null;
-  isDossier?: boolean;
-}) {
-  const getStatusConfig = () => {
-    if (verified || status === 'verified') {
-      return {
-        icon: CheckCircle,
-        color: 'text-green-600',
-        bgColor: 'bg-green-100',
-        label: 'Vérifié',
-      };
-    }
-    if (status === 'failed') {
-      return {
-        icon: AlertCircle,
-        color: 'text-red-600',
-        bgColor: 'bg-red-100',
-        label: 'Échoué',
-      };
-    }
-    if (status === 'in_review') {
-      return {
-        icon: AlertCircle,
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-100',
-        label: 'En cours',
-      };
-    }
-    return {
-      icon: AlertCircle,
-      color: 'text-amber-500',
-      bgColor: 'bg-amber-100',
-      label: 'En attente',
-    };
-  };
-
-  const statusConfig = getStatusConfig();
-  const StatusIcon = statusConfig.icon;
-
-  return (
-    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-      <div className="flex items-center gap-3 flex-1">
-        <StatusIcon className={`w-6 h-6 ${statusConfig.color} flex-shrink-0`} />
-        <div className="min-w-0 flex-1">
-          <h3 className="font-medium text-foreground">{title}</h3>
-          <p className="text-sm text-muted-foreground">{description}</p>
-          {score && verified && (
-            <p className="text-xs text-green-600 mt-1">
-              Score de confiance: {(score * 100).toFixed(1)}%
-            </p>
-          )}
-          {extraInfo && <p className="text-xs text-red-600 mt-1">{extraInfo}</p>}
-        </div>
-      </div>
-      <div className="flex items-center gap-3 ml-4 flex-shrink-0">
-        <span
-          className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap ${statusConfig.bgColor} ${statusConfig.color}`}
-        >
-          {statusConfig.label}
-        </span>
-        {showButton &&
-          onVerify &&
-          (() => {
-            // Pour le dossier: afficher seulement si pas de dossier, rejected, ou more_info_requested
-            if (isDossier) {
-              const shouldShow =
-                !verified || status === 'failed' || status === 'more_info_requested';
-              return shouldShow;
-            }
-            // Pour les autres items: afficher si !verified ou allowRetry
-            return !verified || allowRetry;
-          })() && (
-            <Button
-              onClick={onVerify}
-              variant="outline"
-              size="small"
-              className="whitespace-nowrap px-5 py-2.5"
-            >
-              <span className="inline-flex items-center gap-2.5">
-                <svg
-                  className="h-4 w-4 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  {status === 'failed' ||
-                  allowRetry ||
-                  (isDossier && status === 'more_info_requested') ? (
-                    // Icône de rafraîchissement pour "Réessayer" ou "Refaire"
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  ) : (
-                    // Icône de vérification pour "Faire la vérification"
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  )}
-                </svg>
-                <span>
-                  {isDossier
-                    ? status === 'failed' || status === 'more_info_requested'
-                      ? 'Compléter le dossier'
-                      : verified || status === 'verified'
-                        ? 'Voir le dossier'
-                        : 'Commencer la verifition du dossier locataire'
-                    : status === 'failed'
-                      ? 'Réessayer'
-                      : allowRetry && verified
-                        ? 'Refaire la vérification'
-                        : 'Faire la vérification'}
-                </span>
-              </span>
-            </Button>
-          )}
-      </div>
-    </div>
   );
 }

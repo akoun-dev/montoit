@@ -34,6 +34,28 @@ const TOKEN_CACHE_DURATION = 55 * 60 * 1000; // 55 minutes pour éviter l'expira
 let serviceConfig: OneciServiceConfig | null = null;
 
 /**
+ * Auto-initialisation du service ONECI avec les variables d'environnement
+ * (exécuté au chargement du module)
+ */
+const ONECI_API_KEY = import.meta.env['VITE_ONECI_API_KEY'] || '';
+const ONECI_SECRET_KEY = import.meta.env['VITE_ONECI_SECRET_KEY'] || '';
+const ONECI_API_URL_ENV = import.meta.env['VITE_ONECI_API_URL'] || '';
+
+if (ONECI_API_KEY && ONECI_SECRET_KEY) {
+  serviceConfig = {
+    apiKey: ONECI_API_KEY,
+    secretKey: ONECI_SECRET_KEY,
+    apiUrl: ONECI_API_URL_ENV || ONECI_API_URL,
+  };
+  console.log('[OneciService] Service auto-initialized from environment variables');
+} else {
+  console.warn('[OneciService] Service not configured - missing environment variables', {
+    hasApiKey: !!ONECI_API_KEY,
+    hasSecretKey: !!ONECI_SECRET_KEY,
+  });
+}
+
+/**
  * Token en cache avec son timestamp d'expiration
  */
 interface CachedToken {
@@ -80,6 +102,7 @@ export async function getAuthToken(): Promise<string> {
   }
 
   // Obtenir un nouveau token
+  console.log('[OneciService] Demande de token d\'authentification...');
   const response = await fetch(`${getApiUrl()}/api/v1/authenticate`, {
     method: 'POST',
     headers: {
@@ -97,12 +120,17 @@ export async function getAuthToken(): Promise<string> {
     throw new Error(`Erreur d'authentification ONECI: ${response.status}`);
   }
 
-  const data = (await response.json()) as OneciAuthenticateResponse;
+  const authData = (await response.json()) as OneciAuthenticateResponse & { bearerToken?: string };
+  console.log('[OneciService] Réponse d\'authentification complète:', authData);
+
+  // L'API retourne bearerToken au lieu de access_token
+  const token = authData.bearerToken || authData.access_token;
+  console.log('[OneciService] Token utilisé:', token ? token.substring(0, 20) + '...' : 'undefined');
 
   // Mettre en cache le token
   cachedToken = {
-    token: data.access_token,
-    expiresAt: Date.now() + (data.expires_in || TOKEN_CACHE_DURATION / 1000) * 1000,
+    token: token,
+    expiresAt: Date.now() + TOKEN_CACHE_DURATION,
   };
 
   return cachedToken.token;
@@ -132,6 +160,7 @@ export async function verifyPersonAttributes(
   gender: 'M' | 'F'
 ): Promise<OneciPersonMatchResponse> {
   const token = await getAuthToken();
+  console.log('[OneciService] Token obtenu pour vérification:', token.substring(0, 20) + '...');
 
   // Normaliser le NNI (supprimer les espaces et tirets)
   const normalizedNni = nni.replace(/[\s-]/g, '');
@@ -142,6 +171,9 @@ export async function verifyPersonAttributes(
   formData.append('LAST_NAME', lastName.trim());
   formData.append('BIRTH_DATE', birthDate);
   formData.append('GENDER', gender);
+
+  console.log('[OneciService] Envoi de la requête de vérification pour NNI:', normalizedNni);
+  console.log('[OneciService] FormData:', { firstName, lastName, birthDate, gender });
 
   const response = await fetch(
     `${getApiUrl()}/api/v1/oneci/persons/${normalizedNni}/match`,
@@ -155,14 +187,16 @@ export async function verifyPersonAttributes(
   );
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[OneciService] Erreur vérification attributs:', response.status, errorText);
+
     // Si 401, invalider le token et réessayer
     if (response.status === 401) {
+      console.warn('[OneciService] 401 Unauthorized - réessaie avec un nouveau token');
       invalidateAuthToken();
       return verifyPersonAttributes(nni, firstName, lastName, birthDate, gender);
     }
 
-    const errorText = await response.text();
-    console.error('[OneciService] Erreur vérification attributs:', response.status, errorText);
     return {
       success: false,
       match: false,
