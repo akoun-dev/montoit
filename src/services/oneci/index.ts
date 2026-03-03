@@ -16,6 +16,8 @@ export {
   imageToBase64,
   isValidNni,
   formatDateForApi,
+  updateProfileOneciVerified,
+  updateProfileOneciFailed,
 } from './oneci.service';
 
 export * from './types';

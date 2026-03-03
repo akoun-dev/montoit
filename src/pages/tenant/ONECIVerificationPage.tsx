@@ -22,6 +22,7 @@ import {
   type OneciVerificationSuccessData,
   type OneciFaceAuthResponse,
 } from '@/shared/components/oneci';
+import { updateProfileOneciVerified } from '@/services/oneci';
 
 type VerificationStep = 'attributes' | 'face' | 'complete';
 type VerificationMethod = Extract<VerificationStep, 'attributes' | 'face'>;
@@ -145,11 +146,29 @@ export default function ONECIVerificationPage() {
     }
   }, [authProfile?.oneci_number, faceNni]);
 
-  const handleAttributesSuccess = (data: OneciVerificationSuccessData) => {
+  const handleAttributesSuccess = async (data: OneciVerificationSuccessData) => {
     if (data.result.success && data.result.match) {
       setVerificationData(data.formData);
       setFaceNni(data.formData.nni);
       setError(null);
+
+      // Mettre à jour le profil après vérification ONECI réussie
+      if (user) {
+        const updateResult = await updateProfileOneciVerified(
+          user.id,
+          data.formData.nni,
+          data.result
+        );
+
+        if (!updateResult.success) {
+          console.error('Erreur mise à jour profil ONECI:', updateResult.error);
+          setError(updateResult.error || 'Erreur lors de la mise à jour du profil');
+          return;
+        }
+
+        // Marquer comme vérifié et passer à l'étape suivante
+        setStep('face');
+      }
     }
   };
 
@@ -171,7 +190,7 @@ export default function ONECIVerificationPage() {
         .from('profiles')
         .update({
           oneci_verified: true,
-          oneci_verified_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
 

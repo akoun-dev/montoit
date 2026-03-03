@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import type { OneciAttributeMatch } from '@/services/oneci/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { Button } from '@/shared/ui/Button';
 import { Loader2, AlertCircle, CheckCircle, User, Fingerprint } from 'lucide-react';
@@ -329,33 +330,55 @@ function OneciVerificationResult({ result }: OneciVerificationResultProps) {
     );
   }
 
-  if (!result.match) {
-    return (
-      <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-        <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-        <div className="flex-1">
-          <p className="font-medium text-amber-800">Informations non correspondantes</p>
-          <p className="text-sm text-amber-600 mt-1">
-            Les informations saisies ne correspondent pas aux registres ONECI. Veuillez
-            vérifier vos données.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Détermine si c'est un succès partiel ou complet
+  const isPartialMatch = result.attributes && result.attributes.some((a) => a.ErrorCode !== '0');
 
   return (
-    <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-xl">
-      <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+    <div
+      className={cn(
+        'flex items-start gap-3 p-4 border rounded-xl',
+        result.match && !isPartialMatch
+          ? 'bg-green-50 border-green-200'
+          : 'bg-amber-50 border-amber-200'
+      )}
+    >
+      {result.match && !isPartialMatch ? (
+        <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+      ) : (
+        <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+      )}
       <div className="flex-1">
-        <p className="font-medium text-green-800">Identité vérifiée avec succès</p>
-        <p className="text-sm text-green-600 mt-1">
-          Vos informations correspondent aux registres de l'Office National de l'État Civil.
-          {result.confidence && ` Confiance: ${Math.round(result.confidence * 100)}%`}
+        <p
+          className={cn(
+            'font-medium',
+            result.match && !isPartialMatch ? 'text-green-800' : 'text-amber-800'
+          )}
+        >
+          {result.match && !isPartialMatch
+            ? 'Identité vérifiée avec succès'
+            : isPartialMatch
+              ? 'Correspondance partielle'
+              : 'Informations non correspondantes'}
         </p>
+        <p className="text-sm mt-1 text-neutral-600">{result.message}</p>
 
+        {/* Affichage détaillé par attribut */}
+        {result.attributes && result.attributes.length > 0 && (
+          <div className="mt-3 p-3 bg-white rounded-lg border border-neutral-100">
+            <p className="text-xs font-medium text-neutral-600 mb-2">
+              Détails de la vérification:
+            </p>
+            <div className="space-y-1">
+              {result.attributes.map((attr) => (
+                <OneciAttributeItem key={attr.AttributeName} attribute={attr} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Informations de la personne si disponibles */}
         {result.person && (
-          <div className="mt-3 p-3 bg-white rounded-lg border border-green-100">
+          <div className="mt-3 p-3 bg-white rounded-lg border border-neutral-100">
             <p className="text-xs font-medium text-neutral-600 mb-2">
               Informations ONECI:
             </p>
@@ -385,7 +408,55 @@ function OneciVerificationResult({ result }: OneciVerificationResultProps) {
             </div>
           </div>
         )}
+
+        {result.confidence && (
+          <p className="text-sm mt-2 text-neutral-600">
+            Confiance: {Math.round(result.confidence * 100)}%
+          </p>
+        )}
       </div>
     </div>
   );
+}
+
+/**
+ * Composant pour afficher un attribut avec son statut de correspondance
+ */
+interface OneciAttributeItemProps {
+  attribute: OneciAttributeMatch;
+}
+
+function OneciAttributeItem({ attribute }: OneciAttributeItemProps) {
+  const isMatch = attribute.ErrorCode === '0';
+
+  return (
+    <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-neutral-50">
+      <span className="text-sm text-neutral-700">{getAttributeLabel(attribute.AttributeName)}</span>
+      <div className="flex items-center gap-1.5">
+        {isMatch ? (
+          <CheckCircle className="h-4 w-4 text-green-500" />
+        ) : (
+          <AlertCircle className="h-4 w-4 text-red-500" />
+        )}
+        <span
+          className={cn('text-xs font-medium', isMatch ? 'text-green-700' : 'text-red-700')}
+        >
+          {isMatch ? 'Correspond' : 'Non correspondant'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Convertit le nom d'attribut API en libellé lisible
+ */
+function getAttributeLabel(attributeName: string): string {
+  const labels: Record<string, string> = {
+    FIRST_NAME: 'Prénom',
+    LAST_NAME: 'Nom',
+    BIRTH_DATE: 'Date de naissance',
+    GENDER: 'Genre',
+  };
+  return labels[attributeName] || attributeName;
 }
