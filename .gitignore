@@ -918,3 +918,9 @@ data.txt
 # Security and audit reports (prefer in docs/audit/)
 /*-report.json
 /*-report.html
+
+# Supabase local config (contains project-specific settings)
+supabase/config.toml
+
+# Postman test collection
+Test.postman_collection.json

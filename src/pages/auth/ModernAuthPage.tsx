@@ -152,7 +152,6 @@ export default function ModernAuthPage() {
     setPendingEmail('');
     setPendingPassword('');
     setPendingUserId(null);
-    setGeneratedOtp('');
 
     if (method === 'email') {
       setEmailMode(deriveEmailModeFromPath(location.pathname));
@@ -199,7 +198,6 @@ export default function ModernAuthPage() {
     setFullName('');
     setError('');
     setSuccess('');
-    setGeneratedOtp('');
   };
 
   const sendResendOtp = async (
