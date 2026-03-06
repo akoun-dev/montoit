@@ -598,7 +598,9 @@
 
 # PostgreSQL
 **/*.backup
+# Ignore les fichiers SQL sauf dans les migrations Supabase
 **/*.sql
+!supabase/migrations/*.sql
 
 # MongoDB
 **/dump/
