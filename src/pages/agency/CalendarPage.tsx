@@ -1,8 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Calendar as CalendarIcon, Clock, MapPin, User, Home, Plus } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { formatAddress } from '@/shared/utils/address';
+
+interface Address {
+  street?: string;
+  city?: string;
+  postal_code?: string;
+  country?: string;
+}
 
 interface VisitRow {
   id: string;
@@ -15,7 +22,7 @@ interface VisitRow {
     id: string;
     title: string | null;
     city: string | null;
-    address: any;
+    address: Address;
     main_image: string | null;
   } | null;
   tenant?: {
@@ -38,11 +45,7 @@ export default function AgencyCalendarPage() {
   const [visits, setVisits] = useState<VisitRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) loadVisits();
-  }, [user]);
-
-  const loadVisits = async () => {
+  const loadVisits = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
@@ -79,13 +82,13 @@ export default function AgencyCalendarPage() {
       const tenantIds = Array.from(
         new Set(rows.map((r) => r.tenant_id).filter((id): id is string => !!id))
       );
-      let tenantsMap = new Map<string, any>();
+      let tenantsMap = new Map<string, { id: string; full_name: string | null; email: string | null; phone: string | null }>();
       if (tenantIds.length > 0) {
         const { data: tenantsData } = await supabase
           .from('profiles')
           .select('id, full_name, email, phone')
           .in('id', tenantIds);
-        tenantsMap = new Map((tenantsData || []).map((t: any) => [t.id, t]));
+        tenantsMap = new Map((tenantsData || []).map((t) => [t.id, t]));
       }
 
       setVisits(
@@ -100,7 +103,11 @@ export default function AgencyCalendarPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) loadVisits();
+  }, [user, loadVisits]);
 
   const upcomingVisits = useMemo(() => {
     const now = new Date();
@@ -190,7 +197,7 @@ export default function AgencyCalendarPage() {
                   })
                 : 'Date à confirmer';
               const statusClass =
-                STATUS_COLORS[visit.status || 'pending'] || STATUS_COLORS.pending;
+                STATUS_COLORS[(visit.status as keyof typeof STATUS_COLORS) || 'pending'] || STATUS_COLORS.pending;
               return (
                 <div key={visit.id} className="p-6 hover:bg-[#FAF7F4] transition-colors">
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
