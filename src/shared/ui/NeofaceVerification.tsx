@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw, Sparkles, Shield, Eye } from 'lucide-react';
+import {
+  CheckCircle,
+  XCircle,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  Sparkles,
+  Shield,
+  Eye,
+} from 'lucide-react';
 import { Card } from '@/shared/ui/Card';
-import { supabase } from '@/integrations/supabase/client';
 
 interface NeofaceVerificationProps {
   userId: string;
@@ -41,9 +49,9 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
     'idle' | 'uploading' | 'waiting' | 'polling' | 'success' | 'error' | 'cancelled'
   >('idle');
   const [error, setError] = useState<string | null>(null);
-  const [_documentId, setDocumentId] = useState<string | null>(null);
+  const [, setDocumentId] = useState<string | null>(null);
   const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
-  const [_verificationId, setVerificationId] = useState<string | null>(null);
+  const [, setVerificationId] = useState<string | null>(null);
   const [matchingScore, setMatchingScore] = useState<number | null>(null);
   const [attempts, setAttempts] = useState(0);
   const [progress, setProgress] = useState('');
@@ -54,10 +62,8 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
   const windowCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const authTokenRef = useRef<string | null>(null);
-  const supabaseUrl =
-    import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL;
-  const anonKey =
-    import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = import.meta.env.SUPABASE_URL || import.meta.env.SUPABASE_ANON_KEY;
+  const anonKey = import.meta.env.SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY;
 
   useEffect(() => {
     return () => {
@@ -108,7 +114,7 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
       });
 
       const text = await response.text();
-      let data: any = {};
+      let data: { error: string; verificationData: unknown; document_id: string | null; selfie_url: string | null; verification_id: string | null; matching_score?: number; verified_at?: string; provider: string; } = {};
       try {
         data = text ? JSON.parse(text) : {};
       } catch {
@@ -130,7 +136,8 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
     }
 
     if (!result.response.ok) {
-      const errorMessage = result.data?.error || result.data?.message || result.data?.msg || 'Erreur NeoFace';
+      const errorMessage =
+        result.data?.error || result.data?.message || result.data?.msg || 'Erreur NeoFace';
       throw new Error(errorMessage);
     }
 
@@ -145,9 +152,9 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
     let bucket: string;
     let path: string;
     const cleanUrl = cniPhotoUrl.split('?')[0];
-    const signMatch = cleanUrl.match(/\/storage\/v1\/object\/sign\/([^\/]+)\/(.+)/);
-    const publicMatch = cleanUrl.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)/);
-    const authMatch = cleanUrl.match(/\/storage\/v1\/object\/authenticated\/([^\/]+)\/(.+)/);
+    const signMatch = cleanUrl.match(/\/storage\/v1\/object\/sign\/([^/]+)\/(.+)/);
+    const publicMatch = cleanUrl.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)/);
+    const authMatch = cleanUrl.match(/\/storage\/v1\/object\/authenticated\/([^/]+)\/(.+)/);
 
     if (signMatch) {
       bucket = signMatch[1];
@@ -187,12 +194,16 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
 
       return data;
     } catch (err) {
-      if (err instanceof Error && (err.message.includes('403') || err.message.includes('timeout'))) {
+      if (
+        err instanceof Error &&
+        (err.message.includes('403') || err.message.includes('timeout'))
+      ) {
         const maxRetries = 5;
         if (attempts >= maxRetries) {
           return {
             status: 'failed',
-            message: 'Vérification échouée: problème de connexion avec NeoFace. Veuillez réessayer plus tard.',
+            message:
+              'Vérification échouée: problème de connexion avec NeoFace. Veuillez réessayer plus tard.',
             document_id: docId,
             provider: 'neoface',
           };
@@ -245,7 +256,7 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
     }
 
     setStatus('cancelled');
-    setError('Vérification annulée par l\'utilisateur');
+    setError("Vérification annulée par l'utilisateur");
     setIsCancelling(false);
     setIsVerifying(false);
   };
@@ -264,7 +275,9 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
           clearInterval(pollingIntervalRef.current);
         }
         setStatus('error');
-        setError("Timeout: La vérification n'a pas été complétée dans les délais (2 minutes). Veuillez réessayer.");
+        setError(
+          "Timeout: La vérification n'a pas été complétée dans les délais (2 minutes). Veuillez réessayer."
+        );
         if (selfieWindowRef.current && !selfieWindowRef.current.closed) {
           selfieWindowRef.current.close();
         }
@@ -441,10 +454,11 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
           setVerificationId(data.verification_id);
           startPolling(data.document_id, data.verification_id);
         }
-      } catch (e) {
+      } catch {
         sessionStorage.removeItem('neoface_verification');
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleRetry = () => {
@@ -579,15 +593,16 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
                   </div>
                 )}
               </div>
-              {(status === 'polling' || status === 'waiting' || status === 'uploading') && !isCancelling && (
-                <button
-                  onClick={handleCancel}
-                  className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl text-sm font-medium transition-colors"
-                  disabled={isCancelling}
-                >
-                  {isCancelling ? 'Annulation...' : 'Annuler'}
-                </button>
-              )}
+              {(status === 'polling' || status === 'waiting' || status === 'uploading') &&
+                !isCancelling && (
+                  <button
+                    onClick={handleCancel}
+                    className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl text-sm font-medium transition-colors"
+                    disabled={isCancelling}
+                  >
+                    {isCancelling ? 'Annulation...' : 'Annuler'}
+                  </button>
+                )}
             </div>
           </div>
         )}
@@ -610,8 +625,8 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
                 <p className="text-amber-700 text-sm mt-1">
                   {windowClosed
                     ? popupEverOpened
-                      ? "La fenêtre de vérification a été fermée. Rouvrez-la pour terminer la capture."
-                      : "Cliquez sur le bouton pour ouvrir la fenêtre de capture NeoFace."
+                      ? 'La fenêtre de vérification a été fermée. Rouvrez-la pour terminer la capture.'
+                      : 'Cliquez sur le bouton pour ouvrir la fenêtre de capture NeoFace.'
                     : 'Suivez les instructions dans la fenêtre popup pour capturer votre selfie.'}
                 </p>
                 <button

@@ -926,3 +926,4 @@ supabase/config.toml
 
 # Postman test collection
 Test.postman_collection.json
+datatxt

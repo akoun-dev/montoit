@@ -204,22 +204,19 @@ export default function ModernAuthPage() {
     targetEmail: string
   ): Promise<{ code: string; viaFallback: boolean }> => {
     try {
-      // Appeler notre edge function send-verification-otp qui utilise Resend
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-otp`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify({
-            email: targetEmail,
-            purpose: 'email_verification',
-          }),
-        }
-      );
+      // Appeler notre edge function email-otp-send qui utilise Azure Gateway
+      const response = await fetch(`${import.meta.env.SUPABASE_URL}/functions/v1/email-otp-send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${import.meta.env.SUPABASE_ANON_KEY}`,
+          apikey: import.meta.env.SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          email: targetEmail,
+          purpose: 'email_verification',
+        }),
+      });
 
       const result = await response.json();
 
@@ -400,20 +397,67 @@ export default function ModernAuthPage() {
 
     try {
       const siteUrl = window.location.origin;
-      const { data, error: invokeError } = await supabase.functions.invoke('verify-otp-azure', {
+      const response = await supabase.functions.invoke('phone-otp-verify', {
         body: { phoneNumber, code: otp, fullName: withName ? fullName : undefined, siteUrl },
       });
 
-      if (invokeError) throw new Error(invokeError.message || 'Code invalide');
-      if (data?.error) throw new Error(data.error);
+      const data = response.data;
+      const invokeError = response.error;
 
-      if (data?.action === 'needsName') {
+      if (invokeError) {
+        throw new Error(invokeError.message || 'Erreur de communication');
+      }
+
+      if (!data.success) {
+        // Handle specific error codes
+        switch (data.errorCode) {
+          case 'INVALID_OTP':
+            throw new Error('Le code est incorrect ou expiré.');
+          case 'USER_EXISTS_CONFLICT':
+            // Cas rare : proposer plutôt une connexion directe
+            throw new Error('Ce numéro est déjà associé à un compte. Veuillez réessayer.');
+          case 'REGISTRATION_FAILED':
+            console.error('[handleVerifyOTP] Registration failed details:', data.details);
+            throw new Error("Une erreur est survenue lors de la création. Réessayez.");
+          case 'SESSION_GENERATION_FAILED':
+            console.error('[handleVerifyOTP] Session generation failed details:', data.details);
+            throw new Error('Impossible de générer le lien de connexion. Veuillez réessayer.');
+          case 'INTERNAL_LOGIN_ERROR':
+            console.error('[handleVerifyOTP] Internal login error details:', data.details);
+            throw new Error('Erreur interne lors de la connexion. Veuillez réessayer.');
+          case 'INTERNAL_SERVER_ERROR':
+            console.error('[handleVerifyOTP] Internal server error details:', data.details);
+            throw new Error('Erreur serveur inattendue. Veuillez réessayer.');
+          case 'SERVER_CONFIG_ERROR':
+            console.error('[handleVerifyOTP] Server config error details:', data.details);
+            throw new Error('Erreur de configuration serveur. Contactez le support.');
+          case 'MISSING_INPUT':
+            throw new Error('Numéro de téléphone et code OTP requis.');
+          default:
+            throw new Error(data.error || 'Erreur inconnue');
+        }
+      }
+
+      // Handle success responses with different actions
+      if (data.action === 'needsName') {
         setSuccess('Code vérifié ! Entrez votre nom pour continuer.');
         setPhoneStep('name');
         setLoading(false);
         return;
       }
 
+      if (data.action === 'register' || data.action === 'login') {
+        setSuccess(data.action === 'register' ? 'Compte créé ! Connexion...' : 'Connexion en cours...');
+        if (data.needsProfileCompletion) {
+          sessionStorage.setItem('needsProfileCompletion', 'true');
+        }
+        console.log('Redirecting to sessionUrl:', data.sessionUrl);
+        const safeSessionUrl = buildSafeSessionUrl(data.sessionUrl);
+        window.location.href = safeSessionUrl;
+        return;
+      }
+
+      // Fallback for old API response format
       if (data?.sessionUrl) {
         setSuccess(data.isNewUser ? 'Compte créé ! Connexion...' : 'Connexion en cours...');
         if (data.needsProfileCompletion) {
@@ -455,13 +499,13 @@ export default function ModernAuthPage() {
 
       // Vérifier l'OTP via l'edge function
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-email-otp`,
+        `${import.meta.env.SUPABASE_URL}/functions/v1/email-otp-verify`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${import.meta.env.SUPABASE_ANON_KEY}`,
+            apikey: import.meta.env.SUPABASE_ANON_KEY,
           },
           body: JSON.stringify({
             email: targetEmail,
@@ -472,6 +516,21 @@ export default function ModernAuthPage() {
       );
 
       const result = await response.json();
+
+      if (!result.success) {
+        // Handle specific error codes
+        switch (result.errorCode) {
+          case 'INVALID_OTP':
+            throw new Error('Le code est incorrect ou expiré.');
+          case 'USER_EXISTS_CONFLICT':
+            throw new Error('Ce numéro est déjà associé à un compte. Veuillez réessayer.');
+          case 'REGISTRATION_FAILED':
+            console.error('[handleVerifyEmailOtp] Registration failed details:', result.details);
+            throw new Error("Une erreur est survenue lors de la création. Réessayez.");
+          default:
+            throw new Error(result.error || 'Code invalide ou expiré');
+        }
+      }
 
       if (!response.ok) {
         throw new Error(result.error || 'Code invalide ou expiré');

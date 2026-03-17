@@ -309,8 +309,8 @@ npx cap open android    # Ouvrir projet Android
 ### Variables d'environnement requises
 
 ```env
-VITE_SUPABASE_URL=https://xxx.supabase.co
-VITE_SUPABASE_ANON_KEY=xxx
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_ANON_KEY=xxx
 ```
 
 ### Services optionnels

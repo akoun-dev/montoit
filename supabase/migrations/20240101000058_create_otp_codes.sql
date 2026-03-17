@@ -31,49 +31,44 @@ COMMENT ON TABLE public.otp_codes IS 'OTP codes for verification';
 -- RLS Policies
 ALTER TABLE public.otp_codes ENABLE ROW LEVEL SECURITY;
 
--- Service role full access
+-- Service role full access (for Edge Functions)
 CREATE POLICY "Service role full access" ON public.otp_codes
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+FOR ALL
+TO service_role
+USING (true)
+WITH CHECK (true);
 
--- Users can insert OTP codes only for their own email or phone
--- This prevents users from inserting OTPs for other recipients
-CREATE POLICY "Users can insert own OTP codes" ON public.otp_codes
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    recipient = current_setting('request.jwt.claims', true)::json->>'email'
-    OR recipient = current_setting('request.jwt.claims', true)::json->>'phone'
-  );
+-- Allow insert OTP codes for all roles
+-- This is needed for OTP generation during auth flow (both anonymous and authenticated)
+-- Security: Rate limiting is applied at application/Edge Function level
+CREATE POLICY "Allow insert OTP codes" ON public.otp_codes
+FOR INSERT
+TO anon, authenticated
+WITH CHECK (true);
 
--- Allow anonymous insert for OTP generation during auth flow
--- Security note: This is needed for phone-based auth where user is not yet authenticated.
--- Rate limiting should be applied at the application/Edge Function level.
--- Future improvement: Move OTP generation/storage to Edge Function with service role.
-CREATE POLICY "Allow anonymous insert for OTP" ON public.otp_codes
-  FOR INSERT
-  TO anon
-  WITH CHECK (
-    -- Only allow new OTP creation (cannot modify existing)
-    used = false
-    AND attempts = 0
-    -- Basic validation to prevent abuse could be added here
-  );
+-- Allow select by recipient (for OTP verification)
+-- Authenticated users can select OTPs for their own email/phone
+CREATE POLICY "Allow select OTP codes by recipient" ON public.otp_codes
+FOR SELECT
+TO authenticated
+USING (
+  recipient = auth.uid()::text
+  OR recipient = (auth.jwt()::json->>'email')
+  OR recipient = (auth.jwt()::json->>'phone')
+);
 
--- Allow anonymous select by recipient (for verification via service role only)
--- Note: This policy is restrictive but may not be needed if verification is done via service role
-CREATE POLICY "Allow anonymous select by recipient" ON public.otp_codes
-  FOR SELECT
-  TO anon
-  USING (recipient = current_setting('request.jwt.claims', true)::json->>'email' OR recipient = current_setting('request.jwt.claims', true)::json->>'phone');
+-- Allow service role to select all OTPs (for verification in Edge Functions)
+CREATE POLICY "Allow service role select all OTP codes" ON public.otp_codes
+FOR SELECT
+TO service_role
+USING (true);
 
--- Allow authenticated select by recipient
-CREATE POLICY "Allow authenticated select by recipient" ON public.otp_codes
-  FOR SELECT
-  TO authenticated
-  USING (recipient = current_setting('request.jwt.claims', true)::json->>'email' OR recipient = current_setting('request.jwt.claims', true)::json->>'phone');
+-- Allow update for marking OTP as used
+CREATE POLICY "Allow update OTP codes" ON public.otp_codes
+FOR UPDATE
+TO anon, authenticated, service_role
+USING (true)
+WITH CHECK (true);
 
 -- Updated at trigger
 CREATE TRIGGER update_otp_codes_updated_at

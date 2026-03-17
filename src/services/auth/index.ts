@@ -6,6 +6,7 @@
 
 export { otpService, default as defaultOTPService } from './otp.service';
 export { authService, default as defaultAuthService } from './auth.service';
+export { welcomeMessageService, default as defaultWelcomeMessageService } from './welcome-message.service';
 export type {
   OTPRequest,
   OTPVerification,
@@ -17,3 +18,8 @@ export type {
   SignInData,
   AuthResult,
 } from './auth.service';
+export type {
+  WelcomeMessageRequest,
+  WelcomeMessageResponse,
+  WelcomeMessageResult,
+} from './welcome-message.service';

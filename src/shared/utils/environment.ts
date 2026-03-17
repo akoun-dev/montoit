@@ -6,7 +6,7 @@
  * Détecte si Supabase est en local (localhost ou 127.0.0.1)
  */
 export const isLocalSupabase = (): boolean => {
-  const url = import.meta.env['VITE_SUPABASE_URL'] || import.meta.env['VITE_PUBLIC_SUPABASE_URL'];
+  const url = import.meta.env['SUPABASE_URL'] || import.meta.env['SUPABASE_ANON_KEY'];
   return url?.includes('127.0.0.1') || url?.includes('localhost') || false;
 };
 

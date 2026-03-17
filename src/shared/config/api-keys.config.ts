@@ -70,8 +70,8 @@ interface ONECIConfig extends ApiConfig {
 
 class ApiKeysConfig {
   readonly supabase: SupabaseConfig = {
-    url: import.meta.env['VITE_SUPABASE_URL'] || '',
-    anonKey: import.meta.env['VITE_SUPABASE_ANON_KEY'] || '',
+    url: import.meta.env['SUPABASE_URL'] || '',
+    anonKey: import.meta.env['SUPABASE_ANON_KEY'] || '',
     // SÉCURITÉ: Pas de serviceRoleKey ici - n'utiliser que dans les edge functions
   };
 
@@ -210,7 +210,7 @@ class ApiKeysConfig {
     const warnings: string[] = [];
 
     if (!this.supabase.url || !this.supabase.anonKey) {
-      missing.push('Supabase (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)');
+      missing.push('Supabase (SUPABASE_URL, SUPABASE_ANON_KEY)');
     }
 
     if (!this.azure.openai.isConfigured) {
@@ -226,7 +226,7 @@ class ApiKeysConfig {
     }
 
     if (!this.verification.oneci.isConfigured) {
-      warnings.push('ONECI - La vérification d\'identité nationale ne sera pas disponible');
+      warnings.push("ONECI - La vérification d'identité nationale ne sera pas disponible");
     }
 
     if (!this.signature.cryptoneo.isConfigured) {

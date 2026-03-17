@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
       clearTimeout(loadingTimeout);
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadProfile = async (userId: string, retryCount = 0) => {
     const MAX_RETRIES = 3; // Reduced retries to avoid long loading times
@@ -248,8 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const rawUserType = userData.user.user_metadata?.['user_type'];
       const normalizedUserType = rawUserType ? translateUserType(rawUserType) : null;
       const fullName = userData.user.user_metadata?.['full_name'] || null;
-      const phone =
-        userData.user.phone || userData.user.user_metadata?.['phone'] || null;
+      const phone = userData.user.phone || userData.user.user_metadata?.['phone'] || null;
 
       const { error } = await supabase.from('profiles').upsert(
         {
@@ -314,12 +313,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Send OTP email for verification
         try {
-          const { data: { session: adminSession } } = await supabase.auth.admin.getSession();
-          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-otp`, {
+          const {
+            data: { session: adminSession },
+          } = await supabase.auth.admin.getSession();
+          await fetch(`${import.meta.env.SUPABASE_URL}/functions/v1/send-verification-otp`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${adminSession?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${adminSession?.access_token || import.meta.env.SUPABASE_ANON_KEY}`,
+              apikey: import.meta.env.SUPABASE_ANON_KEY,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -335,8 +336,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return {
           error: null,
           requiresConfirmation: true,
-          message: 'Compte créé avec succès. Un code de vérification a été envoyé à votre adresse email.',
-          email: email
+          message:
+            'Compte créé avec succès. Un code de vérification a été envoyé à votre adresse email.',
+          email: email,
         };
       }
 
@@ -344,12 +346,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.user && !data.session) {
         // Send OTP email for verification
         try {
-          const { data: { session: adminSession } } = await supabase.auth.admin.getSession();
-          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-otp`, {
+          const {
+            data: { session: adminSession },
+          } = await supabase.auth.admin.getSession();
+          await fetch(`${import.meta.env.SUPABASE_URL}/functions/v1/send-verification-otp`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${adminSession?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${adminSession?.access_token || import.meta.env.SUPABASE_ANON_KEY}`,
+              apikey: import.meta.env.SUPABASE_ANON_KEY,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -364,8 +368,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return {
           error: null,
           requiresConfirmation: true,
-          message: 'Compte créé avec succès. Un code de vérification a été envoyé à votre adresse email.',
-          email: email
+          message:
+            'Compte créé avec succès. Un code de vérification a été envoyé à votre adresse email.',
+          email: email,
         };
       }
 

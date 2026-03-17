@@ -51,6 +51,7 @@ MonToit est une plateforme immobilière complète qui connecte les locataires, l
 ## Fonctionnalités
 
 ### Locataires
+
 - Recherche avancée de propriétés avec filtres (prix, localisation, type)
 - Système de candidature avec pièces jointes
 - Gestion des favoris et alertes de recherche
@@ -59,6 +60,7 @@ MonToit est une plateforme immobilière complète qui connecte les locataires, l
 - Suivi des demandes en temps réel
 
 ### Propriétaires
+
 - Publication et gestion de propriétés avec géolocalisation GPS
 - Gestion des candidatures et sélection de locataires
 - Génération de contrats de bail PDF
@@ -68,6 +70,7 @@ MonToit est une plateforme immobilière complète qui connecte les locataires, l
 - Affichage des propriétés sur carte interactive
 
 ### Agences Immobilières
+
 - Gestion de portefeuille de biens avec géolocalisation
 - Gestion d'équipe d'agents
 - Suivi des mandats et signatures électroniques
@@ -76,7 +79,9 @@ MonToit est une plateforme immobilière complète qui connecte les locataires, l
 - Export de données et rapports
 
 ### Trust Agents (Tiers de Confiance)
+
 Le **Trust Agent** est un rôle spécialisé qui assure :
+
 - **Validation des dossiers** : Vérification des locataires, propriétaires et agences
 - **Médiation de litiges** : Gestion des conflits entre locataires et propriétaires
 - **Missions CEV** : Contrôles d'Entrée en Vigueur des biens
@@ -85,6 +90,7 @@ Le **Trust Agent** est un rôle spécialisé qui assure :
 - **États des lieux** : Rapports numériques d'entrée et de sortie
 
 ### Administration
+
 - Panel d'administration complet
 - Gestion des rôles et permissions
 - Modération de contenu et avis
@@ -93,6 +99,7 @@ Le **Trust Agent** est un rôle spécialisé qui assure :
 - Gestion des fonctionnalités (feature flags)
 
 ### Trust Agents (Tiers de Confiance)
+
 - Tableau de bord des missions et dossiers
 - Validation des dossiers (locataires, propriétaires, agences)
 - Gestion des litiges et médiation
@@ -103,6 +110,7 @@ Le **Trust Agent** est un rôle spécialisé qui assure :
 - Gestion des preuves et propositions de résolution
 
 ### Fonctionnalités Transverses
+
 - Authentification multi-facteurs
 - Vérification d'identité (CNI, ONECI, CNAM)
 - Chatbot IA pour assistance
@@ -157,6 +165,7 @@ Avant de commencer, assurez-vous d'avoir installé :
 - **Git** >= 2.x
 
 Optionnel pour le mobile :
+
 - **Xcode** (pour iOS)
 - **Android Studio** (pour Android)
 
@@ -211,8 +220,8 @@ L'application sera accessible sur [http://localhost:8080](http://localhost:8080)
 
 ```env
 # Supabase (Obligatoire)
-VITE_SUPABASE_URL=https://votre-projet.supabase.co
-VITE_SUPABASE_ANON_KEY=votre-clé-anonyme
+SUPABASE_URL=https://votre-projet.supabase.co
+SUPABASE_ANON_KEY=votre-clé-anonyme
 ```
 
 ### Variables d'environnement optionnelles
@@ -317,18 +326,18 @@ import { ROUTES } from '@config';
 
 Liste complète des alias :
 
-| Alias | Cible |
-|-------|-------|
-| `@` | `src/` |
-| `@config` | `src/config/` |
+| Alias         | Cible             |
+| ------------- | ----------------- |
+| `@`           | `src/`            |
+| `@config`     | `src/config/`     |
 | `@components` | `src/components/` |
-| `@pages` | `src/pages/` |
-| `@services` | `src/services/` |
-| `@hooks` | `src/hooks/` |
-| `@lib` | `src/lib/` |
-| `@types` | `src/types/` |
-| `@contexts` | `src/contexts/` |
-| `@stores` | `src/stores/` |
+| `@pages`      | `src/pages/`      |
+| `@services`   | `src/services/`   |
+| `@hooks`      | `src/hooks/`      |
+| `@lib`        | `src/lib/`        |
+| `@types`      | `src/types/`      |
+| `@contexts`   | `src/contexts/`   |
+| `@stores`     | `src/stores/`     |
 
 ### Créer une nouvelle fonctionnalité
 
@@ -441,11 +450,13 @@ Les fichiers générés sont dans le dossier `dist/`.
 Le projet peut être déployé sur :
 
 - **Vercel** (recommandé)
+
   ```bash
   vercel --prod
   ```
 
 - **Netlify**
+
   ```bash
   netlify deploy --prod
   ```
@@ -548,70 +559,70 @@ montoit/
 
 ### Frontend
 
-| Technologie | Version | Usage |
-|-------------|---------|-------|
-| React | 18.3.1 | Framework UI |
-| TypeScript | 5.5.3 | Typage statique |
-| Vite | 7.3.1 | Build tool & dev server |
-| Tailwind CSS | 3.4.1 | Framework CSS |
-| Radix UI | - | Composants accessibles |
-| TanStack Query | 5.90.5 | Gestion état serveur |
-| Zustand | 4.5.7 | Gestion état global |
-| React Router | 7.12.0 | Routage |
-| Lucide React | 0.344.0 | Icônes |
+| Technologie    | Version | Usage                   |
+| -------------- | ------- | ----------------------- |
+| React          | 18.3.1  | Framework UI            |
+| TypeScript     | 5.5.3   | Typage statique         |
+| Vite           | 7.3.1   | Build tool & dev server |
+| Tailwind CSS   | 3.4.1   | Framework CSS           |
+| Radix UI       | -       | Composants accessibles  |
+| TanStack Query | 5.90.5  | Gestion état serveur    |
+| Zustand        | 4.5.7   | Gestion état global     |
+| React Router   | 7.12.0  | Routage                 |
+| Lucide React   | 0.344.0 | Icônes                  |
 
 ### Backend & BaaS
 
-| Technologie | Usage |
-|-------------|-------|
-| Supabase | Base de données, auth, storage, realtime |
-| PostgreSQL | Base de données relationnelle |
-| Row Level Security | Sécurité au niveau base |
+| Technologie        | Usage                                    |
+| ------------------ | ---------------------------------------- |
+| Supabase           | Base de données, auth, storage, realtime |
+| PostgreSQL         | Base de données relationnelle            |
+| Row Level Security | Sécurité au niveau base                  |
 
 ### Tables principales
 
-| Table | Description |
-|-------|-------------|
-| `properties` | Biens immobiliers avec localisation et géolocalisation |
-| `profiles` | Profils utilisateurs avec rôles (locataire, propriétaire, agence, trust_agent) |
-| `lease_contracts` | Contrats de bail |
-| `disputes` | Litiges et médiations |
-| `cev_missions` | Missions de contrôle CEV |
-| `tenant_applications` | Dossiers de candidature locataire |
-| `owner_applications` | Dossiers de validation propriétaire |
-| `agency_applications` | Dossiers d'agréation agence |
+| Table                 | Description                                                                    |
+| --------------------- | ------------------------------------------------------------------------------ |
+| `properties`          | Biens immobiliers avec localisation et géolocalisation                         |
+| `profiles`            | Profils utilisateurs avec rôles (locataire, propriétaire, agence, trust_agent) |
+| `lease_contracts`     | Contrats de bail                                                               |
+| `disputes`            | Litiges et médiations                                                          |
+| `cev_missions`        | Missions de contrôle CEV                                                       |
+| `tenant_applications` | Dossiers de candidature locataire                                              |
+| `owner_applications`  | Dossiers de validation propriétaire                                            |
+| `agency_applications` | Dossiers d'agréation agence                                                    |
 
 ### Services externes
 
-| Service | Usage |
-|---------|-------|
-| Azure OpenAI | Chatbot IA |
+| Service           | Usage                         |
+| ----------------- | ----------------------------- |
+| Azure OpenAI      | Chatbot IA                    |
 | Azure AI Services | Vision, reconnaissance vocale |
-| Mapbox GL | Cartes interactives |
-| Google Maps | Géolocalisation |
-| Azure SMS/Resend | SMS et notifications |
-| CryptoNeo | Signature électronique |
-| Sentry | Monitoring erreurs |
-| Google Analytics | Analytics |
+| Mapbox GL         | Cartes interactives           |
+| Google Maps       | Géolocalisation               |
+| Azure SMS/Resend  | SMS et notifications          |
+| CryptoNeo         | Signature électronique        |
+| Sentry            | Monitoring erreurs            |
+| Google Analytics  | Analytics                     |
 
 ### Mobile
 
-| Technologie | Version | Usage |
-|-------------|---------|-------|
-| Capacitor | 7.4.4 | Bridge natif iOS/Android |
-| Capacitor Geolocation | - | GPS pour capture position |
-| Workbox | - | Service Worker pour PWA |
+| Technologie           | Version | Usage                     |
+| --------------------- | ------- | ------------------------- |
+| Capacitor             | 7.4.4   | Bridge natif iOS/Android  |
+| Capacitor Geolocation | -       | GPS pour capture position |
+| Workbox               | -       | Service Worker pour PWA   |
 
 ### Développement
 
-| Technologie | Usage |
-|-------------|-------|
-| Vitest | Tests unitaires |
+| Technologie           | Usage            |
+| --------------------- | ---------------- |
+| Vitest                | Tests unitaires  |
 | React Testing Library | Tests composants |
-| ESLint | Linting |
-| Prettier | Formatage |
-| Husky | Git hooks |
-| lint-staged | Pre-commit lint |
+| ESLint                | Linting          |
+| Prettier              | Formatage        |
+| Husky                 | Git hooks        |
+| lint-staged           | Pre-commit lint  |
 
 ---
 

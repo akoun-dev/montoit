@@ -21,7 +21,7 @@ export function useBusinessRule(ruleKey: string) {
     queryKey: ['business-rule', ruleKey],
     queryFn: async (): Promise<BusinessRule | null> => {
       const response = await fetch(
-        `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/get-business-rule?key=${ruleKey}`,
+        `${import.meta.env['SUPABASE_URL']}/functions/v1/get-business-rule?key=${ruleKey}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -65,7 +65,7 @@ export function useBusinessRulesByCategory(category: string) {
     queryKey: ['business-rules', 'category', category],
     queryFn: async (): Promise<BusinessRule[]> => {
       const response = await fetch(
-        `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/get-business-rule?category=${category}`,
+        `${import.meta.env['SUPABASE_URL']}/functions/v1/get-business-rule?category=${category}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -105,7 +105,7 @@ export function useAllBusinessRules() {
       if (!session) throw new Error('Not authenticated');
 
       const response = await fetch(
-        `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/manage-business-rules`,
+        `${import.meta.env['SUPABASE_URL']}/functions/v1/manage-business-rules`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -156,7 +156,7 @@ export function useUpdateBusinessRule() {
       if (!session) throw new Error('Not authenticated');
 
       const response = await fetch(
-        `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/manage-business-rules`,
+        `${import.meta.env['SUPABASE_URL']}/functions/v1/manage-business-rules`,
         {
           method: 'PUT',
           headers: {
@@ -196,7 +196,7 @@ export function useToggleBusinessRule() {
       if (!session) throw new Error('Not authenticated');
 
       const response = await fetch(
-        `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/manage-business-rules`,
+        `${import.meta.env['SUPABASE_URL']}/functions/v1/manage-business-rules`,
         {
           method: 'PATCH',
           headers: {

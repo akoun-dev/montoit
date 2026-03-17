@@ -7,6 +7,7 @@
 
 import { supabase } from '@/services/supabase/client';
 import { otpService, type OTPRequest, type OTPVerification } from './otp.service';
+import { welcomeMessageService } from './welcome-message.service';
 
 // Regex de validation email conforme RFC 5322
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
@@ -207,6 +208,17 @@ class AuthService {
         if (profileError) {
           console.warn('Création profil échouée (non bloquant):', profileError);
           // Ne bloque pas la création de compte: le trigger DB ou la récupération de profil prendra le relais.
+        }
+
+        // Envoyer le message de bienvenue (best-effort, ne bloque pas la création de compte)
+        try {
+          if (isEmail) {
+            await welcomeMessageService.sendEmailWelcome(authData.user.id, recipient, fullName);
+          } else {
+            await welcomeMessageService.sendSMSWelcome(authData.user.id, recipient, fullName);
+          }
+        } catch (welcomeError) {
+          console.warn('Envoi message de bienvenue échoué (non bloquant):', welcomeError);
         }
       }
 

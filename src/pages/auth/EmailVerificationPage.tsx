@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Mail, CheckCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/shared/useToast';
-import { supabase } from '@/services/supabase/client';
 
 export default function EmailVerificationPage() {
   const navigate = useNavigate();
@@ -30,7 +29,7 @@ export default function EmailVerificationPage() {
     e.preventDefault();
 
     if (!email) {
-      toast.error('Email manquant. Veuillez recommencer l\'inscription.');
+      toast.error("Email manquant. Veuillez recommencer l'inscription.");
       navigate('/inscription');
       return;
     }
@@ -44,13 +43,13 @@ export default function EmailVerificationPage() {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-email-otp`,
+        `${import.meta.env.SUPABASE_URL}/functions/v1/verify-email-otp`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${import.meta.env.SUPABASE_ANON_KEY}`,
+            apikey: import.meta.env.SUPABASE_ANON_KEY,
           },
           body: JSON.stringify({
             email,
@@ -68,10 +67,10 @@ export default function EmailVerificationPage() {
 
       toast.success('Email vérifié avec succès ! Vous pouvez maintenant vous connecter.');
       navigate('/connexion?verified=true');
-
-    } catch (error: any) {
+    } catch (error) {
       console.error('Verification error:', error);
-      toast.error(error.message || 'Code invalide ou expiré');
+      const errorMessage = error instanceof Error ? error.message : 'Code invalide ou expiré';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -84,13 +83,13 @@ export default function EmailVerificationPage() {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-otp`,
+        `${import.meta.env.SUPABASE_URL}/functions/v1/send-verification-otp`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${import.meta.env.SUPABASE_ANON_KEY}`,
+            apikey: import.meta.env.SUPABASE_ANON_KEY,
           },
           body: JSON.stringify({
             email,
@@ -102,17 +101,17 @@ export default function EmailVerificationPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Erreur lors de l\'envoi du code');
+        throw new Error(result.error || "Erreur lors de l'envoi du code");
       }
 
       toast.success('Un nouveau code a été envoyé');
       setCode('');
       setTimeLeft(60);
       setCanResend(false);
-
-    } catch (error: any) {
+    } catch (error) {
       console.error('Resend error:', error);
-      toast.error(error.message || 'Erreur lors de l\'envoi du code');
+      const errorMessage = error instanceof Error ? error.message : "Erreur lors de l'envoi du code";
+      toast.error(errorMessage);
     } finally {
       setIsResending(false);
     }
@@ -124,7 +123,11 @@ export default function EmailVerificationPage() {
   };
 
   // Formatage visuel du code (3 groupes de 2 chiffres)
-  const displayCode = code.padEnd(6, '_').match(/.{1,2}/g)?.join(' ') || '';
+  const displayCode =
+    code
+      .padEnd(6, '_')
+      .match(/.{1,2}/g)
+      ?.join(' ') || '';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#FAF7F4] to-[#EFEBE9] flex items-center justify-center p-4">

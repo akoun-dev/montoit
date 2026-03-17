@@ -1,8 +1,8 @@
 /**
- * Edge Function: send-sms-azure
+ * Edge Function: sms-otp-send
  *
- * Envoi de SMS via l'API Azure MTN avec les credentials ANSUT
- * Architecture: Frontend → Supabase Edge Function → Azure MTN API
+ * Envoi de SMS via l'API Gateway Azure (MTN)
+ * Architecture: Frontend → Supabase Edge Function → Azure Gateway API
  *
  * Configuration requise dans Supabase Secrets:
  * - AZURE_SMS_URL: URL de la passerelle SMS Azure (https://ansuthub.westeurope.cloudapp.azure.com/gateway/api)
@@ -129,7 +129,7 @@ serve(async (req: Request) => {
     // Validate payload
     const validation = validatePayload(body);
     if (!validation.valid || !validation.data) {
-      console.error('[send-sms-azure] Validation error:', validation.error);
+      console.error('[sms-otp-send] Validation error:', validation.error);
       return new Response(
         JSON.stringify({ status: 'error', reason: validation.error } as SmsResponse),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -145,7 +145,7 @@ serve(async (req: Request) => {
     const azureFrom = Deno.env.get('AZURE_SMS_FROM');
 
     if (!azureUrl || !azureUsername || !azurePassword || !azureFrom) {
-      console.error('[send-sms-azure] Azure SMS configuration missing');
+      console.error('[sms-otp-send] Azure SMS configuration missing');
       return new Response(
         JSON.stringify({
           status: 'error',
@@ -158,10 +158,10 @@ serve(async (req: Request) => {
     // Build Azure MTN URL
     const smsUrl = buildAzureUrl(phone, message);
 
-    console.log('[send-sms-azure] Sending SMS to:', phone.substring(0, 6) + '****');
-    console.log('[send-sms-azure] Message length:', message.length);
+    console.log('[sms-otp-send] Sending SMS to:', phone.substring(0, 6) + '****');
+    console.log('[sms-otp-send] Message length:', message.length);
     console.log(
-      '[send-sms-azure] Using URL (sanitized):',
+      '[sms-otp-send] Using URL (sanitized):',
       smsUrl.replace(/Username=[^&]*/, 'Username=***').replace(/Password=[^&]*/, 'Password=***')
     );
 
@@ -170,9 +170,9 @@ serve(async (req: Request) => {
     let responseText = '';
 
     try {
-      console.log('[send-sms-azure] Attempting fetch to Azure MTN API...');
+      console.log('[sms-otp-send] Attempting fetch to Azure MTN API...');
       console.log(
-        '[send-sms-azure] Full URL (sanitized):',
+        '[sms-otp-send] Full URL (sanitized):',
         smsUrl.replace(/Username=[^&]*/, 'Username=***').replace(/Password=[^&]*/, 'Password=***')
       );
       azureResponse = await fetch(smsUrl, {
@@ -183,14 +183,14 @@ serve(async (req: Request) => {
       });
 
       responseText = await azureResponse.text();
-      console.log('[send-sms-azure] Azure response status:', azureResponse.status);
-      console.log('[send-sms-azure] Azure response length:', responseText.length);
+      console.log('[sms-otp-send] Azure response status:', azureResponse.status);
+      console.log('[sms-otp-send] Azure response length:', responseText.length);
       console.log(
-        '[send-sms-azure] Azure response (first 500 chars):',
+        '[sms-otp-send] Azure response (first 500 chars):',
         responseText.substring(0, 500)
       );
     } catch (fetchError) {
-      console.error('[send-sms-azure] Fetch error:', fetchError);
+      console.error('[sms-otp-send] Fetch error:', fetchError);
       return new Response(
         JSON.stringify({
           status: 'error',
@@ -204,7 +204,7 @@ serve(async (req: Request) => {
     }
 
     if (!azureResponse.ok) {
-      console.error('[send-sms-azure] Azure error:', azureResponse.status, responseText);
+      console.error('[sms-otp-send] Azure error:', azureResponse.status, responseText);
 
       return new Response(
         JSON.stringify({
@@ -224,7 +224,7 @@ serve(async (req: Request) => {
 
     try {
       const responseData = JSON.parse(responseText);
-      console.log('[send-sms-azure] Azure response data:', responseData);
+      console.log('[sms-otp-send] Azure response data:', responseData);
 
       if (Array.isArray(responseData) && responseData.length > 0) {
         azureStatus = responseData[0].status || 'unknown';
@@ -239,7 +239,7 @@ serve(async (req: Request) => {
       azureReason = responseText.substring(0, 100);
     }
 
-    console.log('[send-sms-azure] Azure status:', azureStatus, 'reason:', azureReason);
+    console.log('[sms-otp-send] Azure status:', azureStatus, 'reason:', azureReason);
 
     // Générer un ID de message unique basé sur le timestamp et le numéro
     const messageId = `AZURE_${Date.now()}_${phone.substring(phone.length - 6)}`;
@@ -259,7 +259,7 @@ serve(async (req: Request) => {
       );
     }
 
-    console.log('[send-sms-azure] SMS sent successfully, messageId:', messageId);
+    console.log('[sms-otp-send] SMS sent successfully, messageId:', messageId);
 
     return new Response(
       JSON.stringify({
@@ -270,7 +270,7 @@ serve(async (req: Request) => {
     );
   } catch (error) {
     console.error(
-      '[send-sms-azure] Unexpected error:',
+      '[sms-otp-send] Unexpected error:',
       error instanceof Error ? error.message : 'Unknown'
     );
     return new Response(

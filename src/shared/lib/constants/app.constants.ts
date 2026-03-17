@@ -4,8 +4,8 @@
  */
 
 // API & Environment
-export const API_URL = import.meta.env['VITE_SUPABASE_URL'];
-export const ANON_KEY = import.meta.env['VITE_SUPABASE_ANON_KEY'];
+export const API_URL = import.meta.env['SUPABASE_URL'];
+export const ANON_KEY = import.meta.env['SUPABASE_ANON_KEY'];
 
 // Routes
 export const ROUTES = {

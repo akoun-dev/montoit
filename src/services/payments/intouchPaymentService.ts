@@ -29,10 +29,7 @@ class InTouchService {
    * Vérifie si le service InTouch est configuré
    */
   isConfigured(): boolean {
-    return !!(
-      import.meta.env.VITE_INTOUCH_USERNAME &&
-      import.meta.env.VITE_INTOUCH_PASSWORD
-    );
+    return !!(import.meta.env.VITE_INTOUCH_USERNAME && import.meta.env.VITE_INTOUCH_PASSWORD);
   }
 
   /**
@@ -47,12 +44,14 @@ class InTouchService {
     console.log('[InTouch] Initiating payment via Edge Function:', data);
 
     // Récupérer les infos de session Supabase
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) {
       throw new Error('Non authentifié');
     }
 
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseUrl = import.meta.env.SUPABASE_URL;
     const functionUrl = `${supabaseUrl}/functions/v1/initiate-payment`;
 
     console.log('[InTouch] Calling Edge Function with fetch:', functionUrl);
@@ -66,7 +65,7 @@ class InTouchService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify(data),
         signal: controller.signal,
@@ -86,14 +85,14 @@ class InTouchService {
       console.log('[InTouch] Payment response:', responseData);
 
       if (!responseData.success) {
-        throw new Error(responseData.error || 'Erreur lors de l\'initiation du paiement');
+        throw new Error(responseData.error || "Erreur lors de l'initiation du paiement");
       }
 
       return responseData;
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         console.error('[InTouch] Request timeout after 30s');
-        throw new Error('Délai d\'attente dépassé - Le serveur ne répond pas');
+        throw new Error("Délai d'attente dépassé - Le serveur ne répond pas");
       }
       console.error('[InTouch] Payment exception:', err);
       throw err;
@@ -123,7 +122,7 @@ class InTouchService {
   validatePhoneNumber(phone: string): {
     valid: boolean;
     formatted: string;
-    error?: string
+    error?: string;
   } {
     const cleaned = phone.replace(/\D/g, '');
 
@@ -132,7 +131,7 @@ class InTouchService {
       return {
         valid: false,
         formatted: cleaned,
-        error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${cleaned.length})`
+        error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${cleaned.length})`,
       };
     }
 
@@ -140,7 +139,7 @@ class InTouchService {
       return {
         valid: false,
         formatted: cleaned,
-        error: 'Numéro de téléphone invalide (trop long)'
+        error: 'Numéro de téléphone invalide (trop long)',
       };
     }
 
@@ -151,7 +150,7 @@ class InTouchService {
       return {
         valid: false,
         formatted,
-        error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${formatted.length})`
+        error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${formatted.length})`,
       };
     }
 
@@ -170,7 +169,7 @@ class InTouchService {
       return {
         valid: false,
         formatted,
-        error: `Préfixe de numéro invalide pour Mobile Money (${prefix}). Préfixes valides: 01 (Moov), 05 (MTN), 07 (Orange), 04 (Wave)`
+        error: `Préfixe de numéro invalide pour Mobile Money (${prefix}). Préfixes valides: 01 (Moov), 05 (MTN), 07 (Orange), 04 (Wave)`,
       };
     }
 
@@ -182,8 +181,4 @@ class InTouchService {
 export const intouchService = new InTouchService();
 
 // Export types
-export type {
-  PaymentRequest,
-  PaymentResponse,
-  MobileMoneyOperator,
-};
+export type { PaymentRequest, PaymentResponse, MobileMoneyOperator };

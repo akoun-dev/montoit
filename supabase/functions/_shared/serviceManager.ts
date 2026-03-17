@@ -1,19 +1,36 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.39.7";
 
 export interface ServiceConfig {
   provider: string;
   is_enabled: boolean;
   priority: number;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
 }
 
 export class ServiceManager {
   private supabase;
 
   constructor() {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('[ServiceManager] Missing required environment variables:', {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseServiceKey
+      });
+      throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    }
+
     this.supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      supabaseUrl,
+      supabaseServiceKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
     );
   }
 
@@ -47,8 +64,8 @@ export class ServiceManager {
    */
   async executeWithFallback<T>(
     serviceName: string,
-    handlers: Record<string, (config: ServiceConfig, params: any) => Promise<T>>,
-    params: any
+    handlers: Record<string, (config: ServiceConfig, params: unknown) => Promise<T>>,
+    params: unknown
   ): Promise<T> {
     const configs = await this.getServiceConfigs(serviceName);
 
@@ -56,7 +73,7 @@ export class ServiceManager {
       throw new Error(`No enabled providers found for service: ${serviceName}`);
     }
 
-    const errors: Array<{ provider: string; error: any }> = [];
+    const errors: Array<{ provider: string; error: string }> = [];
 
     for (const config of configs) {
       const handler = handlers[config.provider];
@@ -77,9 +94,9 @@ export class ServiceManager {
         await this.logServiceUsage(serviceName, config.provider, 'success', null, duration);
 
         return result;
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(`[ServiceManager] ❌ Failed with ${config.provider}:`, error);
-        errors.push({ provider: config.provider, error: error.message });
+        errors.push({ provider: config.provider, error: error instanceof Error ? error.message : String(error) });
 
         await this.logServiceUsage(serviceName, config.provider, 'failure', error.message, 0);
 

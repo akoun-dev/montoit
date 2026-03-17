@@ -3,7 +3,7 @@
  * Permet d'accéder aux règles paramétrables depuis le backend
  */
 
-const SUPABASE_URL = import.meta.env['VITE_SUPABASE_URL'];
+const SUPABASE_URL = import.meta.env['SUPABASE_URL'];
 const SUPABASE_KEY = import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'];
 
 export interface BusinessRule {

@@ -1,7 +1,7 @@
 /**
- * OTP Unified Service - Resend Integration
+ * OTP Unified Service - Azure Gateway Integration
  *
- * Service unifié pour la gestion des codes OTP via Resend
+ * Service unifié pour la gestion des codes OTP via Azure Gateway
  * Supporte Email et SMS pour l'authentification
  */
 
@@ -28,11 +28,27 @@ export interface OTPResult {
   messageId?: string;
 }
 
+export type OTPErrorCode =
+  | 'INVALID_OTP'
+  | 'USER_EXISTS_CONFLICT'
+  | 'REGISTRATION_FAILED'
+  | 'SESSION_GENERATION_FAILED'
+  | 'INTERNAL_LOGIN_ERROR'
+  | 'INTERNAL_SERVER_ERROR'
+  | 'SERVER_CONFIG_ERROR'
+  | 'MISSING_INPUT'
+  | string;
+
 export interface OTPVerificationResult {
   success: boolean;
   error?: string;
+  errorCode?: OTPErrorCode;
+  details?: unknown;
   isNewUser?: boolean;
   userId?: string;
+  action?: 'needsName' | 'register' | 'login' | 'complete';
+  sessionUrl?: string;
+  needsProfileCompletion?: boolean;
 }
 
 class OTPUnifiedService {
@@ -54,7 +70,7 @@ class OTPUnifiedService {
    * - Domaine : lettres, chiffres, tirets, points
    * - TLD : minimum 2 caractères
    */
-  private readonly EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+  private readonly EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9]{0,61}[a-zA-Z0-9])?)+$/;
 
   /**
    * Valide un format d'email
@@ -114,7 +130,7 @@ class OTPUnifiedService {
         code,
         method,
         purpose,
-        expires_at: expiresAt.toISOString(),
+        expires_at: expiresAt,
         attempts: 0,
         created_at: new Date().toISOString(),
       });
@@ -135,29 +151,24 @@ class OTPUnifiedService {
   }
 
   /**
-   * Envoie un OTP par email via Resend
+   * Envoie un OTP par email via Azure Gateway
    */
   private async sendEmailOTP(
     recipient: string,
     otp: string,
-    userName?: string,
+    userName?: string
   ): Promise<OTPResult> {
+    // OTP and userName are not directly used in this implementation
+    // The edge function handles OTP generation internally
+    void otp;
+    void userName;
     try {
-      const { data, error } = await supabase.functions.invoke(
-        "send-email",
-        {
-          body: {
-            to: recipient,
-            template: "email-verification",
-            data: {
-              otp,
-              name: userName || "utilisateur",
-              email: recipient,
-              expiresIn: 10,
-            },
-          },
+      const { data, error } = await supabase.functions.invoke("email-otp-send", {
+        body: {
+          email: recipient,
+          purpose: "email_verification",
         },
-      );
+      });
 
       if (error) {
         console.error("Erreur envoi OTP email:", error);
@@ -167,10 +178,12 @@ class OTPUnifiedService {
         };
       }
 
+      // email-otp-send renvoie: { success, message, expiresIn }
+      // On considère que success === true est OK
       return {
         success: data?.success === true,
-        error: data?.error,
-        messageId: data?.id,
+        error: data?.success === false ? (data?.message || "Erreur inconnue") : undefined,
+        messageId: undefined, // email-otp-send ne renvoie pas messageId
       };
     } catch (error) {
       console.error("Exception envoi OTP email:", error);
@@ -185,31 +198,28 @@ class OTPUnifiedService {
    * Envoie un OTP par SMS via Azure MTN
    */
   private async sendSMSOTP(recipient: string, otp: string): Promise<OTPResult> {
-    console.log("[OTP] 📤 Envoi SMS OTP:", { recipient, otp });
+    console.log("[OTP] Envoi SMS OTP:", { recipient, otp });
     const formattedPhone = this.formatPhoneNumber(recipient);
-    console.log("[OTP] Numéro formaté:", formattedPhone);
+    console.log("[OTP] Numero formaté:", formattedPhone);
 
     const message =
       `MonToit: Votre code de verification est ${otp}. Valide 10min. Ne partagez jamais ce code.`;
     console.log("[OTP] Message:", message);
 
     try {
-      console.log("[OTP] Appel Edge Function send-sms-azure...");
-      const { data, error } = await supabase.functions.invoke(
-        "send-sms-azure",
-        {
-          body: {
-            phone: formattedPhone,
-            message,
-            tag: "AUTH_OTP",
-          },
+      console.log("[OTP] Appel Edge Function sms-otp-send...");
+      const { data, error } = await supabase.functions.invoke("sms-otp-send", {
+        body: {
+          phone: formattedPhone,
+          message,
+          tag: "AUTH_OTP",
         },
-      );
+      });
 
-      console.log("[OTP] Réponse Edge Function:", { data, error });
+      console.log("[OTP] Reponse Edge Function:", { data, error });
 
       if (error) {
-        console.error("[OTP] ❌ Erreur envoi OTP SMS:", error);
+        console.error("[OTP] Erreur envoi OTP SMS:", error);
         console.error("[OTP] Error details:", {
           message: error.message,
           status: error.status,
@@ -221,20 +231,19 @@ class OTPUnifiedService {
       }
 
       if (data?.status === "ok") {
-        console.log("[OTP] ✅ SMS OTP envoyé avec succès:", {
+        console.log("[OTP] SMS envoye avec succes:", {
           messageId: data.messageId,
         });
       } else {
-        console.error("[OTP] ❌ Statut error dans la réponse:", data);
+        console.error("[OTP] Statut error dans la reponse:", data);
       }
-
       return {
         success: data?.status === "ok",
         error: data?.status === "error" ? data?.reason : undefined,
         messageId: data?.messageId,
       };
     } catch (error) {
-      console.error("[OTP] ❌ Exception envoi OTP SMS:", error);
+      console.error("[OTP] Exception envoi OTP SMS:", error);
       return {
         success: false,
         error: "Erreur lors de l'envoi du SMS",
@@ -247,23 +256,20 @@ class OTPUnifiedService {
    */
   private async sendWhatsAppOTP(
     recipient: string,
-    otp: string,
+    otp: string
   ): Promise<OTPResult> {
     try {
       // Message optimisé pour WhatsApp
       const message =
         `MonToit: Votre code de verification est ${otp}. Valide 10min. Ne partagez jamais ce code.`;
 
-      const { data, error } = await supabase.functions.invoke(
-        "send-sms-azure",
-        {
-          body: {
-            phone: this.formatPhoneNumber(recipient),
-            message,
-            tag: "WHATSAPP_OTP",
-          },
+      const { data, error } = await supabase.functions.invoke("sms-otp-send", {
+        body: {
+          phone: this.formatPhoneNumber(recipient),
+          message,
+          tag: "WHATSAPP_OTP",
         },
-      );
+      });
 
       if (error) {
         console.error("Erreur envoi OTP WhatsApp:", error);
@@ -291,7 +297,7 @@ class OTPUnifiedService {
    * Envoie un code OTP
    */
   async sendOTP(request: OTPRequest): Promise<OTPResult> {
-    console.log("[OTP] 🚀 sendOTP appelé avec:", request);
+    console.log("[OTP] sendOTP appelé avec:", request);
 
     const {
       recipient,
@@ -301,7 +307,7 @@ class OTPUnifiedService {
       expiresIn = this.DEFAULT_EXPIRY,
     } = request;
 
-    console.log("[OTP] Paramètres:", {
+    console.log("[OTP] Parametres:", {
       recipient,
       method,
       userName,
@@ -311,22 +317,22 @@ class OTPUnifiedService {
 
     // Validation de base
     if (!recipient || !method) {
-      console.error("[OTP] ❌ Destinataire ou méthode manquant");
+      console.error("[OTP] Destinataire ou methode manquant");
       return {
         success: false,
-        error: "Destinataire et méthode requis",
+        error: "Destinataire et methode requis",
       };
     }
 
-    // Valider la cohérence email/méthode
+    // Valider la coherence email/methode
     const recipientType = this.detectRecipientType(recipient);
-    console.log("[OTP] Type détecté:", recipientType);
+    console.log("[OTP] Type detecté:", recipientType);
 
     if (method === "email" && recipientType !== "email") {
-      console.error("[OTP] ❌ Méthode email incompatible avec le destinataire");
+      console.error("[OTP] Methode email incompatible avec le destinataire");
       return {
         success: false,
-        error: "Méthode email incompatible avec le destinataire",
+        error: "Methode email incompatible avec le destinataire",
       };
     }
 
@@ -334,16 +340,16 @@ class OTPUnifiedService {
       (method === "sms" || method === "whatsapp") && recipientType !== "phone"
     ) {
       console.error(
-        "[OTP] ❌ Méthode SMS/WhatsApp incompatible avec le destinataire",
+        "[OTP] Methode SMS/WhatsApp incompatible avec le destinataire"
       );
       return {
         success: false,
-        error: "Méthode SMS/WhatsApp incompatible avec le destinataire",
+        error: "Methode SMS/WhatsApp incompatible avec le destinataire",
       };
     }
 
-    // Vérifier le rate limiting
-    console.log("[OTP] Vérification rate limit...");
+    // Verifier le rate limiting
+    console.log("[OTP] Verification rate limit...");
     const rateLimitCheck = await this.checkRateLimit(
       recipient,
       "otp-send",
@@ -352,21 +358,21 @@ class OTPUnifiedService {
       3,
     );
     if (!rateLimitCheck.allowed) {
-      console.error("[OTP] ❌ Rate limit dépassé:", rateLimitCheck);
+      console.error("[OTP] Rate limit depasse:", rateLimitCheck);
       return {
         success: false,
         error:
-          `Trop de tentatives. Réessayez dans ${rateLimitCheck.remainingTime} secondes.`,
+          `Trop de tentatives. Reessayez dans ${rateLimitCheck.remainingTime} secondes.`,
       };
     }
-    console.log("[OTP] ✅ Rate limit OK");
+    console.log("[OTP] Rate limit OK");
 
-    // Générer l'OTP
+    // Generer l'OTP
     const otp = this.generateOTP();
-    console.log("[OTP] 🔐 OTP généré (longueur:", otp.length, ")");
+    console.log("[OTP] OTP genere (longueur:", otp.length, ")");
 
     // Stocker l'OTP
-    console.log("[OTP] 💾 Stockage OTP en base...");
+    console.log("[OTP] Stockage OTP en base...");
     const storageResult = await this.storeOTP(
       recipient,
       otp,
@@ -375,16 +381,16 @@ class OTPUnifiedService {
       purpose,
     );
     if (!storageResult.success) {
-      console.error("[OTP] ❌ Erreur stockage OTP:", storageResult.error);
+      console.error("[OTP] Erreur stockage OTP:", storageResult.error);
       return {
         success: false,
         error: storageResult.error,
       };
     }
-    console.log("[OTP] ✅ OTP stocké avec succès");
+    console.log("[OTP] OTP stocke avec succes");
 
-    // Envoyer selon la méthode
-    console.log("[OTP] 📤 Envoi OTP par", method);
+    // Envoyer selon la methode
+    console.log("[OTP] Envoi OTP par", method);
     let sendResult: OTPResult;
 
     switch (method) {
@@ -398,19 +404,19 @@ class OTPUnifiedService {
         sendResult = await this.sendWhatsAppOTP(recipient, otp);
         break;
       default:
-        console.error("[OTP] ❌ Méthode non supportée:", method);
+        console.error("[OTP] Methode non supportee:", method);
         return {
           success: false,
-          error: "Méthode non supportée",
+          error: "Methode non supportee",
         };
     }
 
-    console.log("[OTP] Résultat final:", sendResult);
+    console.log("[OTP] Resultat final:", sendResult);
     return sendResult;
   }
 
   /**
-   * Vérifie un code OTP
+   * Verifie un code OTP
    */
   async verifyOTP(
     verification: OTPVerification,
@@ -418,7 +424,7 @@ class OTPUnifiedService {
     const { recipient, code, method } = verification;
 
     try {
-      // Formater le recipient si c'est un numéro de téléphone
+      // Formater le recipient si c'est un numero de telephone
       let searchRecipient = recipient;
       if (method === "sms" || method === "whatsapp") {
         searchRecipient = this.formatPhoneNumber(recipient);
@@ -429,7 +435,6 @@ class OTPUnifiedService {
         .from("otp_codes")
         .select("*")
         .eq("recipient", searchRecipient)
-        .eq("method", method)
         .eq("code", code)
         .gte("expires_at", new Date().toISOString())
         .order("created_at", { ascending: false })
@@ -437,17 +442,19 @@ class OTPUnifiedService {
         .single();
 
       if (fetchError) {
-        console.error("Erreur vérification OTP:", fetchError);
+        console.error("Erreur verification OTP:", fetchError);
         return {
           success: false,
-          error: "Code invalide ou expiré",
+          errorCode: "INVALID_OTP",
+          error: "Code invalide ou expire",
         };
       }
 
       if (!otpData) {
         return {
           success: false,
-          error: "Code invalide ou expiré",
+          errorCode: "INVALID_OTP",
+          error: "Code invalide ou expire",
         };
       }
 
@@ -489,10 +496,10 @@ class OTPUnifiedService {
         userId,
       };
     } catch (error) {
-      console.error("Exception vérification OTP:", error);
+      console.error("Exception verification OTP:", error);
       return {
         success: false,
-        error: "Erreur lors de la vérification",
+        error: "Erreur lors de la verification",
       };
     }
   }
@@ -510,10 +517,11 @@ class OTPUnifiedService {
     // Le paramètre action est réservé pour une utilisation future
     void action;
     try {
-      const cutoffTime = new Date(Date.now() - windowMinutes * 60 * 1000)
-        .toISOString();
+      const cutoffTime = new Date(
+        Date.now() - windowMinutes * 60 * 1000
+      ).toISOString();
 
-      // Formater le recipient si c'est un numéro de téléphone
+      // Formater le recipient si c'est un numero de telephone
       let searchRecipient = recipient;
       if (this.detectRecipientType(recipient) === "phone") {
         searchRecipient = this.formatPhoneNumber(recipient);
@@ -537,7 +545,7 @@ class OTPUnifiedService {
 
       const lastAttempt = new Date(data[0].created_at);
       const remainingTime = Math.ceil(
-        (lastAttempt.getTime() + windowMinutes * 60 * 1000 - Date.now()) / 1000,
+        (lastAttempt.getTime() + windowMinutes * 60 * 1000 - Date.now()) / 1000
       );
 
       return { allowed: false, remainingTime: Math.max(0, remainingTime) };
