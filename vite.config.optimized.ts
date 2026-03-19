@@ -36,7 +36,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ['lucide-react'],
-    include: ['mapbox-gl'],
+    noDiscovery: true,
   },
 });
