@@ -1,23 +1,21 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
-  ArrowRight,
   Home,
-  X,
-  Image as ImageIcon,
-  Building2,
-  Check,
-  RefreshCw,
   MapPin,
-  DollarSign,
-  Settings,
-  FileText,
-  Navigation,
+  Camera,
+  X,
   Loader2,
+  Check,
+  Car,
+  TreePine,
+  Sofa,
+  Wind,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { NativeCameraUpload } from '@/components/native';
-import Modal from '@/shared/ui/Modal';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import {
@@ -25,14 +23,8 @@ import {
   COMMERCIAL_PROPERTY_TYPES,
   CITIES,
   ABIDJAN_COMMUNES,
-  STORAGE_KEYS,
 } from '@/shared/lib/constants/app.constants';
-import { ValidationService } from '@/services/validation';
-import { useFormValidation } from '@/hooks/shared/useFormValidation';
-import { ValidatedInput } from '@/shared/ui/ValidatedInput';
-import { ValidatedTextarea } from '@/shared/ui/ValidatedTextarea';
 import type { Database } from '@/shared/lib/database.types';
-import { useNativeGeolocation } from '@/hooks/native/useNativeGeolocation';
 
 type PropertyType = Database['public']['Tables']['properties']['Row']['property_type'];
 
@@ -55,17 +47,8 @@ interface PropertyFormData {
   furnished: boolean;
   has_ac: boolean;
   is_anonymous: boolean;
-  latitude?: number | null;
-  longitude?: number | null;
 }
 
-// Character limits
-const TITLE_MIN = 10;
-const TITLE_MAX = 100;
-const DESC_MIN = 50;
-const DESC_MAX = 1000;
-
-// Initial form data
 const INITIAL_FORM_DATA: PropertyFormData = {
   title: '',
   description: '',
@@ -85,1567 +68,598 @@ const INITIAL_FORM_DATA: PropertyFormData = {
   furnished: false,
   has_ac: false,
   is_anonymous: false,
-  latitude: null,
-  longitude: null,
 };
 
-// Step configuration
-const STEPS = [
-  { id: 1, label: 'Photos & Infos', icon: ImageIcon },
-  { id: 2, label: 'Localisation', icon: MapPin },
-  { id: 3, label: 'Tarification', icon: DollarSign },
-];
-
-const toDbCategory = (category: PropertyFormData['property_category']) =>
-  category === 'commercial' ? 'commercial' : 'residential';
-
-const toUiCategory = (category?: string | null): PropertyFormData['property_category'] =>
-  category === 'commercial' ? 'commercial' : 'residential';
-
-export default function AddProperty() {
-  return <AddPropertyContent />;
-}
-
-// Type pour suivre les images existantes vs nouvelles
-interface ExistingImage {
-  url: string;
-  id: string; // URL comme identifiant unique
-}
-
-export function AddPropertyContent() {
+export default function AddPropertyPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [slideDirection, setSlideDirection] = useState<'forward' | 'backward'>('forward');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [uploadingImages, setUploadingImages] = useState(false);
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  // Nouvel: suivi des images existantes de la base de données
-  const [existingImages, setExistingImages] = useState<ExistingImage[]>([]);
-  const [removedExistingImageUrls, setRemovedExistingImageUrls] = useState<string[]>([]);
-  const [draftSaved, setDraftSaved] = useState(false);
-  const [hasDraft, setHasDraft] = useState(false);
-  const [showDraftModal, setShowDraftModal] = useState(false);
-  const [pendingDraftData, setPendingDraftData] = useState<PropertyFormData | null>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Hook de géolocalisation
-  const {
-    position: geoPosition,
-    isLoading: geoLoading,
-    error: geoError,
-    getCurrentPosition,
-  } = useNativeGeolocation({ enableHighAccuracy: true });
-
-  // Hook de validation
-  const { validateField, getFieldState, setFieldTouched } = useFormValidation<PropertyFormData>();
-
-  const [formData, setFormData] = useState<PropertyFormData>(INITIAL_FORM_DATA);
-
   const [searchParams] = useSearchParams();
   const editPropertyId = searchParams.get('edit');
   const isEditMode = !!editPropertyId;
-  // Le layout est déjà géré par les routes, pas besoin d'encapsuler
 
-  // Load draft from localStorage on mount - show confirmation modal
-  useEffect(() => {
-    const savedDraft = localStorage.getItem(STORAGE_KEYS.PROPERTY_DRAFT);
-    if (savedDraft) {
-      try {
-        const parsed = JSON.parse(savedDraft);
-        // Show modal if draft has significant data
-        if (parsed.title || parsed.description || parsed.address) {
-          setPendingDraftData(parsed);
-          setShowDraftModal(true);
-        }
-      } catch {
-        // Remove corrupted draft
-        localStorage.removeItem(STORAGE_KEYS.PROPERTY_DRAFT);
-      }
-    }
-  }, []);
-
-  const loadPropertyData = useCallback(
-    async (propertyId: string) => {
-      if (!user) {
-        navigate('/connexion');
-        return;
-      }
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('properties')
-          .select('*')
-          .eq('id', propertyId)
-          .eq('owner_id', user.id)
-          .single();
-
-        if (error) {
-          console.error('Error loading property:', error);
-          alert('Erreur lors du chargement de la propriété');
-          navigate('/proprietaire/mes-biens');
-          return;
-        }
-
-        if (data) {
-          const addressValue =
-            typeof data.address === 'string'
-              ? data.address
-              : ((data as unknown as { address?: { street?: string } })?.address?.street ?? '');
-
-          // Charger les images existantes depuis la base de données
-          const images = data.images || [];
-          const existingImagesData: ExistingImage[] = images.map((url: string) => ({
-            url,
-            id: url,
-          }));
-
-          setExistingImages(existingImagesData);
-          setRemovedExistingImageUrls([]);
-
-          setFormData({
-            title: data.title || '',
-            description: data.description || '',
-            address: addressValue,
-            city: data.city || '',
-            neighborhood: data.neighborhood || '',
-            property_type: (data.property_type as PropertyType) || 'apartment',
-            property_category: toUiCategory(data.property_category),
-            bedrooms: data.bedrooms ?? 0,
-            bathrooms: data.bathrooms ?? 0,
-            surface_area: data.surface_area?.toString() || '',
-            monthly_rent: (data.monthly_rent ?? data.price ?? '').toString(),
-            deposit_amount: data.deposit_amount?.toString() || '',
-            charges_amount: data.charges_amount?.toString() || '',
-            has_parking: data.has_parking ?? false,
-            has_garden: data.has_garden ?? false,
-            furnished: data.furnished ?? false,
-            has_ac: data.has_ac ?? false,
-            is_anonymous: data.is_anonymous ?? false,
-            latitude: data.latitude ?? null,
-            longitude: data.longitude ?? null,
-          });
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        alert('Une erreur est survenue');
-        navigate('/proprietaire/mes-biens');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [user, navigate]
-  );
+  const [formData, setFormData] = useState<PropertyFormData>(INITIAL_FORM_DATA);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
 
   // Load property data in edit mode
   useEffect(() => {
-    if (isEditMode && editPropertyId) {
+    if (isEditMode && editPropertyId && user) {
       loadPropertyData(editPropertyId);
     }
-  }, [isEditMode, editPropertyId, loadPropertyData]);
+  }, [isEditMode, editPropertyId, user]);
 
-  // Save draft to localStorage with debounce
-  const saveDraft = useCallback(() => {
-    localStorage.setItem(STORAGE_KEYS.PROPERTY_DRAFT, JSON.stringify(formData));
-    setDraftSaved(true);
-    setTimeout(() => setDraftSaved(false), 2000);
-  }, [formData]);
+  const loadPropertyData = async (propertyId: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('properties')
+        .select('*')
+        .eq('id', propertyId)
+        .eq('owner_id', user?.id)
+        .single();
 
-  // Auto-save draft on form changes (debounced)
-  useEffect(() => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    saveTimeoutRef.current = setTimeout(() => {
-      if (formData.title || formData.description || formData.city) {
-        saveDraft();
+      if (error || !data) {
+        navigate('/proprietaire/mes-biens');
+        return;
       }
-    }, 3000); // Save after 3 seconds of inactivity
 
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [formData, saveDraft]);
-
-  // Clear draft
-  const clearDraft = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEYS.PROPERTY_DRAFT);
-    setFormData(INITIAL_FORM_DATA);
-    setHasDraft(false);
-    setImageFiles([]);
-    setImagePreviews([]);
-    setExistingImages([]);
-    setRemovedExistingImageUrls([]);
-    setStep(1);
-  }, []);
-
-  // Handler for "Continue draft"
-  const handleContinueDraft = () => {
-    if (pendingDraftData) {
-      setFormData((prev) => ({ ...prev, ...pendingDraftData }));
-      setHasDraft(true);
+      setExistingImages(data.images || []);
+      setFormData({
+        title: data.title || '',
+        description: data.description || '',
+        address: typeof data.address === 'string' ? data.address : '',
+        city: data.city || '',
+        neighborhood: data.neighborhood || '',
+        property_type: (data.property_type as PropertyType) || 'apartment',
+        property_category: data.property_category === 'commercial' ? 'commercial' : 'residential',
+        bedrooms: data.bedrooms ?? 1,
+        bathrooms: data.bathrooms ?? 1,
+        surface_area: data.surface_area?.toString() || '',
+        monthly_rent: (data.monthly_rent ?? data.price ?? '').toString(),
+        deposit_amount: data.deposit_amount?.toString() || '',
+        charges_amount: data.charges_amount?.toString() || '0',
+        has_parking: data.has_parking ?? false,
+        has_garden: data.has_garden ?? false,
+        furnished: data.furnished ?? false,
+        has_ac: data.has_ac ?? false,
+        is_anonymous: data.is_anonymous ?? false,
+      });
+    } catch {
+      navigate('/proprietaire/mes-biens');
+    } finally {
+      setLoading(false);
     }
-    setShowDraftModal(false);
-    setPendingDraftData(null);
   };
 
-  // Handler for "Start fresh"
-  const handleStartFresh = () => {
-    localStorage.removeItem(STORAGE_KEYS.PROPERTY_DRAFT);
-    setFormData(INITIAL_FORM_DATA);
-    setHasDraft(false);
-    setImageFiles([]);
-    setImagePreviews([]);
-    setExistingImages([]);
-    setRemovedExistingImageUrls([]);
-    setShowDraftModal(false);
-    setPendingDraftData(null);
-  };
-
-  useEffect(() => {
-    const category = formData.property_category;
-    const currentType = formData.property_type;
-
-    const validTypes: string[] =
-      category === 'commercial'
-        ? COMMERCIAL_PROPERTY_TYPES.map((pt) => pt.value)
-        : RESIDENTIAL_PROPERTY_TYPES.map((pt) => pt.value);
-
-    if (!validTypes.includes(currentType)) {
-      setFormData((prev) => ({
-        ...prev,
-        property_type: validTypes[0] as PropertyType,
-      }));
-    }
-  }, [formData.property_category]);
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-
     if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData((prev) => ({ ...prev, [name]: checked }));
+      setFormData(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
     } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
-  // Handler pour la géolocalisation
-  const handleGetMyLocation = async () => {
-    const result = await getCurrentPosition();
-    if (result && result.latitude !== null && result.longitude !== null) {
-      setFormData((prev) => ({
-        ...prev,
-        latitude: result.latitude,
-        longitude: result.longitude,
-      }));
+  const handleImageCapture = useCallback((files: File[]) => {
+    const totalImages = existingImages.length + imagePreviews.length + files.length;
+    if (totalImages > 10) {
+      setError('Maximum 10 photos autorisees');
+      return;
     }
-  };
+    const newPreviews = files.map(file => URL.createObjectURL(file));
+    setImageFiles(prev => [...prev, ...files]);
+    setImagePreviews(prev => [...prev, ...newPreviews]);
+  }, [existingImages.length, imagePreviews.length]);
 
-  // Validation en temps réel pour les champs critiques
-  const handleBlur = (field: keyof PropertyFormData) => {
-    setFieldTouched(field);
-
-    switch (field) {
-      case 'title': {
-        // Validation combinée: longueur + qualité
-        const lengthResult = ValidationService.validateLength(
-          formData.title,
-          TITLE_MIN,
-          TITLE_MAX,
-          'Le titre'
-        );
-        if (!lengthResult.isValid) {
-          validateField('title', () => lengthResult);
-        } else {
-          validateField('title', () => ValidationService.validateTitleQuality(formData.title));
-        }
-        break;
-      }
-      case 'description':
-        if (formData.description) {
-          validateField('description', () =>
-            ValidationService.validateLength(
-              formData.description,
-              DESC_MIN,
-              DESC_MAX,
-              'La description'
-            )
-          );
-        }
-        break;
-      case 'address':
-        validateField('address', () =>
-          ValidationService.validateRequired(formData.address, "L'adresse")
-        );
-        break;
-      case 'city':
-        validateField('city', () => ValidationService.validateRequired(formData.city, 'La ville'));
-        break;
-      case 'monthly_rent':
-        validateField('monthly_rent', () =>
-          ValidationService.validatePositiveNumber(formData.monthly_rent, 'Le loyer')
-        );
-        break;
-      case 'surface_area':
-        if (formData.surface_area) {
-          validateField('surface_area', () =>
-            ValidationService.validatePositiveNumber(formData.surface_area, 'La surface')
-          );
-        }
-        break;
+  const removeImage = (index: number, isExisting: boolean) => {
+    if (isExisting) {
+      setExistingImages(prev => prev.filter((_, i) => i !== index));
+    } else {
+      URL.revokeObjectURL(imagePreviews[index]);
+      setImageFiles(prev => prev.filter((_, i) => i !== index));
+      setImagePreviews(prev => prev.filter((_, i) => i !== index));
     }
-  };
-
-  const getPropertyTypesForCategory = () => {
-    return formData.property_category === 'commercial'
-      ? COMMERCIAL_PROPERTY_TYPES
-      : RESIDENTIAL_PROPERTY_TYPES;
-  };
-
-  // Character count helpers
-  const getTitleCharClass = () => {
-    if (formData.title.length < TITLE_MIN) return 'text-[var(--color-orange)]';
-    if (formData.title.length > TITLE_MAX) return 'text-red-500';
-    return 'text-[var(--color-gris-neutre)]';
-  };
-
-  const getDescCharClass = () => {
-    if (formData.description.length > 0 && formData.description.length < DESC_MIN)
-      return 'text-[var(--color-orange)]';
-    if (formData.description.length > DESC_MAX) return 'text-red-500';
-    return 'text-[var(--color-gris-neutre)]';
-  };
-
-  // Supprimer une nouvelle image (upload en cours)
-  const removeImage = (index: number) => {
-    const newFiles = imageFiles.filter((_, i) => i !== index);
-    const newPreviews = imagePreviews.filter((_, i) => i !== index);
-
-    const previewToRevoke = imagePreviews[index];
-    if (previewToRevoke) {
-      URL.revokeObjectURL(previewToRevoke);
-    }
-
-    setImageFiles(newFiles);
-    setImagePreviews(newPreviews);
-  };
-
-  // Supprimer une image existante (de la base de données)
-  const removeExistingImage = (imageUrl: string) => {
-    setExistingImages((prev) => prev.filter((img) => img.url !== imageUrl));
-    setRemovedExistingImageUrls((prev) => [...prev, imageUrl]);
   };
 
   const uploadImages = async (propertyId: string): Promise<string[]> => {
-    const uploadedUrls: string[] = [];
-
-    console.log('[uploadImages] Starting upload for property:', propertyId);
-    console.log('[uploadImages] Files to upload:', imageFiles.length);
-
+    const urls: string[] = [];
     for (const file of imageFiles) {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${propertyId}/${Math.random().toString(36).substring(7)}.${fileExt}`;
-
-      console.log('[uploadImages] Uploading:', fileName);
-
-      const { error: uploadError } = await supabase.storage
-        .from('property-images')
-        .upload(fileName, file);
-
-      if (uploadError) {
-        console.error('[uploadImages] Upload error:', uploadError);
-        throw uploadError;
-      }
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('property-images').getPublicUrl(fileName);
-
-      console.log('[uploadImages] Public URL:', publicUrl);
-      uploadedUrls.push(publicUrl);
+      const ext = file.name.split('.').pop();
+      const fileName = `${propertyId}/${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await supabase.storage.from('property-images').upload(fileName, file);
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(fileName);
+      urls.push(publicUrl);
     }
-
-    console.log('[uploadImages] All uploads complete:', uploadedUrls);
-    return uploadedUrls;
+    return urls;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      navigate('/connexion');
-      return;
-    }
+    if (!user) return navigate('/connexion');
+
+    // Validation simple
+    if (!formData.title.trim()) return setError('Le titre est requis');
+    if (!formData.city) return setError('La ville est requise');
+    if (!formData.monthly_rent) return setError('Le loyer est requis');
 
     setLoading(true);
     setError('');
 
     try {
-      const monthlyRentValue = Number(formData.monthly_rent);
-      const depositValue = formData.deposit_amount ? Number(formData.deposit_amount) : null;
-      const chargesValue = formData.charges_amount ? Number(formData.charges_amount) : 0;
-      const bedroomsValue = Number(formData.bedrooms);
-      const bathroomsValue = Number(formData.bathrooms);
-      const surfaceValue = formData.surface_area ? Number(formData.surface_area) : null;
-      const normalizedDeposit =
-        depositValue === null || Number.isNaN(depositValue) ? null : depositValue;
-      const normalizedCharges = Number.isNaN(chargesValue) ? 0 : chargesValue;
-      const normalizedSurface =
-        surfaceValue === null || Number.isNaN(surfaceValue) ? null : surfaceValue;
-
-      if (Number.isNaN(monthlyRentValue)) {
-        throw new Error('Le loyer est invalide');
-      }
-
       const propertyData = {
         owner_id: user.id,
         title: formData.title,
         description: formData.description || null,
-        address: formData.address || '',
-        city: formData.city || '',
+        address: formData.address,
+        city: formData.city,
         neighborhood: formData.neighborhood || null,
         property_type: formData.property_type,
-        property_category: toDbCategory(formData.property_category),
-        bedrooms: Number.isNaN(bedroomsValue) ? 0 : bedroomsValue,
-        bathrooms: Number.isNaN(bathroomsValue) ? 0 : bathroomsValue,
-        surface_area: normalizedSurface,
-        price: monthlyRentValue,
-        deposit_amount: normalizedDeposit,
-        charges_amount: normalizedCharges,
-        has_parking: !!formData.has_parking,
-        has_garden: !!formData.has_garden,
-        furnished: !!formData.furnished,
-        has_ac: !!formData.has_ac,
-        is_anonymous: !!formData.is_anonymous,
-        latitude: formData.latitude ?? null,
-        longitude: formData.longitude ?? null,
+        property_category: formData.property_category,
+        bedrooms: Number(formData.bedrooms) || 0,
+        bathrooms: Number(formData.bathrooms) || 0,
+        surface_area: formData.surface_area ? Number(formData.surface_area) : null,
+        price: Number(formData.monthly_rent),
+        deposit_amount: formData.deposit_amount ? Number(formData.deposit_amount) : null,
+        charges_amount: formData.charges_amount ? Number(formData.charges_amount) : 0,
+        has_parking: formData.has_parking,
+        has_garden: formData.has_garden,
+        furnished: formData.furnished,
+        has_ac: formData.has_ac,
+        is_anonymous: formData.is_anonymous,
         status: 'available' as const,
-        images: [],
-        main_image: null,
-        views_count: 0,
+        images: [] as string[],
+        main_image: null as string | null,
       };
 
-      let data, error;
+      let propertyId: string;
 
       if (isEditMode && editPropertyId) {
-        // Update existing property
-        const result = await supabase
+        const { error } = await supabase
           .from('properties')
           .update(propertyData)
           .eq('id', editPropertyId)
-          .eq('owner_id', user.id)
-          .select()
-          .single();
-
-        data = result.data;
-        error = result.error;
+          .eq('owner_id', user.id);
+        if (error) throw error;
+        propertyId = editPropertyId;
       } else {
-        // Create new property
-        const result = await supabase.from('properties').insert(propertyData).select().single();
-
-        data = result.data;
-        error = result.error;
-      }
-
-      if (error) throw error;
-      if (!data)
-        throw new Error(
-          `Erreur lors de ${isEditMode ? 'la mise à jour' : 'la création'} de la propriété`
-        );
-
-      if (imageFiles.length > 0 || existingImages.length > 0 || removedExistingImageUrls.length > 0) {
-        setUploadingImages(true);
-
-        // Upload des nouvelles images
-        let newImageUrls: string[] = [];
-        if (imageFiles.length > 0) {
-          newImageUrls = await uploadImages(data.id);
-        }
-
-        // Calculer les images finales:
-        // - Garder les images existantes qui n'ont pas été supprimées
-        // - Ajouter les nouvelles images uploadées
-        const finalImages = [
-          ...existingImages.map((img) => img.url).filter((url) => !removedExistingImageUrls.includes(url)),
-          ...newImageUrls,
-        ];
-
-        console.log('[handleSubmit] Final images:', {
-          existing: existingImages.length,
-          removed: removedExistingImageUrls.length,
-          new: newImageUrls.length,
-          final: finalImages.length,
-        });
-
-        const { error: updateError } = await supabase
+        const { data, error } = await supabase
           .from('properties')
-          .update({
-            images: finalImages,
-            main_image: finalImages[0] || null,
-          })
-          .eq('id', data.id);
-
-        if (updateError) {
-          console.error('[handleSubmit] Update error:', updateError);
-          throw updateError;
-        }
-
-        console.log('[handleSubmit] Property updated successfully with images');
+          .insert(propertyData)
+          .select('id')
+          .single();
+        if (error || !data) throw error || new Error('Erreur creation');
+        propertyId = data.id;
       }
 
-      // Clear draft after successful submission
-      localStorage.removeItem(STORAGE_KEYS.PROPERTY_DRAFT);
+      // Upload images
+      const newUrls = imageFiles.length > 0 ? await uploadImages(propertyId) : [];
+      const allImages = [...existingImages, ...newUrls];
+
+      if (allImages.length > 0) {
+        await supabase
+          .from('properties')
+          .update({ images: allImages, main_image: allImages[0] })
+          .eq('id', propertyId);
+      }
 
       setSuccess(true);
-      setTimeout(() => {
-        navigate('/proprietaire/mes-biens');
-      }, 3000);
-    } catch (err: unknown) {
-      const supabaseErr = err as { message?: string; details?: string; hint?: string };
-      const message =
-        supabaseErr?.message ||
-        (err instanceof Error ? err.message : "Erreur lors de l'ajout de la propriété");
-      const details = supabaseErr?.details ? ` (${supabaseErr.details})` : '';
-      const hint = supabaseErr?.hint ? ` — ${supabaseErr.hint}` : '';
-      console.error('Error inserting property:', err);
-      setError(`${message}${details}${hint}`);
+      setTimeout(() => navigate('/proprietaire/mes-biens'), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
     } finally {
       setLoading(false);
-      setUploadingImages(false);
     }
   };
 
-  // Navigation between steps with directional animation
-  const goToStep = (targetStep: number) => {
-    if (targetStep >= 1 && targetStep <= 3) {
-      setSlideDirection(targetStep > step ? 'forward' : 'backward');
-      setStep(targetStep);
-    }
-  };
+  const propertyTypes = formData.property_category === 'commercial' 
+    ? COMMERCIAL_PROPERTY_TYPES 
+    : RESIDENTIAL_PROPERTY_TYPES;
 
-  const canProceedToStep2 = () => {
-    return formData.title.length >= TITLE_MIN && formData.property_category;
-  };
-
-  const canProceedToStep3 = () => {
-    return formData.city !== '';
-  };
-
-  // Confetti colors with Premium Ivorian palette
-  const confettiColors = [
-    'var(--color-orange)',
-    'var(--color-chocolat)',
-    'hsl(38 92% 50%)',
-    'hsl(142 76% 36%)',
-  ];
+  const neighborhoods = formData.city === 'Abidjan' ? ABIDJAN_COMMUNES : [];
 
   if (success) {
     return (
-      <div
-        className="fixed inset-0 flex items-center justify-center p-4 z-50"
-        style={{
-          background:
-            'linear-gradient(to bottom right, var(--color-orange-50), var(--color-creme))',
-        }}
-      >
-        {/* Confetti effect */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(25)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute animate-confetti-fall"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: '-5%',
-                animationDuration: `${2 + Math.random() * 3}s`,
-                animationDelay: `${Math.random() * 2}s`,
-              }}
-            >
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{
-                  backgroundColor:
-                    confettiColors[Math.floor(Math.random() * confettiColors.length)],
-                }}
-              />
-            </div>
-          ))}
-        </div>
-
-        <div
-          className="relative bg-white rounded-3xl p-10 max-w-xl w-full text-center shadow-xl animate-fade-in border"
-          style={{ borderColor: 'var(--color-border)' }}
-        >
-          {/* Animated success icon */}
-          <div
-            className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg animate-bounce"
-            style={{
-              background: 'linear-gradient(135deg, var(--color-orange), var(--color-orange-dark))',
-            }}
-          >
-            <Check className="h-12 w-12 text-white" />
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+            <Check className="w-8 h-8 text-green-600" />
           </div>
-
-          <h2 className="text-3xl font-bold mb-3" style={{ color: 'var(--color-chocolat)' }}>
-            🎉 Félicitations !
+          <h2 className="text-xl font-semibold text-foreground">
+            {isEditMode ? 'Bien modifie avec succes' : 'Bien publie avec succes'}
           </h2>
-          <p className="text-xl mb-2" style={{ color: 'var(--color-gris-texte)' }}>
-            Propriété publiée avec succès
-          </p>
-          <p className="mb-6" style={{ color: 'var(--color-gris-neutre)' }}>
-            Votre annonce est maintenant visible par tous les locataires sur Mon Toit.
-          </p>
-
-          {/* Animated redirect indicator */}
-          <div
-            className="flex items-center justify-center gap-2"
-            style={{ color: 'var(--color-orange)' }}
-          >
-            <div
-              className="w-2 h-2 rounded-full animate-bounce"
-              style={{ backgroundColor: 'var(--color-orange)', animationDelay: '0ms' }}
-            />
-            <div
-              className="w-2 h-2 rounded-full animate-bounce"
-              style={{ backgroundColor: 'var(--color-orange)', animationDelay: '150ms' }}
-            />
-            <div
-              className="w-2 h-2 rounded-full animate-bounce"
-              style={{ backgroundColor: 'var(--color-orange)', animationDelay: '300ms' }}
-            />
-            <span className="ml-2 font-medium">Redirection vers votre dashboard...</span>
-          </div>
+          <p className="text-muted-foreground">Redirection en cours...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <>
-      {/* Header Sticky Premium Ivorian */}
-      <div
-        className="bg-white border-b sticky top-0 z-30 shadow-sm"
-        style={{ borderColor: 'var(--color-border)' }}
-      >
-        <div className="w-full px-4 lg:px-10 xl:px-12 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-muted/30">
+      {/* Header */}
+      <header className="sticky top-0 z-10 bg-background border-b border-border px-4 py-3">
+        <div className="max-w-2xl mx-auto flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 font-medium transition-colors hover:opacity-80"
-            style={{ color: 'var(--color-gris-texte)' }}
+            className="p-2 -ml-2 hover:bg-muted rounded-lg transition-colors"
           >
-            <ArrowLeft className="h-5 w-5" />
-            <span>Retour</span>
+            <ArrowLeft className="w-5 h-5" />
           </button>
-
-          {/* Progress Dots */}
-          <div className="flex items-center gap-3">
-            {STEPS.map((s, idx) => (
-              <button
-                key={s.id}
-                onClick={() => goToStep(s.id)}
-                className={`flex items-center gap-2 transition-all ${step === s.id ? 'opacity-100' : 'opacity-50 hover:opacity-75'}`}
-              >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                    step >= s.id ? 'text-white shadow-lg' : 'bg-gray-200 text-gray-500'
-                  }`}
-                  style={{
-                    backgroundColor: step >= s.id ? 'var(--color-orange)' : undefined,
-                    boxShadow: step >= s.id ? '0 4px 12px rgba(241, 101, 34, 0.3)' : undefined,
-                  }}
-                >
-                  {s.id}
-                </div>
-                <span
-                  className={`hidden md:block text-sm font-medium ${step === s.id ? '' : 'text-gray-400'}`}
-                  style={{ color: step === s.id ? 'var(--color-chocolat)' : undefined }}
-                >
-                  {s.label}
-                </span>
-                {idx < STEPS.length - 1 && (
-                  <div
-                    className="w-8 h-0.5 hidden md:block"
-                    style={{
-                      backgroundColor: step > s.id ? 'var(--color-orange)' : 'var(--color-border)',
-                    }}
-                  />
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Draft saved indicator */}
-          {draftSaved && (
-            <span className="flex items-center gap-1 text-xs font-medium text-green-600">
-              <Check className="h-3 w-3" />
-              Sauvegardé
-            </span>
-          )}
-          {!draftSaved && hasDraft && (
-            <button
-              onClick={clearDraft}
-              className="flex items-center gap-1 text-xs hover:text-red-500 transition-colors"
-              style={{ color: 'var(--color-gris-neutre)' }}
-            >
-              <RefreshCw className="h-3 w-3" />
-              Effacer
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="w-full px-4 lg:px-10 xl:px-12 py-8">
-        {/* Page Title */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-xl" style={{ backgroundColor: 'var(--color-orange-100)' }}>
-              <Home className="w-6 h-6" style={{ color: 'var(--color-orange)' }} />
-            </div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--color-chocolat)' }}>
-              {isEditMode ? 'Modifier la propriété' : 'Ajouter une propriété'}
+          <div className="flex-1">
+            <h1 className="font-semibold text-foreground">
+              {isEditMode ? 'Modifier le bien' : 'Publier un bien'}
             </h1>
           </div>
-          <p style={{ color: 'var(--color-gris-texte)' }}>
-            {isEditMode
-              ? 'Modifiez les informations de votre propriété'
-              : 'Remplissez les informations de votre propriété pour la publier sur Mon Toit'}
-          </p>
         </div>
+      </header>
 
+      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto p-4 space-y-6 pb-32">
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
-            <strong>Erreur:</strong> {error}
+          <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* STEP 1: Photos & Infos générales */}
-          {step === 1 && (
-            <div
-              key={`step-1-${slideDirection}`}
-              className={`space-y-6 ${slideDirection === 'forward' ? 'step-enter-forward' : 'step-enter-backward'}`}
-            >
-              {/* Photos Section with NativeCameraUpload */}
-              <div
-                className="bg-white p-6 rounded-2xl border shadow-sm"
-                style={{ borderColor: 'var(--color-border)' }}
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <ImageIcon className="w-5 h-5" style={{ color: 'var(--color-orange)' }} />
-                  <h2 className="font-bold" style={{ color: 'var(--color-chocolat)' }}>
-                    Photos de la propriété
-                  </h2>
-                </div>
+        {/* Photos */}
+        <section className="bg-background rounded-xl p-4 space-y-4 shadow-sm border border-border">
+          <div className="flex items-center gap-2">
+            <Camera className="w-5 h-5 text-primary" />
+            <h2 className="font-medium text-foreground">Photos</h2>
+            <span className="text-xs text-muted-foreground ml-auto">
+              {existingImages.length + imagePreviews.length}/10
+            </span>
+          </div>
 
-                {/* Preview grid for existing images from database */}
-                {existingImages.length > 0 && (
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium" style={{ color: 'var(--color-gris-texte)' }}>
-                        Photos actuelles ({existingImages.length})
-                      </span>
-                      <span className="text-xs" style={{ color: 'var(--color-gris-neutre)' }}>
-                        Cliquez sur × pour supprimer
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {existingImages.map((image, index) => (
-                        <div
-                          key={`existing-${image.id}`}
-                          className="relative aspect-square rounded-xl overflow-hidden group border border-gray-200"
-                        >
-                          <img
-                            src={image.url}
-                            alt={`Photo existante ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeExistingImage(image.url)}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                            title="Supprimer cette photo"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                          {index === 0 && (
-                            <div
-                              className="absolute bottom-2 left-2 text-white text-xs px-2 py-1 rounded-full font-medium"
-                              style={{ backgroundColor: 'var(--color-orange)' }}
-                            >
-                              Photo principale
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Preview grid for newly uploaded images */}
-                {imagePreviews.length > 0 && (
-                  <div className="mb-4">
-                    {existingImages.length > 0 && (
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium" style={{ color: 'var(--color-gris-texte)' }}>
-                          Nouvelles photos ({imagePreviews.length})
-                        </span>
-                        <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">
-                          Nouveau
-                        </span>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {imagePreviews.map((preview, index) => (
-                        <div
-                          key={`new-${index}`}
-                          className="relative aspect-square rounded-xl overflow-hidden group border-2 border-blue-200"
-                        >
-                          <img
-                            src={preview}
-                            alt={`Nouvelle photo ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeImage(index)}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                            title="Supprimer cette photo"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                          <span className="absolute top-2 left-2 text-xs px-2 py-1 rounded-full font-medium bg-blue-500 text-white">
-                            Nouveau
-                          </span>
-                          {existingImages.length === 0 && index === 0 && (
-                            <div
-                              className="absolute bottom-2 left-2 text-white text-xs px-2 py-1 rounded-full font-medium"
-                              style={{ backgroundColor: 'var(--color-orange)' }}
-                            >
-                              Photo principale
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* NativeCameraUpload for adding new images */}
-                {existingImages.length + imageFiles.length < 10 && (
-                  <NativeCameraUpload
-                    multiple
-                    maxImages={10 - existingImages.length - imageFiles.length}
-                    showPreview={false}
-                    label="Ajouter des photos"
-                    variant="card"
-                    compressionQuality={0.8}
-                    compressionMaxWidth={1920}
-                    onImageCaptured={(file, preview) => {
-                      if (existingImages.length + imageFiles.length < 10) {
-                        setImageFiles((prev) => [...prev, file]);
-                        setImagePreviews((prev) => [...prev, preview]);
-                      }
-                    }}
-                    onMultipleImages={(files, previews) => {
-                      const remaining = 10 - existingImages.length - imageFiles.length;
-                      const filesToAdd = files.slice(0, remaining);
-                      const previewsToAdd = previews.slice(0, remaining);
-                      setImageFiles((prev) => [...prev, ...filesToAdd]);
-                      setImagePreviews((prev) => [...prev, ...previewsToAdd]);
-                    }}
-                  />
-                )}
-
-                <p
-                  className="text-xs text-center mt-3"
-                  style={{ color: 'var(--color-gris-neutre)' }}
-                >
-                  {existingImages.length + imageFiles.length}/10 photos • La première photo sera
-                  l'image principale
-                </p>
-              </div>
-
-              {/* General Info Section */}
-              <div
-                className="bg-white p-6 rounded-2xl border shadow-sm space-y-6"
-                style={{ borderColor: 'var(--color-border)' }}
-              >
-                <h2 className="font-bold text-lg" style={{ color: 'var(--color-chocolat)' }}>
-                  Informations générales
-                </h2>
-
-                {/* Category Toggle */}
-                <div>
-                  <label
-                    className="block text-xs font-bold uppercase tracking-wide mb-2"
-                    style={{ color: 'var(--color-gris-neutre)' }}
-                  >
-                    Catégorie de bien *
-                  </label>
-                  <div className="flex gap-4">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({ ...prev, property_category: 'residential' }))
-                      }
-                      className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
-                        formData.property_category === 'residential'
-                          ? 'text-white shadow-lg'
-                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                      }`}
-                      style={{
-                        backgroundColor:
-                          formData.property_category === 'residential'
-                            ? 'var(--color-orange)'
-                            : undefined,
-                        boxShadow:
-                          formData.property_category === 'residential'
-                            ? '0 8px 20px rgba(241, 101, 34, 0.25)'
-                            : undefined,
-                      }}
-                    >
-                      <Home className="w-4 h-4" /> Résidentiel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({ ...prev, property_category: 'commercial' }))
-                      }
-                      className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
-                        formData.property_category === 'commercial'
-                          ? 'text-white shadow-lg'
-                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                      }`}
-                      style={{
-                        backgroundColor:
-                          formData.property_category === 'commercial'
-                            ? 'var(--color-orange)'
-                            : undefined,
-                        boxShadow:
-                          formData.property_category === 'commercial'
-                            ? '0 8px 20px rgba(241, 101, 34, 0.25)'
-                            : undefined,
-                      }}
-                    >
-                      <Building2 className="w-4 h-4" /> Commercial
-                    </button>
-                  </div>
-                </div>
-
-                {/* Title */}
-                <div>
-                  <label
-                    className="block text-xs font-bold uppercase tracking-wide mb-1"
-                    style={{ color: 'var(--color-gris-neutre)' }}
-                  >
-                    Titre de l'annonce *
-                  </label>
-                  <ValidatedInput
-                    name="title"
-                    value={formData.title}
-                    onChange={handleChange}
-                    onBlur={() => handleBlur('title')}
-                    required
-                    placeholder="Ex: Bel appartement 3 pièces à Cocody"
-                    error={getFieldState('title').error}
-                    touched={getFieldState('title').isInvalid || getFieldState('title').isValid}
-                    isValid={getFieldState('title').isValid}
-                    maxLength={TITLE_MAX}
-                  />
-                  <div className={`text-xs mt-1 text-right ${getTitleCharClass()}`}>
-                    {formData.title.length}/{TITLE_MAX} caractères
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label
-                    className="block text-xs font-bold uppercase tracking-wide mb-1"
-                    style={{ color: 'var(--color-gris-neutre)' }}
-                  >
-                    Description
-                  </label>
-                  <ValidatedTextarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    rows={4}
-                    placeholder="Décrivez votre propriété en détail..."
-                    maxLength={DESC_MAX}
-                  />
-                  <div className={`text-xs mt-1 text-right ${getDescCharClass()}`}>
-                    {formData.description.length}/{DESC_MAX} caractères
-                    {formData.description.length > 0 && formData.description.length < DESC_MIN && (
-                      <span className="ml-2">(min. recommandé: {DESC_MIN})</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Property Type & Surface */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      className="block text-xs font-bold uppercase tracking-wide mb-1"
-                      style={{ color: 'var(--color-gris-neutre)' }}
-                    >
-                      Type de bien *
-                    </label>
-                    <select
-                      name="property_type"
-                      value={formData.property_type}
-                      onChange={handleChange}
-                      required
-                      className="input-premium w-full"
-                    >
-                      {getPropertyTypesForCategory().map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label
-                      className="block text-xs font-bold uppercase tracking-wide mb-1"
-                      style={{ color: 'var(--color-gris-neutre)' }}
-                    >
-                      Surface (m²)
-                    </label>
-                    <input
-                      type="number"
-                      name="surface_area"
-                      value={formData.surface_area}
-                      onChange={handleChange}
-                      min="0"
-                      placeholder="Ex: 75"
-                      className="input-premium w-full"
-                    />
-                  </div>
-                </div>
-
-                {/* Bedrooms & Bathrooms */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      className="block text-xs font-bold uppercase tracking-wide mb-1"
-                      style={{ color: 'var(--color-gris-neutre)' }}
-                    >
-                      Chambres *
-                    </label>
-                    <input
-                      type="number"
-                      name="bedrooms"
-                      value={formData.bedrooms}
-                      onChange={handleChange}
-                      required
-                      min="0"
-                      className="input-premium w-full"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      className="block text-xs font-bold uppercase tracking-wide mb-1"
-                      style={{ color: 'var(--color-gris-neutre)' }}
-                    >
-                      Salles de bain *
-                    </label>
-                    <input
-                      type="number"
-                      name="bathrooms"
-                      value={formData.bathrooms}
-                      onChange={handleChange}
-                      required
-                      min="0"
-                      className="input-premium w-full"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 1 Navigation */}
-              <div className="flex justify-end">
+          <div className="grid grid-cols-4 gap-2">
+            {existingImages.map((url, i) => (
+              <div key={`existing-${i}`} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                <img src={url} alt="" className="w-full h-full object-cover" />
                 <button
                   type="button"
-                  onClick={() => goToStep(2)}
-                  disabled={!canProceedToStep2()}
-                  className="btn-premium-chocolat disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => removeImage(i, true)}
+                  className="absolute top-1 right-1 p-1 bg-black/60 rounded-full"
                 >
-                  Suivant <ArrowRight className="w-4 h-4" />
+                  <X className="w-3 h-3 text-white" />
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* STEP 2: Localisation */}
-          {step === 2 && (
-            <div
-              key={`step-2-${slideDirection}`}
-              className={`space-y-6 ${slideDirection === 'forward' ? 'step-enter-forward' : 'step-enter-backward'}`}
-            >
-              <div
-                className="bg-white p-6 rounded-2xl border shadow-sm space-y-6"
-                style={{ borderColor: 'var(--color-border)' }}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <MapPin className="w-5 h-5" style={{ color: 'var(--color-orange)' }} />
-                  <h2 className="font-bold text-lg" style={{ color: 'var(--color-chocolat)' }}>
-                    Localisation
-                  </h2>
-                </div>
-
-                <div>
-                  <label
-                    className="block text-xs font-bold uppercase tracking-wide mb-1"
-                    style={{ color: 'var(--color-gris-neutre)' }}
-                  >
-                    Adresse complète
-                  </label>
-                  <input
-                    type="text"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    placeholder="Ex: Rue des Jardins, Résidence Les Palmiers"
-                    className="input-premium w-full"
-                  />
-                </div>
-
-                {/* Bouton de géolocalisation */}
-                <div
-                  className="p-4 rounded-xl border-2 border-dashed flex items-center justify-between"
-                  style={{
-                    borderColor: 'var(--color-border)',
-                    backgroundColor: (formData.latitude && formData.longitude)
-                      ? 'var(--color-orange-50)'
-                      : 'transparent'
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="p-2 rounded-full"
-                      style={{ backgroundColor: 'var(--color-orange-100)' }}
-                    >
-                      <Navigation
-                        className="w-5 h-5"
-                        style={{ color: 'var(--color-orange)' }}
-                      />
-                    </div>
-                    <div>
-                      <p
-                        className="font-semibold text-sm"
-                        style={{ color: 'var(--color-chocolat)' }}
-                      >
-                        {formData.latitude && formData.longitude
-                          ? 'Position capturée'
-                          : 'Géolocalisation'}
-                      </p>
-                      <p
-                        className="text-xs"
-                        style={{ color: 'var(--color-gris-neutre)' }}
-                      >
-                        {formData.latitude && formData.longitude
-                          ? `${formData.latitude.toFixed(6)}, ${formData.longitude.toFixed(6)}`
-                          : 'Utilisez votre position actuelle'}
-                      </p>
-                      {geoError && (
-                        <p className="text-xs text-red-500 mt-1">{geoError}</p>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleGetMyLocation}
-                    disabled={geoLoading}
-                    className="px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2"
-                    style={{
-                      backgroundColor: geoLoading
-                        ? 'var(--color-gris-neutre)'
-                        : 'var(--color-orange)',
-                      color: 'white',
-                      opacity: geoLoading ? 0.7 : 1,
-                    }}
-                  >
-                    {geoLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Localisation...
-                      </>
-                    ) : formData.latitude && formData.longitude ? (
-                      <>
-                        <RefreshCw className="w-4 h-4" />
-                        Recapturer
-                      </>
-                    ) : (
-                      <>
-                        <Navigation className="w-4 h-4" />
-                        Ma position
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      className="block text-xs font-bold uppercase tracking-wide mb-1"
-                      style={{ color: 'var(--color-gris-neutre)' }}
-                    >
-                      Ville *
-                    </label>
-                    <select
-                      name="city"
-                      value={formData.city}
-                      onChange={(e) => {
-                        handleChange(e);
-                        if (e.target.value !== 'Abidjan') {
-                          setFormData((prev) => ({ ...prev, neighborhood: '' }));
-                        }
-                      }}
-                      onBlur={() => handleBlur('city')}
-                      required
-                      className="input-premium w-full"
-                    >
-                      <option value="">Sélectionnez une ville</option>
-                      {CITIES.map((city) => (
-                        <option key={city} value={city}>
-                          {city}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label
-                      className="block text-xs font-bold uppercase tracking-wide mb-1"
-                      style={{ color: 'var(--color-gris-neutre)' }}
-                    >
-                      Quartier{' '}
-                      {formData.city === 'Abidjan' && (
-                        <span className="font-normal">(commune)</span>
-                      )}
-                    </label>
-                    {formData.city === 'Abidjan' ? (
-                      <select
-                        name="neighborhood"
-                        value={formData.neighborhood}
-                        onChange={handleChange}
-                        className="input-premium w-full"
-                      >
-                        <option value="">Sélectionnez une commune</option>
-                        {ABIDJAN_COMMUNES.map((commune) => (
-                          <option key={commune} value={commune}>
-                            {commune}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        name="neighborhood"
-                        value={formData.neighborhood}
-                        onChange={handleChange}
-                        placeholder="Ex: Centre-ville"
-                        className="input-premium w-full"
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 2 Navigation */}
-              <div className="flex justify-between">
-                <button type="button" onClick={() => goToStep(1)} className="btn-premium-secondary">
-                  <ArrowLeft className="w-4 h-4" /> Retour
-                </button>
+            ))}
+            {imagePreviews.map((url, i) => (
+              <div key={`new-${i}`} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                <img src={url} alt="" className="w-full h-full object-cover" />
                 <button
                   type="button"
-                  onClick={() => goToStep(3)}
-                  disabled={!canProceedToStep3()}
-                  className="btn-premium-chocolat disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => removeImage(i, false)}
+                  className="absolute top-1 right-1 p-1 bg-black/60 rounded-full"
                 >
-                  Suivant <ArrowRight className="w-4 h-4" />
+                  <X className="w-3 h-3 text-white" />
                 </button>
               </div>
+            ))}
+            {existingImages.length + imagePreviews.length < 10 && (
+              <NativeCameraUpload
+                onCapture={handleImageCapture}
+                maxFiles={10 - existingImages.length - imagePreviews.length}
+                className="aspect-square"
+              />
+            )}
+          </div>
+        </section>
+
+        {/* Informations principales */}
+        <section className="bg-background rounded-xl p-4 space-y-4 shadow-sm border border-border">
+          <div className="flex items-center gap-2">
+            <Home className="w-5 h-5 text-primary" />
+            <h2 className="font-medium text-foreground">Informations</h2>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Titre de l'annonce *
+              </label>
+              <input
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                placeholder="Ex: Appartement 3 pieces Cocody"
+                className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
             </div>
-          )}
 
-          {/* STEP 3: Tarification & Équipements */}
-          {step === 3 && (
-            <div
-              key={`step-3-${slideDirection}`}
-              className={`space-y-6 ${slideDirection === 'forward' ? 'step-enter-forward' : 'step-enter-backward'}`}
-            >
-              {/* Pricing */}
-              <div
-                className="bg-white p-6 rounded-2xl border shadow-sm space-y-6"
-                style={{ borderColor: 'var(--color-border)' }}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <DollarSign className="w-5 h-5" style={{ color: 'var(--color-orange)' }} />
-                  <h2 className="font-bold text-lg" style={{ color: 'var(--color-chocolat)' }}>
-                    Tarification
-                  </h2>
-                </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Description
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                rows={3}
+                placeholder="Decrivez votre bien..."
+                className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+              />
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label
-                      className="block text-xs font-bold uppercase tracking-wide mb-1"
-                      style={{ color: 'var(--color-orange)' }}
-                    >
-                      Loyer mensuel (FCFA) *
-                    </label>
-                    <input
-                      type="number"
-                      name="monthly_rent"
-                      value={formData.monthly_rent}
-                      onChange={handleChange}
-                      onBlur={() => handleBlur('monthly_rent')}
-                      required
-                      min="0"
-                      placeholder="Ex: 150000"
-                      className="input-premium w-full font-bold text-lg"
-                      style={{
-                        borderColor: 'var(--color-orange-100)',
-                        color: 'var(--color-chocolat)',
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      className="block text-xs font-bold uppercase tracking-wide mb-1"
-                      style={{ color: 'var(--color-gris-neutre)' }}
-                    >
-                      Dépôt de garantie (FCFA)
-                    </label>
-                    <input
-                      type="number"
-                      name="deposit_amount"
-                      value={formData.deposit_amount}
-                      onChange={handleChange}
-                      min="0"
-                      placeholder="Ex: 300000"
-                      className="input-premium w-full"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      className="block text-xs font-bold uppercase tracking-wide mb-1"
-                      style={{ color: 'var(--color-gris-neutre)' }}
-                    >
-                      Charges (FCFA)
-                    </label>
-                    <input
-                      type="number"
-                      name="charges_amount"
-                      value={formData.charges_amount}
-                      onChange={handleChange}
-                      min="0"
-                      placeholder="0"
-                      className="input-premium w-full"
-                    />
-                  </div>
-                </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Categorie
+                </label>
+                <select
+                  name="property_category"
+                  value={formData.property_category}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <option value="residential">Residentiel</option>
+                  <option value="commercial">Commercial</option>
+                </select>
               </div>
-
-              {/* Equipment */}
-              <div
-                className="bg-white p-6 rounded-2xl border shadow-sm space-y-6"
-                style={{ borderColor: 'var(--color-border)' }}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Settings className="w-5 h-5" style={{ color: 'var(--color-orange)' }} />
-                  <h2 className="font-bold text-lg" style={{ color: 'var(--color-chocolat)' }}>
-                    Équipements
-                  </h2>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[
-                    { name: 'furnished', label: 'Meublé', checked: formData.furnished },
-                    { name: 'has_parking', label: 'Parking', checked: formData.has_parking },
-                    { name: 'has_garden', label: 'Jardin', checked: formData.has_garden },
-                    { name: 'has_ac', label: 'Climatisation', checked: formData.has_ac },
-                  ].map((item) => (
-                    <label
-                      key={item.name}
-                      className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all border ${
-                        item.checked
-                          ? 'border-[var(--color-orange)] bg-[var(--color-orange-50)]'
-                          : 'border-[var(--color-border)] bg-white hover:border-[var(--color-orange)]'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        name={item.name}
-                        checked={item.checked}
-                        onChange={handleChange}
-                        className="w-5 h-5 rounded text-[var(--color-orange)] focus:ring-[var(--color-orange)]"
-                        style={{ accentColor: 'var(--color-orange)' }}
-                      />
-                      <span
-                        className="font-medium"
-                        style={{
-                          color: item.checked ? 'var(--color-chocolat)' : 'var(--color-gris-texte)',
-                        }}
-                      >
-                        {item.label}
-                      </span>
-                    </label>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Type de bien
+                </label>
+                <select
+                  name="property_type"
+                  value={formData.property_type}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  {propertyTypes.map(type => (
+                    <option key={type.value} value={type.value}>{type.label}</option>
                   ))}
-                </div>
-
-                {/* Option Gestion Anonyme */}
-                <div className="pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                  <label
-                    className={`flex items-start gap-4 p-4 rounded-xl cursor-pointer transition-all border ${
-                      formData.is_anonymous
-                        ? 'border-[var(--color-orange)] bg-[var(--color-orange-50)]'
-                        : 'border-[var(--color-border)] bg-white hover:border-[var(--color-orange)]'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      name="is_anonymous"
-                      checked={formData.is_anonymous}
-                      onChange={handleChange}
-                      className="w-5 h-5 mt-0.5 rounded text-[var(--color-orange)] focus:ring-[var(--color-orange)]"
-                      style={{ accentColor: 'var(--color-orange)' }}
-                    />
-                    <div>
-                      <span
-                        className="font-semibold block"
-                        style={{
-                          color: formData.is_anonymous
-                            ? 'var(--color-chocolat)'
-                            : 'var(--color-gris-texte)',
-                        }}
-                      >
-                        🔒 Gestion anonyme
-                      </span>
-                      <span
-                        className="text-sm block mt-1"
-                        style={{ color: 'var(--color-gris-neutre)' }}
-                      >
-                        Votre nom sera masqué. Les locataires verront "Géré par [Agence]" à la
-                        place. Nécessite un mandat avec une agence.
-                      </span>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              {/* Step 3 Navigation & Submit */}
-              <div className="flex justify-between items-center pt-4">
-                <button type="button" onClick={() => goToStep(2)} className="btn-premium-secondary">
-                  <ArrowLeft className="w-4 h-4" /> Retour
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading || uploadingImages}
-                  className="btn-premium-primary transform hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed px-10 py-4 text-lg"
-                  style={{ boxShadow: '0 8px 24px rgba(241, 101, 34, 0.3)' }}
-                >
-                  {loading || uploadingImages ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>
-                        {uploadingImages
-                          ? 'Upload des images...'
-                          : isEditMode
-                            ? 'Mise à jour...'
-                            : 'Publication...'}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-5 h-5" />{' '}
-                      {isEditMode ? "Mettre à jour l'annonce" : "Publier l'annonce"}
-                    </>
-                  )}
-                </button>
+                </select>
               </div>
             </div>
-          )}
-        </form>
-      </div>
 
-      {/* Draft confirmation modal */}
-      <Modal
-        isOpen={showDraftModal}
-        onClose={() => {}}
-        title=""
-        size="sm"
-        closeOnOverlayClick={false}
-        showCloseButton={false}
-      >
-        <div className="text-center py-4">
-          {/* File icon with gradient */}
-          <div
-            className="w-24 h-24 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg"
-            style={{
-              background:
-                'linear-gradient(135deg, var(--color-orange-100), var(--color-orange-50))',
-            }}
-          >
-            <FileText
-              className="h-12 w-12 animate-pulse"
-              style={{ color: 'var(--color-orange)' }}
-            />
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Chambres
+                </label>
+                <input
+                  type="number"
+                  name="bedrooms"
+                  value={formData.bedrooms}
+                  onChange={handleChange}
+                  min={0}
+                  className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Salles de bain
+                </label>
+                <input
+                  type="number"
+                  name="bathrooms"
+                  value={formData.bathrooms}
+                  onChange={handleChange}
+                  min={0}
+                  className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Surface (m2)
+                </label>
+                <input
+                  type="number"
+                  name="surface_area"
+                  value={formData.surface_area}
+                  onChange={handleChange}
+                  placeholder="0"
+                  className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Localisation */}
+        <section className="bg-background rounded-xl p-4 space-y-4 shadow-sm border border-border">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-primary" />
+            <h2 className="font-medium text-foreground">Localisation</h2>
           </div>
 
-          <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--color-chocolat)' }}>
-            📝 Brouillon trouvé !
-          </h3>
-
-          <p className="mb-4" style={{ color: 'var(--color-gris-texte)' }}>
-            Vous avez un brouillon non terminé pour cette propriété.
-          </p>
-
-          {pendingDraftData?.title && (
-            <div
-              className="p-4 rounded-xl mb-6 text-left"
-              style={{ backgroundColor: 'var(--color-creme)' }}
-            >
-              <p
-                className="text-xs uppercase tracking-wide mb-1"
-                style={{ color: 'var(--color-gris-neutre)' }}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Ville *
+              </label>
+              <select
+                name="city"
+                value={formData.city}
+                onChange={handleChange}
+                className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
-                Titre sauvegardé
-              </p>
-              <p className="font-medium truncate" style={{ color: 'var(--color-chocolat)' }}>
-                {pendingDraftData.title}
-              </p>
+                <option value="">Selectionnez une ville</option>
+                {CITIES.map(city => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
+              </select>
             </div>
-          )}
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={handleStartFresh}
-              className="btn-premium-secondary flex-1 justify-center"
-            >
-              Recommencer à zéro
-            </button>
-            <button
-              onClick={handleContinueDraft}
-              className="btn-premium-primary flex-1 justify-center"
-            >
-              Continuer le brouillon
-            </button>
+            {neighborhoods.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Commune
+                </label>
+                <select
+                  name="neighborhood"
+                  value={formData.neighborhood}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <option value="">Selectionnez une commune</option>
+                  {neighborhoods.map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Adresse
+              </label>
+              <input
+                type="text"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                placeholder="Ex: Rue des Jardins, Cocody"
+                className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
           </div>
+        </section>
+
+        {/* Tarification */}
+        <section className="bg-background rounded-xl p-4 space-y-4 shadow-sm border border-border">
+          <h2 className="font-medium text-foreground">Tarification</h2>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Loyer mensuel (FCFA) *
+              </label>
+              <input
+                type="number"
+                name="monthly_rent"
+                value={formData.monthly_rent}
+                onChange={handleChange}
+                placeholder="150000"
+                className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Caution (FCFA)
+                </label>
+                <input
+                  type="number"
+                  name="deposit_amount"
+                  value={formData.deposit_amount}
+                  onChange={handleChange}
+                  placeholder="0"
+                  className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  Charges (FCFA)
+                </label>
+                <input
+                  type="number"
+                  name="charges_amount"
+                  value={formData.charges_amount}
+                  onChange={handleChange}
+                  placeholder="0"
+                  className="w-full px-3 py-2.5 border border-input rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Equipements */}
+        <section className="bg-background rounded-xl p-4 space-y-4 shadow-sm border border-border">
+          <h2 className="font-medium text-foreground">Equipements</h2>
+
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { name: 'has_parking', label: 'Parking', icon: Car },
+              { name: 'has_garden', label: 'Jardin', icon: TreePine },
+              { name: 'furnished', label: 'Meuble', icon: Sofa },
+              { name: 'has_ac', label: 'Climatisation', icon: Wind },
+            ].map(({ name, label, icon: Icon }) => (
+              <label
+                key={name}
+                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  formData[name as keyof PropertyFormData]
+                    ? 'border-primary bg-primary/5'
+                    : 'border-input hover:border-primary/50'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  name={name}
+                  checked={formData[name as keyof PropertyFormData] as boolean}
+                  onChange={handleChange}
+                  className="sr-only"
+                />
+                <Icon className={`w-5 h-5 ${
+                  formData[name as keyof PropertyFormData] ? 'text-primary' : 'text-muted-foreground'
+                }`} />
+                <span className={`text-sm ${
+                  formData[name as keyof PropertyFormData] ? 'text-foreground font-medium' : 'text-muted-foreground'
+                }`}>
+                  {label}
+                </span>
+                {formData[name as keyof PropertyFormData] && (
+                  <Check className="w-4 h-4 text-primary ml-auto" />
+                )}
+              </label>
+            ))}
+          </div>
+        </section>
+
+        {/* Options de publication */}
+        <section className="bg-background rounded-xl p-4 space-y-4 shadow-sm border border-border">
+          <h2 className="font-medium text-foreground">Options</h2>
+
+          <label className="flex items-center justify-between p-3 rounded-lg border border-input cursor-pointer hover:border-primary/50 transition-colors">
+            <div className="flex items-center gap-3">
+              {formData.is_anonymous ? (
+                <EyeOff className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <Eye className="w-5 h-5 text-muted-foreground" />
+              )}
+              <div>
+                <span className="text-sm font-medium text-foreground">Publication anonyme</span>
+                <p className="text-xs text-muted-foreground">Masquer vos coordonnees</p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              name="is_anonymous"
+              checked={formData.is_anonymous}
+              onChange={handleChange}
+              className="w-5 h-5 rounded border-input text-primary focus:ring-primary"
+            />
+          </label>
+        </section>
+      </form>
+
+      {/* Fixed bottom button */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
+        <div className="max-w-2xl mx-auto">
+          <button
+            type="submit"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="w-full py-3 bg-primary text-primary-foreground font-medium rounded-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                {isEditMode ? 'Modification...' : 'Publication...'}
+              </>
+            ) : (
+              isEditMode ? 'Enregistrer les modifications' : 'Publier le bien'
+            )}
+          </button>
         </div>
-      </Modal>
-    </>
+      </div>
+    </div>
   );
 }
