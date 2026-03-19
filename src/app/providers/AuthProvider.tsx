@@ -422,17 +422,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     try {
-      // Utiliser la méthode native de Supabase pour la réinitialisation du mot de passe
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reinitialiser-mot-de-passe`,
-      });
+      // Utiliser la fonction Edge password-reset pour la réinitialisation du mot de passe
+      const response = await fetch(
+        `${import.meta.env.SUPABASE_URL}/functions/v1/password-reset`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            email,
+            siteUrl: window.location.origin,
+          }),
+        }
+      );
 
-      if (error) {
-        logger.error('Error resetting password', error);
+      if (!response.ok) {
+        const errorData = await response.json();
         return {
           error: {
-            message: error.message || "Erreur lors de l'envoi de l'email de réinitialisation",
-            status: error.status || 500,
+            message: errorData.error || "Erreur lors de l'envoi de l'email de réinitialisation",
+            status: response.status || 500,
+            name: 'AuthError',
+          } as AuthError,
+        };
+      }
+
+      const data = await response.json();
+
+      // Si la fonction retourne success: true, c'est OK
+      // Le message générique "Si cet email est enregistré..." assure la sécurité
+      if (!data.success) {
+        return {
+          error: {
+            message: data.error || "Erreur lors de l'envoi de l'email de réinitialisation",
+            status: 500,
             name: 'AuthError',
           } as AuthError,
         };
