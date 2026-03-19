@@ -47,8 +47,9 @@ export default defineConfig(({ mode }) => ({
       transformMixedEsModules: true,
     },
   },
-  optimizeDeps: {
+  optimizeDeps: mode === 'development' ? {
+    disabled: true,
+  } : {
     exclude: ['lucide-react', 'mapbox-gl'],
-    noDiscovery: true,
   },
 }));
