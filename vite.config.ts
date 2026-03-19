@@ -24,6 +24,7 @@ export default defineConfig(({ mode }) => ({
       'app.montoit.ci',
       '.app.montoit.ci',
     ],
+    middlewareMode: false,
   },
   resolve: {
     alias: {
@@ -47,9 +48,8 @@ export default defineConfig(({ mode }) => ({
       transformMixedEsModules: true,
     },
   },
-  optimizeDeps: mode === 'development' ? {
-    disabled: true,
-  } : {
-    exclude: ['lucide-react', 'mapbox-gl'],
+  optimizeDeps: {
+    noDiscovery: true,
+    include: undefined,
   },
 }));
