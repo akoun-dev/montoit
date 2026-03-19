@@ -423,13 +423,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resetPassword = async (email: string) => {
     try {
       // Utiliser la fonction Edge password-reset pour la réinitialisation du mot de passe
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY;
+      
+      if (!supabaseUrl || !supabaseAnonKey) {
+        console.error('[v0] Supabase configuration missing');
+        return {
+          error: {
+            message: 'Configuration Supabase manquante. Veuillez configurer les variables d\'environnement.',
+            status: 500,
+            name: 'ConfigError',
+          } as AuthError,
+        };
+      }
+      
       const response = await fetch(
-        `${import.meta.env.SUPABASE_URL}/functions/v1/password-reset`,
+        `${supabaseUrl}/functions/v1/password-reset`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({
             email,
