@@ -48,7 +48,4 @@ export default defineConfig(({ mode }) => ({
       transformMixedEsModules: true,
     },
   },
-  optimizeDeps: {
-    noDiscovery: true,
-  },
 }));
