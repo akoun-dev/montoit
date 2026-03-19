@@ -50,7 +50,5 @@ export default defineConfig(({ mode }) => ({
   },
   optimizeDeps: {
     noDiscovery: true,
-    include: [],
-    exclude: ['*'],
   },
 }));
