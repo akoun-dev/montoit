@@ -46,9 +46,17 @@ export default defineConfig(({ mode }) => ({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
+    // Exclude test files from build
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+      },
+    },
   },
   optimizeDeps: {
     exclude: ['lucide-react'],
     include: ['mapbox-gl'],
+    // Exclude test files from dependency scanning
+    entries: ['index.html', 'src/**/*.{ts,tsx}'],
   },
 }));
