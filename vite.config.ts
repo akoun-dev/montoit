@@ -1,11 +1,15 @@
 // Force complete rebuild - 2025-12-07T18:55:00Z
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }) => {
+  // Load environment variables based on mode
+  const env = loadEnv(mode, process.cwd(), '');
+
+  return {
   plugins: [
     react(),
     mode === 'development' && componentTagger(),
@@ -51,4 +55,15 @@ export default defineConfig(({ mode }) => ({
     exclude: ['lucide-react'],
     include: ['mapbox-gl'],
   },
-}));
+    // Expose environment variables to the app
+    // Use VITE_ prefix for client-side access
+    define: {
+      ...Object.keys(env).reduce((acc, key) => {
+        if (key.startsWith('VITE_')) {
+          acc[key] = JSON.stringify(env[key]);
+        }
+        return acc;
+      }, {} as Record<string, string>),
+    },
+  };
+});
