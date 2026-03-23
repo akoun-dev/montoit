@@ -40,6 +40,23 @@ export interface SecureUploadResult {
  * Validation avancée des fichiers avec scan de sécurité
  */
 export class SecureUploadService {
+  private static async readFileBuffer(file: File): Promise<ArrayBuffer> {
+    if (typeof file.arrayBuffer === 'function') {
+      return file.arrayBuffer();
+    }
+
+    if (typeof Blob !== 'undefined' && typeof Blob.prototype.arrayBuffer === 'function') {
+      return Blob.prototype.arrayBuffer.call(file);
+    }
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as ArrayBuffer) || new ArrayBuffer(0));
+      reader.onerror = () => reject(reader.error || new Error('Impossible de lire le fichier'));
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
   /**
    * Scan basique pour détecter les fichiers malveillants
    */
@@ -63,7 +80,7 @@ export class SecureUploadService {
 
     // Vérification des signatures de fichiers (header bytes)
     // Note: arrayBuffer() sur file.slice() peut ne pas être disponible dans tous les environnements
-    const fullBuffer = await file.arrayBuffer();
+    const fullBuffer = await this.readFileBuffer(file);
     const buffer = fullBuffer.slice(0, 10);
     const view = new Uint8Array(buffer);
 

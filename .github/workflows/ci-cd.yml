@@ -2,18 +2,35 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop, staging, 'feature/*']
+    branches:
+      - main
+      - develop
+      - staging
+      - 'feature/**'
+    tags:
+      - 'v*'
   pull_request:
-    branches: [main, develop, staging]
+    branches:
+      - main
+      - develop
+      - staging
+  workflow_dispatch:
+
+concurrency:
+  group: ci-cd-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 env:
   NODE_VERSION: '20'
 
 jobs:
-  # Validation - Lint and Type Check
   validate:
     name: Validate Code
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,25 +39,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
       - name: Run ESLint
         run: npm run lint
-        continue-on-error: false
 
       - name: Run TypeScript type check
         run: npm run typecheck
-        continue-on-error: false
+        timeout-minutes: 10
 
-  # Unit Tests
   test:
-    name: Unit Tests
+    name: Test Suite
     runs-on: ubuntu-latest
     needs: validate
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -49,35 +65,46 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run unit tests
-        run: npm run test
+      - name: Run application tests
+        run: npm run test -- --run
         env:
-          CI: true
+          CI: 'true'
 
       - name: Generate coverage report
-        run: npm run test:coverage
+        if: always()
+        run: npm run test:coverage -- --run
         continue-on-error: true
+        env:
+          CI: 'true'
+
+      - name: Upload coverage artifact
+        if: always() && hashFiles('coverage/**/*') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
 
       - name: Upload coverage to Codecov
+        if: always() && hashFiles('coverage/coverage-final.json') != '' && secrets.CODECOV_TOKEN != ''
         uses: codecov/codecov-action@v4
-        if: always()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/coverage-final.json
           flags: unittests
           name: codecov-umbrella
 
-  # Security Tests
   security:
-    name: Security Tests
+    name: Security Checks
     runs-on: ubuntu-latest
     needs: validate
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -86,34 +113,29 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
       - name: Run security tests
-        run: npm run test:security
-        continue-on-error: true
+        run: npm run test:security:run
         env:
-          CI: true
+          CI: 'true'
 
       - name: Run npm audit
         run: npm audit --audit-level=high
         continue-on-error: true
 
-      - name: Check for dependencies vulnerabilities
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
-
-  # Build validation
   build:
     name: Build Production
     runs-on: ubuntu-latest
-    needs: [test, security]
+    needs:
+      - validate
+      - test
+      - security
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -122,8 +144,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -133,11 +155,8 @@ jobs:
         env:
           NODE_ENV: production
 
-      - name: Check bundle size
-        run: npm run build:analyze
-        continue-on-error: true
-        env:
-          NODE_ENV: production
+      - name: Show build artifact size
+        run: du -sh dist
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -146,7 +165,6 @@ jobs:
           path: dist/
           retention-days: 7
 
-  # Deploy to staging (on develop/staging branches)
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
@@ -156,9 +174,6 @@ jobs:
       name: staging
       url: ${{ secrets.STAGING_URL }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
@@ -172,19 +187,17 @@ jobs:
           # Example: rsync -avz --delete dist/ user@staging-server:/var/www/montoit-staging/
           echo "Deployment to staging completed!"
 
-  # Deploy to production (on main branch with tag)
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/main' && startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     environment:
       name: production
       url: ${{ secrets.PRODUCTION_URL }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
@@ -200,9 +213,8 @@ jobs:
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/v')
         with:
-          files: dist/*
+          files: dist/**
           draft: false
           prerelease: false
         env:

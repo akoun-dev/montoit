@@ -192,7 +192,7 @@ describe('Security Integration Tests', () => {
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await fetch('/api/upload', {
+        const response = await fetch('http://localhost/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -225,7 +225,7 @@ describe('Security Integration Tests', () => {
   describe('API Security Headers', () => {
     it('should include security headers in API responses', async () => {
       // Faire une requête à une API
-      const response = await fetch('/api/health');
+      const response = await fetch('http://localhost/api/health');
 
       // Vérifier les headers de sécurité
       expect(response.headers.get('X-Frame-Options')).toBe('DENY');
@@ -235,7 +235,7 @@ describe('Security Integration Tests', () => {
 
     it('should implement proper CORS', async () => {
       // Test depuis une origine non autorisée
-      const response = await fetch('/api/test', {
+      const response = await fetch('http://localhost/api/test', {
         headers: {
           Origin: 'https://malicious-site.com',
         },
@@ -279,7 +279,7 @@ describe('Security Integration Tests', () => {
         data: 'x'.repeat(10 * 1024 * 1024), // 10MB
       };
 
-      const response = await fetch('/api/test', {
+      const response = await fetch('http://localhost/api/test', {
         method: 'POST',
         body: JSON.stringify(largePayload),
         headers: { 'Content-Type': 'application/json' },
@@ -371,7 +371,7 @@ describe('Security Integration Tests', () => {
   describe('Cross-Site Request Forgery (CSRF) Protection', () => {
     it('should require CSRF token for state-changing requests', async () => {
       // Tenter une requête POST sans token CSRF
-      const response = await fetch('/api/update-profile', {
+      const response = await fetch('http://localhost/api/update-profile', {
         method: 'POST',
         body: JSON.stringify({ name: 'Hacked' }),
         headers: { 'Content-Type': 'application/json' },

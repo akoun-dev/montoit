@@ -10,6 +10,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { Card } from '@/shared/ui/Card';
+import { supabase } from '@/integrations/supabase/client';
 
 interface NeofaceVerificationProps {
   userId: string;
@@ -62,8 +63,15 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
   const windowCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const authTokenRef = useRef<string | null>(null);
-  const supabaseUrl = import.meta.env.SUPABASE_URL || import.meta.env.SUPABASE_ANON_KEY;
-  const anonKey = import.meta.env.SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY;
+  const supabaseUrl =
+    import.meta.env.VITE_SUPABASE_URL ||
+    import.meta.env.SUPABASE_URL ||
+    import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+  const anonKey =
+    import.meta.env.VITE_SUPABASE_ANON_KEY ||
+    import.meta.env.SUPABASE_ANON_KEY ||
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    import.meta.env.VITE_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
   useEffect(() => {
     return () => {

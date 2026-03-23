@@ -133,7 +133,9 @@ async function sendEmailViaResend(email: string, subject: string, htmlContent: s
     try {
       const errorJson = JSON.parse(errorText);
       errorDetail = errorJson.message || errorJson.code || errorText;
-    } catch {}
+    } catch (_parseError) {
+      // Keep the raw response text when the provider did not return JSON.
+    }
 
     return { success: false, error: `Erreur Resend (${response.status}): ${errorDetail}` };
   }

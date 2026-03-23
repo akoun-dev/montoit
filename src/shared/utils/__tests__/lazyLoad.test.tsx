@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import React, { Suspense } from 'react';
 import { lazyWithRetry, Loadable } from '../lazyLoad';
@@ -9,10 +9,6 @@ vi.mock('@/shared/ui/GlobalLoadingSkeleton', () => ({
 }));
 
 describe('lazyWithRetry', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
@@ -44,16 +40,13 @@ describe('lazyWithRetry', () => {
       .mockRejectedValueOnce(new Error('Network error'))
       .mockResolvedValue({ default: MockComponent });
 
-    const LazyComponent = lazyWithRetry(mockImport, 3, 100);
+    const LazyComponent = lazyWithRetry(mockImport, 3, 0);
 
     render(
       <Suspense fallback={<div>Loading...</div>}>
         <LazyComponent />
       </Suspense>
     );
-
-    // Avancer le temps pour le retry
-    await vi.advanceTimersByTimeAsync(100);
 
     await waitFor(() => {
       expect(screen.getByText('Retry Success')).toBeInTheDocument();

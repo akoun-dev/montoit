@@ -45,6 +45,9 @@ export default function BiometricVerificationPage() {
 
     if (hasResetParam && !isResetting.current) {
       isResetting.current = true;
+      sessionStorage.removeItem('neoface_verification');
+      sessionStorage.removeItem('neoface_result');
+      sessionStorage.removeItem('neoface_session');
       setVerificationResult(null);
       resetStepper();
       setCniPhotoUrl(null);

@@ -21,6 +21,9 @@ global.fetch = vi.fn(() => Promise.resolve({
   blob: async () => new Blob(),
   arrayBuffer: async () => new ArrayBuffer(0),
 })) as any;
+if (typeof window !== 'undefined') {
+  window.fetch = global.fetch;
+}
 global.URL.createObjectURL = vi.fn(() => 'mock-url');
 global.URL.revokeObjectURL = vi.fn();
 
@@ -88,6 +91,21 @@ if (typeof File !== 'undefined' && !File.prototype.arrayBuffer) {
       const reader = new FileReader();
       reader.onload = () => {
         resolve(reader.result as ArrayBuffer);
+      };
+      reader.onerror = () => {
+        resolve(new ArrayBuffer(0));
+      };
+      reader.readAsArrayBuffer(this);
+    });
+  };
+}
+
+if (typeof Blob !== 'undefined' && !Blob.prototype.arrayBuffer) {
+  Blob.prototype.arrayBuffer = function () {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve((reader.result as ArrayBuffer) || new ArrayBuffer(0));
       };
       reader.onerror = () => {
         resolve(new ArrayBuffer(0));

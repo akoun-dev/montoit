@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { Bookmark, Bell, BellOff, Search, Trash2, Calendar } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -47,9 +48,9 @@ export default function SavedSearches() {
       return;
     }
     loadData();
-  }, [user, navigate]);
+  }, [user, navigate, loadData]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -62,8 +63,8 @@ export default function SavedSearches() {
       const formattedSearches: SavedSearch[] = (searchesData || []).map((s) => ({
         id: s.id,
         name: s.name,
-        filters: (s.filters as SearchFilters) || {},
-        notifications_enabled: s.notifications_enabled,
+        filters: (s.search_criteria as SearchFilters) || {},
+        notifications_enabled: s.alert_enabled,
         created_at: s.created_at,
       }));
 
@@ -83,19 +84,24 @@ export default function SavedSearches() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   const handleToggleAlert = async (searchId: string, currentStatus: boolean | null) => {
     try {
+      const nextStatus = !currentStatus;
+      const payload: TablesUpdate<'saved_searches'> = { alert_enabled: nextStatus };
+
       const { error } = await supabase
         .from('saved_searches')
-        .update({ notifications_enabled: !currentStatus })
+        .update(payload)
         .eq('id', searchId);
 
       if (error) throw error;
 
       setSearches((prev) =>
-        prev.map((s) => (s.id === searchId ? { ...s, notifications_enabled: !currentStatus } : s))
+        prev.map((s) =>
+          s.id === searchId ? { ...s, notifications_enabled: nextStatus } : s
+        )
       );
     } catch (err) {
       console.error('Error toggling alert:', err);
