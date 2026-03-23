@@ -215,6 +215,7 @@ export default function MyMandatesPage() {
     });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('fr-CI', { style: 'currency', currency: 'XOF' }).format(amount);
 

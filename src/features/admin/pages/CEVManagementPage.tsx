@@ -77,7 +77,7 @@ export default function AdminCEVManagement() {
       // Fetch real CEV requests from database
 
       const { data: cevRequests, error } = await supabase
-        .from('cev_requests' as any)
+        .from('cev_requests')
         .select(
           `
           *,
@@ -106,7 +106,7 @@ export default function AdminCEVManagement() {
 
       // Transform the data to match the CEVRequest interface
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const transformedRequests: CEVRequest[] = ((cevRequests as any[]) || []).map((req: any) => ({
+      const transformedRequests: CEVRequest[] = ((cevRequests as any[]) || []).map((req: unknown) => ({
         id: req.id,
         cev_number: req.cev_number || '',
         oneci_reference_number: req.oneci_reference_number || '',

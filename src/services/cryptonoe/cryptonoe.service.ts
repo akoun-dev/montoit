@@ -45,7 +45,7 @@ export interface OTPSendRequest {
 export interface OTPSendResponse {
   statusCode: number;
   statusMessage: string;
-  data: any;
+  data: unknown;
 }
 
 export interface SignDocumentRequest {

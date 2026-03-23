@@ -21,13 +21,10 @@ import {
   Download,
   Edit,
   Trash2,
-  MoreVertical,
   Shield,
   Settings,
   Home,
-  Key,
   Eye,
-  FileCheck,
   AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -105,7 +102,6 @@ export default function MandateDetailPage() {
   const [mandate, setMandate] = useState<MandateDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('owner');
-  const [showActionMenu, setShowActionMenu] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const {
@@ -121,6 +117,7 @@ export default function MandateDetailPage() {
   useEffect(() => {
     if (!id) return;
     fetchMandate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchMandate = async () => {
@@ -183,15 +180,17 @@ export default function MandateDetailPage() {
       case 'terminate':
         await terminateMandate(id);
         break;
-      case 'delete':
+      case 'delete': {
         const deleted = await deleteMandate(id);
         if (deleted) {
           setShowDeleteDialog(false);
           navigate(viewMode === 'owner' ? '/proprietaire/mes-mandats' : '/agences/mandats');
         }
         break;
+      }
+      default:
+        break;
     }
-    setShowActionMenu(false);
     fetchMandate();
   };
 
@@ -231,23 +230,6 @@ export default function MandateDetailPage() {
         {badge.label}
       </div>
     );
-  };
-
-  const getPermissionLabel = (key: string) => {
-    const labels: Record<string, string> = {
-      can_view_properties: 'Voir les propriétés',
-      can_edit_properties: 'Modifier les propriétés',
-      can_create_properties: 'Créer des propriétés',
-      can_delete_properties: 'Supprimer les propriétés',
-      can_view_applications: 'Voir les candidatures',
-      can_manage_applications: 'Gérer les candidatures',
-      can_create_leases: 'Créer des baux',
-      can_view_financials: 'Accès financier',
-      can_manage_maintenance: 'Gérer la maintenance',
-      can_communicate_tenants: 'Communiquer avec locataires',
-      can_manage_documents: 'Gérer les documents',
-    };
-    return labels[key] || key;
   };
 
   if (loading) {

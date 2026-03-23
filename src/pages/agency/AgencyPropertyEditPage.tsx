@@ -12,7 +12,6 @@ import {
   Maximize,
   Euro,
   Building2,
-  AlertCircle,
 } from 'lucide-react';
 import CitySelector from '@/features/property/components/CitySelector';
 
@@ -56,6 +55,7 @@ const propertyStatuses = [
 ];
 
 export default function AgencyPropertyEditPage() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();

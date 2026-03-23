@@ -18,11 +18,11 @@ import { SimpleInput } from '@/shared/components/oneci/SimpleInput';
 import {
   OneciVerificationForm,
   OneciFaceAuth,
-  OneciVerificationProgress,
   type OneciVerificationSuccessData,
   type OneciFaceAuthResponse,
 } from '@/shared/components/oneci';
 import { updateProfileOneciVerified } from '@/services/oneci';
+import type { OneciPersonMatchResponse } from '@/services/oneci';
 
 type VerificationStep = 'attributes' | 'face' | 'complete';
 type VerificationMethod = Extract<VerificationStep, 'attributes' | 'face'>;
@@ -41,8 +41,6 @@ const METHOD_CARD_DATA: {
     description: 'Renseignez vos données et votre NNI pour valider votre identité sans selfie.',
     highlights: [
       'Nom, prénom et date de naissance',
-      'NNI (8 à 12 chiffres) issu de la CNI',
-      'Validation automatique via OCR',
     ],
     gradient: 'from-[#F16522]/10 to-[#F16522]/5',
     iconColor: '#F16522',
@@ -54,7 +52,6 @@ const METHOD_CARD_DATA: {
     highlights: [
       'Selfie récent sans masque',
       'NNI pré-rempli ou saisi manuellement',
-      'Sécurisé et rapide',
     ],
     gradient: 'from-[#2C1810]/10 to-[#2C1810]/5',
     iconColor: '#2C1810',
@@ -80,6 +77,7 @@ export default function ONECIVerificationPage() {
     lastName: string;
     birthDate: string;
     gender: 'M' | 'F';
+    verificationResult: OneciPersonMatchResponse;
   } | null>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -125,6 +123,24 @@ export default function ONECIVerificationPage() {
 
   const sourceParam = searchParams.get('source');
   const methodParam = searchParams.get('method') as VerificationMethod | null;
+  const redoParam = searchParams.get('redo') === 'true';
+
+  useEffect(() => {
+    setShowMethodSelector(sourceParam !== 'modal');
+
+    if (redoParam || (methodParam === 'attributes' || methodParam === 'face')) {
+      // Allow re-verification if redo=true or method is specified
+      setIsVerified(false);
+      setStep(methodParam || 'attributes');
+    }
+
+    if (methodParam === 'face') {
+      const nniToUse = verificationData?.nni || authProfile?.oneci_number;
+      if (nniToUse) {
+        setFaceNni(nniToUse);
+      }
+    }
+  }, [sourceParam, methodParam, verificationData?.nni, authProfile?.oneci_number, redoParam]);
 
   useEffect(() => {
     setShowMethodSelector(sourceParam !== 'modal');
@@ -148,27 +164,19 @@ export default function ONECIVerificationPage() {
 
   const handleAttributesSuccess = async (data: OneciVerificationSuccessData) => {
     if (data.result.success && data.result.match) {
-      setVerificationData(data.formData);
+      // Stocker les données du formulaire ET le résultat de la vérification
+      setVerificationData({
+        ...data.formData,
+        verificationResult: data.result,
+      });
       setFaceNni(data.formData.nni);
       setError(null);
 
-      // Mettre à jour le profil après vérification ONECI réussie
-      if (user) {
-        const updateResult = await updateProfileOneciVerified(
-          user.id,
-          data.formData.nni,
-          data.result
-        );
-
-        if (!updateResult.success) {
-          console.error('Erreur mise à jour profil ONECI:', updateResult.error);
-          setError(updateResult.error || 'Erreur lors de la mise à jour du profil');
-          return;
-        }
-
-        // Marquer comme vérifié et passer à l'étape suivante
-        setStep('face');
-      }
+      // Ne PAS marquer comme vérifié ici - attendre soit:
+      // - la facial auth réussie, OU
+      // - le choix de passer cette étape
+      // On passe juste à l'étape suivante avec les données sauvegardées
+      setStep('face');
     }
   };
 
@@ -180,19 +188,25 @@ export default function ONECIVerificationPage() {
   };
 
   const handleVerificationComplete = async () => {
-    if (!user) return;
+    if (!user || !verificationData) {
+      setError('Données de vérification manquantes. Veuillez recommencer depuis le début.');
+      return;
+    }
 
     try {
-      const { supabase } = await import('@/services/supabase/client');
+      // Utiliser le service ONECI pour mettre à jour le profil correctement
+      // avec les données de vérification stockées lors de l'étape des attributs
+      const updateResult = await updateProfileOneciVerified(
+        user.id,
+        verificationData.nni,
+        verificationData.verificationResult
+      );
 
-      // Mettre à jour le profil avec le statut de vérification
-      await supabase
-        .from('profiles')
-        .update({
-          oneci_verified: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id);
+      if (!updateResult.success) {
+        console.error('Erreur mise à jour profil ONECI:', updateResult.error);
+        setError(updateResult.error || 'Erreur lors de la mise à jour du profil');
+        return;
+      }
 
       setStep('complete');
       setIsVerified(true);
@@ -241,19 +255,40 @@ export default function ONECIVerificationPage() {
   if (isVerified) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full text-center">
+        <div className="max-w-md w-full text-center space-y-6">
           <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
             <CheckCircle className="w-14 h-14 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-green-800 mb-3">
-            Identité vérifiée avec succès !
-          </h1>
-          <p className="text-green-700 text-lg mb-8">
-            Votre CNI a été vérifiée via ONECI. Vous allez être redirigé vers votre profil...
-          </p>
-          <Button onClick={() => navigate('/locataire/profil?tab=verification')} size="lg">
-            Retourner à mon profil
-          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-green-800 mb-3">
+              Identité vérifiée avec succès !
+            </h1>
+            <p className="text-green-700 text-lg">
+              Votre CNI a été vérifiée via ONECI.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button
+              onClick={() => navigate('/locataire/profil?tab=verification')}
+              size="lg"
+              className="flex-1"
+            >
+              Retourner à mon profil
+            </Button>
+            <Button
+              onClick={() => {
+                setIsVerified(false);
+                setStep('attributes');
+                setVerificationData(null);
+              }}
+              variant="outline"
+              size="lg"
+              className="flex-1 border-green-500 text-green-700 hover:bg-green-50"
+            >
+              Retake la vérification
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -263,41 +298,25 @@ export default function ONECIVerificationPage() {
     <div className="min-h-screen bg-gradient-to-br from-[#FDF6E3] to-white">
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-[#F16522]/15 bg-white/80 backdrop-blur-xl">
-        <div className="container mx-auto flex flex-col gap-4 px-4 py-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-4">
-              <button
-                onClick={handleBack}
-                className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 transition hover:border-[#F16522] hover:text-[#2C1810]"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>{step === 'face' ? 'Retour aux informations' : 'Retour au profil'}</span>
-              </button>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.4em] text-neutral-500">
-                  Vérification ONECI
-                </p>
-                <h1 className="text-2xl font-bold text-[#2C1810]">Identité sécurisée</h1>
-                <p className="text-sm text-neutral-500 max-w-2xl">{headerDescription}</p>
-              </div>
+        <div className="container mx-auto flex items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 transition hover:border-[#F16522] hover:text-[#2C1810]"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Retour</span>
+            </button>
+            <div>
+              <h1 className="text-lg font-bold text-[#2C1810]">Vérification ONECI</h1>
+              <p className="text-xs text-neutral-500">
+                {showMethodSelector
+                  ? 'Choisissez votre méthode de vérification'
+                  : step === 'attributes'
+                    ? 'Vérifier vos informations personnelles'
+                    : 'Authentification faciale'}
+              </p>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="rounded-full border border-[#F16522]/30 bg-[#FFF6F0] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#F16522]">
-                {step === 'attributes' ? 'Méthode guidée' : 'Biométrie validée'}
-              </span>
-              <span className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-600">
-                {step === 'attributes' ? 'Étape 1 sur 2' : 'Étape 2 sur 2'}
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="w-full lg:max-w-xs">
-              <OneciVerificationProgress currentStep={step} className="w-full" />
-            </div>
-            <p className="text-xs text-neutral-500 lg:max-w-2xl">
-              Les données sont vérifiées instantanément et protégées par chiffrement. Vous pouvez
-              continuer le processus à tout moment sans perdre votre progression.
-            </p>
           </div>
         </div>
       </header>
@@ -307,18 +326,31 @@ export default function ONECIVerificationPage() {
         <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-6">
             <section className="rounded-[32px] bg-white/90 px-6 py-6 shadow-lg shadow-orange-100 ring-1 ring-orange-50">
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                    Vue simplifiée
-                  </p>
-                  <h2 className="text-2xl font-bold text-[#2C1810]">Vérification ONECI guidée</h2>
-                  <p className="mt-2 text-sm text-neutral-500 max-w-2xl">{headerDescription}</p>
+              {showMethodSelector ? (
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between mb-6">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                      Méthodes de vérification
+                    </p>
+                    <h2 className="text-2xl font-bold text-[#2C1810]">Choisissez votre méthode</h2>
+                    <p className="mt-2 text-sm text-neutral-500 max-w-2xl">{headerDescription}</p>
+                  </div>
                 </div>
-                <div className="rounded-2xl border border-dashed border-[#F16522]/60 bg-[#FFF6F0] px-4 py-2 text-sm font-semibold text-[#F16522]">
-                  {step === 'attributes' ? 'Étape 1 sur 2' : 'Étape 2 sur 2'}
+              ) : (
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-neutral-100">
+                  <div>
+                    <button
+                      onClick={() => setStep('attributes')}
+                      className="text-xs font-semibold uppercase tracking-wider text-neutral-500 hover:text-[#F16522] transition-colors mb-1"
+                    >
+                      ← Changer de méthode
+                    </button>
+                    <h2 className="text-xl font-bold text-[#2C1810]">
+                      {step === 'attributes' ? 'Vérifier vos informations personnelles' : 'Authentification faciale'}
+                    </h2>
+                  </div>
                 </div>
-              </div>
+              )}
               {showMethodSelector && (
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   {METHOD_CARD_DATA.map((method) => {
@@ -386,8 +418,8 @@ export default function ONECIVerificationPage() {
                 onSuccess={handleAttributesSuccess}
                 onError={setError}
                 initialData={authProfile ? {
-                  firstName: authProfile.full_name?.split(' ')[0] || '',
-                  lastName: authProfile.full_name?.split(' ').slice(1).join(' ') || '',
+                  firstName: authProfile.full_name?.split(' ').slice(1).join(' ') || '',
+                  lastName: authProfile.full_name?.split(' ')[0] || '',
                   birthDate: authProfile.birth_date || '',
                 } : undefined}
               />

@@ -169,7 +169,7 @@ serve(async (req) => {
     console.log('Parsed firstName:', firstName, 'lastName:', lastName);
 
     // 5. Call CryptoNeo API
-    const requestBody: any = {
+    const requestBody: Record<string, unknown> = {
       firstName,
       lastName,
       email: user.email,

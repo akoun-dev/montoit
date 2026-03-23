@@ -68,7 +68,7 @@ export class UploadService {
         path: data.path,
         error: undefined,
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Upload exception:', err);
       return {
         url: '',
@@ -96,7 +96,7 @@ export class UploadService {
       }
 
       return {};
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Delete exception:', err);
       return { error: err.message || 'Erreur inattendue' };
     }

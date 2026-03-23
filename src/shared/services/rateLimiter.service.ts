@@ -192,8 +192,8 @@ class RateLimiterService {
   /**
    * Middleware pour Express/Route handlers
    */
-  createMiddleware(operation: string, identifierGenerator?: (req: any) => string) {
-    return async (req: any, res: any, next: any) => {
+  createMiddleware(operation: string, identifierGenerator?: (req: unknown) => string) {
+    return async (req: unknown, res: unknown, next: unknown) => {
       const identifier = identifierGenerator
         ? identifierGenerator(req)
         : this.getDefaultIdentifier(req);
@@ -230,7 +230,7 @@ class RateLimiterService {
   /**
    * Obtient l'identifiant par défaut depuis la requête
    */
-  private getDefaultIdentifier(req: any): string {
+  private getDefaultIdentifier(req: unknown): string {
     // Essayer d'obtenir l'ID utilisateur depuis la session/ auth
     if (req.user?.id) {
       return `user:${req.user.id}`;
@@ -251,10 +251,10 @@ class RateLimiterService {
    * Décorateur pour les fonctions async
    */
   rateLimit(operation: string, identifierGenerator?: () => Promise<string>) {
-    return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
+    return (target: unknown, propertyKey: string, descriptor: PropertyDescriptor) => {
       const originalMethod = descriptor.value;
 
-      descriptor.value = async function (...args: any[]) {
+      descriptor.value = async function (...args: unknown[]) {
         const identifier = identifierGenerator
           ? await identifierGenerator()
           : await this.getCurrentUserId();

@@ -13,6 +13,7 @@ const OwnerApplications = lazyWithRetry(() => import('@/pages/owner/OwnerApplica
 const MyProperties = lazyWithRetry(() => import('@/pages/owner/MyPropertiesPage'));
 const OwnerProfilePage = lazyWithRetry(() => import('@/pages/owner/ProfilePage'));
 const OwnerVisitsPage = lazyWithRetry(() => import('@/pages/owner/VisitsPage'));
+const VisitSlotsManagement = lazyWithRetry(() => import('@/pages/owner/VisitSlotsManagementPage'));
 const MyTenantsPage = lazyWithRetry(() => import('@/pages/owner/MyTenantsPage'));
 const PaymentsPage = lazyWithRetry(() => import('@/pages/owner/PaymentsPage'));
 const DocumentsPage = lazyWithRetry(() => import('@/pages/owner/DocumentsPage'));
@@ -153,6 +154,10 @@ export const ownerRoutes: RouteObject[] = [
       {
         path: 'visites',
         element: <OwnerVisitsPage />,
+      },
+      {
+        path: 'visites/creneaux',
+        element: <VisitSlotsManagement />,
       },
 
       // Tenants

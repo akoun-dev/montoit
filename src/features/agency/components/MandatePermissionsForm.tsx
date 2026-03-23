@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react';
-import { X, Shield, Save } from 'lucide-react';
+import { X, Shield } from 'lucide-react';
 import type { AgencyMandate, MandatePermissions } from '@/hooks/useAgencyMandates';
 
 interface MandatePermissionsFormProps {

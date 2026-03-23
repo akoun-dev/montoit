@@ -194,7 +194,7 @@ export async function getOwnerApplications(
 
   // Récupérer les détails des propriétés
   const uniquePropertyIds = [...new Set(visibleApplications.map((a) => a.property_id))];
-  let propertiesData: any[] | null = null;
+  let propertiesData: Array<Record<string, unknown>> | null = null;
   const { data: propertiesViewData, error: propertiesViewError } = await supabase
     .from('properties_with_monthly_rent')
     .select('id, title, city, neighborhood, monthly_rent, main_image')
@@ -267,7 +267,7 @@ export async function getOwnerApplications(
       .select('id, property_id, tenant_id, status')
       .in('property_id', uniquePropertyIds);
 
-    allContracts?.forEach((contract: any) => {
+    allContracts?.forEach((contract: { id: string; property_id: string; tenant_id: string }) => {
       const key = `${contract.property_id}-${contract.tenant_id}`;
       existingContractIds.set(key, contract.id);
     });
@@ -399,7 +399,7 @@ export async function acceptApplication(applicationId: string): Promise<void> {
 /**
  * Refuser une candidature
  */
-export async function rejectApplication(applicationId: string, _reason?: string): Promise<void> {
+export async function rejectApplication(applicationId: string): Promise<void> {
   const { error } = await supabase
     .from('rental_applications')
     .update({
@@ -463,7 +463,7 @@ export async function scheduleVisitFromApplication(
     type: 'in_person' | 'virtual';
     notes?: string;
   }
-): Promise<void> {
+): Promise<string> {
   // Récupérer les détails de la candidature
   const { data: application, error: appError } = await supabase
     .from('rental_applications')
@@ -475,10 +475,10 @@ export async function scheduleVisitFromApplication(
     throw new Error('Candidature non trouvée');
   }
 
-  // Récupérer l'owner_id de la propriété
+  // Récupérer les détails complets de la propriété
   const { data: property, error: propError } = await supabase
     .from('properties')
-    .select('owner_id')
+    .select('owner_id, title, city, address')
     .eq('id', application.property_id)
     .single();
 
@@ -487,34 +487,48 @@ export async function scheduleVisitFromApplication(
   }
 
   // Créer la visite
-  const { error: visitError } = await supabase.from('visit_requests').insert({
-    property_id: application.property_id,
-    tenant_id: application.tenant_id,
-    owner_id: property.owner_id,
-    visit_date: visitData.date,
-    visit_time: visitData.time,
-    visit_type: visitData.type,
-    notes: visitData.notes,
-    status: 'confirmed',
-  });
+  const { data: visitDataResult, error: visitError } = await supabase
+    .from('visit_requests')
+    .insert({
+      property_id: application.property_id,
+      tenant_id: application.tenant_id,
+      owner_id: property.owner_id,
+      visit_date: visitData.date,
+      visit_time: visitData.time,
+      visit_type: visitData.type,
+      notes: visitData.notes,
+      status: 'confirmed',
+    })
+    .select('id')
+    .single();
 
   if (visitError) {
     console.error('Error creating visit:', visitError);
     throw visitError;
   }
 
+  const visitId = (visitDataResult as { id: string })?.id;
+
   // Mettre à jour le statut de la candidature
   await setApplicationInProgress(applicationId);
 
-  // Envoyer notification
-  await supabase.functions.invoke('send-lease-notifications', {
-    body: {
-      type: 'visit_scheduled',
-      applicationId,
-      visitDate: visitData.date,
-      visitTime: visitData.time,
-    },
-  });
+  // Envoyer notification de visite planifiée
+  try {
+    await supabase.functions.invoke('send-lease-notifications', {
+      body: {
+        visitId,
+        type: 'visit_scheduled',
+        visitDate: visitData.date,
+        visitTime: visitData.time,
+        propertyTitle: property.title,
+        propertyAddress: property.address || property.city,
+      },
+    });
+  } catch (notifError) {
+    console.warn('[scheduleVisit] Failed to send visit notification (non-critical):', notifError);
+  }
+
+  return visitId;
 }
 
 /**
@@ -611,7 +625,7 @@ export async function getTenantApplications(
 
   // Récupérer les détails des propriétés
   const uniquePropertyIds = [...new Set(applications.map((a) => a.property_id))];
-  let propertiesData: any[] | null = null;
+  let propertiesData: Array<Record<string, unknown>> | null = null;
   const { data: propertiesViewData, error: propertiesViewError } = await supabase
     .from('properties_with_monthly_rent')
     .select('id, title, city, neighborhood, monthly_rent, main_image, owner_id')

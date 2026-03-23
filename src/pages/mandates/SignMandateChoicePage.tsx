@@ -20,7 +20,6 @@ import {
   PenTool,
   Smartphone,
   Shield,
-  Clock,
   ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';

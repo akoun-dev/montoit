@@ -12,11 +12,9 @@ import {
   Bath,
   Maximize,
   Euro,
-  Calendar,
   User,
   Building2,
   Loader2,
-  AlertCircle,
   Image as ImageIcon,
   XCircle,
   CheckCircle,
@@ -40,7 +38,7 @@ interface Property {
   bathrooms: number;
   status: string;
   main_image?: string;
-  images?: any;
+  images?: unknown;
   latitude?: number | null;
   longitude?: number | null;
   owner_id: string;
@@ -60,6 +58,7 @@ interface Property {
 }
 
 export default function AgencyPropertyDetailPage() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();

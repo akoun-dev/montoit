@@ -176,7 +176,7 @@ export function RoleSwitchModal({
   toRole,
   loading = false,
 }: RoleSwitchModalProps) {
-  const roleConfig: Record<string, { label: string; icon: any; color: string; description: string }> = {
+  const roleConfig: Record<string, { label: string; icon: unknown; color: string; description: string }> = {
     tenant: {
       label: 'Locataire',
       icon: Key,

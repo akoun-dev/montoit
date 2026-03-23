@@ -46,6 +46,124 @@ interface KnowledgeEntry {
   category: string;
 }
 
+interface ProviderResponse {
+  text: string;
+  model: string;
+  tokensUsed: number;
+}
+
+function getEnvValue(...keys: string[]): string {
+  for (const key of keys) {
+    const value = Deno.env.get(key);
+    if (value) {
+      return value;
+    }
+  }
+
+  return '';
+}
+
+async function callAzureOpenAI(params: {
+  endpoint: string;
+  deploymentName: string;
+  apiVersion: string;
+  apiKey: string;
+  messages: ChatMessage[];
+}): Promise<ProviderResponse | null> {
+  const { endpoint, deploymentName, apiVersion, apiKey, messages } = params;
+  const normalizedEndpoint = endpoint.endsWith('/') ? endpoint : `${endpoint}/`;
+
+  const response = await fetch(
+    `${normalizedEndpoint}openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': apiKey,
+      },
+      body: JSON.stringify({
+        messages,
+        temperature: 0.7,
+        max_tokens: 800,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Azure OpenAI API error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  return {
+    text: data.choices?.[0]?.message?.content || '',
+    model: deploymentName,
+    tokensUsed: data.usage?.total_tokens || 0,
+  };
+}
+
+async function callGemini(params: {
+  apiKey: string;
+  model: string;
+  messages: ChatMessage[];
+}): Promise<ProviderResponse | null> {
+  const { apiKey, model, messages } = params;
+
+  const systemInstruction = messages
+    .filter((msg) => msg.role === 'system')
+    .map((msg) => msg.content)
+    .join('\n\n')
+    .trim();
+
+  const contents = messages
+    .filter((msg) => msg.role !== 'system')
+    .map((msg) => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }],
+    }));
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        systemInstruction: systemInstruction
+          ? {
+              parts: [{ text: systemInstruction }],
+            }
+          : undefined,
+        contents,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 800,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const text = parts
+    .map((part: { text?: string }) => part.text || '')
+    .join('')
+    .trim();
+
+  return {
+    text,
+    model: data.modelVersion || model,
+    tokensUsed: data.usageMetadata?.totalTokenCount || 0,
+  };
+}
+
 // Detect category from user message
 function detectCategory(message: string): string {
   const lowerMsg = message.toLowerCase();
@@ -181,10 +299,22 @@ serve(async (req) => {
 
     console.log(`[SUTA] Processing message for user: ${userId}`);
 
-    const AZURE_OPENAI_API_KEY = Deno.env.get('VITE_AZURE_OPENAI_API_KEY');
-    const AZURE_OPENAI_ENDPOINT = Deno.env.get('VITE_AZURE_OPENAI_ENDPOINT');
-    const AZURE_OPENAI_DEPLOYMENT_NAME = Deno.env.get('VITE_AZURE_OPENAI_DEPLOYMENT_NAME');
-    const AZURE_OPENAI_API_VERSION = Deno.env.get('VITE_AZURE_OPENAI_API_VERSION');
+    const AZURE_OPENAI_API_KEY = getEnvValue(
+      'AZURE_OPENAI_API_KEY',
+      'VITE_AZURE_OPENAI_API_KEY'
+    );
+    const AZURE_OPENAI_ENDPOINT = getEnvValue(
+      'AZURE_OPENAI_ENDPOINT',
+      'VITE_AZURE_OPENAI_ENDPOINT'
+    );
+    const AZURE_OPENAI_DEPLOYMENT_NAME = getEnvValue(
+      'AZURE_OPENAI_DEPLOYMENT_NAME',
+      'VITE_AZURE_OPENAI_DEPLOYMENT_NAME'
+    );
+    const AZURE_OPENAI_API_VERSION =
+      getEnvValue('AZURE_OPENAI_API_VERSION', 'VITE_AZURE_OPENAI_API_VERSION') || '2024-10-21';
+    const GEMINI_API_KEY = getEnvValue('GEMINI_API_KEY', 'VITE_GEMINI_API_KEY');
+    const GEMINI_MODEL = getEnvValue('GEMINI_MODEL', 'VITE_GEMINI_MODEL') || 'gemini-2.5-flash';
 
     // Fallback response when Azure is not available
     const getFallbackResponse = (category: string, message: string) => {
@@ -298,81 +428,57 @@ Utilise ces informations si elles sont pertinentes pour répondre à la question
       { role: 'user', content: message },
     ];
 
-    console.log(
-      `[SUTA] Calling Azure OpenAI API with ${messages.length} messages, category: ${category}`
-    );
+    console.log(`[SUTA] Preparing LLM call with ${messages.length} messages, category: ${category}`);
 
-    // Filter out system message for Azure OpenAI (it doesn't support system role in the same way)
-    const systemMessage = messages.find((msg) => msg.role === 'system');
-    const filteredMessages = messages.filter((msg) => msg.role !== 'system');
-
-    // Add system message as first user message if it exists
-    if (systemMessage) {
-      filteredMessages.unshift({
-        role: 'system',
-        content: systemMessage.content,
-      });
-    }
-
-    const response = await fetch(
-      `${AZURE_OPENAI_ENDPOINT}openai/deployments/${AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version=${AZURE_OPENAI_API_VERSION}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'api-key': AZURE_OPENAI_API_KEY!,
-        },
-        body: JSON.stringify({
-          messages: filteredMessages,
-          temperature: 0.7,
-          max_tokens: 800,
-        }),
-      }
-    );
-    // Try Azure OpenAI if configured
     let aiResponse = '';
     let modelUsed = 'fallback';
     let tokensUsed = 0;
 
     if (AZURE_OPENAI_API_KEY && AZURE_OPENAI_ENDPOINT && AZURE_OPENAI_DEPLOYMENT_NAME) {
       try {
-        const response = await fetch(
-          `${AZURE_OPENAI_ENDPOINT}openai/deployments/${AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version=${AZURE_OPENAI_API_VERSION}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'api-key': AZURE_OPENAI_API_KEY,
-            },
-            body: JSON.stringify({
-              messages: filteredMessages,
-              temperature: 0.7,
-              max_tokens: 800,
-            }),
-          }
-        );
+        console.log('[SUTA] Trying Azure OpenAI provider');
+        const azureResult = await callAzureOpenAI({
+          endpoint: AZURE_OPENAI_ENDPOINT,
+          deploymentName: AZURE_OPENAI_DEPLOYMENT_NAME,
+          apiVersion: AZURE_OPENAI_API_VERSION,
+          apiKey: AZURE_OPENAI_API_KEY,
+          messages,
+        });
 
-        if (response.ok) {
-          const data = await response.json();
-          aiResponse = data.choices?.[0]?.message?.content || '';
-          modelUsed = AZURE_OPENAI_DEPLOYMENT_NAME;
-          tokensUsed = data.usage?.total_tokens || 0;
+        if (azureResult?.text) {
+          aiResponse = azureResult.text;
+          modelUsed = azureResult.model;
+          tokensUsed = azureResult.tokensUsed;
           console.log(`[SUTA] Azure OpenAI response generated successfully`);
-        } else {
-          const errorText = await response.text();
-          console.error(`[SUTA] Azure OpenAI API error: ${response.status}`, errorText);
-          // Fall through to fallback response
         }
       } catch (azureError) {
         console.error('[SUTA] Azure OpenAI request failed:', azureError);
-        // Fall through to fallback response
       }
     }
 
-    // Use fallback if Azure didn't work
+    if (!aiResponse && GEMINI_API_KEY) {
+      try {
+        console.log('[SUTA] Trying Gemini provider');
+        const geminiResult = await callGemini({
+          apiKey: GEMINI_API_KEY,
+          model: GEMINI_MODEL,
+          messages,
+        });
+
+        if (geminiResult?.text) {
+          aiResponse = geminiResult.text;
+          modelUsed = geminiResult.model;
+          tokensUsed = geminiResult.tokensUsed;
+          console.log('[SUTA] Gemini response generated successfully');
+        }
+      } catch (geminiError) {
+        console.error('[SUTA] Gemini request failed:', geminiError);
+      }
+    }
+
     if (!aiResponse) {
       aiResponse = getFallbackResponse(category, message);
-      console.log(`[SUTA] Using fallback response for category: ${category}`);
+      console.log(`[SUTA] Using static fallback response for category: ${category}`);
     }
 
     return new Response(

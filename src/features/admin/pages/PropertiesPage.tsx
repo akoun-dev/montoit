@@ -1,4 +1,4 @@
-import { Home, ArrowLeft, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
+import { Home, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/shared/ui';
 

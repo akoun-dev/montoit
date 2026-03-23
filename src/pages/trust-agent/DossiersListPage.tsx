@@ -112,14 +112,14 @@ export default function DossiersListPage() {
       }
 
       // Get unique user IDs and fetch their profiles
-      const userIds = [...new Set((applications || []).map((app: any) => app.user_id))];
+      const userIds = [...new Set((applications || []).map((app: unknown) => app.user_id))];
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('id, full_name, email, phone')
         .in('id', userIds);
 
       // Create a map for quick lookup
-      const profilesMap = new Map((profilesData || []).map((p: any) => [p.id, p]));
+      const profilesMap = new Map((profilesData || []).map((p: unknown) => [p.id, p]));
 
       // Transform and group by dossier_type
       const transformedData = {
@@ -128,7 +128,7 @@ export default function DossiersListPage() {
         agency: [] as Dossier[],
       };
 
-      (applications || []).forEach((app: any) => {
+      (applications || []).forEach((app: unknown) => {
         const profile = profilesMap.get(app.user_id);
         const dossier: Dossier = {
           id: app.id,

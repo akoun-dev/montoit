@@ -40,11 +40,11 @@ interface ProfileDetails {
 
 // Configuration des types de notifications
 const notificationConfig: Record<string, {
-  title: (data: any) => string;
-  message: (data: any) => string;
+  title: (data: Record<string, unknown>) => string;
+  message: (data: Record<string, unknown>) => string;
   actionUrl: (applicationId: string, propertyId?: string) => string;
   emailTemplate: string;
-  emailSubject: (data: any) => string;
+  emailSubject: (data: Record<string, unknown>) => string;
   getRecipients: (application: ApplicationDetails, property: PropertyDetails, recipientId?: string) => string[];
 }> = {
   'application_received': {
@@ -253,7 +253,7 @@ Deno.serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error: any) {
+  } catch (error: Record<string, unknown>) {
     console.error('[send-application-notifications] Error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),

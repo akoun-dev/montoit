@@ -45,6 +45,7 @@ export default function SignMandatePage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedResponsibilities, setAcceptedResponsibilities] = useState(false);
   const [signerType, setSignerType] = useState<'owner' | 'agency' | null>(null);
+   
   const [_signatureComplete, setSignatureComplete] = useState(false);
 
   const { step: currentStep, slideDirection, goToStep, nextStep, prevStep } = useFormStepper(3);
@@ -219,6 +220,7 @@ export default function SignMandatePage() {
     return labels[permission] || permission;
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isAgencyUser = profile?.user_type
     ? (AGENCY_ROLES as readonly string[]).includes(profile.user_type)
     : false;

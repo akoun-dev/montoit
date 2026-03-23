@@ -290,7 +290,7 @@ export default function AgencyPaymentsPage() {
         profile_user_ids: tenantIds as string[],
       });
 
-      const tenantsMap = new Map((tenantsData || []).map((t: any) => [t.user_id, t]));
+      const tenantsMap = new Map((tenantsData || []).map((t: unknown) => [t.user_id, t]));
 
       // Get payments for each contract
       const contractsWithDetails = await Promise.all(
@@ -342,7 +342,7 @@ export default function AgencyPaymentsPage() {
           } else {
             setCharges([]);
           }
-        } catch (e) {
+        } catch {
           setCharges([]);
         }
       } else {
@@ -407,7 +407,7 @@ export default function AgencyPaymentsPage() {
   const sendPaymentReminder = async (_tenantId: string, tenantName: string) => {
     try {
       toast.success(`Rappel envoyé à ${tenantName || 'le locataire'}`);
-    } catch (error) {
+    } catch {
       toast.error('Erreur lors de l\'envoi du rappel');
     }
   };
@@ -420,7 +420,7 @@ export default function AgencyPaymentsPage() {
 
       toast.success('Paiement marqué comme payé');
       loadData();
-    } catch (error) {
+    } catch {
       toast.error('Erreur lors de la mise à jour du paiement');
     }
   };

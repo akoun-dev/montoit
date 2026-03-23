@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Users,
   Search,
-  Filter,
   Clock,
   CheckCircle,
   XCircle,
@@ -42,7 +41,6 @@ import {
 import {
   notifyApplicationAccepted,
   notifyApplicationRejected,
-  notifyVisitScheduled,
 } from '@/services/notifications/applicationNotificationService';
 
 interface VisitFormData {
@@ -166,6 +164,20 @@ const matchesDossierType = (value?: string | null) => {
   return DOSSIER_TYPE_ALIASES.some((alias) => normalized.includes(alias));
 };
 
+// Helper function to get proper download URL from Supabase storage
+const getDownloadUrl = (documentUrl: string): string => {
+  if (!documentUrl) return documentUrl;
+  // Add download parameter to Supabase storage URLs
+  try {
+    const url = new URL(documentUrl);
+    url.searchParams.set('download', 'true');
+    return url.toString();
+  } catch {
+    // If URL parsing fails, return as-is
+    return documentUrl;
+  }
+};
+
 // Helper component
 const StatCard = ({
   icon: Icon,
@@ -174,7 +186,7 @@ const StatCard = ({
   color = 'gray',
   onClick,
 }: {
-  icon: any;
+  icon: unknown;
   label: string;
   value: number;
   color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'amber';
@@ -463,6 +475,31 @@ export default function OwnerApplicationsPage() {
     notes: '',
   });
 
+  const loadData = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const [applicationsData, statsData, propertiesData] = await Promise.all([
+        getOwnerApplications(user.id, {
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          propertyId: propertyFilter !== 'all' ? propertyFilter : undefined,
+          searchTerm: searchTerm || undefined,
+        }),
+        getApplicationStats(user.id),
+        getOwnerProperties(user.id),
+      ]);
+
+      setApplications(applicationsData);
+      setStats(statsData);
+      setProperties(propertiesData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast.error('Erreur lors du chargement des données');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, statusFilter, propertyFilter, searchTerm]);
+
   useEffect(() => {
     if (!user) {
       navigate('/connexion');
@@ -475,7 +512,7 @@ export default function OwnerApplicationsPage() {
     }
 
     loadData();
-  }, [user, profile, navigate, statusFilter, propertyFilter, searchTerm]);
+  }, [user, profile, navigate, statusFilter, propertyFilter, searchTerm, loadData]);
 
   // Filter applications by period
   const filteredByPeriod = useMemo(() => {
@@ -499,13 +536,14 @@ export default function OwnerApplicationsPage() {
           return submittedDate >= new Date(today.getTime() - 180 * 24 * 60 * 60 * 1000);
         case 'last_year':
           return submittedDate >= new Date(today.getTime() - 365 * 24 * 60 * 60 * 1000);
-        case 'custom':
+        case 'custom': {
           if (!customStartDate || !customEndDate) return true;
           const start = new Date(customStartDate);
           start.setHours(0, 0, 0, 0);
           const end = new Date(customEndDate);
           end.setHours(23, 59, 59, 999);
           return submittedDate >= start && submittedDate <= end;
+        }
         default:
           return true;
       }
@@ -514,31 +552,6 @@ export default function OwnerApplicationsPage() {
 
   // Combine all filters for the final displayed applications
   const displayedApplications = filteredByPeriod;
-
-  const loadData = async () => {
-    if (!user) return;
-
-    try {
-      const [applicationsData, statsData, propertiesData] = await Promise.all([
-        getOwnerApplications(user.id, {
-          status: statusFilter !== 'all' ? statusFilter : undefined,
-          propertyId: propertyFilter !== 'all' ? propertyFilter : undefined,
-          searchTerm: searchTerm || undefined,
-        }),
-        getApplicationStats(user.id),
-        getOwnerProperties(user.id),
-      ]);
-
-      setApplications(applicationsData);
-      setStats(statsData);
-      setProperties(propertiesData);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Erreur lors du chargement des données');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadVerificationDetails = async (tenantId: string) => {
     setVerificationState((prev) => ({ ...prev, loading: true }));
@@ -626,6 +639,32 @@ export default function OwnerApplicationsPage() {
     loadVerificationDetails(selectedApplication.tenant_id);
   }, [selectedApplication]);
 
+  // Close period dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      const periodDropdown = document.querySelector('[data-period-dropdown]');
+      const periodButton = document.querySelector('[data-period-button]');
+
+      if (
+        showPeriodDropdown &&
+        periodDropdown &&
+        !periodDropdown.contains(target) &&
+        periodButton &&
+        !periodButton.contains(target)
+      ) {
+        setShowPeriodDropdown(false);
+      }
+    };
+
+    if (showPeriodDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showPeriodDropdown]);
+
   const handleAccept = async (applicationId: string) => {
     const application = applications.find((a) => a.id === applicationId);
     if (application?.status === 'rejected') {
@@ -692,12 +731,6 @@ export default function OwnerApplicationsPage() {
     setActionLoading(true);
     try {
       await scheduleVisitFromApplication(visitApplicationId, visitForm);
-      try {
-        const visitDateTime = `${new Date(visitForm.date).toLocaleDateString('fr-FR')} à ${visitForm.time}`;
-        await notifyVisitScheduled(visitApplicationId, visitDateTime);
-      } catch (notifError) {
-        console.error('Failed to send visit notification:', notifError);
-      }
       toast.success('Visite planifiée avec succès');
       setShowVisitModal(false);
       setVisitApplicationId(null);
@@ -847,7 +880,7 @@ export default function OwnerApplicationsPage() {
                 <select
                   value={propertyFilter}
                   onChange={(e) => setPropertyFilter(e.target.value)}
-                  className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 cursor-pointer"
                 >
                   <option value="all">Toutes les propriétés</option>
                   {properties.map((p) => (
@@ -859,10 +892,11 @@ export default function OwnerApplicationsPage() {
               )}
 
               {/* Period filter dropdown */}
-              <div className="relative">
+              <div className="relative" data-period-dropdown-container>
                 <button
+                  data-period-button
                   onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <Calendar className="w-4 h-4 text-gray-600" />
                   <span className="text-sm text-gray-700">
@@ -874,16 +908,25 @@ export default function OwnerApplicationsPage() {
                 </button>
 
                 {showPeriodDropdown && (
-                  <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
+                  <div
+                    data-period-dropdown
+                    className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50"
+                  >
                     <div className="p-2 space-y-1">
                       {PERIOD_FILTERS.map((option) => (
                         <button
                           key={option.value}
-                          onClick={() => {
-                            setPeriodFilter(option.value);
-                            setShowPeriodDropdown(false);
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (option.value === 'custom') {
+                              setPeriodFilter('custom');
+                              // Don't close dropdown for custom option
+                            } else {
+                              setPeriodFilter(option.value);
+                              setShowPeriodDropdown(false);
+                            }
                           }}
-                          className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                             periodFilter === option.value
                               ? 'bg-orange-50 text-orange-600'
                               : 'text-gray-700 hover:bg-gray-50'
@@ -904,6 +947,7 @@ export default function OwnerApplicationsPage() {
                           <input
                             type="date"
                             value={customStartDate}
+                            onClick={(e) => e.stopPropagation()}
                             onChange={(e) => setCustomStartDate(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                           />
@@ -915,10 +959,20 @@ export default function OwnerApplicationsPage() {
                           <input
                             type="date"
                             value={customEndDate}
+                            onClick={(e) => e.stopPropagation()}
                             onChange={(e) => setCustomEndDate(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                           />
                         </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowPeriodDropdown(false);
+                          }}
+                          className="w-full py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-sm font-medium rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all"
+                        >
+                          Appliquer
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1464,10 +1518,11 @@ export default function OwnerApplicationsPage() {
                                   'En attente'}
                               </span>
                               <a
-                                href={doc.document_url}
+                                href={getDownloadUrl(doc.document_url)}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-xs font-semibold text-orange-600 hover:underline"
+                                title="Télécharger le document"
                               >
                                 Voir
                               </a>

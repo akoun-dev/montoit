@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, useEffect, useCallback, ChangeEvent } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +7,7 @@ import { Button } from '@/shared/ui/Button';
 import Input from '@/shared/ui/Input';
 import { toast } from '@/hooks/shared/useSafeToast';
 import OwnerDashboardLayout from '@/features/owner/components/OwnerDashboardLayout';
+import TenantDashboardLayout from '@/features/tenant/components/TenantDashboardLayout';
 import ONECIFormTest from '@/features/verification/components/ONECIFormTest';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
@@ -49,14 +50,14 @@ export default function ProfilePage() {
     if (user) {
       loadProfile();
     }
-  }, [user]);
+  }, [user, loadProfile]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab) setActiveTab(tab);
   }, [searchParams]);
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     if (!user) return;
     try {
       const { data, error } = await supabase
@@ -121,7 +122,7 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, setProfile, setFormData, setLoading]);
 
   const handleSave = async () => {
     if (!user) return;
@@ -166,7 +167,7 @@ export default function ProfilePage() {
     }
   };
 
-  const isOwner = authProfile?.user_type === 'owner' || authProfile?.user_type === 'owner';
+  const isOwner = authProfile?.user_type === 'owner' || authProfile?.user_type === 'proprietaire';
   const Layout = isOwner ? OwnerDashboardLayout : TenantDashboardLayout;
 
   if (loading) {
@@ -192,15 +193,6 @@ export default function ProfilePage() {
     (profile as any)?.active_role ||
     (user as any)?.role ||
     '';
-
-  const roleLabel =
-    rawRole === 'tenant'
-      ? 'Locataire'
-      : rawRole === 'owner' || rawRole === 'owner'
-        ? 'Propriétaire'
-        : rawRole === 'agency'
-          ? 'Agence'
-          : rawRole || 'Non renseigné';
 
   const tabs = [
     { id: 'infos', label: 'Informations', icon: User },
@@ -455,6 +447,30 @@ export default function ProfilePage() {
                   {!profile?.oneci_verified && user && (
                     <div className="border border-border rounded-xl p-6">
                       <ONECIFormTest userId={user.id} onSuccess={loadProfile} />
+                    </div>
+                  )}
+
+                  {/* Bouton pour refaire la vérification ONECI si déjà vérifié */}
+                  {profile?.oneci_verified && user && (
+                    <div className="border border-border rounded-xl p-6 text-center">
+                      <div className="flex items-center justify-center mb-4">
+                        <CheckCircle className="w-12 h-12 text-green-600 mr-3" />
+                        <div>
+                          <h4 className="text-lg font-semibold text-foreground">
+                            Vérification ONECI réussie
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            Votre identité a été vérifiée avec succès
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => navigate('/locataire/verification-oneci?redo=true')}
+                        className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#F16522] hover:bg-[#d9571d] text-white rounded-xl font-medium transition-colors"
+                      >
+                        <Shield className="w-5 h-5" />
+                        Rétaliser une nouvelle vérification
+                      </button>
                     </div>
                   )}
 

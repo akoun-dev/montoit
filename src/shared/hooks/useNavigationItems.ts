@@ -22,7 +22,7 @@ import { useAuth } from '@/app/providers/AuthProvider';
 export interface NavigationItem {
   href: string;
   label: string;
-  icon: any;
+  icon: unknown;
   badgeCount?: number;
   badgeColor?: 'red' | 'orange' | 'blue' | 'green';
   badgePulse?: boolean;

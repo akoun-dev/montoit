@@ -41,6 +41,22 @@ interface Review {
   is_editable: boolean;
 }
 
+interface DatabaseReview {
+  id: string;
+  property_id: string;
+  created_at: string;
+  rating?: number;
+  comment?: string;
+  criteria_ratings?: Record<string, number>;
+  response?: string | null;
+  response_at?: string | null;
+  properties?: {
+    title?: string;
+    city?: string;
+    main_image?: string | null;
+  };
+}
+
 interface TrustBadge {
   id: string;
   badge_type: 'verified' | 'reliable' | 'best_tenant';
@@ -101,7 +117,7 @@ export default function MyReviewsPage() {
         return;
       }
 
-      const reviews: Review[] = (reviewsData || []).map((r: any) => {
+      const reviews: Review[] = (reviewsData || []).map((r: DatabaseReview) => {
         const createdAt = new Date(r.created_at);
         const daysSinceCreation = Math.floor(
           (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24)

@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, CheckCircle, AlertTriangle, XCircle, Clock } from 'lucide-react';
+import { Activity, CheckCircle, AlertTriangle, XCircle, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/shared/ui';
 

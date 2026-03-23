@@ -24,7 +24,6 @@ import {
   Search,
   Home,
   MapPin,
-  Coins,
   Calendar,
   Users,
   Eye,

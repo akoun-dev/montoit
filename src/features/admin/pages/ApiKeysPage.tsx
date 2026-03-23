@@ -46,7 +46,7 @@ interface ApiKeyLog {
 export default function AdminApiKeys() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [logs, setLogs] = useState<ApiKeyLog[]>([]);
-  const [_loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedService, setSelectedService] = useState<ApiKey | null>(null);
   const [editedKeys, setEditedKeys] = useState<Record<string, string>>({});
@@ -147,7 +147,7 @@ export default function AdminApiKeys() {
       ];
 
       setApiKeys(mockApiKeys);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading API keys:', err);
     } finally {
       setLoading(false);
@@ -193,7 +193,7 @@ export default function AdminApiKeys() {
       ];
 
       setLogs(mockLogs);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading logs:', err);
     }
   };
@@ -223,7 +223,7 @@ export default function AdminApiKeys() {
       );
 
       setSelectedService(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error saving keys:', err);
     } finally {
       setSaving(false);
@@ -358,7 +358,7 @@ export default function AdminApiKeys() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => setActiveTab(tab.id as 'keys' | 'logs' | 'health')}
                   className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
                     activeTab === tab.id
                       ? 'border-orange-500 text-orange-600'
@@ -426,7 +426,7 @@ export default function AdminApiKeys() {
                           <span className="text-sm font-medium text-gray-700">{keyName}</span>
                           <div className="flex items-center space-x-2">
                             <span className="text-sm text-gray-600 font-mono">
-                              {keyValue ? maskKey(keyValue as string) : '❌ Non configuré'}
+                              {keyValue ? maskKey(String(keyValue)) : '❌ Non configuré'}
                             </span>
                             <button
                               onClick={() =>
@@ -611,7 +611,7 @@ export default function AdminApiKeys() {
                     <div className="relative">
                       <input
                         type={showKeys[keyName] ? 'text' : 'password'}
-                        value={keyValue as string}
+                        value={keyValue}
                         onChange={(e) =>
                           setEditedKeys({ ...editedKeys, [keyName]: e.target.value })
                         }

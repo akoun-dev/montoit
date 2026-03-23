@@ -92,7 +92,7 @@ export class CacheService {
 export class LocalStorageCache {
   private static prefix = 'montoit_cache_';
 
-  static set(key: string, data: any, expiresInMinutes: number = 60): void {
+  static set(key: string, data: unknown, expiresInMinutes: number = 60): void {
     try {
       const item = {
         data,
@@ -144,7 +144,7 @@ export class LocalStorageCache {
   }
 }
 
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => any>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -163,7 +163,7 @@ export function debounce<T extends (...args: any[]) => any>(
   };
 }
 
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: unknown[]) => any>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {

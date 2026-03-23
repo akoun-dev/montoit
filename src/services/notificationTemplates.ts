@@ -1,0 +1,294 @@
+/**
+ * Templates de notifications pour les décisions de verification
+ */
+
+import type { NotificationTemplate, NotificationCategory } from '@/types/notification.types';
+
+export const NOTIFICATION_TEMPLATES: Record<string, NotificationTemplate> = {
+  // Verification réussie - Locataire
+  'tenant_verification_approved': {
+    id: 'tenant_verification_approved',
+    code: 'tenant_verification_approved',
+    category: 'verification_result',
+    channels: ['email', 'sms', 'in_app'],
+    priority: 'high',
+    subject: '✅ Votre dossier a été validé !',
+    template_fr: `Bonjour {{full_name},
+
+Nous avons le plaisir de vous informer que votre dossier locatif a été validé avec succès !
+
+📋 Détails de la décision :
+- Date : {{decision_date}}
+- Référence : {{application_id}}
+
+🎉 Prochaines étapes :
+1. Complétez votre profil si ce n'est pas déjà fait
+2. Commencez à rechercher vos futurs logements
+3. Répondez aux propriétaires qui vous intéressent
+
+Votre score de confiance est de {{trust_score}}%.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['full_name', 'decision_date', 'application_id', 'trust_score'],
+  },
+
+  // Verification rejetée - Locataire
+  'tenant_verification_rejected': {
+    id: 'tenant_verification_rejected',
+    code: 'tenant_verification_rejected',
+    category: 'verification_result',
+    channels: ['email', 'in_app'],
+    priority: 'high',
+    subject: '⚠️ Votre dossier nécessite des corrections',
+    template_fr: `Bonjour {{full_name}},
+
+Après examen, votre dossier n'a pas pu être validé pour la raison suivante :
+
+❌ Motif : {{rejection_reason}}
+
+📄 Documents concernés : {{rejected_docs}}
+
+Que pouvez-vous faire ?
+1. Corrigez les documents mentionnés
+2. Soumettez à nouveau votre dossier complet
+3. Contactez-nous si vous avez des questions : support@montoit.ci
+
+Nous restons à votre disposition pour vous accompagner.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['full_name', 'rejection_reason', 'rejected_docs', 'application_id'],
+  },
+
+  // Demande de documents complémentaires
+  'additional_documents_requested': {
+    id: 'additional_documents_requested',
+    code: 'additional_documents_requested',
+    category: 'document_request',
+    channels: ['email', 'in_app'],
+    priority: 'high',
+    subject: '📎 Documents complémentaires requis',
+    template_fr: `Bonjour {{full_name}},
+
+Votre dossier est en cours d'examen et nous avons besoin de documents supplémentaires pour poursuivre la vérification.
+
+📋 Documents demandés :
+{{required_documents}}
+
+⏰ Délai : {{deadline}}
+
+Merci de les télécharger via votre espace personnel dès que possible.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['full_name', 'required_documents', 'deadline', 'application_id'],
+  },
+
+  // Verification approuvée - Propriétaire
+  'owner_verification_approved': {
+    id: 'owner_verification_approved',
+    code: 'owner_verification_approved',
+    category: 'verification_result',
+    channels: ['email', 'sms', 'in_app'],
+    priority: 'high',
+    subject: '✅ Votre compte propriétaire est certifié',
+    template_fr: `Bonjour {{full_name}},
+
+Félicitations ! Votre compte propriétaire a obtenu la certification ANSUT.
+
+📜 Certification : {{certification_number}}
+📅 Date : {{certification_date}}
+
+🏠 Bénéfices de votre certification :
+- Badge de vérification sur votre profil
+- Visibilité améliorée auprès des locataires
+- Crédit de confiance accru
+
+Vous pouvez maintenant :
+- Gérer vos biens plus efficacement
+- Répondre aux candidatures avec confiance
+- Accéder à des fonctionnalités premium
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['full_name', 'certification_number', 'certification_date'],
+  },
+
+  // Verification rejetée - Propriétaire
+  'owner_verification_rejected': {
+    id: 'owner_verification_rejected',
+    code: 'owner_verification_rejected',
+    category: 'verification_result',
+    channels: ['email', 'in_app'],
+    priority: 'high',
+    subject: '⚠️ Votre certification a été refusée',
+    template_fr: `Bonjour {{full_name}},
+
+Nous regrettons de vous informer que votre certification propriétaire a été refusée.
+
+❌ Motif : {{rejection_reason}}
+📄 Documents concernés : {{rejected_docs}}
+
+Que pouvez-vous faire ?
+1. Corrigez les documents mentionnés
+2. Soumettez à nouveau votre dossier
+3. Contactez le support : support@montoit.ci
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['full_name', 'rejection_reason', 'rejected_docs', 'application_id'],
+  },
+
+  // Verification approuvée - Agence
+  'agency_verification_approved': {
+    id: 'agency_verification_approved',
+    code: 'agency_verification_approved',
+    category: 'verification_result',
+    channels: ['email', 'sms', 'in_app'],
+    priority: 'high',
+    subject: '✅ Votre agence est certifiée ANSUT',
+    template_fr: `Bonjour {{agency_name}},
+
+Excellente nouvelle ! Votre agence a obtenu la certification ANSUT.
+
+📜 Certification : {{certification_number}}
+📅 Date : {{certification_date}}
+
+Votre agence apparaîtra maintenant comme vérifiée sur la plateforme.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['agency_name', 'certification_number', 'certification_date', 'agency_id'],
+  },
+
+  // Verification rejetée - Agence
+  'agency_verification_rejected': {
+    id: 'agency_verification_rejected',
+    code: 'agency_verification_rejected',
+    category: 'verification_result',
+    channels: ['email', 'in_app'],
+    priority: 'high',
+    subject: '⚠️ Certification agence refusée',
+    template_fr: `Bonjour {{agency_name}},
+
+Nous regrettons de vous informer que la certification de votre agence a été refusée.
+
+❌ Motif : {{rejection_reason}}
+📄 Documents concernés : {{rejected_docs}}
+
+Pour plus d'informations, contactez notre support technique.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['agency_name', 'rejection_reason', 'rejected_docs', 'agency_id'],
+  },
+
+  // Document approuvé
+  'document_approved': {
+    id: 'document_approved',
+    code: 'document_approved',
+    category: 'verification_result',
+    channels: ['in_app'],
+    priority: 'normal',
+    subject: 'Document vérifié',
+    template_fr: null, // Notification in-app seulement
+    variables: ['document_type', 'document_name'],
+  },
+
+  // Document rejeté
+  'document_rejected': {
+    id: 'document_rejected',
+    code: 'document_rejected',
+    category: 'verification_result',
+    channels: ['email', 'in_app'],
+    priority: 'normal',
+    subject: 'Document refusé',
+    template_fr: `Bonjour {{full_name}},
+
+Le document "{{document_name}}" a été refusé pour la raison suivante :
+{{rejection_reason}}
+
+Merci de soumettre un nouveau document.`,
+    variables: ['full_name', 'document_name', 'rejection_type', 'rejection_reason'],
+  },
+
+  // Rappel avant expiration
+  'verification_expiring_soon': {
+    id: 'verification_expiring_soon',
+    code: 'verification_expiring_soon',
+    category: 'profile',
+    channels: ['email', 'in_app'],
+    priority: 'high',
+    subject: '⏰ Votre vérification expire bientôt',
+    template_fr: `Bonjour {{full_name}},
+
+Votre vérification "{{verification_type}}" expire dans {{days_left}} jours.
+
+Pensez à la renouveler pour conserver votre score de confiance.
+
+Pour renouveler :
+1. Connectez-vous à votre compte
+2. Allez dans "Mon profil" > "Vérifications"
+3. Soumettez à nouveau vos documents
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['full_name', 'verification_type', 'days_left', 'verification_id'],
+  },
+
+  // Verification expirée
+  'verification_expired': {
+    id: 'verification_expired',
+    code: 'verification_expired',
+    category: 'profile',
+    channels: ['email', 'in_app'],
+    priority: 'high',
+    subject: '⏰ Votre vérification a expiré',
+    template_fr: `Bonjour {{full_name}},
+
+Votre vérification "{{verification_type}}" est expirée depuis {{expired_since}} jours.
+
+Votre score de confiance a été ajusté en conséquence.
+
+Pour restaurer votre score :
+1. Connectez-vous à votre compte
+2. Allez dans "Mon profil" > "Vérifications"
+3. Renouvelez vos documents
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['full_name', 'verification_type', 'expired_since', 'verification_id'],
+  },
+};
+
+/**
+ * Obtient un template par son code
+ */
+export function getTemplate(code: string): NotificationTemplate | undefined {
+  return NOTIFICATION_TEMPLATES[code];
+}
+
+/**
+ * Obtient tous les templates d'une catégorie
+ */
+export function getTemplatesByCategory(category: NotificationCategory): NotificationTemplate[] {
+  return Object.values(NOTIFICATION_TEMPLATES).filter(t => t.category === category);
+}
+
+/**
+ * Génère le contenu d'une notification à partir d'un template et de données
+ */
+export function renderTemplate(template: NotificationTemplate, data: Record<string, unknown>): string {
+  let content = template.template_fr;
+
+  for (const variable of template.variables) {
+    const placeholder = `{{${variable}}}`;
+    const value = data[variable] ?? `[${variable}]`;
+    content = content.replace(new RegExp(placeholder, 'g'), String(value));
+  }
+
+  return content;
+}
+
+export default NOTIFICATION_TEMPLATES;

@@ -83,33 +83,34 @@ export const PROPERTY_TYPES = [
 
 // Cities
 export const CITIES = [
+  'Abengourou',
   'Abidjan',
-  'Yamoussoukro',
+  'Bingerville',
   'Bouaké',
   'Daloa',
-  'San-Pédro',
+  'Divo',
+  'Gagnoa',
   'Korhogo',
   'Man',
-  'Gagnoa',
-  'Divo',
-  'Abengourou',
+  'San-Pédro',
+  'Yamoussoukro',
 ] as const;
 
 // Abidjan Communes
 export const ABIDJAN_COMMUNES = [
   'Abobo',
   'Adjamé',
+  'Anyama',
   'Attécoubé',
+  'Bingerville',
   'Cocody',
   'Koumassi',
   'Marcory',
   'Plateau',
   'Port-Bouët',
+  'Songon',
   'Treichville',
   'Yopougon',
-  'Bingerville',
-  'Songon',
-  'Anyama',
 ] as const;
 
 // User Types

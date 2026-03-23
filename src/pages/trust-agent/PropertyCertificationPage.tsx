@@ -4,8 +4,6 @@ import {
   MapPin,
   CheckCircle2,
   XCircle,
-  Upload,
-  FileCheck,
   Zap,
   Droplets,
   Shield,
@@ -15,13 +13,11 @@ import {
   AlertCircle,
   Building2,
   X,
+  FileCheck,
 } from 'lucide-react';
 import { Card } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/Button';
-import Input from '@/shared/ui/Input';
-import { Label } from '@/shared/ui/label';
-import { Textarea } from '@/shared/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { toast } from 'sonner';
@@ -140,12 +136,6 @@ export default function PropertyCertificationPage() {
       category: 'documents',
     },
   ]);
-
-  const [certificationData, setCertificationData] = useState({
-    ansutCertificateUrl: '',
-    notes: '',
-    photoUrls: [] as string[],
-  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -372,7 +362,7 @@ export default function PropertyCertificationPage() {
         p_property_id: propertyId,
         p_ansut_verified: true,
         p_ansut_verification_date: new Date().toISOString(),
-        p_ansut_certificate_url: certificationData.ansutCertificateUrl || null,
+        p_ansut_certificate_url: null,
       });
 
       if (rpcError) {
@@ -432,7 +422,6 @@ export default function PropertyCertificationPage() {
 
   const resetForm = () => {
     setChecklist((prev) => prev.map((item) => ({ ...item, checked: false })));
-    setCertificationData({ ansutCertificateUrl: '', notes: '', photoUrls: [] });
   };
 
   const handleClearFilters = () => {
@@ -1017,53 +1006,6 @@ export default function PropertyCertificationPage() {
                           </div>
                         );
                       })}
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Additional Information */}
-                <Card className="bg-white border-gray-200">
-                  <div className="p-6">
-                    <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <FileCheck className="h-5 w-5 text-blue-600" />
-                      Informations Complémentaires
-                    </h3>
-
-                    <div className="space-y-4">
-                      {/* Certificate URL */}
-                      <div className="space-y-2">
-                        <Label>URL du certificat ANSUT (optionnel)</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="https://exemple.com/certificat..."
-                            value={certificationData.ansutCertificateUrl}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                              setCertificationData((prev) => ({
-                                ...prev,
-                                ansutCertificateUrl: e.target.value,
-                              }))
-                            }
-                            className="flex-1"
-                          />
-                          <Button variant="outline" size="small" className="px-3">
-                            <Upload className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Notes */}
-                      <div className="space-y-2">
-                        <Label>Notes et observations</Label>
-                        <Textarea
-                          placeholder="Observations sur l'état du bien, remarques particulières, points à surveiller..."
-                          value={certificationData.notes}
-                          onChange={(e) =>
-                            setCertificationData((prev) => ({ ...prev, notes: e.target.value }))
-                          }
-                          rows={4}
-                          className="resize-none"
-                        />
-                      </div>
                     </div>
                   </div>
                 </Card>

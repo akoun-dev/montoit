@@ -136,7 +136,7 @@ class CryptoNeoSignatureService {
       }
 
       // 5. Mettre à jour le mandat avec les informations de signature
-      const updateData: any = {
+      const updateData: unknown = {
         cryptoneo_operation_id: cryptoNeoResponse.operationId,
         cryptoneo_signature_status:
           request.signatoryRole === 'owner' ? 'owner_signed' : 'agency_signed',
@@ -181,7 +181,7 @@ class CryptoNeoSignatureService {
   /**
    * Créer une opération de signature chez CryptoNeo
    */
-  private async createCryptoNeoOperation(data: any): Promise<CryptoNeoSignatureResponse> {
+  private async createCryptoNeoOperation(data: unknown): Promise<CryptoNeoSignatureResponse> {
     try {
       // Dans un environnement réel, cela appellerait l'API CryptoNeo
       // Pour l'instant, nous simulons la réponse
@@ -323,7 +323,7 @@ class CryptoNeoSignatureService {
       }
 
       // 3. Mettre à jour le statut de signature
-      const updateData: any = {};
+      const updateData: unknown = {};
 
       if (params.signatoryRole === 'owner') {
         updateData.owner_signed_at = new Date().toISOString();

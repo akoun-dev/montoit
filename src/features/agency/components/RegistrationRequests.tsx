@@ -212,7 +212,7 @@ export default function RegistrationRequests({
           <div className="flex items-center space-x-3">
             <select
               value={filters.status}
-              onChange={(e) => handleFilterChange({ status: e.target.value as any })}
+              onChange={(e) => handleFilterChange({ status: e.target.value as 'all' | 'pending' | 'approved' | 'rejected' })}
               className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="all">Tous les statuts</option>
@@ -223,7 +223,7 @@ export default function RegistrationRequests({
 
             <select
               value={filters.role}
-              onChange={(e) => handleFilterChange({ role: e.target.value as any })}
+              onChange={(e) => handleFilterChange({ role: e.target.value as 'all' | 'agent' | 'manager' | 'admin' })}
               className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="all">Tous les rôles</option>
@@ -234,7 +234,7 @@ export default function RegistrationRequests({
 
             <select
               value={filters.experience}
-              onChange={(e) => handleFilterChange({ experience: e.target.value as any })}
+              onChange={(e) => handleFilterChange({ experience: e.target.value as 'all' | '0-2' | '3-5' | '5+' })}
               className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="all">Toute expérience</option>

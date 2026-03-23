@@ -249,7 +249,7 @@ export async function sendSignatureReminder(leaseId: string, tenantId: string): 
 /**
  * Résilie un contrat actif
  */
-export async function terminateContract(leaseId: string, reason: string): Promise<void> {
+export async function terminateContract(leaseId: string, _reason: string): Promise<void> {
   // Get lease details first
   const { data: lease } = await supabase
     .from('lease_contracts')
@@ -299,6 +299,14 @@ export async function terminateContract(leaseId: string, reason: string): Promis
     await notifyLeaseTerminated(leaseId);
   } catch (notifError) {
     console.error('Error sending termination notification:', notifError);
+  }
+
+  // Trigger review requests for both parties
+  try {
+    await sendReviewRequests(leaseId);
+  } catch (reviewError) {
+    console.error('Error sending review requests:', reviewError);
+    // Don't throw - termination should succeed even if review requests fail
   }
 }
 
@@ -362,5 +370,27 @@ export async function cancelContract(leaseId: string, reason: string): Promise<v
     } catch (notifError) {
       console.error('Error sending cancellation notification:', notifError);
     }
+  }
+}
+
+/**
+ * Envoie les demandes d'avis aux deux parties après la fin d'un bail
+ * Appelle l'Edge Function send-review-requests
+ */
+export async function sendReviewRequests(leaseId: string): Promise<void> {
+  try {
+    const { error } = await supabase.functions.invoke('send-review-requests', {
+      body: { contractId: leaseId },
+    });
+
+    if (error) {
+      console.error('Error invoking send-review-requests:', error);
+      throw error;
+    }
+
+    console.log('Review requests sent successfully for lease:', leaseId);
+  } catch (error) {
+    console.error('Failed to send review requests:', error);
+    throw new Error(`Erreur lors de l'envoi des demandes d'avis: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { supabase, SUPABASE_API_URL } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PublicProfile {
   user_id: string;

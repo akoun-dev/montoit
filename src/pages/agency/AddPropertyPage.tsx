@@ -20,7 +20,6 @@ import {
   User,
   Phone,
   Mail,
-  Image as ImageIcon,
   X,
   Upload,
 } from 'lucide-react';
@@ -48,7 +47,7 @@ interface Mandate {
   commission_rate: number;
   can_create_properties: boolean;
   owner?: OwnerInfo;
-  property?: any;
+  property?: unknown;
 }
 
 interface PropertyFormData {
@@ -111,7 +110,6 @@ export default function AgencyAddPropertyPage() {
   });
 
   const {
-    position: geoPosition,
     isLoading: geoLoading,
     error: geoError,
     getCurrentPosition,
@@ -175,7 +173,7 @@ export default function AgencyAddPropertyPage() {
 
       if (error) throw error;
 
-      const formattedMandates = (data || []).map((mandate: any) => ({
+      const formattedMandates = (data || []).map((mandate: unknown) => ({
         id: mandate.id,
         property_id: mandate.property_id,
         property_title: mandate.properties?.title,
@@ -272,7 +270,7 @@ export default function AgencyAddPropertyPage() {
         const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `${user?.id}/${fileName}`;
 
-        const { data, error } = await supabase.storage
+        const { error } = await supabase.storage
           .from('property-images')
           .upload(filePath, file);
 
@@ -349,7 +347,7 @@ export default function AgencyAddPropertyPage() {
       ).data?.id;
 
       // Prepare property data
-      const propertyData: any = {
+      const propertyData: unknown = {
         title: formData.title,
         property_type: formData.property_type,
         address: formData.address,

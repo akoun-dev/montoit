@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
-import { Heart, MapPin, Bed, Bath, X, Home, Search } from 'lucide-react';
+import { Heart, MapPin, Bed, Bath, X, Home } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
@@ -32,13 +32,7 @@ export default function Favorites() {
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      loadFavorites();
-    }
-  }, [user]);
-
-  const loadFavorites = async () => {
+  const loadFavorites = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('favorites')
@@ -69,7 +63,7 @@ export default function Favorites() {
 
       if (error) throw error;
 
-      const formattedFavorites = (data || []).map((fav: any) => ({
+      const formattedFavorites = (data || []).map((fav: Favorite) => ({
         id: fav.id,
         property_id: fav.property_id,
         created_at: fav.created_at,
@@ -82,7 +76,13 @@ export default function Favorites() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadFavorites();
+    }
+  }, [user, loadFavorites]);
 
   const removeFavorite = async (favoriteId: string) => {
     if (!confirm('Retirer cette propriété de vos favoris ?')) return;

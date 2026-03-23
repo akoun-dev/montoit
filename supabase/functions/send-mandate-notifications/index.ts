@@ -111,7 +111,7 @@ const notificationConfigs: Record<MandateNotificationType, NotificationConfig> =
 
 // deno-lint-ignore no-explicit-any
 async function createInAppNotification(
-  supabase: any,
+  supabase: Record<string, unknown>,
   userId: string,
   title: string,
   message: string,

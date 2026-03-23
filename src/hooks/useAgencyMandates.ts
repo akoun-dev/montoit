@@ -224,7 +224,7 @@ export function useAgencyMandates() {
 
     console.log('fetchAgencies - Found agencies:', {
       count: agenciesData?.length || 0,
-      agencies: agenciesData?.map((a: any) => ({
+      agencies: agenciesData?.map((a: unknown) => ({
         id: a.id,
         name: a.agency_name,
         city: a.city,
@@ -543,7 +543,7 @@ export function useAgencyMandates() {
         return false;
       }
 
-      const updateData: any = {
+      const updateData: unknown = {
         mandate_scope: scope,
         property_id: scope === 'all_properties' ? null : propertyId,
       };
@@ -662,7 +662,7 @@ export function useAgencyMandates() {
         return false;
       }
 
-      const updateData: any = {};
+      const updateData: unknown = {};
 
       if (params.property_id !== undefined) updateData.property_id = params.property_id;
       if (params.mandate_scope !== undefined) {

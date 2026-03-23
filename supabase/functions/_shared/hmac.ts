@@ -115,7 +115,7 @@ export interface WebhookLogEntry {
  */
 // deno-lint-ignore no-explicit-any
 export async function logWebhookAttempt(
-  supabase: any,
+  supabase: Record<string, unknown>,
   entry: WebhookLogEntry
 ): Promise<void> {
   try {

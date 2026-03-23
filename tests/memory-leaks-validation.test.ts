@@ -3,8 +3,10 @@
  * Ces tests vérifient que tous les hooks se nettoient correctement
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { renderHook, act } from '@testing-library/react';
-import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 
 // ============================================================================
 // MOCKS POUR LES TESTS
@@ -234,7 +236,7 @@ describe('Intégration - Multiple Hooks', () => {
       useMessageNotifications();
       useVerification('test-user');
       usePerformanceMonitoring('test-page');
-      return <div>Test</div>;
+      return null;
     };
 
     const { unmount } = renderHook(() => {
@@ -339,12 +341,3 @@ export function testOperationCancellation(operation: () => void, delay: number =
     setTimeout(() => {}, delay);
   }).not.toThrow();
 }
-
-// ============================================================================
-// EXPORTS POUR UTILISATION
-// ============================================================================
-
-export {
-  testHookCleanup,
-  testOperationCancellation
-};

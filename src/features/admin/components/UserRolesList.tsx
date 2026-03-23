@@ -57,7 +57,7 @@ export function UserRolesList({
   onRevokeRole,
   revoking,
 }: UserRolesListProps) {
-  const [_confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
+  const [, setConfirmRevoke] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -153,6 +153,7 @@ export function UserRolesList({
                     onClick={() => {
                       setConfirmRevoke(userRole.id);
                       onRevokeRole(userRole.id, userRole.user_id, userRole.role);
+                      setConfirmRevoke(null);
                     }}
                     disabled={revoking === userRole.id}
                     className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"

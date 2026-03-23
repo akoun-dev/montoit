@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,15 +27,11 @@ import {
   MessageCircle,
   Phone,
   Mail,
-  User,
-  FileCheck,
-  Hash,
-  Globe,
   ChevronDown,
   ChevronUp,
   ExternalLink,
 } from 'lucide-react';
-import { formatAddress } from '@/shared/utils/address';
+import { formatAddress, type AddressValue } from '@/shared/utils/address';
 
 interface Payment {
   id: string;
@@ -47,7 +43,7 @@ interface Payment {
   property_id?: string | null;
   property_title?: string;
   property_city?: string;
-  property_address?: any;
+  property_address?: AddressValue;
   owner_id?: string | null;
   lease_id?: string | null;
   price?: number | null;
@@ -195,7 +191,7 @@ export default function PaymentHistoryPage() {
   const [sharingPayment, setSharingPayment] = useState<string | null>(null);
 
   // Load payments with additional details
-  const loadPayments = async () => {
+  const loadPayments = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -216,7 +212,7 @@ export default function PaymentHistoryPage() {
 
       if (error) throw error;
 
-      const formattedPayments: Payment[] = (data || []).map((payment: any) => ({
+      const formattedPayments: Payment[] = (data || []).map((payment: Record<string, unknown>) => ({
         id: payment.id,
         amount: payment.amount || 0,
         payment_type: payment.payment_type || 'rent',
@@ -242,7 +238,13 @@ export default function PaymentHistoryPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, setLoading, setPayments]);
+
+  useEffect(() => {
+    if (user) {
+      loadPayments();
+    }
+  }, [user, loadPayments]);
 
   // Retry payment
   const handleRetryPayment = async (payment: Payment) => {
@@ -439,12 +441,6 @@ export default function PaymentHistoryPage() {
     failedCount: payments.filter((p) => p.status === 'failed').length,
   };
 
-  useEffect(() => {
-    if (user) {
-      loadPayments();
-    }
-  }, [user]);
-
   if (!user) {
     return (
       <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center">
@@ -580,7 +576,7 @@ export default function PaymentHistoryPage() {
               {/* Status Filter */}
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'pending' | 'completed' | 'failed')}
                 className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
               >
                 <option value="all">Tous les statuts</option>

@@ -3,33 +3,26 @@
  * Design cohérent avec les autres pages agence
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText,
-  Plus,
-  Building2,
   Clock,
   CheckCircle,
   XCircle,
   PauseCircle,
   Search,
-  Calendar,
   MapPin,
-  User,
   Eye,
   FileSignature,
   Download,
   MoreVertical,
-  Filter as FilterIcon,
   Handshake,
   Home,
-  TrendingUp,
   Coins,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { useAgencyMandates, type AgencyMandate } from '@/hooks/useAgencyMandates';
-import { toast } from 'sonner';
+import { useAgencyMandates } from '@/hooks/useAgencyMandates';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -40,7 +33,6 @@ export default function AgencyMandatesPage() {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMandate, setSelectedMandate] = useState<AgencyMandate | null>(null);
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
 
   const {

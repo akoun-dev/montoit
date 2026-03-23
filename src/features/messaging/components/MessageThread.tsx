@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Home, ArrowLeft, MoreVertical, Phone, Video, MessageCircle, AlertCircle, ChevronUp, MoreHorizontal, Search } from 'lucide-react';
+import { Home, ArrowLeft, MoreVertical, Phone, Video, MessageCircle, AlertCircle, ChevronUp, Search } from 'lucide-react';
 import { Message, Conversation, Attachment } from '../services/messaging.service';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
@@ -46,7 +46,8 @@ export function MessageThread({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
-  const [searchQuery, setSearchQuery] = useState('');
+   
+  const [_searchQuery, setSearchQuery] = useState('');
   const [filteredMessages, setFilteredMessages] = useState<Message[]>([]);
   const [isSearchActive, setIsSearchActive] = useState(false);
 

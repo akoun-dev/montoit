@@ -69,6 +69,7 @@ export const useElectronicSignature = (): UseElectronicSignatureReturn => {
   console.log('[useElectronicSignature] Hook initialized');
 
   const { user } = useAuth();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
 
   const [state, setState] = useState<SignatureState>({
@@ -105,7 +106,12 @@ export const useElectronicSignature = (): UseElectronicSignatureReturn => {
   /**
    * Démarre le processus de signature - vérifie d'abord les données du profil
    */
-  const startSignatureProcess = useCallback(async (_documents: SignatureDocument[], _contractId: string) => {
+  const startSignatureProcess = useCallback(async (
+     
+    _documents: SignatureDocument[],
+     
+    _contractId: string
+  ) => {
     console.log('🚀 Starting signature process for user:', user?.id);
 
     if (!user) {
@@ -162,7 +168,13 @@ export const useElectronicSignature = (): UseElectronicSignatureReturn => {
    * Définit les données de signature et génère le certificat
    */
   const setSignatureDataAndGenerate = useCallback(
-    async (signatureData: SignatureData, _documents: SignatureDocument[], _contractId: string) => {
+    async (
+      signatureData: SignatureData,
+       
+      _documents: SignatureDocument[],
+       
+      _contractId: string
+    ) => {
       console.log('🚀 Generating certificate with signature data:', signatureData);
       console.log('📸 Photo base64 length:', signatureData.photoBase64?.length, 'first 50 chars:', signatureData.photoBase64?.substring(0, 50));
       console.log('👤 Gender:', signatureData.gender);
@@ -297,7 +309,7 @@ export const useElectronicSignature = (): UseElectronicSignatureReturn => {
 
     try {
       // Préparer les paramètres
-      const params: any = { canal };
+      const params: unknown = { canal };
       if (destination) {
         if (canal === 'SMS') {
           params.phone = destination;

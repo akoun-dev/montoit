@@ -1,4 +1,4 @@
-import { TrendingUp, ArrowLeft, MessageSquare, CreditCard, Map, Shield } from 'lucide-react';
+import { TrendingUp, MessageSquare, CreditCard, Map, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/shared/ui';
 

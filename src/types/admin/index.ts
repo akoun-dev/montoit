@@ -550,7 +550,7 @@ export type ExportFormat = 'csv' | 'pdf' | 'excel';
 
 export interface ExportParams {
   format: ExportFormat;
-  data: any[];
+  data: unknown[];
   filename: string;
   columns?: string[];
   includeHeaders?: boolean;
@@ -661,7 +661,7 @@ export interface ColumnConfig {
   align?: 'left' | 'center' | 'right';
   sortable?: boolean;
   filterable?: boolean;
-  render?: (value: any, record: any) => React.ReactNode;
+  render?: (value: unknown, record: unknown) => React.ReactNode;
 }
 
 export interface SortConfig {
@@ -672,5 +672,5 @@ export interface SortConfig {
 export interface FilterConfig {
   key: string;
   operator: 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'like' | 'ilike' | 'in';
-  value: any;
+  value: unknown;
 }

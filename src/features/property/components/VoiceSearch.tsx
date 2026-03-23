@@ -99,7 +99,7 @@ export default function VoiceSearch({ onTranscript, onError }: VoiceSearchProps)
         toast.info('Parlez maintenant...', {
           description: 'Dites par exemple "Appartement 2 chambres à Cocody"',
         });
-      } catch (_error) {
+      } catch {
         toast.error('Impossible de démarrer la recherche vocale');
       }
     }

@@ -77,7 +77,7 @@ async function optimizeImage(imageData: ArrayBuffer): Promise<Blob> {
   }
 }
 
-async function handleUploadDocument(request: UploadDocumentRequest, supabase: any): Promise<Response> {
+async function handleUploadDocument(request: UploadDocumentRequest, supabase: Record<string, unknown>): Promise<Response> {
   const { bucket, path, user_id } = request;
   const startTime = Date.now();
 
@@ -137,7 +137,7 @@ async function handleUploadDocument(request: UploadDocumentRequest, supabase: an
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
-  } catch (fetchError: any) {
+  } catch (fetchError: Record<string, unknown>) {
     clearTimeout(timeoutId);
     console.error("[NeoFace V2] Fetch error:", fetchError);
 
@@ -214,7 +214,7 @@ async function handleUploadDocument(request: UploadDocumentRequest, supabase: an
   );
 }
 
-async function handleCheckStatus(request: CheckStatusRequest, supabase: any): Promise<Response> {
+async function handleCheckStatus(request: CheckStatusRequest, supabase: Record<string, unknown>): Promise<Response> {
   const { document_id, verification_id } = request;
   const startTime = Date.now();
 
@@ -239,7 +239,7 @@ async function handleCheckStatus(request: CheckStatusRequest, supabase: any): Pr
       headers,
       body: JSON.stringify(requestBody),
     });
-  } catch (fetchError: any) {
+  } catch (fetchError: Record<string, unknown>) {
     return new Response(
       JSON.stringify({ error: `Erreur de connexion à NeoFace: ${fetchError.message}`, provider: "neoface" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -261,7 +261,7 @@ async function handleCheckStatus(request: CheckStatusRequest, supabase: any): Pr
     } else {
       verifyData = JSON.parse(responseText);
     }
-  } catch (error: any) {
+  } catch (error: Record<string, unknown>) {
     verifyData = {
       status: "failed",
       message: `Invalid JSON response: ${error.message}`,
@@ -337,7 +337,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({ error: "Invalid action. Must be upload_document or check_status" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
+  } catch (error: Record<string, unknown>) {
     console.error("[NeoFace V2] Error:", error);
     return new Response(
       JSON.stringify({ error: error.message || "Internal server error", provider: "neoface" }),

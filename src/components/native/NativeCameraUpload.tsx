@@ -105,7 +105,8 @@ export function NativeCameraUpload({
           if (multiple) {
             setFiles((prev) => [...prev, ...newFiles]);
             setPreviews((prev) => [...prev, ...newPreviews]);
-            onMultipleImages?.([...files, ...newFiles], [...previews, ...newPreviews]);
+            // Ne passer que les nouveaux fichiers au parent, pas tous les fichiers
+            onMultipleImages?.(newFiles, newPreviews);
           } else {
             setFiles(newFiles);
             setPreviews(newPreviews);
@@ -197,7 +198,8 @@ export function NativeCameraUpload({
         if (multiple && newFiles.length > 0) {
           setFiles((prev) => [...prev, ...newFiles]);
           setPreviews((prev) => [...prev, ...newPreviews]);
-          onMultipleImages?.([...files, ...newFiles], [...previews, ...newPreviews]);
+          // Ne passer que les nouveaux fichiers au parent, pas tous les fichiers
+          onMultipleImages?.(newFiles, newPreviews);
         }
       } catch (err) {
         console.error('Error handling drop:', err);
@@ -313,8 +315,8 @@ export function NativeCameraUpload({
       if (multiple && newFiles.length > 0) {
         setFiles((prev) => [...prev, ...newFiles]);
         setPreviews((prev) => [...prev, ...newPreviews]);
-        // Notify parent with the complete new lists
-        onMultipleImages?.([...files, ...newFiles], [...previews, ...newPreviews]);
+        // Ne passer que les nouveaux fichiers au parent, pas tous les fichiers
+        onMultipleImages?.(newFiles, newPreviews);
       }
     } finally {
       setIsProcessing(false);

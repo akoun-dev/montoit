@@ -80,7 +80,7 @@ export default function ImageGallery({ images, propertyTitle }: ImageGalleryProp
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       toast.success('Image téléchargée !');
-    } catch (error) {
+    } catch {
       toast.error('Erreur lors du téléchargement');
     }
   };

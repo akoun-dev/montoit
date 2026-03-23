@@ -88,6 +88,7 @@ export default function ValidationMetrics({ stats, period = 'month' }: Validatio
   };
 
   const isPositiveTrend = (key: string, _trend: 'up' | 'down') => {
+    void _trend; // Paramètre réservé pour usage futur
     switch (key) {
       case 'successRate':
       case 'satisfactionScore':
@@ -200,7 +201,7 @@ export default function ValidationMetrics({ stats, period = 'month' }: Validatio
 }
 
 // Composant spécialisé pour les KPIs principaux
-export function KeyMetricsCards({ stats }: { stats: any }) {
+export function KeyMetricsCards({ stats }: { stats: unknown }) {
   const keyCards = [
     {
       label: 'Litiges actifs',

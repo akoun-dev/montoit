@@ -5,33 +5,121 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAnalytics } from '@/features/admin/hooks/useAnalytics';
-import type { AdminPeriod } from '@/types/admin';
+import type { AdminPeriod, ExportFormat } from '@/types/admin';
+import { useAuth } from '@/app/providers/AuthProvider';
 import { FormatService } from '@/services/format/formatService';
+import { exportToCSV, exportToExcel, exportToPDF } from '@/services/exportService';
 import { AnalyticsLineChart, AnalyticsBarChart, AnalyticsPieChart, StatCard } from '@/shared/ui/charts';
 import { ExportButton } from '@/shared/ui/admin';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Users, Home, FileText, DollarSign, Activity, Calendar } from 'lucide-react';
 
 export default function AnalyticsPage() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState<AdminPeriod>('30d');
   const [exporting, setExporting] = useState(false);
 
   const { data: analytics, isLoading, error, getGrowthRate } = useAnalytics(selectedPeriod);
 
-  // Vérification accès admin
-  const userType = profile?.user_type?.toLowerCase();
-  const isAdmin = userType === 'admin' || userType === 'admin';
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-[#FAF7F4] flex items-center justify-center">
+        <div className="text-[#6B5A4E]">Chargement des informations administratives...</div>
+      </div>
+    );
+  }
+
+  const userType = profile.user_type?.toLowerCase();
+  const isAdmin = userType === 'admin';
 
   if (!isAdmin) {
     navigate('/');
     return null;
   }
 
-  const handleExport = async (format: 'csv' | 'pdf' | 'excel') => {
+  const handleExport = async (format: ExportFormat) => {
+    if (!analytics) return;
+
     setExporting(true);
     try {
-      // TODO: Implémenter l'export réel
-      console.log(`Exporting as ${format}`);
+      const safeNumber = (value?: number) => value ?? 0;
+
+      const { currentPeriod, propertyMetrics, transactionMetrics } = analytics;
+      const periodLabel = `${FormatService.formatDate(currentPeriod.startDate)} - ${FormatService.formatDate(
+        currentPeriod.endDate
+      )}`;
+
+      const summary = [
+        { label: 'Période', value: periodLabel },
+        { label: 'Total utilisateurs', value: safeNumber(currentPeriod.totalUsers) },
+        { label: 'Nouveaux utilisateurs', value: safeNumber(currentPeriod.newUsers) },
+        { label: 'Nouvelles propriétés', value: safeNumber(currentPeriod.newProperties) },
+        { label: 'Transactions', value: safeNumber(currentPeriod.totalTransactions) },
+        { label: 'Revenus', value: FormatService.formatCurrency(currentPeriod.totalRevenue) },
+      ];
+
+      const summaryRows = summary.map((item) => [item.label, item.value]);
+      const propertyStatusRows = [
+        ['Disponible', safeNumber(propertyMetrics.byStatus.available)],
+        ['Loué', safeNumber(propertyMetrics.byStatus.rented)],
+        ['Indisponible', safeNumber(propertyMetrics.byStatus.unavailable)],
+        ['En attente', safeNumber(propertyMetrics.byStatus.pending)],
+      ];
+      const transactionStatusRows = [
+        ['Complétées', safeNumber(transactionMetrics.byStatus.completed)],
+        ['En attente', safeNumber(transactionMetrics.byStatus.pending)],
+        ['En cours', safeNumber(transactionMetrics.byStatus.processing)],
+        ['Échouées', safeNumber(transactionMetrics.byStatus.failed)],
+        ['Remboursées', safeNumber(transactionMetrics.byStatus.refunded)],
+        ['Annulées', safeNumber(transactionMetrics.byStatus.cancelled)],
+      ];
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filePrefix = `analytics-${selectedPeriod}-${timestamp}`;
+
+      if (format === 'csv') {
+        const csvRows = [
+          ['Période', periodLabel],
+          ...summaryRows.filter((row) => row[0] !== 'Période'),
+          ['Statut propriété', 'Nombre'],
+          ...propertyStatusRows,
+          ['Statut transaction', 'Nombre'],
+          ...transactionStatusRows,
+        ];
+        exportToCSV(csvRows, ['Métrique', 'Valeur'], `${filePrefix}.csv`);
+      } else if (format === 'excel') {
+        exportToExcel({
+          filename: `${filePrefix}.xlsx`,
+          sheets: [
+            { name: 'Résumé', headers: ['Métrique', 'Valeur'], data: summaryRows },
+            { name: 'Statuts propriétés', headers: ['Statut', 'Nombre'], data: propertyStatusRows },
+            { name: 'Statuts transactions', headers: ['Statut', 'Nombre'], data: transactionStatusRows },
+          ],
+        });
+      } else {
+        exportToPDF(
+          {
+            title: `Analytics ${selectedPeriod.toUpperCase()}`,
+            period: { startDate: currentPeriod.startDate, endDate: currentPeriod.endDate },
+            summary,
+            tables: [
+              {
+                title: 'Statuts des propriétés',
+                headers: ['Statut', 'Nombre'],
+                rows: propertyStatusRows,
+              },
+              {
+                title: 'Statuts des transactions',
+                headers: ['Statut', 'Nombre'],
+                rows: transactionStatusRows,
+              },
+            ],
+          },
+          `${filePrefix}.pdf`
+        );
+      }
+    } catch (err) {
+      console.error('Erreur lors de l\'export des analytics:', err);
     } finally {
       setExporting(false);
     }

@@ -41,7 +41,7 @@ export function useSecureAuth() {
         toast.success('Inscription réussie !');
       }
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast.error(error.message || "Erreur lors de l'inscription");
     },
   });
@@ -70,7 +70,7 @@ export function useSecureAuth() {
         toast.success('Connexion réussie !');
       }
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast.error(error.message || 'Erreur lors de la connexion');
     },
   });
@@ -89,7 +89,7 @@ export function useSecureAuth() {
     onSuccess: () => {
       toast.success('Email de réinitialisation envoyé');
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast.error(error.message || "Erreur lors de l'envoi");
     },
   });
@@ -102,7 +102,7 @@ export function useSecureAuth() {
       setSession(null);
       toast.success('Déconnexion réussie');
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast.error(error.message || 'Erreur lors de la déconnexion');
     },
   });
@@ -157,7 +157,7 @@ export function useSecureProfile() {
 
   // Mutation pour la mise à jour du profil
   const updateProfileMutation = useMutation({
-    mutationFn: async ({ updates, profileId }: { updates: any; profileId: string }) => {
+    mutationFn: async ({ updates, profileId }: { updates: unknown; profileId: string }) => {
       // Vérifier le rate limit
       const rateLimitResult = await checkRateLimit('crud:update');
       if (!rateLimitResult.allowed) {
@@ -176,13 +176,13 @@ export function useSecureProfile() {
     onSuccess: () => {
       toast.success('Profil mis à jour');
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast.error(error.message || 'Erreur lors de la mise à jour');
     },
   });
 
   const updateProfile = useCallback(
-    (updates: any, profileId?: string) => {
+    (updates: unknown, profileId?: string) => {
       return updateProfileMutation.mutateAsync({ updates, profileId });
     },
     [updateProfileMutation]

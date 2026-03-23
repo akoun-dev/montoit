@@ -852,13 +852,13 @@ export default function EnhancedProfilePage() {
     },
     {
       id: 'facial',
-      label: 'NEOFACE',
+      label: 'Reconnaissance faciale',
       weight: TENANT_SCORING_WEIGHTS.facial,
       done: profile?.facial_verification_status === 'verified',
     },
     {
       id: 'oneci',
-      label: 'ONECI',
+      label: "Vérification d'identé (ONECI)",
       weight: TENANT_SCORING_WEIGHTS.oneci,
       done: !!profile?.oneci_verified,
     },
@@ -976,23 +976,11 @@ export default function EnhancedProfilePage() {
 
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => setActiveTab('infos')}
-                    className="px-3 py-2 text-sm font-medium rounded-xl bg-white border border-[#EFEBE9] text-[#2C1810] hover:border-[#F16522] hover:text-[#F16522] transition-colors"
-                  >
-                    Compléter le profil
-                  </button>
-                  <button
-                    onClick={() => navigate('/locataire/mon-score')}
-                    className="px-3 py-2 text-sm font-medium rounded-xl bg-[#F16522] text-white hover:bg-[#D95318] transition-colors"
-                  >
-                    Voir mon score
-                  </button>
-                  <button
                     onClick={handleBecomeOwner}
                     disabled={becomingOwner}
                     className="px-3 py-2 text-sm font-medium rounded-xl border border-[#F16522] text-[#F16522] hover:bg-[#FFF2E6] transition-colors disabled:opacity-50"
                   >
-                    {becomingOwner ? '...' : '+ Propriétaire'}
+                    {becomingOwner ? '...' : ' Devenir propriétaire'}
                   </button>
                 </div>
               </div>
@@ -1290,15 +1278,15 @@ export default function EnhancedProfilePage() {
 
                 {/* Verification Grid */}
                 <div className="grid md:grid-cols-2 gap-4">
-                  {/* Email - Toujours vérifié */}
+                  {/* Profil - Toujours vérifié */}
                   <div className="p-4 bg-green-50 rounded-xl border border-green-200">
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-green-100 rounded-lg">
                         <CheckCircle className="w-5 h-5 text-green-600" />
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-medium text-green-900">Email vérifié</h4>
-                        <p className="text-sm text-green-700 mt-1">Adresse email confirmée</p>
+                        <h4 className="font-medium text-green-900">Profil complet</h4>
+                        <p className="text-sm text-green-700 mt-1">Informations de base complétées</p>
                       </div>
                     </div>
                   </div>
@@ -1330,7 +1318,14 @@ export default function EnhancedProfilePage() {
                             ? "Carte d'identité vérifiée"
                             : "Pièce d'identité requise"}
                         </p>
-                        {!profile?.oneci_verified && (
+                        {profile?.oneci_verified ? (
+                          <button
+                            onClick={() => navigate('/verification-oneci?redo=true')}
+                            className="mt-2 text-sm text-[#F16522] hover:underline font-medium"
+                          >
+                            Refaire la vérification →
+                          </button>
+                        ) : (
                           <button
                             onClick={handleOpenOneciChoiceModal}
                             className="mt-2 text-sm text-[#F16522] hover:underline font-medium"
@@ -1956,7 +1951,7 @@ export default function EnhancedProfilePage() {
         <div className="mt-5 flex flex-col gap-2">
           <Button
             onClick={() =>
-              handleRedirectFromOneciChoice('/locataire/verification-oneci?source=modal&method=attributes')
+              handleRedirectFromOneciChoice('/verification-oneci?source=modal&method=attributes')
             }
           >
             Vérification ONECI complète

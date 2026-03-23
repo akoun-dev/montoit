@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Star, Check, HomeIcon, Wallet } from 'lucide-react';
+import { Home, Star, Check } from 'lucide-react';
 import { useHomeStats } from '@/hooks/shared/useHomeStats';
 import UnifiedSearchBar from '@/shared/ui/UnifiedSearchBar';
 

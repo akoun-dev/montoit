@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText,
@@ -7,8 +7,6 @@ import {
   Search,
   Filter,
   Calendar,
-  Home,
-  CreditCard,
   Shield,
   FolderOpen,
   File,
@@ -17,12 +15,6 @@ import {
   Clock,
   X,
   AlertCircle,
-  Building,
-  FileCode,
-  Image,
-  Plus,
-  Trash2,
-  RefreshCw,
   ExternalLink,
   ChevronRight,
   Receipt,
@@ -45,6 +37,21 @@ interface DocumentItem {
   expiry_date: string | null;
   status: 'valid' | 'expired' | 'pending';
   size?: number;
+  description?: string;
+}
+
+interface DatabaseDocument {
+  id: string;
+  name: string;
+  type: string;
+  category?: string;
+  file_url?: string | null;
+  file_type?: string;
+  created_at: string;
+  updated_at?: string;
+  expiry_date?: string | null;
+  status?: string;
+  file_size?: number;
   description?: string;
 }
 
@@ -144,7 +151,7 @@ export default function DocumentsPage() {
     }
   }, [user, activeTab]);
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -159,10 +166,10 @@ export default function DocumentsPage() {
         .single();
 
       // Filtrer par type de document actif
-      const allDocs = (profile?.documents as any[]) || [];
-      const filteredDocs = allDocs.filter((doc: any) => doc.type === activeTab);
+      const allDocs = (profile?.documents as DatabaseDocument[]) || [];
+      const filteredDocs = allDocs.filter((doc: DatabaseDocument) => doc.type === activeTab);
 
-      const docs: DocumentItem[] = filteredDocs.map((doc: any) => ({
+      const docs: DocumentItem[] = filteredDocs.map((doc: DatabaseDocument) => ({
         id: doc.id,
         name: doc.name,
         type: doc.type,
@@ -183,7 +190,11 @@ export default function DocumentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, activeTab, setLoading, setDocuments]);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
 
   const loadCurrentContract = async () => {
     if (!user || activeTab !== 'contract') return;
@@ -248,8 +259,8 @@ export default function DocumentsPage() {
         .eq('id', user?.id)
         .single();
 
-      const currentDocs = (profile?.documents as any[]) || [];
-      const updatedDocs = currentDocs.filter((d: any) => d.id !== docId);
+      const currentDocs = (profile?.documents as DatabaseDocument[]) || [];
+      const updatedDocs = currentDocs.filter((d: DatabaseDocument) => d.id !== docId);
 
       const { error } = await supabase
         .from('profiles')
@@ -659,7 +670,7 @@ export default function DocumentsPage() {
                 <button
                   key={key}
                   onClick={() => {
-                    setActiveTab(key as any);
+                    setActiveTab(key as DocumentType);
                     setSelectedCategory(null);
                     setSearchQuery('');
                   }}

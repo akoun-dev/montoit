@@ -1,12 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/services/supabase/client';
 import { Wrench, Upload, AlertCircle, CheckCircle, Camera, X } from 'lucide-react';
 import { formatAddress } from '@/shared/utils/address';
 
+interface LeaseContract {
+  id: string;
+  property_id: string;
+  status: string;
+  properties: {
+    id: string;
+    title: string;
+    address: {
+      street?: string;
+      city?: string;
+      neighborhood?: string;
+    } | null;
+  } | null;
+}
+
 export default function MaintenanceRequest() {
   const { user } = useAuth();
-  const [activeLease, setActiveLease] = useState<any>(null);
+  const [activeLease, setActiveLease] = useState<LeaseContract | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -28,7 +43,7 @@ export default function MaintenanceRequest() {
     loadActiveLease();
   }, [user]);
 
-  const loadActiveLease = async () => {
+  const loadActiveLease = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -47,7 +62,11 @@ export default function MaintenanceRequest() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, setActiveLease, setLoading]);
+
+  useEffect(() => {
+    loadActiveLease();
+  }, [loadActiveLease]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -116,9 +135,10 @@ export default function MaintenanceRequest() {
       setTimeout(() => {
         window.location.href = '/locataire/maintenance';
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error submitting request:', err);
-      alert(err.message || 'Erreur lors de la soumission');
+      const message = err instanceof Error ? err.message : 'Erreur lors de la soumission';
+      alert(message);
     } finally {
       setSubmitting(false);
     }

@@ -3,7 +3,7 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useMapboxToken } from '@/hooks/shared/useMapboxToken';
 // import { usePlacesAutocomplete, PlaceSuggestion } from '@/shared/hooks/usePlacesAutocomplete';
-import { Loader2, MapPin, Navigation2, Focus, Search, X, Map, Globe } from 'lucide-react';
+import { Loader2, MapPin, Navigation2, Focus, Map, Globe } from 'lucide-react';
 
 interface Property {
   id: string;
@@ -678,6 +678,16 @@ export default function MapboxMap({
     });
   }, [highlightedPropertyId]);
 
+  // Handler pour la recherche sur carte - doit être défini avant les retours conditionnels
+  const handleSearchLocationSelect = useCallback(
+    (coords: { lng: number; lat: number }) => {
+      if (onMapClick) {
+        onMapClick(coords);
+      }
+    },
+    [onMapClick]
+  );
+
   // Loading state
   if (tokenLoading) {
     return (
@@ -778,16 +788,6 @@ export default function MapboxMap({
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
-
-  // Handler pour la recherche sur carte
-  const handleSearchLocationSelect = useCallback(
-    (coords: { lng: number; lat: number }) => {
-      if (onMapClick) {
-        onMapClick(coords);
-      }
-    },
-    [onMapClick]
-  );
 
   return (
     <div className="relative w-full h-full">

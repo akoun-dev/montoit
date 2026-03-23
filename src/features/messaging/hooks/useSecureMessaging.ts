@@ -5,14 +5,10 @@
  * des permissions et rate limiting.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import {
-  messagingApi,
-  type Conversation,
-  type Message,
-} from '@/features/messaging/services/messaging.api';
+import { messagingApi } from '@/features/messaging/services/messaging.api';
 import { useRateLimiter } from '@/shared/services/rateLimiter.service';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/services/supabase/client';
@@ -65,8 +61,9 @@ export function useSecureMessaging() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
-    onError: (error: any) => {
-      toast.error(error.message || "Erreur lors de l'envoi du message");
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : "Erreur lors de l'envoi du message";
+      toast.error(message);
     },
   });
 
@@ -93,8 +90,9 @@ export function useSecureMessaging() {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
       toast.success('Conversation créée');
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Erreur lors de la création');
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Erreur lors de la création';
+      toast.error(message);
     },
   });
 
@@ -132,7 +130,6 @@ export function useSecureMessaging() {
  * Hook pour une conversation spécifique
  */
 export function useSecureConversation(conversationId: string | null) {
-  const { checkRateLimit } = useRateLimiter();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
 
@@ -164,8 +161,9 @@ export function useSecureConversation(conversationId: string | null) {
     onSuccess: () => {
       toast.success('Message signalé');
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Erreur lors du signalement');
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Erreur lors du signalement';
+      toast.error(message);
     },
   });
 
@@ -178,8 +176,9 @@ export function useSecureConversation(conversationId: string | null) {
       toast.success('Utilisateur bloqué');
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Erreur lors du blocage');
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Erreur lors du blocage';
+      toast.error(message);
     },
   });
 
@@ -188,7 +187,7 @@ export function useSecureConversation(conversationId: string | null) {
     if (conversationId && user) {
       markAsReadMutation.mutate(conversationId);
     }
-  }, [conversationId, user]);
+  }, [conversationId, user, markAsReadMutation]);
 
   // S'abonner aux messages en temps réel
   useEffect(() => {
@@ -232,7 +231,8 @@ export function useSecureConversation(conversationId: string | null) {
  * Hook pour le compteur de messages non lus
  */
 export function useSecureUnreadCount() {
-  const { checkRateLimit } = useRateLimiter();
+   
+  const { checkRateLimit: _checkRateLimit } = useRateLimiter();
   const { user } = useAuthStore();
 
   const { data: unreadCount = 0, isLoading: isLoadingUnread } = useQuery({

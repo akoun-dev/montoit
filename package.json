@@ -8,9 +8,13 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:staging": "vite --mode staging",
+    "dev:production": "vite --mode production",
     "functions:serve": "npx supabase functions serve --env-file supabase/.env",
     "build": "vite build --config vite.config.optimized.ts",
-    "build:dev": "vite build",
+    "build:dev": "vite build --mode development",
+    "build:staging": "vite build --mode staging",
+    "build:production": "vite build --mode production",
     "build:standard": "vite build",
     "build:analyze": "vite build --config vite.config.optimized.ts && open stats.html",
     "lint": "eslint .",
@@ -18,6 +22,8 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "preview": "vite preview",
+    "preview:staging": "vite preview --mode staging",
+    "preview:production": "vite preview --mode production",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -38,7 +44,10 @@
     "test:penetration": "node src/tests/penetration-test.cjs",
     "test:security:all": "npm run test:security:run && npm run test:integration:security && npm run test:penetration",
     "cap:sync": "npx cap sync",
-    "cap:open:android": "CAPACITOR_ANDROID_STUDIO_PATH=/snap/android-studio/current/bin/studio.sh npx cap open android"
+    "cap:open:android": "CAPACITOR_ANDROID_STUDIO_PATH=/snap/android-studio/current/bin/studio.sh npx cap open android",
+    "ci": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "ci:staging": "npm run lint && npm run typecheck && npm run test && npm run build:staging",
+    "ci:production": "npm run lint && npm run typecheck && npm run test && npm run build:production && npm run test:security"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useMemo } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
@@ -20,6 +20,7 @@ interface UseInfinitePropertiesOptions {
   sortBy?: 'recent' | 'price_asc' | 'price_desc';
   pageSize?: number;
   ansutVerifiedOnly?: boolean;
+  locationMode?: 'all' | 'abidjan' | 'outside_abidjan';
 }
 
 interface UseInfinitePropertiesResult {
@@ -41,6 +42,7 @@ const DEFAULT_PAGE_SIZE = 20;
  */
 interface Filters {
   cityOrNeighborhood?: string;
+  excludeCity?: string;
   propertyType?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -48,14 +50,21 @@ interface Filters {
 }
 
 function buildQueryParams(options: UseInfinitePropertiesOptions) {
-  const { city, propertyType, minPrice, maxPrice, bedrooms, sortBy } = options;
+  const { city, propertyType, minPrice, maxPrice, bedrooms, sortBy, locationMode } = options;
 
   const filters: Filters = {};
 
-  if (city?.trim()) {
+  // Handle location mode (Abidjan filter)
+  if (locationMode === 'abidjan') {
+    filters.cityOrNeighborhood = 'Abidjan';
+  } else if (locationMode === 'outside_abidjan') {
+    // Will be handled in the query with NOT ILIKE
+    filters.excludeCity = 'Abidjan';
+  } else if (city?.trim()) {
     const searchValue = city.trim();
     filters.cityOrNeighborhood = searchValue;
   }
+
   if (propertyType?.trim()) {
     filters.propertyType = propertyType.trim();
   }
@@ -117,6 +126,10 @@ async function fetchProperties({
     query = query.or(
       `city.ilike.%${filters.cityOrNeighborhood}%,neighborhood.ilike.%${filters.cityOrNeighborhood}%`
     );
+  }
+  if (filters.excludeCity) {
+    // Exclude properties in the specified city (e.g., Abidjan)
+    query = query.not('city', 'ilike', `%${filters.excludeCity}%`);
   }
   if (filters.propertyType) {
     query = query.eq('property_type', filters.propertyType);
@@ -207,6 +220,7 @@ export function useInfiniteProperties(
     sortBy = 'recent',
     pageSize = DEFAULT_PAGE_SIZE,
     ansutVerifiedOnly,
+    locationMode,
   } = options;
 
   const queryClient = useQueryClient();
@@ -222,6 +236,7 @@ export function useInfiniteProperties(
       maxPrice,
       bedrooms,
       sortBy,
+      locationMode,
     }),
   ];
 
@@ -255,7 +270,7 @@ export function useInfiniteProperties(
   });
 
   // Flatten all pages into a single array
-  const properties = data?.pages.flatMap((page) => page.data) ?? [];
+  const properties = useMemo(() => data?.pages.flatMap((page) => page.data) ?? [], [data?.pages]);
 
   // Get count from first page
   const totalCount = data?.pages[0]?.count ?? 0;
@@ -354,7 +369,7 @@ export function useInfiniteProperties(
         });
       }
     },
-    [queryClient, queryKey, filters, orderColumn, ascending, pageSize]
+    [queryClient, queryKey, filters, orderColumn, ascending, pageSize, ansutVerifiedOnly]
   );
 
   return {

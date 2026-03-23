@@ -203,7 +203,7 @@ serve(async (req) => {
       let rentalBonus = 0;
 
       // Calculer le bonus selon le statut de vérification
-      rentalHistory.forEach((rental: any) => {
+      rentalHistory.forEach((rental: Record<string, unknown>) => {
         const startDate = new Date(rental.start_date);
         const endDate = rental.end_date ? new Date(rental.end_date) : new Date();
         const months = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
@@ -223,7 +223,7 @@ serve(async (req) => {
       });
 
       // Bonus ancienneté: si > 24 mois d'historique total
-      const totalMonths = rentalHistory.reduce((sum: number, rental: any) => {
+      const totalMonths = rentalHistory.reduce((sum: number, rental: Record<string, unknown>) => {
         const startDate = new Date(rental.start_date);
         const endDate = rental.end_date ? new Date(rental.end_date) : new Date();
         return sum + Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30));

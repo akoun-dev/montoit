@@ -287,7 +287,7 @@ export class SecureUploadService {
         ...uploadResult,
         metadata,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Secure upload error:', error);
       return {
         url: '',
@@ -337,7 +337,7 @@ export class SecureUploadService {
       }
 
       return deleteResult;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { error: error.message || 'Erreur lors de la suppression' };
     }
   }
@@ -358,7 +358,7 @@ export class SecureUploadService {
       if (error) throw error;
 
       return { url: data.signedUrl };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { error: error.message };
     }
   }

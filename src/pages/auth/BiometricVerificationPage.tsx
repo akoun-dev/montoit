@@ -7,13 +7,11 @@ import {
   CheckCircle,
   ChevronLeft,
   Upload,
-  AlertCircle,
   Sparkles,
   Shield,
   Smile,
   ArrowRight,
   Loader2,
-  XCircle,
 } from 'lucide-react';
 import { FormStepper, FormStepContent, useFormStepper } from '@/shared/ui/FormStepper';
 import NeofaceVerification from '@/shared/ui/NeofaceVerification';

@@ -13,7 +13,7 @@ interface AgentSidebarProps {
 interface NavItem {
   href: string;
   label: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 const navItems: NavItem[] = [

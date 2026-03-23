@@ -10,11 +10,8 @@ import {
   Plus,
   Building2,
   Trash2,
-  Image as ImageIcon,
   Loader2,
   Search,
-  Filter,
-  TrendingUp,
   DollarSign,
   Camera,
   CheckCircle2,
@@ -23,6 +20,8 @@ import {
   Wrench,
   Ban,
   Handshake,
+  TrendingUp,
+  ImageIcon,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -54,7 +53,7 @@ interface Property {
 // Status configuration
 const STATUS_CONFIG: Record<
   string,
-  { label: string; color: string; bg: string; icon: any }
+  { label: string; color: string; bg: string; icon: unknown }
 > = {
   available: {
     label: 'Disponible',
@@ -151,7 +150,7 @@ const StatCard = ({
   color = 'gray',
   onClick,
 }: {
-  icon: any;
+  icon: unknown;
   label: string;
   value: string | number;
   color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'amber';
@@ -239,7 +238,7 @@ export default function MyPropertiesPage() {
       // Then, for each property, count applications and images separately
       if (propertiesData) {
         const propertiesWithCounts = await Promise.all(
-          propertiesData.map(async (property: any) => {
+          propertiesData.map(async (property: unknown) => {
             const normalizedStatus = normalizeStatus(property.status);
 
             // Count applications

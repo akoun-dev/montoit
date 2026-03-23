@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, useEffect, useCallback, ChangeEvent } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,7 +24,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatAddress } from '@/shared/utils/address';
+import { formatAddress, type AddressValue } from '@/shared/utils/address';
 import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
 import RoleSwitcher from '@/components/role/RoleSwitcher';
 import { RoleSwitchModal } from '@/shared/ui/Modal';
@@ -40,7 +40,7 @@ interface Profile {
   email: string | null;
   phone: string | null;
   city: string | null;
-  address: any;
+  address: AddressValue;
   bio: string | null;
   avatar_url: string | null;
   user_type: string | null;
@@ -132,7 +132,7 @@ export default function OwnerProfilePage() {
     }
   }, [user]);
 
-  const loadDossierApplication = async () => {
+  const loadDossierApplication = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -166,9 +166,15 @@ export default function OwnerProfilePage() {
     } catch (error) {
       console.error('Error loading dossier application:', error);
     }
-  };
+  }, [user, setDossierApplication, setDossierDocCount]);
 
-  const loadProfile = async () => {
+  useEffect(() => {
+    if (user) {
+      loadDossierApplication();
+    }
+  }, [user, loadDossierApplication]);
+
+  const loadProfile = useCallback(async () => {
     try {
       const { data: profileData } = await supabase
         .from('profiles')
@@ -209,7 +215,13 @@ export default function OwnerProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, setProfile, setFormData, setLoading]);
+
+  useEffect(() => {
+    if (user) {
+      loadProfile();
+    }
+  }, [user, loadProfile]);
 
   const handleSaveProfile = async (e: ChangeEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -732,8 +744,8 @@ export default function OwnerProfilePage() {
                         <CheckCircle className="w-5 h-5 text-green-600" />
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-medium text-green-900">Email vérifié</h4>
-                        <p className="text-sm text-green-700 mt-1">Adresse email confirmée</p>
+                        <h4 className="font-medium text-green-900">Profil complet</h4>
+                        <p className="text-sm text-green-700 mt-1">Informations de base complétées</p>
                       </div>
                     </div>
                   </div>
@@ -764,9 +776,16 @@ export default function OwnerProfilePage() {
                             ? "Carte d'identité vérifiée"
                             : "Pièce d'identité requise"}
                         </p>
-                        {!profile?.oneci_verified && (
+                        {profile?.oneci_verified ? (
                           <button
-                            onClick={() => navigate('/proprietaire/verification-oneci')}
+                            onClick={() => navigate('/verification-oneci?redo=true')}
+                            className="mt-2 text-sm text-[#F16522] hover:underline font-medium"
+                          >
+                            Refaire la vérification →
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => navigate('/verification-oneci')}
                             className="mt-2 text-sm text-[#F16522] hover:underline font-medium"
                           >
                             Vérifier maintenant →

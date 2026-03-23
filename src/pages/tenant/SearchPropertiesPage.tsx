@@ -8,10 +8,6 @@ import {
   AlertCircle,
   Map as MapIcon,
   List,
-  Bed,
-  Bath,
-  Maximize,
-  Heart,
   ArrowUpDown,
   Banknote,
   Loader2,
@@ -20,13 +16,14 @@ import {
 } from 'lucide-react';
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb';
 import MapWrapper from '@/shared/ui/MapWrapper';
-import { ScoreBadge } from '@/shared/ui/ScoreBadge';
 import InfiniteScroll from '@/shared/components/InfiniteScroll';
 import { useInfiniteProperties } from '../../hooks/tenant/useInfiniteProperties';
 import { useSaveSearch } from '../../hooks/tenant/useSaveSearch';
 import { usePrefetchProperties } from '@/shared/hooks/usePrefetchProperty';
 import SaveSearchDialog from '../../features/tenant/components/SaveSearchDialog';
 import UnifiedSearchBar from '@/shared/ui/UnifiedSearchBar';
+import { PropertyCard } from '@/features/property/components/PropertyCard';
+import { useShareDialog } from '@/shared/ui/ShareDialog';
 
 // Premium Ivorian Color Palette
 const COLORS = {
@@ -47,6 +44,7 @@ export default function SearchPropertiesPage() {
   const [activeView, setActiveView] = useState<'list' | 'map'>('list');
   const [sortBy, setSortBy] = useState<'recent' | 'price_asc' | 'price_desc'>('recent');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [locationMode, setLocationMode] = useState<'all' | 'abidjan' | 'outside_abidjan'>('all');
 
   // Applied filters (synced with URL params)
   const [appliedFilters, setAppliedFilters] = useState({
@@ -60,6 +58,9 @@ export default function SearchPropertiesPage() {
   // Save search hook
   const { saveSearch, isAuthenticated } = useSaveSearch();
 
+  // Share dialog
+  const { ShareDialogComponent } = useShareDialog();
+
   // Prefetch properties hook
   const { prefetchProperties } = usePrefetchProperties();
 
@@ -72,7 +73,7 @@ export default function SearchPropertiesPage() {
     hasMore,
     loadMore,
     totalCount,
-  } = useInfiniteProperties({ ...appliedFilters, sortBy, pageSize: 99999, ansutVerifiedOnly: true });
+  } = useInfiniteProperties({ ...appliedFilters, sortBy, pageSize: 99999, ansutVerifiedOnly: true, locationMode });
 
   // Prefetch first 6 properties when they are loaded (for faster detail page navigation)
   const propertiesToPrefetch = useMemo(() => properties.slice(0, 6).map((p) => p.id), [properties]);
@@ -145,54 +146,83 @@ export default function SearchPropertiesPage() {
   const displayError = error || queryError;
   return (
     <div className="min-h-screen" style={{ backgroundColor: COLORS.creme }}>
-      {/* ==================== HEADER AVEC DÉGRADÉ ALLÉGÉ ==================== */}
+      {/* ==================== HEADER REDESIGNÉ ==================== */}
       <header
-        className="relative overflow-hidden pb-8 pt-20 md:pt-24 px-4"
+        className="relative overflow-hidden pb-10 pt-24 md:pt-28 px-4"
         style={{
-          background: `linear-gradient(to bottom, ${COLORS.chocolat} 0%, #3D2518 100%)`,
+          background: `linear-gradient(135deg, ${COLORS.chocolat} 0%, #1a0f0a 50%, ${COLORS.chocolat} 100%)`,
         }}
       >
-        {/* Texture de fond subtile plus légère */}
-        <div
-          className="absolute inset-0 opacity-[0.03] pointer-events-none"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
-
-        {/* Lueur d'ambiance orange */}
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-[#F16522]/5 rounded-full blur-[100px] pointer-events-none" />
+        {/* Formes géométriques décoratives */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          {/* Cercle décoratif en haut à gauche */}
+          <div
+            className="absolute -top-32 -left-32 w-64 h-64 rounded-full"
+            style={{
+              background: `radial-gradient(circle, ${COLORS.orange}15 0%, transparent 70%)`,
+            }}
+          />
+          {/* Lueur orange subtile en bas à droite */}
+          <div
+            className="absolute bottom-0 right-0 w-96 h-96 rounded-full blur-[120px]"
+            style={{ backgroundColor: `${COLORS.orange}10` }}
+          />
+          /* Grille de points subtils */
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `radial-gradient(circle, ${COLORS.sable}08 1px, transparent 1px)`,
+              backgroundSize: '32px 32px',
+            }}
+          />
+        </div>
 
         <div className="relative z-10 max-w-7xl mx-auto">
-          {/* Breadcrumb */}
-          <div className="mb-4">
-            <Breadcrumb items={[{ label: 'Recherche' }]} className="text-white/60" />
-          </div>
-
-          {/* Header Content - Plus compact */}
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
-            <div>
-              <div className="flex items-center gap-2 mb-1" style={{ color: COLORS.orange }}>
-                <Search className="w-4 h-4" />
-                <span className="text-xs font-bold uppercase tracking-widest">
+          {/* Section titre avec badge */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">
+            <div className="space-y-3">
+              {/* Badge de catégorie */}
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border" style={{ borderColor: `${COLORS.orange}40`, backgroundColor: `${COLORS.orange}10` }}>
+                <Search className="w-3.5 h-3.5" style={{ color: COLORS.orange }} />
+                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: COLORS.sable }}>
                   Moteur de recherche
                 </span>
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">Trouver un bien</h1>
+              {/* Titre principal */}
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight">
+                Trouver votre bien
+              </h1>
+              {/* Sous-titre */}
+              <p className="text-white/60 text-sm md:text-base max-w-xl">
+                Explorez notre sélection de biens certifiés ANSUT à travers toute la Côte d'Ivoire
+              </p>
             </div>
 
+            {/* Compteur de biens - Design card */}
             {!loading && (
-              <div
-                className="hidden md:flex items-center gap-2 text-sm"
-                style={{ color: COLORS.sable }}
-              >
-                <span className="font-bold text-white">{totalCount}</span> biens disponibles
+              <div className="flex flex-col items-center md:items-end">
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl md:text-5xl font-bold text-white">
+                      {totalCount}
+                    </span>
+                    <span className="text-sm font-medium" style={{ color: COLORS.sable }}>
+                      bien{totalCount > 1 ? 's' : ''} disponible{totalCount > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  {nonGeolocatedCount > 0 && (
+                    <div className="flex items-center gap-1 mt-2 text-xs" style={{ color: COLORS.orange }}>
+                      <MapPin className="w-3 h-3" />
+                      <span>{geolocatedCount} géolocalisé{geolocatedCount > 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
 
           {/* ==================== BARRE DE RECHERCHE UNIFIÉE ==================== */}
-          <div className="mb-4">
+          <div className="mb-6">
             <UnifiedSearchBar
               variant="page"
               initialFilters={{
@@ -214,35 +244,97 @@ export default function SearchPropertiesPage() {
             />
           </div>
 
-          {/* Actions rapides */}
+          {/* Actions rapides - Design amélioré */}
           <div className="flex flex-wrap gap-3 items-center">
-            {/* Bouton Sauvegarder */}
+            {/* Bouton Sauvegarder - Style premium */}
             <button
               type="button"
               onClick={handleSaveSearch}
-              className="flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full h-9 px-4 text-xs font-medium hover:bg-white/20 transition-all"
-              style={{ color: COLORS.sable }}
+              className="group relative overflow-hidden flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 hover:scale-105"
+              style={{
+                background: `linear-gradient(135deg, ${COLORS.orange} 0%, #D95318 100%)`,
+                color: 'white',
+                boxShadow: `0 4px 15px ${COLORS.orange}30`,
+              }}
             >
-              <Bookmark className="w-3 h-3" /> Sauvegarder la recherche
+              <Bookmark className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              Sauvegarder la recherche
+              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
             </button>
 
             {activeFiltersCount > 0 && (
               <button
                 type="button"
                 onClick={clearFilters}
-                className="flex items-center gap-1.5 text-xs font-medium hover:text-white transition-colors"
-                style={{ color: COLORS.orange }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-white/20 text-white/80 hover:text-white hover:bg-white/10 transition-all"
               >
-                <X className="w-3 h-3" />
+                <X className="w-4 h-4" />
                 Réinitialiser ({activeFiltersCount})
               </button>
             )}
           </div>
         </div>
+
+        {/* Séparateur courbe */}
+        <div className="absolute bottom-0 left-0 right-0">
+          <svg
+            className="w-full h-12"
+            viewBox="0 0 1440 48"
+            fill="none"
+            preserveAspectRatio="none"
+          >
+            <path
+              d="M0 48V24C240 40 480 48 720 48C960 48 1200 40 1440 24V48H0Z"
+              fill={COLORS.creme}
+            />
+          </svg>
+        </div>
       </header>
 
       {/* ==================== CONTENU PRINCIPAL ==================== */}
       <main className="max-w-7xl mx-auto px-4 py-6">
+        {/* Filtre de localisation rapide */}
+        <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2">
+          <span className="text-sm font-medium" style={{ color: COLORS.grisTexte }}>
+            Localisation :
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setLocationMode('all')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                locationMode === 'all'
+                  ? 'bg-[#2C1810] text-white shadow-md'
+                  : 'bg-white text-[#6B5A4E] border hover:bg-[#FAF7F4]'
+              }`}
+              style={locationMode !== 'all' ? { borderColor: COLORS.border } : {}}
+            >
+              Toute la Côte d'Ivoire
+            </button>
+            <button
+              onClick={() => setLocationMode('abidjan')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                locationMode === 'abidjan'
+                  ? 'bg-[#F16522] text-white shadow-md'
+                  : 'bg-white text-[#6B5A4E] border hover:bg-[#FAF7F4]'
+              }`}
+              style={locationMode !== 'abidjan' ? { borderColor: COLORS.border } : {}}
+            >
+              Abidjan uniquement
+            </button>
+            <button
+              onClick={() => setLocationMode('outside_abidjan')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                locationMode === 'outside_abidjan'
+                  ? 'bg-[#2C1810] text-white shadow-md'
+                  : 'bg-white text-[#6B5A4E] border hover:bg-[#FAF7F4]'
+              }`}
+              style={locationMode !== 'outside_abidjan' ? { borderColor: COLORS.border } : {}}
+            >
+              Hors Abidjan
+            </button>
+          </div>
+        </div>
+
         {/* Barre d'outils (Tri & Vue) - Espacement réduit */}
         <div className="flex flex-wrap justify-between items-center gap-4 mb-5">
           <div className="flex items-center gap-2 text-sm" style={{ color: COLORS.grisTexte }}>
@@ -483,158 +575,13 @@ export default function SearchPropertiesPage() {
                   className={`grid gap-6 ${activeView === 'map' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}
                 >
                   {properties.map((property) => (
-                    <article
+                    <PropertyCard
                       key={property.id}
-                      onClick={() => navigate(`/proprietes/${property.id}`)}
-                      className="group bg-white rounded-[20px] overflow-hidden border hover:shadow-[0_20px_40px_rgba(44,24,16,0.08)] transition-all duration-300 cursor-pointer"
-                      style={{
-                        borderColor: COLORS.border,
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = `${COLORS.orange}4D`;
-                        // Prefetch property details on hover for faster navigation
-                        prefetchProperties([property.id]);
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = COLORS.border;
-                      }}
-                    >
-                      {/* Image Container */}
-                      <div className="relative h-64 overflow-hidden">
-                        <img
-                          src={
-                            property.images?.[0] ||
-                            'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800'
-                          }
-                          alt={property.title || 'Propriété'}
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                          loading="lazy"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src =
-                              'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800';
-                          }}
-                        />
-
-                        {/* Badges Flottants */}
-                        <div className="absolute top-3 left-3 flex gap-2 flex-wrap">
-                          {/* Badge de statut */}
-                          {(() => {
-                            const statusConfig = (() => {
-                              const status = property.status?.toLowerCase();
-                              if (!status) return null;
-                              const normalizedStatus = status;
-                              const configs: Record<string, { label: string; className: string }> = {
-                                available: { label: 'Disponible', className: 'bg-green-500/90 text-white' },
-                                rented: { label: 'Louée', className: 'bg-blue-500/90 text-white' },
-                                pending: { label: 'En attente', className: 'bg-amber-500/90 text-white' },
-                                unavailable: { label: 'Indisponible', className: 'bg-gray-500/90 text-white' },
-                                maintenance: { label: 'Maintenance', className: 'bg-red-500/90 text-white' },
-                                inactive: { label: 'Inactif', className: 'bg-gray-500/90 text-white' },
-                              };
-                              return configs[normalizedStatus] || null;
-                            })();
-                            return statusConfig ? (
-                              <span className={`${statusConfig.className} text-[10px] font-bold px-2 py-1 rounded-md uppercase shadow-sm backdrop-blur-sm`}>
-                                {statusConfig.label}
-                              </span>
-                            ) : null;
-                          })()}
-
-                          {/* Badge Certifié ANSUT */}
-                          {property.ansut_verified && (
-                            <span className="bg-emerald-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase shadow-sm backdrop-blur-sm flex items-center gap-1">
-                              <span>✓</span>
-                              <span>Certifié ANSUT</span>
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Bouton Favori */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // TODO: Add to favorites
-                          }}
-                          className="absolute top-3 right-3 p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white transition-colors group/fav"
-                          aria-label="Ajouter aux favoris"
-                        >
-                          <Heart className="w-4 h-4 group-hover/fav:text-red-500 transition-colors" />
-                        </button>
-
-                        {/* Prix Overlay */}
-                        <div className="absolute bottom-3 left-3">
-                          <div
-                            className="backdrop-blur-sm text-white px-3 py-1.5 rounded-lg shadow-lg"
-                            style={{ backgroundColor: `${COLORS.chocolat}E6` }}
-                          >
-                            <span className="font-bold text-lg">{formatPrice(property.price)}</span>
-                            <span className="text-[10px] opacity-80 ml-1">FCFA/mois</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Infos */}
-                      <div className="p-5">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <p
-                              className="text-[10px] font-bold uppercase mb-1"
-                              style={{ color: COLORS.grisNeutre }}
-                            >
-                              {property.property_type || 'Bien immobilier'}
-                            </p>
-                            <h3
-                              className="font-bold text-lg leading-tight transition-colors line-clamp-1"
-                              style={{ color: COLORS.chocolat }}
-                            >
-                              {property.title || 'Propriété sans titre'}
-                            </h3>
-                          </div>
-                          {property.owner_trust_score != null && (
-                            <ScoreBadge
-                              score={property.owner_trust_score}
-                              size="sm"
-                              variant="compact"
-                            />
-                          )}
-                        </div>
-
-                        <div
-                          className="flex items-center gap-1.5 text-sm mb-4"
-                          style={{ color: COLORS.grisTexte }}
-                        >
-                          <MapPin className="w-3.5 h-3.5" style={{ color: COLORS.orange }} />
-                          {property.neighborhood ? `${property.neighborhood}, ` : ''}
-                          {property.city || 'Non spécifié'}
-                        </div>
-
-                        {/* Features */}
-                        <div
-                          className="flex items-center gap-4 pt-4 border-t text-xs font-medium"
-                          style={{ borderColor: COLORS.border, color: COLORS.grisNeutre }}
-                        >
-                          {property.bedrooms && (
-                            <div className="flex items-center gap-1.5">
-                              <Bed className="w-4 h-4" style={{ color: COLORS.orange }} />{' '}
-                              {property.bedrooms} ch.
-                            </div>
-                          )}
-                          {property.bathrooms && (
-                            <div className="flex items-center gap-1.5">
-                              <Bath className="w-4 h-4" style={{ color: COLORS.orange }} />{' '}
-                              {property.bathrooms} sdb
-                            </div>
-                          )}
-                          {property.surface_area && (
-                            <div className="flex items-center gap-1.5">
-                              <Maximize className="w-4 h-4" style={{ color: COLORS.orange }} />{' '}
-                              {property.surface_area} m²
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </article>
+                      property={property}
+                      onHover={() => prefetchProperties([property.id])}
+                      formatPrice={formatPrice}
+                      colors={COLORS}
+                    />
                   ))}
                 </div>
               )}
@@ -858,6 +805,9 @@ export default function SearchPropertiesPage() {
         onSave={handleSaveSearchSubmit}
         currentFilters={appliedFilters}
       />
+
+      {/* Share Dialog */}
+      <ShareDialogComponent />
     </div>
   );
 }

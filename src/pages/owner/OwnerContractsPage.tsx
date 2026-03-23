@@ -86,7 +86,7 @@ interface Stats {
 }
 
 // Status config
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: unknown }> = {
   draft: {
     label: 'Brouillon',
     color: 'text-gray-700',
@@ -135,7 +135,7 @@ const FILTER_OPTIONS = [
 
 type TabValue = 'actifs' | 'resilies';
 
-const TAB_OPTIONS: { value: TabValue; label: string; icon: any }[] = [
+const TAB_OPTIONS: { value: TabValue; label: string; icon: unknown }[] = [
   { value: 'actifs', label: 'Contrats Actifs', icon: CheckCircle2 },
   { value: 'resilies', label: 'Résiliés', icon: Ban },
 ];
@@ -148,7 +148,7 @@ const StatCard = ({
   color = 'gray',
   onClick
 }: {
-  icon: any;
+  icon: unknown;
   label: string;
   value: string | number;
   color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'amber';
@@ -264,9 +264,9 @@ export default function OwnerContractsPage() {
         profile_user_ids: tenantIds,
       });
 
-      const profilesMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+      const profilesMap = new Map((profiles || []).map((p: unknown) => [p.user_id, p]));
 
-      const contractsWithTenants = (data || []).map((contract: any) => ({
+      const contractsWithTenants = (data || []).map((contract: unknown) => ({
         ...contract,
         end_date: contract.end_at || contract.end_date,
         properties: contract.properties,
@@ -386,7 +386,7 @@ export default function OwnerContractsPage() {
       setSelectedContract(null);
       setReason('');
       loadContracts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error canceling contract:', error);
       toast.error(error.message || 'Erreur lors de l\'annulation');
     } finally {
@@ -411,7 +411,7 @@ export default function OwnerContractsPage() {
       setSelectedContract(null);
       setReason('');
       loadContracts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error terminating contract:', error);
       toast.error(error.message || 'Erreur lors de la résiliation');
     } finally {

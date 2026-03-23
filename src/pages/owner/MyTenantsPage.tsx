@@ -7,7 +7,6 @@ import {
   Phone,
   Calendar,
   DollarSign,
-  TrendingUp,
   CheckCircle,
   XCircle,
   Clock,
@@ -84,7 +83,7 @@ const StatCard = ({
   value,
   color = 'gray',
 }: {
-  icon: any;
+  icon: unknown;
   label: string;
   value: string | number;
   color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'amber';
@@ -183,11 +182,11 @@ export default function MyTenantsPage() {
         profile_user_ids: tenantIds,
       });
 
-      const tenantsMap = new Map((tenantsData || []).map((t: any) => [t.user_id, t]));
+      const tenantsMap = new Map((tenantsData || []).map((t: unknown) => [t.user_id, t]));
 
       // Get payments for each contract
       const contractsWithDetails = await Promise.all(
-        (contractsData || []).map(async (contract: any) => {
+        (contractsData || []).map(async (contract: unknown) => {
           const { data: paymentsData } = await supabase
             .from('payments')
             .select('*')

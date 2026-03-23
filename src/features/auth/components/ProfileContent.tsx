@@ -1,18 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { Link } from 'react-router-dom';
-import { getRoleBasedRoute } from '@/shared/utils/roleRoutes';
 import { supabase } from '@/integrations/supabase/client';
 import { TENANT_SCORING_WEIGHTS } from '@/services/scoringService';
 import {
   User,
   Mail,
-  Phone,
-  MapPin,
   Shield,
   CheckCircle,
   AlertCircle,
-  Star,
   ChevronRight,
   TrendingUp,
   Clock,

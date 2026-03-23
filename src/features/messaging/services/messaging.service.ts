@@ -86,9 +86,9 @@ class MessagingService {
 
     const { data: propertiesData } = propertyIds.length
       ? await supabase.from('properties').select('id, title').in('id', propertyIds)
-      : { data: [] as any };
+      : { data: [] as Array<{ id: string; title: string }> };
 
-    const propertiesMap = new Map((propertiesData ?? []).map((p: any) => [p.id, p]));
+    const propertiesMap = new Map((propertiesData ?? []).map((p) => [p.id, p]));
 
     const conversationsWithDetails = await Promise.all(
       (data ?? []).map(async (conv) => {
@@ -132,7 +132,8 @@ class MessagingService {
     userId: string,
     otherUserId: string,
     propertyId?: string | null,
-    subject?: string | null
+     
+    _subject?: string | null
   ): Promise<Conversation | null> {
     const validPropertyId = this.isValidUuid(propertyId || '') ? propertyId : null;
     // First, try to find existing conversation
@@ -335,7 +336,8 @@ class MessagingService {
         {
           event: '*',
           schema: 'public',
-          table: 'user_conversations',
+          table: 'conversations',
+          filter: `or(participant1_id.eq.${userId},participant2_id.eq.${userId})`,
         },
         () => callback()
       )

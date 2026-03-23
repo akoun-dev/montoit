@@ -107,14 +107,14 @@ export default function TerminatedContractsTab({ stats, onRefresh }: TerminatedC
       if (error) throw error;
 
       // Fetch tenant profiles
-      const tenantIds = [...new Set((data || []).map((c: any) => c.tenant_id))];
+      const tenantIds = [...new Set((data || []).map((c: unknown) => c.tenant_id))];
       const { data: profiles } = await supabase.rpc('get_public_profiles', {
         profile_user_ids: tenantIds,
       });
 
-      const profilesMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+      const profilesMap = new Map((profiles || []).map((p: unknown) => [p.user_id, p]));
 
-      const contractsWithTenants = (data || []).map((contract: any) => ({
+      const contractsWithTenants = (data || []).map((contract: unknown) => ({
         ...contract,
         end_date: contract.end_at || contract.end_date,
         properties: contract.properties,

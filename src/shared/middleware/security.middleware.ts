@@ -113,7 +113,7 @@ export class InputValidator {
   /**
    * Valide un objet contre un schéma
    */
-  static validateObject(obj: any, schema: Record<string, (value: any) => boolean>): boolean {
+  static validateObject(obj: unknown, schema: Record<string, (value: unknown) => boolean>): boolean {
     for (const [key, validator] of Object.entries(schema)) {
       if (!(key in obj) || !validator(obj[key])) {
         return false;
@@ -215,13 +215,13 @@ export class SecurityLogger {
     event: string;
     userId?: string;
     ip?: string;
-    details?: any;
+    details?: unknown;
   }> = [];
 
   static log(
     level: 'INFO' | 'WARN' | 'ERROR',
     event: string,
-    details?: any,
+    details?: unknown,
     userId?: string,
     ip?: string
   ) {
@@ -250,7 +250,7 @@ export class SecurityLogger {
     // TODO: Implémenter l'envoi vers Sentry, LogRocket, etc.
   }
 
-  static async logSecurityEvent(event: string, userId?: string, ip?: string, details?: any) {
+  static async logSecurityEvent(event: string, userId?: string, ip?: string, details?: unknown) {
     this.log('WARN', `SECURITY: ${event}`, details, userId, ip);
 
     // Pour les événements de sécurité critiques, on pourrait vouloir
@@ -294,7 +294,7 @@ export async function securityMiddleware(
       request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
 
     SecurityLogger.log('INFO', `API_REQUEST: ${operation}`, null, undefined, ip);
-  } catch (error: any) {
+  } catch (error: unknown) {
     SecurityLogger.logSecurityEvent('RATE_LIMIT_EXCEEDED', undefined, undefined, {
       operation,
       error: error.message,
@@ -307,10 +307,10 @@ export async function securityMiddleware(
  * Décorateur pour sécuriser les méthodes de service
  */
 export function secure(operation: string) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (target: unknown, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: unknown[]) {
       // Appliquer le middleware de sécurité
       await apiRateLimit(operation);
 

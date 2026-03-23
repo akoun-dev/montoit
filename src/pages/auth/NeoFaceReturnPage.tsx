@@ -11,6 +11,14 @@ export default function NeoFaceReturnPage() {
   const [message, setMessage] = useState('Vérification en cours...');
 
   useEffect(() => {
+    // Validation du contexte de retour NeoFace
+    const neofaceSession = sessionStorage.getItem('neoface_session');
+    if (!neofaceSession) {
+      console.warn('[NeoFace Return] Accès non autorisé - pas de session NeoFace');
+      navigate('/verification-biometrique', { replace: true });
+      return;
+    }
+
     // Récupérer les paramètres de retour de NeoFace
     const documentId = searchParams.get('document_id');
     const success = searchParams.get('success');

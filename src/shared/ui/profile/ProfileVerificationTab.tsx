@@ -6,8 +6,8 @@ import { toast } from 'sonner';
 import NeofaceVerification from '../NeofaceVerification';
 
 interface ProfileVerificationTabProps {
-  profile: any;
-  verificationData: any;
+  profile: unknown;
+  verificationData: unknown;
   onRefresh?: () => void;
 }
 

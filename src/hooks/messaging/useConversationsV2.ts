@@ -1,11 +1,8 @@
 import { useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  messagingService,
-  Conversation,
-} from '../../features/messaging/services/messaging.service';
+import { supabase } from '@/integrations/supabase/client';
+import { messagingService } from '../../features/messaging/services/messaging.service';
 import { useAuth } from '../../contexts';
-import { supabase } from '../../lib';
 
 /**
  * Enhanced hook for managing conversations with TanStack Query
@@ -58,7 +55,7 @@ export function useConversationsV2() {
   useEffect(() => {
     if (!user?.id) return;
 
-    const channel = messagingService.subscribeToConversations(() => {
+    const channel = messagingService.subscribeToConversations(user.id, () => {
       // Refetch conversations when there's an update
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     });

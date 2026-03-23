@@ -136,7 +136,7 @@ serve(async (req) => {
       aliasCertificat,
       otp: '',  // OTP vide car déjà validé localement
       callBackUrl: callbackUrl || `${Deno.env.get('SUPABASE_URL')}/functions/v1/cryptoneo-callback`,
-      signRequest: documents.map((doc: any) => ({
+      signRequest: documents.map((doc: Record<string, unknown>) => ({
         codeDoc: doc.codeDoc,
         urlDoc: doc.urlDoc,
         hashDoc: doc.hashDoc,

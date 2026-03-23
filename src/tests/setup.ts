@@ -129,7 +129,7 @@ export function createSupabaseError(message: string) {
 }
 
 // Helper function pour simuler des données utilisateur
-export function createMockUser(overrides: any = {}) {
+export function createMockUser(overrides: unknown = {}) {
   return {
     id: 'test-user-id',
     email: 'test@example.com',
@@ -142,7 +142,7 @@ export function createMockUser(overrides: any = {}) {
 }
 
 // Helper function pour simuler un profil utilisateur
-export function createMockProfile(overrides: any = {}) {
+export function createMockProfile(overrides: unknown = {}) {
   return {
     id: 'test-profile-id',
     user_id: 'test-user-id',
@@ -157,7 +157,7 @@ export function createMockProfile(overrides: any = {}) {
 }
 
 // Helper function pour simuler une propriété
-export function createMockProperty(overrides: any = {}) {
+export function createMockProperty(overrides: unknown = {}) {
   return {
     id: 'test-property-id',
     title: 'Test Property',
@@ -172,7 +172,7 @@ export function createMockProperty(overrides: any = {}) {
 }
 
 // Helper function pour simuler un contrat
-export function createMockContract(overrides: any = {}) {
+export function createMockContract(overrides: unknown = {}) {
   return {
     id: 'test-contract-id',
     property_id: 'test-property-id',

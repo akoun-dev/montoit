@@ -86,7 +86,7 @@ export default function ProfileSelection() {
 
       // Mettre à jour le profile avec le user_type et le full_name si disponible
       const updateData: {
-        user_type: string;
+        user_type: UserTypeEn;
         full_name?: string;
         updated_at: string;
       } = {
@@ -109,14 +109,14 @@ export default function ProfileSelection() {
       // Nettoyer le sessionStorage
       sessionStorage.removeItem('pending_full_name');
 
-      // Redirection selon le type sélectionné (utiliser window.location pour éviter le re-render)
+      // Redirection selon le type sélectionné avec React Router
       let dashboardUrl = '/locataire/dashboard';
       if (selectedType === 'owner') {
         dashboardUrl = getDashboardRoute('owner');
       } else if (selectedType === 'agency') {
         dashboardUrl = getDashboardRoute('agency');
       }
-      window.location.href = dashboardUrl;
+      navigate(dashboardUrl, { state: { fromProfileSelection: true }, replace: true });
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : 'Erreur lors de la mise à jour du profil';

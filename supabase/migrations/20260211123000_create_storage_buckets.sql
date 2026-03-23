@@ -18,6 +18,9 @@ BEGIN
     ('review-photos', 'review-photos', true, 52428800, ARRAY['image/jpeg', 'image/png', 'image/webp']),
     ('dossiers-locataires', 'dossiers-locataires', true, 52428800, ARRAY['application/pdf', 'image/jpeg', 'image/png']),
     ('dossiers-proprietaires', 'dossiers-proprietaires', true, 52428800, ARRAY['application/pdf', 'image/jpeg', 'image/png']),
-    ('dossiers-agences', 'dossiers-agences', true, 52428800, ARRAY['application/pdf', 'image/jpeg', 'image/png'])
+    ('dossiers-agences', 'dossiers-agences', true, 52428800, ARRAY['application/pdf', 'image/jpeg', 'image/png']),
+    ('owner-documents', 'owner-documents', false, 104857600, ARRAY['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/webp']),
+    ('message-attachments', 'message-attachments', true, 10485760, ARRAY['image/jpeg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']),
+    ('support-attachments', 'support-attachments', true, 10485760, ARRAY['image/jpeg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
   ON CONFLICT (id) DO NOTHING;
 END $$;

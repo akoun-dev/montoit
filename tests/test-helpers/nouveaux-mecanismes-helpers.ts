@@ -2,8 +2,10 @@
  * Fonctions utilitaires pour tester les nouveaux mécanismes de validation de MonToit
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { renderHook, act } from '@testing-library/react';
-import { vi, beforeEach } from 'vitest';
+import { vi } from 'vitest';
 
 /**
  * Fonctions utilitaires pour tester le service de validation
@@ -12,9 +14,9 @@ export const testValidationService = {
   /**
    * Teste si un objet de données invalides est correctement validé
    */
-  async testInvalidData(validationFn: Function, invalidData: any, expectedErrorFields: string[]) {
+  async testInvalidData(validationFn: (data: unknown) => Promise<{ valid: boolean; errors: Record<string, unknown> }>, invalidData: unknown, expectedErrorFields: string[]) {
     const result = await validationFn(invalidData);
-    
+
     expect(result.valid).toBe(false);
     expectedErrorFields.forEach(field => {
       expect(result.errors[field]).toBeDefined();
@@ -24,9 +26,9 @@ export const testValidationService = {
   /**
    * Teste si un objet de données valides est correctement validé
    */
-  async testValidData(validationFn: Function, validData: any) {
+  async testValidData(validationFn: (data: unknown) => Promise<{ valid: boolean; errors: Record<string, unknown> }>, validData: unknown) {
     const result = await validationFn(validData);
-    
+
     expect(result.valid).toBe(true);
     expect(Object.keys(result.errors).length).toBe(0);
   },
@@ -34,7 +36,7 @@ export const testValidationService = {
   /**
    * Teste la validation d'emails
    */
-  testEmailValidation(validateEmail: Function) {
+  testEmailValidation(validateEmail: (email: string) => boolean) {
     const validEmails = [
       'test@example.com',
       'user.name@domain.co.uk',
@@ -62,7 +64,7 @@ export const testValidationService = {
   /**
    * Teste la validation de numéros de téléphone ivoiriens
    */
-  testPhoneValidation(validatePhone: Function) {
+  testPhoneValidation(validatePhone: (phone: string) => boolean) {
     const validPhones = [
       '07123456',
       '+22507123456',
@@ -94,7 +96,7 @@ export const testErrorHandling = {
   /**
    * Teste le retry automatique avec backoff exponentiel
    */
-  async testRetryMechanism(ErrorHandler: any, retries: number = 3) {
+  async testRetryMechanism(ErrorHandler: { executeWithRetry: (operation: () => Promise<unknown>, context: Record<string, unknown>, options: Record<string, unknown>) => Promise<unknown> }, retries: number = 3) {
     const errors: Error[] = [];
     let attemptCount = 0;
 
@@ -126,7 +128,7 @@ export const testErrorHandling = {
   /**
    * Teste l'identification des erreurs réessayables
    */
-  testRetryableErrorIdentification(ErrorHandler: any) {
+  testRetryableErrorIdentification(ErrorHandler: { isRetryable: (error: unknown) => boolean }) {
     const retryableErrors = [
       new Error('Network error'),
       { name: 'TimeoutError' },
@@ -163,7 +165,7 @@ export const testErrorHandling = {
   /**
    * Teste le timeout des opérations
    */
-  async testTimeoutHandling(ErrorHandler: any) {
+  async testTimeoutHandling(ErrorHandler: Record<string, unknown>) {
     const mockOperation = vi.fn().mockImplementation(() =>
       new Promise(resolve => setTimeout(resolve, 1000))
     );
@@ -184,7 +186,7 @@ export const testErrorHandling = {
   /**
    * Teste le calcul du backoff exponentiel avec jitter
    */
-  testExponentialBackoff(ErrorHandler: any) {
+  testExponentialBackoff(ErrorHandler: Record<string, unknown>) {
     const delays: number[] = [];
     const originalDelay = ErrorHandler.delay;
 
@@ -224,7 +226,7 @@ export const testHttpHooks = {
   /**
    * Teste l'annulation des requêtes avec AbortController
    */
-  async testRequestCancellation(useHttpHook: Function) {
+  async testRequestCancellation(useHttpHook: () => { current: { get: (url: string, options?: unknown) => Promise<unknown> } }) {
     const { result, unmount } = renderHook(() => useHttpHook());
 
     // Lancer une requête lente
@@ -240,7 +242,7 @@ export const testHttpHooks = {
   /**
    * Teste la gestion des timeouts avec AbortController
    */
-  async testTimeoutHandling(useHttpHook: Function) {
+  async testTimeoutHandling(useHttpHook: () => { current: { get: (url: string, options?: unknown) => Promise<unknown> } }) {
     const { result } = renderHook(() => useHttpHook());
 
     // Mock une requête qui dépasse le timeout
@@ -256,7 +258,7 @@ export const testHttpHooks = {
   /**
    * Teste que les requêtes précédentes sont annulées
    */
-  async testPreviousRequestCancellation(useHttpHook: Function) {
+  async testPreviousRequestCancellation(useHttpHook: () => { current: { get: (url: string, options?: unknown) => Promise<unknown> } }) {
     const { result } = renderHook(() => useHttpHook());
 
     // Lancer plusieurs requêtes rapidement
@@ -275,7 +277,7 @@ export const testHttpHooks = {
   /**
    * Teste le cleanup automatique lors du démontage
    */
-  testAutomaticCleanup(useHttpHook: Function) {
+  testAutomaticCleanup(useHttpHook: () => { current: { get: (url: string, options?: unknown) => Promise<unknown> } }) {
     const { unmount } = renderHook(() => useHttpHook());
 
     // Le démontage ne devrait pas générer d'erreur
@@ -292,6 +294,7 @@ export const testDebouncing = {
    */
   testValueDebouncing() {
     const { result } = renderHook(() => {
+       
       const { useDebounce } = require('@/hooks/useDebounce');
       return useDebounce('initial', 100);
     });
@@ -304,6 +307,7 @@ export const testDebouncing = {
    */
   testSearchDebouncing() {
     const { result } = renderHook(() => {
+       
       const { useDebouncedSearch } = require('@/hooks/useDebounce');
       return useDebouncedSearch('', 300);
     });
@@ -320,6 +324,7 @@ export const testDebouncing = {
     const initialFilters = { type: 'apartment', minPrice: 0 };
     
     const { result } = renderHook(() => {
+       
       const { useDebouncedFilters } = require('@/hooks/useDebounce');
       return useDebouncedFilters(initialFilters, 200);
     });
@@ -335,6 +340,7 @@ export const testDebouncing = {
     const initialData = { name: '', email: '' };
 
     const { result } = renderHook(() => {
+       
       const { useDebouncedAutoSave } = require('@/hooks/useDebounce');
       return useDebouncedAutoSave(initialData, 500);
     });
@@ -352,6 +358,7 @@ export const testDebouncing = {
    * Teste les délais configurés
    */
   testConfiguredDelays() {
+     
     const { DEBOUNCE_DELAYS } = require('@/hooks/useDebounce');
     
     expect(DEBOUNCE_DELAYS.SEARCH).toBe(300);
@@ -370,8 +377,8 @@ export const testCleanupFunctions = {
   /**
    * Teste la création et le nettoyage d'un AbortController
    */
-  async testAbortControllerCleanup(cleanupRegistry: any) {
-    const controller = cleanupRegistry.createAbortController(
+  async testAbortControllerCleanup(cleanupRegistry: Record<string, unknown>) {
+    cleanupRegistry.createAbortController(
       'test-abort',
       'Test AbortController',
       'TestComponent'
@@ -387,11 +394,11 @@ export const testCleanupFunctions = {
   /**
    * Teste la création et le nettoyage d'un timeout
    */
-  async testTimeoutCleanup(cleanupRegistry: any) {
+  async testTimeoutCleanup(cleanupRegistry: Record<string, unknown>) {
     let timeoutCalled = false;
     const callback = () => { timeoutCalled = true; };
 
-    const timeoutId = cleanupRegistry.createTimeout(
+    cleanupRegistry.createTimeout(
       'test-timeout',
       callback,
       100,
@@ -415,7 +422,7 @@ export const testCleanupFunctions = {
   /**
    * Teste le nettoyage par composant
    */
-  testComponentCleanup(cleanupRegistry: any) {
+  testComponentCleanup(cleanupRegistry: Record<string, unknown>) {
     // Ajouter des ressources pour différents composants
     cleanupRegistry.createAbortController('abort-1', 'Test 1', 'Component1');
     cleanupRegistry.createTimeout('timeout-1', () => {}, 100, 'Test 2', 'Component1');
@@ -434,7 +441,7 @@ export const testCleanupFunctions = {
   /**
    * Teste le nettoyage par type
    */
-  testTypeCleanup(cleanupRegistry: any) {
+  testTypeCleanup(cleanupRegistry: Record<string, unknown>) {
     cleanupRegistry.createAbortController('abort-1', 'Test 1', 'Component1');
     cleanupRegistry.createTimeout('timeout-1', () => {}, 100, 'Test 2', 'Component2');
     cleanupRegistry.createInterval('interval-1', () => {}, 100, 'Test 3', 'Component3');
@@ -452,7 +459,7 @@ export const testCleanupFunctions = {
   /**
    * Teste les statistiques du registry
    */
-  testStats(cleanupRegistry: any) {
+  testStats(cleanupRegistry: Record<string, unknown>) {
     cleanupRegistry.createAbortController('abort-1', 'Test 1', 'Component1');
     cleanupRegistry.createTimeout('timeout-1', () => {}, 100, 'Test 2', 'Component2');
 
@@ -468,7 +475,7 @@ export const testCleanupFunctions = {
   /**
    * Teste la détection des fuites de mémoire
    */
-  testMemoryLeakDetection(cleanupRegistry: any) {
+  testMemoryLeakDetection(cleanupRegistry: Record<string, unknown>) {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     // Créer beaucoup de timeouts pour déclencher l'alerte
@@ -487,7 +494,7 @@ export const testCleanupFunctions = {
   /**
    * Teste le nettoyage global
    */
-  testGlobalCleanup(cleanupRegistry: any) {
+  testGlobalCleanup(cleanupRegistry: Record<string, unknown>) {
     cleanupRegistry.createAbortController('abort-1', 'Test 1', 'Component1');
     cleanupRegistry.createTimeout('timeout-1', () => {}, 100, 'Test 2', 'Component2');
     cleanupRegistry.createInterval('interval-1', () => {}, 100, 'Test 3', 'Component3');
@@ -508,7 +515,9 @@ export const testIntegration = {
    */
   async testCompleteApplicationScenario() {
     const { result, unmount } = renderHook(() => {
-      const { useHttp, useDebounce, useCleanupRegistry } = require('@/hooks/useHttp');
+       
+      const { useHttp, useCleanupRegistry } = require('@/hooks/useHttp');
+       
       const { useDebouncedSearch } = require('@/hooks/useDebounce');
       const http = useHttp();
       const search = useDebouncedSearch('', 300);
@@ -532,7 +541,7 @@ export const testIntegration = {
     });
 
     // Simuler une soumission
-    const submitPromise = result.current.http.post('/api/applications', {
+    const _submitPromise = result.current.http.post('/api/applications', {
       propertyId: '123',
       applicantName: 'John Doe'
     });
@@ -568,7 +577,9 @@ export const testIntegration = {
     global.fetch = mockFetch;
 
     const { result } = renderHook(() => {
+       
       const { useHttp } = require('@/hooks/useHttp');
+       
       const { useDebounce } = require('@/hooks/useDebounce');
       const http = useHttp();
       const [query, setQuery] = useDebounce('', 200);
@@ -586,7 +597,8 @@ export const testIntegration = {
       vi.advanceTimersByTime(200);
     });
 
-    const requestPromise = result.current.http.get('/api/search?q=test');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _requestPromise = result.current.http.get('/api/search?q=test');
 
     // La requête devrait eventually réussir
     await waitFor(() => {

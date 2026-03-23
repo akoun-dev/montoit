@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, X } from 'lucide-react';
+
+interface Message {
+  id: string;
+  content: string;
+  created_at: string;
+}
 
 interface MessageSearchProps {
-  messages: any[];
+  messages: Message[];
   onSearch: (query: string) => void;
   resultCount: number;
 }
@@ -10,7 +16,6 @@ interface MessageSearchProps {
 export function MessageSearch({ messages, onSearch, resultCount }: MessageSearchProps) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const filteredMessages = query
@@ -71,8 +76,6 @@ export function MessageSearch({ messages, onSearch, resultCount }: MessageSearch
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
                 onKeyDown={handleKeyDown}
                 placeholder="Rechercher des messages..."
                 className="w-full pl-9 pr-8 py-2 bg-[#FAF7F4] border border-[#EFEBE9] rounded-lg text-sm text-[#2C1810] placeholder-[#A69B95] focus:outline-none focus:ring-2 focus:ring-[#F16522]/20"

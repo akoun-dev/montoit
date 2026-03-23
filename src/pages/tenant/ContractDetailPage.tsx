@@ -13,8 +13,6 @@ import {
   PenTool,
   Calendar,
   MapPin,
-  Home as HomeIcon,
-  CreditCard,
   Clock,
   User,
   Users,
@@ -46,7 +44,7 @@ interface LeaseContract {
   custom_clauses: string | null;
   document_url?: string;
   draft_document_url?: string;
-  inventory_details?: Record<string, any>;
+  inventory_details?: Record<string, unknown>;
   owner_signed_at?: string | null;
   tenant_signed_at?: string | null;
   created_at: string;
@@ -527,7 +525,7 @@ export default function ContractDetailPage() {
         },
       });
 
-      const updates: any = { updated_at: now };
+      const updates: Record<string, string | null> = { updated_at: now };
       if (signatureType === 'landlord') {
         updates.owner_signed_at = now;
         // Si le locataire a déjà signé, passer le contrat à actif

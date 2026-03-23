@@ -23,7 +23,8 @@ BEGIN
       TO authenticated
       USING (bucket_id = ANY (ARRAY[
         'avatars','documents','verifications','property-images','maintenance-photos','review-photos',
-        'dossiers-locataires','dossiers-proprietaires','dossiers-agences'
+        'dossiers-locataires','dossiers-proprietaires','dossiers-agences','owner-documents',
+        'message-attachments','support-attachments'
       ]) AND owner = auth.uid())
     $policy$;
   END IF;
@@ -41,7 +42,8 @@ BEGIN
       TO authenticated
       WITH CHECK (bucket_id = ANY (ARRAY[
         'avatars','documents','verifications','property-images','maintenance-photos','review-photos',
-        'dossiers-locataires','dossiers-proprietaires','dossiers-agences'
+        'dossiers-locataires','dossiers-proprietaires','dossiers-agences','owner-documents',
+        'message-attachments','support-attachments'
       ]) AND owner = auth.uid())
     $policy$;
   END IF;
@@ -59,11 +61,13 @@ BEGIN
       TO authenticated
       USING (bucket_id = ANY (ARRAY[
         'avatars','documents','verifications','property-images','maintenance-photos','review-photos',
-        'dossiers-locataires','dossiers-proprietaires','dossiers-agences'
+        'dossiers-locataires','dossiers-proprietaires','dossiers-agences','owner-documents',
+        'message-attachments','support-attachments'
       ]) AND owner = auth.uid())
       WITH CHECK (bucket_id = ANY (ARRAY[
         'avatars','documents','verifications','property-images','maintenance-photos','review-photos',
-        'dossiers-locataires','dossiers-proprietaires','dossiers-agences'
+        'dossiers-locataires','dossiers-proprietaires','dossiers-agences','owner-documents',
+        'message-attachments','support-attachments'
       ]) AND owner = auth.uid())
     $policy$;
   END IF;
@@ -81,7 +85,8 @@ BEGIN
       TO authenticated
       USING (bucket_id = ANY (ARRAY[
         'avatars','documents','verifications','property-images','maintenance-photos','review-photos',
-        'dossiers-locataires','dossiers-proprietaires','dossiers-agences'
+        'dossiers-locataires','dossiers-proprietaires','dossiers-agences','owner-documents',
+        'message-attachments','support-attachments'
       ]) AND owner = auth.uid())
     $policy$;
   END IF;

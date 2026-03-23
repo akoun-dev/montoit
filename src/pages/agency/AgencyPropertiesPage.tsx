@@ -8,12 +8,10 @@ import {
   MapPin,
   Users,
   Search,
-  Filter,
   Edit,
   Trash2,
   Eye,
   Loader2,
-  Image as ImageIcon,
   Bed,
   Bath,
   Maximize,
@@ -71,6 +69,7 @@ export default function AgencyPropertiesPage() {
     totalValue: 0,
     avgRent: 0,
   });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [agencyId, setAgencyId] = useState<string | null>(null);
 
   useEffect(() => {

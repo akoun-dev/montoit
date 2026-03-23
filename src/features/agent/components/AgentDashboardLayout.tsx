@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useLocation, Outlet } from 'react-router-dom';
+import { useEffect, useState, useCallback } from 'react';
+import { Outlet } from 'react-router-dom';
 import AgentSidebar from './AgentSidebar';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,18 +15,12 @@ interface AgentDashboardLayoutProps {
  * Affiche la sidebar dédiée et occupe toute la hauteur de l'écran.
  */
 export default function AgentDashboardLayout({ children, title }: AgentDashboardLayoutProps) {
-  const location = useLocation();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [pendingNotifications, setPendingNotifications] = useState(0);
+   
+  const [_pendingNotifications, setPendingNotifications] = useState(0);
 
-  useEffect(() => {
-    if (user) {
-      loadUnreadNotifications();
-    }
-  }, [user]);
-
-  const loadUnreadNotifications = async () => {
+  const loadUnreadNotifications = useCallback(async () => {
     if (!user) return;
 
     const { data, error } = await supabase
@@ -38,7 +32,13 @@ export default function AgentDashboardLayout({ children, title }: AgentDashboard
     if (!error) {
       setPendingNotifications(data?.length || 0);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadUnreadNotifications();
+    }
+  }, [user, loadUnreadNotifications]);
 
   return (
     <div className="flex h-screen bg-neutral-50 overflow-hidden">

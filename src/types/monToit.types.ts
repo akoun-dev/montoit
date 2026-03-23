@@ -58,21 +58,21 @@ export interface CompleteApplicationData {
     id: string;
     title: string;
     address: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   applicant?: {
     id: string;
     full_name: string;
     email: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   documents?: {
     id: string;
     document_type: string;
     file_url: string;
-    [key: string]: any;
+    [key: string]: unknown;
   }[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**

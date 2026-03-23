@@ -56,8 +56,6 @@ export default function SearchFilters({
   setSearchCity,
   propertyType,
   setPropertyType,
-  propertyCategory: _propertyCategory,
-  setPropertyCategory: _setPropertyCategory,
   minPrice,
   setMinPrice,
   maxPrice,

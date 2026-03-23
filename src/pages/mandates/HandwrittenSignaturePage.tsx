@@ -19,7 +19,6 @@ import {
   PenTool,
   Eraser,
   Undo,
-  Redo,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -244,6 +243,7 @@ export default function HandwrittenSignaturePage() {
     setHasSigned(newHistoryStep > 0);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getPermissionLabel = (permission: string) => {
     const labels: Record<string, string> = {
       can_view_properties: 'Voir les propriétés',
@@ -280,7 +280,7 @@ export default function HandwrittenSignaturePage() {
 
       // Upload signature to storage
       const fileName = `mandate-${mandate.id}-${signerType}-${Date.now()}.png`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('mandate-signatures')
         .upload(fileName, blob);
 
@@ -296,7 +296,7 @@ export default function HandwrittenSignaturePage() {
         .getPublicUrl(fileName);
 
       // Update mandate with signature
-      const updateData: any = {
+      const updateData: unknown = {
         cryptoneo_signature_status: signerType === 'owner' ? 'owner_signed' : 'agency_signed',
       };
 

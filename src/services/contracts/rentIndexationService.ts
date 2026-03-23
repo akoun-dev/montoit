@@ -182,12 +182,12 @@ export async function getPendingIndexations(ownerId: string): Promise<any[]> {
   
   // Filtrer les contrats qui peuvent être indexés
   return data
-    .filter((contract: any) => canIndexContract({
+    .filter((contract: unknown) => canIndexContract({
       start_date: contract.start_date,
       end_date: contract.end_date,
       last_indexation_date: contract.last_indexation_date,
     }))
-    .map((contract: any) => ({
+    .map((contract: unknown) => ({
       contract,
       calculation: calculateRentIndexation(
         contract.monthly_rent,

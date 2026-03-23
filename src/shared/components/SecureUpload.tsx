@@ -8,16 +8,13 @@
 import React, { useCallback, useState, useRef } from 'react';
 import { Upload, X, File, AlertCircle, Shield, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  SecureUploadService,
-  type SecureUploadOptions,
-} from '@/shared/services/secureUpload.service';
+import { SecureUploadService } from '@/shared/services/secureUpload.service';
 import { useRateLimiter } from '@/shared/services/rateLimiter.service';
 import { cn } from '@/shared/lib/utils';
 
 interface SecureUploadProps {
   bucket: 'PROPERTIES' | 'DOCUMENTS' | 'AVATARS' | 'VERIFICATIONS' | 'MAINTENANCE' | 'REVIEWS';
-  onUploadComplete?: (url: string, metadata?: any) => void;
+  onUploadComplete?: (url: string, metadata?: unknown) => void;
   onUploadError?: (error: string) => void;
   accept?: string;
   maxSizeMB?: number;
@@ -168,7 +165,7 @@ export function SecureUpload({
           );
 
           onUploadComplete?.(result.url, result.metadata);
-        } catch (error: any) {
+        } catch (error: unknown) {
           // Mettre à jour le statut avec erreur
           setFiles((prev) =>
             prev.map((f) =>

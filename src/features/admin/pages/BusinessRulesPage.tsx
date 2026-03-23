@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   Settings,
-  Save,
   ToggleLeft,
   ToggleRight,
   RefreshCw,

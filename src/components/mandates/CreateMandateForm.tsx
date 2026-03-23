@@ -3,33 +3,23 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   X,
   Home,
   Building2,
-  MapPin,
   Percent,
   Calendar,
   FileText,
   Check,
   ChevronRight,
-  AlertCircle,
-  Info,
   Shield,
   Users,
-  FileCheck,
   Settings,
-  Eye,
-  Edit,
-  Trash2,
-  Plus,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
 
 interface Property {
   id: string;
@@ -74,7 +64,6 @@ interface CreateMandateFormProps {
 type Step = 'property' | 'agency' | 'permissions' | 'confirm';
 
 export default function CreateMandateForm({ isOpen, onClose, onSuccess, propertyId }: CreateMandateFormProps) {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState<Step>('property');
   const [loading, setLoading] = useState(false);
@@ -113,6 +102,7 @@ export default function CreateMandateForm({ isOpen, onClose, onSuccess, property
         setCurrentStep('agency');
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, propertyId]);
 
   const loadData = async () => {
@@ -709,8 +699,8 @@ export default function CreateMandateForm({ isOpen, onClose, onSuccess, property
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(permissions)
-                      .filter(([_, value]) => value)
-                      .map(([key, _]) => (
+                      .filter(([, value]) => value)
+                      .map(([key]) => (
                         <span
                           key={key}
                           className="px-3 py-1 bg-[#F16522] text-white rounded-full text-xs font-medium"

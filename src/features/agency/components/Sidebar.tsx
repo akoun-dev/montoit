@@ -7,10 +7,8 @@ import {
   BarChart3,
   FileText,
   Calendar,
-  PlusCircle,
   Users,
   FilePlus2,
-  MessageSquare,
   Search,
   Calendar as CalendarIcon,
 } from 'lucide-react';

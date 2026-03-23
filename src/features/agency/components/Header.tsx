@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Menu,
   Bell,
   Search,
   Settings,
@@ -12,9 +11,9 @@ import {
 } from 'lucide-react';
 
 interface HeaderProps {
-  onToggleSidebar: () => void;
-  sidebarOpen: boolean;
-  agencyName: string;
+  onToggleSidebar?: () => void;
+  sidebarOpen?: boolean;
+  agencyName?: string;
   agencyLogo?: string;
   pendingNotifications?: number;
   userEmail?: string;
@@ -31,10 +30,6 @@ const timeRangeOptions = [
 ];
 
 export default function Header({
-  onToggleSidebar,
-  sidebarOpen: _sidebarOpen,
-  agencyName,
-  agencyLogo,
   pendingNotifications = 0,
   userEmail,
   onExport,

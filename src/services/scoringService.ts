@@ -329,7 +329,7 @@ export const ScoringService = {
   /**
    * Calcule le score des infos agence (max 100)
    */
-  calculateAgencyInfoScore(agency: any, profile: Profile | null): number {
+  calculateAgencyInfoScore(agency: Record<string, unknown> | null, profile: Profile | null): number {
     let score = 0;
     // Nom de l'agence (20 points)
     if (agency?.agency_name || profile?.agency_name) score += 20;
@@ -377,9 +377,8 @@ export const ScoringService = {
   },
 
   /**
-   * Calcule le Global Trust Score complet
-   * Si le dossier (verification_application) est approuvé, retourne directement 100%
-   * Sinon, calcule le score basé sur les vérifications complétées
+   * Calcule le Global Trust Score complet en utilisant la fonction Edge
+   * Si la fonction Edge n'est pas disponible, utilise le calcul côté client en fallback
    */
   async calculateGlobalTrustScore(
     userId: string,
@@ -393,11 +392,85 @@ export const ScoringService = {
     const userType = profile?.user_type?.toLowerCase();
     const isAgency = userType === 'agency' || userType === 'agency';
 
-    // Pour les agences, utiliser le calcul spécifique
+    // Pour les agences, utiliser le calcul spécifique (pas de fonction Edge pour les agences)
     if (isAgency) {
       return await this.calculateAgencyScore(userId, profile);
     }
 
+    // Essayer d'utiliser la fonction Edge pour le calcul complet
+    if (!skipTenantScoring) {
+      try {
+        const { data, error } = await supabase.functions.invoke('tenant-scoring', {
+          body: {
+            applicantId: userId,
+            propertyId: propertyId || null,
+            monthlyRent: monthlyRent || 0,
+          },
+        });
+
+        if (!error && data && typeof data.globalScore === 'number') {
+          // La fonction Edge a retourné un résultat valide
+          const breakdown = data.breakdown || {};
+          const details = breakdown.details || {};
+
+          return {
+            profileScore: breakdown.profile?.score || 0,
+            verificationScore: breakdown.verification?.score || 0,
+            historyScore: breakdown.history?.score || 0,
+            globalScore: data.globalScore,
+            recommendation: data.recommendation || 'rejected',
+            details: {
+              profile: this.mapProfileDetails(details.profile || {}, profile),
+              verification: {
+                oneci: !!details.verification?.oneci,
+                facial: details.verification?.facial || false,
+                dossier: !!details.verification?.ansut,
+                total: breakdown.verification?.score || 0,
+              },
+              history: {
+                paymentReliability: details.history?.paymentReliability || 50,
+                propertyCondition: details.history?.propertyCondition || 50,
+                leaseCompliance: details.history?.leaseCompliance || 50,
+                total: breakdown.history?.score || 0,
+              },
+            },
+          };
+        }
+      } catch (err) {
+        console.warn('Edge function tenant-scoring failed, using client-side calculation', err);
+        skipTenantScoring = true;
+      }
+    }
+
+    // Fallback: calcul côté client
+    return await this.calculateClientSideScore(userId, profile, propertyId, monthlyRent);
+  },
+
+  /**
+   * Mappe les détails de la fonction Edge vers le format local
+   */
+  mapProfileDetails(edgeDetails: Record<string, unknown>, profile: Profile | null): ProfileScoreDetails {
+    return {
+      fullName: !!edgeDetails.fullName,
+      phone: !!edgeDetails.phone,
+      city: !!edgeDetails.city,
+      gender: !!profile?.gender,
+      bio: !!edgeDetails.bio,
+      avatar: !!edgeDetails.avatar,
+      address: !!edgeDetails.address,
+      total: typeof edgeDetails.total === 'number' ? edgeDetails.total : 0,
+    };
+  },
+
+  /**
+   * Calcul côté client en fallback si la fonction Edge n'est pas disponible
+   */
+  async calculateClientSideScore(
+    userId: string,
+    profile: Profile | null,
+    _propertyId?: string,
+    _monthlyRent?: number
+  ): Promise<ScoreBreakdown> {
     // Vérifier si un dossier est approuvé (Dossier locataire)
     const { data: approvedDossier } = await supabase
       .from('verification_applications')

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,7 +52,7 @@ export default function MyContracts() {
     }
   }, [user, filter]);
 
-  const loadContracts = async () => {
+  const loadContracts = useCallback(async () => {
     try {
       let query = supabase
         .from('lease_contracts')
@@ -90,7 +90,7 @@ export default function MyContracts() {
 
       if (error) throw error;
 
-      const formattedContracts = (data || []).map((contract: any) => ({
+      const formattedContracts = (data || []).map((contract: Contract) => ({
         id: contract.id,
         contract_number: contract.contract_number,
         property_id: contract.property_id,
@@ -114,7 +114,13 @@ export default function MyContracts() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, filter, setLoading, setContracts]);
+
+  useEffect(() => {
+    if (user) {
+      loadContracts();
+    }
+  }, [user, loadContracts]);
 
   const getStatusBadge = (status: string) => {
     const styles = {

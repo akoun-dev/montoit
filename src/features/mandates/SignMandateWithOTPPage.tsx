@@ -16,7 +16,6 @@ import {
   AlertCircle,
   ArrowLeft,
   Loader2,
-  PenTool,
   Smartphone,
   Shield,
   Clock,

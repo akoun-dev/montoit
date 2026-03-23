@@ -2,7 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useContextualRoles } from '@/hooks/shared/useContextualRoles';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { User, Key, Loader2, Home, PlusCircle, Search } from 'lucide-react';
+import { User, Key, Loader2, Home, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // Lazy load tab content

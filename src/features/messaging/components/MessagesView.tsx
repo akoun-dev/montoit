@@ -6,8 +6,7 @@ import { useMessages } from '@/hooks/messaging';
 import { ConversationList } from './ConversationList';
 import { MessageThread } from './MessageThread';
 import { EmptyConversation } from './EmptyConversation';
-import { Conversation } from '../services/messaging.service';
-import { messagingService } from '../services/messaging.service';
+import { Conversation, Attachment } from '../services/messaging.service';
 
 /**
  * Layout-agnostic messaging view component
@@ -15,7 +14,7 @@ import { messagingService } from '../services/messaging.service';
  */
 export function MessagesView() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, loading: authLoading, profile } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const {
     conversations,
@@ -79,7 +78,7 @@ export function MessagesView() {
   }, [messages, selectedConversation, refetchConversations]);
 
   const handleSendMessage = useCallback(
-    async (receiverId: string, content: string, attachment?: any) => {
+    async (receiverId: string, content: string, attachment?: Attachment | null) => {
       const result = await sendMessage(receiverId, content, attachment);
       if (result) {
         refetchConversations();

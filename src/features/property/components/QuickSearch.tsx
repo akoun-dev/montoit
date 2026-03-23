@@ -46,7 +46,6 @@ export default function QuickSearch({ onSearch }: QuickSearchProps) {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [searchRadius, setSearchRadius] = useState<number>(GEOLOCATION_SETTINGS.DEFAULT_RADIUS);
-  const [_showAdvanced, _setShowAdvanced] = useState(false);
 
   const cities = ['Toutes les villes', ...CITIES];
 

@@ -42,6 +42,7 @@ export default function JoinAgencyPage() {
 
   const [token, setToken] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [validating, setValidating] = useState(true);
   const [accepting, setAccepting] = useState(false);
   const [invitation, setInvitation] = useState<InvitationDetails | null>(null);

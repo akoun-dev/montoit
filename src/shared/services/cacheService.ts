@@ -178,7 +178,7 @@ class CacheService {
   /**
    * Calcule la taille approximative d'un objet
    */
-  private calculateSize(obj: any): number {
+  private calculateSize(obj: unknown): number {
     return new Blob([JSON.stringify(obj)]).size;
   }
 

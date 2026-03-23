@@ -98,8 +98,8 @@ export default function ContratsPage() {
       `,
       ];
 
-      let contractsData: any[] | null = null;
-      let lastError: any = null;
+      let contractsData: unknown[] | null = null;
+      let lastError: unknown = null;
 
       for (const columns of selectVariants) {
         const { data, error } = await supabase
@@ -126,7 +126,7 @@ export default function ContratsPage() {
         return;
       }
 
-      const formatted: Contract[] = (contractsData || []).map((c: any) => {
+      const formatted: Contract[] = (contractsData || []).map((c: unknown) => {
         const start = c.start_date || c.created_at || '';
         const end = c.end_at || c.created_at || '';
         return {

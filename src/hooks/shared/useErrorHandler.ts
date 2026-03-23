@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 export interface ErrorInfo {
   message: string;
   code?: string;
-  details?: any;
+  details?: unknown;
   timestamp: Date;
 }
 
@@ -21,7 +21,7 @@ export const useErrorHandler = () => {
   });
 
   // Fonction pour gérer les erreurs
-  const handleError = useCallback((error: any, context?: string) => {
+  const handleError = useCallback((error: unknown, context?: string) => {
     const errorInfo: ErrorInfo = {
       message: error?.message || "Une erreur inattendue s'est produite",
       code: error?.code,
@@ -91,9 +91,9 @@ export const useErrorHandler = () => {
 // Utilitaires pour différents types d'erreurs
 export class AppError extends Error {
   public code?: string;
-  public details?: any;
+  public details?: unknown;
 
-  constructor(message: string, code?: string, details?: any) {
+  constructor(message: string, code?: string, details?: unknown) {
     super(message);
     this.name = 'AppError';
     this.code = code;
@@ -115,29 +115,29 @@ export const ErrorTypes = {
 export type ErrorType = (typeof ErrorTypes)[keyof typeof ErrorTypes];
 
 // Créateur d'erreurs prédéfinies
-export const createError = (type: ErrorType, message: string, details?: any): AppError => {
+export const createError = (type: ErrorType, message: string, details?: unknown): AppError => {
   return new AppError(message, type, details);
 };
 
 // Erreurs communes
 export const CommonErrors = {
-  network: (details?: any) =>
+  network: (details?: unknown) =>
     createError(
       ErrorTypes.NETWORK,
       'Erreur de connexion réseau. Veuillez vérifier votre connexion internet.',
       details
     ),
 
-  validation: (message: string, details?: any) =>
+  validation: (message: string, details?: unknown) =>
     createError(ErrorTypes.VALIDATION, message, details),
 
-  notFound: (resource: string, details?: any) =>
+  notFound: (resource: string, details?: unknown) =>
     createError(ErrorTypes.NOT_FOUND, `${resource} non trouvé(e).`, details),
 
-  server: (details?: any) =>
+  server: (details?: unknown) =>
     createError(ErrorTypes.SERVER_ERROR, 'Erreur serveur. Veuillez réessayer plus tard.', details),
 
-  unknown: (details?: any) =>
+  unknown: (details?: unknown) =>
     createError(ErrorTypes.UNKNOWN, "Une erreur inconnue s'est produite.", details),
 };
 

@@ -100,7 +100,7 @@ serve(async (req) => {
   }
 });
 
-async function handleSuccessfulPayment(supabase: any, transaction: any, callbackData: any) {
+async function handleSuccessfulPayment(supabase: Record<string, unknown>, transaction: Record<string, unknown>, callbackData: Record<string, unknown>) {
   // 1. Mettre à jour le statut du paiement de loyer si applicable
   if (transaction.type === 'rental_payment' && transaction.lease_id) {
     await supabase
@@ -140,7 +140,7 @@ async function handleSuccessfulPayment(supabase: any, transaction: any, callback
   }
 }
 
-async function generateReceipt(supabase: any, transaction: any) {
+async function generateReceipt(supabase: Record<string, unknown>, transaction: Record<string, unknown>) {
   const receiptData = {
     transaction_id: transaction.transaction_id,
     amount: transaction.amount,

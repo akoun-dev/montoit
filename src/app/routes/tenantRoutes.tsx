@@ -18,13 +18,13 @@ const UnifiedDashboard = lazyWithRetry(() => import('@/pages/dashboard/UnifiedDa
 
 // Profile page
 const ProfilePage = lazyWithRetry(() => import('@/pages/tenant/EnhancedProfilePage'));
-const ONECIVerificationPage = lazyWithRetry(() => import('@/pages/tenant/ONECIVerificationPage'));
 
 // Favorites & saved searches
 const Favorites = lazyWithRetry(() => import('@/pages/tenant/FavoritesPage'));
 const SavedSearches = lazyWithRetry(() => import('@/pages/tenant/SavedSearchesPage'));
 const Documents = lazyWithRetry(() => import('@/pages/tenant/DocumentsPage'));
 const Notifications = lazyWithRetry(() => import('@/pages/tenant/NotificationsPage'));
+const SupportTickets = lazyWithRetry(() => import('@/pages/tenant/SupportTicketsPage'));
 
 // Application & Visit pages
 const ApplicationForm = lazyWithRetry(() => import('@/pages/tenant/ApplicationFormPage'));
@@ -49,15 +49,6 @@ const TenantSidebarLayout = lazyWithRetry(
 );
 
 export const tenantRoutes: RouteObject[] = [
-  // ONECI verification page (dedicated view)
-  {
-    path: 'verification-oneci',
-    element: (
-      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-        <ONECIVerificationPage />
-      </ProtectedRoute>
-    ),
-  },
   { path: 'verification', element: <Navigate to="/locataire/profil?tab=verification" replace /> },
 
   // Dashboard - has its own layout (TenantDashboardLayout)
@@ -81,6 +72,7 @@ export const tenantRoutes: RouteObject[] = [
       // Profile & Notifications - simple pages without internal layout
       { path: 'profil', element: <ProfilePage /> },
       { path: 'notifications', element: <Notifications /> },
+      { path: 'support/tickets', element: <SupportTickets /> },
 
       // Saved searches
       { path: 'recherches-sauvegardees', element: <SavedSearches /> },

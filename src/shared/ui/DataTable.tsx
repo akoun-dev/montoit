@@ -8,7 +8,7 @@ export interface Column<T = any> {
   key: string;
   title: string;
   dataIndex?: keyof T;
-  render?: (value: any, record: T, index: number) => ReactNode;
+  render?: (value: unknown, record: T, index: number) => ReactNode;
   sortable?: boolean;
   width?: string;
   align?: 'left' | 'center' | 'right';

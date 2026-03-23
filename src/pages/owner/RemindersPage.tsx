@@ -100,7 +100,7 @@ const StatCard = ({
   trend,
   color = 'gray',
 }: {
-  icon: any;
+  icon: unknown;
   label: string;
   value: string | number;
   trend?: string;
@@ -215,7 +215,7 @@ export default function RemindersPage() {
 
       // Calculer les stats
       const reminderStats = (remindersData || []).reduce(
-        (acc: ReminderStats, r: any) => {
+        (acc: ReminderStats, r: unknown) => {
           acc.total++;
           if (r.status === 'sent') acc.sent++;
           if (r.status === 'delivered') acc.delivered++;
@@ -372,7 +372,7 @@ export default function RemindersPage() {
         .order('end_date', { ascending: true });
 
       const expiring = (contracts || [])
-        .map((c: any) => {
+        .map((c: unknown) => {
           const daysUntilExpiry = Math.ceil(
             (new Date(c.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
           );
@@ -386,7 +386,7 @@ export default function RemindersPage() {
             property: c.properties,
           };
         })
-        .filter((l: any) => l.days_until_expiry <= 90);
+        .filter((l: unknown) => l.days_until_expiry <= 90);
 
       setExpiringLeases(expiring);
     } catch (error) {

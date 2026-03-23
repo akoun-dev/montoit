@@ -1,10 +1,29 @@
 import { useState } from 'react';
 import { User, Mail, Phone, MapPin, Save } from 'lucide-react';
+import type { User as AuthUser } from '@supabase/supabase-js';
+
+export interface ProfileFormData {
+  full_name: string;
+  phone: string;
+  city: string;
+  address: string;
+  bio?: string;
+  gender?: 'Homme' | 'Femme' | 'Non spécifié' | '';
+}
+
+interface BaseProfile {
+  full_name: string | null;
+  phone: string | null;
+  city: string | null;
+  address: string | null;
+  bio?: string | null;
+  gender?: 'Homme' | 'Femme' | 'Non spécifié' | null;
+}
 
 interface ProfileInformationTabProps {
-  profile: any;
-  user: any;
-  onSave: (formData: any) => Promise<void>;
+  profile: BaseProfile | null;
+  user: AuthUser | null;
+  onSave: (formData: ProfileFormData) => Promise<void>;
 }
 
 export default function ProfileInformationTab({
@@ -13,11 +32,13 @@ export default function ProfileInformationTab({
   onSave,
 }: ProfileInformationTabProps) {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProfileFormData>({
     full_name: profile?.full_name || '',
     phone: profile?.phone || '',
     city: profile?.city || '',
     address: profile?.address || '',
+    bio: profile?.bio || '',
+    gender: profile?.gender || '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

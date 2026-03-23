@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -32,6 +32,8 @@ import { AddressValue, formatAddress } from '@/shared/utils/address';
 import PropertyReviewsSection from '@/features/dispute/components/PropertyReviewsSection';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { favoritesService } from '@/services/favorites.service';
+import { useShareDialog } from '@/shared/ui/ShareDialog';
 
 function cn(...inputs: (string | boolean | undefined | null)[]) {
   return twMerge(clsx(inputs));
@@ -86,6 +88,7 @@ interface Property {
   has_parking: boolean | null;
   has_garden: boolean | null;
   has_ac: boolean | null;
+  custom_equipment?: Array<{ id: string; name: string }> | null;
   amenities: string[] | null;
   images: string[] | null;
   main_image: string | null;
@@ -169,22 +172,6 @@ function ImageGallery({ images, title, currentIndex, onIndexChange }: ImageGalle
             {currentIndex + 1} / {displayImages.length}
           </div>
         )}
-
-        {/* Action Buttons */}
-        <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            className="w-12 h-12 bg-white/95 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
-            aria-label="Ajouter aux favoris"
-          >
-            <Heart className="h-5 w-5 text-neutral-700" />
-          </button>
-          <button
-            className="w-12 h-12 bg-white/95 hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-110"
-            aria-label="Partager"
-          >
-            <Share2 className="h-5 w-5 text-neutral-700" />
-          </button>
-        </div>
       </div>
 
       {/* Thumbnail Gallery */}
@@ -308,11 +295,14 @@ export default function PropertyDetailPage() {
   const { user, profile } = useAuth();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<'overview' | 'location' | 'reviews'>('overview');
   const [showContactModal, setShowContactModal] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+
+  // Share dialog
+  const { openShareDialog, ShareDialogComponent } = useShareDialog();
 
   const isOwnerOrAgency =
     user &&
@@ -321,13 +311,7 @@ export default function PropertyDetailPage() {
       profile?.user_type === 'agency' ||
       profile?.user_type === 'owner');
 
-  useEffect(() => {
-    if (id) {
-      loadProperty(id);
-    }
-  }, [id]);
-
-  const loadProperty = async (propertyId: string) => {
+  const loadProperty = useCallback(async (propertyId: string) => {
     try {
       const { data, error } = await supabase
         .from('properties')
@@ -337,9 +321,14 @@ export default function PropertyDetailPage() {
 
       if (error) throw error;
       if (!data) {
-        setLoadError('Propriété introuvable ou supprimée.');
         setProperty(null);
         return;
+      }
+
+      // Load favorite status
+      if (user) {
+        const favStatus = await favoritesService.isFavorite(user.id, propertyId);
+        setIsFavorite(favStatus);
       }
 
       let ownerProfile: {
@@ -400,10 +389,43 @@ export default function PropertyDetailPage() {
       setProperty(propertyData);
     } catch (error) {
       console.error('Error loading property:', error);
-      setLoadError('Propriété introuvable ou inaccessible.');
     } finally {
       setLoading(false);
     }
+  }, [user, setIsFavorite, setProperty, setLoading]);
+
+  useEffect(() => {
+    if (id) {
+      loadProperty(id);
+    }
+  }, [id, loadProperty]);
+
+  const handleFavoriteClick = async () => {
+    if (!user) {
+      // Redirect to login
+      navigate('/connexion?redirect=' + encodeURIComponent(window.location.pathname));
+      return;
+    }
+
+    if (!property) return;
+
+    setFavoriteLoading(true);
+    try {
+      const result = await favoritesService.toggleFavorite(user.id, property.id);
+      if (result.success) {
+        setIsFavorite(result.isFavorite);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la gestion du favori:', error);
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
+
+  const handleShareClick = () => {
+    if (!property) return;
+    const propertyUrl = `${window.location.origin}/proprietes/${property.id}`;
+    openShareDialog(property.title, propertyUrl, images[0]);
   };
 
   if (loading) {
@@ -487,14 +509,25 @@ export default function PropertyDetailPage() {
               )}
             </h1>
             <div className="flex items-center gap-2">
-              <button className="w-10 h-10 bg-[#FAF7F4] hover:bg-[#EFEBE9] rounded-full flex items-center justify-center transition-colors">
+              <button
+                onClick={handleShareClick}
+                className="w-10 h-10 bg-[#FAF7F4] hover:bg-[#EFEBE9] rounded-full flex items-center justify-center transition-colors"
+                aria-label="Partager"
+              >
                 <Share2 className="h-5 w-5 text-[#2C1810]" />
               </button>
               <button
-                onClick={() => setIsFavorite(!isFavorite)}
-                className="w-10 h-10 bg-[#FAF7F4] hover:bg-[#EFEBE9] rounded-full flex items-center justify-center transition-colors"
+                onClick={handleFavoriteClick}
+                disabled={favoriteLoading}
+                className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
+                  isFavorite
+                    ? "bg-[#F16522] hover:bg-[#d9571d] text-white"
+                    : "bg-[#FAF7F4] hover:bg-[#EFEBE9] text-[#2C1810]"
+                )}
+                aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
               >
-                <Heart className={cn("h-5 w-5", isFavorite ? "fill-[#F16522] text-[#F16522]" : "text-[#2C1810]")} />
+                <Heart className={cn("h-5 w-5", isFavorite && "fill-current")} />
               </button>
             </div>
           </div>
@@ -502,6 +535,7 @@ export default function PropertyDetailPage() {
       </header>
 
       {/* Sticky Price Bar - Mobile */}
+      {!isOwnerOrAgency && (
       <div className="md:hidden sticky top-[60px] z-30 bg-white border-b border-[#EFEBE9] px-3 py-2">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -535,6 +569,7 @@ export default function PropertyDetailPage() {
           </div>
         </div>
       </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* Image Gallery */}
@@ -573,6 +608,7 @@ export default function PropertyDetailPage() {
         </section>
 
         {/* CTA Section - Desktop - Déplacé plus haut */}
+        {!isOwnerOrAgency && (
         <div className="hidden md:block">
           <div className={cn(
             "rounded-2xl p-6 md:p-8",
@@ -641,6 +677,7 @@ export default function PropertyDetailPage() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Tabs */}
         <section className="bg-white rounded-2xl border border-[#EFEBE9] overflow-hidden">
@@ -748,6 +785,19 @@ export default function PropertyDetailPage() {
                       label={propertyTypeLabels[property.property_type] || property.property_type}
                       available={true}
                     />
+                    {/* Custom Equipment Display */}
+                    {property.custom_equipment && property.custom_equipment.length > 0 && (
+                      <>
+                        {property.custom_equipment.map((equipment) => (
+                          <FeatureCard
+                            key={equipment.id}
+                            icon={<CheckCircle className="h-5 w-5" />}
+                            label={equipment.name}
+                            available={true}
+                          />
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -899,6 +949,9 @@ export default function PropertyDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Share Dialog */}
+      <ShareDialogComponent />
     </div>
   );
 }

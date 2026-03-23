@@ -11,7 +11,6 @@ import {
   Home,
   Star,
   Shield,
-  ArrowRight,
   CheckCircle,
   Loader2,
 } from 'lucide-react';
@@ -63,6 +62,7 @@ const roles = [
 ] as const;
 
 export default function RoleSelectionPage() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
   const { loading, selectRole } = useOtpAuth();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);

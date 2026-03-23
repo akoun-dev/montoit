@@ -34,7 +34,7 @@ describe('Security Tests', () => {
         // Donc hasPermission retourne false et on obtient l'erreur attendue
         await requirePermission('canCreateProperty')();
         expect.fail('Should have thrown error');
-      } catch (error: any) {
+      } catch (error: unknown) {
         // L'erreur peut varier selon l'implémentation, on vérifie juste qu'une erreur est levée
         expect(error).toBeDefined();
       }
@@ -54,7 +54,7 @@ describe('Security Tests', () => {
       try {
         await requireRole(['admin'])();
         expect.fail('Should have thrown error');
-      } catch (error: any) {
+      } catch (error: unknown) {
         // L'erreur peut varier selon l'implémentation, on vérifie juste qu'une erreur est levée
         expect(error).toBeDefined();
       }
@@ -203,7 +203,7 @@ describe('Security Tests', () => {
       try {
         await messagingApi.getMessages('unauthorized-conversation-id');
         expect.fail('Should have thrown error');
-      } catch (error: any) {
+      } catch (error: unknown) {
         // L'erreur peut varier selon l'implémentation et l'état d'auth
         expect(error).toBeDefined();
       }
@@ -213,7 +213,7 @@ describe('Security Tests', () => {
       try {
         await messagingApi.sendMessage('fake-conversation-id', 'Test message');
         expect.fail('Should have thrown error');
-      } catch (error: any) {
+      } catch (error: unknown) {
         // L'erreur peut varier selon l'implémentation
         expect(error).toBeDefined();
       }
@@ -231,7 +231,7 @@ describe('Security Tests', () => {
       try {
         await contractApi.update('unauthorized-contract-id', { status: 'active' });
         expect.fail('Should have thrown error');
-      } catch (error: any) {
+      } catch (error: unknown) {
         // L'erreur peut varier selon l'implémentation
         expect(error).toBeDefined();
       }
@@ -241,7 +241,7 @@ describe('Security Tests', () => {
       try {
         await contractApi.signContract('fake-contract-id', 'owner');
         expect.fail('Should have thrown error');
-      } catch (error: any) {
+      } catch (error: unknown) {
         // L'erreur peut varier selon l'implémentation
         expect(error).toBeDefined();
       }
@@ -261,7 +261,7 @@ describe('Security Tests', () => {
       try {
         await adminApi.getUsers();
         expect.fail('Should have thrown error');
-      } catch (error: any) {
+      } catch (error: unknown) {
         // L'erreur peut varier selon l'implémentation
         expect(error).toBeDefined();
       }
@@ -271,7 +271,7 @@ describe('Security Tests', () => {
       try {
         await adminApi.changeUserRole('test-user-id', 'admin');
         expect.fail('Should have thrown error');
-      } catch (error: any) {
+      } catch (error: unknown) {
         // L'erreur peut varier selon l'implémentation
         expect(error).toBeDefined();
       }
@@ -292,7 +292,7 @@ describe('Security Tests', () => {
       for (let i = 0; i < 4; i++) {
         try {
           await authApi.resetPassword(testEmail);
-        } catch (error: any) {
+        } catch (error: unknown) {
           lastResult = error.message;
         }
       }
@@ -305,7 +305,7 @@ describe('Security Tests', () => {
       try {
         await authApi.switchRole('some-user-id', 'admin');
         expect.fail('Should have thrown error');
-      } catch (error: any) {
+      } catch (error: unknown) {
         // L'erreur peut varier selon l'implémentation
         expect(error).toBeDefined();
       }
@@ -355,7 +355,7 @@ describe('Security Integration Tests', () => {
     try {
       await authApi.updateProfile(tenantUser.id, { user_type: 'admin' });
       expect.fail('Should have prevented role change');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // L'erreur peut varier selon l'implémentation
       expect(error).toBeDefined();
     }
@@ -370,7 +370,7 @@ describe('Security Integration Tests', () => {
     try {
       await messagingApi.getConversations();
       // Le service devrait filtrer automatiquement par utilisateur
-    } catch (error: any) {
+    } catch (error: unknown) {
       // L'erreur est acceptable si elle empêche l'accès non autorisé
     }
   });

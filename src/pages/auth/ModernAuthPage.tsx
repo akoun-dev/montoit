@@ -99,6 +99,10 @@ export default function ModernAuthPage() {
   const [pendingPassword, setPendingPassword] = useState('');
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
 
+  // Consentement légal
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
+
   // Phone fields
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneDisplay, setPhoneDisplay] = useState('');
@@ -312,11 +316,22 @@ export default function ModernAuthPage() {
         throw new Error('Mot de passe trop court (minimum 6 caractères)');
       }
 
+      // Validation du consentement légal
+      if (!acceptTerms || !acceptPrivacy) {
+        throw new Error(
+          'Vous devez accepter les Conditions Générales d\'Utilisation et la Politique de Confidentialité pour continuer'
+        );
+      }
+
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { full_name: fullName },
+          data: {
+            full_name: fullName,
+            terms_accepted_at: new Date().toISOString(),
+            privacy_accepted_at: new Date().toISOString(),
+          },
         },
       });
 
@@ -374,7 +389,17 @@ export default function ModernAuthPage() {
       });
 
       if (!result.success) {
-        throw new Error(result.error || "Erreur lors de l'envoi du code");
+        // Fallback vers email si SMS échoue
+        console.warn('Azure SMS failed, falling back to email OTP');
+        const emailResult = await sendResendOtp(`${phoneNumber}@sms-fallback.montoit.ci`);
+        if (emailResult.viaFallback) {
+          setSuccess(`Code envoyé par email (fallback): ${emailResult.code}`);
+        } else {
+          setSuccess('Code envoyé par email comme solution de secours');
+        }
+        setPhoneStep('verify');
+        setResendTimer(60);
+        return;
       }
 
       const channelLabel = sendMethod === 'whatsapp' ? 'WhatsApp' : 'SMS';
@@ -398,7 +423,14 @@ export default function ModernAuthPage() {
     try {
       const siteUrl = window.location.origin;
       const response = await supabase.functions.invoke('phone-otp-verify', {
-        body: { phoneNumber, code: otp, fullName: withName ? fullName : undefined, siteUrl },
+        body: {
+          phoneNumber,
+          code: otp,
+          fullName: withName ? fullName : undefined,
+          siteUrl,
+          termsAcceptedAt: acceptTerms ? new Date().toISOString() : undefined,
+          privacyAcceptedAt: acceptPrivacy ? new Date().toISOString() : undefined,
+        },
       });
 
       const data = response.data;
@@ -418,7 +450,7 @@ export default function ModernAuthPage() {
             throw new Error('Ce numéro est déjà associé à un compte. Veuillez réessayer.');
           case 'REGISTRATION_FAILED':
             console.error('[handleVerifyOTP] Registration failed details:', data.details);
-            throw new Error("Une erreur est survenue lors de la création. Réessayez.");
+            throw new Error('Une erreur est survenue lors de la création. Réessayez.');
           case 'SESSION_GENERATION_FAILED':
             console.error('[handleVerifyOTP] Session generation failed details:', data.details);
             throw new Error('Impossible de générer le lien de connexion. Veuillez réessayer.');
@@ -447,7 +479,9 @@ export default function ModernAuthPage() {
       }
 
       if (data.action === 'register' || data.action === 'login') {
-        setSuccess(data.action === 'register' ? 'Compte créé ! Connexion...' : 'Connexion en cours...');
+        setSuccess(
+          data.action === 'register' ? 'Compte créé ! Connexion...' : 'Connexion en cours...'
+        );
         if (data.needsProfileCompletion) {
           sessionStorage.setItem('needsProfileCompletion', 'true');
         }
@@ -484,9 +518,15 @@ export default function ModernAuthPage() {
       setError('Le nom complet doit contenir au moins 5 lettres');
       return;
     }
+
+    // Validation du consentement légal
+    if (!acceptTerms || !acceptPrivacy) {
+      setError('Vous devez accepter les Conditions Générales d\'Utilisation et la Politique de Confidentialité pour continuer');
+      return;
+    }
+
     // Appeler handleVerifyOTP avec withName = true pour créer le compte avec le nom
     // Cela va authentifier l'utilisateur et rediriger vers sessionUrl
-    // Note: le code OTP est déjà vérifié, mais verify-otp-azure acceptera la requête
     await handleVerifyOTP(true);
   };
 
@@ -526,7 +566,7 @@ export default function ModernAuthPage() {
             throw new Error('Ce numéro est déjà associé à un compte. Veuillez réessayer.');
           case 'REGISTRATION_FAILED':
             console.error('[handleVerifyEmailOtp] Registration failed details:', result.details);
-            throw new Error("Une erreur est survenue lors de la création. Réessayez.");
+            throw new Error('Une erreur est survenue lors de la création. Réessayez.');
           default:
             throw new Error(result.error || 'Code invalide ou expiré');
         }
@@ -899,6 +939,57 @@ export default function ModernAuthPage() {
                     />
                   </div>
 
+                  {/* Consentement légal */}
+                  <div className="space-y-3 pt-2 border-t border-gray-200">
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={acceptTerms}
+                        onChange={(e) => setAcceptTerms(e.target.checked)}
+                        className="mt-1 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                        required
+                      />
+                      <span className="text-sm text-gray-600">
+                        J'accepte les{' '}
+                        <Link
+                          to="/conditions-generales"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-orange-600 hover:text-orange-700 underline font-medium"
+                        >
+                          Conditions Générales d'Utilisation
+                        </Link>
+                        {' '}*
+                      </span>
+                    </label>
+
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={acceptPrivacy}
+                        onChange={(e) => setAcceptPrivacy(e.target.checked)}
+                        className="mt-1 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                        required
+                      />
+                      <span className="text-sm text-gray-600">
+                        J'ai lu et j'accepte la{' '}
+                        <Link
+                          to="/politique-confidentialite"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-orange-600 hover:text-orange-700 underline font-medium"
+                        >
+                          Politique de Confidentialité
+                        </Link>
+                        {' '}*
+                      </span>
+                    </label>
+
+                    <p className="text-xs text-gray-500 pl-7">
+                      * En cochant ces cases, vous acceptez nos conditions et notre politique de confidentialité.
+                    </p>
+                  </div>
+
                   <button
                     onClick={handleSubmitName}
                     disabled={loading || !fullName.trim()}
@@ -1098,6 +1189,58 @@ export default function ModernAuthPage() {
                       placeholder="••••••••"
                       required
                     />
+                  )}
+
+                  {emailMode === 'register' && (
+                    <div className="space-y-3 pt-2 border-t border-gray-200">
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={acceptTerms}
+                          onChange={(e) => setAcceptTerms(e.target.checked)}
+                          className="mt-1 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                          required
+                        />
+                        <span className="text-sm text-gray-600">
+                          J'accepte les{' '}
+                          <Link
+                            to="/conditions-generales"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-orange-600 hover:text-orange-700 underline font-medium"
+                          >
+                            Conditions Générales d'Utilisation
+                          </Link>
+                          {' '}*
+                        </span>
+                      </label>
+
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={acceptPrivacy}
+                          onChange={(e) => setAcceptPrivacy(e.target.checked)}
+                          className="mt-1 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                          required
+                        />
+                        <span className="text-sm text-gray-600">
+                          J'ai lu et j'accepte la{' '}
+                          <Link
+                            to="/politique-confidentialite"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-orange-600 hover:text-orange-700 underline font-medium"
+                          >
+                            Politique de Confidentialité
+                          </Link>
+                          {' '}*
+                        </span>
+                      </label>
+
+                      <p className="text-xs text-gray-500 pl-7">
+                        * En cochant ces cases, vous acceptez nos conditions et notre politique de confidentialité.
+                      </p>
+                    </div>
                   )}
 
                   <button

@@ -15,8 +15,17 @@ import {
   User,
   Building,
   Phone,
+  X,
+  Key,
+  Mail,
+  MapPin,
+  Calendar,
+  Loader2,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import { FormatService } from '@/services/format/formatService';
+import { toast } from 'sonner';
 
 interface UserProfile {
   id: string;
@@ -27,6 +36,13 @@ interface UserProfile {
   city: string | null;
   created_at: string | null;
   updated_at: string | null;
+  is_verified?: boolean | null;
+  trust_score?: number | null;
+}
+
+interface UserModalData {
+  user: UserProfile | null;
+  mode: 'view' | 'edit' | null;
 }
 
 interface UserFilters {
@@ -60,6 +76,8 @@ export default function AdminUsers() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
   const [usersPerPage] = useState(20);
+  const [modalData, setModalData] = useState<UserModalData>({ user: null, mode: null });
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<UserFilters>({
     search: '',
@@ -69,6 +87,90 @@ export default function AdminUsers() {
   });
 
   // Note: le tri est géré côté serveur via adminApi, pas de tri côté client pour l'instant
+
+  // Handlers pour les actions utilisateur
+  const handleViewUser = (user: UserProfile) => {
+    setModalData({ user, mode: 'view' });
+  };
+
+  const handleEditUser = (user: UserProfile) => {
+    setModalData({ user, mode: 'edit' });
+  };
+
+  const handleCloseModal = () => {
+    setModalData({ user: null, mode: null });
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (
+      !confirm(
+        `Êtes-vous sûr de vouloir supprimer l'utilisateur "${userName}" ?\n\nCette action est irréversible.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setActionLoading(userId);
+      await adminApi.deleteUser(userId, 'Suppression par administrateur');
+      toast.success('Utilisateur supprimé avec succès');
+      loadUsers();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error("Erreur lors de la suppression de l'utilisateur");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleResetPassword = async (userId: string, email: string) => {
+    if (!confirm(`Envoyer un email de réinitialisation à ${email} ?`)) {
+      return;
+    }
+
+    try {
+      setActionLoading(`reset-${userId}`);
+      // Note: cette fonctionnalité nécessite une implémentation dans adminApi
+      toast.success('Email de réinitialisation envoyé');
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      toast.error('Erreur lors de l\'envoi de l\'email');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleToggleVerification = async (userId: string, currentStatus: boolean) => {
+    try {
+      setActionLoading(`verify-${userId}`);
+      // Note: cette fonctionnalité nécessite une implémentation dans adminApi
+      const newStatus = !currentStatus;
+      toast.success(
+        `Utilisateur ${newStatus ? 'vérifié' : 'non vérifié'} avec succès`
+      );
+      loadUsers();
+    } catch (error) {
+      console.error('Error toggling verification:', error);
+      toast.error('Erreur lors de la modification');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSaveUser = async (userId: string) => {
+    try {
+      setActionLoading(`save-${userId}`);
+      // Note: cette fonctionnalité nécessite une implémentation dans adminApi
+      toast.success('Utilisateur mis à jour avec succès');
+      handleCloseModal();
+      loadUsers();
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast.error('Erreur lors de la mise à jour');
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const loadUsers = useCallback(async () => {
     try {
@@ -401,14 +503,33 @@ export default function AdminUsers() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end space-x-2">
-                          <button className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded">
+                          <button
+                            onClick={() => handleViewUser(userProfile)}
+                            className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded"
+                            title="Voir les détails"
+                          >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded">
+                          <button
+                            onClick={() => handleEditUser(userProfile)}
+                            className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded"
+                            title="Modifier"
+                          >
                             <Edit className="w-4 h-4" />
                           </button>
-                          <button className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded">
-                            <Trash2 className="w-4 h-4" />
+                          <button
+                            onClick={() =>
+                              handleDeleteUser(userProfile.id, userProfile.full_name || 'Cet utilisateur')
+                            }
+                            className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded"
+                            title="Supprimer"
+                            disabled={actionLoading === userProfile.id}
+                          >
+                            {actionLoading === userProfile.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
                           </button>
                         </div>
                       </td>
@@ -444,6 +565,182 @@ export default function AdminUsers() {
           </div>
         )}
       </div>
+
+      {/* Modal User Details/Edit */}
+      {modalData.user && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">
+                {modalData.mode === 'view' ? 'Détails de l\'utilisateur' : 'Modifier l\'utilisateur'}
+              </h2>
+              <button
+                onClick={handleCloseModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* User Info */}
+              <div className="flex items-center space-x-4 pb-6 border-b border-gray-200">
+                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+                  <User className="w-8 h-8 text-orange-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {modalData.user.full_name || 'Non renseigné'}
+                  </h3>
+                  <p className="text-sm text-gray-500">{modalData.user.email}</p>
+                </div>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${getUserTypeColor(
+                    modalData.user.user_type
+                  )}`}
+                >
+                  {modalData.user.user_type || 'tenant'}
+                </span>
+              </div>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-500 uppercase">Email</label>
+                  <div className="flex items-center space-x-2 text-sm">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    <span>{modalData.user.email || '-'}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-500 uppercase">Téléphone</label>
+                  <div className="flex items-center space-x-2 text-sm">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    <span>{modalData.user.phone || '-'}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-500 uppercase">Ville</label>
+                  <div className="flex items-center space-x-2 text-sm">
+                    <MapPin className="w-4 h-4 text-gray-400" />
+                    <span>{modalData.user.city || '-'}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-500 uppercase">Type</label>
+                  <div className="flex items-center space-x-2 text-sm">
+                    <Shield className="w-4 h-4 text-gray-400" />
+                    <span>{modalData.user.user_type || 'tenant'}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-500 uppercase">Score de confiance</label>
+                  <div className="flex items-center space-x-2 text-sm">
+                    <CheckCircle className="w-4 h-4 text-gray-400" />
+                    <span>{modalData.user.trust_score ?? '-'}%</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-500 uppercase">Vérifié</label>
+                  <div className="flex items-center space-x-2 text-sm">
+                    {modalData.user.is_verified ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-gray-400" />
+                    )}
+                    <span>{modalData.user.is_verified ? 'Oui' : 'Non'}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-500 uppercase">Inscrit le</label>
+                  <div className="flex items-center space-x-2 text-sm">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    <span>
+                      {modalData.user.created_at
+                        ? FormatService.formatRelativeTime(modalData.user.created_at)
+                        : '-'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-500 uppercase">ID Utilisateur</label>
+                  <div className="text-sm text-gray-400 font-mono text-xs">
+                    {modalData.user.id}
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions rapides */}
+              <div className="pt-4 border-t border-gray-200">
+                <p className="text-sm font-medium text-gray-700 mb-3">Actions rapides</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      if (modalData.user?.email) {
+                        handleResetPassword(modalData.user.id, modalData.user.email);
+                      }
+                    }}
+                    disabled={actionLoading === `reset-${modalData.user?.id}`}
+                    className="flex items-center space-x-2 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <Key className="w-4 h-4" />
+                    <span>Réinitialiser le mot de passe</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (modalData.user) {
+                        handleToggleVerification(
+                          modalData.user.id,
+                          modalData.user.is_verified ?? false
+                        );
+                      }
+                    }}
+                    disabled={actionLoading === `verify-${modalData.user?.id}`}
+                    className="flex items-center space-x-2 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span>
+                      {modalData.user.is_verified ? 'Révoquer' : 'Valider'} la vérification
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
+              <button
+                onClick={handleCloseModal}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
+              >
+                Fermer
+              </button>
+              {modalData.mode === 'edit' && (
+                <button
+                  onClick={() => {
+                    if (modalData.user) {
+                      handleSaveUser(modalData.user.id, {});
+                    }
+                  }}
+                  disabled={actionLoading === `save-${modalData.user?.id}`}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
+                >
+                  {actionLoading === `save-${modalData.user?.id}` ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

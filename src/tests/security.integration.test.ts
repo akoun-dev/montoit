@@ -6,9 +6,9 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { supabase } from '@/services/supabase/client';
 
 describe('Security Integration Tests', () => {
-  const testUsers: any[] = [];
-  const testProperties: any[] = [];
-  const testContracts: any[] = [];
+  const testUsers: unknown[] = [];
+  const testProperties: unknown[] = [];
+  const testContracts: unknown[] = [];
 
   beforeAll(async () => {
     // Créer des données de test
@@ -37,7 +37,7 @@ describe('Security Integration Tests', () => {
             password: 'wrongpassword',
           });
           successfulLogins++;
-        } catch (error: any) {
+        } catch (error: unknown) {
           if (error.message?.includes('Too many')) {
             blockedAttempts++;
           }
@@ -59,7 +59,7 @@ describe('Security Integration Tests', () => {
           email: existingEmail,
           password: 'wrong',
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         const existingErrorMsg = error.message;
       }
 
@@ -68,7 +68,7 @@ describe('Security Integration Tests', () => {
           email: nonExistingEmail,
           password: 'wrong',
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         const nonExistingErrorMsg = error.message;
       }
 
@@ -151,7 +151,7 @@ describe('Security Integration Tests', () => {
       // Les erreurs ne devraient pas révéler la structure interne de la BD
       try {
         await supabase.from('nonexistent_table').select('*');
-      } catch (error: any) {
+      } catch (error: unknown) {
         expect(error.message).not.toContain('column');
         expect(error.message).not.toContain('database');
       }

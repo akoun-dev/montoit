@@ -3,8 +3,10 @@
  * Valide tous les mécanismes de sécurité et de robustesse
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { describe, test, expect, beforeEach, vi, jest } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 
 // ============================================================================
 // MOCKS POUR LES TESTS
@@ -44,8 +46,8 @@ describe('1. Formulaire Candidatures - Validation Réelle', () => {
     vi.clearAllMocks();
     localStorageMock.getItem.mockReturnValue(null);
     
-    const formModule = await import('@/components/applications/ApplicationForm');
-    ApplicationForm = formModule.ApplicationForm;
+    const formModule = await import('@/pages/tenant/ApplicationFormPage');
+    ApplicationForm = formModule.default;
     
     const validationModule = await import('@/services/validation/validationService');
     ValidationService = validationModule.default;

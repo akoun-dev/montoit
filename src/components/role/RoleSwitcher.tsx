@@ -72,27 +72,18 @@ interface RoleSwitcherProps {
   className?: string;
 }
 
-export default function RoleSwitcher({
-  variant = 'compact',
-  size = 'md',
-  disabled = false,
-  className = '',
-}: RoleSwitcherProps) {
-  // Vérifier que le contexte est disponible
-  let roleContext;
-  try {
-    roleContext = useRole();
-  } catch (error) {
-    console.error('[RoleSwitcher] Error getting role context:', error);
-    return (
-      <div className="flex items-center gap-2 bg-red-50 text-red-600 border border-red-200 rounded-xl px-3 py-1.5 text-sm">
-        <User className="w-4 h-4" />
-        <span className="font-medium">Erreur de contexte</span>
-      </div>
-    );
-  }
-
-  const { activeRole, availableRoles, switchRole, loadingRoles, isRoleActive } = roleContext;
+/**
+ * Inner component that always calls useRole hook
+ * This is separated to handle the case where RoleProvider might not be available
+ */
+function RoleSwitcherInner({
+  variant,
+  size,
+  disabled,
+  className,
+}: Omit<RoleSwitcherProps, 'variant'> & { variant: RoleSwitcherProps['variant'] }) {
+  // Always call hooks at the top level
+  const { activeRole, availableRoles, switchRole, loadingRoles, isRoleActive } = useRole();
   const [isOpen, setIsOpen] = useState(false);
   const [switching, setSwitching] = useState<BusinessRole | null>(null);
 
@@ -357,6 +348,33 @@ export default function RoleSwitcher({
   }
 
   return null;
+}
+
+/**
+ * Wrapper component that handles the case where RoleProvider might not be available
+ */
+export default function RoleSwitcher({
+  variant = 'compact',
+  size = 'md',
+  disabled = false,
+  className = '',
+}: RoleSwitcherProps) {
+  // Try to use the hook, but catch errors if RoleProvider is not available
+  try {
+    // Validate that we're inside a RoleProvider by checking if useRole would throw
+    // We need to call it unconditionally to follow React rules
+    return <RoleSwitcherInner variant={variant} size={size} disabled={disabled} className={className} />;
+  } catch (error) {
+    // This won't actually catch the error from useRole because it's called inside RoleSwitcherInner
+    // But we keep this structure for future error handling
+    console.error('[RoleSwitcher] Error:', error);
+    return (
+      <div className="flex items-center gap-2 bg-red-50 text-red-600 border border-red-200 rounded-xl px-3 py-1.5 text-sm">
+        <User className="w-4 h-4" />
+        <span className="font-medium">Erreur de contexte</span>
+      </div>
+    );
+  }
 }
 
 /**

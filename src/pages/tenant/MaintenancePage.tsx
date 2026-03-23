@@ -1,8 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
-import { Wrench, Plus, Clock, CheckCircle, XCircle, Calendar } from 'lucide-react';
+import { Wrench, Plus, Clock, CheckCircle, XCircle, Calendar, LucideIcon } from 'lucide-react';
+
+interface StatusConfig {
+  color: string;
+  icon: LucideIcon;
+  label: string;
+}
 
 interface MaintenanceRequest {
   id: string;
@@ -34,7 +40,7 @@ export default function TenantMaintenance() {
     loadRequests();
   }, [user, filter, navigate]);
 
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -53,7 +59,7 @@ export default function TenantMaintenance() {
       if (error) throw error;
 
       // Format the data with default values for missing properties
-      const formattedRequests: MaintenanceRequest[] = (data || []).map((req: any) => ({
+      const formattedRequests: MaintenanceRequest[] = (data || []).map((req: MaintenanceRequest) => ({
         id: req.id,
         issue_type: req.issue_type,
         priority: req.priority,
@@ -74,7 +80,11 @@ export default function TenantMaintenance() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, filter, setLoading, setRequests]);
+
+  useEffect(() => {
+    loadRequests();
+  }, [loadRequests]);
 
   const getStatusBadge = (status: string | null) => {
     const defaultConfig = {
@@ -82,7 +92,7 @@ export default function TenantMaintenance() {
       icon: Clock,
       label: 'En attente',
     };
-    const configs: Record<string, { color: string; icon: any; label: string }> = {
+    const configs: Record<string, StatusConfig> = {
       ouverte: defaultConfig,
       acceptee: { color: 'bg-blue-100 text-blue-800', icon: CheckCircle, label: 'Acceptée' },
       en_cours: { color: 'bg-purple-100 text-purple-800', icon: Wrench, label: 'En cours' },

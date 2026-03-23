@@ -48,7 +48,7 @@ export default function AgencyAnalyticsPage() {
       const pendingApplications = applications?.length || 0;
       const now = new Date();
       const upcomingVisits =
-        visits?.filter((v: any) => {
+        visits?.filter((v: unknown) => {
           const d = v.confirmed_date ? new Date(v.confirmed_date) : null;
           return d && d >= now && (v.status === 'pending' || v.status === 'confirmed');
         }).length || 0;

@@ -3,41 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import {
   Mail,
   MessageSquare,
-  Clock,
   Check,
   Bell,
   Search,
-  Filter,
   Send,
   FileText,
-  Home,
-  Users,
   Calendar,
-  File,
-  Image as ImageIcon,
   X,
   ChevronDown,
   ChevronRight,
-  Star,
-  Phone,
-  Video,
-  MoreHorizontal,
-  Plus,
-  Eye,
-  EyeOff,
-  AlertCircle,
-  CheckCircle,
-  Info,
-  FolderOpen,
-  RefreshCw,
-  Sparkles,
-  CreditCard,
-  Wrench,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { callEdgeFunction } from '@/api/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { toast } from 'sonner';
 import OwnerDashboardLayout from '../../features/owner/components/OwnerDashboardLayout';
 
 interface Conversation {
@@ -47,7 +28,6 @@ interface Conversation {
   property_id: string | null;
   subject: string | null;
   updated_at: string;
-  messages: any[];
   other_participant?: {
     id: string;
     full_name: string;
@@ -65,6 +45,7 @@ interface Conversation {
     sender_id: string;
   };
   unread_count?: number;
+  messages: Message[];
 }
 
 interface Message {
@@ -180,7 +161,7 @@ export default function CommunicationPage() {
         .or('participant1_id.eq.' + user.id + ',participant2_id.eq.' + user.id)
         .order('updated_at', { ascending: false });
 
-      const conversationsWithMeta = (data || []).map((conv: any) => {
+      const conversationsWithMeta = (data || []).map((conv: Record<string, unknown>) => {
         const otherParticipantId = conv.participant1_id === user.id
           ? conv.participant2_id
           : conv.participant1_id;
@@ -327,14 +308,57 @@ export default function CommunicationPage() {
     }
   };
 
-  const handleSendTemplateEmail = async (template: EmailTemplate, recipientId: string) => {
-    try {
-      // TODO: Implement email sending functionality
-      alert(`Envoi de l'email "${template.name}" au destinataire ${recipientId}`);
-    } catch (error) {
-      console.error('Error sending template email:', error);
-    }
-  };
+  const handleSendTemplateEmail = useCallback(
+    async (template: EmailTemplate, recipientId: string) => {
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('full_name, email, phone')
+          .eq('id', recipientId)
+          .single();
+
+        if (profileError || !profile?.email) {
+          throw new Error('Profil introuvable ou email manquant');
+        }
+
+        const nameParts = profile.full_name?.split(' ') || [];
+        const templateVars = {
+          prenom: nameParts[0] || profile.full_name || 'Utilisateur',
+          nom: nameParts.length > 1 ? nameParts.slice(-1)[0] : profile.full_name || 'Utilisateur',
+          property: selectedConversation?.property?.title || '',
+          city: selectedConversation?.property?.city || '',
+          email: profile.email,
+          phone: profile.phone || '',
+          ...template.preview_data,
+        } as Record<string, unknown>;
+
+        const interpolate = (text: string) =>
+          text.replace(/{{\s*(\w+)\s*}}/g, (_, key) => String(templateVars[key] ?? ''));
+
+        const html = interpolate(template.body_html);
+        const text = interpolate(template.body_text);
+
+        const { error: emailError } = await callEdgeFunction('send-email', {
+          to: profile.email,
+          subject: template.subject,
+          html,
+          text,
+          data: templateVars,
+        });
+
+        if (emailError) {
+          throw emailError;
+        }
+
+        toast.success(`Email "${template.name}" envoyé à ${profile.full_name || profile.email}`);
+      } catch (err) {
+        console.error('Error sending template email:', err);
+        const message = err instanceof Error ? err.message : 'Erreur lors de l\'envoi de l\'email';
+        toast.error(message);
+      }
+    },
+    [selectedConversation]
+  );
 
   const getDefaultTemplates = (): EmailTemplate[] => [
     {

@@ -15,7 +15,7 @@ import {
 import { useAuth } from '@/app/providers/AuthProvider';
 
 interface QuickAction {
-  icon: any;
+  icon: unknown;
   label: string;
   href: string;
   color: string;

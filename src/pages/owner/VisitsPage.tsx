@@ -6,8 +6,6 @@ import {
   User,
   Phone,
   Mail,
-  Video,
-  Home,
   Check,
   X,
   ChevronDown,
@@ -55,7 +53,7 @@ interface VisitRow {
     id: string;
     title: string | null;
     city: string | null;
-    address: any;
+    address: unknown;
     main_image: string | null;
   } | null;
   tenant?: {
@@ -76,7 +74,7 @@ interface TenantProfile {
 // Status configuration
 const STATUS_CONFIG: Record<
   string,
-  { label: string; color: string; bg: string; icon: any }
+  { label: string; color: string; bg: string; icon: unknown }
 > = {
   pending: {
     label: 'En attente',
@@ -111,7 +109,7 @@ const StatCard = ({
   value,
   color = 'gray',
 }: {
-  icon: any;
+  icon: unknown;
   label: string;
   value: number;
   color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'amber';

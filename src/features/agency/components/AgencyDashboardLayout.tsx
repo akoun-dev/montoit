@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useLocation, Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import AgencySidebar from './AgencySidebar';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
-import { Menu } from 'lucide-react';
 
 interface AgencyDashboardLayoutProps {
   children?: React.ReactNode;
@@ -15,15 +14,15 @@ interface AgencyDashboardLayoutProps {
  * Affiche la sidebar dédiée et occupe toute la hauteur de l'écran.
  */
 export default function AgencyDashboardLayout({ children, title }: AgencyDashboardLayoutProps) {
-  const location = useLocation();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [pendingNotifications, setPendingNotifications] = useState(0);
+  const [, setPendingNotifications] = useState(0);
 
   useEffect(() => {
     if (user) {
       loadUnreadNotifications();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadUnreadNotifications = async () => {

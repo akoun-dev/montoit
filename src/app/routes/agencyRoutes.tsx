@@ -6,7 +6,6 @@ import AgencyDashboardLayout from '@/features/agency/components/AgencyDashboardL
 
 // Agency pages
 const AgencyDashboard = lazyWithRetry(() => import('@/pages/agency/DashboardPage'));
-const MyMandatesPage = lazyWithRetry(() => import('@/pages/agency/MyMandatesPage'));
 const AgencyMandatesPage = lazyWithRetry(() => import('@/features/agency/pages/AgencyMandatesPage'));
 const MandateDetailPage = lazyWithRetry(() => import('@/components/mandates/MandateDetailPage'));
 const SignMandatePage = lazyWithRetry(() => import('@/pages/agency/SignMandatePage'));
