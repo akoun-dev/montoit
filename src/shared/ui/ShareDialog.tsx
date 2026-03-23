@@ -5,7 +5,7 @@
  * ou utiliser d'autres méthodes de partage natives.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Share2,
   X,
@@ -41,11 +41,39 @@ export function ShareDialog({
 }: ShareDialogProps) {
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setCopied(false);
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   // URL encodée pour les liens de partage
   const encodedUrl = encodeURIComponent(propertyUrl);
   const encodedTitle = encodeURIComponent(propertyTitle);
+  const shareMessage = `Découvrez cette propriété sur MonToit`;
+
+  const runShareAction = async (action: () => void | Promise<void>, closeAfter = true) => {
+    await action();
+
+    if (closeAfter) {
+      onClose();
+    }
+  };
 
   const shareOptions: ShareOption[] = [
     {
@@ -77,7 +105,7 @@ export function ShareDialog({
       label: 'Email',
       icon: <Mail className="w-5 h-5" />,
       action: () => {
-        window.location.href = `mailto:?subject=${encodedTitle}&body=Découvrez cette propriété : ${encodedUrl}`;
+        window.location.href = `mailto:?subject=${encodedTitle}&body=${encodeURIComponent(`${shareMessage} : ${propertyUrl}`)}`;
       },
       color: 'bg-gray-600 hover:bg-gray-700 text-white',
     },
@@ -111,7 +139,7 @@ export function ShareDialog({
 
         await navigator.share({
           title: propertyTitle,
-          text: `Découvrez cette propriété sur MonToit`,
+          text: shareMessage,
           url: propertyUrl,
           // @ts-expect-error - L'API files est disponible sur certains navigateurs
           files: [file],
@@ -121,7 +149,7 @@ export function ShareDialog({
         try {
           await navigator.share({
             title: propertyTitle,
-            text: `Découvrez cette propriété sur MonToit`,
+            text: shareMessage,
             url: propertyUrl,
           });
         } catch (shareError) {
@@ -132,14 +160,16 @@ export function ShareDialog({
       // Sans image
       await navigator.share({
         title: propertyTitle,
-        text: `Découvrez cette propriété sur MonToit`,
+        text: shareMessage,
         url: propertyUrl,
       });
     }
+
+    onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-6">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in"
@@ -147,70 +177,96 @@ export function ShareDialog({
       />
 
       {/* Dialog */}
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-in zoom-in-95 fade-in">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#F16522]/10 rounded-full flex items-center justify-center">
-              <Share2 className="w-5 h-5 text-[#F16522]" />
+      <div className="relative w-full max-w-lg overflow-hidden rounded-[28px] bg-white shadow-2xl animate-in zoom-in-95 fade-in max-h-[calc(100vh-1.5rem)] sm:max-h-[min(720px,calc(100vh-3rem))]">
+        <div className="max-h-[calc(100vh-1.5rem)] overflow-y-auto sm:max-h-[min(720px,calc(100vh-3rem))]">
+          <div className="border-b border-[#EFEBE9] bg-gradient-to-br from-[#FAF7F4] via-white to-[#F7F1EC] px-5 pb-5 pt-4 sm:px-6 sm:pt-5">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F16522]/10">
+                  <Share2 className="h-5 w-5 text-[#F16522]" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-[#2C1810] sm:text-xl">
+                    Partager cette propriété
+                  </h3>
+                  <p className="text-sm text-[#6B5A4E]">
+                    Envoyez le lien rapidement à vos proches
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#2C1810] shadow-sm transition-colors hover:bg-[#EFEBE9]"
+                aria-label="Fermer"
+                type="button"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <h3 className="text-xl font-bold text-[#2C1810]">Partager cette propriété</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 bg-[#FAF7F4] hover:bg-[#EFEBE9] rounded-full flex items-center justify-center transition-colors"
-            aria-label="Fermer"
-          >
-            <X className="h-4 w-4 text-[#2C1810]" />
-          </button>
-        </div>
 
-        {/* Property Preview */}
-        <div className="flex items-center gap-3 p-3 bg-[#FAF7F4] rounded-xl mb-6">
-          {propertyImage && (
-            <img
-              src={propertyImage}
-              alt={propertyTitle}
-              className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-            />
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-[#2C1810] line-clamp-2">
-              {propertyTitle}
+            <div className="rounded-2xl border border-[#EFEBE9] bg-white p-3 shadow-sm sm:p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl bg-[#FAF7F4] sm:h-24 sm:w-24">
+                  {propertyImage ? (
+                    <img
+                      src={propertyImage}
+                      alt={propertyTitle}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-[#F16522]/10">
+                      <Share2 className="h-6 w-6 text-[#F16522]" />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#A69B95]">
+                    Lien partage
+                  </p>
+                  <p className="mt-1 text-sm font-semibold leading-5 text-[#2C1810] sm:text-base">
+                    {propertyTitle}
+                  </p>
+                  <div className="mt-3 rounded-xl bg-[#FAF7F4] px-3 py-2">
+                    <p className="break-all text-xs leading-5 text-[#6B5A4E]">
+                      {propertyUrl}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 py-5 sm:px-6 sm:py-6">
+            {navigator.share && (
+              <button
+                onClick={handleNativeShare}
+                className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2C1810] px-4 py-4 font-medium text-white transition-colors hover:bg-[#3D2518]"
+                type="button"
+              >
+                <Share2 className="h-5 w-5" />
+                Partager via votre appareil
+              </button>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {shareOptions.map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => void runShareAction(option.action, option.id !== 'copy')}
+                  className={`flex items-center justify-center gap-2 rounded-2xl p-4 font-medium transition-colors ${option.color}`}
+                  type="button"
+                >
+                  {option.icon}
+                  <span className="text-sm">{option.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <p className="mt-5 text-center text-xs leading-5 text-[#6B5A4E]">
+              Partagez cette annonce avec les personnes qui pourraient etre interessees.
             </p>
-            <p className="text-xs text-[#6B5A4E] truncate mt-1">{propertyUrl}</p>
           </div>
         </div>
-
-        {/* Native Share Button (if supported) */}
-        {navigator.share && (
-          <button
-            onClick={handleNativeShare}
-            className="w-full flex items-center justify-center gap-2 p-4 bg-[#2C1810] hover:bg-[#3D2518] text-white rounded-xl font-medium transition-colors mb-4"
-          >
-            <Share2 className="w-5 h-5" />
-            Partager via...
-          </button>
-        )}
-
-        {/* Share Options */}
-        <div className="grid grid-cols-2 gap-3">
-          {shareOptions.map((option) => (
-            <button
-              key={option.id}
-              onClick={option.action}
-              className={`flex items-center justify-center gap-2 p-4 rounded-xl font-medium transition-colors ${option.color}`}
-            >
-              {option.icon}
-              <span className="text-sm">{option.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Footer */}
-        <p className="text-xs text-center text-[#6B5A4E] mt-6">
-          Partagez cette propriété avec vos proches pour qu'ils puissent la découvrir
-        </p>
       </div>
     </div>
   );

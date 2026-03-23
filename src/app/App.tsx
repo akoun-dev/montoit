@@ -26,15 +26,15 @@ function App() {
   // Initialiser le service ONECI au démarrage de l'application
   useEffect(() => {
     const oneciConfig = apiKeysConfig.verification.oneci;
-    if (oneciConfig.isConfigured) {
+    if (oneciConfig.apiKey && oneciConfig.secretKey) {
       initOneciService({
         apiKey: oneciConfig.apiKey,
         secretKey: oneciConfig.secretKey,
         apiUrl: oneciConfig.apiBase,
       });
-      console.log('[App] ONECI service initialized');
+      console.log('[App] ONECI service initialized with client-side credentials');
     } else {
-      console.warn('[App] ONECI service not configured');
+      console.info('[App] ONECI verification will use the Supabase edge function proxy');
     }
   }, []);
 

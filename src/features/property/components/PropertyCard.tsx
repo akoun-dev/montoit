@@ -18,7 +18,6 @@ import {
 import { favoritesService } from '@/services/favorites.service';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { ScoreBadge } from '@/shared/ui/ScoreBadge';
-import { useShareDialog } from '@/shared/ui/ShareDialog';
 
 interface PropertyCardProps {
   property: {
@@ -47,6 +46,11 @@ interface PropertyCardProps {
     grisTexte: string;
     border: string;
   };
+  onShare?: (property: {
+    id: string;
+    title: string;
+    images: string[] | null;
+  }) => void;
 }
 
 export function PropertyCard({
@@ -54,10 +58,10 @@ export function PropertyCard({
   onHover,
   formatPrice,
   colors,
+  onShare,
 }: PropertyCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { openShareDialog } = useShareDialog();
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
 
@@ -99,16 +103,13 @@ export function PropertyCard({
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      e.nativeEvent.stopImmediatePropagation();
-
-      const propertyUrl = `${window.location.origin}/recherche?property=${property.id}`;
-      openShareDialog(
-        property.title || 'Propriété',
-        propertyUrl,
-        property.images?.[0] || undefined
-      );
+      onShare?.({
+        id: property.id,
+        title: property.title || 'Propriete',
+        images: property.images,
+      });
     },
-    [property.id, property.title, property.images, openShareDialog]
+    [onShare, property.id, property.title, property.images]
   );
 
   const statusConfig = (() => {
@@ -170,6 +171,7 @@ export function PropertyCard({
         <div className="absolute top-3 right-3 flex gap-2 z-10">
           {/* Share Button */}
           <button
+            type="button"
             onClick={handleShareClick}
             className="flex items-center justify-center w-10 h-10 bg-white/95 backdrop-blur-md rounded-full shadow-lg text-neutral-700 hover:text-blue-500 hover:bg-white hover:scale-110 transition-all duration-200"
             aria-label="Partager"
@@ -179,6 +181,7 @@ export function PropertyCard({
 
           {/* Favorite Button */}
           <button
+            type="button"
             onClick={handleFavoriteClick}
             disabled={favoriteLoading}
             className={`flex items-center justify-center w-10 h-10 backdrop-blur-md rounded-full shadow-lg transition-all duration-200 hover:scale-110 ${

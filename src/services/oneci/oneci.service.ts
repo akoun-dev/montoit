@@ -43,21 +43,18 @@
 
 import { supabase } from '@/services/supabase/client';
 import type {
-  OneciAuthenticateResponse,
   OneciPersonMatchResponse,
-  OneciFaceAuthRequest,
   OneciFaceAuthResponse,
   OneciRemainingRequestsResponse,
   OneciServiceConfig,
   PersonVerificationData,
   VerificationResult,
-  OneciAttributeMatch,
-  AttributeVerificationResult,
 } from './types';
-import { OneciBiometricType, ATTRIBUTE_LABELS } from './types';
+import { OneciBiometricType } from './types';
 
 // URL de base de l'API ONECI
 const ONECI_API_URL = 'https://api-rnpp.verif.ci';
+const ONECI_EDGE_FUNCTION = 'oneci-verify';
 
 // Durée de cache du token (en millisecondes) - 20 minutes selon spécification ONECI
 const TOKEN_CACHE_DURATION = 20 * 60 * 1000; // 20 minutes
@@ -112,14 +109,25 @@ export function initOneciService(config: OneciServiceConfig): void {
  * Vérifie si le service est configuré
  */
 function isConfigured(): boolean {
-  return !!(serviceConfig?.apiKey && serviceConfig?.secretKey);
+  return !!(
+    (serviceConfig?.apiKey && serviceConfig?.secretKey) ||
+    import.meta.env['VITE_SUPABASE_URL'] ||
+    import.meta.env['SUPABASE_URL']
+  );
 }
 
-/**
- * Retourne l'URL de l'API
- */
-function getApiUrl(): string {
-  return serviceConfig?.apiUrl || ONECI_API_URL;
+async function invokeOneciFunction<T>(body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(ONECI_EDGE_FUNCTION, { body });
+
+  if (error) {
+    throw new Error(error.message || 'Erreur lors de la communication avec le service ONECI');
+  }
+
+  if (!data) {
+    throw new Error('Aucune reponse recue du service ONECI');
+  }
+
+  return data as T;
 }
 
 /**
@@ -130,43 +138,13 @@ export async function getAuthToken(): Promise<string> {
     throw new Error("Service ONECI non configuré. Appelez initOneciService() d'abord.");
   }
 
-  // Vérifier si le token en cache est encore valide
   if (cachedToken && Date.now() < cachedToken.expiresAt) {
     return cachedToken.token;
   }
 
-  // Obtenir un nouveau token
-  console.log("[OneciService] Demande de token d'authentification...");
-  const response = await fetch(`${getApiUrl()}/api/v1/authenticate`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      apiKey: serviceConfig!.apiKey,
-      secretKey: serviceConfig!.secretKey,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("[OneciService] Erreur d'authentification:", response.status, errorText);
-    throw new Error(`Erreur d'authentification ONECI: ${response.status}`);
-  }
-
-  const authData = (await response.json()) as OneciAuthenticateResponse & { bearerToken?: string };
-  console.log("[OneciService] Réponse d'authentification complète:", authData);
-
-  // L'API retourne bearerToken au lieu de access_token
-  const token = authData.bearerToken || authData.access_token;
-  console.log(
-    '[OneciService] Token utilisé:',
-    token ? token.substring(0, 20) + '...' : 'undefined'
-  );
-
-  // Mettre en cache le token
+  // Le token est gere cote edge function pour eviter les appels directs au navigateur.
   cachedToken = {
-    token: token,
+    token: 'managed-by-edge-function',
     expiresAt: Date.now() + TOKEN_CACHE_DURATION,
   };
 
@@ -196,161 +174,26 @@ export async function verifyPersonAttributes(
   birthDate: string,
   gender: 'M' | 'F'
 ): Promise<OneciPersonMatchResponse> {
-  const token = await getAuthToken();
-  console.log('[OneciService] Token obtenu pour vérification:', token.substring(0, 20) + '...');
-
   // Normaliser le NNI (supprimer les espaces et tirets)
   const normalizedNni = nni.replace(/[\s-]/g, '');
-
-  // Créer le formulaire multipart/form-data
-  const formData = new FormData();
-  formData.append('FIRST_NAME', firstName.trim());
-  formData.append('LAST_NAME', lastName.trim());
-  formData.append('BIRTH_DATE', birthDate);
-  formData.append('GENDER', gender);
-
-  console.log('[OneciService] Envoi de la requête de vérification pour NNI:', normalizedNni);
-  console.log('[OneciService] FormData:', { firstName, lastName, birthDate, gender });
-
-  const response = await fetch(`${getApiUrl()}/api/v1/oneci/persons/${normalizedNni}/match`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
-
-  // Logger la réponse brute pour débogage
-  const responseText = await response.text();
-  console.log('[OneciService] Réponse brute:', {
-    status: response.status,
-    statusText: response.statusText,
-    headers: Object.fromEntries(response.headers.entries()),
-    bodyLength: responseText.length,
-    body: responseText.substring(0, 200),
-  });
-
-  if (!response.ok) {
-    console.error('[OneciService] Erreur vérification attributs:', response.status, responseText);
-
-    // Si 401, invalider le token et réessayer
-    if (response.status === 401) {
-      console.warn('[OneciService] 401 Unauthorized - réessaie avec un nouveau token');
-      invalidateAuthToken();
-      return verifyPersonAttributes(nni, firstName, lastName, birthDate, gender);
-    }
-
-    return {
-      success: false,
-      match: false,
-      nni: normalizedNni,
-      message: `Erreur ONECI (${response.status}): ${responseText}`,
-      error: responseText,
-    };
-  }
-
-  // Parser la réponse JSON avec gestion d'erreur
   try {
-    console.log('[OneciService] Tentative de parsing JSON de:', responseText);
-
-    if (!responseText || responseText.trim().length === 0) {
-      console.error("[OneciService] Réponse vide de l'API ONECI");
-      return {
-        success: false,
-        match: false,
-        nni: normalizedNni,
-        message: "Réponse vide de l'API ONECI (status 201 mais pas de corps)",
-        error: 'Empty response body',
-      };
-    }
-
-    const jsonData = JSON.parse(responseText);
-    console.log('[OneciService] JSON parsé avec succès:', {
-      isArray: Array.isArray(jsonData),
-      type: typeof jsonData,
-      value: jsonData,
+    return await invokeOneciFunction<OneciPersonMatchResponse>({
+      action: 'verify',
+      nni: normalizedNni,
+      firstName: firstName.trim().toUpperCase(),
+      lastName: lastName.trim().toUpperCase(),
+      birthDate,
+      gender,
     });
-
-    // Gérer le cas où l'API retourne un tableau de résultats d'attributs
-    // Format: [{AttributeName: "FIRST_NAME", ErrorCode: "1"}, ...]
-    // ErrorCode "1" = erreur sur l'attribut
-    // Tableau vide [] = TOUT EST CORRECT (pas d'erreur)
-    if (Array.isArray(jsonData)) {
-      console.log('[OneciService] Format tableau détecté - parsing des attributs');
-
-      // Si le tableau est vide, TOUT EST CORRECT (pas d'erreur détectée)
-      if (jsonData.length === 0) {
-        console.log('[OneciService] Tableau vide - TOUTES les informations correspondent');
-        return {
-          success: true,
-          match: true,
-          nni: normalizedNni,
-          message: 'Toutes les informations correspondent aux registres ONECI',
-          attributes: [],
-          confidence: 100,
-        };
-      }
-
-      // Parser les résultats des attributs
-      const attributeResults: AttributeVerificationResult[] = jsonData.map(
-        (item: OneciAttributeMatch) => {
-          const matched = item.ErrorCode === '0';
-          return {
-            name: item.AttributeName,
-            label: ATTRIBUTE_LABELS[item.AttributeName] || item.AttributeName,
-            matched,
-            rawErrorCode: item.ErrorCode,
-          };
-        }
-      );
-
-      // Vérifier si tous les attributs correspondent
-      const allMatch = attributeResults.every((attr) => attr.matched);
-
-      // Compter les attributs qui correspondent
-      const matchedCount = attributeResults.filter((attr) => attr.matched).length;
-      const totalCount = attributeResults.length;
-
-      console.log('[OneciService] Résultats par attribut:', {
-        allMatch,
-        matchedCount,
-        totalCount,
-        results: attributeResults,
-      });
-
-      return {
-        success: true,
-        match: allMatch,
-        nni: normalizedNni,
-        message: allMatch
-          ? 'Toutes les informations correspondent aux registres ONECI'
-          : `${matchedCount}/${totalCount} attribut(s) correspondent`,
-        attributes: jsonData,
-        attributeResults,
-        confidence: allMatch ? 100 : Math.round((matchedCount / totalCount) * 100),
-      };
-    }
-
-    const personData = jsonData as OneciPersonMatchResponse;
-    console.log('[OneciService] Données parsées:', personData);
-
-    // S'assurer que la réponse a les champs requis
-    if (personData.success === undefined) {
-      // Si le champ success n'est pas présent, déduire du contenu
-      personData.success = true;
-      personData.match = personData.match !== false;
-    }
-
-    return personData;
   } catch (error) {
-    console.error('[OneciService] Erreur de parsing JSON:', error);
-    console.error('[OneciService] Corps de la réponse:', responseText);
+    console.error('[OneciService] Erreur verification attributs:', error);
     return {
       success: false,
       match: false,
       nni: normalizedNni,
-      message: `Erreur de parsing de la réponse ONECI: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
-      error: responseText,
+      message:
+        error instanceof Error ? error.message : 'Erreur inconnue lors de la verification ONECI',
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 }
@@ -367,70 +210,41 @@ export async function faceAuthentication(
   biometricData: string,
   biometricType: OneciBiometricType = OneciBiometricType.AUTH_FACE
 ): Promise<OneciFaceAuthResponse> {
-  const token = await getAuthToken();
-
   // Normaliser le NNI
   const normalizedNni = nni.replace(/[\s-]/g, '');
+  const normalizedImage = biometricData.includes(',')
+    ? biometricData.split(',')[1] || biometricData
+    : biometricData;
 
-  const response = await fetch(`${getApiUrl()}/api/v1/oneci/persons/${normalizedNni}/face-auth`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      BIOMETRIC_TYPE: biometricType,
-      BIOMETRIC_DATA: biometricData,
-    } as OneciFaceAuthRequest),
-  });
-
-  if (!response.ok) {
-    // Si 401, invalider le token et réessayer
-    if (response.status === 401) {
-      invalidateAuthToken();
-      return faceAuthentication(nni, biometricData, biometricType);
-    }
-
-    const errorText = await response.text();
-    console.error('[OneciService] Erreur auth faciale:', response.status, errorText);
+  try {
+    return await invokeOneciFunction<OneciFaceAuthResponse>({
+      action: 'face-auth',
+      nni: normalizedNni,
+      faceImage: normalizedImage,
+      biometricType,
+    });
+  } catch (error) {
+    console.error('[OneciService] Erreur auth faciale:', error);
     return {
       success: false,
       authenticated: false,
       nni: normalizedNni,
-      message: `Erreur ONECI (${response.status}): ${errorText}`,
-      error: errorText,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Erreur inconnue lors de l'authentification faciale ONECI",
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
-
-  return (await response.json()) as OneciFaceAuthResponse;
 }
 
 /**
  * Récupère le nombre de requêtes restantes dans le quota
  */
 export async function getRemainingRequests(): Promise<OneciRemainingRequestsResponse> {
-  const token = await getAuthToken();
-
-  const response = await fetch(`${getApiUrl()}/api/v1/subscription/remaining-requests`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  return invokeOneciFunction<OneciRemainingRequestsResponse>({
+    action: 'quota',
   });
-
-  if (!response.ok) {
-    // Si 401, invalider le token et réessayer
-    if (response.status === 401) {
-      invalidateAuthToken();
-      return getRemainingRequests();
-    }
-
-    const errorText = await response.text();
-    console.error('[OneciService] Erreur récupération quota:', response.status, errorText);
-    throw new Error(`Erreur ONECI (${response.status}): ${errorText}`);
-  }
-
-  return (await response.json()) as OneciRemainingRequestsResponse;
 }
 
 /**

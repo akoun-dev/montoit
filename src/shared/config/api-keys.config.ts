@@ -156,8 +156,11 @@ class ApiKeysConfig {
       cevEndpoint: '/api/v1/cev',
       secretKey: import.meta.env['VITE_ONECI_SECRET_KEY'] || '',
       apiKey: import.meta.env['VITE_ONECI_API_KEY'] || '',
+      // Les credentials ONECI vivent desormais cote edge function; le front n'a
+      // besoin que de la configuration publique Supabase pour appeler le proxy.
       isConfigured: !!(
-        import.meta.env['VITE_ONECI_API_KEY'] && import.meta.env['VITE_ONECI_SECRET_KEY']
+        (import.meta.env['VITE_SUPABASE_URL'] || import.meta.env['SUPABASE_URL']) &&
+        (import.meta.env['VITE_SUPABASE_ANON_KEY'] || import.meta.env['SUPABASE_ANON_KEY'])
       ),
     } as ONECIConfig,
   };

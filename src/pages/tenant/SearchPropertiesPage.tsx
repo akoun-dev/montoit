@@ -59,7 +59,7 @@ export default function SearchPropertiesPage() {
   const { saveSearch, isAuthenticated } = useSaveSearch();
 
   // Share dialog
-  const { ShareDialogComponent } = useShareDialog();
+  const { openShareDialog, ShareDialogComponent } = useShareDialog();
 
   // Prefetch properties hook
   const { prefetchProperties } = usePrefetchProperties();
@@ -133,6 +133,18 @@ export default function SearchPropertiesPage() {
       min_bedrooms: appliedFilters.bedrooms ? parseInt(appliedFilters.bedrooms) : undefined,
     };
     await saveSearch(name, filters, enableNotifications);
+  };
+
+  const handlePropertyShare = (property: {
+    id: string;
+    title: string;
+    images: string[] | null;
+  }) => {
+    openShareDialog(
+      property.title || 'Propriete',
+      `${window.location.origin}/proprietes/${property.id}`,
+      property.images?.[0] || undefined
+    );
   };
 
   const activeFiltersCount = [
@@ -581,6 +593,7 @@ export default function SearchPropertiesPage() {
                       onHover={() => prefetchProperties([property.id])}
                       formatPrice={formatPrice}
                       colors={COLORS}
+                      onShare={handlePropertyShare}
                     />
                   ))}
                 </div>
