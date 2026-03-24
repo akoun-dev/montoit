@@ -409,9 +409,9 @@ function OneciVerificationResult({ result }: OneciVerificationResultProps) {
           </div>
         )}
 
-        {result.confidence && (
+        {result.confidence !== undefined && (
           <p className="text-sm mt-2 text-neutral-600">
-            Confiance: {Math.round(result.confidence * 100)}%
+            Confiance: {Math.round(result.confidence)}%
           </p>
         )}
       </div>

@@ -1,7 +1,7 @@
 /**
  * Edge Function: sms-otp-send
  *
- * Envoi de SMS via l'API Gateway Azure (MTN)
+ * Envoi de SMS via l'API Gateway Azure
  * Architecture: Frontend → Supabase Edge Function → Azure Gateway API
  *
  * Configuration requise dans Supabase Secrets:

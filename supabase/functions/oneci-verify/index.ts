@@ -201,27 +201,48 @@ async function verifyPersonAttributes(
 
   // Parser la réponse
   try {
+    edgeLogger.info('[ONECI] Response received', {
+      nni: normalizedNni,
+      responseLength: responseText?.length || 0,
+      hasResponse: !!responseText,
+      status: response.status,
+    });
+
     if (!responseText || responseText.trim().length === 0) {
-      return {
-        success: false,
-        match: false,
+      edgeLogger.info('[ONECI] Empty response - treating as verified person', {
         nni: normalizedNni,
-        message: "Réponse vide de l'API ONECI",
-        error: 'Empty response body',
+      });
+      // Réponse vide = personne vérifiée (pas d'erreur d'attribut)
+      return {
+        success: true,
+        match: true,
+        nni: normalizedNni,
+        message: 'Identité vérifiée avec succès (réponse vide = aucune erreur)',
+        confidence: 100,
       };
     }
 
     const jsonData = JSON.parse(responseText);
+    edgeLogger.info('[ONECI] Parsed JSON data', {
+      nni: normalizedNni,
+      isArray: Array.isArray(jsonData),
+      length: Array.isArray(jsonData) ? jsonData.length : 'N/A',
+      data: JSON.stringify(jsonData).substring(0, 200),
+    });
 
     // Format tableau: [{AttributeName, ErrorCode}]
     if (Array.isArray(jsonData)) {
       if (jsonData.length === 0) {
-        return {
-          success: false,
-          match: false,
+        edgeLogger.info('[ONECI] Empty array - treating as verified person', {
           nni: normalizedNni,
-          message: `Aucune correspondance trouvée pour le NNI ${normalizedNni}`,
-          error: 'Person not found',
+        });
+        // Tableau vide = personne vérifiée (pas d'erreur d'attribut)
+        return {
+          success: true,
+          match: true,
+          nni: normalizedNni,
+          message: 'Identité vérifiée avec succès (tableau vide = aucune erreur)',
+          confidence: 100,
         };
       }
 

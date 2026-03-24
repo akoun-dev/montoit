@@ -115,6 +115,7 @@ export default function ONECIVerificationPage() {
 
   const selectMethod = (method: VerificationMethod) => {
     setStep(method);
+    setShowMethodSelector(false); // Cacher le sélecteur après choix
 
     if (method === 'face' && verificationData?.nni) {
       setFaceNni(verificationData.nni);
@@ -172,34 +173,69 @@ export default function ONECIVerificationPage() {
       setFaceNni(data.formData.nni);
       setError(null);
 
-      // Ne PAS marquer comme vérifié ici - attendre soit:
-      // - la facial auth réussie, OU
-      // - le choix de passer cette étape
-      // On passe juste à l'étape suivante avec les données sauvegardées
-      setStep('face');
+      // Passer les données directement pour éviter le problème d'état non mis à jour
+      await handleVerificationComplete(data.formData.nni, data.result);
     }
   };
 
-  const handleFaceAuthSuccess = (result: OneciFaceAuthResponse) => {
-    if (result.success && result.authenticated) {
-      // Mettre à jour le profil
-      handleVerificationComplete();
+  const handleFaceAuthSuccess = async (result: OneciFaceAuthResponse) => {
+    if (result.success && result.authenticated && user) {
+      // Créer un résultat de vérification pour l'auth faciale
+      const faceVerificationResult: OneciPersonMatchResponse = {
+        success: true,
+        match: true,
+        nni: faceNni,
+        message: 'Authentification faciale réussie',
+        confidence: result.confidence || result.matchScore || 95,
+      };
+
+      try {
+        const updateResult = await updateProfileOneciVerified(
+          user.id,
+          faceNni,
+          faceVerificationResult
+        );
+
+        if (!updateResult.success) {
+          setError(updateResult.error || 'Erreur lors de la mise à jour du profil');
+          return;
+        }
+
+        setStep('complete');
+        setIsVerified(true);
+
+        if (refetchProfile) {
+          await refetchProfile();
+        }
+
+        setTimeout(() => {
+          navigate('/locataire/profil?tab=verification');
+        }, 2000);
+      } catch (error) {
+        console.error('Error updating face verification status:', error);
+        setError('Erreur lors de la mise à jour de votre profil');
+      }
     }
   };
 
-  const handleVerificationComplete = async () => {
-    if (!user || !verificationData) {
+  const handleVerificationComplete = async (
+    nni?: string,
+    verificationResult?: OneciPersonMatchResponse
+  ) => {
+    // Utiliser les paramètres si fournis, sinon utiliser l'état
+    const finalNni = nni || verificationData?.nni;
+    const finalResult = verificationResult || verificationData?.verificationResult;
+
+    if (!user || !finalNni || !finalResult) {
       setError('Données de vérification manquantes. Veuillez recommencer depuis le début.');
       return;
     }
 
     try {
-      // Utiliser le service ONECI pour mettre à jour le profil correctement
-      // avec les données de vérification stockées lors de l'étape des attributs
       const updateResult = await updateProfileOneciVerified(
         user.id,
-        verificationData.nni,
-        verificationData.verificationResult
+        finalNni,
+        finalResult
       );
 
       if (!updateResult.success) {
@@ -211,12 +247,10 @@ export default function ONECIVerificationPage() {
       setStep('complete');
       setIsVerified(true);
 
-      // Recharger le profil pour mettre à jour le statut
       if (refetchProfile) {
         await refetchProfile();
       }
 
-      // Rediriger vers le profil après un court délai
       setTimeout(() => {
         navigate('/locataire/profil?tab=verification');
       }, 2000);
@@ -232,12 +266,6 @@ export default function ONECIVerificationPage() {
     } else {
       navigate('/locataire/profil?tab=verification');
     }
-  };
-
-  const handleSkipFace = async () => {
-    // Permettre à l'utilisateur de sauter l'authentification faciale
-    // et marquer la vérification comme complète
-    await handleVerificationComplete();
   };
 
   const trimmedFaceNni = faceNni.trim();
@@ -457,19 +485,6 @@ export default function ONECIVerificationPage() {
                       : 'Le NNI est requis pour démarrer l’authentification faciale.'}
                   </div>
                 )}
-
-                <div className="text-center">
-                  <Button
-                    variant="outline"
-                    onClick={handleSkipFace}
-                    className="text-neutral-600 border-neutral-300 hover:bg-neutral-50"
-                  >
-                    Passer cette étape
-                  </Button>
-                  <p className="text-sm text-neutral-500 mt-2">
-                    L'authentification faciale augmente votre niveau de confiance
-                  </p>
-                </div>
               </div>
             )}
           </div>

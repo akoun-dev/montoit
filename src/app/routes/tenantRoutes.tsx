@@ -40,6 +40,9 @@ const SignLease = lazyWithRetry(() => import('@/pages/tenant/SignLeasePage'));
 const MakePayment = lazyWithRetry(() => import('@/pages/tenant/MakePaymentPage'));
 const PaymentHistory = lazyWithRetry(() => import('@/pages/tenant/PaymentHistoryPage'));
 
+// Verification pages
+const ONECIVerification = lazyWithRetry(() => import('@/pages/tenant/ONECIVerificationPage'));
+
 // Layout-agnostic messaging view
 const MessagesView = lazyWithRetry(() => import('@/features/messaging/components/MessagesView'));
 
@@ -163,6 +166,14 @@ export const tenantRoutes: RouteObject[] = [
     element: (
       <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
         <MyContracts />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: 'verification-oneci',
+    element: (
+      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
+        <ONECIVerification />
       </ProtectedRoute>
     ),
   },

@@ -216,20 +216,6 @@ class OTPUnifiedService {
         },
       });
 
-      // Si l'envoi SMS échoue, essayer l'email comme fallback
-      if (error || (data && data.status !== 'ok')) {
-        console.warn('[OTP] SMS échoué, tentative de fallback email...');
-        const fallbackResult = await this.sendEmailOTP(
-          `${formattedPhone.replace(/\+/g, '')}@sms-fallback.montoit.ci`,
-          otp,
-          'Utilisateur Mobile'
-        );
-        if (fallbackResult.success) {
-          console.log('[OTP] Fallback email réussi');
-          return fallbackResult;
-        }
-      }
-
       console.log('[OTP] Reponse Edge Function:', { data, error });
 
       if (error) {

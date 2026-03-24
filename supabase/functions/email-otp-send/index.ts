@@ -15,12 +15,13 @@ interface SendOtpRequest {
 
 /**
  * Returns the base URL for the message API (POST)
- * AZURE_SMS_URL contains /gateway/api, remove it and add /api/message/send
+ * L'URL complète est: baseUrl/gateway/api/message/send
  */
 function getAzureMessageBaseUrl(): string {
   const baseUrl = Deno.env.get('AZURE_SMS_URL') || 'https://ansuthub.westeurope.cloudapp.azure.com/gateway/api';
-  const cleanBaseUrl = baseUrl.replace(/\/gateway\/api\/?$/, '');
-  return cleanBaseUrl + '/api/message/send';
+  // S'assurer que l'URL ne se termine PAS par /
+  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+  return cleanBaseUrl + '/message/send';
 }
 
 /**
@@ -163,7 +164,6 @@ serve(async (req) => {
 
     const emailHtml = generateEmailOtpHtml(email, code, 10);
     const subject = 'Verify your email address - MonToit';
-    const emailUrl = getAzureMessageBaseUrl();
 
     const emailPayload = {
       to: email,
@@ -178,9 +178,12 @@ serve(async (req) => {
       channel: 'Email'
     };
 
-    console.log('[email-otp-send] Sending email to ' + email + '...');
+    const messageUrl = getAzureMessageBaseUrl();
 
-    const azureResponse = await fetch(emailUrl, {
+    console.log('[email-otp-send] Sending email to ' + email + '...');
+    console.log('[email-otp-send] URL: ' + messageUrl);
+
+    const azureResponse = await fetch(messageUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

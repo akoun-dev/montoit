@@ -305,6 +305,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) return { error };
 
+      // Create profile immediately after successful signup using Edge Function
+      if (data.user) {
+        try {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+          const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+          if (supabaseUrl && supabaseAnonKey) {
+            const profileResponse = await fetch(`${supabaseUrl}/functions/v1/create-user-profile`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${supabaseAnonKey}`,
+                apikey: supabaseAnonKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userId: data.user.id,
+                email: data.user.email,
+                full_name: userData.full_name,
+                user_type: normalizeUserType(userData.user_type) || 'tenant',
+                phone: userData.phone || null,
+              }),
+            });
+
+            if (profileResponse.ok) {
+              const profileData = await profileResponse.json();
+              console.log('[AuthProvider] Profile created via Edge Function:', profileData);
+            } else {
+              const errorData = await profileResponse.json();
+              console.error('[AuthProvider] Error creating profile via Edge Function:', errorData);
+            }
+          }
+        } catch (profileError) {
+          console.error('[AuthProvider] Exception calling create-user-profile:', profileError);
+        }
+      }
+
       // SECURITY FIX: If a session was auto-created (because enable_confirmations=false),
       // sign out the user immediately to prevent auto-login after registration.
       // Users should only be able to sign in after email confirmation.
@@ -313,21 +349,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Send OTP email for verification
         try {
-          const {
-            data: { session: adminSession },
-          } = await supabase.auth.admin.getSession();
-          await fetch(`${import.meta.env.SUPABASE_URL}/functions/v1/send-verification-otp`, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${adminSession?.access_token || import.meta.env.SUPABASE_ANON_KEY}`,
-              apikey: import.meta.env.SUPABASE_ANON_KEY,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email,
-              purpose: 'email_verification',
-            }),
-          });
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+          const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+          if (supabaseUrl && supabaseAnonKey) {
+            await fetch(`${supabaseUrl}/functions/v1/send-verification-otp`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${supabaseAnonKey}`,
+                apikey: supabaseAnonKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                email,
+                purpose: 'email_verification',
+              }),
+            });
+          }
         } catch (emailError) {
           console.error('Failed to send verification email:', emailError);
           // Continue even if email fails - user can request another OTP
@@ -346,21 +384,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.user && !data.session) {
         // Send OTP email for verification
         try {
-          const {
-            data: { session: adminSession },
-          } = await supabase.auth.admin.getSession();
-          await fetch(`${import.meta.env.SUPABASE_URL}/functions/v1/send-verification-otp`, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${adminSession?.access_token || import.meta.env.SUPABASE_ANON_KEY}`,
-              apikey: import.meta.env.SUPABASE_ANON_KEY,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email,
-              purpose: 'email_verification',
-            }),
-          });
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+          const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+          if (supabaseUrl && supabaseAnonKey) {
+            await fetch(`${supabaseUrl}/functions/v1/send-verification-otp`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${supabaseAnonKey}`,
+                apikey: supabaseAnonKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                email,
+                purpose: 'email_verification',
+              }),
+            });
+          }
         } catch (emailError) {
           console.error('Failed to send verification email:', emailError);
         }

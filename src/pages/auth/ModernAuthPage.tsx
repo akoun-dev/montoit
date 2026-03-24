@@ -209,12 +209,19 @@ export default function ModernAuthPage() {
   ): Promise<{ code: string; viaFallback: boolean }> => {
     try {
       // Appeler notre edge function email-otp-send qui utilise Azure Gateway
-      const response = await fetch(`${import.meta.env.SUPABASE_URL}/functions/v1/email-otp-send`, {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Configuration Supabase manquante');
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/email-otp-send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.SUPABASE_ANON_KEY}`,
-          apikey: import.meta.env.SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${supabaseAnonKey}`,
+          apikey: supabaseAnonKey,
         },
         body: JSON.stringify({
           email: targetEmail,
@@ -389,16 +396,7 @@ export default function ModernAuthPage() {
       });
 
       if (!result.success) {
-        // Fallback vers email si SMS échoue
-        console.warn('Azure SMS failed, falling back to email OTP');
-        const emailResult = await sendResendOtp(`${phoneNumber}@sms-fallback.montoit.ci`);
-        if (emailResult.viaFallback) {
-          setSuccess(`Code envoyé par email (fallback): ${emailResult.code}`);
-        } else {
-          setSuccess('Code envoyé par email comme solution de secours');
-        }
-        setPhoneStep('verify');
-        setResendTimer(60);
+        setError(result.error || "Erreur lors de l'envoi du SMS");
         return;
       }
 
@@ -536,16 +534,22 @@ export default function ModernAuthPage() {
     setLoading(true);
     try {
       const targetEmail = pendingEmail || email;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Configuration Supabase manquante');
+      }
 
       // Vérifier l'OTP via l'edge function
       const response = await fetch(
-        `${import.meta.env.SUPABASE_URL}/functions/v1/email-otp-verify`,
+        `${supabaseUrl}/functions/v1/email-otp-verify`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.SUPABASE_ANON_KEY}`,
-            apikey: import.meta.env.SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+            apikey: supabaseAnonKey,
           },
           body: JSON.stringify({
             email: targetEmail,

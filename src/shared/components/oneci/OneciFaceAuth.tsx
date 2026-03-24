@@ -296,7 +296,7 @@ function FaceAuthResult({ result }: FaceAuthResultProps) {
         </p>
         {result.confidence !== undefined && (
           <p className="text-xs text-green-600 mt-2">
-            Niveau de confiance: {Math.round(result.confidence * 100)}%
+            Niveau de confiance: {Math.round(result.confidence)}%
           </p>
         )}
         {result.matchScore !== undefined && (
