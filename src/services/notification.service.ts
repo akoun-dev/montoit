@@ -6,7 +6,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import { getTemplate, renderTemplate, NOTIFICATION_TEMPLATES } from './notificationTemplates';
+import { getTemplate, renderTemplate } from './notificationTemplates';
 import type {
   Notification,
   NotificationChannel,
@@ -183,6 +183,169 @@ export const notificationService = {
         verification_id: verificationId,
       },
       priority: 'high',
+    });
+  },
+
+  /**
+   * Envoyer une notification de nouvelle demande de visite au propriétaire
+   */
+  async sendVisitRequestedNotification(options: {
+    ownerId: string;
+    propertyId: string;
+    propertyTitle: string;
+    visitDate: string;
+    visitTime: string;
+    visitType: string;
+    tenantId: string;
+  }): Promise<void> {
+    const { ownerId, propertyTitle, visitDate, visitTime, visitType, tenantId } = options;
+
+    // Récupérer les profils
+    const { data: ownerProfile } = await supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', ownerId)
+      .single();
+
+    const { data: tenantProfile } = await supabase
+      .from('profiles')
+      .select('full_name, email, phone')
+      .eq('id', tenantId)
+      .single();
+
+    // Récupérer l'adresse de la propriété
+    const { data: property } = await supabase
+      .from('properties')
+      .select('address, city')
+      .eq('id', propertyId)
+      .single();
+
+    // Formatter l'adresse
+    let propertyAddress = property?.city || 'Adresse non renseignée';
+    if (property?.address) {
+      try {
+        const { formatAddress } = await import('@/shared/utils/address');
+        propertyAddress = formatAddress(property.address);
+      } catch {
+        // Ignore formatting errors
+      }
+    }
+
+    // Formatter la date et l'heure
+    const formattedDate = new Date(visitDate).toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    // Labels des types de visite
+    const visitTypeLabels: Record<string, string> = {
+      in_person: 'Sur place',
+      video_call: 'Visio',
+      virtual: 'Virtuelle',
+    };
+
+    await this.sendNotification({
+      userId: ownerId,
+      templateCode: 'new_visit_requested',
+      channels: ['email', 'in_app'],
+      data: {
+        owner_name: ownerProfile?.full_name || 'Propriétaire',
+        property_title: propertyTitle,
+        visit_date: formattedDate,
+        visit_time: visitTime,
+        visit_type_label: visitTypeLabels[visitType] || visitType,
+        tenant_name: tenantProfile?.full_name || 'Candidat',
+        tenant_phone: tenantProfile?.phone || 'Non renseigné',
+        tenant_email: tenantProfile?.email || 'Non renseigné',
+        property_address: propertyAddress,
+      },
+      priority: 'high',
+    });
+  },
+
+  /**
+   * Envoyer une notification de visite confirmée au locataire
+   */
+  async sendVisitConfirmedNotification(options: {
+    tenantId: string;
+    propertyTitle: string;
+    visitDate: string;
+    visitTime: string;
+    propertyAddress: string;
+  }): Promise<void> {
+    const { tenantId, propertyTitle, visitDate, visitTime, propertyAddress } = options;
+
+    // Récupérer le profil du locataire
+    const { data: tenantProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', tenantId)
+      .single();
+
+    // Formatter la date
+    const formattedDate = new Date(visitDate).toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    await this.sendNotification({
+      userId: tenantId,
+      templateCode: 'visit_confirmed',
+      channels: ['email', 'in_app'],
+      data: {
+        tenant_name: tenantProfile?.full_name || 'Locataire',
+        property_title: propertyTitle,
+        visit_date: formattedDate,
+        visit_time: visitTime,
+        property_address: propertyAddress,
+      },
+      priority: 'high',
+    });
+  },
+
+  /**
+   * Envoyer une notification de visite annulée au locataire
+   */
+  async sendVisitCancelledNotification(options: {
+    tenantId: string;
+    propertyTitle: string;
+    visitDate: string;
+    visitTime: string;
+    cancellationReason?: string;
+  }): Promise<void> {
+    const { tenantId, propertyTitle, visitDate, visitTime, cancellationReason } = options;
+
+    // Récupérer le profil du locataire
+    const { data: tenantProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', tenantId)
+      .single();
+
+    // Formatter la date
+    const formattedDate = new Date(visitDate).toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    await this.sendNotification({
+      userId: tenantId,
+      templateCode: 'visit_cancelled',
+      channels: ['email', 'in_app'],
+      data: {
+        tenant_name: tenantProfile?.full_name || 'Locataire',
+        property_title: propertyTitle,
+        visit_date: formattedDate,
+        visit_time: visitTime,
+        cancellation_reason: cancellationReason || '',
+      },
+      priority: 'normal',
     });
   },
 
@@ -364,10 +527,10 @@ export const notificationService = {
    * Envoyer un email
    */
   async sendEmail(
-    notificationId: string,
-    subject: string,
-    content: string,
-    data: Record<string, unknown>
+    _notificationId: string,
+    _subject: string,
+    _content: string,
+    _data: Record<string, unknown>
   ): Promise<void> {
     // Récupérer l'email de l'utilisateur
     const { data: notification } = await supabase
@@ -406,9 +569,9 @@ export const notificationService = {
    * Envoyer un SMS
    */
   async sendSMS(
-    notificationId: string,
-    content: string,
-    data: Record<string, unknown>
+    _notificationId: string,
+    _content: string,
+    _data: Record<string, unknown>
   ): Promise<void> {
     const { data: notification } = await supabase
       .from('notifications')

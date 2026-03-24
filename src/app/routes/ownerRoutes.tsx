@@ -13,6 +13,7 @@ const OwnerApplications = lazyWithRetry(() => import('@/pages/owner/OwnerApplica
 const MyProperties = lazyWithRetry(() => import('@/pages/owner/MyPropertiesPage'));
 const OwnerProfilePage = lazyWithRetry(() => import('@/pages/owner/ProfilePage'));
 const OwnerVisitsPage = lazyWithRetry(() => import('@/pages/owner/VisitsPage'));
+const OwnerNotificationsPage = lazyWithRetry(() => import('@/pages/owner/NotificationsPage'));
 const VisitSlotsManagement = lazyWithRetry(() => import('@/pages/owner/VisitSlotsManagementPage'));
 const MyTenantsPage = lazyWithRetry(() => import('@/pages/owner/MyTenantsPage'));
 const PaymentsPage = lazyWithRetry(() => import('@/pages/owner/PaymentsPage'));
@@ -158,6 +159,12 @@ export const ownerRoutes: RouteObject[] = [
       {
         path: 'visites/creneaux',
         element: <VisitSlotsManagement />,
+      },
+
+      // Notifications (standalone page without layout for full management)
+      {
+        path: 'notifications',
+        element: <OwnerNotificationsPage />,
       },
 
       // Tenants

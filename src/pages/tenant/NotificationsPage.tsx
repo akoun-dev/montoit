@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/services/supabase/client';
 import {
@@ -6,7 +6,6 @@ import {
   Check,
   X,
   Archive,
-  Filter,
   Search,
   Calendar,
   Home,
@@ -16,12 +15,15 @@ import {
   AlertCircle,
   CheckCircle,
   Info,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Notification {
   id: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'system';
-  category: 'payment' | 'application' | 'lease' | 'message' | 'system' | 'property';
+  type: 'info' | 'success' | 'warning' | 'error' | 'system' | 'visit' | 'rent_due' | 'rent_overdue' | 'lease_expiry' | 'lease_renewal' | 'application' | 'message' | 'contract' | 'payment' | 'maintenance';
+  category?: 'payment' | 'application' | 'lease' | 'message' | 'system' | 'property';
   title: string;
   message: string;
   is_read: boolean;
@@ -38,6 +40,16 @@ const notificationConfig = {
   warning: { icon: AlertCircle, color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
   error: { icon: X, color: 'text-red-600', bgColor: 'bg-red-100' },
   system: { icon: Bell, color: 'text-gray-600', bgColor: 'bg-gray-100' },
+  visit: { icon: Calendar, color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  rent_due: { icon: AlertCircle, color: 'text-orange-600', bgColor: 'bg-orange-100' },
+  rent_overdue: { icon: X, color: 'text-red-600', bgColor: 'bg-red-100' },
+  lease_expiry: { icon: Calendar, color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
+  lease_renewal: { icon: FileText, color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  application: { icon: FileText, color: 'text-indigo-600', bgColor: 'bg-indigo-100' },
+  message: { icon: MessageSquare, color: 'text-teal-600', bgColor: 'bg-teal-100' },
+  contract: { icon: FileText, color: 'text-cyan-600', bgColor: 'bg-cyan-100' },
+  payment: { icon: CreditCard, color: 'text-green-600', bgColor: 'bg-green-100' },
+  maintenance: { icon: Home, color: 'text-amber-600', bgColor: 'bg-amber-100' },
 };
 
 const categoryConfig = {
@@ -58,18 +70,104 @@ export default function NotificationsPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadNotifications();
+
+      // Set up realtime subscription for notifications
+      const channel = supabase
+        .channel('notifications-realtime-tenant', {
+          config: {
+            presence: {
+              key: user.id,
+            },
+          },
+        })
+        .on('postgres_changes', {
+          event: '*', // Listen to INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        }, (payload) => {
+          console.log('Notification change received:', payload);
+
+          switch (payload.eventType) {
+            case 'INSERT': {
+              // New notification - add to list
+              const newNotification = payload.new as Notification;
+              setNotifications((prev) => [newNotification, ...prev]);
+
+              // Show toast notification
+              toast.success(newNotification.title, {
+                description: newNotification.message.substring(0, 100),
+                action: {
+                  label: 'Voir',
+                  onClick: () => {
+                    if (newNotification.action_url) {
+                      window.location.href = newNotification.action_url;
+                    }
+                  },
+                },
+              });
+
+              // Show browser notification if permission granted
+              if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(newNotification.title, {
+                  body: newNotification.message,
+                  icon: '/favicon.ico',
+                  tag: newNotification.id,
+                });
+              }
+
+              // Play sound for new notification
+              try {
+                const audio = new Audio('/sounds/notification.mp3');
+                audio.play().catch(() => {}); // Ignore autoplay restrictions
+              } catch (_e) {
+                // Sound file might not exist, ignore error
+              }
+              break;
+            }
+
+            case 'UPDATE':
+              // Notification updated (marked as read, archived, etc.)
+              setNotifications((prev) =>
+                prev.map((n) =>
+                  n.id === payload.new.id ? { ...n, ...(payload.new as Notification) } : n
+                )
+              );
+              break;
+
+            case 'DELETE':
+              // Notification deleted
+              setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id));
+              break;
+          }
+        })
+        .subscribe((status) => {
+          console.log('Realtime status:', status);
+          if (status === 'SUBSCRIBED') {
+            setRealtimeConnected(true);
+          } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+            setRealtimeConnected(false);
+          }
+        });
+
+      // Request notification permission
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  useEffect(() => {
-    filterNotifications();
-  }, [notifications, searchTerm, selectedCategory, selectedType, showUnreadOnly]);
-
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('notifications')
@@ -86,9 +184,9 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
 
-  const filterNotifications = () => {
+  const filterNotifications = useCallback(() => {
     let filtered = [...notifications];
 
     // Filter by search term
@@ -116,7 +214,7 @@ export default function NotificationsPage() {
     }
 
     setFilteredNotifications(filtered);
-  };
+  }, [notifications, searchTerm, selectedCategory, selectedType, showUnreadOnly]);
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -249,14 +347,34 @@ export default function NotificationsPage() {
                 </p>
               </div>
             </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="bg-white/10 hover:bg-white/20 text-white font-semibold py-3 px-6 rounded-xl transition-colors flex items-center gap-2 self-start"
-              >
-                Tout marquer comme lu
-              </button>
-            )}
+            <div className="flex items-center gap-3 self-start">
+              {/* Realtime connection indicator */}
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                realtimeConnected
+                  ? 'bg-green-500/20 text-green-300'
+                  : 'bg-red-500/20 text-red-300'
+              }`}>
+                {realtimeConnected ? (
+                  <>
+                    <Wifi className="w-3.5 h-3.5" />
+                    <span>En direct</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-3.5 h-3.5" />
+                    <span>Hors ligne</span>
+                  </>
+                )}
+              </div>
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                  className="bg-white/10 hover:bg-white/20 text-white font-semibold py-3 px-6 rounded-xl transition-colors flex items-center gap-2"
+                >
+                  Tout marquer comme lu
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -349,8 +467,10 @@ export default function NotificationsPage() {
           ) : (
             <div className="divide-y divide-gray-200">
               {filteredNotifications.map((notification) => {
-                const Icon = notificationConfig[notification.type].icon;
-                const CategoryIcon = categoryConfig[notification.category].icon;
+                const config = notificationConfig[notification.type] || notificationConfig.info;
+                const Icon = config.icon;
+                const categoryConfigItem = notification.category ? categoryConfig[notification.category] : null;
+                const CategoryIcon = categoryConfigItem ? categoryConfigItem.icon : null;
                 return (
                   <div
                     key={notification.id}
@@ -361,10 +481,10 @@ export default function NotificationsPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-4">
                         <div
-                          className={`p-2 rounded-lg ${notificationConfig[notification.type].bgColor}`}
+                          className={`p-2 rounded-lg ${config.bgColor}`}
                         >
                           <Icon
-                            className={`w-5 h-5 ${notificationConfig[notification.type].color}`}
+                            className={`w-5 h-5 ${config.color}`}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -376,10 +496,12 @@ export default function NotificationsPage() {
                             >
                               {notification.title}
                             </h3>
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                              <CategoryIcon className="w-3 h-3 mr-1" />
-                              {categoryConfig[notification.category].label}
-                            </span>
+                            {CategoryIcon && (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                <CategoryIcon className="w-3 h-3 mr-1" />
+                                {categoryConfigItem?.label || 'Notification'}
+                              </span>
+                            )}
                           </div>
                           <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
                           <div className="flex items-center space-x-4 text-xs text-gray-500">

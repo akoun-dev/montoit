@@ -64,6 +64,7 @@ export default function MaintenanceRequest() {
     }
   }, [user, setActiveLease, setLoading]);
 
+   
   useEffect(() => {
     loadActiveLease();
   }, [loadActiveLease]);
@@ -126,6 +127,41 @@ export default function MaintenanceRequest() {
       });
 
       if (error) throw error;
+
+      // Fetch owner_id from the property
+      const { data: propertyData } = await supabase
+        .from('properties')
+        .select('owner_id, title')
+        .eq('id', activeLease.property_id)
+        .single();
+
+      // Send notification to property owner
+      if (propertyData?.owner_id) {
+        try {
+          const issueTypeLabels: Record<string, string> = {
+            plumbing: 'Plomberie',
+            electrical: 'Électricité',
+            heating: 'Chauffage/Climatisation',
+            appliance: 'Électroménager',
+            structural: 'Structure/Bâtiment',
+            other: 'Autre',
+          };
+
+          await supabase.functions.invoke('maintenance-notifications', {
+            body: {
+              action: 'maintenance_requested',
+              recipient_id: propertyData.owner_id,
+              property_title: propertyData.title || 'Votre propriété',
+              request_type: issueTypeLabels[formData.issue_type] || formData.issue_type,
+              urgency: formData.urgency,
+              description: formData.description,
+            },
+          });
+        } catch (notifError) {
+          console.error('Failed to send maintenance notification:', notifError);
+          // Don't block the request if notification fails
+        }
+      }
 
       setSuccess(true);
       setFormData({ issue_type: 'plumbing', urgency: 'medium', description: '' });

@@ -223,10 +223,39 @@ class OTPUnifiedService {
         console.error('[OTP] Error details:', {
           message: error.message,
           status: error.status,
+          name: error.name,
+          // Try to access any additional context
+          context: (error as unknown as { context?: unknown }).context,
         });
+
+        // Try to get more diagnostic info from the error
+        let detailedError = error.message || "Erreur lors de l'envoi du SMS";
+
+        // The context is a Response object - try to read its body
+        const errorWithContext = error as unknown as { context?: Response };
+        if (errorWithContext.context instanceof Response) {
+          try {
+            const responseClone = errorWithContext.context.clone();
+            const errorBody = await responseClone.json();
+            console.error('[OTP] Full error response body:', errorBody);
+            const { reason, azureStatus, diagnostic } = errorBody;
+            if (reason) {
+              detailedError = reason;
+            }
+            if (azureStatus) {
+              detailedError += ` (Azure Status: ${azureStatus})`;
+            }
+            if (diagnostic) {
+              console.error('[OTP] Diagnostic info:', diagnostic);
+            }
+          } catch (parseError) {
+            console.error('[OTP] Could not parse error body:', parseError);
+          }
+        }
+
         return {
           success: false,
-          error: error.message || "Erreur lors de l'envoi du SMS",
+          error: detailedError,
         };
       }
 

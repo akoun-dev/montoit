@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Menu, Bell, MessageSquare } from 'lucide-react';
 import TenantSidebar from './TenantSidebar';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { Link } from 'react-router-dom';
+import { useMenuCounters } from '@/hooks/useMenuCounters';
 
 interface TenantDashboardLayoutProps {
   children: React.ReactNode;
@@ -11,31 +11,9 @@ interface TenantDashboardLayoutProps {
 }
 
 export default function TenantDashboardLayout({ children, title }: TenantDashboardLayoutProps) {
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [unreadMessages, setUnreadMessages] = useState(0);
-
-  useEffect(() => {
-    if (user) {
-      loadUnreadMessages();
-    }
-  }, [user]);
-
-  const loadUnreadMessages = async () => {
-    if (!user) return;
-
-    try {
-      const { data } = await supabase
-        .from('messages')
-        .select('id')
-        .eq('receiver_id', user.id)
-        .eq('is_read', false);
-
-      setUnreadMessages(data?.length || 0);
-    } catch (error) {
-      console.error('Error loading unread messages:', error);
-    }
-  };
+  const { counters } = useMenuCounters();
 
   return (
     <div className="flex min-h-[100svh] bg-neutral-50 overflow-hidden lg:h-screen">
@@ -43,7 +21,6 @@ export default function TenantDashboardLayout({ children, title }: TenantDashboa
       <TenantSidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        unreadMessages={unreadMessages}
       />
 
       {/* Main Content */}
@@ -68,18 +45,23 @@ export default function TenantDashboardLayout({ children, title }: TenantDashboa
                 aria-label="Messages"
               >
                 <MessageSquare className="h-5 w-5 text-neutral-700" />
-                {unreadMessages > 0 && (
+                {counters.unreadMessages > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                    {unreadMessages > 9 ? '9+' : unreadMessages}
+                    {counters.unreadMessages > 9 ? '9+' : counters.unreadMessages}
                   </span>
                 )}
               </Link>
               <Link
                 to="/locataire/notifications"
-                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors touch-manipulation"
+                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors relative touch-manipulation"
                 aria-label="Notifications"
               >
                 <Bell className="h-5 w-5 text-neutral-700" />
+                {counters.unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                    {counters.unreadNotifications > 9 ? '9+' : counters.unreadNotifications}
+                  </span>
+                )}
               </Link>
             </div>
           </div>

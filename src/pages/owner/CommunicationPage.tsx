@@ -86,7 +86,7 @@ interface EmailTemplate {
   updated_at: string;
 }
 
-interface Tenant {
+interface _Tenant {
   id: string;
   full_name: string;
   avatar_url: string | null;
@@ -96,7 +96,7 @@ interface Tenant {
   is_verified: boolean;
 }
 
-interface Property {
+interface _Property {
   id: string;
   title: string;
   city: string | null;
@@ -104,7 +104,7 @@ interface Property {
   status: string;
 }
 
-const COLORS = {
+const _COLORS = {
   chocolat: '#2C1810',
   sable: '#E8D4C5',
   orange: '#F16522',
@@ -117,7 +117,7 @@ type CommTab = 'messages' | 'templates' | 'notifications';
 
 export default function CommunicationPage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<CommTab>('messages');
 
   // Messages state
@@ -131,13 +131,14 @@ export default function CommunicationPage() {
 
   // Templates state
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
+  const [_selectedTemplate, _setSelectedTemplate] = useState<EmailTemplate | null>(null);
   const [editingTemplate, setEditingTemplate] = useState(false);
 
   // Notifications state
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'read'>('all');
 
+   
   useEffect(() => {
     if (user) {
       loadConversations();
@@ -162,7 +163,7 @@ export default function CommunicationPage() {
         .order('updated_at', { ascending: false });
 
       const conversationsWithMeta = (data || []).map((conv: Record<string, unknown>) => {
-        const otherParticipantId = conv.participant1_id === user.id
+        const _otherParticipantId = conv.participant1_id === user.id
           ? conv.participant2_id
           : conv.participant1_id;
 
@@ -253,7 +254,7 @@ export default function CommunicationPage() {
     try {
       setSendingMessage(true);
 
-      const otherParticipantId = selectedConversation.participant1_id === user?.id
+      const _otherParticipantId = selectedConversation.participant1_id === user?.id
         ? selectedConversation.participant2_id
         : selectedConversation.participant1_id;
 
@@ -308,6 +309,7 @@ export default function CommunicationPage() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleSendTemplateEmail = useCallback(
     async (template: EmailTemplate, recipientId: string) => {
       try {
@@ -389,11 +391,11 @@ export default function CommunicationPage() {
     },
     {
       id: 'visit_confirmed',
-      name: 'Visite Confirmée',
+      name: 'VISITE CONFIRMÉE',
       slug: 'visite_confirmee',
       subject: 'Votre visite est confirmée',
       body_html: '<p>Bonjour {{prenom}},</p><p>Votre visite pour {{propriete}} le {{date_visite}} est confirmée.</p>',
-      body_text: 'Visite confirmée',
+      body_text: 'VISITE CONFIRMÉE',
       variables: ['prenom', 'propriete', 'date_visite', 'heure'],
       category: 'visit_confirmed',
       active: true,

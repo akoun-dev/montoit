@@ -4,7 +4,6 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/services/supabase/client';
 import {
   Calendar,
-  Clock,
   Video,
   MapPin,
   ArrowLeft,
@@ -61,6 +60,7 @@ export default function ScheduleVisit() {
 
   const propertyId = routeId || window.location.pathname.split('/').pop();
 
+   
   useEffect(() => {
     if (propertyId && !property) {
       loadProperty();
@@ -69,6 +69,7 @@ export default function ScheduleVisit() {
     }
   }, [propertyId, property]);
 
+   
   useEffect(() => {
     if (selectedDate && property) {
       loadAvailableSlots();
@@ -150,17 +151,44 @@ export default function ScheduleVisit() {
       const visitDate = new Date(selectedDate);
       if (!isNaN(hours)) visitDate.setHours(hours, minutes || 0, 0, 0);
 
+      const visitDateStr = selectedDate.toISOString().split('T')[0];
+
       const { error } = await supabase.from('visit_requests').insert({
         property_id: property.id,
         tenant_id: user.id,
         owner_id: property.owner_id,
         visit_type: visitType,
-        visit_date: selectedDate.toISOString().split('T')[0],
+        visit_date: visitDateStr,
         visit_time: selectedTime,
         status: 'pending',
       } as never);
 
       if (error) throw error;
+
+      // Envoyer une notification au propriétaire via l'Edge Function
+      try {
+        const { data: notifData, error: notifError } = await supabase.functions.invoke('create-visit-notification', {
+          body: {
+            action: 'new',
+            property_id: property.id,
+            tenant_id: user.id,
+            owner_id: property.owner_id,
+            visit_date: visitDateStr,
+            visit_time: selectedTime,
+            visit_type: visitType,
+            property_title: property.title,
+          },
+        });
+
+        if (notifError) {
+          console.error('Erreur lors de l\'envoi de la notification:', notifError);
+        } else {
+          console.log('Notification envoyée avec succès:', notifData);
+        }
+      } catch (notifError) {
+        console.error('Erreur lors de l\'envoi de la notification:', notifError);
+        // Ne pas bloquer le succès si la notification échoue
+      }
 
       setSuccess(true);
       setTimeout(() => {

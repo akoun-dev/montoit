@@ -76,7 +76,7 @@ function validatePayload(body: unknown): { valid: boolean; error?: string; data?
 
 /**
  * Construit l'URL pour l'API Azure MTN
- * IMPORTANT: Le + dans le numéro ne doit PAS être encodé (particularité de cette API)
+ * IMPORTANT: L'API attend le numéro SANS le préfixe + (ex: 2250140984943, pas +2250140984943)
  */
 function buildAzureUrl(phone: string, message: string): string {
   // L'URL de base CORRECTE est /gateway/api (pas /client/)
@@ -95,15 +95,18 @@ function buildAzureUrl(phone: string, message: string): string {
   const password = Deno.env.get('AZURE_SMS_PASSWORD') || '';
   const from = Deno.env.get('AZURE_SMS_FROM') || 'ANSUT';
 
-  // Format attendu par l'API Azure MTN:
-  // https://host/gateway/api/SendSMS?Username=X&Password=Y&From=Z&To=+2250140984943;&Text=Message&dlrUrl=
-  // IMPORTANT: Le + dans To ne doit PAS être encodé (pas %2B)
+  // Format attendu par l'API Azure MTN (selon collection Postman):
+  // https://host/gateway/api/SendSMS?Username=X&Password=Y&From=Z&To=2250140984943;&Text=Message&dlrUrl=
+  // IMPORTANT: Le numéro de téléphone doit être SANS le préfixe +
   const encodedUsername = encodeURIComponent(username);
   const encodedPassword = encodeURIComponent(password);
   const encodedFrom = encodeURIComponent(from);
   const encodedText = encodeURIComponent(message);
 
-  return `${cleanBaseUrl}SendSMS?Username=${encodedUsername}&Password=${encodedPassword}&From=${encodedFrom}&To=${phone};&Text=${encodedText}&dlrUrl=`;
+  // Retirer le préfixe + du numéro pour l'API Azure
+  const phoneWithoutPrefix = phone.replace(/^\+/, '');
+
+  return `${cleanBaseUrl}SendSMS?Username=${encodedUsername}&Password=${encodedPassword}&From=${encodedFrom}&To=${phoneWithoutPrefix};&Text=${encodedText}&dlrUrl=`;
 }
 
 serve(async (req: Request) => {
@@ -144,8 +147,26 @@ serve(async (req: Request) => {
     const azurePassword = Deno.env.get('AZURE_SMS_PASSWORD');
     const azureFrom = Deno.env.get('AZURE_SMS_FROM');
 
+    // Enhanced logging for configuration (without exposing secrets)
+    console.log('[sms-otp-send] Configuration check:', {
+      hasUrl: !!azureUrl,
+      hasUsername: !!azureUsername,
+      hasPassword: !!azurePassword,
+      hasFrom: !!azureFrom,
+      url: azureUrl,
+      username: azureUsername,
+      from: azureFrom,
+    });
+
     if (!azureUrl || !azureUsername || !azurePassword || !azureFrom) {
-      console.error('[sms-otp-send] Azure SMS configuration missing');
+      console.error('[sms-otp-send] Azure SMS configuration missing:', {
+        missing: [
+          !azureUrl && 'AZURE_SMS_URL',
+          !azureUsername && 'AZURE_SMS_USERNAME',
+          !azurePassword && 'AZURE_SMS_PASSWORD',
+          !azureFrom && 'AZURE_SMS_FROM',
+        ].filter(Boolean),
+      });
       return new Response(
         JSON.stringify({
           status: 'error',
@@ -160,10 +181,19 @@ serve(async (req: Request) => {
 
     console.log('[sms-otp-send] Sending SMS to:', phone.substring(0, 6) + '****');
     console.log('[sms-otp-send] Message length:', message.length);
+    console.log('[sms-otp-send] Message preview:', message.substring(0, 50) + '...');
     console.log(
       '[sms-otp-send] Using URL (sanitized):',
       smsUrl.replace(/Username=[^&]*/, 'Username=***').replace(/Password=[^&]*/, 'Password=***')
     );
+    console.log('[sms-otp-send] Full URL components (sanitized):', {
+      baseUrl: smsUrl.split('?')[0],
+      hasUsername: smsUrl.includes('Username='),
+      hasPassword: smsUrl.includes('Password='),
+      fromParam: smsUrl.match(/From=([^&]+)/)?.[1],
+      toParam: phone.substring(0, 6) + '****',
+      textLength: message.length,
+    });
 
     // Call Azure MTN SMS API with better error handling
     let azureResponse: Response;
@@ -224,34 +254,73 @@ serve(async (req: Request) => {
 
     try {
       const responseData = JSON.parse(responseText);
-      console.log('[sms-otp-send] Azure response data:', responseData);
+      console.log('[sms-otp-send] Azure response parsed as JSON:', responseData);
 
       if (Array.isArray(responseData) && responseData.length > 0) {
         azureStatus = responseData[0].status || 'unknown';
+        console.log('[sms-otp-send] Azure first item status:', azureStatus);
+        console.log('[sms-otp-send] Azure first item full data:', responseData[0]);
+
         if (azureStatus === 'Rejected') {
-          azureReason = 'Message rejeté par Azure MTN (vérifiez crédentials/credits)';
+          // Log detailed rejection info
+          console.error('[sms-otp-send] Message rejected by Azure MTN. Details:', {
+            status: azureStatus,
+            fullResponse: responseData[0],
+            phoneNumber: phone,
+            senderId: azureFrom,
+            messageLength: message.length,
+          });
+          azureReason = `Message rejeté par Azure MTN. Status: ${azureStatus}`;
+          if (responseData[0].reason) {
+            azureReason += ` - ${responseData[0].reason}`;
+          }
+          if (responseData[0].error) {
+            azureReason += ` - Error: ${responseData[0].error}`;
+          }
+          if (responseData[0].description) {
+            azureReason += ` - ${responseData[0].description}`;
+          }
+          // Fallback if no details provided
+          if (azureReason === `Message rejeté par Azure MTN. Status: ${azureStatus}`) {
+            azureReason += ' (vérifiez crédentials/credits/sender ID)';
+          }
         } else if (azureStatus === 'Delivered') {
           azureReason = 'Message délivré avec succès';
         }
+      } else {
+        console.log('[sms-otp-send] Azure response is not an array or empty:', typeof responseData);
       }
-    } catch {
+    } catch (parseError) {
       // Réponse non JSON, on garde le texte brut
+      console.log('[sms-otp-send] Azure response is not JSON, treating as text:', {
+        textLength: responseText.length,
+        textPreview: responseText.substring(0, 200),
+        parseError: parseError instanceof Error ? parseError.message : String(parseError),
+      });
       azureReason = responseText.substring(0, 100);
     }
 
-    console.log('[sms-otp-send] Azure status:', azureStatus, 'reason:', azureReason);
+    console.log('[sms-otp-send] Final Azure status:', azureStatus, 'reason:', azureReason);
 
     // Générer un ID de message unique basé sur le timestamp et le numéro
     const messageId = `AZURE_${Date.now()}_${phone.substring(phone.length - 6)}`;
 
     // Si le statut est Rejected, on retourne une erreur même si HTTP 200
     if (azureStatus === 'Rejected') {
+      const errorResponse = {
+        status: 'error' as const,
+        reason: azureReason,
+        azureStatus,
+        diagnostic: {
+          timestamp: new Date().toISOString(),
+          phonePrefix: phone.substring(0, 6) + '****',
+          senderId: azureFrom,
+          azureUrl: azureUrl?.replace(/\/\/[^@]+@/, '//***@'),
+        },
+      };
+      console.error('[sms-otp-send] Returning 422 with full context:', errorResponse);
       return new Response(
-        JSON.stringify({
-          status: 'error',
-          reason: azureReason,
-          azureStatus,
-        } as SmsResponse),
+        JSON.stringify(errorResponse),
         {
           status: 422, // Unprocessable Entity - message valid mais rejeté par le provider
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

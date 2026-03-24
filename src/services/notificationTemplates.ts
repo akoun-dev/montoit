@@ -12,16 +12,16 @@ export const NOTIFICATION_TEMPLATES: Record<string, NotificationTemplate> = {
     category: 'verification_result',
     channels: ['email', 'sms', 'in_app'],
     priority: 'high',
-    subject: '✅ Votre dossier a été validé !',
+    subject: 'Votre dossier a été validé !',
     template_fr: `Bonjour {{full_name},
 
 Nous avons le plaisir de vous informer que votre dossier locatif a été validé avec succès !
 
-📋 Détails de la décision :
+Détails de la décision :
 - Date : {{decision_date}}
 - Référence : {{application_id}}
 
-🎉 Prochaines étapes :
+Prochaines étapes :
 1. Complétez votre profil si ce n'est pas déjà fait
 2. Commencez à rechercher vos futurs logements
 3. Répondez aux propriétaires qui vous intéressent
@@ -40,14 +40,14 @@ L'équipe MonToit`,
     category: 'verification_result',
     channels: ['email', 'in_app'],
     priority: 'high',
-    subject: '⚠️ Votre dossier nécessite des corrections',
+    subject: 'Votre dossier nécessite des corrections',
     template_fr: `Bonjour {{full_name}},
 
 Après examen, votre dossier n'a pas pu être validé pour la raison suivante :
 
-❌ Motif : {{rejection_reason}}
+Motif : {{rejection_reason}}
 
-📄 Documents concernés : {{rejected_docs}}
+Documents concernés : {{rejected_docs}}
 
 Que pouvez-vous faire ?
 1. Corrigez les documents mentionnés
@@ -76,7 +76,7 @@ Votre dossier est en cours d'examen et nous avons besoin de documents supplémen
 📋 Documents demandés :
 {{required_documents}}
 
-⏰ Délai : {{deadline}}
+Délai : {{deadline}}
 
 Merci de les télécharger via votre espace personnel dès que possible.
 
@@ -92,15 +92,15 @@ L'équipe MonToit`,
     category: 'verification_result',
     channels: ['email', 'sms', 'in_app'],
     priority: 'high',
-    subject: '✅ Votre compte propriétaire est certifié',
+    subject: 'Votre compte propriétaire est certifié',
     template_fr: `Bonjour {{full_name}},
 
 Félicitations ! Votre compte propriétaire a obtenu la certification ANSUT.
 
-📜 Certification : {{certification_number}}
-📅 Date : {{certification_date}}
+Certification : {{certification_number}}
+Date : {{certification_date}}
 
-🏠 Bénéfices de votre certification :
+Bénéfices de votre certification :
 - Badge de vérification sur votre profil
 - Visibilité améliorée auprès des locataires
 - Crédit de confiance accru
@@ -122,13 +122,13 @@ L'équipe MonToit`,
     category: 'verification_result',
     channels: ['email', 'in_app'],
     priority: 'high',
-    subject: '⚠️ Votre certification a été refusée',
+    subject: 'Votre certification a été refusée',
     template_fr: `Bonjour {{full_name}},
 
 Nous regrettons de vous informer que votre certification propriétaire a été refusée.
 
-❌ Motif : {{rejection_reason}}
-📄 Documents concernés : {{rejected_docs}}
+Motif : {{rejection_reason}}
+Documents concernés : {{rejected_docs}}
 
 Que pouvez-vous faire ?
 1. Corrigez les documents mentionnés
@@ -147,13 +147,13 @@ L'équipe MonToit`,
     category: 'verification_result',
     channels: ['email', 'sms', 'in_app'],
     priority: 'high',
-    subject: '✅ Votre agence est certifiée ANSUT',
+    subject: 'Votre agence est certifiée ANSUT',
     template_fr: `Bonjour {{agency_name}},
 
 Excellente nouvelle ! Votre agence a obtenu la certification ANSUT.
 
-📜 Certification : {{certification_number}}
-📅 Date : {{certification_date}}
+Certification : {{certification_number}}
+Date : {{certification_date}}
 
 Votre agence apparaîtra maintenant comme vérifiée sur la plateforme.
 
@@ -169,13 +169,13 @@ L'équipe MonToit`,
     category: 'verification_result',
     channels: ['email', 'in_app'],
     priority: 'high',
-    subject: '⚠️ Certification agence refusée',
+    subject: 'Certification agence refusée',
     template_fr: `Bonjour {{agency_name}},
 
 Nous regrettons de vous informer que la certification de votre agence a été refusée.
 
-❌ Motif : {{rejection_reason}}
-📄 Documents concernés : {{rejected_docs}}
+Motif : {{rejection_reason}}
+Documents concernés : {{rejected_docs}}
 
 Pour plus d'informations, contactez notre support technique.
 
@@ -220,7 +220,7 @@ Merci de soumettre un nouveau document.`,
     category: 'profile',
     channels: ['email', 'in_app'],
     priority: 'high',
-    subject: '⏰ Votre vérification expire bientôt',
+    subject: 'Votre vérification expire bientôt',
     template_fr: `Bonjour {{full_name}},
 
 Votre vérification "{{verification_type}}" expire dans {{days_left}} jours.
@@ -244,7 +244,7 @@ L'équipe MonToit`,
     category: 'profile',
     channels: ['email', 'in_app'],
     priority: 'high',
-    subject: '⏰ Votre vérification a expiré',
+    subject: 'Votre vérification a expiré',
     template_fr: `Bonjour {{full_name}},
 
 Votre vérification "{{verification_type}}" est expirée depuis {{expired_since}} jours.
@@ -259,6 +259,100 @@ Pour restaurer votre score :
 Cordialement,
 L'équipe MonToit`,
     variables: ['full_name', 'verification_type', 'expired_since', 'verification_id'],
+  },
+
+  // Nouvelle demande de visite - Pour le propriétaire
+  'new_visit_requested': {
+    id: 'new_visit_requested',
+    code: 'new_visit_requested',
+    category: 'approval_needed',
+    channels: ['email', 'in_app'],
+    priority: 'high',
+    subject: 'Nouvelle demande de visite - {{property_title}}',
+    template_fr: `Bonjour {{owner_name}},
+
+Vous avez reçu une nouvelle demande de visite pour votre propriété :
+
+{{property_title}}
+Date : {{visit_date}}
+Heure : {{visit_time}}
+Candidat : {{tenant_name}}
+Contact : {{tenant_phone}}
+Email : {{tenant_email}}
+Type de visite : {{visit_type_label}}
+
+Connectez-vous à votre espace propriétaire pour confirmer ou annuler cette visite.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['owner_name', 'property_title', 'visit_date', 'visit_time', 'tenant_name', 'tenant_phone', 'tenant_email', 'visit_type_label'],
+  },
+
+  // VISITE CONFIRMÉE - Pour le locataire
+  'visit_confirmed': {
+    id: 'visit_confirmed',
+    code: 'visit_confirmed',
+    category: 'approval_needed',
+    channels: ['email', 'in_app'],
+    priority: 'high',
+    subject: 'VISITE CONFIRMÉE - {{property_title}}',
+    template_fr: `Bonjour {{tenant_name}},
+
+Votre visite a été confirmée par le propriétaire :
+
+{{property_title}}
+Date : {{visit_date}}
+Heure : {{visit_time}}
+Adresse : {{property_address}}
+
+Merci de ponctualité. En cas d'empêchement, merci de prévenir le propriétaire.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['tenant_name', 'property_title', 'visit_date', 'visit_time', 'property_address'],
+  },
+
+  // Visite annulée - Pour le locataire
+  'visit_cancelled': {
+    id: 'visit_cancelled',
+    code: 'visit_cancelled',
+    category: 'approval_needed',
+    channels: ['email', 'in_app'],
+    priority: 'normal',
+    subject: 'Visite annulée - {{property_title}}',
+    template_fr: `Bonjour {{tenant_name},
+
+La visite pour {{property_title}} prévue le {{visit_date}} à {{visit_time}} a été annulée par le propriétaire.
+
+N'hésitez pas à contacter le propriétaire pour plus d'informations ou à planifier une nouvelle visite.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['tenant_name', 'property_title', 'visit_date', 'visit_time', 'cancellation_reason'],
+  },
+
+  // Rappel de visite programmée
+  'visit_reminder': {
+    id: 'visit_reminder',
+    code: 'visit_reminder',
+    category: 'approval_needed',
+    channels: ['email', 'sms', 'in_app'],
+    priority: 'high',
+    subject: 'Rappel : Visite prévue demain - {{property_title}}',
+    template_fr: `Bonjour {{full_name}},
+
+Rappel : Vous avez une visite programmée demain :
+
+{{property_title}}
+Date : {{visit_date}}
+Heure : {{visit_time}}
+Adresse : {{property_address}}
+
+Pensez à préparer votre visite.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['full_name', 'property_title', 'visit_date', 'visit_time', 'property_address'],
   },
 };
 

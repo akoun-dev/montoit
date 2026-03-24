@@ -7,6 +7,7 @@ export { default as OwnerApplicationsPage } from './OwnerApplicationsPage';
 export { default as OwnerContractsPage } from './OwnerContractsPage';
 export { default as ProfilePage } from './ProfilePage';
 export { default as VisitsPage } from './VisitsPage';
+export { default as NotificationsPage } from './NotificationsPage';
 export { default as MyTenantsPage } from './MyTenantsPage';
 export { default as PaymentsPage } from './PaymentsPage';
 export { default as DocumentsPage } from './DocumentsPage';

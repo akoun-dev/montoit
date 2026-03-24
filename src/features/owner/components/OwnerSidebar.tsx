@@ -22,13 +22,13 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useEffect, useRef } from 'react';
+import { useMenuCounters } from '@/hooks/useMenuCounters';
 
 const cn = (...inputs: (string | undefined | null | false)[]) => twMerge(clsx(inputs));
 
 interface OwnerSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  unreadMessages?: number;
 }
 
 const navSections = [
@@ -39,8 +39,8 @@ const navSections = [
       { label: 'Mes biens', href: '/proprietaire/mes-biens', icon: Building2 },
       { label: 'Ajouter un bien', href: '/proprietaire/ajouter-propriete', icon: PlusCircle },
       { label: 'Mes contrats', href: '/proprietaire/contrats', icon: FileText },
-      { label: 'Mes candidatures', href: '/proprietaire/candidatures', icon: Users },
-      { label: 'Visites', href: '/proprietaire/visites', icon: Calendar },
+      { label: 'Mes candidatures', href: '/proprietaire/candidatures', icon: Users, counterKey: 'pendingApplications' as const },
+      { label: 'Visites', href: '/proprietaire/visites', icon: Calendar, counterKey: 'pendingVisits' as const },
     ],
   },
   {
@@ -56,7 +56,8 @@ const navSections = [
   {
     title: 'Communication',
     items: [
-      { label: 'Messages', href: '/proprietaire/messages', icon: MessageSquare, hasBadge: true },
+      { label: 'Messages', href: '/proprietaire/messages', icon: MessageSquare, counterKey: 'unreadMessages' as const },
+      { label: 'Notifications', href: '/proprietaire/notifications', icon: Bell, counterKey: 'unreadNotifications' as const },
       { label: 'Mon profil', href: '/proprietaire/profil', icon: UserCircle2 },
     ],
   },
@@ -64,10 +65,11 @@ const navSections = [
 
 const quickItems = [{ label: 'Rechercher', href: '/recherche', icon: Search }];
 
-export function OwnerSidebar({ isOpen, onClose, unreadMessages = 0 }: OwnerSidebarProps) {
+export function OwnerSidebar({ isOpen, onClose }: OwnerSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, profile } = useAuth();
+  const { counters } = useMenuCounters();
   const currentPath = location.pathname;
   const sidebarRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<number | null>(null);
@@ -284,9 +286,9 @@ export function OwnerSidebar({ isOpen, onClose, unreadMessages = 0 }: OwnerSideb
                         />
                         <Icon className={cn('h-5 w-5', active ? 'text-[#F16522]' : '')} />
                         <span className="flex-1 truncate">{item.label}</span>
-                        {item.hasBadge && unreadMessages > 0 && (
-                          <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
-                            {unreadMessages > 99 ? '99+' : unreadMessages}
+                        {item.counterKey && counters[item.counterKey] > 0 && (
+                          <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                            {counters[item.counterKey] > 99 ? '99+' : counters[item.counterKey]}
                           </span>
                         )}
                       </Link>

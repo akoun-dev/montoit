@@ -20,13 +20,13 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useRef, useEffect } from 'react';
+import { useMenuCounters } from '@/hooks/useMenuCounters';
 
 const cn = (...inputs: (string | undefined | null | false)[]) => twMerge(clsx(inputs));
 
 interface TenantSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  unreadMessages?: number;
 }
 
 const navSections = [
@@ -42,8 +42,8 @@ const navSections = [
   {
     title: 'Activité',
     items: [
-      { label: 'Mes Candidatures', href: '/locataire/mes-candidatures', icon: Users },
-      { label: 'Mes Visites', href: '/locataire/mes-visites', icon: Calendar },
+      { label: 'Mes Candidatures', href: '/locataire/mes-candidatures', icon: Users, counterKey: 'pendingApplications' as const },
+      { label: 'Mes Visites', href: '/locataire/mes-visites', icon: Calendar, counterKey: 'pendingVisits' as const },
       { label: 'Mes Avis', href: '/locataire/avis', icon: Star },
       { label: 'Mes Contrats', href: '/locataire/mes-contrats', icon: FileText },
       { label: 'Mes Paiements', href: '/locataire/mes-paiements', icon: CreditCard },
@@ -54,16 +54,17 @@ const navSections = [
   {
     title: 'Communication',
     items: [
-      { label: 'Messages', href: '/locataire/messages', icon: MessageSquare, hasBadge: true },
-      { label: 'Notifications', href: '/locataire/notifications', icon: Bell },
+      { label: 'Messages', href: '/locataire/messages', icon: MessageSquare, counterKey: 'unreadMessages' as const },
+      { label: 'Notifications', href: '/locataire/notifications', icon: Bell, counterKey: 'unreadNotifications' as const },
     ],
   },
 ];
 
-export default function TenantSidebar({ isOpen, onClose, unreadMessages = 0 }: TenantSidebarProps) {
+export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, profile } = useAuth();
+  const { counters } = useMenuCounters();
   const currentPath = location.pathname;
   const sidebarRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<number | null>(null);
@@ -299,9 +300,9 @@ export default function TenantSidebar({ isOpen, onClose, unreadMessages = 0 }: T
                             <Icon className="h-5 w-5" />
                           </span>
                           <span className="flex-1 truncate text-sm">{item.label}</span>
-                          {item.hasBadge && unreadMessages > 0 && (
-                            <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center animate-pulse flex-shrink-0">
-                              {unreadMessages > 99 ? '99+' : unreadMessages}
+                          {item.counterKey && counters[item.counterKey] > 0 && (
+                            <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center animate-pulse flex-shrink-0">
+                              {counters[item.counterKey] > 99 ? '99+' : counters[item.counterKey]}
                             </span>
                           )}
                         </Link>

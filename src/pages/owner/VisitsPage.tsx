@@ -102,6 +102,31 @@ const STATUS_CONFIG: Record<
   },
 };
 
+// Visit type configuration
+const VISIT_TYPE_CONFIG: Record<
+  string,
+  { label: string; color: string; bg: string; icon: unknown }
+> = {
+  in_person: {
+    label: 'Sur place',
+    color: 'text-purple-700',
+    bg: 'bg-purple-50',
+    icon: MapPin,
+  },
+  video_call: {
+    label: 'Visio',
+    color: 'text-blue-700',
+    bg: 'bg-blue-50',
+    icon: VideoIcon,
+  },
+  virtual: {
+    label: 'Virtuelle',
+    color: 'text-cyan-700',
+    bg: 'bg-cyan-50',
+    icon: VideoIcon,
+  },
+};
+
 // Helper components
 const StatCard = ({
   icon: Icon,
@@ -148,6 +173,19 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
+const VisitTypeBadge = ({ visitType }: { visitType: string | null }) => {
+  if (!visitType) return null;
+  const config = VISIT_TYPE_CONFIG[visitType];
+  if (!config) return null;
+  const Icon = config.icon;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border border-current ${config.bg} ${config.color}`}>
+      <Icon className="w-3.5 h-3.5" />
+      {config.label}
+    </span>
+  );
+};
+
 function VisitsPage({ mode }: { mode: VisitsMode }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -164,6 +202,7 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
   useEffect(() => {
     if (!user) return;
     loadVisits();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadVisits = async () => {
@@ -175,6 +214,8 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
         .select(
           `
           id,
+          visit_date,
+          visit_time,
           confirmed_date,
           visit_type,
           status,
@@ -190,15 +231,32 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
         `
         )
         .eq('owner_id', user.id)
-        .order('confirmed_date', { ascending: true });
+        .order('visit_date', { ascending: true, nullsFirst: false })
+        .order('visit_time', { ascending: true, nullsFirst: false });
 
       if (error) throw error;
 
       const rows = ((data as VisitRow[]) || []).map((row) => {
-        const confirmed = (row as any).confirmed_date || '';
-        const [d, t] = confirmed ? confirmed.split('T') : ['', ''];
-        const date = d || '';
-        const time = t ? t.replace('Z', '') : null;
+        // Use visit_date and visit_time directly, fallback to confirmed_date if needed
+        const visitDate = (row as any).visit_date;
+        const visitTime = (row as any).visit_time;
+        const confirmedDate = (row as any).confirmed_date;
+
+        // If visit_date is set, use it; otherwise try to extract from confirmed_date
+        let date = '';
+        let time = null;
+
+        if (visitDate) {
+          // visit_date is a date field, format it
+          date = visitDate;
+          time = visitTime;
+        } else if (confirmedDate) {
+          // Fallback to confirmed_date if visit_date is not set
+          const [d, t] = confirmedDate.split('T');
+          date = d || '';
+          time = t ? t.replace('Z', '') : null;
+        }
+
         return {
           ...row,
           visit_date: date,
@@ -311,11 +369,41 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
     try {
       const { error } = await supabase
         .from('visit_requests')
-        .update({ status: 'confirmed' })
+        .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
         .eq('id', visitId)
         .eq('owner_id', user?.id);
 
       if (error) throw error;
+
+      // Envoyer une notification au locataire via l'Edge Function
+      const visit = visits.find((v) => v.id === visitId);
+      if (visit && visit.tenant_id) {
+        try {
+          const propertyAddress = visit.property?.address
+            ? formatAddress(visit.property.address, visit.property.city)
+            : visit.property?.city || 'Adresse non renseignée';
+
+          const { data: notifData, error: notifError } = await supabase.functions.invoke('create-visit-notification', {
+            body: {
+              action: 'confirmed',
+              tenant_id: visit.tenant_id,
+              property_title: visit.property?.title || 'Propriété',
+              visit_date: visit.visit_date,
+              visit_time: visit.visit_time || '',
+              property_address: propertyAddress,
+            },
+          });
+
+          if (notifError) {
+            console.error('Erreur lors de l\'envoi de la notification:', notifError);
+          } else {
+            console.log('Notification envoyée avec succès:', notifData);
+          }
+        } catch (notifError) {
+          console.error('Erreur lors de l\'envoi de la notification:', notifError);
+        }
+      }
+
       toast.success('Visite confirmée avec succès');
       await loadVisits();
     } catch (err) {
@@ -331,11 +419,36 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
     try {
       const { error } = await supabase
         .from('visit_requests')
-        .update({ status: 'cancelled' })
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
         .eq('id', visitId)
         .eq('owner_id', user?.id);
 
       if (error) throw error;
+
+      // Envoyer une notification au locataire via l'Edge Function
+      const visit = visits.find((v) => v.id === visitId);
+      if (visit && visit.tenant_id) {
+        try {
+          const { data: notifData, error: notifError } = await supabase.functions.invoke('create-visit-notification', {
+            body: {
+              action: 'cancelled',
+              tenant_id: visit.tenant_id,
+              property_title: visit.property?.title || 'Propriété',
+              visit_date: visit.visit_date,
+              visit_time: visit.visit_time || '',
+            },
+          });
+
+          if (notifError) {
+            console.error('Erreur lors de l\'envoi de la notification:', notifError);
+          } else {
+            console.log('Notification envoyée avec succès:', notifData);
+          }
+        } catch (notifError) {
+          console.error('Erreur lors de l\'envoi de la notification:', notifError);
+        }
+      }
+
       toast.success('Visite annulée');
       await loadVisits();
     } catch (err) {
@@ -614,12 +727,7 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
 
                           <div className="flex items-center gap-2">
                             <StatusBadge status={statusKey} />
-                            {visit.visit_type === 'virtual' && (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                                <VideoIcon className="w-3.5 h-3.5" />
-                                Virtuelle
-                              </span>
-                            )}
+                            <VisitTypeBadge visitType={visit.visit_type} />
                           </div>
                         </div>
 

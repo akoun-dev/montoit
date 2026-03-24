@@ -20,6 +20,7 @@ serve(async (req) => {
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const url = new URL(req.url);
 
     // POST / - Reçoit les callbacks de paiement InTouch
@@ -29,7 +30,7 @@ serve(async (req) => {
 
       console.log('InTouch Callback received:', JSON.stringify(callbackData));
 
-      const { transaction_id, status, amount, operator } = callbackData;
+      const { transaction_id, status, amount: _amount, operator: _operator } = callbackData;
 
       if (!transaction_id) {
         return new Response(
@@ -68,6 +69,11 @@ serve(async (req) => {
         await handleSuccessfulPayment(supabase, transaction, callbackData);
       }
 
+      // Si le paiement a échoué, envoyer une notification au locataire
+      if ((status === 'FAILED' || status === 'CANCELLED') && transaction) {
+        await handleFailedPayment(supabase, transaction, callbackData);
+      }
+
       return new Response(
         JSON.stringify({ success: true, data: transaction }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -100,7 +106,7 @@ serve(async (req) => {
   }
 });
 
-async function handleSuccessfulPayment(supabase: Record<string, unknown>, transaction: Record<string, unknown>, callbackData: Record<string, unknown>) {
+async function handleSuccessfulPayment(_supabase: Record<string, unknown>, transaction: Record<string, unknown>, _callbackData: Record<string, unknown>) {
   // 1. Mettre à jour le statut du paiement de loyer si applicable
   if (transaction.type === 'rental_payment' && transaction.lease_id) {
     await supabase
@@ -114,24 +120,46 @@ async function handleSuccessfulPayment(supabase: Record<string, unknown>, transa
       });
   }
 
-  // 2. Envoyer notification au propriétaire
-  if (transaction.property_owner_id) {
-    await supabase.from('notifications').insert({
-      user_id: transaction.property_owner_id,
-      type: 'payment_received',
-      title: 'Paiement reçu',
-      message: `Un paiement de ${transaction.amount} FCFA a été reçu pour le bien ${transaction.property_id}`,
-    });
+  // 2. Fetch property and lease details for notification
+  let propertyTitle = 'Votre bien';
+  let ownerId = transaction.property_owner_id;
+
+  if (transaction.lease_id) {
+    const { data: lease } = await supabase
+      .from('lease_contracts')
+      .select('property_id, properties(title), owner_id')
+      .eq('id', transaction.lease_id)
+      .single();
+
+    if (lease?.properties?.title) {
+      propertyTitle = lease.properties.title;
+    }
+    if (lease?.owner_id) {
+      ownerId = lease.owner_id;
+    }
   }
 
-  // 3. Envoyer notification au locataire
-  if (transaction.tenant_id) {
-    await supabase.from('notifications').insert({
-      user_id: transaction.tenant_id,
-      type: 'payment_confirmed',
-      title: 'Paiement confirmé',
-      message: `Votre paiement de ${transaction.amount} FCFA a été confirmé avec succès`,
-    });
+  // 3. Envoyer notification au propriétaire via Edge Function
+  if (ownerId) {
+    try {
+      await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/payment-notifications`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+        },
+        body: JSON.stringify({
+          action: 'payment_received',
+          recipient_id: ownerId,
+          property_title: propertyTitle,
+          amount: transaction.amount,
+          payment_method: transaction.operator || 'Mobile Money',
+        }),
+      });
+      console.log('[Notification] Payment received notification sent to owner:', ownerId);
+    } catch (error) {
+      console.error('[Notification] Failed to send payment received notification:', error);
+    }
   }
 
   // 4. Générer la quittance automatiquement
@@ -140,7 +168,47 @@ async function handleSuccessfulPayment(supabase: Record<string, unknown>, transa
   }
 }
 
-async function generateReceipt(supabase: Record<string, unknown>, transaction: Record<string, unknown>) {
+async function handleFailedPayment(_supabase: Record<string, unknown>, transaction: Record<string, unknown>, _callbackData: Record<string, unknown>) {
+  // Fetch property details for notification
+  let propertyTitle = 'Votre bien';
+
+  if (transaction.lease_id) {
+    const { data: lease } = await supabase
+      .from('lease_contracts')
+      .select('property_id, properties(title)')
+      .eq('id', transaction.lease_id)
+      .single();
+
+    if (lease?.properties?.title) {
+      propertyTitle = lease.properties.title;
+    }
+  }
+
+  // Envoyer notification au locataire via Edge Function
+  if (transaction.tenant_id) {
+    try {
+      await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/payment-notifications`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+        },
+        body: JSON.stringify({
+          action: 'payment_failed',
+          recipient_id: transaction.tenant_id,
+          property_title: propertyTitle,
+          amount: transaction.amount,
+          payment_method: transaction.operator || 'Mobile Money',
+        }),
+      });
+      console.log('[Notification] Payment failed notification sent to tenant:', transaction.tenant_id);
+    } catch (error) {
+      console.error('[Notification] Failed to send payment failed notification:', error);
+    }
+  }
+}
+
+async function generateReceipt(_supabase: Record<string, unknown>, transaction: Record<string, unknown>) {
   const receiptData = {
     transaction_id: transaction.transaction_id,
     amount: transaction.amount,
