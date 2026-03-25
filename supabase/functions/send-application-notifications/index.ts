@@ -196,6 +196,9 @@ Deno.serve(async (req: Request) => {
     // Get notification type
     const notificationType = notificationTypeMapping[type] || 'info';
 
+    // Determine notification category
+    const notificationCategory = 'application';
+
     // Create in-app notifications
     const notifications = recipientIds.map(userId => ({
       user_id: userId,
@@ -204,6 +207,7 @@ Deno.serve(async (req: Request) => {
       message: config.message(notificationData),
       action_url: config.actionUrl(applicationId, property.id),
       action_text: 'Voir',
+      category: notificationCategory,
       data: {
         applicationId,
         propertyId: property.id,

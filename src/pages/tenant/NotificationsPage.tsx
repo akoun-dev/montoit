@@ -216,6 +216,11 @@ export default function NotificationsPage() {
     setFilteredNotifications(filtered);
   }, [notifications, searchTerm, selectedCategory, selectedType, showUnreadOnly]);
 
+  // Apply filters whenever dependencies change
+  useEffect(() => {
+    filterNotifications();
+  }, [filterNotifications]);
+
   const markAsRead = async (notificationId: string) => {
     try {
       const { error } = await supabase

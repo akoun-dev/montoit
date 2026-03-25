@@ -16,6 +16,7 @@ interface NotificationRequest {
   visitTime?: string;
   propertyTitle?: string;
   propertyAddress?: string;
+  applicationId?: string;
 }
 
 interface LeaseDetails {
@@ -138,6 +139,35 @@ const notificationConfig: Record<string, {
     actionUrl: (visitId) => `/locataire/mes-candidatures`,
     emailTemplate: 'visit-completed',
     emailSubject: (data) => `✅ Visite terminée - ${data.propertyTitle}`
+  },
+  // Application notifications
+  'application_received': {
+    title: () => '📋 Nouvelle candidature reçue',
+    message: (data) => `Vous avez reçu une nouvelle candidature pour "${data.propertyTitle}" de la part de ${data.tenantName}.`,
+    actionUrl: (applicationId) => `/proprietaire/candidatures`,
+    emailTemplate: 'application-received',
+    emailSubject: (data) => `📋 Nouvelle candidature - ${data.propertyTitle}`
+  },
+  'application_accepted': {
+    title: () => '🎉 Candidature acceptée',
+    message: (data) => `Félicitations ! Votre candidature pour "${data.propertyTitle}" a été acceptée. Vous pouvez maintenant procéder à la signature du bail.`,
+    actionUrl: (applicationId) => `/locataire/mes-candidatures`,
+    emailTemplate: 'application-accepted',
+    emailSubject: (data) => `🎉 Candidature acceptée - ${data.propertyTitle}`
+  },
+  'application_rejected': {
+    title: () => '❌ Candidature refusée',
+    message: (data) => `Votre candidature pour "${data.propertyTitle}" n'a pas été retenue. Continuez votre recherche !`,
+    actionUrl: (applicationId) => `/locataire/mes-candidatures`,
+    emailTemplate: 'application-rejected',
+    emailSubject: (data) => `❌ Candidature refusée - ${data.propertyTitle}`
+  },
+  'application_in_progress': {
+    title: () => '🔄 Candidature en cours',
+    message: (data) => `Votre candidature pour "${data.propertyTitle}" est en cours de traitement. Une visite sera planifiée prochainement.`,
+    actionUrl: (applicationId) => `/locataire/mes-candidatures`,
+    emailTemplate: 'application-in-progress',
+    emailSubject: (data) => `🔄 Candidature en cours - ${data.propertyTitle}`
   }
 };
 
@@ -152,17 +182,19 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { leaseId, visitId, type, recipientId, daysRemaining, signerName, visitDate, visitTime, propertyTitle, propertyAddress } = await req.json() as NotificationRequest;
+    const { leaseId, visitId, type, recipientId, daysRemaining, signerName, visitDate, visitTime, propertyTitle, propertyAddress, applicationId } = await req.json() as NotificationRequest;
 
-    // Check if this is a visit notification
+    // Check notification type
     const isVisitNotification = type.startsWith('visit_');
-    const entityId = isVisitNotification ? visitId : leaseId;
+    const isApplicationNotification = type.startsWith('application_');
+    const entityId = isVisitNotification ? visitId : isApplicationNotification ? applicationId : leaseId;
 
-    console.log(`[send-lease-notifications] Processing ${type} for ${isVisitNotification ? 'visit' : 'lease'} ${entityId}`);
+    const notificationTypeLabel = isVisitNotification ? 'visit' : isApplicationNotification ? 'application' : 'lease';
+    console.log(`[send-lease-notifications] Processing ${type} for ${notificationTypeLabel} ${entityId}`);
 
     if (!entityId || !type) {
       return new Response(
-        JSON.stringify({ error: `Missing ${isVisitNotification ? 'visitId' : 'leaseId'} or type` }),
+        JSON.stringify({ error: `Missing ${notificationTypeLabel}Id or type` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -175,34 +207,81 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Fetch lease details
-    const { data: lease, error: leaseError } = await supabaseClient
-      .from('lease_contracts')
-      .select('id, contract_number, owner_id, tenant_id, property_id, monthly_rent, start_date, end_date, status')
-      .eq('id', leaseId)
-      .single();
-
-    if (leaseError || !lease) {
-      console.error('Error fetching lease:', leaseError);
-      return new Response(
-        JSON.stringify({ error: 'Lease not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Fetch property details
-    const { data: property } = await supabaseClient
-      .from('properties')
-      .select('title, city')
-      .eq('id', lease.property_id)
-      .single();
-
     // Determine recipients based on notification type
     let recipientIds: string[] = [];
     let notificationData: Record<string, unknown> = {};
     let profiles: Record<string, unknown> = null;
 
-    if (isVisitNotification) {
+    if (isApplicationNotification) {
+      // Handle application notifications
+      if (!applicationId) {
+        return new Response(
+          JSON.stringify({ error: 'Missing applicationId for application notification' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fetch application details
+      const { data: application, error: applicationError } = await supabaseClient
+        .from('rental_applications')
+        .select('id, property_id, tenant_id, status')
+        .eq('id', applicationId)
+        .single();
+
+      if (applicationError || !application) {
+        console.error('Error fetching application:', applicationError);
+        return new Response(
+          JSON.stringify({ error: 'Application not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fetch property details
+      const { data: appProperty } = await supabaseClient
+        .from('properties')
+        .select('title, city, owner_id')
+        .eq('id', application.property_id)
+        .single();
+
+      // Fetch tenant profile for name
+      const { data: tenantProfile } = await supabaseClient
+        .from('profiles')
+        .select('full_name')
+        .eq('id', application.tenant_id)
+        .single();
+
+      // Determine recipients based on application notification type
+      if (recipientId) {
+        recipientIds = [recipientId];
+      } else {
+        switch (type) {
+          case 'application_received':
+            // Notify the owner
+            recipientIds = [appProperty?.owner_id || ''];
+            break;
+          case 'application_accepted':
+          case 'application_rejected':
+          case 'application_in_progress':
+            // Notify the tenant
+            recipientIds = [application.tenant_id];
+            break;
+        }
+      }
+
+      // Fetch recipient profiles
+      const profilesResult = await supabaseClient
+        .from('profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', recipientIds);
+      profiles = profilesResult.data;
+
+      notificationData = {
+        propertyTitle: propertyTitle || appProperty?.title || 'Propriété',
+        tenantName: tenantProfile?.full_name || 'Un candidat',
+        applicationId: application.id,
+      };
+
+    } else if (isVisitNotification) {
       // Handle visit notifications
       if (!visitId) {
         return new Response(
@@ -347,13 +426,30 @@ Deno.serve(async (req: Request) => {
     }
 
     // Create in-app notifications and send emails
+    // Determine notification type and category
+    let notificationType: string;
+    let notificationCategory: string | undefined;
+    if (isApplicationNotification) {
+      notificationType = 'application'; // Use base type from enum
+      notificationCategory = 'application';
+    } else if (isVisitNotification) {
+      notificationType = 'info'; // Visit notifications use info type
+      notificationCategory = 'property';
+    } else if (type.startsWith('lease_')) {
+      notificationType = 'contract'; // Lease notifications use contract type
+      notificationCategory = 'contract';
+    } else {
+      notificationType = 'info'; // Default
+    }
+
     const notifications = recipientIds.map(userId => ({
       user_id: userId,
-      type: type,
+      type: notificationType,
       title: config.title(notificationData),
       message: config.message(notificationData),
       action_url: config.actionUrl(entityId || ''),
-      metadata: isVisitNotification ? { visitId, type } : { leaseId, type }
+      category: notificationCategory,
+      data: isApplicationNotification ? { applicationId, subType: type } : isVisitNotification ? { visitId, type } : { leaseId, type }
     }));
 
     const { error: insertError } = await supabaseClient

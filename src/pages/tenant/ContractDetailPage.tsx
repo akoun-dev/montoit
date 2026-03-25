@@ -19,6 +19,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  CreditCard,
+  Home as HomeIcon,
 } from 'lucide-react';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { canvasToBase64 } from '@/services/contracts/signatureService';

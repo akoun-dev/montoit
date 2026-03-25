@@ -94,6 +94,18 @@ export async function saveContractSignature(signatureData: SignatureData): Promi
         console.error('Erreur lors de la mise à jour du statut de la propriété:', propertyUpdateError);
         // Ne pas bloquer le processus si la mise à jour de la propriété échoue
       }
+
+      // Envoyer une notification que le bail est activé aux deux parties
+      try {
+        await supabase.functions.invoke('send-lease-notifications', {
+          body: {
+            leaseId: signatureData.contractId,
+            type: 'lease_active',
+          },
+        });
+      } catch (notifError) {
+        console.warn('[saveContractSignature] Failed to send lease_active notification (non-critical):', notifError);
+      }
     } else if (ownerWillSign || tenantWillSign) {
       updateData.status = 'pending_signature';
     }
@@ -176,10 +188,12 @@ async function sendSignatureNotification(signatureData: SignatureData): Promise<
 
     if (!contract) return;
 
-    // Déterminer qui notifier
-    const notifyUserId = signatureData.signatureType === 'landlord' 
-      ? contract.tenant_id 
+    // Déterminer qui notifier et quel type de notification
+    const notifyUserId = signatureData.signatureType === 'landlord'
+      ? contract.tenant_id
       : contract.owner_id;
+
+    const isOwnerSignature = signatureData.signatureType === 'landlord';
 
     // Récupérer le profil du signataire
     const { data: profile } = await supabase
@@ -190,17 +204,63 @@ async function sendSignatureNotification(signatureData: SignatureData): Promise<
 
     const signerName = profile?.full_name || 'Un utilisateur';
 
+    // Récupérer les détails de la propriété
+    const { data: property } = await supabase
+      .from('properties')
+      .select('title')
+      .eq('id', contract.property_id)
+      .single();
+
+    // Déterminer le titre et le message selon qui a signé
+    let title: string;
+    let message: string;
+    let actionUrl: string;
+
+    if (isOwnerSignature) {
+      // Le propriétaire a signé -> notifier le locataire
+      title = '✍️ Le propriétaire a signé';
+      message = `${signerName} a signé le contrat ${contract.contract_number}. C'est maintenant à votre tour de signer.`;
+      actionUrl = `/locataire/signer-bail/${signatureData.contractId}`;
+    } else {
+      // Le locataire a signé -> notifier le propriétaire
+      title = '✅ Le locataire a signé';
+      message = `${signerName} a signé le contrat ${contract.contract_number}`;
+      actionUrl = `/proprietaire/contrats/${signatureData.contractId}`;
+    }
+
     // Créer la notification
     await supabase
       .from('notifications')
       .insert({
         user_id: notifyUserId,
-        title: 'Nouvelle signature',
-        message: `${signerName} a signé le contrat ${contract.contract_number}`,
-        type: 'info',
-        action_url: `/proprietaire/contrats/${signatureData.contractId}`,
-        channel: 'in_app',
+        type: 'contract',
+        title,
+        message,
+        action_url: actionUrl,
+        category: 'contract',
+        data: {
+          contractId: signatureData.contractId,
+          contractNumber: contract.contract_number,
+          signerName,
+          signatureType: signatureData.signatureType,
+          propertyTitle: property?.title || 'Propriété',
+        },
       });
+
+    // Appeler la fonction Supabase pour envoyer l'email aussi
+    try {
+      await supabase.functions.invoke('send-lease-notifications', {
+        body: {
+          leaseId: signatureData.contractId,
+          type: isOwnerSignature ? 'lease_signed_owner' : 'lease_signed_tenant',
+          recipientId: notifyUserId,
+          signerName,
+          propertyTitle: property?.title,
+        },
+      });
+    } catch (emailError) {
+      console.warn('[sendSignatureNotification] Failed to send email notification (non-critical):', emailError);
+    }
 
   } catch (error) {
     console.error('Error sending signature notification:', error);

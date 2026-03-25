@@ -387,13 +387,13 @@ export async function acceptApplication(applicationId: string): Promise<void> {
     throw error;
   }
 
-  // Envoyer notification
-  await supabase.functions.invoke('send-lease-notifications', {
-    body: {
-      type: 'application_accepted',
-      applicationId,
-    },
-  });
+  // Envoyer notification via le service dédié aux candidatures
+  try {
+    const { notifyApplicationAccepted } = await import('@/services/notifications/applicationNotificationService');
+    await notifyApplicationAccepted(applicationId);
+  } catch (notifError) {
+    console.warn('[acceptApplication] Failed to send notification (non-critical):', notifError);
+  }
 }
 
 /**
@@ -413,13 +413,13 @@ export async function rejectApplication(applicationId: string): Promise<void> {
     throw error;
   }
 
-  // Envoyer notification
-  await supabase.functions.invoke('send-lease-notifications', {
-    body: {
-      type: 'application_rejected',
-      applicationId,
-    },
-  });
+  // Envoyer notification via le service dédié aux candidatures
+  try {
+    const { notifyApplicationRejected } = await import('@/services/notifications/applicationNotificationService');
+    await notifyApplicationRejected(applicationId);
+  } catch (notifError) {
+    console.warn('[rejectApplication] Failed to send notification (non-critical):', notifError);
+  }
 }
 
 /**
