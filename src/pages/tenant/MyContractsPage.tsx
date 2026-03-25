@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { FileText, Eye, Edit, X, CheckCircle, Pen } from 'lucide-react';
+import { FileText, Eye, Edit, X, CheckCircle, Pen, Ban, Loader2 } from 'lucide-react';
 import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 
@@ -45,6 +45,7 @@ export default function MyContracts() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'pending' | 'expired'>('all');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -121,6 +122,37 @@ export default function MyContracts() {
       loadContracts();
     }
   }, [user, loadContracts]);
+
+  const canCancelContract = (contract: Contract) => {
+    // Can cancel if contract is in draft, pending_signature, or even active (with conditions)
+    const cancellableStatuses = ['draft', 'pending_signature'];
+    return cancellableStatuses.includes(contract.status);
+  };
+
+  const handleCancelContract = async (contractId: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir annuler ce contrat ? Cette action est irréversible.')) {
+      return;
+    }
+
+    try {
+      setCancellingId(contractId);
+
+      const { error } = await supabase
+        .from('lease_contracts')
+        .update({ status: 'cancelled' })
+        .eq('id', contractId);
+
+      if (error) throw error;
+
+      // Reload contracts after cancellation
+      await loadContracts();
+    } catch (error) {
+      console.error('Error cancelling contract:', error);
+      alert('Erreur lors de l\'annulation du contrat');
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -346,13 +378,13 @@ export default function MyContracts() {
                     </div>
 
                     <div className="flex flex-wrap gap-3">
-                      <a
-                        href={`/locataire/contrat/${contract.id}`}
+                      <button
+                        onClick={() => navigate(`/locataire/contrat/${contract.id}`)}
                         className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition flex items-center space-x-2"
                       >
                         <Eye className="w-4 h-4" />
                         <span>Voir le contrat</span>
-                      </a>
+                      </button>
 
                       {/* Bouton Signer le contrat si pas encore signé par l'utilisateur */}
                       {(() => {
@@ -360,22 +392,12 @@ export default function MyContracts() {
                           (isOwner(contract) && !contract.owner_signed_at) ||
                           (!isOwner(contract) && !contract.tenant_signed_at);
 
-                        // Afficher un badge de debug pour comprendre pourquoi le bouton ne s'affiche pas
-                        console.log('Contract debug:', {
-                          id: contract.id,
-                          userId: user?.id,
-                          isOwner: isOwner(contract),
-                          ownerSigned: !!contract.owner_signed_at,
-                          tenantSigned: !!contract.tenant_signed_at,
-                          needsToSign,
-                        });
-
                         return needsToSign ? (
                           <button
                             onClick={() => navigate(
                               isOwner(contract)
-                                ? `/proprietaire/signer-contrat/${contract.id}`
-                                : `/locataire/signer-bail/${contract.id}`
+                                ? `/proprietaire/contrats/${contract.id}`
+                                : `/locataire/contrat/${contract.id}`
                             )}
                             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2"
                           >
@@ -386,13 +408,33 @@ export default function MyContracts() {
                       })()}
 
                       {contract.status === 'draft' && isOwner(contract) && (
-                        <a
-                          href={`/locataire/contrat/${contract.id}/editer`}
+                        <button
+                          onClick={() => navigate(`/locataire/contrat/${contract.id}/editer`)}
                           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center space-x-2"
                         >
                           <Edit className="w-4 h-4" />
                           <span>Modifier</span>
-                        </a>
+                        </button>
+                      )}
+
+                      {canCancelContract(contract) && (
+                        <button
+                          onClick={() => handleCancelContract(contract.id)}
+                          disabled={cancellingId === contract.id}
+                          className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {cancellingId === contract.id ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Annulation...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Ban className="w-4 h-4" />
+                              <span>Annuler</span>
+                            </>
+                          )}
+                        </button>
                       )}
                     </div>
                   </div>

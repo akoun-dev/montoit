@@ -131,19 +131,55 @@ export const useElectronicSignature = (): UseElectronicSignatureReturn => {
       return;
     }
 
+    // Health check pour vérifier que les edge functions sont accessibles
+    console.log('🔍 Checking CryptoNeo edge functions health...');
+    const healthResult = await cryptoNeoService.healthCheck();
+    if (!healthResult.healthy) {
+      console.error('❌ CryptoNeo edge functions are not healthy:', healthResult.error);
+      const errorMsg = healthResult.error
+        ? `Service de signature indisponible: ${healthResult.error}`
+        : 'Le service de signature est temporairement indisponible. Veuillez réessayer dans quelques instants.';
+      toast.error(errorMsg, { duration: 5000 });
+      updateState({
+        error: errorMsg,
+        step: 'error',
+        loading: false,
+      });
+      return;
+    }
+    console.log('✅ CryptoNeo edge functions are healthy');
+
     // Vérifier les données du profil (genre et téléphone requis)
     console.log('📋 Checking profile data...');
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('gender, phone')
-      .eq('id', user.id)
-      .maybeSingle();
+    let profile;
+    let profileError;
+
+    try {
+      const result = await supabase
+        .from('profiles')
+        .select('gender, phone')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      profile = result.data;
+      profileError = result.error;
+      console.log('📋 Profile query result:', { profile, profileError });
+    } catch (err) {
+      console.error('❌ Network error fetching profile:', err);
+      updateState({
+        error: 'Erreur de connexion lors de la récupération du profil. Vérifiez votre connexion internet.',
+        step: 'error',
+        loading: false,
+      });
+      toast.error('Erreur de connexion. Veuillez réessayer.');
+      return;
+    }
 
     const missingData: string[] = [];
-    if (!profile?.gender || profile.gender === 'Non spécifié') {
+    if (!profile?.gender || profile.gender === 'Non spécifié' || profile.gender === '') {
       missingData.push('le genre');
     }
-    if (!profile?.phone) {
+    if (!profile?.phone || profile.phone === '') {
       missingData.push('le numéro de téléphone');
     }
 
@@ -151,10 +187,10 @@ export const useElectronicSignature = (): UseElectronicSignatureReturn => {
       console.error('❌ Missing profile data:', missingData);
       updateState({
         error: `Veuillez compléter votre profil avant de signer: il manque ${missingData.join(' et ')}`,
-        step: 'error',
+        step: 'collect_data', // Aller à l'étape de collecte pour permettre à l'utilisateur de voir les infos
         loading: false,
       });
-      toast.error(`Profil incomplet. Veuillez renseigner ${missingData.join(' et ')} dans votre profil.`, {
+      toast.error(`Profil incomplet. Il manque ${missingData.join(' et ')}. Veuillez compléter votre profil.`, {
         duration: 5000,
       });
       return;
@@ -204,11 +240,22 @@ export const useElectronicSignature = (): UseElectronicSignatureReturn => {
       try {
         // 1. Vérifier le profil utilisateur
         console.log('📋 Fetching user profile...');
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('full_name, phone')
-          .eq('id', user.id)
-          .maybeSingle();
+        let profile;
+        let profileError;
+
+        try {
+          const result = await supabase
+            .from('profiles')
+            .select('full_name, phone')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          profile = result.data;
+          profileError = result.error;
+        } catch (networkErr) {
+          console.error('❌ Network error fetching profile:', networkErr);
+          throw new Error('Erreur de connexion internet. Veuillez vérifier votre connexion et réessayer.');
+        }
 
         if (profileError) {
           console.error('❌ Profile query error:', profileError);

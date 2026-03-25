@@ -312,7 +312,7 @@ async function sendReminderToUser(
     title: `🔔 Rappel de signature - ${schedule.label} rappel`,
     message: `Votre bail pour "${propertyTitle}" (contrat #${contract.contract_number}) est en attente de votre signature. Merci de le signer dans les plus brefs délais.`,
     type: 'warning',
-    action_url: target.role === 'owner' ? `/proprietaire/contrats` : `/locataire/signer-bail/${contract.id}`,
+    action_url: target.role === 'owner' ? `/proprietaire/contrats/${contract.id}` : `/locataire/contrat/${contract.id}`,
     channel: 'in_app',
     metadata: {
       contract_id: contract.id,

@@ -115,7 +115,7 @@ async function fetchProperties({
   let query = supabase
     .from('properties')
     .select('*', { count: 'exact' })
-    .eq('status', 'available');
+    .in('status', ['available', 'rented']);
 
   // Filtrer uniquement les propriétés certifiées ANSUT si demandé
   if (ansutVerifiedOnly) {
@@ -227,7 +227,7 @@ export function useInfiniteProperties(
   const { filters, orderColumn, ascending } = buildQueryParams(options);
   const prefetchedPages = useRef<Set<number>>(new Set());
 
-  // Build cache key based on filters
+  // Build cache key based on filters - include ansutVerifiedOnly to prevent stale cache
   const queryKey = [
     ...queryKeys.properties.list({
       city,
@@ -237,6 +237,7 @@ export function useInfiniteProperties(
       bedrooms,
       sortBy,
       locationMode,
+      ansutVerifiedOnly,
     }),
   ];
 
@@ -266,7 +267,10 @@ export function useInfiniteProperties(
       }
       return undefined;
     },
-    ...searchPropertiesConfig,
+    // Force refetch to get latest data including rented properties
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
   });
 
   // Flatten all pages into a single array
@@ -308,7 +312,7 @@ export function useInfiniteProperties(
                 .from('properties')
                 .select('*')
                 .eq('id', property.id)
-                .eq('status', 'available')
+                .in('status', ['available', 'rented', 'pending'])
                 .single();
 
               if (!data) return null;

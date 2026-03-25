@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
-import { downloadContract, regenerateContract } from '@/services/contracts/contractService';
+import { downloadContract, regenerateContract, generateAndUploadContract } from '@/services/contracts/contractService';
 import {
   ArrowLeft,
   FileText,
@@ -178,6 +178,7 @@ export default function ContractDetailPage() {
   const [tenant, setTenant] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
+  const [generatingDocument, setGeneratingDocument] = useState(false);
   const [signatureMethod, setSignatureMethod] = useState<'manual' | 'electronic' | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [signing, setSigning] = useState(false);
@@ -234,6 +235,29 @@ export default function ContractDetailPage() {
 
       setContract(contractData);
 
+      // Auto-generate contract document if it doesn't exist
+      if (!contractData.document_url && !contractData.draft_document_url) {
+        try {
+          setGeneratingDocument(true);
+          console.log('[ContractDetailPage] No document found, generating contract PDF...');
+          await generateAndUploadContract(contractData.id);
+          // Reload contract to get the document_url
+          const { data: updatedData } = await supabase
+            .from('lease_contracts')
+            .select('document_url, draft_document_url')
+            .eq('id', contractData.id)
+            .single();
+          if (updatedData) {
+            setContract(prev => prev ? { ...prev, ...updatedData } : null);
+          }
+          console.log('[ContractDetailPage] Contract PDF generated successfully');
+        } catch (pdfError) {
+          console.error('[ContractDetailPage] Error generating contract PDF:', pdfError);
+        } finally {
+          setGeneratingDocument(false);
+        }
+      }
+
       // Load related data
       const [propData, ownerData, tenantData] = await Promise.all([
         supabase
@@ -269,171 +293,6 @@ export default function ContractDetailPage() {
       await downloadContract(contract.document_url, `contrat-${contract.contract_number}.pdf`);
     } catch (error) {
       console.error('Error downloading contract:', error);
-    }
-  };
-
-  const handleDownloadDraft = async () => {
-    if (!contract?.draft_document_url) return;
-    try {
-      await downloadContract(
-        contract.draft_document_url,
-        `brouillon-${contract.contract_number}.pdf`
-      );
-    } catch (error) {
-      console.error('Error downloading draft:', error);
-    }
-  };
-
-  const handleDownloadInventory = async () => {
-    if (!contract?.inventory_details) {
-      alert('Aucun inventaire disponible pour ce contrat');
-      return;
-    }
-    try {
-      // Create a JSON file from inventory details
-      const dataStr = JSON.stringify(contract.inventory_details, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `inventaire-${contract.contract_number}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading inventory:', error);
-    }
-  };
-
-  const handleDownloadDiagnostic = async () => {
-    try {
-      // Générer un diagnostic technique basé sur les informations du contrat et de la propriété
-      const diagnosticData = {
-        contract_number: contract.contract_number,
-        property_id: contract.property_id,
-        property_title: property?.title,
-        property_address: property?.address ? formatAddress(property.address as AddressValue) : '',
-        city: property?.city,
-        property_type: property?.property_type,
-        surface_area: property?.surface_area,
-        bedrooms: property?.bedrooms,
-        diagnostic_date: new Date().toISOString(),
-        diagnostic_type: 'Diagnostic technique immobilier',
-        performance_energetique: {
-          classe: 'En attente',
-          valeur: null,
-        },
-        gaz: {
-          classe: 'En attente',
-          valeur: null,
-        },
-        electricite: {
-          classe: 'En attente',
-          valeur: null,
-        },
-        plomb: {
-          presence: 'En attente',
-          valeur: null,
-        },
-        amiante: {
-          presence: 'En attente',
-          valeur: null,
-        },
-      };
-
-      const dataStr = JSON.stringify(diagnosticData, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `diagnostic-${contract.contract_number}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading diagnostic:', error);
-    }
-  };
-
-  const handleDownloadEtatDesLieux = async () => {
-    try {
-      // Générer un état des lieux
-      const etatDesLieuxData = {
-        contract_number: contract.contract_number,
-        property_id: contract.property_id,
-        property_title: property?.title,
-        property_address: property?.address ? formatAddress(property.address as AddressValue) : '',
-        city: property?.city,
-        tenant_name: tenant?.full_name,
-        owner_name: owner?.full_name,
-        start_date: contract.start_date,
-        end_date: contract.end_date || contract.end_at,
-        etat_entree: {
-          date: contract.start_date,
-          etat: 'En attente de réalisation',
-          observations: [],
-        },
-        etat_sortie: {
-          date: contract.end_date || contract.end_at,
-          etat: 'À réaliser',
-          observations: [],
-        },
-        inventory: contract.inventory_details || {},
-      };
-
-      const dataStr = JSON.stringify(etatDesLieuxData, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `etat-des-lieux-${contract.contract_number}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading etat des lieux:', error);
-    }
-  };
-
-  const handleDownloadJustificatifDomicile = async () => {
-    try {
-      // Générer un justificatif de domicile
-      const proofData = {
-        type_document: 'Justificatif de Domicile',
-        contract_number: contract.contract_number,
-        date_generation: new Date().toISOString(),
-        locataire: {
-          nom: tenant?.full_name,
-          email: tenant?.email,
-        },
-        proprietaire: {
-          nom: owner?.full_name,
-          email: owner?.email,
-        },
-        logement: {
-          titre: property?.title,
-          adresse: property?.address ? formatAddress(property.address as AddressValue) : '',
-          ville: property?.city,
-          type: property?.property_type,
-          surface: property?.surface_area,
-        },
-        contrat: {
-          date_debut: contract.start_date,
-          date_fin: contract.end_date || contract.end_at,
-          loyer_mensuel: contract.monthly_rent,
-          statut: contract.status,
-        },
-        document_url: contract.document_url,
-        signature_status: isFullySigned ? 'Signé par les deux parties' : 'En attente de signature',
-      };
-
-      const dataStr = JSON.stringify(proofData, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `justificatif-domicile-${contract.contract_number}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading justificatif:', error);
     }
   };
 
@@ -590,13 +449,32 @@ export default function ContractDetailPage() {
 
   const isFullySigned = contract.owner_signed_at && contract.tenant_signed_at;
 
+  // Check if current user is owner or tenant and if they have signed
+  const isOwner = contract.owner_id === user?.id;
+  const isTenant = contract.tenant_id === user?.id;
+  const hasOwnerSigned = !!contract.owner_signed_at;
+  const hasTenantSigned = !!contract.tenant_signed_at;
+  const userNeedsToSign = (isOwner && !hasOwnerSigned) || (isTenant && !hasTenantSigned);
+
+  // Debug logging
+  console.log('[ContractDetailPage] Signature debug:', {
+    userId: user?.id,
+    contractOwnerId: contract.owner_id,
+    contractTenantId: contract.tenant_id,
+    isOwner,
+    isTenant,
+    hasOwnerSigned,
+    hasTenantSigned,
+    userNeedsToSign,
+  });
+
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
       <header className="w-full bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          {/* Top row - Navigation and actions */}
-          <div className="flex items-center justify-between h-16">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Left: Navigation and title */}
             <div className="flex items-center gap-3">
               <button
                 onClick={() => navigate(-1)}
@@ -605,68 +483,66 @@ export default function ContractDetailPage() {
               >
                 <ArrowLeft className="w-5 h-5 text-gray-700" />
               </button>
-              <div className="h-6 w-px bg-gray-200" />
+              <div className="h-8 w-px bg-gray-200 hidden sm:block" />
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-9 h-9 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg shadow-sm">
-                  <FileText className="w-5 h-5 text-white" />
+                <div className="flex items-center justify-center w-11 h-11 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-sm">
+                  <FileText className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-base font-semibold text-gray-900 leading-tight">
+                  <h1 className="text-lg font-semibold text-gray-900 leading-tight">
                     Contrat de Location
                   </h1>
-                  <p className="text-xs text-gray-500">N° {contract.contract_number}</p>
+                  <p className="text-sm text-gray-500">N° {contract.contract_number}</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="small"
-                onClick={handleRegenerate}
-                disabled={regenerating}
-                className="hidden sm:flex"
-                title="Regénérer le contrat"
-              >
-                <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
-              </Button>
-              <Button
-                variant="outline"
-                size="small"
-                onClick={handleDownload}
-                disabled={!contract.document_url}
-                className="flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                <span className="hidden md:inline">Télécharger</span>
-              </Button>
+            {/* Right: Actions and status */}
+            <div className="flex items-center justify-between sm:justify-end gap-3">
+              {/* Status badges - mobile first */}
+              <div className="flex items-center gap-3">
+                <ContractStatusBadge status={contract.status} />
+                {isFullySigned ? (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span className="hidden xs:inline">Signé</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-medium">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span className="hidden xs:inline">En attente</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="h-6 w-px bg-gray-200 hidden sm:block" />
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="default"
+                  size="small"
+                  onClick={handleDownload}
+                  disabled={!contract.document_url}
+                  className="flex items-center gap-2 bg-[#F16522] hover:bg-[#e55a1d] text-white border-none"
+                  title={contract.document_url ? "Télécharger le contrat signé" : "Document non disponible"}
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Télécharger</span>
+                </Button>
+              </div>
             </div>
           </div>
 
-          {/* Bottom row - Status bar */}
-          <div className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <ContractStatusBadge status={contract.status} />
-                <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                  <Calendar className="w-4 h-4" />
-                  <span>
-                    Du {new Date(contract.start_date).toLocaleDateString('fr-FR')}
-                    {' au '}
-                    {new Date(contract.end_date || contract.end_at || '').toLocaleDateString('fr-FR')}
-                  </span>
-                </div>
-              </div>
-
-              {/* Mobile-only action button */}
-              <button
-                onClick={handleRegenerate}
-                disabled={regenerating}
-                className="sm:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Regénérer le contrat"
-              >
-                <RefreshCw className={`w-4 h-4 text-gray-600 ${regenerating ? 'animate-spin' : ''}`} />
-              </button>
+          {/* Dates row */}
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Calendar className="w-4 h-4 text-gray-400" />
+              <span>
+                Du {new Date(contract.start_date).toLocaleDateString('fr-FR')}
+                {' au '}
+                {new Date(contract.end_date || contract.end_at || '').toLocaleDateString('fr-FR')}
+              </span>
             </div>
           </div>
         </div>
@@ -799,177 +675,64 @@ export default function ContractDetailPage() {
               </div>
             </div>
 
-            {/* Documents Section */}
-            <div className="bg-white rounded-xl shadow-sm border p-6">
-              {/* Shared Documents Section */}
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-[#F16522]" />
-                  Documents du contrat
-                </h2>
-
-                <div className="space-y-3">
-                  {/* Contrat signé */}
-                  {contract.document_url && (
-                    <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-100 rounded-lg">
-                          <FileText className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-[#2C1810]">Contrat signé</p>
-                          <p className="text-sm text-gray-500">
-                            Document final signé par les parties
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="small"
-                        onClick={handleDownload}
-                        className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Brouillon du contrat */}
-                  {contract.draft_document_url && (
-                    <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gray-100 rounded-lg">
-                          <FileText className="w-5 h-5 text-gray-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-[#2C1810]">Brouillon du contrat</p>
-                          <p className="text-sm text-gray-500">Version avant signature</p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="small"
-                        onClick={handleDownloadDraft}
-                        className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Inventaire */}
-                  {contract.inventory_details &&
-                    Object.keys(contract.inventory_details).length > 0 && (
-                      <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-[#F16522]/10 rounded-lg">
-                            <FileText className="w-5 h-5 text-[#F16522]" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-[#2C1810]">Inventaire du logement</p>
-                            <p className="text-sm text-gray-500">
-                              État des lieux, photos, équipements
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="small"
-                          onClick={handleDownloadInventory}
-                          className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
-
-                  {/* Diagnostic */}
-                  <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-[#2C1810]">Diagnostic technique</p>
-                        <p className="text-sm text-gray-500">Consommation, diagnostics</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="small"
-                      onClick={handleDownloadDiagnostic}
-                      className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
-                    >
-                      <Download className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  {/* états des lieux */}
-                  <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 rounded-lg">
-                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-[#2C1810]">État des lieux</p>
-                        <p className="text-sm text-gray-500">Signé à l'entrée et à la sortie</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="small"
-                      onClick={handleDownloadEtatDesLieux}
-                      className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
-                    >
-                      <Download className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  {/* Justificatif de domicile */}
-                  <div className="flex items-center justify-between p-3 bg-[#FAF7F4] rounded-lg border border-[#EFEBE9]">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-purple-100 rounded-lg">
-                        <Shield className="w-5 h-5 text-purple-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-[#2C1810]">Justificatif de domicile</p>
-                        <p className="text-sm text-gray-500">
-                          {isFullySigned
-                            ? 'Document officiel'
-                            : 'Document provisoire (en attente de signature)'}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="small"
-                      onClick={handleDownloadJustificatifDomicile}
-                      className="text-[#F16522] border-[#F16522] hover:bg-[#F16522]/10"
-                    >
-                      <Download className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-xs text-blue-700">
-                    💡 Ces documents sont partagés entre le propriétaire et le locataire. Les
-                    justificatifs sont disponibles une fois le contrat signé par les deux parties.
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <div className="bg-white rounded-xl shadow-sm border p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Signature du contrat</h2>
 
-              {!isFullySigned && (
+              {generatingDocument && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl mb-4">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-900">Génération du document en cours...</p>
+                      <p className="text-xs text-blue-700 mt-1">
+                        Veuillez patienter pendant que nous préparons votre contrat.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {userNeedsToSign && (
                 <div className="space-y-3">
+                  {/* Show message if document is not ready */}
+                  {!contract?.document_url && !contract?.draft_document_url && !generatingDocument && (
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-3">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-amber-900">Document à générer</p>
+                          <p className="text-sm text-amber-700 mt-1">
+                            Le document de contrat doit être généré avant de pouvoir signer.
+                          </p>
+                          <button
+                            onClick={async () => {
+                              setGeneratingDocument(true);
+                              try {
+                                const { generateAndUploadContract } = await import('@/services/contracts/contractService');
+                                await generateAndUploadContract(contract.id);
+                                await loadContract(contract.id);
+                              } catch (error) {
+                                console.error('Error generating document:', error);
+                                alert('Erreur lors de la génération du document. Veuillez réessayer.');
+                              } finally {
+                                setGeneratingDocument(false);
+                              }
+                            }}
+                            className="mt-3 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition"
+                          >
+                            Générer le document
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Electronic Signature - Featured */}
                   {apiKeysConfig.signature.cryptoneo.isConfigured && (
                     <button
                       onClick={() => setSignatureMethod('electronic')}
-                      className="w-full p-4 border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl hover:border-orange-400 hover:shadow-md transition-all text-left"
+                      disabled={!contract?.document_url && !contract?.draft_document_url}
+                      className="w-full p-4 border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl hover:border-orange-400 hover:shadow-md transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <div className="flex items-center gap-3">
                         <div className="p-3 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg">
@@ -993,7 +756,8 @@ export default function ContractDetailPage() {
                   {/* Manual Signature */}
                   <button
                     onClick={() => setSignatureMethod('manual')}
-                    className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-gray-400 hover:bg-gray-50 transition-all text-left"
+                    disabled={!contract?.document_url && !contract?.draft_document_url}
+                    className="w-full p-4 border-2 border-gray-200 rounded-xl hover:border-gray-400 hover:bg-gray-50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-3 bg-gray-100 rounded-xl">
@@ -1007,6 +771,27 @@ export default function ContractDetailPage() {
                       </div>
                     </div>
                   </button>
+                </div>
+              )}
+
+              {/* Already signed message - waiting for other party */}
+              {!isFullySigned && !userNeedsToSign && (contract?.document_url || contract?.draft_document_url) && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-green-900">Vous avez signé !</p>
+                      <p className="text-sm text-green-700 mt-1">
+                        {isOwner
+                          ? hasTenantSigned
+                            ? 'Le locataire a également signé. Le contrat est maintenant actif.'
+                            : 'En attente de la signature du locataire.'
+                          : hasOwnerSigned
+                            ? 'Le propriétaire a également signé. Le contrat est maintenant actif.'
+                            : 'En attente de la signature du propriétaire.'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1106,14 +891,14 @@ export default function ContractDetailPage() {
         )}
 
         {/* Electronic Signature Modal */}
-        {contract?.document_url && (
+        {contract?.document_url || contract?.draft_document_url ? (
           <ElectronicSignatureModal
             isOpen={signatureMethod === 'electronic'}
             onClose={() => setSignatureMethod(null)}
             documents={[
               {
                 id: contract.id,
-                url: contract.document_url,
+                url: contract.document_url || contract.draft_document_url,
                 title: `Contrat de location n° ${contract.contract_number}`,
               },
             ]}
@@ -1126,7 +911,7 @@ export default function ContractDetailPage() {
               // Modal stays open on error
             }}
           />
-        )}
+        ) : null}
     </div>
   );
 }

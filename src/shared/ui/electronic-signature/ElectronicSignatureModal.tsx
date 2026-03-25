@@ -117,14 +117,23 @@ export function ElectronicSignatureModal({
   const [profileData, setProfileData] = useState<{ gender?: string | null; phone?: string | null } | null>(null);
 
   // Récupérer le téléphone, email et genre du profil au chargement
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (user) {
-        const { data } = await supabase
+  const fetchProfile = async () => {
+    if (user) {
+      console.log('[ElectronicSignatureModal] Fetching profile for user:', user.id);
+      try {
+        const { data, error } = await supabase
           .from('profiles')
           .select('phone, gender')
           .eq('id', user.id)
           .maybeSingle();
+
+        console.log('[ElectronicSignatureModal] Profile query result:', { data, error });
+
+        if (error) {
+          console.error('[ElectronicSignatureModal] Profile error:', error);
+          toast.error(`Erreur de chargement du profil: ${error.message}`);
+          return;
+        }
 
         if (data) {
           setProfileData(data);
@@ -135,12 +144,17 @@ export function ElectronicSignatureModal({
           if (data.gender) {
             setGender(data.gender);
           }
+          console.log('[ElectronicSignatureModal] Profile loaded successfully:', { gender: data.gender, phone: data.phone });
+        } else {
+          console.warn('[ElectronicSignatureModal] No profile data found');
         }
         setUserEmail(user.email || '');
+      } catch (err) {
+        console.error('[ElectronicSignatureModal] Network error fetching profile:', err);
+        toast.error('Erreur de connexion. Veuillez réessayer.');
       }
-    };
-    fetchProfile();
-  }, [user]);
+    }
+  };
 
   const {
     step,
@@ -189,6 +203,14 @@ export function ElectronicSignatureModal({
       startSignatureProcess(documents, contractId);
     }
   }, [isOpen, step, documents, contractId, startSignatureProcess]);
+
+  // Fetch profile data when modal opens or when reaching collect_data step
+  useEffect(() => {
+    if (isOpen && step === 'collect_data' && !profileData) {
+      console.log('[ElectronicSignatureModal] Auto-fetching profile data...');
+      fetchProfile();
+    }
+  }, [isOpen, step, profileData]);
 
   // Calculate hash from file and convert to base64
   // IMPORTANT: Hash must be calculated on the BINARY file first, then converted to base64
@@ -253,22 +275,45 @@ export function ElectronicSignatureModal({
 
   // Handle form submission for data collection step
   const handleDataSubmit = async () => {
-    // Use profile data for gender
+    // Normalize gender from profile - handle various formats
+    let normalizedGender: 'Homme' | 'Femme' | null = null;
     const profileGender = profileData?.gender;
-    if (!profileGender || profileGender === 'Non spécifié') {
+
+    if (profileGender) {
+      const genderLower = profileGender.toLowerCase().trim();
+      if (genderLower === 'homme' || genderLower === 'h' || genderLower === 'male' || genderLower === 'm') {
+        normalizedGender = 'Homme';
+      } else if (genderLower === 'femme' || genderLower === 'f' || genderLower === 'female') {
+        normalizedGender = 'Femme';
+      }
+    }
+
+    if (!normalizedGender) {
       toast.error('Genre non renseigné dans votre profil. Veuillez compléter votre profil.');
       return;
     }
+
     if (!photoFile && !photoPreview) {
       toast.error('Veuillez fournir une photo');
       return;
     }
+
     if (!consentement) {
       toast.error('Veuillez accepter les conditions générales');
       return;
     }
-    // Use phone from profile
-    const phoneDigits = profileData?.phone?.replace(/\D/g, '') || '';
+
+    // Normalize phone number - remove all non-digit chars
+    let phoneDigits = profileData?.phone?.replace(/\D/g, '') || '';
+
+    // Handle CI phone format: usually starts with 0 after country code
+    // If phone is like +22507XXXXXXXX, we need to extract just the digits
+    // For CI, valid format is 10 digits after country code
+    if (phoneDigits && phoneDigits.startsWith('225')) {
+      phoneDigits = phoneDigits.substring(3); // Remove country code
+    }
+
+    // Validate phone length (should be 10 digits for CI mobile numbers)
     if (!phoneDigits || phoneDigits.length < 10 || phoneDigits.length > 15) {
       toast.error('Numéro de téléphone invalide dans votre profil. Veuillez compléter votre profil.');
       return;
@@ -304,7 +349,7 @@ export function ElectronicSignatureModal({
 
       await setSignatureDataAndGenerate(
         {
-          gender: profileGender as 'Homme' | 'Femme',
+          gender: normalizedGender,
           photoBase64,
           photoHash,
           phone: phoneDigits,
@@ -364,7 +409,8 @@ export function ElectronicSignatureModal({
   }, [step, error, onError]);
 
   const currentStepConfig = stepConfig[step];
-  const isCloseDisabled = loading || step === 'signing' || step === 'generating_cert' || step === 'collect_data';
+  // Allow closing the modal except during signing/generating operations
+  const isCloseDisabled = loading || step === 'signing' || step === 'generating_cert';
 
   console.log('[ElectronicSignatureModal] Render - isOpen:', isOpen, 'step:', step, 'loading:', loading);
 
@@ -427,8 +473,30 @@ export function ElectronicSignatureModal({
                   Informations du profil
                 </p>
                 <div className="text-sm text-blue-600 dark:text-blue-400 space-y-1">
-                  <p>Genre : <span className="font-medium">{profileData?.gender || 'Non renseigné'}</span></p>
-                  <p>Téléphone : <span className="font-medium">{profileData?.phone || 'Non renseigné'}</span></p>
+                  <p>
+                    Genre :{' '}
+                    <span className="font-medium">
+                      {profileData?.gender ? (
+                        profileData.gender.toLowerCase() === 'homme' || profileData.gender.toLowerCase() === 'h'
+                          ? 'Homme ✓'
+                          : profileData.gender.toLowerCase() === 'femme' || profileData.gender.toLowerCase() === 'f'
+                          ? 'Femme ✓'
+                          : `${profileData.gender} (format non reconnu)`
+                      ) : (
+                        <span className="text-red-600">Non renseigné</span>
+                      )}
+                    </span>
+                  </p>
+                  <p>
+                    Téléphone :{' '}
+                    <span className="font-medium">
+                      {profileData?.phone ? (
+                        `${profileData.phone} ✓`
+                      ) : (
+                        <span className="text-red-600">Non renseigné</span>
+                      )}
+                    </span>
+                  </p>
                 </div>
               </div>
 
@@ -779,7 +847,10 @@ export function ElectronicSignatureModal({
                   Annuler
                 </Button>
                 <Button
-                  onClick={() => {
+                  onClick={async () => {
+                    // Reload profile data first
+                    await fetchProfile();
+                    // Then retry the signature process
                     reset();
                     startSignatureProcess(documents, contractId);
                   }}

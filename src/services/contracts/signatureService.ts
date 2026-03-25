@@ -84,10 +84,28 @@ export async function saveContractSignature(signatureData: SignatureData): Promi
     if (ownerWillSign && tenantWillSign) {
       updateData.status = 'active';
 
-      // Mettre à jour le statut de la propriété à "rented"
+      // Mettre à jour le statut de la propriété selon la date de début du bail
+      const now = new Date();
+      const startDate = new Date(contract.start_date);
+
+      let propertyStatus: 'pending' | 'rented';
+      if (now < startDate) {
+        // Le bail n'a pas encore commencé
+        propertyStatus = 'pending';
+      } else {
+        // Le bail a commencé ou commence aujourd'hui
+        propertyStatus = 'rented';
+      }
+
       const { error: propertyUpdateError } = await supabase
         .from('properties')
-        .update({ status: 'rented' })
+        .update({
+          status: propertyStatus,
+          status_updated_at: now.toISOString(),
+          status_reason: propertyStatus === 'pending'
+            ? `Bail signé, début le ${startDate.toLocaleDateString('fr-FR')}`
+            : 'Bail signé et actif',
+        })
         .eq('id', contract.property_id);
 
       if (propertyUpdateError) {
@@ -220,7 +238,7 @@ async function sendSignatureNotification(signatureData: SignatureData): Promise<
       // Le propriétaire a signé -> notifier le locataire
       title = '✍️ Le propriétaire a signé';
       message = `${signerName} a signé le contrat ${contract.contract_number}. C'est maintenant à votre tour de signer.`;
-      actionUrl = `/locataire/signer-bail/${signatureData.contractId}`;
+      actionUrl = `/locataire/contrat/${signatureData.contractId}`;
     } else {
       // Le locataire a signé -> notifier le propriétaire
       title = '✅ Le locataire a signé';

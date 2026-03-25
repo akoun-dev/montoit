@@ -51,28 +51,28 @@ const notificationConfig: Record<string, {
   'lease_created': {
     title: () => '📋 Nouveau contrat de bail',
     message: (data) => `Un contrat de bail a été créé pour la propriété "${data.propertyTitle}". Veuillez le consulter et le signer.`,
-    actionUrl: (leaseId) => `/signer-bail/${leaseId}`,
+    actionUrl: (leaseId) => `/locataire/contrat/${leaseId}`,
     emailTemplate: 'lease-created',
     emailSubject: () => '📋 Nouveau contrat de bail à signer - Mon Toit'
   },
   'lease_pending_signature': {
     title: () => '✍️ Signature en attente',
     message: (data) => `Votre signature est attendue pour le contrat ${data.contractNumber}`,
-    actionUrl: (leaseId) => `/signer-bail/${leaseId}`,
+    actionUrl: (leaseId) => `/locataire/contrat/${leaseId}`,
     emailTemplate: 'lease-signature-required',
     emailSubject: (data) => `✍️ Votre signature est requise - Contrat ${data.contractNumber}`
   },
   'lease_signed_owner': {
     title: () => '✅ Le propriétaire a signé',
     message: (data) => `${data.signerName || 'Le propriétaire'} a signé le contrat ${data.contractNumber}. C'est maintenant à vous de signer.`,
-    actionUrl: (leaseId) => `/signer-bail/${leaseId}`,
+    actionUrl: (leaseId) => `/locataire/contrat/${leaseId}`,
     emailTemplate: 'lease-signed-by-party',
     emailSubject: () => '✅ Le propriétaire a signé votre contrat - Mon Toit'
   },
   'lease_signed_tenant': {
     title: () => '✅ Le locataire a signé',
     message: (data) => `${data.signerName || 'Le locataire'} a signé le contrat ${data.contractNumber}.`,
-    actionUrl: (leaseId) => `/contrat/${leaseId}`,
+    actionUrl: (leaseId) => `/proprietaire/contrats/${leaseId}`,
     emailTemplate: 'lease-signed-by-party',
     emailSubject: () => '✅ Le locataire a signé le contrat - Mon Toit'
   },
@@ -107,7 +107,7 @@ const notificationConfig: Record<string, {
   'lease_signature_reminder': {
     title: () => '🔔 Rappel de signature',
     message: (data) => `Rappel : Le contrat ${data.contractNumber} attend votre signature.`,
-    actionUrl: (leaseId) => `/signer-bail/${leaseId}`,
+    actionUrl: (leaseId) => `/locataire/contrat/${leaseId}`,
     emailTemplate: 'lease-signature-required',
     emailSubject: (data) => `🔔 Rappel : Signez votre contrat ${data.contractNumber}`
   },
@@ -481,8 +481,18 @@ Deno.serve(async (req: Request) => {
 
           // Add lease-specific URLs if this is a lease notification
           if (!isVisitNotification && leaseId) {
-            emailData.data.signLeaseUrl = `${siteUrl}/signer-bail/${leaseId}`;
-            emailData.data.leaseUrl = `${siteUrl}/contrat/${leaseId}`;
+            // Determine sign URL based on notification type
+            let signLeaseUrl = `${siteUrl}/signer-bail/${leaseId}`;
+            if (type === 'lease_signed_tenant') {
+              // Owner notification - use owner contract detail page
+              signLeaseUrl = `${siteUrl}/proprietaire/contrats/${leaseId}`;
+            } else if (type === 'lease_created' || type === 'lease_pending_signature' ||
+                       type === 'lease_signed_owner' || type === 'lease_signature_reminder') {
+              // Tenant notification - use tenant contract detail page
+              signLeaseUrl = `${siteUrl}/locataire/contrat/${leaseId}`;
+            }
+            emailData.data.signLeaseUrl = signLeaseUrl;
+            emailData.data.leaseUrl = `${siteUrl}/locataire/contrat/${leaseId}`;
           }
 
           // Add visit-specific URLs if this is a visit notification

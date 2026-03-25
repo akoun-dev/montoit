@@ -71,16 +71,16 @@ export async function generateAndUploadContract(leaseId: string): Promise<string
 
   // 2. Récupérer les profils du propriétaire et du locataire
   const { data: profiles, error: profilesError } = await supabase
-    .from('profiles_with_user_id')
-    .select('user_id, full_name, email, phone')
-    .in('user_id', [contract.owner_id, contract.tenant_id]);
+    .from('profiles')
+    .select('id, full_name, email, phone')
+    .in('id', [contract.owner_id, contract.tenant_id]);
 
   if (profilesError || !profiles) {
     throw new Error(`Erreur lors de la récupération des profils: ${profilesError?.message}`);
   }
 
-  const ownerProfile = profiles.find((p: ProfileData) => p.user_id === contract.owner_id);
-  const tenantProfile = profiles.find((p: ProfileData) => p.user_id === contract.tenant_id);
+  const ownerProfile = profiles.find((p: ProfileData) => p.id === contract.owner_id);
+  const tenantProfile = profiles.find((p: ProfileData) => p.id === contract.tenant_id);
 
   if (!ownerProfile || !tenantProfile) {
     throw new Error('Profils du propriétaire ou du locataire introuvables');

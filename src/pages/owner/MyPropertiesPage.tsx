@@ -235,11 +235,24 @@ export default function MyPropertiesPage() {
         return;
       }
 
-      // Then, for each property, count applications and images separately
+      // Then, for each property, count applications, images, and check for active lease
       if (propertiesData) {
         const propertiesWithCounts = await Promise.all(
           propertiesData.map(async (property: unknown) => {
-            const normalizedStatus = normalizeStatus(property.status);
+            let normalizedStatus = normalizeStatus(property.status);
+
+            // Check if there's an active lease for this property
+            const { data: activeLease, error: leaseError } = await supabase
+              .from('lease_contracts')
+              .select('id, status')
+              .eq('property_id', property.id)
+              .eq('status', 'active')
+              .maybeSingle();
+
+            if (!leaseError && activeLease) {
+              // Override status to 'rented' if there's an active lease
+              normalizedStatus = 'rented';
+            }
 
             // Count applications
             const { count: appsCount, error: appsError } = await supabase
