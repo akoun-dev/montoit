@@ -10,6 +10,9 @@ import {
   FileText,
   Wrench,
   Award,
+  Wifi,
+  WifiOff,
+  Bell,
 } from 'lucide-react';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -17,6 +20,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 import { usePaymentAlerts } from '@/hooks/tenant/usePaymentAlerts';
 import PaymentAlertsBanner from '../../features/tenant/components/PaymentAlertsBanner';
+import { toast } from 'sonner';
 
 interface LeaseContract {
   id: string;
@@ -70,9 +74,11 @@ export default function TenantDashboard() {
     unreadMessages: 0,
     maintenanceRequests: 0,
     paymentStatus: 'up_to_date' as 'up_to_date' | 'late',
+    unreadNotifications: 0,
   });
   const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
   const [recentFavorites, setRecentFavorites] = useState<Favorite[]>([]);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
 
   // Payment alerts
   const { alerts: paymentAlerts, dismissAlert: dismissAlertHook } = usePaymentAlerts();
@@ -163,6 +169,16 @@ export default function TenantDashboard() {
 
       setStats((prev) => ({ ...prev, maintenanceRequests: maintenanceData?.length || 0 }));
 
+      // Load unread notifications count
+      const { data: notificationsData } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false)
+        .eq('is_archived', false);
+
+      setStats((prev) => ({ ...prev, unreadNotifications: notificationsData?.count || 0 }));
+
       // Load favorites
       const { data: favoritesData } = await supabase
         .from('favorites')
@@ -195,6 +211,84 @@ export default function TenantDashboard() {
     loadDashboardData();
   }, [user, profile, navigate, loadDashboardData]);
 
+  // Realtime subscription for notifications
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('dashboard-notifications-tenant')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('Notification change received:', payload);
+
+          if (payload.eventType === 'INSERT') {
+            const newNotification = payload.new as {
+              type: string;
+              title: string;
+              message: string;
+              data: Record<string, unknown>;
+            };
+
+            // Increment unread notifications counter
+            setStats((prev) => ({ ...prev, unreadNotifications: prev.unreadNotifications + 1 }));
+
+            // Show toast notification
+            toast.success(newNotification.title, {
+              description: newNotification.message?.substring(0, 100) || '',
+              action: {
+                label: 'Voir',
+                onClick: () => {
+                  if (newNotification.data?.action_url) {
+                    navigate(String(newNotification.data.action_url));
+                  } else {
+                    navigate('/locataire/notifications');
+                  }
+                },
+              },
+            });
+
+            // Play sound for new notification
+            try {
+              const audio = new Audio('/sounds/notification.mp3');
+              audio.play().catch(() => {}); // Ignore autoplay restrictions
+            } catch {
+              // Sound file might not exist, ignore error
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            // If notification was marked as read, decrement counter
+            const oldIsRead = payload.old?.is_read;
+            const newIsRead = payload.new?.is_read;
+            if (!oldIsRead && newIsRead) {
+              setStats((prev) => ({ ...prev, unreadNotifications: Math.max(0, prev.unreadNotifications - 1) }));
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setRealtimeConnected(true);
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          setRealtimeConnected(false);
+        }
+      });
+
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, navigate]);
+
   if (loading) {
     return (
       <TenantDashboardLayout title="Tableau de bord">
@@ -210,15 +304,51 @@ export default function TenantDashboard() {
       <div>
         {/* Header */}
         <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8 dashboard-header-animate">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center icon-pulse-premium">
-              <Home className="h-6 w-6 text-white" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center icon-pulse-premium">
+                  <Home className="h-6 w-6 text-white" />
+                </div>
+                <span>Mon Tableau de Bord</span>
+              </h1>
+              <p className="text-[#E8D4C5] mt-2 text-lg ml-15">
+                Bienvenue, {profile?.full_name || 'Locataire'}
+              </p>
             </div>
-            <span>Mon Tableau de Bord</span>
-          </h1>
-          <p className="text-[#E8D4C5] mt-2 text-lg ml-15">
-            Bienvenue, {profile?.full_name || 'Locataire'}
-          </p>
+            <div className="flex items-center gap-3">
+              {/* Notification Bell */}
+              <Link
+                to="/locataire/notifications"
+                className="relative p-2 rounded-xl hover:bg-white/10 transition-colors group"
+              >
+                <Bell className="h-6 w-6 text-white" />
+                {stats.unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full group-hover:scale-110 transition-transform">
+                    {stats.unreadNotifications > 99 ? '99+' : stats.unreadNotifications}
+                  </span>
+                )}
+              </Link>
+              {/* Realtime connection indicator */}
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                realtimeConnected
+                  ? 'bg-green-500/20 text-green-300'
+                  : 'bg-red-500/20 text-red-300'
+              }`}>
+                {realtimeConnected ? (
+                  <>
+                    <Wifi className="w-3.5 h-3.5" />
+                    <span>En direct</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-3.5 h-3.5" />
+                    <span>Hors ligne</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Payment Alerts */}

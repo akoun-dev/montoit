@@ -141,7 +141,20 @@ export default function HeroPremium() {
             </div>
 
             {/* Search bar - Modern unified search */}
-            <UnifiedSearchBar variant="hero" />
+            <UnifiedSearchBar
+              variant="hero"
+              initialFilters={{
+                propertyType: selectedType,
+                maxBudget: showCustomBudget && customBudget ? customBudget : (selectedBudget === 'custom' ? '' : selectedBudget),
+              }}
+              onSearch={(filters) => {
+                const params = new URLSearchParams();
+                if (filters.propertyType) params.set('type', filters.propertyType);
+                if (filters.city) params.set('city', filters.city);
+                if (filters.maxBudget) params.set('maxPrice', filters.maxBudget);
+                navigate(`/recherche${params.toString() ? `?${params.toString()}` : ''}`);
+              }}
+            />
 
             {/* Quick filters */}
             <div className="flex flex-wrap gap-3 items-center mt-3">

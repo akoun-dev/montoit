@@ -463,13 +463,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resetPassword = async (email: string) => {
     try {
       // Utiliser la fonction Edge password-reset pour la réinitialisation du mot de passe
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY;
+
       const response = await fetch(
-        `${import.meta.env.SUPABASE_URL}/functions/v1/password-reset`,
+        `${supabaseUrl}/functions/v1/password-reset`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+            apikey: supabaseAnonKey,
           },
           body: JSON.stringify({
             email,

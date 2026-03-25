@@ -66,7 +66,7 @@ const PRECHECK_ITEMS = [
 ];
 
 export default function ONECIVerificationPage() {
-  const { user, profile: authProfile, refetchProfile } = useAuth();
+  const { user, profile: authProfile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState<VerificationStep>('attributes');
@@ -204,9 +204,7 @@ export default function ONECIVerificationPage() {
         setStep('complete');
         setIsVerified(true);
 
-        if (refetchProfile) {
-          await refetchProfile();
-        }
+        await refreshProfile();
 
         setTimeout(() => {
           navigate('/locataire/profil?tab=verification');
@@ -247,9 +245,7 @@ export default function ONECIVerificationPage() {
       setStep('complete');
       setIsVerified(true);
 
-      if (refetchProfile) {
-        await refetchProfile();
-      }
+      await refreshProfile();
 
       setTimeout(() => {
         navigate('/locataire/profil?tab=verification');

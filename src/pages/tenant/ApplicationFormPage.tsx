@@ -85,13 +85,19 @@ export default function ApplicationForm() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [activeVerificationStep, setActiveVerificationStep] =
     useState<VerificationStepId>('profile');
-  const [profileForm, setProfileForm] = useState({
-    full_name: '',
-    phone: '',
-    city: '',
-    gender: '',
-    tenant_category: '',
-    address: '',
+  const [profileForm, setProfileForm] = useState(() => {
+    const resolvedAddress =
+      typeof profile?.address === 'string'
+        ? profile.address
+        : formatAddress(profile?.address, profile?.city ?? undefined);
+    return {
+      full_name: profile?.full_name ?? '',
+      phone: profile?.phone ?? '',
+      city: profile?.city ?? '',
+      gender: profile?.gender ?? '',
+      tenant_category: profile?.tenant_category ?? '',
+      address: resolvedAddress || '',
+    };
   });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState('');

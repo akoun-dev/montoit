@@ -31,6 +31,10 @@ const ScorePage: React.FC = () => {
 
       try {
         const breakdown = await ScoringService.calculateGlobalTrustScore(user.id);
+
+        // Persist the calculated score to the database for consistency
+        await ScoringService.persistTrustScore(user.id, breakdown.globalScore);
+
         if (breakdown.globalScore === 0 && profile) {
           const verificationTotal =
             TENANT_SCORING_WEIGHTS.facial + TENANT_SCORING_WEIGHTS.oneci;

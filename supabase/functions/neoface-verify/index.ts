@@ -295,6 +295,83 @@ async function handleCheckStatus(request: CheckStatusRequest, supabase: Record<s
       p_failure_reason: verifyData.status === "failed" ? verifyData.message : null,
     });
 
+    // Si la vérification faciale est réussie, recalculer et mettre à jour le trust_score
+    if (verifyData.status === "verified") {
+      try {
+        // Récupérer le user_id depuis la table facial_verifications
+        const { data: verificationRecord } = await supabase
+          .from("facial_verifications")
+          .select("user_id")
+          .eq("id", verification_id)
+          .single();
+
+        if (verificationRecord?.user_id) {
+          // Calculer le nouveau score
+          const profileResult = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", verificationRecord.user_id)
+            .single();
+
+          if (profileResult.data) {
+            const profile = profileResult.data;
+            const weights = { profileComplete: 5, facial: 20, oneci: 25, dossier: 50 };
+
+            // Calculer le score de profil
+            const hasText = (value: string | null | undefined): boolean =>
+              typeof value === "string" && value.trim().length > 0;
+            const hasJsonValue = (value: unknown): boolean => {
+              if (!value) return false;
+              if (typeof value === "string") return value.trim().length > 0;
+              if (Array.isArray(value)) return value.length > 0;
+              if (typeof value === "object")
+                return Object.keys(value as Record<string, unknown>).length > 0;
+              return false;
+            };
+
+            const profileComplete =
+              hasText(profile.full_name) &&
+              hasText(profile.phone || "") &&
+              hasText(profile.city) &&
+              hasJsonValue(profile.address) &&
+              hasText(profile.gender);
+
+            const facialVerified = profile.facial_verification_status === "verified";
+            const oneciVerified = !!profile.oneci_verified;
+
+            // Vérifier si le dossier est approuvé
+            const { data: approvedDossier } = await supabase
+              .from("verification_applications")
+              .select("id")
+              .eq("user_id", verificationRecord.user_id)
+              .eq("status", "approved")
+              .maybeSingle();
+
+            const dossierApproved = !!approvedDossier;
+
+            const globalScore =
+              (profileComplete ? weights.profileComplete : 0) +
+              (facialVerified ? weights.facial : 0) +
+              (oneciVerified ? weights.oneci : 0) +
+              (dossierApproved ? weights.dossier : 0);
+
+            // Arrondir à 100 si très proche
+            const finalScore = globalScore >= 99.5 ? 100 : globalScore;
+
+            // Mettre à jour le trust_score dans la table profiles
+            await supabase
+              .from("profiles")
+              .update({ trust_score: finalScore })
+              .eq("id", verificationRecord.user_id);
+
+            console.log("[NeoFace V2] Trust score mis à jour pour utilisateur:", verificationRecord.user_id, "Score:", finalScore);
+          }
+        }
+      } catch (scoreError) {
+        console.warn("[NeoFace V2] Erreur mise à jour trust_score (non bloquant):", scoreError);
+      }
+    }
+
     const logStatus = verifyData.status === "verified" ? "success" : "failure";
     await supabase.from("service_usage_logs").insert({
       service_name: "face_recognition",

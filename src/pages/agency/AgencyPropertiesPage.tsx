@@ -19,6 +19,8 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  Filter,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface Property {
@@ -72,12 +74,6 @@ export default function AgencyPropertiesPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [agencyId, setAgencyId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      loadAgencyAndProperties();
-    }
-  }, [user, loadAgencyAndProperties]);
-
   const loadAgencyAndProperties = useCallback(async () => {
     try {
       // Get agency_id for this user
@@ -120,6 +116,12 @@ export default function AgencyPropertiesPage() {
       setLoading(false);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadAgencyAndProperties();
+    }
+  }, [user, loadAgencyAndProperties]);
 
   const calculateStats = (props: Property[]) => {
     const available = props.filter((p) => p.status === 'available').length;

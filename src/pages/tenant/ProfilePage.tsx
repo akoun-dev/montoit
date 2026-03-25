@@ -31,7 +31,7 @@ interface Profile {
 }
 
 export default function ProfilePage() {
-  const { user, profile: authProfile, refetchProfile } = useAuth();
+  const { user, profile: authProfile, refreshProfile } = useAuth();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'infos');
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -44,6 +44,7 @@ export default function ProfilePage() {
     city: '',
     address: '',
     bio: '',
+    gender: '',
   });
 
   useEffect(() => {
@@ -91,6 +92,9 @@ export default function ProfilePage() {
         }
       }
 
+      // Rafraîchir le profil dans le AuthProvider pour synchroniser la sidebar AVANT de définir l'état local
+      await refreshProfile();
+
       const formattedAddress = formatAddress(data.address as AddressValue, data.city || undefined);
       const profileData: Profile = {
         id: data.id,
@@ -128,10 +132,20 @@ export default function ProfilePage() {
     if (!user) return;
     setSaving(true);
     try {
-      // Mettre à jour les informations du profil
+      // Vérifier si le profil est complet
+      const isProfileComplete =
+        !!formData.full_name?.trim() &&
+        !!formData.phone?.trim() &&
+        !!formData.city?.trim() &&
+        !!formData.address?.trim();
+
+      // Mettre à jour les informations du profil avec profile_setup_completed
       const { error: updateError } = await supabase
         .from('profiles')
-        .update(formData)
+        .update({
+          ...formData,
+          profile_setup_completed: isProfileComplete,
+        })
         .eq('id', user.id);
       if (updateError) throw updateError;
 
@@ -153,12 +167,12 @@ export default function ProfilePage() {
         console.warn('Could not calculate score:', scoreErr);
       }
 
+      // Recharger le profil dans le contexte AuthProvider pour synchroniser la sidebar
+      await refreshProfile();
+
       toast.success('Profil mis à jour avec succès');
-      loadProfile();
-      // Recharger aussi le profil dans le contexte AuthProvider
-      if (refetchProfile) {
-        refetchProfile();
-      }
+      // Recharger le profil local après avoir rafraîchi le contexte
+      await loadProfile();
     } catch (err) {
       console.error('Error saving profile:', err);
       toast.error('Erreur lors de la sauvegarde');
@@ -264,6 +278,9 @@ export default function ProfilePage() {
                         .eq('id', user.id);
                       if (updateError) throw updateError;
 
+                      // Recharger le profil dans le contexte AuthProvider pour synchroniser la sidebar
+                      await refreshProfile();
+                      // Recharger le profil local après avoir rafraîchi le contexte
                       await loadProfile();
                       toast.success('Photo de profil mise à jour');
                     } catch (err) {

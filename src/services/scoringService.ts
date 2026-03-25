@@ -609,6 +609,24 @@ export const ScoringService = {
         return 'text-red-600';
     }
   },
+
+  /**
+   * Persiste le trust_score calculé dans la table profiles
+   */
+  async persistTrustScore(userId: string, score: number): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ trust_score: score })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Error persisting trust score:', error);
+      }
+    } catch (err) {
+      console.error('Error persisting trust score:', err);
+    }
+  },
 };
 
 export default ScoringService;

@@ -237,7 +237,10 @@ export default function UnifiedSearchBar({
           <div className="flex flex-wrap items-center gap-2 px-4 pb-3 border-t border-neutral-100">
             {propertyType && (
               <button
-                onClick={() => setPropertyType('')}
+                onClick={() => {
+                  setPropertyType('');
+                  handleSearch();
+                }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FF6C2F]/10 text-[#FF6C2F] rounded-full text-sm font-medium hover:bg-[#FF6C2F]/20 transition-colors"
               >
                 <Home className="w-3.5 h-3.5" />
@@ -247,7 +250,10 @@ export default function UnifiedSearchBar({
             )}
             {city && (
               <button
-                onClick={() => setCity('')}
+                onClick={() => {
+                  setCity('');
+                  handleSearch();
+                }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-cyan-100 text-cyan-700 rounded-full text-sm font-medium hover:bg-cyan-200 transition-colors"
               >
                 <MapPin className="w-3.5 h-3.5" />
@@ -261,6 +267,7 @@ export default function UnifiedSearchBar({
                   setMaxBudget('');
                   setCustomBudget('');
                   setShowCustomBudgetInput(false);
+                  handleSearch();
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-sm font-medium hover:bg-green-200 transition-colors"
               >
@@ -290,7 +297,11 @@ export default function UnifiedSearchBar({
                   {quickFilters.map((filter) => (
                     <button
                       key={filter.value}
-                      onClick={() => setPropertyType(propertyType === filter.value ? '' : filter.value)}
+                      onClick={() => {
+                        setPropertyType(propertyType === filter.value ? '' : filter.value);
+                        // Auto-trigger search for page variant
+                        setTimeout(() => handleSearch(), 0);
+                      }}
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                         propertyType === filter.value
                           ? 'bg-[#FF6C2F] text-white'
@@ -323,6 +334,8 @@ export default function UnifiedSearchBar({
                           setShowCustomBudgetInput(false);
                           setMaxBudget(maxBudget === budget.value ? '' : budget.value);
                           setCustomBudget('');
+                          // Auto-trigger search for page variant (except custom)
+                          setTimeout(() => handleSearch(), 0);
                         }
                       }}
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
@@ -404,7 +417,12 @@ export default function UnifiedSearchBar({
                         <button
                           key={filter.value}
                           onClick={() => {
-                            setPropertyType(filter.value);
+                            const newValue = propertyType === filter.value ? '' : filter.value;
+                            setPropertyType(newValue);
+                            // Auto-trigger search for page variant
+                            if (variant === 'page') {
+                              setTimeout(() => handleSearch(), 0);
+                            }
                           }}
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                             propertyType === filter.value
@@ -439,6 +457,10 @@ export default function UnifiedSearchBar({
                               setShowCustomBudgetInput(false);
                               setMaxBudget(budget.value);
                               setCustomBudget('');
+                              // Auto-trigger search for page variant
+                              if (variant === 'page') {
+                                setTimeout(() => handleSearch(), 0);
+                              }
                             }
                           }}
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
@@ -493,6 +515,10 @@ export default function UnifiedSearchBar({
                       onClick={() => {
                         setCity(cityName);
                         setShowSuggestions(false);
+                        // Auto-trigger search for page variant
+                        if (variant === 'page') {
+                          setTimeout(() => handleSearch(), 0);
+                        }
                       }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-neutral-50 transition-colors text-left"
                     >

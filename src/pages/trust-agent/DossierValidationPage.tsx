@@ -18,8 +18,8 @@ import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/Button';
 import { Textarea } from '@/shared/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/ui/dialog';
-import { useAuth } from '@/app/providers/AuthProvider';
 import { toast } from '@/hooks/shared/useSafeToast';
+import { supabase } from '@/integrations/supabase/client';
 import verificationApplicationsService, {
   type VerificationApplication,
   type VerificationDocument,
@@ -179,6 +179,107 @@ export default function DossierValidationPage() {
     } catch (error) {
       console.error('Error verifying document:', error);
       toast.error('Erreur lors de la vérification du document');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  /**
+   * Générer une URL signée pour un document depuis Supabase Storage
+   * Cette fonction extrait le bucket et le chemin de l'URL stockée et génère une URL signée temporaire
+   */
+  const getSignedDocumentUrl = async (documentUrl: string): Promise<string | null> => {
+    try {
+      // Si l'URL est vide, retourner null
+      if (!documentUrl) {
+        console.warn('[getSignedDocumentUrl] Empty document URL');
+        return null;
+      }
+
+      // Extraire le bucket et le chemin de l'URL Supabase Storage
+      const url = new URL(documentUrl);
+      const pathParts = url.pathname.split('/').filter(Boolean);
+
+      // Format attendu: /storage/v1/object/public/bucket/path/to/file
+      // ou: /storage/v1/object/sign/bucket/path/to/file/token
+      const objectIndex = pathParts.indexOf('object');
+      if (objectIndex === -1) {
+        console.warn('[getSignedDocumentUrl] Not a valid Supabase Storage URL:', documentUrl);
+        return documentUrl; // Retourner l'URL originale si ce n'est pas une URL Supabase
+      }
+
+      const mode = pathParts[objectIndex + 1]; // public, sign, etc.
+      const bucketIndex = mode === 'public' || mode === 'sign' ? objectIndex + 2 : objectIndex + 1;
+      const bucket = pathParts[bucketIndex];
+
+      if (!bucket) {
+        console.warn('[getSignedDocumentUrl] Could not extract bucket from URL:', documentUrl);
+        return null;
+      }
+
+      // Extraire le chemin du fichier
+      const fileStart = mode === 'public' || mode === 'sign' ? objectIndex + 3 : objectIndex + 2;
+      const filePath = pathParts.slice(fileStart).join('/');
+
+      if (!filePath) {
+        console.warn('[getSignedDocumentUrl] Could not extract file path from URL:', documentUrl);
+        return null;
+      }
+
+      console.log('[getSignedDocumentUrl] Extracted bucket:', bucket, 'path:', filePath);
+
+      // Essayer de créer une URL signée valide pour 1 heure
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(filePath, 3600);
+
+      if (error) {
+        console.error('[getSignedDocumentUrl] Error creating signed URL:', error);
+
+        // Si le bucket n'existe pas, essayer de lister les buckets disponibles
+        if (error.message?.includes('not found') || error.message?.includes('Bucket not found')) {
+          const { data: buckets } = await supabase.storage.listBuckets();
+          const availableBuckets = buckets?.map((b) => b.name).join(', ') || 'aucun';
+          console.error('[getSignedDocumentUrl] Available buckets:', availableBuckets);
+          toast.error(`Le bucket de stockage "${bucket}" n'existe pas. Buckets disponibles: ${availableBuckets}`);
+        }
+
+        return null;
+      }
+
+      console.log('[getSignedDocumentUrl] Signed URL created successfully');
+      return data.signedUrl;
+    } catch (error) {
+      console.error('[getSignedDocumentUrl] Exception:', error);
+      return null;
+    }
+  };
+
+  /**
+   * Gérer le clic sur le bouton Voir un document
+   * Tente de créer une URL signée avant d'ouvrir le document
+   */
+  const handleViewDocument = async (doc: VerificationDocument) => {
+    try {
+      setUpdating(true);
+
+      // Essayer de créer une URL signée
+      const signedUrl = await getSignedDocumentUrl(doc.document_url);
+
+      if (signedUrl) {
+        // Ouvrir l'URL signée dans un nouvel onglet
+        window.open(signedUrl, '_blank');
+      } else {
+        // Si la création de l'URL signée échoue, essayer l'URL originale
+        toast.warning('URL signée non disponible, tentative avec l\'URL originale...');
+        // Attendre un peu avant d'ouvrir l'URL originale
+        setTimeout(() => {
+          window.open(doc.document_url, '_blank');
+        }, 500);
+      }
+    } catch (error) {
+      console.error('[handleViewDocument] Error:', error);
+      toast.error('Impossible d\'ouvrir le document. Vérifiez que le bucket de stockage existe.');
     } finally {
       setUpdating(false);
     }
@@ -355,7 +456,8 @@ export default function DossierValidationPage() {
                               <Button
                                 size="small"
                                 variant="outline"
-                                onClick={() => window.open(doc.document_url, '_blank')}
+                                onClick={() => handleViewDocument(doc)}
+                                disabled={updating}
                               >
                                 <Eye className="h-3 w-3 mr-1" />
                                 Voir

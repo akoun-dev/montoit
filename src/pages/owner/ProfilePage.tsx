@@ -92,7 +92,7 @@ const StatCard = ({
 };
 
 export default function OwnerProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'infos');
@@ -118,19 +118,6 @@ export default function OwnerProfilePage() {
   });
 
   const facialStatus = profile?.facial_verification_status;
-
-  useEffect(() => {
-    if (user) {
-      loadProfile();
-    }
-  }, [user]);
-
-  // Charger le dossier de certification propriétaire
-  useEffect(() => {
-    if (user) {
-      loadDossierApplication();
-    }
-  }, [user]);
 
   const loadDossierApplication = useCallback(async () => {
     if (!user) return;
@@ -166,15 +153,16 @@ export default function OwnerProfilePage() {
     } catch (error) {
       console.error('Error loading dossier application:', error);
     }
-  }, [user, setDossierApplication, setDossierDocCount]);
+  }, [user?.id]); // Only depend on user ID, not the setters
 
   useEffect(() => {
     if (user) {
       loadDossierApplication();
     }
-  }, [user, loadDossierApplication]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]); // Only reload when user ID changes, not the entire user object
 
-  const loadProfile = useCallback(async () => {
+  const loadProfile = useCallback(async (shouldRefreshAuth = false) => {
     try {
       const { data: profileData } = await supabase
         .from('profiles')
@@ -183,6 +171,26 @@ export default function OwnerProfilePage() {
         .single();
 
       if (profileData) {
+        // Recalculer le score et mettre à jour si nécessaire
+        try {
+          const { ScoringService } = await import('@/services/scoringService');
+          const scoreBreakdown = await ScoringService.calculateGlobalTrustScore(user.id);
+          const newScore = scoreBreakdown.globalScore;
+
+          if (profileData.trust_score !== newScore) {
+            await supabase.from('profiles').update({ trust_score: newScore }).eq('id', user.id);
+            profileData.trust_score = newScore;
+          }
+        } catch (scoreError) {
+          console.error('Error recalculating score:', scoreError);
+        }
+
+        // Rafraîchir le profil dans le AuthProvider SEULEMENT si demandé explicitement
+        // (pour éviter la boucle infinie)
+        if (shouldRefreshAuth) {
+          await refreshProfile();
+        }
+
         setProfile(profileData);
         setFormData({
           full_name: profileData.full_name || '',
@@ -194,34 +202,20 @@ export default function OwnerProfilePage() {
           agency_name: profileData.agency_name || '',
           agency_description: profileData.agency_description || '',
         });
-
-        // Recalculer le score et mettre à jour si différent
-        try {
-          const { ScoringService } = await import('@/services/scoringService');
-          const scoreBreakdown = await ScoringService.calculateGlobalTrustScore(user.id);
-          const newScore = scoreBreakdown.globalScore;
-
-          if (profileData.trust_score !== newScore) {
-            await supabase.from('profiles').update({ trust_score: newScore }).eq('id', user.id);
-            // Mettre à jour le profil local
-            setProfile({ ...profileData, trust_score: newScore });
-          }
-        } catch (scoreError) {
-          console.error('Error recalculating score:', scoreError);
-        }
       }
     } catch (error) {
       console.error('Error loading profile:', error);
     } finally {
       setLoading(false);
     }
-  }, [user, setProfile, setFormData, setLoading]);
+  }, [user, refreshProfile]);
 
   useEffect(() => {
     if (user) {
-      loadProfile();
+      loadProfile(false);
     }
-  }, [user, loadProfile]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]); // Only reload when user ID changes, not the entire user object
 
   const handleSaveProfile = async (e: ChangeEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -272,8 +266,30 @@ export default function OwnerProfilePage() {
 
       if (error) throw error;
 
-      await loadProfile();
+      // Calculer et mettre à jour le score de confiance
+      try {
+        const { ScoringService } = await import('@/services/scoringService');
+        const scoreBreakdown = await ScoringService.calculateGlobalTrustScore(user.id);
+
+        // Mettre à jour le trust_score dans la base de données
+        const { error: scoreError } = await supabase
+          .from('profiles')
+          .update({ trust_score: scoreBreakdown.globalScore })
+          .eq('id', user.id);
+
+        if (scoreError) {
+          console.warn('Could not update trust_score:', scoreError);
+        }
+      } catch (scoreErr) {
+        console.warn('Could not calculate score:', scoreErr);
+      }
+
+      // Recharger le profil dans le contexte AuthProvider pour synchroniser la sidebar
+      await refreshProfile();
+
       toast.success('Profil mis à jour avec succès');
+      // Recharger le profil local pour mettre à jour l'affichage
+      await loadProfile(false);
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error('Échec de la mise à jour du profil');
@@ -307,7 +323,10 @@ export default function OwnerProfilePage() {
         .eq('id', user.id);
       if (updateError) throw updateError;
 
-      await loadProfile();
+      // Recharger le profil dans le contexte AuthProvider pour synchroniser la sidebar
+      await refreshProfile();
+      // Recharger le profil local pour mettre à jour l'affichage
+      await loadProfile(false);
       toast.success('Photo de profil mise à jour');
     } catch (err) {
       console.error('Error uploading avatar:', err);

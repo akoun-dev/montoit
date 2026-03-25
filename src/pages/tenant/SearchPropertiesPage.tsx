@@ -13,6 +13,7 @@ import {
   Loader2,
   Filter,
   Bookmark,
+  Bed,
 } from 'lucide-react';
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb';
 import MapWrapper from '@/shared/ui/MapWrapper';

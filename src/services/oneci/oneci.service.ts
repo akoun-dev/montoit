@@ -42,6 +42,7 @@
  */
 
 import { supabase } from '@/services/supabase/client';
+import { ScoringService } from '@/services/scoringService';
 import type {
   OneciPersonMatchResponse,
   OneciFaceAuthResponse,
@@ -419,6 +420,15 @@ export async function updateProfileOneciVerified(
       console.error('[OneciService] Erreur création verification record:', verificationError);
       // Ne pas bloquer si la création du record échoue
       console.warn('[OneciService] Profil mis à jour mais record de verification non créé');
+    }
+
+    // 4. Recalculer et persister le trust_score après la vérification ONECI réussie
+    try {
+      const breakdown = await ScoringService.calculateGlobalTrustScore(userId);
+      await ScoringService.persistTrustScore(userId, breakdown.globalScore);
+      console.log('[OneciService] Trust score mis à jour:', breakdown.globalScore);
+    } catch (scoreError) {
+      console.warn('[OneciService] Erreur mise à jour trust_score (non bloquant):', scoreError);
     }
 
     console.log('[OneciService] Profil mis à jour avec succès');
