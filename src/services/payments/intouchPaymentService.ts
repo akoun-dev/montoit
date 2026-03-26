@@ -4,7 +4,7 @@
  * Documentation: https://apidist.gutouch.net/apidist/sec
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_API_URL } from '@/integrations/supabase/client';
 
 export type MobileMoneyOperator = 'OM' | 'MTN' | 'MOOV' | 'WAVE';
 
@@ -14,6 +14,7 @@ export interface PaymentRequest {
   partner_transaction_id?: string;
   callback_url?: string;
   operator: MobileMoneyOperator;
+  otp?: string;
 }
 
 export interface PaymentResponse {
@@ -51,8 +52,7 @@ class InTouchService {
       throw new Error('Non authentifié');
     }
 
-    const supabaseUrl = import.meta.env.SUPABASE_URL;
-    const functionUrl = `${supabaseUrl}/functions/v1/initiate-payment`;
+    const functionUrl = `${SUPABASE_API_URL}/functions/v1/payment?action=initiate`;
 
     console.log('[InTouch] Calling Edge Function with fetch:', functionUrl);
 

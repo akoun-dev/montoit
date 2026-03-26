@@ -19,8 +19,9 @@ import {
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useMenuCounters } from '@/hooks/useMenuCounters';
+import { supabase } from '@/integrations/supabase/client';
 
 const cn = (...inputs: (string | undefined | null | false)[]) => twMerge(clsx(inputs));
 
@@ -63,13 +64,64 @@ const navSections = [
 export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, user } = useAuth();
   const { counters } = useMenuCounters();
   const currentPath = location.pathname;
   const sidebarRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<number | null>(null);
   const displayName = profile?.full_name?.trim() || 'Locataire';
-  const trustScore = typeof profile?.trust_score === 'number' ? profile.trust_score : 0;
+
+  // Calculer le Trust Score comme dans la page de profil (cohérence totale)
+  const [trustScore, setTrustScore] = useState<number>(0);
+
+  useEffect(() => {
+    async function calculateTrustScore() {
+      if (!profile || !user) {
+        setTrustScore(0);
+        return;
+      }
+
+      try {
+        const { ScoringService, TENANT_SCORING_WEIGHTS } = await import('@/services/scoringService');
+
+        // Calculer la complétion du profil
+        const profileScoreResult = ScoringService.calculateProfileScore(profile);
+        const profileComplete = ScoringService.isProfileComplete(profileScoreResult.details);
+
+        // Récupérer le dossier de verification (comme dans la page de profil)
+        const { data: dossierApplications } = await supabase
+          .from('verification_applications')
+          .select('status, documents')
+          .eq('user_id', user.id)
+          .eq('application_type', 'tenant_dossier');
+
+        // Même logique que la page de profil : chercher approved d'abord, sinon la première
+        const dossierApplication =
+          dossierApplications?.find((app) => app.status === 'approved') ||
+          dossierApplications?.[0] ||
+          null;
+
+        const dossierDocs = dossierApplication?.documents as { document_type: string }[] | null;
+        const dossierHasDocs = dossierDocs && dossierDocs.length > 0;
+        const dossierStatus = dossierHasDocs ? dossierApplication?.status : null;
+        const dossierApproved = dossierStatus === 'approved';
+
+        // Calculer le score avec les bons poids
+        const computedScore =
+          (profileComplete ? TENANT_SCORING_WEIGHTS.profileComplete : 0) +
+          (profile?.facial_verification_status === 'verified' ? TENANT_SCORING_WEIGHTS.facial : 0) +
+          (profile?.oneci_verified ? TENANT_SCORING_WEIGHTS.oneci : 0) +
+          (dossierApproved && dossierHasDocs ? TENANT_SCORING_WEIGHTS.dossier : 0);
+
+        setTrustScore(Math.min(100, Math.max(0, Math.round(computedScore))));
+      } catch (error) {
+        console.warn('Error calculating trust score:', error);
+        setTrustScore(0);
+      }
+    }
+
+    calculateTrustScore();
+  }, [profile, user]);
 
   const isActive = (href: string) => {
     if (href === '/locataire/dashboard') {

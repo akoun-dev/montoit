@@ -27,7 +27,7 @@ interface Contract {
   property_city: string;
   property_main_image: string | null;
   owner_name: string;
-  owner_phone: null; // Fetched separately from owner profile
+  owner_phone: string | null; // Récupéré depuis le profil du propriétaire
   next_payment_due?: string;
   days_until_due?: number;
 }
@@ -40,7 +40,7 @@ interface PendingPayment {
 }
 
 export default function MakePaymentPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
 
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -49,11 +49,21 @@ export default function MakePaymentPage() {
   const [success, setSuccess] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingPayment, setPendingPayment] = useState<PendingPayment | null>(null);
+  const [tenantPhone, setTenantPhone] = useState<string | null>(null); // Numéro du locataire (payeur)
 
   const loadUserContracts = async () => {
     if (!user) return;
 
     try {
+      // Récupérer le numéro de téléphone du locataire (payeur)
+      const { data: tenantProfile } = await supabase
+        .from('profiles')
+        .select('phone')
+        .eq('id', user.id)
+        .single();
+
+      setTenantPhone(tenantProfile?.phone || null);
+
       // Get contracts where user is the tenant
       const { data: tenantContracts, error: tenantError } = await supabase
         .from('lease_contracts')
@@ -64,6 +74,7 @@ export default function MakePaymentPage() {
       console.log('🔍 MakePaymentPage - Tenant contracts:', {
         userId: user.id,
         userEmail: user.email,
+        tenantPhone: tenantProfile?.phone,
         tenantContracts,
         tenantError,
         count: tenantContracts?.length || 0,
@@ -85,6 +96,13 @@ export default function MakePaymentPage() {
           .from('properties')
           .select('title, address, city, main_image, price')
           .eq('id', contract.property_id)
+          .single();
+
+        // Récupérer le profil du propriétaire pour obtenir son numéro de téléphone
+        const { data: ownerProfile } = await supabase
+          .from('profiles')
+          .select('full_name, phone')
+          .eq('id', contract.owner_id)
           .single();
 
         console.log('MakePaymentPage - Property data for contract:', contract.property_id, {
@@ -114,8 +132,8 @@ export default function MakePaymentPage() {
           property_address: propertyData?.address || null,
           property_city: propertyData?.city || '',
           property_main_image: propertyData?.main_image || null,
-          owner_name: 'Propriétaire',
-          owner_phone: null, // Will be fetched from owner profile if needed
+          owner_name: ownerProfile?.full_name || 'Propriétaire',
+          owner_phone: ownerProfile?.phone || null,
           next_payment_due: nextDue.toISOString(),
           days_until_due: daysUntilDue,
         });
@@ -380,7 +398,8 @@ export default function MakePaymentPage() {
           leaseId={pendingPayment.leaseId ?? undefined}
           onSuccess={handlePaymentSuccess}
           ownerName={contracts.find(c => c.id === pendingPayment.contractId)?.owner_name}
-          ownerPhone={null} // owner_phone not available in properties table
+          ownerPhone={contracts.find(c => c.id === pendingPayment.contractId)?.owner_phone ?? null}
+          payerPhone={tenantPhone}  // Numéro du locataire (payeur) pour CASHIN
         />
       )}
     </TenantDashboardLayout>

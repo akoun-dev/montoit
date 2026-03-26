@@ -472,12 +472,31 @@ export const ScoringService = {
     _monthlyRent?: number
   ): Promise<ScoreBreakdown> {
     // Vérifier si un dossier est approuvé (Dossier locataire)
-    const { data: approvedDossier } = await supabase
+    // Même logique que la page de profil
+    const { data: dossierApplications } = await supabase
       .from('verification_applications')
-      .select('id, status, dossier_type')
+      .select('id, status')
       .eq('user_id', userId)
-      .eq('status', 'approved')
-      .maybeSingle();
+      .eq('dossier_type', 'tenant');
+
+    const dossierApplication =
+      dossierApplications?.find((app) => app.status === 'approved') ||
+      dossierApplications?.[0] ||
+      null;
+
+    // Récupérer les documents depuis la table verification_documents (comme dans la page de profil)
+    let dossierHasDocs = false;
+    if (dossierApplication) {
+      const { data: dossierDocuments } = await supabase
+        .from('verification_documents')
+        .select('id')
+        .eq('application_id', dossierApplication.id);
+
+      dossierHasDocs = dossierDocuments && dossierDocuments.length > 0;
+    }
+
+    const dossierStatus = dossierApplication?.status || null;
+    const dossierApproved = dossierStatus === 'approved';
 
     // Calculer les sous-scores (locataire)
     const profileResult = this.calculateProfileScore(profile);
@@ -485,12 +504,12 @@ export const ScoringService = {
 
     const facialVerified = profile?.facial_verification_status === 'verified';
     const oneciVerified = !!profile?.oneci_verified;
-    const dossierApproved = !!approvedDossier;
 
     const profileContribution = profileComplete ? TENANT_SCORING_WEIGHTS.profileComplete : 0;
     const facialContribution = facialVerified ? TENANT_SCORING_WEIGHTS.facial : 0;
     const oneciContribution = oneciVerified ? TENANT_SCORING_WEIGHTS.oneci : 0;
-    const dossierContribution = dossierApproved ? TENANT_SCORING_WEIGHTS.dossier : 0;
+    // Même logique que la page de profil : dossier doit être approved ET avoir des documents
+    const dossierContribution = (dossierApproved && dossierHasDocs) ? TENANT_SCORING_WEIGHTS.dossier : 0;
 
     const verificationScore = Math.round(
       ((facialContribution + oneciContribution) / TENANT_VERIFICATION_TOTAL) * 100

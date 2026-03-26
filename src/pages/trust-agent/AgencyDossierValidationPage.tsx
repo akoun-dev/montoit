@@ -10,6 +10,7 @@ import {
   Phone,
   MapPin,
   FileText,
+  Calendar,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/badge';
@@ -72,6 +73,7 @@ export default function AgencyDossierValidationPage() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
+  const [validityDuration, setValidityDuration] = useState(12); // Default 12 months for agencies
 
   useEffect(() => {
     if (id) {
@@ -123,8 +125,36 @@ export default function AgencyDossierValidationPage() {
 
       if (error) throw error;
 
-      toast.success('Dossier approuvé avec succès');
+      // Envoyer la notification d'approbation
+      try {
+        const { notificationService } = await import('@/services/notification.service');
+        await notificationService.sendVerificationDecisionNotification({
+          userId: dossier.user_id,
+          dossierType: 'agency',
+          decision: 'approved',
+          dossierId: dossier.id,
+          validityDurationMonths: validityDuration,
+        });
+      } catch (notifError) {
+        console.warn('Notification non envoyée:', notifError);
+      }
+
+      // Créer la validité de certification
+      try {
+        const { verificationValidityService } = await import('@/services/verificationValidity.service');
+        await verificationValidityService.createValidity({
+          userId: dossier.user_id,
+          verificationType: 'agency_certification',
+          verificationId: dossier.id,
+          customDurationMonths: validityDuration,
+        });
+      } catch (validityError) {
+        console.warn('Validité non créée:', validityError);
+      }
+
+      toast.success(`Dossier approuvé pour une durée de ${validityDuration} mois`);
       setShowApprovalDialog(false);
+      setValidityDuration(12); // Reset to default
       loadDossier(dossier.id);
     } catch (error) {
       console.error('Error approving dossier:', error);
@@ -347,16 +377,55 @@ export default function AgencyDossierValidationPage() {
           <DialogHeader>
             <DialogTitle>Approuver ce dossier</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground">
-              Confirmer l'approbation du dossier de {dossier.agency_name} ?
-            </p>
+          <div className="py-4 space-y-4">
+            <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg">
+              <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-green-900">Confirmer l'approbation</p>
+                <p className="text-sm text-green-700 mt-1">
+                  Vous êtes sur le point d'approuver le dossier de {dossier.agency_name}. Cette action permettra à
+                  l'agence de publier des annonces et gérer des biens.
+                </p>
+              </div>
+            </div>
+
+            {/* Validity Duration Selector */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                Durée de validité de la certification
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {[6, 12, 24].map((months) => (
+                  <button
+                    key={months}
+                    type="button"
+                    onClick={() => setValidityDuration(months)}
+                    className={`
+                      p-3 rounded-lg border-2 transition-all
+                      ${validityDuration === months
+                        ? 'border-primary bg-primary/5 text-primary font-medium'
+                        : 'border-muted bg-background hover:border-primary/50'
+                      }
+                    `}
+                  >
+                    <div className="text-lg font-semibold">{months}</div>
+                    <div className="text-xs text-muted-foreground">mois</div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                L'agence sera notifiée 30 jours avant l'expiration de sa certification.
+              </p>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowApprovalDialog(false)}>Annuler</Button>
+            <Button variant="outline" onClick={() => setShowApprovalDialog(false)}>
+              Annuler
+            </Button>
             <Button onClick={handleApprove} className="bg-green-600 hover:bg-green-700">
               <CheckCircle2 className="h-4 w-4 mr-2" />
-              Approuver
+              Approuver pour {validityDuration} mois
             </Button>
           </DialogFooter>
         </DialogContent>

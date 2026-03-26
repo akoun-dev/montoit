@@ -20,6 +20,8 @@ Nous avons le plaisir de vous informer que votre dossier locatif a été validé
 Détails de la décision :
 - Date : {{decision_date}}
 - Référence : {{application_id}}
+- Durée de validité : {{validity_duration_months}} mois
+- Valable jusqu'au : {{valid_until}}
 
 Prochaines étapes :
 1. Complétez votre profil si ce n'est pas déjà fait
@@ -28,9 +30,11 @@ Prochaines étapes :
 
 Votre score de confiance est de {{trust_score}}%.
 
+Important : Vous serez notifié 30 jours avant l'expiration de votre dossier.
+
 Cordialement,
 L'équipe MonToit`,
-    variables: ['full_name', 'decision_date', 'application_id', 'trust_score'],
+    variables: ['full_name', 'decision_date', 'application_id', 'trust_score', 'validity_duration_months', 'valid_until'],
   },
 
   // Verification rejetée - Locataire
@@ -99,6 +103,8 @@ Félicitations ! Votre compte propriétaire a obtenu la certification ANSUT.
 
 Certification : {{certification_number}}
 Date : {{certification_date}}
+Durée de validité : {{validity_duration_months}} mois
+Valable jusqu'au : {{valid_until}}
 
 Bénéfices de votre certification :
 - Badge de vérification sur votre profil
@@ -112,7 +118,7 @@ Vous pouvez maintenant :
 
 Cordialement,
 L'équipe MonToit`,
-    variables: ['full_name', 'certification_number', 'certification_date'],
+    variables: ['full_name', 'certification_number', 'certification_date', 'validity_duration_months', 'valid_until'],
   },
 
   // Verification rejetée - Propriétaire
@@ -154,12 +160,14 @@ Excellente nouvelle ! Votre agence a obtenu la certification ANSUT.
 
 Certification : {{certification_number}}
 Date : {{certification_date}}
+Durée de validité : {{validity_duration_months}} mois
+Valable jusqu'au : {{valid_until}}
 
 Votre agence apparaîtra maintenant comme vérifiée sur la plateforme.
 
 Cordialement,
 L'équipe MonToit`,
-    variables: ['agency_name', 'certification_number', 'certification_date', 'agency_id'],
+    variables: ['agency_name', 'certification_number', 'certification_date', 'agency_id', 'validity_duration_months', 'valid_until'],
   },
 
   // Verification rejetée - Agence

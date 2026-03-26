@@ -86,8 +86,9 @@ export const notificationService = {
     dossierId: string;
     reason?: string;
     trustScore?: number;
+    validityDurationMonths?: number;
   }): Promise<void> {
-    const { userId, dossierType, decision, dossierId, reason, trustScore } = options;
+    const { userId, dossierType, decision, dossierId, reason, trustScore, validityDurationMonths } = options;
 
     // Récupérer le profil de l'utilisateur
     const { data: profile } = await supabase
@@ -106,6 +107,10 @@ export const notificationService = {
       trust_score: trustScore || 0,
       rejection_reason: reason || '',
       rejected_docs: reason || '',
+      validity_duration_months: validityDurationMonths,
+      valid_until: validityDurationMonths
+        ? new Date(Date.now() + validityDurationMonths * 30 * 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR')
+        : undefined,
     };
 
     await this.sendNotification({

@@ -523,7 +523,7 @@ const NeofaceVerification: React.FC<NeofaceVerificationProps> = ({
             <Sparkles className="h-7 w-7 text-white" />
           </div>
           <div className="flex-1">
-            <h3 className="text-xl font-bold">Vérification Faciale NeoFace</h3>
+            <h3 className="text-xl font-bold">Vérification KYC</h3>
             <p className="text-white/80 text-sm">Technologie avec détection de vivacité</p>
           </div>
           <div className="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">

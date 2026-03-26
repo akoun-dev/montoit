@@ -32,11 +32,12 @@ export default function AuthCallback() {
           return;
         }
 
-        // Vérifier si le profil a un user_type défini ET si profile_setup_completed est true
-        // Si profile_setup_completed est false, rediriger vers choix de profil
-        if (profile?.user_type && profile?.profile_setup_completed) {
+        // Vérifier si le profil a un user_type défini
+        // Pour les utilisateurs existants, user_type est suffisant pour accéder au dashboard
+        // profile_setup_completed n'est bloquant que pour les nouveaux utilisateurs (gérés par needsProfileCompletion)
+        if (profile?.user_type) {
           console.log(
-            '[CallbackPage] user_type trouvé et profil complété:',
+            '[CallbackPage] user_type trouvé:',
             profile.user_type,
             '-> /dashboard'
           );
@@ -44,8 +45,8 @@ export default function AuthCallback() {
           return;
         }
 
-        // Si pas de user_type ou profil non complété -> rediriger vers choix de profil
-        console.log('[CallbackPage] Pas de user_type ou profil non complété -> /choix-profil');
+        // Si pas de user_type -> rediriger vers choix de profil
+        console.log('[CallbackPage] Pas de user_type -> /choix-profil');
         navigate('/choix-profil');
       }
     };

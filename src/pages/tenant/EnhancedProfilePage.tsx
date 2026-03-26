@@ -397,24 +397,22 @@ export default function EnhancedProfilePage() {
       }
 
       if (resolvedProfile) {
-        // Calculer le score si non présent ou à zéro
-        if (!resolvedProfile.trust_score || resolvedProfile.trust_score === 0) {
-          try {
-            const { ScoringService } = await import('@/services/scoringService');
-            const scoreBreakdown = await ScoringService.calculateGlobalTrustScore(user.id);
+        // Toujours recalculer et mettre à jour le score pour synchroniser avec la sidebar
+        try {
+          const { ScoringService } = await import('@/services/scoringService');
+          const scoreBreakdown = await ScoringService.calculateGlobalTrustScore(user.id);
 
-            // Mettre à jour le trust_score dans la base de données
-            const { error: scoreError } = await supabase
-              .from('profiles')
-              .update({ trust_score: scoreBreakdown.globalScore })
-              .eq('id', user.id);
+          // Mettre à jour le trust_score dans la base de données
+          const { error: scoreError } = await supabase
+            .from('profiles')
+            .update({ trust_score: scoreBreakdown.globalScore })
+            .eq('id', user.id);
 
-            if (!scoreError) {
-              resolvedProfile.trust_score = scoreBreakdown.globalScore;
-            }
-          } catch (scoreErr) {
-            console.warn('Could not calculate score:', scoreErr);
+          if (!scoreError) {
+            resolvedProfile.trust_score = scoreBreakdown.globalScore;
           }
+        } catch (scoreErr) {
+          console.warn('Could not calculate score:', scoreErr);
         }
 
         setProfile(resolvedProfile);

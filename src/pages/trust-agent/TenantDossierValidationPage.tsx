@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   PlusCircle,
   Clock,
+  Calendar,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/badge';
@@ -142,6 +143,7 @@ export default function TenantDossierValidationPage() {
   const [additionalDocs, setAdditionalDocs] = useState<AdditionalDocumentRequest[]>([]);
   const [deadlineDays, setDeadlineDays] = useState(7);
   const [additionalDocsNotes, setAdditionalDocsNotes] = useState('');
+  const [validityDuration, setValidityDuration] = useState(6); // Default 6 months
 
   // Document preview state
   const [previewDocument, setPreviewDocument] = useState<{ url: string; title: string } | null>(null);
@@ -318,26 +320,29 @@ export default function TenantDossierValidationPage() {
           decision: 'approved',
           dossierId: dossier.id,
           trustScore: scoreBreakdown.globalScore,
+          validityDurationMonths: validityDuration,
         });
       } catch (notifError) {
         console.warn('Notification non envoyée:', notifError);
         // Ne pas bloquer si la notification échoue
       }
 
-      // Créer la validité de certification
+      // Créer la validité de certification avec la durée sélectionnée
       try {
         const { verificationValidityService } = await import('@/services/verificationValidity.service');
         await verificationValidityService.createValidity({
           userId: dossier.user_id,
           verificationType: 'tenant_dossier',
           verificationId: dossier.id,
+          customDurationMonths: validityDuration,
         });
       } catch (validityError) {
         console.warn('Validité non créée:', validityError);
       }
 
-      toast.success('Dossier approuvé avec succès');
+      toast.success(`Dossier approuvé pour une durée de ${validityDuration} mois`);
       setShowApprovalDialog(false);
+      setValidityDuration(6); // Reset to default
       loadDossier(dossier.id);
     } catch (error) {
       console.error('Error approving dossier:', error);
@@ -892,7 +897,7 @@ export default function TenantDossierValidationPage() {
           <DialogHeader>
             <DialogTitle>Approuver ce dossier</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-4">
             <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg">
               <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
               <div>
@@ -905,13 +910,43 @@ export default function TenantDossierValidationPage() {
             </div>
 
             {progress < 100 && (
-              <div className="mt-4 p-4 bg-amber-50 rounded-lg">
+              <div className="p-4 bg-amber-50 rounded-lg">
                 <AlertTriangle className="h-5 w-5 text-amber-600 mb-2" />
                 <p className="text-sm text-amber-700">
                   Attention: Tous les documents ne sont pas vérifiés. Progression: {progress}%
                 </p>
               </div>
             )}
+
+            {/* Validity Duration Selector */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                Durée de validité du dossier
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {[3, 6, 12].map((months) => (
+                  <button
+                    key={months}
+                    type="button"
+                    onClick={() => setValidityDuration(months)}
+                    className={`
+                      p-3 rounded-lg border-2 transition-all
+                      ${validityDuration === months
+                        ? 'border-primary bg-primary/5 text-primary font-medium'
+                        : 'border-muted bg-background hover:border-primary/50'
+                      }
+                    `}
+                  >
+                    <div className="text-lg font-semibold">{months}</div>
+                    <div className="text-xs text-muted-foreground">mois</div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Le candidat sera notifié 30 jours avant l'expiration de son dossier.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowApprovalDialog(false)}>
@@ -919,7 +954,7 @@ export default function TenantDossierValidationPage() {
             </Button>
             <Button onClick={handleApprove} className="bg-green-600 hover:bg-green-700">
               <CheckCircle2 className="h-4 w-4 mr-2" />
-              Approuver le dossier
+              Approuver pour {validityDuration} mois
             </Button>
           </DialogFooter>
         </DialogContent>
