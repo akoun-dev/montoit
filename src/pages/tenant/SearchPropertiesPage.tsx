@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb';
 import MapWrapper from '@/shared/ui/MapWrapper';
-import InfiniteScroll from '@/shared/components/InfiniteScroll';
 import { useInfiniteProperties } from '../../hooks/tenant/useInfiniteProperties';
 import { useSaveSearch } from '../../hooks/tenant/useSaveSearch';
 import { usePrefetchProperties } from '@/shared/hooks/usePrefetchProperty';
@@ -65,6 +64,10 @@ export default function SearchPropertiesPage() {
   // Prefetch properties hook
   const { prefetchProperties } = usePrefetchProperties();
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 9; // 9 propriétés par page
+
   // Infinite scroll hook with sorting - ANSUT certified only
   const {
     properties,
@@ -74,7 +77,18 @@ export default function SearchPropertiesPage() {
     hasMore,
     loadMore,
     totalCount,
-  } = useInfiniteProperties({ ...appliedFilters, sortBy, pageSize: 99999, ansutVerifiedOnly: true, locationMode });
+  } = useInfiniteProperties({ ...appliedFilters, sortBy, pageSize, ansutVerifiedOnly: true, locationMode });
+
+  // Calculer les indices pour la pagination
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const currentProperties = properties.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(properties.length / pageSize);
+
+  // Réinitialiser à la page 1 quand les filtres changent
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [appliedFilters, sortBy, locationMode]);
 
   // Prefetch first 6 properties when they are loaded (for faster detail page navigation)
   const propertiesToPrefetch = useMemo(() => properties.slice(0, 6).map((p) => p.id), [properties]);
@@ -462,44 +476,27 @@ export default function SearchPropertiesPage() {
         <div className="flex gap-4 md:gap-8 items-start">
           {/* GRILLE DES BIENS - cachée en mode carte */}
           <div className={`flex-1 ${activeView === 'map' ? 'hidden' : ''}`}>
-            <InfiniteScroll
-              onLoadMore={loadMore}
-              hasMore={hasMore}
-              loading={loadingMore}
-              threshold={300}
-              loader={
-                <div className="flex justify-center items-center py-8">
-                  <Loader2 className="w-8 h-8 animate-spin" style={{ color: COLORS.orange }} />
-                  <span className="ml-3" style={{ color: COLORS.grisTexte }}>
-                    Chargement...
-                  </span>
-                </div>
-              }
-              endMessage={
-                properties.length > 0 ? (
+            {loading ? (
+              /* Loading skeleton Premium */
+              <div
+                className={`grid gap-6 ${activeView === 'map' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}
+              >
+                {[...Array(6)].map((_, i) => (
                   <div
-                    className="flex justify-center items-center py-8"
-                    style={{ color: COLORS.grisNeutre }}
-                  >
-                    <span>Vous avez vu toutes les propriétés disponibles</span>
-                  </div>
-                ) : null
-              }
-            >
-              {loading ? (
-                /* Loading skeleton Premium */
-                <div
-                  className={`grid gap-6 ${activeView === 'map' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}
-                >
-                  {[...Array(6)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="bg-white rounded-[20px] h-[420px] animate-pulse border"
-                      style={{ borderColor: COLORS.border }}
-                    />
-                  ))}
-                </div>
-              ) : properties.length === 0 ? (
+                    key={i}
+                    className="bg-white rounded-[20px] h-[420px] animate-pulse border"
+                    style={{ borderColor: COLORS.border }}
+                  />
+                ))}
+              </div>
+            ) : currentProperties.length === 0 && properties.length > 0 ? (
+              /* Page vide (pagination) */
+              <div className="text-center py-16">
+                <p className="text-lg" style={{ color: COLORS.grisTexte }}>
+                  Cette page ne contient aucune propriété.
+                </p>
+              </div>
+            ) : properties.length === 0 ? (
                 /* Empty state Premium avec détail des filtres */
                 <div className="text-center py-16 md:py-24">
                   <div className="relative inline-block mb-8">
@@ -583,23 +580,152 @@ export default function SearchPropertiesPage() {
                   )}
                 </div>
               ) : (
-                /* Properties Grid Premium Ivorian */
-                <div
-                  className={`grid gap-6 ${activeView === 'map' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}
-                >
-                  {properties.map((property) => (
-                    <PropertyCard
-                      key={property.id}
-                      property={property}
-                      onHover={() => prefetchProperties([property.id])}
-                      formatPrice={formatPrice}
-                      colors={COLORS}
-                      onShare={handlePropertyShare}
-                    />
-                  ))}
-                </div>
+                <>
+                  {/* Properties Grid Premium Ivorian */}
+                  <div
+                    className={`grid gap-6 ${activeView === 'map' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}
+                  >
+                    {currentProperties.map((property) => (
+                      <PropertyCard
+                        key={property.id}
+                        property={property}
+                        onHover={() => prefetchProperties([property.id])}
+                        formatPrice={formatPrice}
+                        colors={COLORS}
+                        onShare={handlePropertyShare}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Contrôles de pagination */}
+                  {totalPages > 1 && (
+                    <div className="mt-8 flex flex-col items-center gap-4">
+                      {/* Info de pagination */}
+                      <p className="text-sm" style={{ color: COLORS.grisTexte }}>
+                        Affichage de {startIndex + 1}-{Math.min(endIndex, properties.length)} sur {properties.length} propriétés
+                      </p>
+
+                      {/* Boutons de navigation */}
+                      <div className="flex items-center gap-2">
+                        {/* Bouton précédent */}
+                        <button
+                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          disabled={currentPage === 1}
+                          className="px-4 py-2 rounded-lg border font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          style={{ borderColor: COLORS.border, color: COLORS.chocolat }}
+                        >
+                          ← Précédent
+                        </button>
+
+                        {/* Numéros de page */}
+                        <div className="flex items-center gap-1">
+                          {/* Afficher les pages autour de la page actuelle */}
+                          {(() => {
+                            const pages = [];
+                            const maxVisiblePages = 5;
+                            let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                            const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+                            // Ajuster startPage si on est proche de la fin
+                            if (endPage - startPage < maxVisiblePages - 1) {
+                              startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                            }
+
+                            // Première page et points de suspension si nécessaire
+                            if (startPage > 1) {
+                              pages.push(
+                                <button
+                                  key={1}
+                                  onClick={() => setCurrentPage(1)}
+                                  className="w-10 h-10 rounded-lg font-medium transition-all hover:bg-gray-50"
+                                  style={{
+                                    backgroundColor: 1 === currentPage ? COLORS.chocolat : 'transparent',
+                                    color: 1 === currentPage ? 'white' : COLORS.chocolat,
+                                    border: 1 === currentPage ? 'none' : `1px solid ${COLORS.border}`,
+                                  }}
+                                >
+                                  1
+                                </button>
+                              );
+                              if (startPage > 2) {
+                                pages.push(<span key="ellipsis-start" className="px-2" style={{ color: COLORS.grisNeutre }}>...</span>);
+                              }
+                            }
+
+                            // Pages visibles
+                            for (let i = startPage; i <= endPage; i++) {
+                              pages.push(
+                                <button
+                                  key={i}
+                                  onClick={() => setCurrentPage(i)}
+                                  className="w-10 h-10 rounded-lg font-medium transition-all hover:bg-gray-50"
+                                  style={{
+                                    backgroundColor: i === currentPage ? COLORS.chocolat : 'transparent',
+                                    color: i === currentPage ? 'white' : COLORS.chocolat,
+                                    border: i === currentPage ? 'none' : `1px solid ${COLORS.border}`,
+                                  }}
+                                >
+                                  {i}
+                                </button>
+                              );
+                            }
+
+                            // Dernière page et points de suspension si nécessaire
+                            if (endPage < totalPages) {
+                              if (endPage < totalPages - 1) {
+                                pages.push(<span key="ellipsis-end" className="px-2" style={{ color: COLORS.grisNeutre }}>...</span>);
+                              }
+                              pages.push(
+                                <button
+                                  key={totalPages}
+                                  onClick={() => setCurrentPage(totalPages)}
+                                  className="w-10 h-10 rounded-lg font-medium transition-all hover:bg-gray-50"
+                                  style={{
+                                    backgroundColor: totalPages === currentPage ? COLORS.chocolat : 'transparent',
+                                    color: totalPages === currentPage ? 'white' : COLORS.chocolat,
+                                    border: totalPages === currentPage ? 'none' : `1px solid ${COLORS.border}`,
+                                  }}
+                                >
+                                  {totalPages}
+                                </button>
+                              );
+                            }
+
+                            return pages;
+                          })()}
+                        </div>
+
+                        {/* Bouton suivant */}
+                        <button
+                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                          className="px-4 py-2 rounded-lg border font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                          style={{ borderColor: COLORS.border, color: COLORS.chocolat }}
+                        >
+                          Suivant →
+                        </button>
+                      </div>
+
+                      {/* Sélecteur de page rapide */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm" style={{ color: COLORS.grisTexte }}>Aller à la page :</span>
+                        <select
+                          value={currentPage}
+                          onChange={(e) => setCurrentPage(parseInt(e.target.value))}
+                          className="px-3 py-1.5 rounded-lg border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                          style={{ borderColor: COLORS.border, color: COLORS.chocolat }}
+                        >
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            <option key={page} value={page}>
+                              Page {page}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-            </InfiniteScroll>
           </div>
 
           {/* MAP (Visible seulement si mode Carte activé) */}
@@ -715,13 +841,13 @@ export default function SearchPropertiesPage() {
             </div>
 
             {/* Mobile property cards */}
-            {!loading && properties.length > 0 && (
+            {!loading && currentProperties.length > 0 && (
               <div>
                 <h3 className="text-lg font-bold mb-4" style={{ color: COLORS.chocolat }}>
-                  À proximité
+                  À proximité (Page {currentPage})
                 </h3>
                 <div className="grid grid-cols-1 gap-4">
-                  {properties.slice(0, 4).map((property) => (
+                  {currentProperties.slice(0, 4).map((property) => (
                     <article
                       key={property.id}
                       onClick={() => navigate(`/proprietes/${property.id}`)}
@@ -797,13 +923,13 @@ export default function SearchPropertiesPage() {
                     </article>
                   ))}
                 </div>
-                {properties.length > 4 && (
+                {currentProperties.length > 4 && (
                   <button
                     onClick={() => setActiveView('list')}
                     className="w-full mt-4 py-3 font-semibold border-2 rounded-xl hover:opacity-90 transition-opacity"
                     style={{ color: COLORS.orange, borderColor: COLORS.orange }}
                   >
-                    Voir les {totalCount} propriétés
+                    Voir toutes les propriétés ({properties.length})
                   </button>
                 )}
               </div>

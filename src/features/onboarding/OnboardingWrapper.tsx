@@ -110,6 +110,7 @@ export default function OnboardingWrapper({ children }: { children: React.ReactN
   const location = useLocation();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
+  const [userManuallyClosed, setUserManuallyClosed] = useState(false);
 
   // Vérifier si la route actuelle est exclue
   const isExcludedRoute = EXCLUDED_ROUTES.some(route =>
@@ -155,9 +156,9 @@ export default function OnboardingWrapper({ children }: { children: React.ReactN
 
   // Mettre à jour l'état si le profil change
   useEffect(() => {
-    console.log('[OnboardingWrapper] profile change useEffect - hasCheckedOnboarding:', hasCheckedOnboarding, 'profile:', !!profile, 'isExcludedRoute:', isExcludedRoute);
+    console.log('[OnboardingWrapper] profile change useEffect - hasCheckedOnboarding:', hasCheckedOnboarding, 'profile:', !!profile, 'isExcludedRoute:', isExcludedRoute, 'userManuallyClosed:', userManuallyClosed);
 
-    if (hasCheckedOnboarding && profile && !isExcludedRoute && user) {
+    if (hasCheckedOnboarding && profile && !isExcludedRoute && user && !userManuallyClosed) {
       needsOnboarding(profile, user.id).then(needsIt => {
         // Si le modal est ouvert et que le profil est maintenant complet
         if (!needsIt && showOnboarding) {
@@ -165,7 +166,8 @@ export default function OnboardingWrapper({ children }: { children: React.ReactN
           setShowOnboarding(false);
         }
         // Si le modal n'est pas ouvert et que le profil est incomplet
-        else if (needsIt && !showOnboarding && hasCheckedOnboarding) {
+        // NE PAS réafficher si l'utilisateur l'a fermé manuellement
+        else if (needsIt && !showOnboarding && hasCheckedOnboarding && !userManuallyClosed) {
           console.log('[OnboardingWrapper] profile change - SHOWING modal (profile incomplete)');
           setShowOnboarding(true);
         }
@@ -177,9 +179,17 @@ export default function OnboardingWrapper({ children }: { children: React.ReactN
       console.log('[OnboardingWrapper] profile change - HIDING modal (excluded route)');
       setShowOnboarding(false);
     }
-  }, [profile, showOnboarding, hasCheckedOnboarding, isExcludedRoute, user]);
+
+    // Réinitialiser userManuallyClosed si le profil est complété
+    if (userManuallyClosed && profile?.profile_setup_completed) {
+      console.log('[OnboardingWrapper] Resetting userManuallyClosed (profile completed)');
+      setUserManuallyClosed(false);
+    }
+  }, [profile, showOnboarding, hasCheckedOnboarding, isExcludedRoute, user, userManuallyClosed]);
 
   const handleCloseOnboarding = () => {
+    console.log('[OnboardingWrapper] Modal manually closed by user');
+    setUserManuallyClosed(true);
     setShowOnboarding(false);
   };
 

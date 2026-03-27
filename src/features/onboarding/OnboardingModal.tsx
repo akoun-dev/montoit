@@ -413,6 +413,8 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
         city: formData.city || null,
         bio: formData.bio || null,
         gender: formData.gender || null,
+        // Marquer le setup comme complété pour éviter que le modal ne se réaffiche
+        profile_setup_completed: true,
         updated_at: new Date().toISOString(),
       };
 
@@ -556,7 +558,11 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
         <div className="flex gap-4 pt-4">
           <button
             type="button"
-            onClick={handleSkipForNow}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleSkipForNow();
+            }}
             className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Plus tard
@@ -1022,7 +1028,11 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
         <div className="flex gap-4 pt-4">
           <button
             type="button"
-            onClick={handleSkipForNow}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleSkipForNow();
+            }}
             className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Plus tard

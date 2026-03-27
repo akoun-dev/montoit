@@ -492,7 +492,7 @@ export default function OwnerProfilePage() {
                       className="inline-flex items-center gap-2 px-4 py-2 bg-[#2C1810] hover:bg-[#1B0F0A] text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Key className="w-4 h-4" />
-                      <span>{becomingTenant ? 'Changement...' : 'Mon espace locatairej'}</span>
+                      <span>{becomingTenant ? 'Changement...' : 'Mon espace locataire'}</span>
                     </button>
                   </div>
                 </div>

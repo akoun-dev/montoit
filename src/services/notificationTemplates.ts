@@ -362,6 +362,115 @@ Cordialement,
 L'équipe MonToit`,
     variables: ['full_name', 'property_title', 'visit_date', 'visit_time', 'property_address'],
   },
+
+  // ===== MON-056 : Alertes de recherche de biens =====
+
+  // Nouveau bien correspondant à une recherche sauvegardée
+  'new_property_match': {
+    id: 'new_property_match',
+    code: 'new_property_match',
+    category: 'property',
+    channels: ['email', 'in_app', 'push'],
+    priority: 'high',
+    subject: '🏠 Un bien correspond à votre recherche "{{search_name}}"',
+    template_fr: `Bonjour {{full_name}},
+
+Bonne nouvelle ! Un nouveau bien correspond à votre recherche sauvegardée :
+
+{{search_name}}
+
+📍 {{property_title}}
+🏙️ {{property_city}}
+💰 {{property_price}}€/mois
+{{#property_has_bedrooms}}
+🛏️ {{property_bedrooms}} chambre(s)
+{{/property_has_bedrooms}}
+{{#property_surface}}
+📐 {{property_surface}}m²
+{{/property_surface}}
+
+{{search_description}}
+
+Voir le bien :
+{{property_url}}
+
+Vous recevrez ce type de notification selon vos préférences :
+{{alert_frequency}}
+
+Pour gérer vos alertes, connectez-vous à votre espace locataire.
+
+À bientôt sur MonToit !`,
+    variables: ['full_name', 'search_name', 'search_id', 'property_title', 'property_city', 'property_price', 'property_id', 'property_url', 'property_image', 'property_bedrooms', 'property_surface', 'property_has_bedrooms', 'search_description', 'alert_frequency'],
+  },
+
+  // Résumé quotidien des nouveaux biens correspondants
+  'property_match_daily_summary': {
+    id: 'property_match_daily_summary',
+    code: 'property_match_daily_summary',
+    category: 'property',
+    channels: ['email', 'in_app'],
+    priority: 'normal',
+    subject: '🏠 {{match_count}} bien(s) correspond(ent) à vos recherches',
+    template_fr: `Bonjour {{full_name}},
+
+Voici le résumé des nouveaux biens correspondant à vos recherches sauvegardées :
+
+{{#has_matches}}
+Vous avez {{match_count}} nouvelle(s) correspondance(s) aujourd'hui :
+
+{{matches_list}}
+
+Pour voir tous les détails, connectez-vous à votre espace locataire.
+{{/has_matches}}
+{{^has_matches}}
+Aucun nouveau bien ne correspond à vos critères aujourd'hui.
+
+Nous continuons à rechercher pour vous !
+{{/has_matches}}
+
+Pour gérer vos alertes :
+{{manage_alerts_url}}
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['full_name', 'match_count', 'matches_list', 'has_matches', 'manage_alerts_url', 'date'],
+  },
+
+  // Résumé hebdomadaire des nouveaux biens correspondants
+  'property_match_weekly_summary': {
+    id: 'property_match_weekly_summary',
+    code: 'property_match_weekly_summary',
+    category: 'property',
+    channels: ['email'],
+    priority: 'normal',
+    subject: '🏠 Résumé hebdomadaire - {{match_count}} bien(s) correspond(ent)',
+    template_fr: `Bonjour {{full_name}},
+
+Voici votre résumé hebdomadaire des biens correspondant à vos recherches :
+
+{{#has_matches}}
+Cette semaine, {{match_count}} bien(s) correspondent(nt) à vos critères :
+
+{{matches_list}}
+
+{{/has_matches}}
+{{^has_matches}}
+Aucun nouveau bien ne correspond parfaitement à vos critères cette semaine.
+
+Conseils :
+- Élargissez vos critères de recherche (ville, prix, surface)
+- Ajoutez d'autres types de biens
+- Modifiez vos alertes depuis votre espace locataire
+
+{{/has_matches}}
+
+Pour gérer vos alertes :
+{{manage_alerts_url}}
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['full_name', 'match_count', 'matches_list', 'has_matches', 'manage_alerts_url', 'week_start', 'week_end'],
+  },
 };
 
 /**
