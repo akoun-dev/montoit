@@ -66,7 +66,8 @@ export default function SearchPropertiesPage() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 9; // 9 propriétés par page
+  const pageSize = 9; // 9 propriétés par page (pagination côté client)
+  const fetchPageSize = 1000; // Charger beaucoup de propriétés pour la pagination côté client
 
   // Infinite scroll hook with sorting - ANSUT certified only
   const {
@@ -77,13 +78,13 @@ export default function SearchPropertiesPage() {
     hasMore,
     loadMore,
     totalCount,
-  } = useInfiniteProperties({ ...appliedFilters, sortBy, pageSize, ansutVerifiedOnly: true, locationMode });
+  } = useInfiniteProperties({ ...appliedFilters, sortBy, pageSize: fetchPageSize, ansutVerifiedOnly: true, locationMode });
 
   // Calculer les indices pour la pagination
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = startIndex + pageSize;
   const currentProperties = properties.slice(startIndex, endIndex);
-  const totalPages = Math.ceil(properties.length / pageSize);
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   // Réinitialiser à la page 1 quand les filtres changent
   useEffect(() => {
