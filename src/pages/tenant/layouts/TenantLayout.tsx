@@ -54,7 +54,7 @@ const navGroups = [
     items: [
       { path: '/locataire/profil', label: 'Mon profil', icon: User },
       { path: '/locataire/paiements', label: 'Mes paiements', icon: CreditCard },
-      { path: '/locataire/parametres', label: 'Paramètres', icon: Settings },
+      { path: '/auth/parametres', label: 'Paramètres', icon: Settings },
     ],
   },
 ];

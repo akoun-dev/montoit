@@ -11,6 +11,7 @@ import { GlobalLoadingSkeleton } from '@/shared/ui/GlobalLoadingSkeleton';
 import { FloatingCallButton } from '@/shared/ui/FloatingCallButton';
 import SUTAChatWidget from '@/shared/components/SUTAChatWidget';
 import { CookieConsent } from '@/shared/ui/CookieConsent';
+import OnboardingWrapper from '@/features/onboarding/OnboardingWrapper';
 const noLayoutRoutes = ['/auth/callback'];
 const noHeaderFooterRoutes = [
   '/admin',
@@ -119,11 +120,13 @@ export default function Layout() {
       {shouldShowHeaderFooter && <SUTAChatWidget mode="floating" position="bottom-right" />}
       <ChunkLoadErrorBoundary>
         <Suspense fallback={<GlobalLoadingSkeleton variant={skeletonVariant} />}>
-          <main className={shouldShowHeaderFooter ? 'min-h-screen' : ''}>
-            <PageTransition key={location.pathname}>
-              <Outlet />
-            </PageTransition>
-          </main>
+          <OnboardingWrapper>
+            <main className={shouldShowHeaderFooter ? 'min-h-screen' : ''}>
+              <PageTransition key={location.pathname}>
+                <Outlet />
+              </PageTransition>
+            </main>
+          </OnboardingWrapper>
         </Suspense>
       </ChunkLoadErrorBoundary>
       {shouldShowHeaderFooter && <FooterPremium />}

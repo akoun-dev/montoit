@@ -4,6 +4,7 @@ import { Menu } from 'lucide-react';
 import AgencySidebar from './AgencySidebar';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
+import OnboardingWrapper from '@/features/onboarding/OnboardingWrapper';
 
 interface AgencyDashboardLayoutProps {
   children?: React.ReactNode;
@@ -64,7 +65,9 @@ export default function AgencyDashboardLayout({ children, title }: AgencyDashboa
 
         {/* Contenu principal */}
         <main className="flex-1 min-h-0 overflow-auto">
-          <div className="w-full px-4 py-6">{children || <Outlet />}</div>
+          <OnboardingWrapper>
+            <div className="w-full px-4 py-6">{children || <Outlet />}</div>
+          </OnboardingWrapper>
         </main>
       </div>
     </div>

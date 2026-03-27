@@ -10,14 +10,13 @@ import {
   Calendar,
   Users,
   TrendingUp,
-  Settings,
   MessageSquare,
   Home,
   Briefcase,
   CheckCircle,
   BarChart3,
 } from 'lucide-react';
-import { useAuth } from '@/app/providers/AuthProvider';
+import { useMenuCounters } from '@/hooks/useMenuCounters';
 
 export interface NavigationItem {
   href: string;
@@ -29,16 +28,8 @@ export interface NavigationItem {
 }
 
 export function useNavigationItems() {
-  const { user } = useAuth();
   const location = useLocation();
-
-  // TODO: Fetch actual badge counts from API/database
-  const badgeCounts = useMemo(() => ({
-    pendingApplications: 0,
-    pendingPayments: 0,
-    overduePayments: 0,
-    pendingReminders: 0,
-  }), []);
+  const { counters } = useMenuCounters();
 
   // Agent/Agency navigation items
   const agentItems: NavigationItem[] = useMemo(() => [
@@ -61,9 +52,9 @@ export function useNavigationItems() {
       href: '/agences/candidatures',
       label: 'Candidatures',
       icon: FileText,
-      badgeCount: badgeCounts.pendingApplications,
+      badgeCount: counters.pendingApplications,
       badgeColor: 'orange',
-      badgePulse: badgeCounts.pendingApplications > 0,
+      badgePulse: counters.pendingApplications > 0,
     },
     {
       href: '/agences/contrats',
@@ -74,9 +65,6 @@ export function useNavigationItems() {
       href: '/agences/paiements',
       label: 'Paiements & Charges',
       icon: Wallet,
-      badgeCount: badgeCounts.pendingPayments + badgeCounts.overduePayments,
-      badgeColor: badgeCounts.overduePayments > 0 ? 'red' : 'orange',
-      badgePulse: badgeCounts.overduePayments > 0,
     },
     {
       href: '/agences/documents',
@@ -84,21 +72,28 @@ export function useNavigationItems() {
       icon: FolderOpen,
     },
     {
-      href: '/agences/rappels',
-      label: 'Rappels',
+      href: '/agences/notifications',
+      label: 'Notifications',
       icon: Bell,
-      badgeCount: badgeCounts.pendingReminders,
-      badgeColor: 'blue',
+      badgeCount: counters.unreadNotifications,
+      badgeColor: 'orange',
+      badgePulse: counters.unreadNotifications > 0,
     },
     {
       href: '/agences/visites',
       label: 'Visites',
       icon: Calendar,
+      badgeCount: counters.pendingVisits,
+      badgeColor: 'blue',
+      badgePulse: counters.pendingVisits > 0,
     },
     {
       href: '/agences/messages',
       label: 'Messages',
       icon: MessageSquare,
+      badgeCount: counters.unreadMessages,
+      badgeColor: 'green',
+      badgePulse: counters.unreadMessages > 0,
     },
     {
       href: '/agences/analytics',
@@ -120,7 +115,7 @@ export function useNavigationItems() {
       label: 'Commissions',
       icon: TrendingUp,
     },
-  ], [badgeCounts]);
+  ], [counters]);
 
   // Bottom navigation items (Profile, Settings, etc.)
   const bottomItems: NavigationItem[] = useMemo(() => [

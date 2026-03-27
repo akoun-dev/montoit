@@ -4,6 +4,7 @@ import TenantSidebar from './TenantSidebar';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { Link } from 'react-router-dom';
 import { useMenuCounters } from '@/hooks/useMenuCounters';
+import OnboardingWrapper from '@/features/onboarding/OnboardingWrapper';
 
 interface TenantDashboardLayoutProps {
   children: React.ReactNode;
@@ -69,9 +70,11 @@ export default function TenantDashboardLayout({ children, title }: TenantDashboa
 
         {/* Page Content */}
         <main className="flex-1 min-h-0 overflow-auto" id="main-content">
-          <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 pb-10 sm:pb-12">
-            {children}
-          </div>
+          <OnboardingWrapper>
+            <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 pb-10 sm:pb-12">
+              {children}
+            </div>
+          </OnboardingWrapper>
         </main>
       </div>
     </div>

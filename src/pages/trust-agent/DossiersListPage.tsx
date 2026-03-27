@@ -16,6 +16,7 @@ import { Badge } from '@/shared/ui/badge';
 import { Card } from '@/shared/ui/Card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/shared/useSafeToast';
+import { formatUserContact } from '@/shared/utils/contactDisplay';
 
 // New Tiers de confiance UI Components
 import { KPICard, EmptyState, FilterBar, TrustAgentPageHeader } from '@/shared/ui/trust-agent';
@@ -420,7 +421,7 @@ export default function DossiersListPage() {
                                   {statusConfig.label}
                                 </Badge>
                               </div>
-                              <p className="text-sm text-gray-500 mt-0.5">{dossier.email}</p>
+                              <p className="text-sm text-gray-500 mt-0.5">{formatUserContact(dossier.email, dossier.phone)}</p>
                               <p className="text-xs text-gray-400 mt-1">
                                 Soumis le{' '}
                                 {new Date(dossier.submitted_at).toLocaleDateString('fr-FR')}

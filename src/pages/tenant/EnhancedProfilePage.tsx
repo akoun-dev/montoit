@@ -377,7 +377,8 @@ export default function EnhancedProfilePage() {
           .insert({
             id: user.id,
             email: user.email ?? null,
-            phone: user.phone ?? null,
+            // IMPORTANT: Utiliser user_metadata.phone car user.phone est vide pour les inscriptions par téléphone
+            phone: (user.user_metadata?.phone as string | undefined) ?? user.phone ?? null,
             full_name:
               (user.user_metadata?.full_name as string | undefined) ||
               (user.user_metadata?.name as string | undefined) ||
@@ -978,7 +979,7 @@ export default function EnhancedProfilePage() {
                     disabled={becomingOwner}
                     className="px-3 py-2 text-sm font-medium rounded-xl border border-[#F16522] text-[#F16522] hover:bg-[#FFF2E6] transition-colors disabled:opacity-50"
                   >
-                    {becomingOwner ? '...' : ' Devenir propriétaire'}
+                    {becomingOwner ? '...' : ' Mon espace propriétaire'}
                   </button>
                 </div>
               </div>
@@ -1430,22 +1431,41 @@ export default function EnhancedProfilePage() {
                                       ? 'Préparez vos documents avant soumission'
                                     : 'Documents pour certification'}
                         </p>
-                        {dossierDisplayStatus !== 'approved' &&
-                          dossierDisplayStatus !== 'pending' &&
-                          dossierDisplayStatus !== 'in_review' && (
-                            <button
-                              onClick={() => setActiveTab('dossier')}
-                              className="mt-2 text-sm text-[#F16522] hover:underline font-medium"
-                            >
-                              {dossierDisplayStatus === 'rejected' ||
-                              dossierDisplayStatus === 'more_info_requested'
-                                ? 'Compléter'
-                                : dossierDisplayStatus === 'draft'
-                                  ? 'Continuer'
-                                  : 'Commencer'}{' '}
-                              →
-                            </button>
-                          )}
+                        {dossierDisplayStatus !== 'approved' && (
+                          <>
+                            {dossierDisplayStatus === 'rejected' ||
+                            dossierDisplayStatus === 'more_info_requested' ? (
+                              <button
+                                onClick={() => setActiveTab('dossier')}
+                                className="mt-2 text-sm text-[#F16522] hover:underline font-medium"
+                              >
+                                Compléter →
+                              </button>
+                            ) : dossierDisplayStatus === 'draft' ? (
+                              <button
+                                onClick={() => setActiveTab('dossier')}
+                                className="mt-2 text-sm text-[#F16522] hover:underline font-medium"
+                              >
+                                Continuer →
+                              </button>
+                            ) : dossierDisplayStatus === 'pending' ||
+                              dossierDisplayStatus === 'in_review' ? (
+                              <button
+                                onClick={() => setActiveTab('dossier')}
+                                className="mt-2 text-sm text-blue-600 hover:underline font-medium"
+                              >
+                                Ajouter des documents →
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setActiveTab('dossier')}
+                                className="mt-2 text-sm text-[#F16522] hover:underline font-medium"
+                              >
+                                Commencer →
+                              </button>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1827,9 +1847,23 @@ export default function EnhancedProfilePage() {
 
                     {/* Submit Button Section */}
                     <div className="pt-4 border-t border-gray-200">
-                      {!dossierSubmitted || dossierDisplayStatus === 'more_info_requested' ? (
-                        /* Afficher le bouton de soumission si pas de dossier ou infos demandees */
+                      {!dossierSubmitted || dossierDisplayStatus === 'more_info_requested' || dossierDisplayStatus === 'rejected' ? (
+                        /* Afficher le bouton de soumission si pas de dossier, infos demandees, ou dossier rejeté */
                         <>
+                          {dossierDisplayStatus === 'rejected' && (
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+                              <div className="flex gap-3">
+                                <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                <div className="text-sm text-red-800">
+                                  <p className="font-semibold mb-1">Dossier rejeté</p>
+                                  <p className="text-red-700">
+                                    {dossierApplication?.rejection_reason || 'Votre dossier n\'a pas pu être validé. Veuillez corriger les documents et resoumettre.'}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
                             <div className="flex gap-3">
                               <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -1865,7 +1899,7 @@ export default function EnhancedProfilePage() {
                                 <>
                                   <Send className="w-4 h-4" />
                                   <span>
-                                    {dossierDisplayStatus === 'more_info_requested'
+                                    {dossierDisplayStatus === 'more_info_requested' || dossierDisplayStatus === 'rejected'
                                       ? 'Ressoumettre le dossier'
                                       : 'Soumettre le dossier'}
                                   </span>
@@ -1889,14 +1923,6 @@ export default function EnhancedProfilePage() {
                           <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-4 py-2 rounded-lg">
                             <CheckCircle className="w-4 h-4" />
                             <span>Dossier valide</span>
-                          </div>
-                        </div>
-                      ) : dossierDisplayStatus === 'rejected' ? (
-                        /* Dossier refuse */
-                        <div className="flex justify-end">
-                          <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg">
-                            <XCircle className="w-4 h-4" />
-                            <span>Dossier refuse - Veuillez reessayer</span>
                           </div>
                         </div>
                       ) : null}

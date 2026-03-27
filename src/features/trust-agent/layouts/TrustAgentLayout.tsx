@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   ClipboardList,
@@ -19,6 +19,7 @@ import {
 import { Button } from '@/shared/ui/Button';
 import { Badge } from '@/shared/ui/badge';
 import { cn } from '@/shared/lib/utils';
+import { useMenuCounters } from '@/hooks/useMenuCounters';
 
 const navItems = [
   { path: '/trust-agent/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -31,11 +32,14 @@ const navItems = [
   { path: '/trust-agent/properties', label: 'Gestion des propriétés', icon: Building },
   { path: '/trust-agent/reports', label: 'Rapports', icon: BarChart3 },
   { path: '/trust-agent/history', label: 'Historique', icon: History },
+  { path: '/trust-agent/notifications', label: 'Notifications', icon: Bell, showBadge: true },
 ];
 
 export default function TrustAgentLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { counters } = useMenuCounters();
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + '/');
@@ -59,8 +63,18 @@ export default function TrustAgentLayout() {
               <span className="font-semibold">Tiers de confiance</span>
             </div>
           </div>
-          <Button variant="ghost" size="small" className="p-2 h-auto w-auto">
+          <Button
+            variant="ghost"
+            size="small"
+            className="p-2 h-auto w-auto relative"
+            onClick={() => navigate('/trust-agent/notifications')}
+          >
             <Bell className="h-5 w-5" />
+            {counters.unreadNotifications > 0 && (
+              <span className="absolute top-1 right-1 min-w-[16px] h-[16px] flex items-center justify-center bg-red-500 text-white text-xs rounded-full font-medium">
+                {counters.unreadNotifications > 9 ? '9+' : counters.unreadNotifications}
+              </span>
+            )}
           </Button>
         </div>
       </header>
@@ -82,19 +96,25 @@ export default function TrustAgentLayout() {
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const showBadge = item.showBadge && counters.unreadNotifications > 0;
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
+                  'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors relative',
                   isActive(item.path)
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
               >
                 <Icon className="h-5 w-5" />
-                <span>{item.label}</span>
+                <span className="flex-1">{item.label}</span>
+                {showBadge && (
+                  <span className="min-w-[20px] h-[20px] flex items-center justify-center bg-red-500 text-white text-xs rounded-full font-medium">
+                    {counters.unreadNotifications > 9 ? '9+' : counters.unreadNotifications}
+                  </span>
+                )}
               </NavLink>
             );
           })}
@@ -152,20 +172,26 @@ export default function TrustAgentLayout() {
         <nav className="px-4 py-6 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const showBadge = item.showBadge && counters.unreadNotifications > 0;
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={cn(
-                  'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors',
+                  'flex items-center gap-3 px-4 py-3 rounded-lg transition-colors relative',
                   isActive(item.path)
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
               >
                 <Icon className="h-5 w-5" />
-                <span>{item.label}</span>
+                <span className="flex-1">{item.label}</span>
+                {showBadge && (
+                  <span className="min-w-[20px] h-[20px] flex items-center justify-center bg-red-500 text-white text-xs rounded-full font-medium">
+                    {counters.unreadNotifications > 9 ? '9+' : counters.unreadNotifications}
+                  </span>
+                )}
               </NavLink>
             );
           })}

@@ -26,6 +26,7 @@ const AgencyVisitsPage = lazyWithRetry(() => import('@/pages/agency/VisitsPage')
 const AgencyPaymentsPage = lazyWithRetry(() => import('@/pages/agency/PaymentsPage'));
 const AgencyDocumentsPage = lazyWithRetry(() => import('@/pages/agency/DocumentsPage'));
 const AgencyRemindersPage = lazyWithRetry(() => import('@/pages/agency/RemindersPage'));
+const AgencyNotificationsPage = lazyWithRetry(() => import('@/pages/agency/NotificationsPage'));
 const TeamManagementPage = lazyWithRetry(() => import('@/pages/agency/TeamManagementPage'));
 const PropertyAssignmentsPage = lazyWithRetry(() => import('@/features/agency/pages/PropertyAssignmentsPage'));
 const CommissionsPage = lazyWithRetry(() => import('@/pages/agency/CommissionsPage'));
@@ -152,6 +153,12 @@ export const agencyRoutes: RouteObject[] = [
       {
         path: 'rappels',
         element: <AgencyRemindersPage />,
+      },
+
+      // Notifications
+      {
+        path: 'notifications',
+        element: <AgencyNotificationsPage />,
       },
 
       // Team & Settings

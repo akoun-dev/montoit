@@ -14,13 +14,29 @@ import {
   MapPin,
   Key,
   Loader2,
+  X,
+  CheckCircle2,
 } from 'lucide-react';
 import accountDeletionService from '@/services/accountDeletion.service';
+import { supabase } from '@/integrations/supabase/client';
+import { formatUserContact, getContactLabel, isPhoneEmail } from '@/shared/utils/contactDisplay';
 
 interface DeleteConfirmation {
   step: 'initial' | 'confirm' | 'final';
   reason?: string;
   feedback?: string;
+}
+
+interface EmailChangeState {
+  step: 'idle' | 'confirm' | 'success';
+  newEmail?: string;
+  confirmationCode?: string;
+}
+
+interface PasswordChangeState {
+  step: 'idle' | 'confirm' | 'success';
+  currentPassword?: string;
+  newPassword?: string;
 }
 
 export default function AccountSettingsPage() {
@@ -29,6 +45,8 @@ export default function AccountSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleteStep, setDeleteStep] = useState<DeleteConfirmation>({ step: 'initial' });
+  const [emailChange, setEmailChange] = useState<EmailChangeState>({ step: 'idle' });
+  const [passwordChange, setPasswordChange] = useState<PasswordChangeState>({ step: 'idle' });
 
   const handleExportData = async () => {
     if (!user) return;
@@ -84,6 +102,152 @@ export default function AccountSettingsPage() {
     navigate('/connexion');
   };
 
+  // ============================================
+  // CHANGEMENT D'EMAIL (NOUVEAU - MON-020)
+  // ============================================
+
+  const handleEmailChange = async () => {
+    if (!user || !emailChange.newEmail) return;
+
+    setLoading(true);
+    try {
+      // 1. Envoyer un email de confirmation au nouvel email
+      const { error: updateError } = await supabase.auth.updateUser({
+        email: emailChange.newEmail,
+      });
+
+      if (updateError) {
+        // Si l'email est déjà utilisé ou invalide
+        toast.error('Cet email est déjà utilisé ou invalide');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Demander à l'utilisateur de confirmer avec le code envoyé
+      setEmailChange({ ...emailChange, step: 'confirm' });
+      toast.success('Un code de confirmation a été envoyé à votre nouvel email');
+    } catch (error: any) {
+      console.error('Error initiating email change:', error);
+      if (error.message?.includes('already registered')) {
+        toast.error('Cet email est déjà associé à un compte');
+      } else {
+        toast.error('Erreur lors de la demande de changement d\'email');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmEmailChange = async () => {
+    if (!emailChange.confirmationCode) {
+      toast.error('Veuillez entrer le code de confirmation');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Vérifier le code de confirmation avec Supabase
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email: emailChange.newEmail,
+        token: emailChange.confirmationCode,
+        type: 'email_update',
+      });
+
+      if (verifyError) {
+        toast.error('Code de confirmation invalide ou expiré');
+        setLoading(false);
+        return;
+      }
+
+      // Mise à jour de l'email dans le profil
+      if (data) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ email: emailChange.newEmail })
+          .eq('id', user?.id)
+          .select()
+          .single();
+
+        if (profileError) {
+          // Annuler le changement d'email
+          await supabase.auth.updateUser({ email: user?.email });
+          toast.error('Erreur lors de la mise à jour du profil');
+          setLoading(false);
+          return;
+        }
+
+        setEmailChange({ step: 'success' });
+        toast.success('Email mis à jour avec succès !');
+
+        // Réinitialiser après 3 secondes
+        setTimeout(() => {
+          setEmailChange({ step: 'idle' });
+          // Sign out pour forcer la reconnexion avec le nouvel email
+          signOut();
+        }, 3000);
+      }
+    } catch (error: any) {
+      console.error('Error confirming email change:', error);
+      toast.error('Erreur lors de la confirmation du changement d\'email');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelEmailChange = async () => {
+    // Annuler et réinitialiser l'email dans Supabase Auth
+    if (user && emailChange.newEmail) {
+      await supabase.auth.updateUser({ email: user.email });
+    }
+    setEmailChange({ step: 'idle' });
+  };
+
+  // ============================================
+  // CHANGEMENT DE MOT DE PASSE (NOUVEAU - MON-020)
+  // ============================================
+
+  const handlePasswordChange = async () => {
+    if (!passwordChange.currentPassword || !passwordChange.newPassword) {
+      toast.error('Veuillez remplir tous les champs');
+      return;
+    }
+
+    if (passwordChange.newPassword.length < 6) {
+      toast.error('Le mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordChange.newPassword,
+      });
+
+      if (error) {
+        toast.error('Mot de passe actuel incorrect');
+        setLoading(false);
+        return;
+      }
+
+      setPasswordChange({ step: 'success' });
+      toast.success('Mot de passe mis à jour avec succès !');
+
+      setTimeout(() => {
+        setPasswordChange({ step: 'idle' });
+        setPasswordChange({
+          step: 'idle',
+          currentPassword: undefined,
+          newPassword: undefined,
+        });
+      }, 3000);
+    } catch (error) {
+      console.error('Error changing password:', error);
+      toast.error('Erreur lors du changement de mot de passe');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="mb-8">
@@ -101,12 +265,26 @@ export default function AccountSettingsPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <Mail className="w-5 h-5 text-gray-400" />
-            <div>
-              <p className="text-sm text-gray-500">Email</p>
-              <p className="font-medium">{user?.email}</p>
+          <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+            <div className="flex items-center gap-3">
+              {isPhoneEmail(user?.email) ? (
+                <Phone className="w-5 h-5 text-gray-400" />
+              ) : (
+                <Mail className="w-5 h-5 text-gray-400" />
+              )}
+              <div>
+                <p className="text-sm text-gray-500">{getContactLabel(user?.email, profile?.phone)}</p>
+                <p className="font-medium">{formatUserContact(user?.email, profile?.phone, (user?.user_metadata?.phone as string | undefined))}</p>
+              </div>
             </div>
+            {!isPhoneEmail(user?.email) && (
+              <button
+                onClick={() => setEmailChange({ step: 'confirm' })}
+                className="text-sm text-orange-600 hover:text-orange-700 font-medium"
+              >
+                Modifier →
+              </button>
+            )}
           </div>
 
           {profile && (
@@ -131,14 +309,110 @@ export default function AccountSettingsPage() {
         </div>
 
         <button
-          onClick={() => navigate(`/locataire/profil`)}
+          onClick={() => {
+            const userType = profile?.user_type || 'tenant';
+            const path =
+              userType === 'tenant' ? '/locataire/profil'
+              : userType === 'owner' ? '/proprietaire/profil'
+              : '/agence/profil';
+            navigate(path);
+          }}
           className="mt-4 text-sm text-orange-600 hover:text-orange-700 font-medium"
         >
           Modifier mon profil →
         </button>
       </div>
 
-      {/* Sécurité */}
+      {/* Changement d'email - NOUVEAU */}
+      {emailChange.step !== 'idle' && (
+        <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 mb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Mail className="w-5 h-5 text-blue-600" />
+            </div>
+            <h2 className="text-xl font-semibold">Changement d'email</h2>
+          </div>
+
+          {emailChange.step === 'confirm' && (
+            <>
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-900">
+                  Pour votre sécurité, vous recevrez un code de confirmation à votre nouvel email.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nouvel email *
+                  </label>
+                  <input
+                    type="email"
+                    value={emailChange.newEmail}
+                    onChange={(e) => setEmailChange({ ...emailChange, newEmail: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="votre@email.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Code de confirmation *
+                  </label>
+                  <input
+                    type="text"
+                    value={emailChange.confirmationCode}
+                    onChange={(e) => setEmailChange({ ...emailChange, confirmationCode: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="123456"
+                    maxLength={6}
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCancelEmailChange}
+                    disabled={loading}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleConfirmEmailChange}
+                    disabled={loading || !emailChange.confirmationCode}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                        Vérification...
+                      </>
+                    ) : (
+                      'Confirmer'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {emailChange.step === 'success' && (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-green-900 mb-2">
+                Email mis à jour !
+              </h3>
+              <p className="text-sm text-gray-600">
+                Vous allez être déconnecté pour vous reconnecter avec votre nouvel email.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Sécurité - AMÉLIORÉ avec changement de mot de passe */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-purple-100 rounded-lg">
@@ -148,13 +422,83 @@ export default function AccountSettingsPage() {
         </div>
 
         <div className="space-y-3">
-          <button className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-            <div className="flex items-center gap-3">
-              <Key className="w-5 h-5 text-gray-400" />
-              <span className="font-medium">Changer le mot de passe</span>
+          {/* Changement de mot de passe - NOUVEAU */}
+          {passwordChange.step === 'idle' ? (
+            <button
+              onClick={() => setPasswordChange({ step: 'confirm' })}
+              className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              <div className="flex items-center gap-3">
+                <Key className="w-5 h-5 text-gray-400" />
+                <span className="font-medium">Changer le mot de passe</span>
+              </div>
+              <span className="text-sm text-gray-500">→</span>
+            </button>
+          ) : (
+            passwordChange.step === 'confirm' && (
+              <>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Mot de passe actuel *
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordChange.currentPassword}
+                      onChange={(e) => setPasswordChange({ ...passwordChange, currentPassword: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      placeholder="•••••••••"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nouveau mot de passe *
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordChange.newPassword}
+                      onChange={(e) => setPasswordChange({ ...passwordChange, newPassword: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      placeholder="Min 6 caractères"
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setPasswordChange({ step: 'idle', currentPassword: undefined, newPassword: undefined })}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={handlePasswordChange}
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                          Changement...
+                        </>
+                      ) : (
+                        'Changer'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )
+          )}
+
+          {passwordChange.step === 'success' && (
+            <div className="text-center py-4">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                <span className="text-green-900 font-medium">Mot de passe changé avec succès !</span>
+              </div>
             </div>
-            <span className="text-sm text-gray-500">→</span>
-          </button>
+          )}
 
           <button
             onClick={handleSignOut}
@@ -325,6 +669,47 @@ export default function AccountSettingsPage() {
           </div>
         )}
       </div>
+
+      {/* Dialog pour confirmation d'email */}
+      {emailChange.step === 'idle' && (
+        <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6 mb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Mail className="w-5 h-5 text-blue-600" />
+            </div>
+            <h2 className="text-xl font-semibold">Changer votre email</h2>
+          </div>
+
+          <div className="space-y-3">
+            <input
+              type="email"
+              value={emailChange.newEmail}
+              onChange={(e) => setEmailChange({ ...emailChange, newEmail: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              placeholder="Nouvel email"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={handleEmailChange}
+                disabled={loading || !emailChange.newEmail}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                    Envoi du code...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4 mr-2" />
+                    Envoyer le code
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

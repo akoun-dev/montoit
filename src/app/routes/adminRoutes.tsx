@@ -24,6 +24,7 @@ const AdminServiceConfiguration = lazyWithRetry(
 );
 const AdminDataGenerator = lazyWithRetry(() => import('@/pages/admin/TestDataGeneratorPage'));
 const AdminFeatureFlags = lazyWithRetry(() => import('@/pages/admin/FeatureFlagsPage'));
+const AdminNotifications = lazyWithRetry(() => import('@/pages/admin/NotificationsPage'));
 
 export const adminRoutes: RouteObject = {
   path: 'admin',
@@ -50,6 +51,7 @@ export const adminRoutes: RouteObject = {
     { path: 'logs', element: <AdminLogs /> },
     { path: 'service-providers', element: <AdminServiceProviders /> },
     { path: 'service-configuration', element: <AdminServiceConfiguration /> },
+    { path: 'notifications', element: <AdminNotifications /> },
     { path: 'test-data-generator', element: <AdminDataGenerator /> },
     { path: 'feature-flags', element: <AdminFeatureFlags /> },
   ],

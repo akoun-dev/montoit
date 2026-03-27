@@ -97,7 +97,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ className = '' }) => {
     },
     {
       label: 'Paramètres',
-      href: '/parametres',
+      href: '/auth/parametres',
       icon: Cog6ToothIcon,
       description: 'Configurer mon compte'
     }

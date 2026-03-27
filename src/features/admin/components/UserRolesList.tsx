@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Trash2, Clock, Shield, UserCheck, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { formatUserContact } from '@/shared/utils/contactDisplay';
 
 interface UserWithRole {
   id: string;
@@ -12,6 +13,7 @@ interface UserWithRole {
   profile: {
     full_name: string | null;
     email: string | null;
+    phone: string | null;
     avatar_url: string | null;
   } | null;
 }
@@ -129,7 +131,7 @@ export function UserRolesList({
                   {isCurrentUser && <span className="ml-2 text-xs text-gray-500">(vous)</span>}
                 </p>
                 <p className="text-sm text-gray-500 truncate">
-                  {userRole.profile?.email || 'Email non renseigné'}
+                  {formatUserContact(userRole.profile?.email, userRole.profile?.phone)}
                 </p>
               </div>
 

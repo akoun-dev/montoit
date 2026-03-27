@@ -230,11 +230,21 @@ Deno.serve(async (req: Request) => {
       console.log(`[send-application-notifications] Created ${notifications.length} in-app notification(s)`);
     }
 
-    // Send emails to each recipient
+    // Send emails to each recipient (sauf pour les emails dérivés de téléphone)
+    const PHONE_EMAIL_DOMAIN = '@phone.montoit.ci';
     let emailsSent = 0;
+    let skippedPhoneEmails = 0;
+
     for (const userId of recipientIds) {
       const profile = profiles?.find(p => p.user_id === userId);
       if (profile?.email) {
+        // Vérifier si c'est un email dérivé de téléphone
+        if (profile.email.endsWith(PHONE_EMAIL_DOMAIN)) {
+          console.log(`[send-application-notifications] Skipping phone-derived email for user ${userId}: ${profile.email}`);
+          skippedPhoneEmails++;
+          continue;
+        }
+
         try {
           const { error: emailError } = await supabaseClient.functions.invoke('send-email', {
             body: {
@@ -244,8 +254,8 @@ Deno.serve(async (req: Request) => {
                 name: profile.full_name || 'Utilisateur',
                 email: profile.email,
                 ...notificationData,
-                applicationUrl: `${Deno.env.get('SITE_URL') || 'https://montoit.ansut.ci'}${config.actionUrl(applicationId, property.id)}`,
-                searchUrl: `${Deno.env.get('SITE_URL') || 'https://montoit.ansut.ci'}/recherche`
+                applicationUrl: `${Deno.env.get('SITE_URL') || 'https://mon-toit.ansut.ci'}${config.actionUrl(applicationId, property.id)}`,
+                searchUrl: `${Deno.env.get('SITE_URL') || 'https://mon-toit.ansut.ci'}/recherche`
               }
             }
           });
@@ -260,6 +270,10 @@ Deno.serve(async (req: Request) => {
           console.error(`Failed to send email to ${profile.email}:`, emailError);
         }
       }
+    }
+
+    if (skippedPhoneEmails > 0) {
+      console.log(`[send-application-notifications] Skipped ${skippedPhoneEmails} phone-derived email(s) - users will receive in-app notifications only`);
     }
 
     console.log(`[send-application-notifications] Successfully processed ${type} notification`);

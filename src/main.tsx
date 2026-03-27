@@ -49,6 +49,9 @@ console.log('🟢 main.tsx: Query config imported');
 import { AuthProvider } from '@/app/providers/AuthProvider';
 console.log('🟢 main.tsx: AuthProvider imported');
 
+import { NotificationProvider } from '@/app/providers/NotificationProvider';
+console.log('🟢 main.tsx: NotificationProvider imported');
+
 import { RoleProvider } from '@/contexts/RoleContext';
 console.log('🟢 main.tsx: RoleProvider imported');
 
@@ -57,6 +60,9 @@ console.log('🟢 main.tsx: ThemeProvider imported');
 
 import App from './App';
 console.log('🟢 main.tsx: App imported');
+
+import { Toaster } from 'sonner';
+console.log('🟢 main.tsx: Sonner Toaster imported');
 
 import './index.css';
 console.log('✅ main.tsx: All imports successful');
@@ -123,11 +129,22 @@ try {
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <RoleProvider>
-              <App />
-            </RoleProvider>
+            <NotificationProvider>
+              <RoleProvider>
+                <App />
+              </RoleProvider>
+            </NotificationProvider>
           </AuthProvider>
         </QueryClientProvider>
+        <Toaster
+          position="top-right"
+          expand={false}
+          richColors
+          closeButton
+          toastOptions={{
+            duration: 5000,
+          }}
+        />
       </ThemeProvider>
     </StrictMode>
   );

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { User, Mail, Phone, MapPin, Save } from 'lucide-react';
 import type { User as AuthUser } from '@supabase/supabase-js';
+import { formatUserContact, isPhoneEmail } from '@/shared/utils/contactDisplay';
 
 export interface ProfileFormData {
   full_name: string;
@@ -79,16 +80,29 @@ export default function ProfileInformationTab({
 
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-2">
-            <Mail className="inline h-4 w-4 mr-2" />
-            Email
+            {isPhoneEmail(user?.email) ? (
+              <>
+                <Phone className="inline h-4 w-4 mr-2" />
+                Téléphone
+              </>
+            ) : (
+              <>
+                <Mail className="inline h-4 w-4 mr-2" />
+                Email
+              </>
+            )}
           </label>
           <input
-            type="email"
-            value={user?.email}
+            type={isPhoneEmail(user?.email) ? "tel" : "email"}
+            value={formatUserContact(user?.email, profile?.phone, (user?.user_metadata?.phone as string | undefined))}
             disabled
             className="w-full px-4 py-3 bg-gray-100 border-2 border-gray-200 rounded-xl text-gray-600 cursor-not-allowed"
           />
-          <p className="text-xs text-gray-500 mt-1">L'email ne peut pas être modifié</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {isPhoneEmail(user?.email)
+              ? 'Le téléphone est utilisé comme identifiant de connexion'
+              : 'L\'email ne peut pas être modifié'}
+          </p>
         </div>
 
         <div>

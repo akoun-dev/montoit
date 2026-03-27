@@ -4,6 +4,7 @@ import { Menu } from 'lucide-react';
 import OwnerSidebar from './OwnerSidebar';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useMenuCounters } from '@/hooks/useMenuCounters';
+import OnboardingWrapper from '@/features/onboarding/OnboardingWrapper';
 
 interface OwnerDashboardLayoutProps {
   children?: React.ReactNode;
@@ -37,9 +38,11 @@ export default function OwnerDashboardLayout({ children, title }: OwnerDashboard
         </header>
 
         <main className="flex-1 min-h-0 overflow-auto">
-          <div className="w-full px-3 sm:px-4 lg:px-8 xl:px-12 py-4 lg:py-6">
-            {children || <Outlet />}
-          </div>
+          <OnboardingWrapper>
+            <div className="w-full px-3 sm:px-4 lg:px-8 xl:px-12 py-4 lg:py-6">
+              {children || <Outlet />}
+            </div>
+          </OnboardingWrapper>
         </main>
       </div>
     </div>

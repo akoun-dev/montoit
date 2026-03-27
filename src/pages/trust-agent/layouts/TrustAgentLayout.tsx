@@ -239,7 +239,7 @@ export default function TrustAgentLayout() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate">
-                  {user?.user_metadata?.full_name || 'Agent Vérifié'}
+                  {user?.user_metadata?.['full_name'] || 'Agent Vérifié'}
                 </p>
                 <div className="flex items-center gap-1.5">
                   <span className="relative flex h-2 w-2">
