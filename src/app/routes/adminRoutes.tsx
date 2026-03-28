@@ -27,6 +27,7 @@ const AdminFeatureFlags = lazyWithRetry(() => import('@/pages/admin/FeatureFlags
 const AdminNotifications = lazyWithRetry(() => import('@/pages/admin/NotificationsPage'));
 const AdminReviewModeration = lazyWithRetry(() => import('@/pages/admin/ReviewModerationPage'));
 const AdminDisputesManagement = lazyWithRetry(() => import('@/pages/admin/DisputesManagementPage'));
+const AdminReportsManagement = lazyWithRetry(() => import('@/pages/admin/ReportsManagementPage'));
 
 export const adminRoutes: RouteObject = {
   path: 'admin',
@@ -58,5 +59,6 @@ export const adminRoutes: RouteObject = {
     { path: 'feature-flags', element: <AdminFeatureFlags /> },
     { path: 'moderation-avis', element: <AdminReviewModeration /> },
     { path: 'gestion-litiges', element: <AdminDisputesManagement /> },
+    { path: 'gestion-signalements', element: <AdminReportsManagement /> },
   ],
 };

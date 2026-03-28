@@ -95,19 +95,6 @@ export default function HowItWorksCompact() {
             </div>
           ))}
         </div>
-
-        {/* CTA */}
-        <div
-          className={`text-center mt-8 md:mt-10 ${getAnimationClasses(isVisible, 'fadeUp', 600)}`}
-        >
-          <Link
-            to="/recherche"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-[#FF6C2F] text-white rounded-xl font-medium hover:bg-[#e05519] transition-colors duration-200 shadow-lg shadow-[#FF6C2F]/25"
-          >
-            <Search className="h-5 w-5" />
-            Commencer ma recherche
-          </Link>
-        </div>
       </div>
     </section>
   );

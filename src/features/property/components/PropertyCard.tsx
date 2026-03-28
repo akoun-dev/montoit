@@ -14,10 +14,12 @@ import {
   Maximize,
   Heart,
   Share2,
+  MoreVertical,
 } from 'lucide-react';
 import { favoritesService } from '@/services/favorites.service';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { ScoreBadge } from '@/shared/ui/ScoreBadge';
+import { ReportMenuItem } from '@/shared/ui/reports';
 import type { Json } from '@/integrations/supabase/types';
 
 // Helper function to safely convert Json to string array
@@ -77,6 +79,7 @@ export function PropertyCard({
   const { user } = useAuth();
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   // Convert Json images to string array safely
   const images = useMemo(() => jsonToStringArray(property.images), [property.images]);
@@ -209,6 +212,33 @@ export function PropertyCard({
           >
             <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
           </button>
+
+          {/* More Options Menu */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }}
+              className="flex items-center justify-center w-10 h-10 bg-white/95 backdrop-blur-md rounded-full shadow-lg text-neutral-700 hover:bg-white hover:scale-110 transition-all duration-200"
+              aria-label="Plus d'options"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {showMenu && (
+              <div className="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-neutral-200 py-2 z-50">
+                <ReportMenuItem
+                  entityType="property"
+                  entityId={property.id}
+                  entityTitle={property.title || undefined}
+                  className="mx-2"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Prix Overlay */}
