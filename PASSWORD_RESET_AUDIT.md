@@ -4,10 +4,12 @@
 
 ### Problèmes Corrigés ✅
 
-| #   | Problème              | Fichier                      | Correction                                             | Status |
-| --- | --------------------- | ---------------------------- | ------------------------------------------------------ | ------ |
-| 1   | URL redirect invalide | `auth.api.ts:147`            | `/reset-password` → `/reinitialiser-mot-de-passe`      | ✅     |
-| 2   | URL redirect invalide | `password-reset/index.ts:81` | `/auth/reset-password` → `/reinitialiser-mot-de-passe` | ✅     |
+| #   | Problème                    | Fichier                      | Correction                                             | Status |
+| --- | --------------------------- | ---------------------------- | ------------------------------------------------------ | ------ |
+| 1   | URL redirect invalide       | `auth.api.ts:147`            | `/reset-password` → `/reinitialiser-mot-de-passe`      | ✅     |
+| 2   | URL redirect invalide       | `password-reset/index.ts:81` | `/auth/reset-password` → `/reinitialiser-mot-de-passe` | ✅     |
+| 3   | Erreur CORS Preflight (500) | `AuthProvider.tsx:463-486`   | Remplacé Edge Function par SDK natif Supabase          | ✅     |
+| 4   | Page de reset incorrecte    | `ResetPasswordPage.tsx`      | Réécrite pour utiliser le flux correct de Supabase     | ✅     |
 
 ---
 
@@ -73,7 +75,19 @@ secure_password_change = false
 
 ---
 
-#### 4. Double implémentation
+#### 4. Edge Function non utilisée (après correction)
+
+**Fichier**: `supabase/functions/password-reset/index.ts`
+
+**Statut**: Cette Edge Function personnalisée n'est plus utilisée depuis que nous avons adopté l'approche native Supabase.
+
+**Action**: Vous pouvez supprimer cette Edge Function pour nettoyer le code :
+
+```bash
+supabase functions delete password-reset
+```
+
+---
 
 **Fichiers**:
 
@@ -249,13 +263,13 @@ supabase functions logs password-reset
 
 ## 📊 Résumé
 
-| Élément               | État           | Action requise                    |
-| --------------------- | -------------- | --------------------------------- |
-| URL redirect          | ✅ Corrigé     | Rien à faire                      |
-| Edge Function URL     | ✅ Corrigé     | Rien à faire                      |
-| Configuration SMTP    | ❌ Bloquant    | Configurer Supabase Email ou SMTP |
-| Sécurité mdp          | ⚠️ À améliorer | Activer `secure_password_change`  |
-| Double implémentation | ⚠️ À nettoyer  | Supprimer code inutilisé          |
+| Élément                  | État             | Action requise                   |
+| ------------------------ | ---------------- | -------------------------------- |
+| URL redirect             | ✅ Corrigé       | Rien à faire                     |
+| Erreur CORS              | ✅ Corrigé       | Rien à faire                     |
+| Page de reset incorrecte | ✅ **Corrigé**   | **Rien à faire**                 |
+| Configuration SMTP       | ✅ **Configuré** | **Rien à faire**                 |
+| Sécurité mdp             | ⚠️ À améliorer   | Activer `secure_password_change` |
 
 ---
 
@@ -294,9 +308,13 @@ L'Edge Function personnalisée (`password-reset/index.ts`) est utilisée car ell
 
 ```
 Utilisateur → ForgotPasswordPage → AuthProvider.resetPassword()
-    → Edge Function /functions/v1/password-reset
-    → Supabase Auth REST API /auth/v1/recover
-    → Email avec lien vers /reinitialiser-mot-de-passe
-    → ResetPasswordPage (traite access_token)
+    → Supabase SDK natif supabase.auth.resetPasswordForEmail()
+    → Supabase Auth REST API (géré en interne par le SDK)
+    → Email avec lien vers /reinitialiser-mot-de-passe?token=...&type=recovery
+    → ResetPasswordPage vérifie la session de récupération
+    → Utilisateur saisit nouveau mot de passe
+    → supabase.auth.updateUser({ password })
     → Nouveau mot de passe enregistré
 ```
+
+**Note**: L'utilisation du SDK natif Supabase évite les problèmes CORS et simplifie le code. La page ResetPasswordPage vérifie maintenant correctement la session de récupération automatique de Supabase.

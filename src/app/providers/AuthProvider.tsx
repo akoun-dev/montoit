@@ -462,49 +462,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     try {
-      // Utiliser la fonction Edge password-reset pour la réinitialisation du mot de passe
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY;
+      // Utiliser la méthode native Supabase pour éviter les problèmes CORS
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reinitialiser-mot-de-passe`,
+      });
 
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/password-reset`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${supabaseAnonKey}`,
-            apikey: supabaseAnonKey,
-          },
-          body: JSON.stringify({
-            email,
-            siteUrl: window.location.origin,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        return {
-          error: {
-            message: errorData.error || "Erreur lors de l'envoi de l'email de réinitialisation",
-            status: response.status || 500,
-            name: 'AuthError',
-          } as AuthError,
-        };
-      }
-
-      const data = await response.json();
-
-      // Si la fonction retourne success: true, c'est OK
-      // Le message générique "Si cet email est enregistré..." assure la sécurité
-      if (!data.success) {
-        return {
-          error: {
-            message: data.error || "Erreur lors de l'envoi de l'email de réinitialisation",
-            status: 500,
-            name: 'AuthError',
-          } as AuthError,
-        };
+      if (error) {
+        logger.error('Password reset error', error);
+        return { error };
       }
 
       return { error: null };

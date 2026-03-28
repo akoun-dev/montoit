@@ -5,8 +5,9 @@
  * Utilise l'API REST Supabase Auth pour éviter les problèmes de JWT.
  */
 
-const DEFAULT_ALLOWED_ORIGINS = [
+const ALLOWED_ORIGINS = [
   'https://mon-toit.ansut.ci',
+  'https://montoit.ansut.ci',
   'http://localhost:8080',
   'http://127.0.0.1:8080',
   'http://localhost:8081',
@@ -15,19 +16,13 @@ const DEFAULT_ALLOWED_ORIGINS = [
   'http://127.0.0.1:5173',
 ];
 
-function isOriginAllowed(origin: string | null): boolean {
-  if (!origin) return true; // Allow same-origin requests
-  return DEFAULT_ALLOWED_ORIGINS.includes(origin);
-}
+const DEFAULT_ORIGIN = ALLOWED_ORIGINS[0];
 
-function getCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get('origin');
-  const allowedOrigins = DEFAULT_ALLOWED_ORIGINS;
-
-  // Find matching origin
-  const corsOrigin = origin && allowedOrigins.includes(origin)
-    ? origin
-    : allowedOrigins[0];
+/**
+ * Get CORS headers for the response
+ */
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const corsOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : DEFAULT_ORIGIN;
 
   return {
     'Access-Control-Allow-Origin': corsOrigin,
@@ -37,90 +32,70 @@ function getCorsHeaders(req: Request): Record<string, string> {
   };
 }
 
-interface ResetRequest {
-  email: string;
-  siteUrl?: string;
-}
-
-interface ErrorResponse {
-  success: false;
-  error: string;
-  errorCode?: string;
-}
-
-// Helper pour les réponses d'erreur standardisées
-function createError(status: number, message: string, code?: string): Response {
-  const body: ErrorResponse = {
-    success: false,
-    error: message,
-    errorCode: code,
-  };
-  const corsHeaders = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': DEFAULT_ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, X-Client-Info',
-  };
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: corsHeaders,
-  });
-}
-
 serve(async (req: Request) => {
-  const corsHeaders = getCorsHeaders(req);
+  // Get origin early for all responses
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
 
-  // 1. Gestion CORS Preflight
+  // Handle CORS preflight request immediately
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
+  // Only POST is allowed
+  if (req.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Method not allowed', errorCode: 'METHOD_NOT_ALLOWED' }),
+      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
-    // 2. Validation de la méthode
-    if (req.method !== 'POST') {
-      return createError(405, 'Méthode non autorisée', 'METHOD_NOT_ALLOWED');
+    // Parse request body
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid JSON body', errorCode: 'INVALID_JSON' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const body = await req.json();
-    const { email, siteUrl }: ResetRequest = body;
+    const { email, siteUrl } = body || {};
 
-    // 3. Validation des entrées
-    if (!email || !email.includes('@')) {
-      return createError(400, 'Adresse email invalide', 'INVALID_EMAIL');
+    // Validate email
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid email address', errorCode: 'INVALID_EMAIL' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // 4. Configuration Environnement
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || Deno.env.get('VITE_SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
-                        Deno.env.get('SUPABASE_ANON_KEY') ||
-                        Deno.env.get('VITE_SUPABASE_ANON_KEY');
+    // Get Supabase configuration
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? Deno.env.get('VITE_SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+                     ?? Deno.env.get('SUPABASE_ANON_KEY')
+                     ?? Deno.env.get('VITE_SUPABASE_ANON_KEY');
 
     if (!supabaseUrl || !supabaseKey) {
-      console.error('[password-reset] Configuration manquante:', {
-        hasUrl: !!supabaseUrl,
-        hasKey: !!supabaseKey,
-      });
-      return createError(500, 'Configuration serveur invalide', 'SERVER_CONFIG_ERROR');
+      console.error('[password-reset] Missing config:', { hasUrl: !!supabaseUrl, hasKey: !!supabaseKey });
+      return new Response(
+        JSON.stringify({ success: false, error: 'Server configuration error', errorCode: 'SERVER_CONFIG_ERROR' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // 5. Détermination de l'URL de redirection
-    const redirectBase = siteUrl
-      ? siteUrl
-      : Deno.env.get('SITE_URL') || 'http://localhost:8080';
-
+    // Determine redirect URL
+    const redirectBase = siteUrl ?? Deno.env.get('SITE_URL') ?? 'http://localhost:8080';
     const redirectTo = `${redirectBase}/reinitialiser-mot-de-passe`;
 
-    console.log('[password-reset] Demande pour:', normalizedEmail);
-    console.log('[password-reset] Redirection vers:', redirectTo);
+    console.log('[password-reset] Processing:', { email: normalizedEmail, redirectTo });
 
-    // 6. Appel API REST Supabase Auth (évite les problèmes de JWT)
+    // Call Supabase Auth REST API
     const apiUrl = `${supabaseUrl}/auth/v1/recover`;
-    const requestBody = JSON.stringify({ email: normalizedEmail, gotrue_meta_security: { redirectTo } });
-
-    console.log('[password-reset] Appel API REST:', apiUrl);
-
     const apiResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: {
@@ -128,50 +103,54 @@ serve(async (req: Request) => {
         'apikey': supabaseKey,
         'Authorization': `Bearer ${supabaseKey}`,
       },
-      body: requestBody,
+      body: JSON.stringify({
+        email: normalizedEmail,
+        gotrue_meta_security: { redirectTo }
+      }),
     });
 
-    console.log('[password-reset] Réponse API:', apiResponse.status);
+    const responseText = await apiResponse.text();
+    console.log('[password-reset] API response:', apiResponse.status, responseText.substring(0, 200));
 
-    const responseData = await apiResponse.text();
-    console.log('[password-reset] Corps réponse:', responseData.substring(0, 200));
-
-    // 7. Gestion des erreurs de l'API
+    // Handle API errors
     if (!apiResponse.ok) {
-      console.error('[password-reset] Erreur API Supabase:', apiResponse.status, responseData);
-
-      // Pour la sécurité, on retourne toujours succès même si l'email n'existe pas
-      // Sauf pour les erreurs système
-      if (apiResponse.status >= 500) {
-        return createError(500, 'Erreur serveur temporaire', 'API_ERROR');
+      // For security, always return success for 4xx errors (don't reveal if email exists)
+      if (apiResponse.status < 500) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: "Si cet email est enregistré, vous recevrez un lien de réinitialisation sous peu.",
+            sent: false
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
-      // Pour les autres erreurs (4xx), on retourne un succès fictif
-      return new Response(JSON.stringify({
-        success: true,
-        message: "Si cet email est enregistré, vous recevrez un lien de réinitialisation sous peu.",
-        sent: false
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      // 5xx errors are real server errors
+      return new Response(
+        JSON.stringify({ success: false, error: 'Temporary server error', errorCode: 'API_ERROR' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    console.log('[password-reset] Email envoyé avec succès à:', normalizedEmail);
+    console.log('[password-reset] Email sent successfully to:', normalizedEmail);
 
-    // 8. Réponse Succès
-    return new Response(JSON.stringify({
-      success: true,
-      message: "Si cet email est enregistré, vous recevrez un lien de réinitialisation sous peu.",
-      sent: true
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    // Success response
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: "Si cet email est enregistré, vous recevrez un lien de réinitialisation sous peu.",
+        sent: true
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
-  } catch (globalError: unknown) {
-    console.error('[password-reset] Erreur globale non gérée:', globalError);
-    const message = globalError instanceof Error ? globalError.message : 'Erreur inconnue';
-    return createError(500, 'Erreur serveur inattendue', 'INTERNAL_SERVER_ERROR');
+  } catch (error: unknown) {
+    console.error('[password-reset] Unhandled error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(
+      JSON.stringify({ success: false, error: 'Unexpected server error', errorCode: 'INTERNAL_SERVER_ERROR', details: message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });
