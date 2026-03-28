@@ -1,4 +1,4 @@
-import { Search, MapPin, MessageCircle, ShieldCheck } from 'lucide-react';
+import { Search, MapPin, MessageCircle, ShieldCheck, CheckCircle, CreditCard, Home } from 'lucide-react';
 import { useScrollAnimation, getAnimationClasses } from '@/hooks/shared/useScrollAnimation';
 import { Link } from 'react-router-dom';
 
@@ -7,25 +7,37 @@ const steps = [
     icon: Search,
     number: '01',
     title: 'Recherchez',
-    description: 'Utilisez les filtres pour trouver le logement idéal (ville, budget, type, équipements).',
+    description: 'Filtrez par ville, budget, type de bien et équipements pour trouver votre logement idéal.',
   },
   {
     icon: MapPin,
     number: '02',
     title: 'Explorez',
-    description: 'Consultez les détails, photos et vérifiez la certification ANSUT du logement.',
-  },
-  {
-    icon: MessageCircle,
-    number: '03',
-    title: 'Contactez',
-    description: 'Envoyez votre demande de location ou posez vos questions au propriétaire.',
+    description: 'Découvrez les photos, avis locataires et vérifiez la certification ANSUT du bien.',
   },
   {
     icon: ShieldCheck,
+    number: '03',
+    title: 'Vérifiez',
+    description: 'Complétez votre dossier de location et passez la vérification de sécurité.',
+  },
+  {
+    icon: MessageCircle,
     number: '04',
+    title: 'Postulez',
+    description: 'Envoyez votre demande de location directement au propriétaire via notre messagerie.',
+  },
+  {
+    icon: CheckCircle,
+    number: '05',
     title: 'Signez',
-    description: 'Une fois approuvé, signez votre contrat de bail en ligne en toute sécurité.',
+    description: 'Signez votre contrat de bail électroniquement avec protection juridique incluse.',
+  },
+  {
+    icon: CreditCard,
+    number: '06',
+    title: 'Paiement',
+    description: 'Payez votre premier loyer en toute sécurité via notre plateforme (bientôt disponible).',
   },
 ];
 
@@ -49,13 +61,13 @@ export default function HowItWorksCompact() {
           className={`text-center mb-10 md:mb-12 ${getAnimationClasses(isVisible, 'fadeUp', 0)}`}
         >
           <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FF6C2F]/10 text-[#FF6C2F] text-sm font-medium mb-3">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FF6C2F]" />4 étapes clés
+            <span className="w-1.5 h-1.5 rounded-full bg-[#FF6C2F]" />6 étapes clés
           </span>
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-foreground mb-3">
             Comment ça marche ?
           </h2>
           <p className="text-muted-foreground text-base max-w-2xl mx-auto">
-            Un parcours simple pour explorer les logements et manifester votre intérêt
+            Un parcours simple et sécurisé pour trouver et louer votre logement certifié ANSUT
           </p>
         </div>
 
