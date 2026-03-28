@@ -1,4 +1,4 @@
-import { Search, MapPin, MessageCircle, FileText } from 'lucide-react';
+import { Search, MapPin, MessageCircle, ShieldCheck } from 'lucide-react';
 import { useScrollAnimation, getAnimationClasses } from '@/hooks/shared/useScrollAnimation';
 import { Link } from 'react-router-dom';
 
@@ -7,26 +7,25 @@ const steps = [
     icon: Search,
     number: '01',
     title: 'Recherchez',
-    description: 'Parcourez les logements disponibles selon vos critères.',
+    description: 'Utilisez les filtres pour trouver le logement idéal (ville, budget, type, équipements).',
   },
   {
     icon: MapPin,
     number: '02',
     title: 'Explorez',
-    description: 'Consultez les informations du propriétaire et les caractéristiques du logement.',
+    description: 'Consultez les détails, photos et vérifiez la certification ANSUT du logement.',
   },
   {
     icon: MessageCircle,
     number: '03',
-    title: "Manifestez votre intérêt",
-    description:
-      'Contactez le propriétaire ou préparez votre dossier en ligne (bientôt disponible).',
+    title: 'Contactez',
+    description: 'Envoyez votre demande de location ou posez vos questions au propriétaire.',
   },
   {
-    icon: FileText,
+    icon: ShieldCheck,
     number: '04',
-    title: 'Finalisez votre location',
-    description: 'Les étapes de validation et de signature seront prochainement intégrées.',
+    title: 'Signez',
+    description: 'Une fois approuvé, signez votre contrat de bail en ligne en toute sécurité.',
   },
 ];
 
