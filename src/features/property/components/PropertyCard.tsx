@@ -5,7 +5,7 @@
  * boutons de favori et de partage.
  */
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -18,20 +18,33 @@ import {
 import { favoritesService } from '@/services/favorites.service';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { ScoreBadge } from '@/shared/ui/ScoreBadge';
+import type { Json } from '@/integrations/supabase/types';
+
+// Helper function to safely convert Json to string array
+function jsonToStringArray(json: Json | null): string[] | null {
+  if (json === null) return null;
+  if (Array.isArray(json)) {
+    // Check if all elements are strings
+    if (json.every(item => typeof item === 'string')) {
+      return json as string[];
+    }
+  }
+  return null;
+}
 
 interface PropertyCardProps {
   property: {
     id: string;
     title: string;
     property_type: string;
-    city: string;
+    city: string | null;
     neighborhood: string | null;
     price: number | null;
     bedrooms: number | null;
     bathrooms: number | null;
     surface_area: number | null;
     status: string | null;
-    images: string[] | null;
+    images: Json | null;
     owner_trust_score?: number | null;
     ansut_verified?: boolean | null;
   };
@@ -49,7 +62,7 @@ interface PropertyCardProps {
   onShare?: (property: {
     id: string;
     title: string;
-    images: string[] | null;
+    images: Json | null;
   }) => void;
 }
 
@@ -64,6 +77,9 @@ export function PropertyCard({
   const { user } = useAuth();
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+
+  // Convert Json images to string array safely
+  const images = useMemo(() => jsonToStringArray(property.images), [property.images]);
 
   // Vérifier si c'est un favori au chargement
   useEffect(() => {
@@ -139,7 +155,7 @@ export function PropertyCard({
       <div className="relative h-64 overflow-hidden">
         <img
           src={
-            property.images?.[0] ||
+            images?.[0] ||
             'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800'
           }
           alt={property.title || 'Propriété'}

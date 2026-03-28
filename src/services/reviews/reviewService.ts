@@ -1,4 +1,4 @@
-import { supabase } from '@/services/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Review {
   id: string;
@@ -258,4 +258,106 @@ export async function getUserReviewForContract(
 
   if (error) return null;
   return data;
+}
+
+/**
+ * Répond à un avis
+ */
+export async function respondToReview(
+  reviewId: string,
+  response: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('reviews')
+    .update({
+      response: response.trim(),
+      response_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', reviewId);
+
+  if (error) throw error;
+}
+
+/**
+ * Modération - Approuve un avis
+ */
+export async function approveReview(reviewId: string): Promise<void> {
+  const { error } = await supabase
+    .from('reviews')
+    .update({
+      moderation_status: 'approved',
+      is_visible: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', reviewId);
+
+  if (error) throw error;
+}
+
+/**
+ * Modération - Rejette un avis
+ */
+export async function rejectReview(reviewId: string): Promise<void> {
+  const { error } = await supabase
+    .from('reviews')
+    .update({
+      moderation_status: 'rejected',
+      is_visible: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', reviewId);
+
+  if (error) throw error;
+}
+
+/**
+ * Modération - Signale un avis
+ */
+export async function flagReview(reviewId: string): Promise<void> {
+  const { error } = await supabase
+    .from('reviews')
+    .update({
+      moderation_status: 'flagged',
+      is_visible: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', reviewId);
+
+  if (error) throw error;
+}
+
+/**
+ * Récupère les avis en attente de modération (pour admin)
+ */
+export async function getPendingReviews(): Promise<Review[]> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('*')
+    .eq('moderation_status', 'pending')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * Récupère tous les avis avec filtre de statut (pour admin)
+ */
+export async function getAllReviews(
+  moderationStatus?: 'pending' | 'approved' | 'rejected' | 'flagged'
+): Promise<Review[]> {
+  let query = supabase
+    .from('reviews')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (moderationStatus) {
+    query = query.eq('moderation_status', moderationStatus);
+  }
+
+  const { data, error } = await query;
+
+  if (error) throw error;
+  return data || [];
 }

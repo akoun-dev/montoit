@@ -25,6 +25,8 @@ const AdminServiceConfiguration = lazyWithRetry(
 const AdminDataGenerator = lazyWithRetry(() => import('@/pages/admin/TestDataGeneratorPage'));
 const AdminFeatureFlags = lazyWithRetry(() => import('@/pages/admin/FeatureFlagsPage'));
 const AdminNotifications = lazyWithRetry(() => import('@/pages/admin/NotificationsPage'));
+const AdminReviewModeration = lazyWithRetry(() => import('@/pages/admin/ReviewModerationPage'));
+const AdminDisputesManagement = lazyWithRetry(() => import('@/pages/admin/DisputesManagementPage'));
 
 export const adminRoutes: RouteObject = {
   path: 'admin',
@@ -54,5 +56,7 @@ export const adminRoutes: RouteObject = {
     { path: 'notifications', element: <AdminNotifications /> },
     { path: 'test-data-generator', element: <AdminDataGenerator /> },
     { path: 'feature-flags', element: <AdminFeatureFlags /> },
+    { path: 'moderation-avis', element: <AdminReviewModeration /> },
+    { path: 'gestion-litiges', element: <AdminDisputesManagement /> },
   ],
 };

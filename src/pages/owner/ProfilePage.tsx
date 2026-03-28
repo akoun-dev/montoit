@@ -22,6 +22,7 @@ import {
   Eye,
   Clock,
   XCircle,
+  Star,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatAddress, type AddressValue } from '@/shared/utils/address';
@@ -32,6 +33,7 @@ import { DossierSubmissionTab } from '@/shared/ui/verification/DossierSubmission
 import verificationApplicationsService, {
   type VerificationApplication,
 } from '@/features/verification/services/verificationApplications.service';
+import { ReviewsSection } from '@/shared/ui/reviews';
 
 interface Profile {
   id: string;
@@ -399,6 +401,7 @@ export default function OwnerProfilePage() {
     { id: 'history', label: 'Historique', icon: Calendar },
     { id: 'dossier', label: 'Dossier propriétaire', icon: FolderOpen },
     { id: 'stats', label: 'Statistiques', icon: TrendingUp },
+    { id: 'reviews', label: 'Avis reçus', icon: Star },
   ];
 
   if (!user) {
@@ -1013,6 +1016,12 @@ export default function OwnerProfilePage() {
                     color="purple"
                   />
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'reviews' && (
+              <div className="space-y-6">
+                <ReviewsSection revieweeId={user.id} revieweeType="owner" />
               </div>
             )}
           </div>

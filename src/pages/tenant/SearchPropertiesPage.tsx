@@ -10,20 +10,19 @@ import {
   List,
   ArrowUpDown,
   Banknote,
-  Loader2,
   Filter,
   Bookmark,
-  Bed,
+  SlidersHorizontal,
+  ChevronDown,
 } from 'lucide-react';
-import Breadcrumb from '@/shared/components/navigation/Breadcrumb';
 import MapWrapper from '@/shared/ui/MapWrapper';
 import { useInfiniteProperties } from '../../hooks/tenant/useInfiniteProperties';
 import { useSaveSearch } from '../../hooks/tenant/useSaveSearch';
 import { usePrefetchProperties } from '@/shared/hooks/usePrefetchProperty';
 import SaveSearchDialog from '../../features/tenant/components/SaveSearchDialog';
-import UnifiedSearchBar from '@/shared/ui/UnifiedSearchBar';
 import { PropertyCard } from '@/features/property/components/PropertyCard';
 import { useShareDialog } from '@/shared/ui/ShareDialog';
+import type { Json } from '@/integrations/supabase/types';
 
 // Premium Ivorian Color Palette
 const COLORS = {
@@ -44,6 +43,7 @@ export default function SearchPropertiesPage() {
   const [activeView, setActiveView] = useState<'list' | 'map'>('list');
   const [sortBy, setSortBy] = useState<'recent' | 'price_asc' | 'price_desc'>('recent');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [locationMode, setLocationMode] = useState<'all' | 'abidjan' | 'outside_abidjan'>('all');
 
   // Applied filters (synced with URL params)
@@ -53,6 +53,11 @@ export default function SearchPropertiesPage() {
     minPrice: searchParams.get('minPrice') || '',
     maxPrice: searchParams.get('maxPrice') || '',
     bedrooms: searchParams.get('bedrooms') || '',
+    bathrooms: searchParams.get('bathrooms') || '',
+    minSurface: searchParams.get('minSurface') || '',
+    maxSurface: searchParams.get('maxSurface') || '',
+    furnished: searchParams.get('furnished') || '',
+    hasParking: searchParams.get('hasParking') || '',
   });
 
   // Save search hook
@@ -73,12 +78,27 @@ export default function SearchPropertiesPage() {
   const {
     properties,
     loading,
-    loadingMore,
+    loadingMore: _loadingMore,
     error: queryError,
-    hasMore,
-    loadMore,
+    hasMore: _hasMore,
+    loadMore: _loadMore,
     totalCount,
-  } = useInfiniteProperties({ ...appliedFilters, sortBy, pageSize: fetchPageSize, ansutVerifiedOnly: true, locationMode });
+  } = useInfiniteProperties({
+    city: appliedFilters.city,
+    propertyType: appliedFilters.propertyType,
+    minPrice: appliedFilters.minPrice,
+    maxPrice: appliedFilters.maxPrice,
+    bedrooms: appliedFilters.bedrooms,
+    bathrooms: appliedFilters.bathrooms,
+    minSurface: appliedFilters.minSurface,
+    maxSurface: appliedFilters.maxSurface,
+    furnished: appliedFilters.furnished,
+    hasParking: appliedFilters.hasParking,
+    sortBy,
+    pageSize: fetchPageSize,
+    ansutVerifiedOnly: true,
+    locationMode
+  });
 
   // Calculer les indices pour la pagination
   const startIndex = (currentPage - 1) * pageSize;
@@ -117,6 +137,11 @@ export default function SearchPropertiesPage() {
       minPrice: searchParams.get('minPrice') || '',
       maxPrice: searchParams.get('maxPrice') || '',
       bedrooms: searchParams.get('bedrooms') || '',
+      bathrooms: searchParams.get('bathrooms') || '',
+      minSurface: searchParams.get('minSurface') || '',
+      maxSurface: searchParams.get('maxSurface') || '',
+      furnished: searchParams.get('furnished') || '',
+      hasParking: searchParams.get('hasParking') || '',
     });
   }, [searchParams]);
 
@@ -154,12 +179,21 @@ export default function SearchPropertiesPage() {
   const handlePropertyShare = (property: {
     id: string;
     title: string;
-    images: string[] | null;
+    images: Json | null;
   }) => {
+    // Safely get the first image from Json
+    let firstImage: string | undefined = undefined;
+    if (Array.isArray(property.images) && property.images.length > 0) {
+      const img = property.images[0];
+      if (typeof img === 'string') {
+        firstImage = img;
+      }
+    }
+
     openShareDialog(
       property.title || 'Propriete',
       `${window.location.origin}/proprietes/${property.id}`,
-      property.images?.[0] || undefined
+      firstImage
     );
   };
 
@@ -169,6 +203,11 @@ export default function SearchPropertiesPage() {
     appliedFilters.minPrice,
     appliedFilters.maxPrice,
     appliedFilters.bedrooms,
+    appliedFilters.bathrooms,
+    appliedFilters.minSurface,
+    appliedFilters.maxSurface,
+    appliedFilters.furnished,
+    appliedFilters.hasParking,
   ].filter(Boolean).length;
 
   const displayError = error || queryError;
@@ -176,7 +215,7 @@ export default function SearchPropertiesPage() {
     <div className="min-h-screen" style={{ backgroundColor: COLORS.creme }}>
       {/* ==================== HEADER REDESIGNÉ ==================== */}
       <header
-        className="relative overflow-hidden pb-10 pt-24 md:pt-28 px-4"
+        className="relative overflow-hidden pb-6 pt-24 md:pt-28 px-4"
         style={{
           background: `linear-gradient(135deg, ${COLORS.chocolat} 0%, #1a0f0a 50%, ${COLORS.chocolat} 100%)`,
         }}
@@ -195,7 +234,7 @@ export default function SearchPropertiesPage() {
             className="absolute bottom-0 right-0 w-96 h-96 rounded-full blur-[120px]"
             style={{ backgroundColor: `${COLORS.orange}10` }}
           />
-          /* Grille de points subtils */
+          {/* Grille de points subtils */}
           <div
             className="absolute inset-0"
             style={{
@@ -207,8 +246,8 @@ export default function SearchPropertiesPage() {
 
         <div className="relative z-10 max-w-7xl mx-auto">
           {/* Section titre avec badge */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">
-            <div className="space-y-3">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-6">
+            <div className="space-y-2">
               {/* Badge de catégorie */}
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border" style={{ borderColor: `${COLORS.orange}40`, backgroundColor: `${COLORS.orange}10` }}>
                 <Search className="w-3.5 h-3.5" style={{ color: COLORS.orange }} />
@@ -220,13 +259,9 @@ export default function SearchPropertiesPage() {
               <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight">
                 Trouver votre bien
               </h1>
-              {/* Sous-titre */}
-              <p className="text-white/60 text-sm md:text-base max-w-xl">
-                Explorez notre sélection de biens certifiés ANSUT à travers toute la Côte d'Ivoire
-              </p>
             </div>
 
-            {/* Compteur de biens - Design card */}
+            {/* Compteur de biens */}
             {!loading && (
               <div className="flex flex-col items-center md:items-end">
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
@@ -235,70 +270,294 @@ export default function SearchPropertiesPage() {
                       {totalCount}
                     </span>
                     <span className="text-sm font-medium" style={{ color: COLORS.sable }}>
-                      bien{totalCount > 1 ? 's' : ''} disponible{totalCount > 1 ? 's' : ''}
+                      bien{totalCount > 1 ? 's' : ''}
                     </span>
                   </div>
-                  {nonGeolocatedCount > 0 && (
-                    <div className="flex items-center gap-1 mt-2 text-xs" style={{ color: COLORS.orange }}>
-                      <MapPin className="w-3 h-3" />
-                      <span>{geolocatedCount} géolocalisé{geolocatedCount > 1 ? 's' : ''}</span>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
           </div>
 
-          {/* ==================== BARRE DE RECHERCHE UNIFIÉE ==================== */}
-          <div className="mb-6">
-            <UnifiedSearchBar
-              variant="page"
-              initialFilters={{
-                city: appliedFilters.city,
-                propertyType: appliedFilters.propertyType,
-                maxBudget: appliedFilters.maxPrice,
-              }}
-              onSearch={(filters) => {
-                const params = new URLSearchParams();
-                if (filters.city?.trim()) params.set('city', filters.city.trim());
-                if (filters.propertyType?.trim()) params.set('type', filters.propertyType.trim());
-                if (filters.maxBudget?.trim()) params.set('maxPrice', filters.maxBudget.trim());
-                // Explicitly clear minPrice and bedrooms when using UnifiedSearchBar
-                // to avoid conflicts with maxPrice filter
-                params.delete('minPrice');
-                params.delete('bedrooms');
-                setSearchParams(params);
-              }}
-            />
-          </div>
+          {/* ==================== ZONE DE RECHERCHE UNIFIÉE ==================== */}
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-4">
+            {/* Recherche rapide : Ville + Type + Budget */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Ville */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Ville ou quartier..."
+                  value={appliedFilters.city}
+                  onChange={(e) => {
+                    const params = new URLSearchParams(searchParams);
+                    if (e.target.value.trim()) params.set('city', e.target.value.trim());
+                    else params.delete('city');
+                    setSearchParams(params);
+                  }}
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all"
+                />
+              </div>
 
-          {/* Actions rapides - Design amélioré */}
-          <div className="flex flex-wrap gap-3 items-center">
-            {/* Bouton Sauvegarder - Style premium */}
-            <button
-              type="button"
-              onClick={handleSaveSearch}
-              className="group relative overflow-hidden flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 hover:scale-105"
-              style={{
-                background: `linear-gradient(135deg, ${COLORS.orange} 0%, #D95318 100%)`,
-                color: 'white',
-                boxShadow: `0 4px 15px ${COLORS.orange}30`,
-              }}
-            >
-              <Bookmark className="w-4 h-4 group-hover:scale-110 transition-transform" />
-              Sauvegarder la recherche
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-            </button>
+              {/* Type de bien */}
+              <div className="relative mt-2">
+                <select
+                  value={appliedFilters.propertyType}
+                  onChange={(e) => {
+                    const params = new URLSearchParams(searchParams);
+                    if (e.target.value) params.set('type', e.target.value);
+                    else params.delete('type');
+                    setSearchParams(params);
+                  }}
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                  }}
+                  className="w-full pl-10 pr-10 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all appearance-none cursor-pointer"
+                >
+                  <option value="" style={{ backgroundColor: '#2C1810', color: 'white' }}>Tous les types</option>
+                  <option value="apartment" style={{ backgroundColor: '#2C1810', color: 'white' }}>Appartement</option>
+                  <option value="house" style={{ backgroundColor: '#2C1810', color: 'white' }}>Maison</option>
+                  <option value="studio" style={{ backgroundColor: '#2C1810', color: 'white' }}>Studio</option>
+                  <option value="villa" style={{ backgroundColor: '#2C1810', color: 'white' }}>Villa</option>
+                  <option value="duplex" style={{ backgroundColor: '#2C1810', color: 'white' }}>Duplex</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50 pointer-events-none" />
+              </div>
 
-            {activeFiltersCount > 0 && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-white/20 text-white/80 hover:text-white hover:bg-white/10 transition-all"
-              >
-                <X className="w-4 h-4" />
-                Réinitialiser ({activeFiltersCount})
-              </button>
+              {/* Budget max */}
+              <div className="relative">
+                <input
+                  type="number"
+                  placeholder="Budget max (FCFA)"
+                  value={appliedFilters.maxPrice}
+                  onChange={(e) => {
+                    const params = new URLSearchParams(searchParams);
+                    if (e.target.value.trim()) params.set('maxPrice', e.target.value.trim());
+                    else params.delete('maxPrice');
+                    setSearchParams(params);
+                  }}
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Actions : Localisation rapide + Filtres avancés + Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Localisation rapide */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                <span className="text-xs font-medium text-white/70 whitespace-nowrap">Localisation :</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setLocationMode('all')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                      locationMode === 'all'
+                        ? 'bg-white text-[#2C1810] shadow-md'
+                        : 'bg-white/10 text-white/80 hover:bg-white/20'
+                    }`}
+                  >
+                    Toute la Côte d'voire
+                  </button>
+                  <button
+                    onClick={() => setLocationMode('abidjan')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                      locationMode === 'abidjan'
+                        ? 'bg-[#F16522] text-white shadow-md'
+                        : 'bg-white/10 text-white/80 hover:bg-white/20'
+                    }`}
+                  >
+                    Abidjan
+                  </button>
+                  <button
+                    onClick={() => setLocationMode('outside_abidjan')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                      locationMode === 'outside_abidjan'
+                        ? 'bg-white text-[#2C1810] shadow-md'
+                        : 'bg-white/10 text-white/80 hover:bg-white/20'
+                    }`}
+                  >
+                    Hors Abidjan
+                  </button>
+                </div>
+              </div>
+
+              {/* Boutons d'action */}
+              <div className="flex items-center gap-2">
+                {/* Toggle filtres avancés */}
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                    showAdvancedFilters
+                      ? 'bg-white/20 text-white'
+                      : 'bg-white/10 text-white/80 hover:bg-white/20'
+                  }`}
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  Filtres
+                  {activeFiltersCount > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full text-xs font-bold bg-orange-500 text-white">
+                      {activeFiltersCount}
+                    </span>
+                  )}
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Sauvegarder */}
+                <button
+                  type="button"
+                  onClick={handleSaveSearch}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-[#F16522] text-white hover:bg-[#D95318] transition-all"
+                >
+                  <Bookmark className="w-4 h-4" />
+                  Sauvegarder
+                </button>
+
+                {/* Réinitialiser */}
+                {activeFiltersCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-white/10 text-white/80 hover:bg-white/20 transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                    Réinitialiser
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Panneau de filtres avancés (collapsible) */}
+            {showAdvancedFilters && (
+              <div className="pt-4 border-t border-white/20">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {/* Prix min */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-white/70">Prix min (FCFA)</label>
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      value={appliedFilters.minPrice}
+                      onChange={(e) => {
+                        const params = new URLSearchParams(searchParams);
+                        if (e.target.value) params.set('minPrice', e.target.value);
+                        else params.delete('minPrice');
+                        setSearchParams(params);
+                      }}
+                      className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                    />
+                  </div>
+
+                  {/* Chambres min */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-white/70">Chambres</label>
+                    <select
+                      value={appliedFilters.bedrooms}
+                      onChange={(e) => {
+                        const params = new URLSearchParams(searchParams);
+                        if (e.target.value) params.set('bedrooms', e.target.value);
+                        else params.delete('bedrooms');
+                        setSearchParams(params);
+                      }}
+                      style={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                        color: 'white',
+                      }}
+                      className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 appearance-none cursor-pointer"
+                    >
+                      <option value="" style={{ backgroundColor: '#2C1810', color: 'white' }}>Toutes</option>
+                      <option value="1" style={{ backgroundColor: '#2C1810', color: 'white' }}>1+</option>
+                      <option value="2" style={{ backgroundColor: '#2C1810', color: 'white' }}>2+</option>
+                      <option value="3" style={{ backgroundColor: '#2C1810', color: 'white' }}>3+</option>
+                      <option value="4" style={{ backgroundColor: '#2C1810', color: 'white' }}>4+</option>
+                    </select>
+                  </div>
+
+                  {/* Salles de bain min */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-white/70">S. de bain</label>
+                    <select
+                      value={appliedFilters.bathrooms}
+                      onChange={(e) => {
+                        const params = new URLSearchParams(searchParams);
+                        if (e.target.value) params.set('bathrooms', e.target.value);
+                        else params.delete('bathrooms');
+                        setSearchParams(params);
+                      }}
+                      style={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                        color: 'white',
+                      }}
+                      className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 appearance-none cursor-pointer"
+                    >
+                      <option value="" style={{ backgroundColor: '#2C1810', color: 'white' }}>Toutes</option>
+                      <option value="1" style={{ backgroundColor: '#2C1810', color: 'white' }}>1+</option>
+                      <option value="2" style={{ backgroundColor: '#2C1810', color: 'white' }}>2+</option>
+                      <option value="3" style={{ backgroundColor: '#2C1810', color: 'white' }}>3+</option>
+                    </select>
+                  </div>
+
+                  {/* Surface min */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-white/70">Surface min (m²)</label>
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      value={appliedFilters.minSurface}
+                      onChange={(e) => {
+                        const params = new URLSearchParams(searchParams);
+                        if (e.target.value) params.set('minSurface', e.target.value);
+                        else params.delete('minSurface');
+                        setSearchParams(params);
+                      }}
+                      className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                    />
+                  </div>
+
+                  {/* Surface max */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-white/70">Surface max (m²)</label>
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      value={appliedFilters.maxSurface}
+                      onChange={(e) => {
+                        const params = new URLSearchParams(searchParams);
+                        if (e.target.value) params.set('maxSurface', e.target.value);
+                        else params.delete('maxSurface');
+                        setSearchParams(params);
+                      }}
+                      className="w-full px-3 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                    />
+                  </div>
+
+                  {/* Meublé */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-white/70">Meublé</label>
+                    <select
+                      value={appliedFilters.furnished}
+                      onChange={(e) => {
+                        const params = new URLSearchParams(searchParams);
+                        if (e.target.value) params.set('furnished', e.target.value);
+                        else params.delete('furnished');
+                        setSearchParams(params);
+                      }}
+                      style={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                        color: 'white',
+                      }}
+                      className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 appearance-none cursor-pointer"
+                    >
+                      <option value="" style={{ backgroundColor: '#2C1810', color: 'white' }}>Tous</option>
+                      <option value="true" style={{ backgroundColor: '#2C1810', color: 'white' }}>Oui</option>
+                      <option value="false" style={{ backgroundColor: '#2C1810', color: 'white' }}>Non</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -321,48 +580,6 @@ export default function SearchPropertiesPage() {
 
       {/* ==================== CONTENU PRINCIPAL ==================== */}
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* Filtre de localisation rapide */}
-        <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2">
-          <span className="text-sm font-medium" style={{ color: COLORS.grisTexte }}>
-            Localisation :
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setLocationMode('all')}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                locationMode === 'all'
-                  ? 'bg-[#2C1810] text-white shadow-md'
-                  : 'bg-white text-[#6B5A4E] border hover:bg-[#FAF7F4]'
-              }`}
-              style={locationMode !== 'all' ? { borderColor: COLORS.border } : {}}
-            >
-              Toute la Côte d'Ivoire
-            </button>
-            <button
-              onClick={() => setLocationMode('abidjan')}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                locationMode === 'abidjan'
-                  ? 'bg-[#F16522] text-white shadow-md'
-                  : 'bg-white text-[#6B5A4E] border hover:bg-[#FAF7F4]'
-              }`}
-              style={locationMode !== 'abidjan' ? { borderColor: COLORS.border } : {}}
-            >
-              Abidjan uniquement
-            </button>
-            <button
-              onClick={() => setLocationMode('outside_abidjan')}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                locationMode === 'outside_abidjan'
-                  ? 'bg-[#2C1810] text-white shadow-md'
-                  : 'bg-white text-[#6B5A4E] border hover:bg-[#FAF7F4]'
-              }`}
-              style={locationMode !== 'outside_abidjan' ? { borderColor: COLORS.border } : {}}
-            >
-              Hors Abidjan
-            </button>
-          </div>
-        </div>
-
         {/* Barre d'outils (Tri & Vue) - Espacement réduit */}
         <div className="flex flex-wrap justify-between items-center gap-4 mb-5">
           <div className="flex items-center gap-2 text-sm" style={{ color: COLORS.grisTexte }}>
@@ -857,7 +1074,7 @@ export default function SearchPropertiesPage() {
                     >
                       <img
                         src={
-                          property.images?.[0] ||
+                          (Array.isArray(property.images) && typeof property.images[0] === 'string' ? property.images[0] : null) ||
                           'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400'
                         }
                         alt={property.title || 'Propriété'}

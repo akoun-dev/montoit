@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Mail,
   File,
+  Star,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import Input from '@/shared/ui/Input';
@@ -25,6 +26,7 @@ import { DossierSubmissionTab } from '@/shared/ui/verification/DossierSubmission
 import verificationApplicationsService, {
   type VerificationApplication,
 } from '@/features/verification/services/verificationApplications.service';
+import { ReviewsSection } from '@/shared/ui/reviews';
 
 interface AgencyProfile {
   id: string;
@@ -514,6 +516,7 @@ export default function AgencyProfilePage() {
     { id: 'contact', label: 'Contact', icon: Mail },
     { id: 'verification', label: 'Vérifications', icon: Shield },
     { id: 'stats', label: 'Statistiques', icon: TrendingUp },
+    { id: 'reviews', label: 'Avis reçus', icon: Star },
   ];
 
   if (loading) {
@@ -933,6 +936,12 @@ export default function AgencyProfilePage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'reviews' && (
+          <div className="space-y-6">
+            <ReviewsSection revieweeId={user.id} revieweeType="agency" />
           </div>
         )}
       </div>

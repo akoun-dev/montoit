@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { FileText, Eye, Edit, X, CheckCircle, Pen, Ban, Loader2 } from 'lucide-react';
 import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
+import TerminateLeaseModal from './TerminateLeaseModal';
 
 interface Contract {
   id: string;
@@ -46,6 +47,8 @@ export default function MyContracts() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'pending' | 'expired'>('all');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [terminateModalOpen, setTerminateModalOpen] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -127,6 +130,20 @@ export default function MyContracts() {
     // Can cancel if contract is in draft, pending_signature, or even active (with conditions)
     const cancellableStatuses = ['draft', 'pending_signature'];
     return cancellableStatuses.includes(contract.status);
+  };
+
+  const canTerminateContract = (contract: Contract) => {
+    // Tenants can terminate active contracts
+    return contract.status === 'active' && contract.tenant_id === user?.id;
+  };
+
+  const handleTerminateContract = (contract: Contract) => {
+    setSelectedContract(contract);
+    setTerminateModalOpen(true);
+  };
+
+  const handleTerminationSuccess = () => {
+    loadContracts();
   };
 
   const handleCancelContract = async (contractId: string) => {
@@ -436,6 +453,16 @@ export default function MyContracts() {
                           )}
                         </button>
                       )}
+
+                      {canTerminateContract(contract) && (
+                        <button
+                          onClick={() => handleTerminateContract(contract)}
+                          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition flex items-center space-x-2"
+                        >
+                          <Ban className="w-4 h-4" />
+                          <span>Résilier le bail</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -444,6 +471,23 @@ export default function MyContracts() {
           </div>
         )}
       </div>
+
+      {/* Terminate Lease Modal */}
+      {selectedContract && (
+        <TerminateLeaseModal
+          isOpen={terminateModalOpen}
+          onClose={() => {
+            setTerminateModalOpen(false);
+            setSelectedContract(null);
+          }}
+          onSubmit={handleTerminationSuccess}
+          contractId={selectedContract.id}
+          propertyTitle={selectedContract.property.title}
+          contractNumber={selectedContract.contract_number}
+          startDate={selectedContract.start_date}
+          endDate={selectedContract.end_at}
+        />
+      )}
     </TenantDashboardLayout>
   );
 }
