@@ -22,6 +22,7 @@ export const ROLES = {
 
   // System roles (from user_roles table)
   ADMIN: 'admin',
+  MODERATOR: 'moderator',
   TRUST_AGENT: 'trust_agent',
 } as const;
 
@@ -34,7 +35,7 @@ export const AGENCY_ROLES = [ROLES.AGENCY] as const;
 export const PROPERTY_MANAGER_ROLES = [...OWNER_ROLES, ...AGENCY_ROLES] as const;
 
 // System roles (from user_roles table - managed via has_role() function)
-export const SYSTEM_ROLES = [ROLES.ADMIN, ROLES.TRUST_AGENT] as const;
+export const SYSTEM_ROLES = [ROLES.ADMIN, ROLES.MODERATOR, ROLES.TRUST_AGENT] as const;
 
 // All authenticated users
 export const ALL_AUTHENTICATED = [...TENANT_ROLES, ...OWNER_ROLES, ...AGENCY_ROLES] as const;
