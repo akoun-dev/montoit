@@ -78,7 +78,7 @@ serve(async (req: Request) => {
       ? siteUrl
       : Deno.env.get('SITE_URL') || 'http://localhost:8080';
 
-    const redirectTo = `${redirectBase}/auth/reset-password`;
+    const redirectTo = `${redirectBase}/reinitialiser-mot-de-passe`;
 
     console.log('[password-reset] Demande pour:', normalizedEmail);
     console.log('[password-reset] Redirection vers:', redirectTo);

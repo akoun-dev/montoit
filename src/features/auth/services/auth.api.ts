@@ -144,7 +144,7 @@ export const authApi = {
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${window.location.origin}/reinitialiser-mot-de-passe`,
     });
 
     if (error) throw error;
