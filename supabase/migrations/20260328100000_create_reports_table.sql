@@ -165,8 +165,8 @@ CREATE POLICY "Users can update own reports"
   USING (
     auth.uid() = reporter_id
     AND (
-      -- Only allow updating description and evidence_urls
-      jsonb_extract_paths(NEW, '{description,evidence_urls}') IS NOT NULL
+      -- Allow updating if status is still pending
+      (SELECT status FROM reports WHERE id = reports.id) = 'pending'
     )
   );
 

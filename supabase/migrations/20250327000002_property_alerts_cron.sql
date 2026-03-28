@@ -5,8 +5,15 @@
 -- Activer l'extension pg_cron si ce n'est pas déjà fait
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
--- Nettoyer les anciens jobs s'ils existent
-DELETE FROM public.cron_job WHERE jobname LIKE 'property-alerts%';
+-- Nettoyer les anciens jobs s'ils existent (avec gestion d'erreur)
+DO $$
+BEGIN
+  DELETE FROM public.cron_job WHERE jobname LIKE 'property-alerts%';
+EXCEPTION
+  WHEN undefined_table THEN
+    -- La table cron_job n'existe pas encore, ignorer cette étape
+    NULL;
+END $$;
 
 -- ===== ALERTES HORAIRES =====
 -- Exécuté toutes les heures pour vérifier les nouveaux biens des dernières 60 minutes
@@ -91,23 +98,7 @@ SELECT cron.schedule(
   $$
 );
 
--- Commentaires pour documentation
-COMMENT ON CRON JOB 'property-alerts-hourly' IS
-  'Vérifie toutes les heures les nouveaux biens correspondant aux recherches sauvegardées (alertes immédiates)';
-
-COMMENT ON CRON JOB 'property-alerts-daily' IS
-  'Envoie un résumé quotidien des biens correspondant aux recherches sauvegardées';
-
-COMMENT ON CRON JOB 'property-alerts-weekly' IS
-  'Envoie un résumé hebdomadaire des biens correspondant aux recherches sauvegardées';
-
-COMMENT ON CRON JOB 'property-alerts-queue-cleanup' IS
-  'Nettoie les entrées traitées de la file d''attente des alertes propriétés';
-
-COMMENT ON CRON JOB 'property-alerts-heartbeat' IS
-  'Enregistre un heartbeat pour le monitoring du système d''alertes';
-
--- Table pour les métriques système (créée si elle n'existe pas)
+-- ===== NETTOYAGE AUTOMATIQUE =====
 CREATE TABLE IF NOT EXISTS public.system_metrics (
   metric_name TEXT PRIMARY KEY,
   metric_value NUMERIC,
@@ -151,9 +142,13 @@ BEGIN
     last_run,
     next_run,
     'active'::TEXT as status
-  FROM public.cron_job
+  FROM cron.job
   WHERE jobname LIKE 'property-alerts%'
   ORDER BY jobname;
+EXCEPTION
+  WHEN undefined_table THEN
+    -- La table cron.job n'existe pas encore
+    RETURN QUERY SELECT ''::TEXT as jobname, ''::TEXT as schedule, NULL::TIMESTAMP WITH TIME ZONE as last_run, NULL::TIMESTAMP WITH TIME ZONE as next_run, 'pg_cron not available'::TEXT as status LIMIT 0;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -209,5 +204,5 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION public.trigger_property_alerts_manual(property_id_param UUID) IS
   'Déclenche manuellement le matching d''alertes pour un bien ou tous les biens récents.
-  Usage: SELECT trigger_property_alerts_manual('''uuid-du-bien''); -- pour un bien spécifique
+  Usage: SELECT trigger_property_alerts_manual(''uuid-du-bien''); -- pour un bien spécifique
          SELECT trigger_property_alerts_manual(); -- pour tous les biens récents';
