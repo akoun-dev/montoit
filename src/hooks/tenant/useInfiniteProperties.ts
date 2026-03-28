@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { queryKeys, searchPropertiesConfig, propertyDetailConfig } from '@/shared/lib/query-config';
+import { ABIDJAN_NEIGHBORHOODS } from '@/shared/data/cities';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 type PropertyWithScore = Property & {
@@ -47,8 +48,8 @@ const DEFAULT_PAGE_SIZE = 20;
  */
 interface Filters {
   cityOrNeighborhood?: string;
-  excludeCity?: string;
-  additionalCityFilter?: string; // For combining locationMode with city search
+  excludeCity?: boolean; // Changed to boolean for cleaner logic
+  abidjanNeighborhoods?: string[]; // List of Abidjan neighborhoods to include/exclude
   propertyType?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -65,20 +66,18 @@ function buildQueryParams(options: UseInfinitePropertiesOptions) {
 
   const filters: Filters = {};
 
-  // Handle location mode (Abidjan filter) - can be combined with city search
+  // Handle location mode with proper Abidjan neighborhood filtering
   if (locationMode === 'abidjan') {
-    filters.cityOrNeighborhood = 'Abidjan';
-    // If a city is also specified, add it as an additional filter
-    if (city?.trim() && city.trim().toLowerCase() !== 'abidjan') {
-      filters.additionalCityFilter = city.trim();
-    }
+    // For "Abidjan uniquement": include properties where city is "Abidjan" OR city is an Abidjan neighborhood
+    // We don't set cityOrNeighborhood here - it will be handled in the query with proper logic
+    filters.abidjanNeighborhoods = ABIDJAN_NEIGHBORHOODS;
+    filters.excludeCity = false;
   } else if (locationMode === 'outside_abidjan') {
-    // Exclude Abidjan but allow searching in other cities
-    filters.excludeCity = 'Abidjan';
-    if (city?.trim()) {
-      filters.cityOrNeighborhood = city.trim();
-    }
+    // For "Hors Abidjan": exclude properties where city is "Abidjan" OR city is an Abidjan neighborhood
+    filters.abidjanNeighborhoods = ABIDJAN_NEIGHBORHOODS;
+    filters.excludeCity = true;
   } else if (city?.trim()) {
+    // When a specific city is searched (and locationMode is 'all')
     const searchValue = city.trim();
     filters.cityOrNeighborhood = searchValue;
   }
@@ -166,24 +165,27 @@ async function fetchProperties({
     query = query.eq('ansut_verified', true);
   }
 
-  // City/Neighborhood filter with OR logic
+  // Handle location filtering - proper Abidjan neighborhood logic
+  if (filters.abidjanNeighborhoods) {
+    const neighborhoodList = filters.abidjanNeighborhoods;
+    if (filters.excludeCity) {
+      // "Hors Abidjan" - exclude Abidjan AND all its neighborhoods
+      query = query.not('city', 'in', `(${['Abidjan', ...neighborhoodList].join(',')})`);
+    } else {
+      // "Abidjan uniquement" - include Abidjan OR any of its neighborhoods
+      query = query.or(
+        `city.eq.Abidjan,city.in.(${neighborhoodList.join(',')})`
+      );
+    }
+  }
+
+  // City/Neighborhood filter for specific city search (when locationMode is 'all')
   if (filters.cityOrNeighborhood) {
     query = query.or(
       `city.ilike.%${filters.cityOrNeighborhood}%,neighborhood.ilike.%${filters.cityOrNeighborhood}%`
     );
   }
 
-  // Additional city filter (for combining locationMode with city search)
-  if (filters.additionalCityFilter) {
-    query = query.or(
-      `city.ilike.%${filters.additionalCityFilter}%,neighborhood.ilike.%${filters.additionalCityFilter}%`
-    );
-  }
-
-  if (filters.excludeCity) {
-    // Exclude properties in the specified city (e.g., Abidjan)
-    query = query.not('city', 'ilike', `%${filters.excludeCity}%`);
-  }
   if (filters.propertyType) {
     query = query.eq('property_type', filters.propertyType);
   }
