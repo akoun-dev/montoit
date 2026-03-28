@@ -5,8 +5,37 @@
  * Utilise l'API REST Supabase Auth pour éviter les problèmes de JWT.
  */
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { getCorsHeaders } from '../_shared/cors.ts';
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://mon-toit.ansut.ci',
+  'http://localhost:8080',
+  'http://127.0.0.1:8080',
+  'http://localhost:8081',
+  'http://127.0.0.1:8081',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
+
+function isOriginAllowed(origin: string | null): boolean {
+  if (!origin) return true; // Allow same-origin requests
+  return DEFAULT_ALLOWED_ORIGINS.includes(origin);
+}
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin');
+  const allowedOrigins = DEFAULT_ALLOWED_ORIGINS;
+
+  // Find matching origin
+  const corsOrigin = origin && allowedOrigins.includes(origin)
+    ? origin
+    : allowedOrigins[0];
+
+  return {
+    'Access-Control-Allow-Origin': corsOrigin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, X-Client-Info',
+    'Access-Control-Max-Age': '86400',
+  };
+}
 
 interface ResetRequest {
   email: string;
@@ -26,12 +55,15 @@ function createError(status: number, message: string, code?: string): Response {
     error: message,
     errorCode: code,
   };
+  const corsHeaders = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': DEFAULT_ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, X-Client-Info',
+  };
   return new Response(JSON.stringify(body), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      ...getCorsHeaders(new Request('http://localhost'))
-    },
+    headers: corsHeaders,
   });
 }
 
