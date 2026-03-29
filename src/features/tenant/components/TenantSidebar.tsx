@@ -1,25 +1,32 @@
+/**
+ * Sidebar pour les locataires - même structure que les propriétaires
+ */
+
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Users,
+  Home,
+  User,
   FileText,
+  Users,
+  MessageSquare,
+  Search,
+  X,
+  LogOut,
+  Key,
   CreditCard,
   Calendar,
   Wrench,
   Heart,
-  MessageSquare,
-  Search,
-  X,
-  Home,
-  LogOut,
   Folder,
   Bell,
   Star,
+  Settings,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { useRef, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMenuCounters } from '@/hooks/useMenuCounters';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -32,34 +39,43 @@ interface TenantSidebarProps {
 
 const navSections = [
   {
-    title: 'Espace',
+    title: 'Accueil',
     items: [
       { label: 'Tableau de bord', href: '/locataire/dashboard', icon: LayoutDashboard },
       { label: 'Mon Espace', href: '/locataire/mon-espace', icon: Home },
-      { label: 'Rechercher', href: '/recherche', icon: Search },
-      { label: 'Mes Favoris', href: '/locataire/favoris', icon: Heart },
+      { label: 'Recherche', href: '/recherche', icon: Search },
+      { label: 'Favoris', href: '/locataire/favoris', icon: Heart },
     ],
   },
   {
-    title: 'Activité',
+    title: 'Location',
     items: [
-      { label: 'Mes Candidatures', href: '/locataire/mes-candidatures', icon: Users, counterKey: 'pendingApplications' as const },
-      { label: 'Mes Visites', href: '/locataire/mes-visites', icon: Calendar, counterKey: 'pendingVisits' as const },
-      { label: 'Mes Avis', href: '/locataire/avis', icon: Star },
-      { label: 'Mes Contrats', href: '/locataire/mes-contrats', icon: FileText },
-      { label: 'Mes Paiements', href: '/locataire/mes-paiements', icon: CreditCard },
+      { label: 'Candidatures', href: '/locataire/mes-candidatures', icon: Users, counterKey: 'pendingApplications' as const },
+      { label: 'Visites', href: '/locataire/mes-visites', icon: Calendar, counterKey: 'pendingVisits' as const },
+      { label: 'Contrats', href: '/locataire/mes-contrats', icon: FileText },
+      { label: 'Paiements', href: '/locataire/mes-paiements', icon: CreditCard },
+    ],
+  },
+  {
+    title: 'Compte',
+    items: [
+      { label: 'Profil', href: '/locataire/profil', icon: User },
+      { label: 'Paramètres', href: '/locataire/parametres', icon: Settings },
+      { label: 'Avis', href: '/locataire/avis', icon: Star },
       { label: 'Maintenance', href: '/locataire/maintenance', icon: Wrench },
       { label: 'Historique', href: '/locataire/profil/historique-locations', icon: Folder },
     ],
   },
   {
-    title: 'Communication',
+    title: 'Messages',
     items: [
       { label: 'Messages', href: '/locataire/messages', icon: MessageSquare, counterKey: 'unreadMessages' as const },
       { label: 'Notifications', href: '/locataire/notifications', icon: Bell, counterKey: 'unreadNotifications' as const },
     ],
   },
 ];
+
+const quickItems = [{ label: 'Rechercher', href: '/recherche', icon: Search }];
 
 export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
   const location = useLocation();
@@ -69,9 +85,10 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
   const currentPath = location.pathname;
   const sidebarRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<number | null>(null);
+
   const displayName = profile?.full_name?.trim() || 'Locataire';
 
-  // Calculer le Trust Score comme dans la page de profil (cohérence totale)
+  // Calculer le Trust Score
   const [trustScore, setTrustScore] = useState<number>(0);
 
   useEffect(() => {
@@ -84,18 +101,15 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
       try {
         const { ScoringService, TENANT_SCORING_WEIGHTS } = await import('@/services/scoringService');
 
-        // Calculer la complétion du profil
         const profileScoreResult = ScoringService.calculateProfileScore(profile);
         const profileComplete = ScoringService.isProfileComplete(profileScoreResult.details);
 
-        // Récupérer le dossier de verification (comme dans la page de profil)
         const { data: dossierApplications } = await supabase
           .from('verification_applications')
           .select('status, documents')
           .eq('user_id', user.id)
           .eq('application_type', 'tenant_dossier');
 
-        // Même logique que la page de profil : chercher approved d'abord, sinon la première
         const dossierApplication =
           dossierApplications?.find((app) => app.status === 'approved') ||
           dossierApplications?.[0] ||
@@ -106,7 +120,6 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
         const dossierStatus = dossierHasDocs ? dossierApplication?.status : null;
         const dossierApproved = dossierStatus === 'approved';
 
-        // Calculer le score avec les bons poids
         const computedScore =
           (profileComplete ? TENANT_SCORING_WEIGHTS.profileComplete : 0) +
           (profile?.facial_verification_status === 'verified' ? TENANT_SCORING_WEIGHTS.facial : 0) +
@@ -139,7 +152,7 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
     }
   };
 
-  // Swipe gesture support for closing sidebar on mobile
+  // Swipe gesture support
   useEffect(() => {
     const sidebar = sidebarRef.current;
     if (!sidebar) return;
@@ -153,29 +166,28 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
       const touchX = e.touches[0].clientX;
       const diff = touchStartRef.current - touchX;
 
-      // Swipe left to close
       if (diff > 50 && isOpen) {
         onClose();
         touchStartRef.current = null;
       }
     };
 
-    const handleTouchEnd = () => {
+    const handleEnd = () => {
       touchStartRef.current = null;
     };
 
     sidebar.addEventListener('touchstart', handleTouchStart, { passive: true });
     sidebar.addEventListener('touchmove', handleTouchMove, { passive: true });
-    sidebar.addEventListener('touchend', handleTouchEnd);
+    sidebar.addEventListener('touchend', handleEnd);
 
     return () => {
       sidebar.removeEventListener('touchstart', handleTouchStart);
       sidebar.removeEventListener('touchmove', handleTouchMove);
-      sidebar.removeEventListener('touchend', handleTouchEnd);
+      sidebar.removeEventListener('touchend', handleEnd);
     };
   }, [isOpen, onClose]);
 
-  // Close sidebar on escape key
+  // Escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -187,7 +199,7 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  // Prevent body scroll when sidebar is open on mobile
+  // Prevent body scroll
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -197,7 +209,7 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
     }
   }, [isOpen]);
 
-  // Focus trap for accessibility
+  // Focus trap
   useEffect(() => {
     if (!isOpen) return;
 
@@ -226,7 +238,6 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
       }
     };
 
-    // Focus first element when sidebar opens
     firstElement?.focus();
 
     sidebar.addEventListener('keydown', handleTab);
@@ -235,7 +246,7 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
 
   return (
     <>
-      {/* Mobile Overlay with blur effect */}
+      {/* Mobile Overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300"
@@ -249,12 +260,9 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
         ref={sidebarRef}
         className={cn(
           'fixed top-0 left-0 z-50 h-full bg-white border-r border-neutral-200 transform transition-transform duration-300 ease-out lg:translate-x-0 lg:z-30 flex flex-col',
-          // Desktop: always visible, full width
           'lg:w-72 lg:static lg:transform-none',
-          // Mobile: slide-in from left, reduced width for better visibility
           'w-[85%] max-w-[320px]',
           isOpen ? 'translate-x-0' : '-translate-x-full',
-          // Add shadow on mobile when open
           isOpen && 'lg:shadow-none shadow-2xl'
         )}
         aria-label="Menu de navigation latéral"
@@ -314,56 +322,75 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 sm:px-4">
-          <div className="space-y-4">
-            {navSections.map((section) => (
-              <div key={section.title}>
-                <p className="px-2 text-[11px] uppercase tracking-[0.18em] text-neutral-400 mb-2">
-                  {section.title}
-                </p>
-                <ul className="space-y-1">
-                  {section.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = isActive(item.href);
+        <nav className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 space-y-5">
+          {navSections.map((section) => (
+            <div key={section.title}>
+              <p className="text-[11px] uppercase tracking-wider text-[#A69B95] px-3 mb-2">
+                {section.title}
+              </p>
+              <ul className="space-y-1">
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href);
 
-                    return (
-                      <li key={item.href}>
-                        <Link
-                          to={item.href}
-                          onClick={onClose}
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        to={item.href}
+                        onClick={onClose}
+                        className={cn(
+                          'group flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all relative',
+                          active
+                            ? 'bg-[#FFF2E6] text-[#D95318]'
+                            : 'text-[#5C4A3D] hover:bg-[#FAF4EE] hover:text-[#2C1810]'
+                        )}
+                      >
+                        <span
                           className={cn(
-                            'group relative flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all min-h-[44px] touch-manipulation',
-                            active
-                              ? 'bg-[#FFF2E6] text-[#9C3D0D] border border-[#F5D9C6]'
-                              : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                            'absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-full bg-[#F16522] transition-opacity',
+                            active ? 'opacity-100' : 'opacity-0 group-hover:opacity-40'
                           )}
-                        >
-                          {active && (
-                            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-[#F16522]" />
-                          )}
-                          <span
-                            className={cn(
-                              'h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0',
-                              active
-                                ? 'bg-white text-[#F16522]'
-                                : 'bg-neutral-100 text-neutral-600 group-hover:text-[#F16522]'
-                            )}
-                          >
-                            <Icon className="h-5 w-5" />
+                        />
+                        <Icon className={cn('h-5 w-5', active ? 'text-[#F16522]' : '')} />
+                        <span className="flex-1 truncate">{item.label}</span>
+                        {item.counterKey && counters[item.counterKey] > 0 && (
+                          <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center animate-pulse">
+                            {counters[item.counterKey] > 99 ? '99+' : counters[item.counterKey]}
                           </span>
-                          <span className="flex-1 truncate text-sm">{item.label}</span>
-                          {item.counterKey && counters[item.counterKey] > 0 && (
-                            <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center animate-pulse flex-shrink-0">
-                              {counters[item.counterKey] > 99 ? '99+' : counters[item.counterKey]}
-                            </span>
-                          )}
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+
+          {/* Quick Items */}
+          <div className="border-t border-neutral-100 pt-4">
+            <ul className="space-y-1">
+              {quickItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+                return (
+                  <li key={item.href}>
+                    <Link
+                      to={item.href}
+                      onClick={onClose}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all',
+                        active
+                          ? 'bg-[#FFF2E6] text-[#D95318]'
+                          : 'text-[#5C4A3D] hover:bg-[#FAF4EE] hover:text-[#2C1810]'
+                      )}
+                    >
+                      <Icon className={cn('h-5 w-5', active ? 'text-[#F16522]' : '')} />
+                      <span>{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </nav>
 
@@ -382,10 +409,10 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
           </div>
           <button
             onClick={handleSignOut}
-            className="flex items-center justify-center gap-2 w-full text-xs sm:text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 py-2.5 px-3 sm:px-4 rounded-lg transition-colors border border-red-200 min-h-[44px] touch-manipulation"
+            className="flex items-center justify-center gap-2 w-full text-xs sm:text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 py-2 px-3 sm:px-4 rounded-lg transition-colors border border-red-200 min-h-[44px] touch-manipulation"
           >
             <LogOut className="h-4 w-4" />
-            <span>Déconnexion</span>
+            Déconnexion
           </button>
         </div>
       </aside>

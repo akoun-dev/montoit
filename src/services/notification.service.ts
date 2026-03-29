@@ -422,6 +422,7 @@ export const notificationService = {
 
   /**
    * Récupérer les préférences de notification d'un utilisateur
+   * Structure existante en base (ancienne structure)
    */
   async getUserPreferences(userId: string): Promise<NotificationPreference> {
     const { data, error } = await supabase
@@ -435,7 +436,7 @@ export const notificationService = {
       return {
         user_id: userId,
         email_enabled: true,
-        sms_enabled: true,
+        sms_enabled: false,
         push_enabled: true,
         categories: {
           verification_result: true,
@@ -450,22 +451,94 @@ export const notificationService = {
       };
     }
 
-    return data as NotificationPreference;
+    // Convertir l'ancienne structure vers la nouvelle structure attendue
+    const oldPrefs = data as {
+      email_notifications?: boolean;
+      sms_notifications?: boolean;
+      push_notifications?: boolean;
+      in_app_notifications?: boolean;
+      payment_notifications?: boolean;
+      application_notifications?: boolean;
+      message_notifications?: boolean;
+      lease_notifications?: boolean;
+      preferences?: Json;
+    };
+
+    // Extraire les catégories du champ preferences jsonb si disponible
+    const categories: Record<string, boolean> = {
+      verification_result: true,
+      document_request: true,
+      approval_needed: true,
+      payment: true,
+      contract: true,
+      message: true,
+      system: true,
+      profile: true,
+    };
+
+    if (oldPrefs.preferences && typeof oldPrefs.preferences === 'object') {
+      const prefs = oldPrefs.preferences as Record<string, unknown>;
+      if (prefs.verification_result !== undefined) categories.verification_result = prefs.verification_result as boolean;
+      if (prefs.document_request !== undefined) categories.document_request = prefs.document_request as boolean;
+      if (prefs.payment !== undefined) categories.payment = prefs.payment as boolean;
+      if (prefs.contract !== undefined) categories.contract = prefs.contract as boolean;
+      if (prefs.message !== undefined) categories.message = prefs.message as boolean;
+    }
+
+    // Utiliser les colonnes spécifiques comme fallback
+    return {
+      user_id: userId,
+      email_enabled: oldPrefs.email_notifications ?? true,
+      sms_enabled: oldPrefs.sms_notifications ?? false,
+      push_enabled: oldPrefs.push_notifications ?? true,
+      categories: {
+        ...categories,
+        payment: oldPrefs.payment_notifications ?? categories.payment,
+        application: oldPrefs.application_notifications ?? categories.approval_needed,
+        message: oldPrefs.message_notifications ?? categories.message,
+        lease: oldPrefs.lease_notifications ?? categories.contract,
+      },
+    };
   },
 
   /**
    * Mettre à jour les préférences de notification
+   * Fonctionne avec l'ancienne structure en base
    */
   async updateUserPreferences(
     userId: string,
-    preferences: Partial<Omit<NotificationPreference, 'user_id'>>
+    prefs: Partial<Omit<NotificationPreference, 'user_id'>>
   ): Promise<void> {
+    // Préparer les données pour l'ancienne structure
+    const updateData: Record<string, unknown> = {
+      user_id: userId,
+    };
+
+    // Mettre à jour les colonnes globales
+    if (prefs.email_enabled !== undefined) {
+      updateData.email_notifications = prefs.email_enabled;
+    }
+    if (prefs.sms_enabled !== undefined) {
+      updateData.sms_notifications = prefs.sms_enabled;
+    }
+    if (prefs.push_enabled !== undefined) {
+      updateData.push_notifications = prefs.push_enabled;
+    }
+
+    // Mettre à jour les colonnes spécifiques et le JSONB preferences
+    if (prefs.categories) {
+      updateData.payment_notifications = prefs.categories.payment;
+      updateData.application_notifications = prefs.categories.approval_needed ?? prefs.categories.application;
+      updateData.message_notifications = prefs.categories.message;
+      updateData.lease_notifications = prefs.categories.contract ?? prefs.categories.lease;
+
+      // Mettre à jour le champ preferences jsonb pour compatibilité future
+      updateData.preferences = prefs.categories;
+    }
+
     const { error } = await supabase
       .from('notification_preferences')
-      .upsert({
-        user_id: userId,
-        ...preferences,
-      });
+      .upsert(updateData);
 
     if (error) throw error;
   },
@@ -485,9 +558,21 @@ export const notificationService = {
       if (channel === 'push' && !preferences.push_enabled) return false;
 
       // Vérifier si la catégorie est activée
-      const categoryEnabled = preferences.categories[
-        category as keyof typeof preferences.categories
-      ] as boolean | undefined;
+      // Mapping des catégories vers les colonnes de l'ancienne structure
+      let categoryEnabled = true;
+      if (category === 'verification_result') {
+        categoryEnabled = preferences.categories?.verification_result ?? true;
+      } else if (category === 'document_request') {
+        categoryEnabled = preferences.categories?.document_request ?? true;
+      } else if (category === 'approval_needed' || category === 'application') {
+        categoryEnabled = preferences.categories?.approval_needed ?? preferences.categories?.application ?? true;
+      } else if (category === 'payment') {
+        categoryEnabled = preferences.categories?.payment ?? true;
+      } else if (category === 'contract' || category === 'lease') {
+        categoryEnabled = preferences.categories?.contract ?? preferences.categories?.lease ?? true;
+      } else if (category === 'message') {
+        categoryEnabled = preferences.categories?.message ?? true;
+      }
 
       return categoryEnabled !== false;
     });
@@ -541,7 +626,7 @@ export const notificationService = {
     const { data: notification } = await supabase
       .from('notifications')
       .select('user_id')
-      .eq('id', notificationId)
+      .eq('id', _notificationId)
       .single();
 
     if (!notification) throw new Error('Notification non trouvée');
@@ -565,8 +650,8 @@ export const notificationService = {
     await resend.emails.send({
       from: 'MonToit <noreply@montoit.ci>',
       to: profile.email,
-      subject,
-      text: content,
+      subject: _subject,
+      text: _content,
     });
   },
 
@@ -581,7 +666,7 @@ export const notificationService = {
     const { data: notification } = await supabase
       .from('notifications')
       .select('user_id')
-      .eq('id', notificationId)
+      .eq('id', _notificationId)
       .single();
 
     if (!notification) throw new Error('Notification non trouvée');
@@ -596,7 +681,7 @@ export const notificationService = {
 
     // Utiliser Azure Communication Services ou le service SMS configuré
     // Pour l'instant, juste logguer
-    console.log(`SMS à ${profile.phone}: ${content.substring(0, 100)}...`);
+    console.log(`SMS à ${profile.phone}: ${_content.substring(0, 100)}...`);
   },
 
   /**

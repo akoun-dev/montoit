@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { X, XCircle, Upload, FileText, Briefcase, GraduationCap, Building } from 'lucide-react';
+import { X, XCircle, Upload, FileText, Briefcase, GraduationCap, Building, Shield, Star, Zap, CheckCircle, TrendingUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -136,9 +136,9 @@ interface OnboardingModalProps {
 }
 
 const ONBOARDING_STEPS = [
-  { id: 'profile', title: 'Complétez votre profil', description: 'Ajoutez vos informations personnelles' },
-  { id: 'documents', title: 'Dossier locataire', description: 'Catégorie et pièces justificatives' },
-  { id: 'submit', title: 'Soumettez au Tiers de Confiance', description: 'Validation de votre dossier' },
+  { id: 'profile', title: 'Complétez votre profil', description: 'Augmentez votre visibilité auprès des propriétaires' },
+  { id: 'documents', title: 'Dossier locataire', description: 'Obtenez la certification de confiance ANSUT' },
+  { id: 'submit', title: 'Soumettez au Tiers de Confiance', description: 'Débloquez toutes les fonctionnalités' },
 ];
 
 export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
@@ -471,6 +471,35 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
 
   const renderProfileStep = () => (
     <div className="space-y-6">
+      {/* Motivational header */}
+      <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5 mb-6">
+        <div className="flex items-start gap-3">
+          <Star className="w-6 h-6 text-orange-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-orange-900 mb-2">
+              Complétez votre profil pour multiplier vos chances
+            </h3>
+            <p className="text-sm text-orange-800 mb-3">
+              Les propriétaires privilégient les profils complets et vérifiés. Un profil bien renseigné augmente vos chances de réponse jusqu'à <strong>3x</strong> !
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+              <div className="flex items-center gap-2 text-xs text-orange-700">
+                <CheckCircle className="w-4 h-4" />
+                <span>Plus de visibilité</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-orange-700">
+                <CheckCircle className="w-4 h-4" />
+                <span>Confiance accrue</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-orange-700">
+                <CheckCircle className="w-4 h-4" />
+                <span>Location facilitée</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <form onSubmit={handleProfileSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -584,6 +613,35 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
     if (!isTenant) {
       return (
         <div className="space-y-6">
+          {/* Motivational header */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5 mb-6">
+            <div className="flex items-start gap-3">
+              <Shield className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-blue-900 mb-2">
+                  Obtenez le badge de vérification
+                </h3>
+                <p className="text-sm text-blue-800 mb-3">
+                  Les propriétaires vérifiés reçoivent <strong>2x plus de demandes</strong> et bénéficient d'une crédibilité instantanée auprès des locataires.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                  <div className="flex items-center gap-2 text-xs text-blue-700">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Badge vérifié</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-blue-700">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Plus de demandes</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-blue-700">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Confiance totale</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
             <div className="flex gap-3">
               <FileText className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -690,6 +748,35 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
     {/* Pour les locataires : version complète avec catégories */}
     return (
       <div className="space-y-6">
+        {/* Motivational header for tenants */}
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5 mb-6">
+          <div className="flex items-start gap-3">
+            <Shield className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-green-900 mb-2">
+                Obtenez la certification de confiance ANSUT
+              </h3>
+              <p className="text-sm text-green-800 mb-3">
+                Un dossier certifié vous démarque de 95% des candidats. Les propriétaires font confiance aux locataires vérifiés par notre Tiers de Confiance.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                <div className="flex items-center gap-2 text-xs text-green-700">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Signature prioritaire</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-green-700">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Propriétaires rassurés</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-green-700">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Crédibilité instantanée</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {!selectedCategory ? (
         <div className="space-y-6">
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
@@ -867,6 +954,35 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
 
       return (
         <div className="space-y-6">
+          {/* Final motivational message */}
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-5 mb-6">
+            <div className="flex items-start gap-3">
+              <Zap className="w-6 h-6 text-purple-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-purple-900 mb-2">
+                  Vous y êtes presque ! Finalisez pour débloquer tous les avantages
+                </h3>
+                <p className="text-sm text-purple-800 mb-3">
+                  Une fois votre profil finalisé, accédez à <strong>toutes les fonctionnalités</strong> de la plateforme et commencez à recevoir des demandes de location.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                  <div className="flex items-center gap-2 text-xs text-purple-700">
+                    <TrendingUp className="w-4 h-4" />
+                    <span>Recevez des demandes</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-purple-700">
+                    <TrendingUp className="w-4 h-4" />
+                    <span>Gérez vos biens</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-purple-700">
+                    <TrendingUp className="w-4 h-4" />
+                    <span>Suivi en temps réel</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
             <div className="flex items-start gap-3">
               <svg className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -949,6 +1065,35 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
 
     return (
       <div className="space-y-6">
+        {/* Final motivational message for tenants */}
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5 mb-6">
+          <div className="flex items-start gap-3">
+            <Zap className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-green-900 mb-2">
+                Dernière étape ! Soumettez pour obtenir votre certification
+              </h3>
+              <p className="text-sm text-green-800 mb-3">
+                Une fois certifié, vous aurez un avantage décisif sur les autres candidats. Les propriétaires font confiance aux locataires vérifiés ANSUT.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                <div className="flex items-center gap-2 text-xs text-green-700">
+                  <TrendingUp className="w-4 h-4" />
+                  <span>Signature prioritaire</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-green-700">
+                  <TrendingUp className="w-4 h-4" />
+                  <span>Badge de confiance</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-green-700">
+                  <TrendingUp className="w-4 h-4" />
+                  <span>Accès prioritaire</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
           <div className="flex items-start gap-3">
             <svg className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

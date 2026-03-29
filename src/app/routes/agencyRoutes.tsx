@@ -30,6 +30,10 @@ const AgencyNotificationsPage = lazyWithRetry(() => import('@/pages/agency/Notif
 const TeamManagementPage = lazyWithRetry(() => import('@/pages/agency/TeamManagementPage'));
 const PropertyAssignmentsPage = lazyWithRetry(() => import('@/features/agency/pages/PropertyAssignmentsPage'));
 const CommissionsPage = lazyWithRetry(() => import('@/pages/agency/CommissionsPage'));
+const AgencySettingsMenuPage = lazyWithRetry(() => import('@/pages/agency/SettingsMenuPage'));
+const AgencyNotificationPreferencesPage = lazyWithRetry(() => import('@/pages/agency/NotificationPreferencesPage'));
+const AgencySecuritySettingsPage = lazyWithRetry(() => import('@/pages/agency/SecuritySettingsPage'));
+const AgencySessionsPage = lazyWithRetry(() => import('@/pages/agency/SessionsPage'));
 
 export const agencyRoutes: RouteObject[] = [
   {
@@ -173,6 +177,24 @@ export const agencyRoutes: RouteObject[] = [
       {
         path: 'commissions',
         element: <CommissionsPage />,
+      },
+
+      // Settings
+      {
+        path: 'parametres',
+        element: <AgencySettingsMenuPage />,
+      },
+      {
+        path: 'parametres/notifications',
+        element: <AgencyNotificationPreferencesPage />,
+      },
+      {
+        path: 'parametres/securite',
+        element: <AgencySecuritySettingsPage />,
+      },
+      {
+        path: 'parametres/sessions',
+        element: <AgencySessionsPage />,
       },
     ],
   },

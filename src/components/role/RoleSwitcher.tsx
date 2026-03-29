@@ -87,15 +87,6 @@ function RoleSwitcherInner({
   const [isOpen, setIsOpen] = useState(false);
   const [switching, setSwitching] = useState<BusinessRole | null>(null);
 
-  // Debug logging
-  console.log('[RoleSwitcher] Render:', {
-    variant,
-    loadingRoles,
-    activeRole,
-    availableRoles: availableRoles.map(r => r.id),
-    disabled,
-  });
-
   // Tailles pour le mode compact
   const sizeClasses = {
     sm: 'px-3 py-1.5 text-sm',

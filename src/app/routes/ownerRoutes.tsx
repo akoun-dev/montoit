@@ -34,6 +34,12 @@ const MandateDetailPage = lazyWithRetry(() => import('@/components/mandates/Mand
 // Layout-agnostic messaging view
 const MessagesView = lazyWithRetry(() => import('@/features/messaging/components/MessagesView'));
 
+// Settings pages
+const OwnerSettingsMenuPage = lazyWithRetry(() => import('@/pages/owner/SettingsMenuPage'));
+const OwnerNotificationPreferencesPage = lazyWithRetry(() => import('@/pages/owner/NotificationPreferencesPage'));
+const OwnerSecuritySettingsPage = lazyWithRetry(() => import('@/pages/owner/SecuritySettingsPage'));
+const OwnerSessionsPage = lazyWithRetry(() => import('@/pages/owner/SessionsPage'));
+
 export const ownerRoutes: RouteObject[] = [
   // Routes avec sidebar
   {
@@ -189,6 +195,24 @@ export const ownerRoutes: RouteObject[] = [
       {
         path: 'rappels',
         element: <RemindersPage />,
+      },
+
+      // Settings
+      {
+        path: 'parametres',
+        element: <OwnerSettingsMenuPage />,
+      },
+      {
+        path: 'parametres/notifications',
+        element: <OwnerNotificationPreferencesPage />,
+      },
+      {
+        path: 'parametres/securite',
+        element: <OwnerSecuritySettingsPage />,
+      },
+      {
+        path: 'parametres/sessions',
+        element: <OwnerSessionsPage />,
       },
     ],
   },

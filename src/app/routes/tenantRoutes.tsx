@@ -46,6 +46,12 @@ const ONECIVerification = lazyWithRetry(() => import('@/pages/tenant/ONECIVerifi
 // Layout-agnostic messaging view
 const MessagesView = lazyWithRetry(() => import('@/features/messaging/components/MessagesView'));
 
+// Settings pages
+const TenantSettingsMenuPage = lazyWithRetry(() => import('@/pages/tenant/SettingsMenuPage'));
+const TenantNotificationPreferencesPage = lazyWithRetry(() => import('@/pages/tenant/NotificationPreferencesPage'));
+const TenantSecuritySettingsPage = lazyWithRetry(() => import('@/pages/tenant/SecuritySettingsPage'));
+const TenantSessionsPage = lazyWithRetry(() => import('@/pages/tenant/SessionsPage'));
+
 // TenantSidebarLayout is used for universal routes that need role-based layout switching
 const TenantSidebarLayout = lazyWithRetry(
   () => import('@/features/tenant/components/TenantSidebarLayout')
@@ -107,6 +113,12 @@ export const tenantRoutes: RouteObject[] = [
 
       // Messages - tenant-specific, wrapped in TenantSidebarLayout
       { path: 'messages', element: <MessagesView /> },
+
+      // Settings
+      { path: 'parametres', element: <TenantSettingsMenuPage /> },
+      { path: 'parametres/notifications', element: <TenantNotificationPreferencesPage /> },
+      { path: 'parametres/securite', element: <TenantSecuritySettingsPage /> },
+      { path: 'parametres/sessions', element: <TenantSessionsPage /> },
     ],
   },
 

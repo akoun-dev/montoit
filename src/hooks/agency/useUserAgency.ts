@@ -1,5 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/services/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
+
+type Agency = Database['public']['Tables']['agencies']['Row'];
 
 export interface UserAgency {
   id: string;
@@ -10,35 +13,34 @@ export interface UserAgency {
 
 /**
  * Hook to get the current user's agency
- * Uses RPC function that bypasses RLS for security
+ * Uses direct query with RLS for security
  */
 export function useUserAgency() {
-  const user = supabase.auth.getUser();
-
   return useQuery({
     queryKey: ['user-agency'],
     queryFn: async () => {
-      const { data: userData } = await user;
-      if (!userData.data.user) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
         throw new Error('User not authenticated');
       }
 
       const { data, error } = await supabase
-        .rpc('get_user_agency', {
-          user_uuid: userData.data.user.id
-        });
+        .from('agencies')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       if (error) throw error;
 
-      const agency = data?.[0] as UserAgency | undefined;
+      const agency = data?.[0] as Agency | undefined;
 
       if (!agency) {
         throw new Error('Agence non trouvée');
       }
 
-      return agency;
+      return agency as UserAgency;
     },
-    enabled: !!user.data.user,
     retry: false,
     staleTime: Infinity, // Agency data doesn't change often
   });

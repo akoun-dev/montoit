@@ -15,6 +15,7 @@ import {
   Mail,
   File,
   Star,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import Input from '@/shared/ui/Input';
@@ -167,6 +168,8 @@ export default function AgencyProfilePage() {
   }, [user.id]);
 
   const loadProfile = useCallback(async () => {
+    if (!user?.id) return;
+
     try {
       // First try to get profile with agency fields
       let { data: profileData } = await supabase
@@ -176,26 +179,32 @@ export default function AgencyProfilePage() {
         .single();
 
       // If profile doesn't have agency fields, try to get from agencies table
-      if (!profileData?.agency_name) {
-        const { data: agencyData } = await supabase
-          .from('agencies')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
+      if (profileData && !profileData.agency_name) {
+        try {
+          const { data: agencyData, error: agencyError } = await supabase
+            .from('agencies')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
 
-        if (agencyData) {
-          // Merge agency data into profile
-          profileData = {
-            ...profileData,
-            agency_name: agencyData.agency_name,
-            agency_logo: agencyData.logo_url,
-            agency_description: agencyData.description,
-            agency_website: agencyData.website,
-            agency_phone: agencyData.phone,
-            agency_email: agencyData.email,
-            is_verified: agencyData.is_verified,
-            trust_score: agencyData.verification_score,
-          };
+          // Only proceed if no error and we have data
+          if (!agencyError && agencyData) {
+            // Merge agency data into profile
+            profileData = {
+              ...profileData,
+              agency_name: agencyData.agency_name,
+              agency_logo: agencyData.logo_url,
+              agency_description: agencyData.description,
+              agency_website: agencyData.website,
+              agency_phone: agencyData.phone,
+              agency_email: agencyData.email,
+              is_verified: agencyData.is_verified,
+              trust_score: agencyData.verification_score,
+            };
+          }
+        } catch (err) {
+          // Silently ignore agencies table errors (406, missing table, etc.)
+          console.log('Agencies table not accessible, using profile data only');
         }
       }
 
@@ -207,6 +216,7 @@ export default function AgencyProfilePage() {
           city: profileData.city || '',
           address: profileData.address ? formatAddress(profileData.address) : '',
           bio: profileData.bio || '',
+          gender: profileData.gender as 'Homme' | 'Femme' | 'Non spécifié' | '' || '',
           agency_name: profileData.agency_name || '',
           agency_description: profileData.agency_description || '',
           agency_website: profileData.agency_website || '',
@@ -218,13 +228,13 @@ export default function AgencyProfilePage() {
         try {
           const { ScoringService } = await import('@/services/scoringService');
           const scoreBreakdown = await ScoringService.calculateGlobalTrustScore(user.id);
-          const newScore = scoreBreakdown.globalScore;
+          const newScore = scoreBreakdown.global_score;
 
           if (profileData.trust_score !== newScore) {
             // Mettre à jour dans la table profiles
             await supabase.from('profiles').update({ trust_score: newScore }).eq('id', user.id);
             // Mettre à jour le profil local
-            setProfile({ ...profileData, trust_score: newScore });
+            setProfile((prev) => prev ? { ...prev, trust_score: newScore } : null);
           }
         } catch (scoreError) {
           console.error('Error recalculating agency score:', scoreError);
@@ -235,7 +245,7 @@ export default function AgencyProfilePage() {
     } finally {
       setLoading(false);
     }
-  }, [user, profile, setProfile, setLoading, setFormData]);
+  }, [user?.id]);
 
   const loadDocuments = useCallback(async () => {
     try {
@@ -269,12 +279,12 @@ export default function AgencyProfilePage() {
   }, [user.id, setDocuments]);
 
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       loadProfile();
       loadDocuments();
       loadDossierApplication();
     }
-  }, [user, loadProfile, loadDocuments, loadDossierApplication]);
+  }, [user?.id]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDocumentUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -850,18 +860,8 @@ export default function AgencyProfilePage() {
               <h3 className="text-lg font-semibold mb-4">Statut de vérification</h3>
               <div className="space-y-3">
                 <VerificationItem
-                  title="Email vérifié"
-                  description="Votre adresse email a été vérifiée"
-                  verified={true}
-                />
-                <VerificationItem
-                  title="Agrément ONECI"
-                  description="Agrément professionnel vérifié"
-                  verified={profile?.oneci_verified}
-                />
-                <VerificationItem
                   title="Dossier de certification agence"
-                  description="Documents verifies pour obtenir la certification ANSUT"
+                  description="Documents vérifiés pour obtenir la certification ANSUT"
                   verified={dossierApplication?.status === 'approved'}
                   status={
                     dossierApplication?.status === 'rejected'
@@ -1040,7 +1040,7 @@ function VerificationItem({
                   ? 'Compléter le dossier'
                   : verified || status === 'verified'
                     ? 'Voir le dossier'
-                    : 'Commencer la verifition du dossier locataire'
+                    : 'Commencer la vérification du dossier'
                 : status === 'failed'
                   ? 'Réessayer'
                   : 'Vérifier'}

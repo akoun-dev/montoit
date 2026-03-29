@@ -17,6 +17,7 @@ import {
   FolderOpen,
   Bell,
   PlusCircle,
+  Settings,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -33,32 +34,38 @@ interface OwnerSidebarProps {
 
 const navSections = [
   {
-    title: 'Pilotage',
+    title: 'Accueil',
     items: [
       { label: 'Tableau de bord', href: '/proprietaire/dashboard', icon: LayoutDashboard },
       { label: 'Mes biens', href: '/proprietaire/mes-biens', icon: Building2 },
-      { label: 'Ajouter un bien', href: '/proprietaire/ajouter-propriete', icon: PlusCircle },
-      { label: 'Mes contrats', href: '/proprietaire/contrats', icon: FileText },
-      { label: 'Mes candidatures', href: '/proprietaire/candidatures', icon: Users, counterKey: 'pendingApplications' as const },
-      { label: 'Visites', href: '/proprietaire/visites', icon: Calendar, counterKey: 'pendingVisits' as const },
+      { label: 'Recherche', href: '/recherche', icon: Search },
     ],
   },
   {
     title: 'Gestion',
     items: [
-      { label: 'Mes locataires', href: '/proprietaire/mes-locataires', icon: Key },
+      { label: 'Candidatures', href: '/proprietaire/candidatures', icon: Users, counterKey: 'pendingApplications' as const },
+      { label: 'Visites', href: '/proprietaire/visites', icon: Calendar, counterKey: 'pendingVisits' as const },
+      { label: 'Contrats', href: '/proprietaire/contrats', icon: FileText },
+      { label: 'Locataires', href: '/proprietaire/mes-locataires', icon: Key },
       { label: 'Paiements', href: '/proprietaire/paiements', icon: Wallet },
       { label: 'Documents', href: '/proprietaire/documents', icon: FolderOpen },
       { label: 'Rappels', href: '/proprietaire/rappels', icon: Bell },
-      { label: 'Mandats agence', href: '/proprietaire/mes-mandats', icon: Handshake },
+      { label: 'Mandats', href: '/proprietaire/mes-mandats', icon: Handshake },
     ],
   },
   {
-    title: 'Communication',
+    title: 'Compte',
+    items: [
+      { label: 'Profil', href: '/proprietaire/profil', icon: UserCircle2 },
+      { label: 'Paramètres', href: '/proprietaire/parametres', icon: Settings },
+    ],
+  },
+  {
+    title: 'Messages',
     items: [
       { label: 'Messages', href: '/proprietaire/messages', icon: MessageSquare, counterKey: 'unreadMessages' as const },
       { label: 'Notifications', href: '/proprietaire/notifications', icon: Bell, counterKey: 'unreadNotifications' as const },
-      { label: 'Mon profil', href: '/proprietaire/profil', icon: UserCircle2 },
     ],
   },
 ];

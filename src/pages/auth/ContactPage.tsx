@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail } from 'lucide-react';
+import {
+  Mail,
+  Phone,
+  MapPin,
+  CheckCircle,
+  Send,
+  FileText,
+  Loader2,
+  HelpCircle,
+} from 'lucide-react';
 import PageHeader from '@/shared/components/PageHeader';
 import FooterCTA from '@/shared/components/FooterCTA';
 import { useAuth } from '@/app/providers/AuthProvider';

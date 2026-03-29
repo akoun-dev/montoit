@@ -15,6 +15,7 @@ import {
   Briefcase,
   CheckCircle,
   BarChart3,
+  Settings,
 } from 'lucide-react';
 import { useMenuCounters } from '@/hooks/useMenuCounters';
 
@@ -40,12 +41,12 @@ export function useNavigationItems() {
     },
     {
       href: '/agences/biens',
-      label: 'Biens immobiliers',
+      label: 'Biens',
       icon: Building2,
     },
     {
       href: '/agences/mandats',
-      label: 'Mes mandats',
+      label: 'Mandats',
       icon: Briefcase,
     },
     {
@@ -60,24 +61,6 @@ export function useNavigationItems() {
       href: '/agences/contrats',
       label: 'Contrats',
       icon: CheckCircle,
-    },
-    {
-      href: '/agences/paiements',
-      label: 'Paiements & Charges',
-      icon: Wallet,
-    },
-    {
-      href: '/agences/documents',
-      label: 'Documents',
-      icon: FolderOpen,
-    },
-    {
-      href: '/agences/notifications',
-      label: 'Notifications',
-      icon: Bell,
-      badgeCount: counters.unreadNotifications,
-      badgeColor: 'orange',
-      badgePulse: counters.unreadNotifications > 0,
     },
     {
       href: '/agences/visites',
@@ -96,6 +79,24 @@ export function useNavigationItems() {
       badgePulse: counters.unreadMessages > 0,
     },
     {
+      href: '/agences/notifications',
+      label: 'Notifications',
+      icon: Bell,
+      badgeCount: counters.unreadNotifications,
+      badgeColor: 'orange',
+      badgePulse: counters.unreadNotifications > 0,
+    },
+    {
+      href: '/agences/paiements',
+      label: 'Paiements',
+      icon: Wallet,
+    },
+    {
+      href: '/agences/documents',
+      label: 'Documents',
+      icon: FolderOpen,
+    },
+    {
       href: '/agences/analytics',
       label: 'Analytics',
       icon: BarChart3,
@@ -107,7 +108,7 @@ export function useNavigationItems() {
     },
     {
       href: '/agences/equipe',
-      label: 'Mon équipe',
+      label: 'Équipe',
       icon: Users,
     },
     {
@@ -115,9 +116,14 @@ export function useNavigationItems() {
       label: 'Commissions',
       icon: TrendingUp,
     },
+    {
+      href: '/agences/parametres',
+      label: 'Paramètres',
+      icon: Settings,
+    },
   ], [counters]);
 
-  // Bottom navigation items (Profile, Settings, etc.)
+  // Bottom navigation items (Profile, etc.)
   const bottomItems: NavigationItem[] = useMemo(() => [
     {
       href: '/agences/profil',
@@ -206,6 +212,11 @@ export function useNavigationItems() {
       href: '/locataire/mes-avis',
       label: 'Mes avis',
       icon: MessageSquare,
+    },
+    {
+      href: '/locataire/parametres',
+      label: 'Paramètres',
+      icon: Settings,
     },
   ], []);
 

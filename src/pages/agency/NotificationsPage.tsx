@@ -49,26 +49,26 @@ const NOTIFICATION_ICONS: Record<string, React.ElementType> = {
 
 // Configuration des couleurs par type de notification
 const NOTIFICATION_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  new_visit_requested: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
-  visit_confirmed: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
-  visit_cancelled: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
-  visit_reminder: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-  tenant_verification_approved: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-  tenant_verification_rejected: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
-  owner_verification_approved: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-  owner_verification_rejected: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
-  additional_documents_requested: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-  verification_expiring_soon: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-  verification_expired: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
-  document_approved: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
-  document_rejected: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
-  new_rental_application: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-  application_approved: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
-  application_rejected: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
-  contract_signed: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-  payment_received: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
-  payment_overdue: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
-  default: { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' },
+  new_visit_requested: { bg: 'bg-[#F16522]/10', text: 'text-[#F16522]', border: 'border-[#F16522]/20' },
+  visit_confirmed: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' },
+  visit_cancelled: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200' },
+  visit_reminder: { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200' },
+  tenant_verification_approved: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200' },
+  tenant_verification_rejected: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200' },
+  owner_verification_approved: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200' },
+  owner_verification_rejected: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200' },
+  additional_documents_requested: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' },
+  verification_expiring_soon: { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200' },
+  verification_expired: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200' },
+  document_approved: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' },
+  document_rejected: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200' },
+  new_rental_application: { bg: 'bg-[#F16522]/10', text: 'text-[#F16522]', border: 'border-[#F16522]/20' },
+  application_approved: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' },
+  application_rejected: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200' },
+  contract_signed: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200' },
+  payment_received: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' },
+  payment_overdue: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200' },
+  default: { bg: 'bg-[#8B7466]/10', text: 'text-[#6B5A4E]', border: 'border-[#EFEBE9]' },
 };
 
 // Configuration des redirections par type de notification pour les agences
@@ -276,77 +276,76 @@ export default function AgencyNotificationsPage() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-gray-50">
+    <div className="min-h-[75vh] bg-[#FAF7F4] px-2 sm:px-4 pb-4 pt-6 lg:pt-2">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-sm mb-6">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
-                <Bell className="h-7 w-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
-                  Centre de Notifications
-                  {unreadCount > 0 && (
-                    <span className="bg-white/20 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      {unreadCount} non lue{unreadCount > 1 ? 's' : ''}
-                    </span>
-                  )}
-                </h1>
-                <p className="text-blue-100">Gérez toutes vos notifications d'agence</p>
-              </div>
+      <div className="mb-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#F16522]/10 flex items-center justify-center">
+              <Bell className="h-6 w-6 text-[#F16522]" />
             </div>
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-              realtimeConnected
-                ? 'bg-green-500/20 text-green-300'
-                : 'bg-red-500/20 text-red-300'
-            }`}>
-              {realtimeConnected ? (
-                <>
-                  <Wifi className="w-3.5 h-3.5" />
-                  <span>En direct</span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3.5 h-3.5" />
-                  <span>Hors ligne</span>
-                </>
-              )}
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#6B5A4E] flex items-center gap-3">
+                Centre de Notifications
+                {unreadCount > 0 && (
+                  <span className="bg-[#F16522] text-white px-3 py-1 rounded-full text-sm font-medium">
+                    {unreadCount} non lue{unreadCount > 1 ? 's' : ''}
+                  </span>
+                )}
+              </h1>
+              <p className="text-[#8B7466]">Gérez toutes vos notifications d'agence</p>
             </div>
+          </div>
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+            realtimeConnected
+              ? 'bg-green-500/20 text-green-600'
+              : 'bg-red-500/20 text-red-600'
+          }`}>
+            {realtimeConnected ? (
+              <>
+                <Wifi className="w-3.5 h-3.5" />
+                <span>En direct</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-3.5 h-3.5" />
+                <span>Hors ligne</span>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="w-full px-4 sm:px-6 lg:px-8 pb-8">
+      {/* Content */}
+      <div>
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
           <div
-            className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+            className="bg-white rounded-[24px] p-5 border border-[#EFEBE9] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => setFilter('all')}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 mb-1">Total</p>
-                <p className="text-2xl font-bold text-gray-900">{notifications.length}</p>
+                <p className="text-sm text-[#8B7466] mb-1">Total</p>
+                <p className="text-2xl font-bold text-[#6B5A4E]">{notifications.length}</p>
               </div>
-              <Bell className="h-10 w-10 text-gray-400" />
+              <Bell className="h-10 w-10 text-[#8B7466]" />
             </div>
           </div>
 
           <div
-            className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+            className="bg-white rounded-[24px] p-5 border border-[#EFEBE9] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => setFilter('unread')}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 mb-1">Non lues</p>
-                <p className="text-2xl font-bold text-orange-500">{unreadCount}</p>
+                <p className="text-sm text-[#8B7466] mb-1">Non lues</p>
+                <p className="text-2xl font-bold text-[#F16522]">{unreadCount}</p>
               </div>
               <div className="relative">
-                <Bell className="h-10 w-10 text-orange-400" />
+                <Bell className="h-10 w-10 text-[#F16522]" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full text-white text-xs flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#F16522] rounded-full text-white text-xs flex items-center justify-center">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -355,49 +354,49 @@ export default function AgencyNotificationsPage() {
           </div>
 
           <div
-            className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+            className="bg-white rounded-[24px] p-5 border border-[#EFEBE9] shadow-sm cursor-pointer hover:shadow-md transition-shadow"
             onClick={() => setFilter('read')}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 mb-1">Lues</p>
-                <p className="text-2xl font-bold text-green-500">{readCount}</p>
+                <p className="text-sm text-[#8B7466] mb-1">Lues</p>
+                <p className="text-2xl font-bold text-green-600">{readCount}</p>
               </div>
-              <Check className="h-10 w-10 text-green-400" />
+              <Check className="h-10 w-10 text-green-500" />
             </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+        <div className="bg-white rounded-[24px] shadow-sm border border-[#EFEBE9] p-4 mb-4">
           <div className="flex flex-col lg:flex-row gap-4">
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setFilter('all')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                   filter === 'all'
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-[#F16522] text-white shadow-md'
+                    : 'bg-[#FAF7F4] text-[#6B5A4E] hover:bg-[#EFEBE9]'
                 }`}
               >
                 Toutes
               </button>
               <button
                 onClick={() => setFilter('unread')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                   filter === 'unread'
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-[#F16522] text-white shadow-md'
+                    : 'bg-[#FAF7F4] text-[#6B5A4E] hover:bg-[#EFEBE9]'
                 }`}
               >
                 Non lues
               </button>
               <button
                 onClick={() => setFilter('read')}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                   filter === 'read'
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-[#F16522] text-white shadow-md'
+                    : 'bg-[#FAF7F4] text-[#6B5A4E] hover:bg-[#EFEBE9]'
                 }`}
               >
                 Lues
@@ -405,24 +404,24 @@ export default function AgencyNotificationsPage() {
             </div>
 
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#8B7466]" />
               <input
                 type="text"
                 placeholder="Rechercher..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 bg-[#FAF7F4] border border-[#EFEBE9] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F16522]/20 focus:border-[#F16522]"
               />
             </div>
 
             {selectedNotifications.size > 0 && (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-[#8B7466]">
                   {selectedNotifications.size} sélectionnée(s)
                 </span>
                 <button
                   onClick={handleDeleteSelected}
-                  className="px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
+                  className="px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-xl text-sm font-medium hover:bg-red-100 transition-colors"
                 >
                   <Trash2 className="h-4 w-4 inline mr-1" />
                   Supprimer
@@ -433,10 +432,10 @@ export default function AgencyNotificationsPage() {
         </div>
 
         {unreadCount > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+          <div className="bg-white rounded-[24px] shadow-sm border border-[#EFEBE9] p-4 mb-4">
             <button
               onClick={handleMarkAllAsRead}
-              className="flex items-center gap-2 text-blue-500 hover:text-blue-600 font-medium transition-colors"
+              className="flex items-center gap-2 text-[#F16522] hover:text-[#E55A1D] font-medium transition-colors"
             >
               <CheckCheck className="h-5 w-5" />
               Tout marquer comme lu
@@ -445,24 +444,24 @@ export default function AgencyNotificationsPage() {
         )}
 
         {loading ? (
-          <div className="bg-white rounded-xl border border-gray-100 p-12 flex items-center justify-center shadow-sm">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          <div className="bg-white rounded-[24px] border border-[#EFEBE9] p-12 flex items-center justify-center shadow-sm">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#F16522]"></div>
           </div>
         ) : filteredNotifications.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-100 p-12 text-center shadow-sm">
-            <div className="bg-gray-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Bell className="h-10 w-10 text-gray-400" />
+          <div className="bg-white rounded-[24px] border border-[#EFEBE9] p-12 text-center shadow-sm">
+            <div className="bg-[#FAF7F4] w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Bell className="h-10 w-10 text-[#8B7466]" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Aucune notification</h3>
-            <p className="text-gray-500">
+            <h3 className="text-lg font-bold text-[#6B5A4E] mb-2">Aucune notification</h3>
+            <p className="text-[#8B7466]">
               {filter !== 'all'
                 ? `Aucune notification ${filter === 'unread' ? 'non lue' : 'lue'}`
                 : 'Vous n\'avez pas encore de notifications'}
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="divide-y divide-gray-100">
+          <div className="bg-white rounded-[24px] border border-[#EFEBE9] shadow-sm overflow-hidden">
+            <div className="divide-y divide-[#EFEBE9]">
               {filteredNotifications.map((notification) => {
                 const isRead = notification.is_read;
                 const isSelected = selectedNotifications.has(notification.id);
@@ -471,8 +470,8 @@ export default function AgencyNotificationsPage() {
                 return (
                   <div
                     key={notification.id}
-                    className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
-                      !isRead ? 'bg-blue-50/30' : ''
+                    className={`p-4 hover:bg-[#FAF7F4] transition-colors cursor-pointer ${
+                      !isRead ? 'bg-[#F16522]/5' : ''
                     }`}
                   >
                     <div className="flex items-start gap-4">
@@ -491,11 +490,11 @@ export default function AgencyNotificationsPage() {
                             return newSet;
                           });
                         }}
-                        className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                        className="mt-1 h-4 w-4 rounded border-[#EFEBE9] text-[#F16522] focus:ring-[#F16522]"
                         onClick={(e) => e.stopPropagation()}
                       />
 
-                      <div className={`p-3 rounded-lg ${colors.bg} ${colors.border} border flex-shrink-0`}>
+                      <div className={`p-3 rounded-xl ${colors.bg} ${colors.border} border flex-shrink-0`}>
                         <Icon className={`h-5 w-5 ${colors.text}`} />
                       </div>
 
@@ -506,17 +505,17 @@ export default function AgencyNotificationsPage() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1">
                             <h4
-                              className={`font-semibold text-gray-900 ${
-                                !isRead ? 'text-blue-600' : ''
+                              className={`font-semibold text-[#6B5A4E] ${
+                                !isRead ? 'text-[#F16522]' : ''
                               }`}
                             >
                               {notification.title}
                               {!isRead && (
-                                <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full inline-block"></span>
+                                <span className="ml-2 w-2 h-2 bg-[#F16522] rounded-full inline-block"></span>
                               )}
                             </h4>
-                            <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                            <p className="text-xs text-gray-400 mt-2">
+                            <p className="text-sm text-[#8B7466] mt-1">{notification.message}</p>
+                            <p className="text-xs text-[#8B7466] mt-2">
                               {format(new Date(notification.created_at), 'Pp', { locale: fr })}
                             </p>
                           </div>
@@ -528,10 +527,10 @@ export default function AgencyNotificationsPage() {
                                   e.stopPropagation();
                                   handleMarkAsRead(notification.id);
                                 }}
-                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                className="p-2 hover:bg-[#FAF7F4] rounded-xl transition-colors"
                                 title="Marquer comme lu"
                               >
-                                <Check className="h-4 w-4 text-gray-500" />
+                                <Check className="h-4 w-4 text-[#8B7466]" />
                               </button>
                             )}
                             <button
@@ -539,20 +538,20 @@ export default function AgencyNotificationsPage() {
                                 e.stopPropagation();
                                 handleNotificationClick(notification);
                               }}
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                              className="p-2 hover:bg-[#FAF7F4] rounded-xl transition-colors"
                               title="Voir"
                             >
-                              <ExternalLink className="h-4 w-4 text-gray-500" />
+                              <ExternalLink className="h-4 w-4 text-[#8B7466]" />
                             </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleDeleteNotification(notification.id);
                               }}
-                              className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-2 hover:bg-red-50 rounded-xl transition-colors"
                               title="Supprimer"
                             >
-                              <Trash2 className="h-4 w-4 text-gray-500 hover:text-red-500" />
+                              <Trash2 className="h-4 w-4 text-[#8B7466] hover:text-red-500" />
                             </button>
                           </div>
                         </div>

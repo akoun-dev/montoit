@@ -211,10 +211,13 @@ export default function AgencyDocumentsPage() {
     try {
       setLoading(true);
 
-      // Use RPC function to get user's agency (bypasses RLS)
-      const { data: agencyData } = await supabase.rpc('get_user_agency', {
-        user_uuid: user.id,
-      });
+      // Get user's agency
+      const { data: agencyData } = await supabase
+        .from('agencies')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       const agencyId = agencyData?.[0]?.id || null;
 
@@ -334,20 +337,19 @@ export default function AgencyDocumentsPage() {
     setUploading(true);
 
     try {
-      // Use RPC function to get user's agency (bypasses RLS)
-      const { data: agencyData } = await supabase.rpc('get_user_agency', {
-        user_uuid: user!.id,
-      });
+      // Get user's agency
+      const { data: agencyData } = await supabase
+        .from('agencies')
+        .select('id')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       const agencyId = agencyData?.[0]?.id || null;
 
       if (!agencyId) {
         toast.error('Profil agence non trouvé');
         setUploading(false);
-        return;
-      }
-      if (!agencyId) {
-        toast.error('Profil agence non trouvé');
         return;
       }
 
