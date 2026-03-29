@@ -68,7 +68,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
       (async () => {
-        console.log('Auth state changed:', _event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
@@ -330,7 +329,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (profileResponse.ok) {
               const profileData = await profileResponse.json();
-              console.log('[AuthProvider] Profile created via Edge Function:', profileData);
             } else {
               const errorData = await profileResponse.json();
               console.error('[AuthProvider] Error creating profile via Edge Function:', errorData);

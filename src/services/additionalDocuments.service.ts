@@ -421,7 +421,6 @@ export const additionalDocumentsService = {
 
     // Les demandes restent en "pending" mais sont marquées comme en retard
     // Une alerte pourrait être envoyée aux TC
-    console.log(`${overdueRequests.length} demandes de documents dépassées`);
   },
 };
 

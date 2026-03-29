@@ -204,7 +204,6 @@ export default function AgencyProfilePage() {
           }
         } catch (err) {
           // Silently ignore agencies table errors (406, missing table, etc.)
-          console.log('Agencies table not accessible, using profile data only');
         }
       }
 

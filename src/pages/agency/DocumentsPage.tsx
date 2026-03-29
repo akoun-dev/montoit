@@ -269,10 +269,6 @@ export default function AgencyDocumentsPage() {
       }
 
       if (docsError) {
-        console.log(
-          'agency_documents table does not exist yet, trying owner_documents:',
-          docsError.message
-        );
         // Fallback to owner_documents filtered by agency properties
         const propertyIds = (propertiesData || []).map((p: Property) => p.id);
         if (propertyIds.length > 0) {
@@ -354,8 +350,6 @@ export default function AgencyDocumentsPage() {
       }
 
       for (const file of Array.from(files)) {
-        console.log('🚀 [AgencyDocumentsPage] Début traitement fichier:', file.name);
-
         const toastId = toast.loading(`OCR en cours: ${file.name}...`, {
           description: 'Initialisation de Tesseract...',
         });
@@ -371,7 +365,6 @@ export default function AgencyDocumentsPage() {
         });
 
         const ocrResult = await documentProcessorService.extractTextFromFile(file);
-        console.log('✅ [AgencyDocumentsPage] OCR terminé, résultat:', ocrResult.success);
 
         unsubscribe();
 
@@ -494,7 +487,7 @@ export default function AgencyDocumentsPage() {
         }
 
         if (ocrResult.success) {
-          console.log(`OCR réussi pour ${file.name}: ${ocrResult.text.length} caractères extraits`);
+          // OCR success notification
         }
       }
 

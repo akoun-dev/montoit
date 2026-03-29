@@ -24,26 +24,17 @@ class OCREventEmitter {
   private listeners: Array<(progress: number) => void> = [];
 
   subscribe(callback: (progress: number) => void) {
-    console.log('🔔 [OCR Emitter] Subscribe - listeners avant:', this.listeners.length);
     this.listeners.push(callback);
-    console.log('🔔 [OCR Emitter] Subscribe - listeners après:', this.listeners.length);
     return () => {
-      console.log('🔕 [OCR Emitter] Unsubscribe - listeners avant:', this.listeners.length);
       this.listeners = this.listeners.filter(cb => cb !== callback);
-      console.log('🔕 [OCR Emitter] Unsubscribe - listeners après:', this.listeners.length);
     };
   }
 
   emit(progress: number) {
-    console.log(`📢 [OCR Emitter] Emit progress: ${progress}% - listeners: ${this.listeners.length}`);
-    this.listeners.forEach(cb => {
-      console.log('  → Appel listener');
-      cb(progress);
-    });
+    this.listeners.forEach(cb => cb(progress));
   }
 
   clear() {
-    console.log('🗑️ [OCR Emitter] Clear all listeners');
     this.listeners = [];
   }
 }
@@ -66,7 +57,6 @@ class DocumentProcessorService {
         logger: (m) => {
           if (m.status === 'recognizing text') {
             const progress = Math.round(m.progress * 100);
-            console.log(`OCR: ${progress}%`);
             // Émettre l'événement de progression
             ocrProgressEmitter.emit(progress);
           }

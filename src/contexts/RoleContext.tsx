@@ -272,7 +272,6 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   // Effet d'initialisation
   useEffect(() => {
-    console.log('[RoleContext] useEffect triggered:', { profile, user });
     if (profile && user) {
       initializeActiveRole();
     }

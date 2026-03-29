@@ -182,8 +182,6 @@ export default function ScheduleVisit() {
 
         if (notifError) {
           console.error('Erreur lors de l\'envoi de la notification:', notifError);
-        } else {
-          console.log('Notification envoyée avec succès:', notifData);
         }
       } catch (notifError) {
         console.error('Erreur lors de l\'envoi de la notification:', notifError);

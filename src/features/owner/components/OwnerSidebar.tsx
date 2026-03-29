@@ -38,7 +38,6 @@ const navSections = [
     items: [
       { label: 'Tableau de bord', href: '/proprietaire/dashboard', icon: LayoutDashboard },
       { label: 'Mes biens', href: '/proprietaire/mes-biens', icon: Building2 },
-      { label: 'Chercher un bien', href: '/recherche', icon: Search },
     ],
   },
   {

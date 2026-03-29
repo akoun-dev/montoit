@@ -121,8 +121,6 @@ export default function AgencyNotificationsPage() {
             filter: `user_id=eq.${user.id}`,
           },
           (payload) => {
-            console.log('Agency notification list update:', payload.eventType);
-
             switch (payload.eventType) {
               case 'INSERT':
                 setNotifications((prev) => [payload.new as Notification, ...prev]);

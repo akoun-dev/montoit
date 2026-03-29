@@ -90,7 +90,6 @@ export default function MyMandatesPage() {
         .select('id, title, city, price')
         .eq('owner_id', user.id);
 
-      console.log('MyMandatesPage - Loaded properties:', { count: data?.length || 0, data, error });
       setMyProperties((data || []) as Property[]);
     };
 

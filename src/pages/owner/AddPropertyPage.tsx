@@ -492,14 +492,9 @@ export function AddPropertyContent() {
   const uploadImages = async (propertyId: string): Promise<string[]> => {
     const uploadedUrls: string[] = [];
 
-    console.log('[uploadImages] Starting upload for property:', propertyId);
-    console.log('[uploadImages] Files to upload:', imageFiles.length);
-
     for (const file of imageFiles) {
       const fileExt = file.name.split('.').pop();
       const fileName = `${propertyId}/${Math.random().toString(36).substring(7)}.${fileExt}`;
-
-      console.log('[uploadImages] Uploading:', fileName);
 
       const { error: uploadError } = await supabase.storage
         .from('property-images')
@@ -514,11 +509,9 @@ export function AddPropertyContent() {
         data: { publicUrl },
       } = supabase.storage.from('property-images').getPublicUrl(fileName);
 
-      console.log('[uploadImages] Public URL:', publicUrl);
       uploadedUrls.push(publicUrl);
     }
 
-    console.log('[uploadImages] All uploads complete:', uploadedUrls);
     return uploadedUrls;
   };
 
@@ -629,13 +622,6 @@ export function AddPropertyContent() {
           ...newImageUrls,
         ];
 
-        console.log('[handleSubmit] Final images:', {
-          existing: existingImages.length,
-          removed: removedExistingImageUrls.length,
-          new: newImageUrls.length,
-          final: finalImages.length,
-        });
-
         const { error: updateError } = await supabase
           .from('properties')
           .update({
@@ -648,8 +634,6 @@ export function AddPropertyContent() {
           console.error('[handleSubmit] Update error:', updateError);
           throw updateError;
         }
-
-        console.log('[handleSubmit] Property updated successfully with images');
       }
 
       // Clear draft after successful submission

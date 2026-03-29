@@ -239,7 +239,6 @@ export default function ContractDetailPage() {
       if (!contractData.document_url && !contractData.draft_document_url) {
         try {
           setGeneratingDocument(true);
-          console.log('[ContractDetailPage] No document found, generating contract PDF...');
           await generateAndUploadContract(contractData.id);
           // Reload contract to get the document_url
           const { data: updatedData } = await supabase
@@ -250,9 +249,8 @@ export default function ContractDetailPage() {
           if (updatedData) {
             setContract(prev => prev ? { ...prev, ...updatedData } : null);
           }
-          console.log('[ContractDetailPage] Contract PDF generated successfully');
         } catch (pdfError) {
-          console.error('[ContractDetailPage] Error generating contract PDF:', pdfError);
+          console.error('Error generating contract PDF:', pdfError);
         } finally {
           setGeneratingDocument(false);
         }
@@ -405,8 +403,6 @@ export default function ContractDetailPage() {
         }
       }
 
-      console.log('Mise à jour du contrat:', updates);
-
       const { error: updateError } = await supabase
         .from('lease_contracts')
         .update(updates)
@@ -416,8 +412,6 @@ export default function ContractDetailPage() {
         console.error('Erreur lors de la mise à jour:', updateError);
         throw updateError;
       }
-
-      console.log('Contrat mis à jour avec succès');
 
       setSignatureMethod(null);
       await loadContract(contractId);
@@ -455,18 +449,6 @@ export default function ContractDetailPage() {
   const hasOwnerSigned = !!contract.owner_signed_at;
   const hasTenantSigned = !!contract.tenant_signed_at;
   const userNeedsToSign = (isOwner && !hasOwnerSigned) || (isTenant && !hasTenantSigned);
-
-  // Debug logging
-  console.log('[ContractDetailPage] Signature debug:', {
-    userId: user?.id,
-    contractOwnerId: contract.owner_id,
-    contractTenantId: contract.tenant_id,
-    isOwner,
-    isTenant,
-    hasOwnerSigned,
-    hasTenantSigned,
-    userNeedsToSign,
-  });
 
   return (
     <div className="w-full min-h-screen bg-gray-50">

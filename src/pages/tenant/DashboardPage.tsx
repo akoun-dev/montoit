@@ -226,8 +226,6 @@ export default function TenantDashboard() {
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('Notification change received:', payload);
-
           if (payload.eventType === 'INSERT') {
             const newNotification = payload.new as {
               type: string;

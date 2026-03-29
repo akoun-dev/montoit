@@ -396,8 +396,6 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
 
           if (notifError) {
             console.error('Erreur lors de l\'envoi de la notification:', notifError);
-          } else {
-            console.log('Notification envoyée avec succès:', notifData);
           }
         } catch (notifError) {
           console.error('Erreur lors de l\'envoi de la notification:', notifError);
@@ -441,8 +439,6 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
 
           if (notifError) {
             console.error('Erreur lors de l\'envoi de la notification:', notifError);
-          } else {
-            console.log('Notification envoyée avec succès:', notifData);
           }
         } catch (notifError) {
           console.error('Erreur lors de l\'envoi de la notification:', notifError);

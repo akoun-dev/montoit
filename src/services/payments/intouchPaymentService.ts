@@ -42,8 +42,6 @@ class InTouchService {
       throw new Error('Service InTouch non configuré');
     }
 
-    console.log('[InTouch] Initiating payment via Edge Function:', data);
-
     // Récupérer les infos de session Supabase
     const {
       data: { session },
@@ -53,8 +51,6 @@ class InTouchService {
     }
 
     const functionUrl = `${SUPABASE_API_URL}/functions/v1/payment?action=initiate`;
-
-    console.log('[InTouch] Calling Edge Function with fetch:', functionUrl);
 
     try {
       // Utiliser fetch avec un timeout de 30 secondes
@@ -73,8 +69,6 @@ class InTouchService {
 
       clearTimeout(timeoutId);
 
-      console.log('[InTouch] Response status:', response.status);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
         console.error('[InTouch] Edge Function returned error:', errorData);
@@ -82,7 +76,6 @@ class InTouchService {
       }
 
       const responseData = await response.json();
-      console.log('[InTouch] Payment response:', responseData);
 
       if (!responseData.success) {
         throw new Error(responseData.error || "Erreur lors de l'initiation du paiement");

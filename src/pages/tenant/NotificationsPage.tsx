@@ -91,8 +91,6 @@ export default function NotificationsPage() {
           table: 'notifications',
           filter: `user_id=eq.${user.id}`,
         }, (payload) => {
-          console.log('Notification change received:', payload);
-
           switch (payload.eventType) {
             case 'INSERT': {
               // New notification - add to list
@@ -147,7 +145,6 @@ export default function NotificationsPage() {
           }
         })
         .subscribe((status) => {
-          console.log('Realtime status:', status);
           if (status === 'SUBSCRIBED') {
             setRealtimeConnected(true);
           } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {

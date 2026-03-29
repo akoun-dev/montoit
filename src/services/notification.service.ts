@@ -680,8 +680,6 @@ export const notificationService = {
     if (!profile?.phone) throw new Error('Téléphone non trouvé');
 
     // Utiliser Azure Communication Services ou le service SMS configuré
-    // Pour l'instant, juste logguer
-    console.log(`SMS à ${profile.phone}: ${_content.substring(0, 100)}...`);
   },
 
   /**
@@ -693,7 +691,6 @@ export const notificationService = {
     content: string
   ): Promise<void> {
     // Implémentation des push notifications (via Firebase ou autre)
-    console.log(`Push notification: ${title} - ${content.substring(0, 50)}...`);
   },
 
   /**

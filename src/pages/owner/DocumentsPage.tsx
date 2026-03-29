@@ -223,7 +223,6 @@ export default function DocumentsPage() {
         .order('created_at', { ascending: false });
 
       if (docsError) {
-        console.log('owner_documents table does not exist yet:', docsError.message);
         setDocuments([]);
         setStats({
           total: 0,
@@ -268,36 +267,27 @@ export default function DocumentsPage() {
 
     try {
       for (const file of Array.from(files)) {
-        console.log('🚀 [DocumentsPage] Début traitement fichier:', file.name);
-
         // Afficher la progression OCR
         const toastId = toast.loading(`OCR en cours: ${file.name}...`, {
           description: 'Initialisation de Tesseract...',
         });
-        console.log('🆔 [DocumentsPage] Toast ID:', toastId, 'Type:', typeof toastId);
 
         // S'abonner à la progression OCR
-        console.log('📡 [DocumentsPage] Abonnement progression...');
         setCurrentFileName(file.name);
         setOcrProgress(0);
 
         const unsubscribe = documentProcessorService.onProgress((progress) => {
-          console.log(`📨 [DocumentsPage] Callback reçu! Progress: ${progress}%`);
           setOcrProgress(progress);
           // Mettre à jour le toast aussi
           toast.loading(`OCR en cours: ${file.name} (${progress}%)`, {
             id: toastId,
           });
         });
-        console.log('✅ [DocumentsPage] Abonnement réussi');
 
         // Step 1: OCR local avant upload (évite les problèmes d'accès)
-        console.log('🔍 [DocumentsPage] Lancement OCR...');
         const ocrResult = await documentProcessorService.extractTextFromFile(file);
-        console.log('✅ [DocumentsPage] OCR terminé, résultat:', ocrResult.success);
 
         // Se désabonner de la progression
-        console.log('🔕 [DocumentsPage] Désabonnement...');
         unsubscribe();
 
         // Mettre à jour le toast après OCR
@@ -369,7 +359,7 @@ export default function DocumentsPage() {
 
         // Notification si OCR réussi
         if (ocrResult.success) {
-          console.log(`OCR réussi pour ${file.name}: ${ocrResult.text.length} caractères extraits`);
+          // OCR success notification
         }
       }
 

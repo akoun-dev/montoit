@@ -71,21 +71,10 @@ export default function MakePaymentPage() {
         .eq('tenant_id', user.id)
         .order('created_at', { ascending: false });
 
-      console.log('🔍 MakePaymentPage - Tenant contracts:', {
-        userId: user.id,
-        userEmail: user.email,
-        tenantPhone: tenantProfile?.phone,
-        tenantContracts,
-        tenantError,
-        count: tenantContracts?.length || 0,
-      });
-
       // Filter for active contracts
       const activeContracts = (tenantContracts || []).filter(
         c => c.status === 'active'
       );
-
-      console.log('🔍 MakePaymentPage - Active contracts:', activeContracts);
 
       if (tenantError) throw tenantError;
 
@@ -104,12 +93,6 @@ export default function MakePaymentPage() {
           .select('full_name, phone')
           .eq('id', contract.owner_id)
           .single();
-
-        console.log('MakePaymentPage - Property data for contract:', contract.property_id, {
-          propertyData,
-          propertyError: propertyError ? JSON.stringify(propertyError) : null,
-          contractMonthlyRent: contract.monthly_rent,
-        });
 
         // Even if propertyData is null, create contract with available info
         const rent = contract.monthly_rent || propertyData?.price || 0;
@@ -138,8 +121,6 @@ export default function MakePaymentPage() {
           days_until_due: daysUntilDue,
         });
       }
-
-      console.log('MakePaymentPage - Final formatted contracts:', formattedContracts);
 
       setContracts(formattedContracts);
     } catch (err: unknown) {

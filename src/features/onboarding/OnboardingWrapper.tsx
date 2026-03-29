@@ -26,16 +26,12 @@ const EXCLUDED_ROUTES = [
  * Vérifie si l'onboarding est nécessaire
  */
 async function needsOnboarding(profile: any, userId?: string): Promise<boolean> {
-  console.log('[OnboardingWrapper] needsOnboarding called with profile:', profile);
-
   if (!profile) {
-    console.log('[OnboardingWrapper] needsOnboarding: no profile');
     return false;
   }
 
   // PRIORITÉ: Si déjà soumis au TC, pas besoin d'onboarding
   if (profile.submitted_to_tc === true) {
-    console.log('[OnboardingWrapper] needsOnboarding: NO - already submitted to TC');
     return false;
   }
 
@@ -43,13 +39,11 @@ async function needsOnboarding(profile: any, userId?: string): Promise<boolean> 
   if (profile.verification_status === 'pending' ||
       profile.verification_status === 'in_review' ||
       profile.verification_status === 'approved') {
-    console.log('[OnboardingWrapper] needsOnboarding: NO - verification in progress or approved');
     return false;
   }
 
   // PRIORITÉ: Si profile_setup_completed est explicitement true, pas d'onboarding
   if (profile.profile_setup_completed === true) {
-    console.log('[OnboardingWrapper] needsOnboarding: NO - profile_setup_completed is true');
     return false;
   }
 
@@ -68,7 +62,6 @@ async function needsOnboarding(profile: any, userId?: string): Promise<boolean> 
         const app = applications[0];
         // Si le dossier a été soumis (submitted_at différent de created_at) ou a des documents
         if (app.submitted_at && app.submitted_at !== app.created_at) {
-          console.log('[OnboardingWrapper] needsOnboarding: NO - dossier already submitted');
           // Marquer le profil comme complété pour éviter les vérifications futures
           await supabase
             .from('profiles')
@@ -78,14 +71,13 @@ async function needsOnboarding(profile: any, userId?: string): Promise<boolean> 
         }
       }
     } catch (error) {
-      console.error('[OnboardingWrapper] Error checking verification applications:', error);
+      // Silently catch error
     }
   }
 
   // Si profile_setup_completed est explicitement false, onboarding est nécessaire
   // MAIS seulement si pas encore soumis au TC
   if (profile.profile_setup_completed === false) {
-    console.log('[OnboardingWrapper] needsOnboarding: YES - profile_setup_completed is false');
     return true;
   }
 
@@ -93,15 +85,11 @@ async function needsOnboarding(profile: any, userId?: string): Promise<boolean> 
   const hasBasicProfile = profile.full_name && profile.full_name.trim() !== '';
   const hasPhone = profile.phone && profile.phone.trim() !== '';
 
-  console.log('[OnboardingWrapper] hasBasicProfile:', hasBasicProfile, 'hasPhone:', hasPhone);
-
   // Si aucune info de base, onboarding nécessaire
   if (!hasBasicProfile || !hasPhone) {
-    console.log('[OnboardingWrapper] needsOnboarding: YES - missing basic info');
     return true;
   }
 
-  console.log('[OnboardingWrapper] needsOnboarding: NO - profile is complete');
   return false;
 }
 
@@ -117,36 +105,17 @@ export default function OnboardingWrapper({ children }: { children: React.ReactN
     location.pathname === route || location.pathname.startsWith(route + '/')
   );
 
-  // Log au montage du composant
-  console.log('[OnboardingWrapper] Component mounted');
-  console.log('[OnboardingWrapper] Current state:', {
-    pathname: location.pathname,
-    isExcludedRoute,
-    hasUser: !!user,
-    hasProfile: !!profile,
-    profile: profile,
-    showOnboarding,
-    hasCheckedOnboarding,
-  });
-
   useEffect(() => {
     // Ne vérifier l'onboarding que si l'utilisateur est connecté
     // et pas sur une route exclue
-    console.log('[OnboardingWrapper] useEffect - user:', !!user, 'profile:', !!profile, 'isExcludedRoute:', isExcludedRoute, 'pathname:', location.pathname);
-
     if (!user || isExcludedRoute) {
-      console.log('[OnboardingWrapper] useEffect - skipping (no user or excluded route)');
       return;
     }
 
     // Attendre un peu que le profil soit chargé
     const timer = setTimeout(async () => {
-      console.log('[OnboardingWrapper] setTimeout - profile:', profile);
       if (profile && await needsOnboarding(profile, user.id)) {
-        console.log('[OnboardingWrapper] setTimeout - SHOWING modal');
         setShowOnboarding(true);
-      } else {
-        console.log('[OnboardingWrapper] setTimeout - NOT showing modal');
       }
       setHasCheckedOnboarding(true);
     }, 1000);
@@ -156,19 +125,15 @@ export default function OnboardingWrapper({ children }: { children: React.ReactN
 
   // Mettre à jour l'état si le profil change
   useEffect(() => {
-    console.log('[OnboardingWrapper] profile change useEffect - hasCheckedOnboarding:', hasCheckedOnboarding, 'profile:', !!profile, 'isExcludedRoute:', isExcludedRoute, 'userManuallyClosed:', userManuallyClosed);
-
     if (hasCheckedOnboarding && profile && !isExcludedRoute && user && !userManuallyClosed) {
       needsOnboarding(profile, user.id).then(needsIt => {
         // Si le modal est ouvert et que le profil est maintenant complet
         if (!needsIt && showOnboarding) {
-          console.log('[OnboardingWrapper] profile change - HIDING modal (profile complete)');
           setShowOnboarding(false);
         }
         // Si le modal n'est pas ouvert et que le profil est incomplet
         // NE PAS réafficher si l'utilisateur l'a fermé manuellement
         else if (needsIt && !showOnboarding && hasCheckedOnboarding && !userManuallyClosed) {
-          console.log('[OnboardingWrapper] profile change - SHOWING modal (profile incomplete)');
           setShowOnboarding(true);
         }
       });
@@ -176,19 +141,16 @@ export default function OnboardingWrapper({ children }: { children: React.ReactN
 
     // Fermer le modal si on change vers une route exclue
     if (isExcludedRoute && showOnboarding) {
-      console.log('[OnboardingWrapper] profile change - HIDING modal (excluded route)');
       setShowOnboarding(false);
     }
 
     // Réinitialiser userManuallyClosed si le profil est complété
     if (userManuallyClosed && profile?.profile_setup_completed) {
-      console.log('[OnboardingWrapper] Resetting userManuallyClosed (profile completed)');
       setUserManuallyClosed(false);
     }
   }, [profile, showOnboarding, hasCheckedOnboarding, isExcludedRoute, user, userManuallyClosed]);
 
   const handleCloseOnboarding = () => {
-    console.log('[OnboardingWrapper] Modal manually closed by user');
     setUserManuallyClosed(true);
     setShowOnboarding(false);
   };

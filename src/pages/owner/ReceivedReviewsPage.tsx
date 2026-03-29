@@ -79,7 +79,7 @@ export default function ReceivedReviewsPage() {
         .order('created_at', { ascending: false });
 
       if (reviewsError) {
-        console.log('Error loading reviews:', reviewsError.message);
+        console.error('Error loading reviews:', reviewsError);
         setReviews([]);
         return;
       }

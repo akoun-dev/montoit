@@ -32,9 +32,8 @@ function App() {
         secretKey: oneciConfig.secretKey,
         apiUrl: oneciConfig.apiBase,
       });
-      console.log('[App] ONECI service initialized with client-side credentials');
     } else {
-      console.info('[App] ONECI verification will use the Supabase edge function proxy');
+      // ONECI verification will use the Supabase edge function proxy
     }
   }, []);
 

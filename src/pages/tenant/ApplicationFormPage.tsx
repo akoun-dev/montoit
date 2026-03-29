@@ -291,14 +291,6 @@ export default function ApplicationForm() {
     e.preventDefault();
     if (!user || !property) return;
 
-    console.log('[ApplicationForm] Submit started', {
-      userId: user.id,
-      propertyId: property.id,
-      propertyName: property.title,
-      applicationScore,
-      timestamp: new Date().toISOString(),
-    });
-
     // Si score < 70, afficher le modal de confirmation
     if (applicationScore < 70) {
       const missingItems: string[] = [];
@@ -315,19 +307,12 @@ export default function ApplicationForm() {
         missingItems.push('Dossier locataire — Obligatoire pour pouvoir valider votre candidature');
       }
 
-      console.log('[ApplicationForm] Low score - showing confirmation modal', {
-        score: applicationScore,
-        missingItems,
-        missingCount: missingItems.length,
-      });
-
       setMissingConfirmItems(missingItems);
       setShowConfirmModal(true);
       return;
     }
 
     // Score OK, soumettre directement
-    console.log('[ApplicationForm] Score OK, proceeding to submission');
     await submitApplication();
   };
 
@@ -336,24 +321,15 @@ export default function ApplicationForm() {
   const submitApplication = async () => {
     if (!user || !property) return;
 
-    console.log('[ApplicationForm] Starting application submission', {
-      userId: user.id,
-      propertyId: property.id,
-      timestamp: new Date().toISOString(),
-    });
-
     setSubmitting(true);
     setError('');
     setShowConfirmModal(false);
 
     try {
       // Calculer le score final
-      console.log('[ApplicationForm] Calculating final score...');
       const finalScore = await ScoringService.calculateSimpleScore(profile, user?.id);
-      console.log('[ApplicationForm] Final score calculated', { finalScore });
 
       // Insérer la candidature
-      console.log('[ApplicationForm] Inserting application into database...');
       const { data: applicationData, error: insertError } = await supabase
         .from('rental_applications')
         .insert({
@@ -366,48 +342,25 @@ export default function ApplicationForm() {
         .single();
 
       if (insertError) {
-        console.error('[ApplicationForm] Insert error', {
-          error: insertError,
-          message: insertError.message,
-          code: insertError.code,
-        });
         throw insertError;
       }
 
       const appId = (applicationData as { id: string } | null)?.id;
-      console.log('[ApplicationForm] Application inserted successfully', {
-        applicationId: appId,
-        finalScore,
-      });
 
       // Envoyer la notification
       if (appId) {
-        console.log('[ApplicationForm] Sending notification to owner...');
         await notifyApplicationReceived(appId).catch((notifErr) => {
-          console.warn('[ApplicationForm] Notification failed (non-critical)', {
-            error: notifErr,
-          });
+          console.warn('Notification failed (non-critical)', { error: notifErr });
         });
-        console.log('[ApplicationForm] Notification sent');
       }
-
-      console.log('[ApplicationForm] Application submitted successfully', {
-        applicationId: appId,
-        propertyId: property.id,
-        score: finalScore,
-      });
 
       setSuccess(true);
       setTimeout(() => navigate('/locataire/mes-candidatures'), 2000);
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Erreur lors de la soumission';
-      console.error('[ApplicationForm] Submission failed', {
-        error: err,
-        message: errorMsg,
-      });
+      console.error('Application submission failed:', { error: err, message: errorMsg });
       setError(errorMsg);
     } finally {
-      console.log('[ApplicationForm] Submission process ended');
       setSubmitting(false);
     }
   };
@@ -795,7 +748,6 @@ export default function ApplicationForm() {
       <ConfirmationModal
         isOpen={showConfirmModal}
         onClose={() => {
-          console.log('[ApplicationForm] Confirmation modal cancelled');
           setShowConfirmModal(false);
         }}
         onConfirm={submitApplication}

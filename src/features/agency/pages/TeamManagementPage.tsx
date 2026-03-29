@@ -168,8 +168,6 @@ export default function TeamManagementPage() {
   };
 
   const handleAddAgent = async () => {
-    console.log('handleAddAgent called', { agencyId, email: newAgent.email });
-
     if (!agencyId) {
       toast.error('Agence non trouvée. Veuillez recharger la page.');
       return;
@@ -191,7 +189,6 @@ export default function TeamManagementPage() {
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    console.log('Starting agent invitation...', { firstName, lastName, email: newAgent.email });
     try {
       // Create invitation using the service
       const result = await agentInvitationService.inviteAgent({
@@ -343,7 +340,6 @@ export default function TeamManagementPage() {
           </div>
           <Button
             onClick={() => {
-              console.log('Opening add agent modal');
               setShowAddModal(true);
             }}
             className="bg-[#F16522] hover:bg-[#D14E12]"
