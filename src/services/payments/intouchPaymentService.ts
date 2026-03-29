@@ -117,34 +117,53 @@ class InTouchService {
     formatted: string;
     error?: string;
   } {
+    if (!phone) {
+      return {
+        valid: false,
+        formatted: '',
+        error: 'Numéro de téléphone manquant',
+      };
+    }
+
     const cleaned = phone.replace(/\D/g, '');
 
-    // Accepter 10 chiffres (nouveau format) ou 12 avec l'indicatif 225
-    if (cleaned.length < 10) {
-      return {
-        valid: false,
-        formatted: cleaned,
-        error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${cleaned.length})`,
-      };
-    }
-
+    // Si le numéro est trop long (plus de 12 chiffres), on prend les 10 derniers
+    // Cela gère les cas où le numéro est stocké avec des préfixes multiples
+    let phoneNumber = cleaned;
     if (cleaned.length > 12) {
+      // Prendre les 10 derniers chiffres (le numéro sans indicatif)
+      phoneNumber = cleaned.slice(-10);
+    }
+
+    // Vérifier qu'on a au moins 10 chiffres
+    if (phoneNumber.length < 10) {
       return {
         valid: false,
-        formatted: cleaned,
-        error: 'Numéro de téléphone invalide (trop long)',
+        formatted: phoneNumber,
+        error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${phoneNumber.length})`,
       };
     }
 
-    const formatted = this.formatPhoneNumber(phone);
+    // Formater : supprimer l'indicatif 225 si présent
+    let formatted = phoneNumber;
+    if (formatted.startsWith('225') && formatted.length === 12) {
+      formatted = formatted.substring(2);
+    } else if (formatted.length === 11 && formatted.startsWith('225')) {
+      formatted = formatted.substring(2);
+    }
 
-    // Après formatage, on doit avoir 10 chiffres
+    // Après formatage, on doit avoir exactement 10 chiffres
     if (formatted.length !== 10) {
-      return {
-        valid: false,
-        formatted,
-        error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${formatted.length})`,
-      };
+      // Si on a plus de 10 chiffres, prendre les 10 derniers
+      if (formatted.length > 10) {
+        formatted = formatted.slice(-10);
+      } else {
+        return {
+          valid: false,
+          formatted,
+          error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${formatted.length})`,
+        };
+      }
     }
 
     // Préfixes opérateurs Mobile Money en Côte d'Ivoire (nouveau format 2021)

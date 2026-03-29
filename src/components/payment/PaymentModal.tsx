@@ -59,8 +59,12 @@ export function PaymentModal({
 
   const { processRentalPayment, isProcessing } = usePayment();
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('fr-FR').format(value);
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return '0';
+    }
+    return new Intl.NumberFormat('fr-FR').format(value);
+  };
 
   const handlePayment = async () => {
     // IMPORTANT: payerPhone est le numéro du LOCATAIRE (payeur)
@@ -87,7 +91,7 @@ export function PaymentModal({
     try {
       const validation = intouchService.validatePhoneNumber(payerPhone);
       if (!validation.valid) {
-        setError('Numéro invalide');
+        setError(validation.error || 'Numéro de téléphone invalide');
         return;
       }
 

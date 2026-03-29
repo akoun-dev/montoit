@@ -148,7 +148,7 @@ async function handleInitiate(req: Request) {
 
   // Appel InTouch avec timeout
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes
 
   let response: Response | null = null;
   let fetchError: Error | null = null;
@@ -173,7 +173,7 @@ async function handleInitiate(req: Request) {
   if (fetchError) {
     if (fetchError.name === 'AbortError') {
       return new Response(
-        JSON.stringify({ error: 'Timeout InTouch (15s)' }),
+        JSON.stringify({ error: 'Timeout InTouch (30s) - Veuillez réessayer' }),
         { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

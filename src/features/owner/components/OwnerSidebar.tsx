@@ -43,21 +43,21 @@ const navSections = [
   {
     title: 'Gestion',
     items: [
-      { label: 'Candidatures', href: '/proprietaire/candidatures', icon: Users, counterKey: 'pendingApplications' as const },
-      { label: 'Visites', href: '/proprietaire/visites', icon: Calendar, counterKey: 'pendingVisits' as const },
-      { label: 'Contrats', href: '/proprietaire/contrats', icon: FileText },
-      { label: 'Locataires', href: '/proprietaire/mes-locataires', icon: Key },
-      { label: 'Paiements', href: '/proprietaire/paiements', icon: Wallet },
-      { label: 'Documents', href: '/proprietaire/documents', icon: FolderOpen },
-      { label: 'Rappels', href: '/proprietaire/rappels', icon: Bell },
-      { label: 'Mandats', href: '/proprietaire/mes-mandats', icon: Handshake },
+      { label: 'Mes candidatures', href: '/proprietaire/candidatures', icon: Users, counterKey: 'pendingApplications' as const },
+      { label: 'Mes visites', href: '/proprietaire/visites', icon: Calendar, counterKey: 'pendingVisits' as const },
+      { label: 'Mes contrats', href: '/proprietaire/contrats', icon: FileText },
+      { label: 'Mes locataires', href: '/proprietaire/mes-locataires', icon: Key },
+      { label: 'Mes paiements', href: '/proprietaire/paiements', icon: Wallet },
+      { label: 'Mes documents', href: '/proprietaire/documents', icon: FolderOpen },
+      { label: 'Mes rappels', href: '/proprietaire/rappels', icon: Bell },
+      { label: 'Mes mandats', href: '/proprietaire/mes-mandats', icon: Handshake },
     ],
   },
   {
     title: 'Messages',
     items: [
-      { label: 'Messages', href: '/proprietaire/messages', icon: MessageSquare, counterKey: 'unreadMessages' as const },
-      { label: 'Notifications', href: '/proprietaire/notifications', icon: Bell, counterKey: 'unreadNotifications' as const },
+      { label: 'Mes messages', href: '/proprietaire/messages', icon: MessageSquare, counterKey: 'unreadMessages' as const },
+      { label: 'Mes notifications', href: '/proprietaire/notifications', icon: Bell, counterKey: 'unreadNotifications' as const },
     ],
   },  
   {

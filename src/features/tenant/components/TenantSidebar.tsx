@@ -44,7 +44,7 @@ const navSections = [
       { label: 'Tableau de bord', href: '/locataire/dashboard', icon: LayoutDashboard },
       { label: 'Mon Espace', href: '/locataire/mon-espace', icon: Home },
       { label: 'Chercher un bien', href: '/recherche', icon: Search },
-      { label: 'Favoris', href: '/locataire/favoris', icon: Heart },
+      { label: 'Mes favoris', href: '/locataire/favoris', icon: Heart },
     ],
   },
   {
@@ -60,8 +60,8 @@ const navSections = [
   {
     title: 'Messages',
     items: [
-      { label: 'Messages', href: '/locataire/messages', icon: MessageSquare, counterKey: 'unreadMessages' as const },
-      { label: 'Notifications', href: '/locataire/notifications', icon: Bell, counterKey: 'unreadNotifications' as const },
+      { label: 'Mes messages', href: '/locataire/messages', icon: MessageSquare, counterKey: 'unreadMessages' as const },
+      { label: 'Mes notifications', href: '/locataire/notifications', icon: Bell, counterKey: 'unreadNotifications' as const },
     ],
   },  
   {

@@ -935,3 +935,5 @@ supabase/config.toml
 Test.postman_collection.json
 datatxt
 data.md
+intouch.md
+INTOUCH_VERIFICATION.md

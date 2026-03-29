@@ -143,7 +143,10 @@ const StatCard = ({
 };
 
 // Helper function to format currency
-const formatCurrency = (amount: number): string => {
+const formatCurrency = (amount: number | null | undefined): string => {
+  if (amount === null || amount === undefined || isNaN(amount)) {
+    return '0 FCFA';
+  }
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
     currency: 'XOF',
@@ -153,7 +156,10 @@ const formatCurrency = (amount: number): string => {
 };
 
 // Helper function to format compact number
-const formatCompact = (amount: number): string => {
+const formatCompact = (amount: number | null | undefined): string => {
+  if (amount === null || amount === undefined || isNaN(amount)) {
+    return '0';
+  }
   return new Intl.NumberFormat('fr-FR', {
     notation: 'compact',
     compactDisplay: 'short',
