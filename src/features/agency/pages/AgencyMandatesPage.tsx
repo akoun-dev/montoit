@@ -3,8 +3,8 @@
  * Design cohérent avec les autres pages agence
  */
 
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   FileText,
   Clock,
@@ -31,9 +31,11 @@ type StatusFilter = 'all' | 'pending' | 'active' | 'suspended' | 'cancelled';
 export default function AgencyMandatesPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   const {
     loading,
@@ -45,7 +47,23 @@ export default function AgencyMandatesPage() {
     reactivateMandate,
     deleteMandate,
     downloadMandate,
+    refresh,
   } = useAgencyMandates();
+
+  // Refresh mandates when navigating to this page or when counter changes
+  useEffect(() => {
+    // Always refresh when component mounts or pathname changes
+    console.log('[AgencyMandatesPage] Refreshing mandates', { pathname: location.pathname });
+    refresh();
+  }, [location.pathname]);
+
+  // Additional refresh when coming from a signature page
+  useEffect(() => {
+    if (location.pathname === '/agences/mandats' && location.key) {
+      console.log('[AgencyMandatesPage] Detected navigation to mandates page, refreshing');
+      setRefreshCounter(prev => prev + 1);
+    }
+  }, [location.key, location.pathname]);
 
   if (!user) {
     navigate('/connexion');
@@ -361,7 +379,7 @@ export default function AgencyMandatesPage() {
                         <Eye className="h-5 w-5 text-[#6B5A4E]" />
                       </button>
                       <button
-                        onClick={() => navigate(`/mandat/signer/${mandate.id}`)}
+                        onClick={() => navigate(`/agences/mandats/signer/${mandate.id}`)}
                         className="p-2.5 hover:bg-[#EFEBE9] rounded-xl transition-colors"
                         title="Signer"
                       >
@@ -426,15 +444,6 @@ export default function AgencyMandatesPage() {
                               >
                                 <CheckCircle className="h-4 w-4" />
                                 Réactiver
-                              </button>
-                            )}
-                            {mandate.status === 'pending' && (
-                              <button
-                                onClick={() => handleStatusChange(mandate.id, 'delete')}
-                                className="w-full px-4 py-3 text-left hover:bg-[#FAF7F4] flex items-center gap-3 text-sm text-red-600 border-t border-[#EFEBE9]"
-                              >
-                                <XCircle className="h-4 w-4" />
-                                Supprimer
                               </button>
                             )}
                           </div>

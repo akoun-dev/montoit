@@ -18,6 +18,7 @@ import {
   Clock,
   PauseCircle,
   FileSignature,
+  FileCheck,
   Download,
   Edit,
   Trash2,
@@ -126,30 +127,71 @@ export default function MandateDetailPage() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
+      // Fetch mandate without joins first
+      const { data: mandateData, error: mandateError } = await supabase
         .from('agency_mandates')
-        .select(`
-          *,
-          property:properties(id, title, city, neighborhood, monthly_rent, main_image),
-          agency:agencies(id, user_id, agency_name, email, phone, address, city, logo_url),
-          owner:profiles(id, full_name, email, phone, city)
-        `)
+        .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
-      if (error || !data) {
+      if (mandateError || !mandateData) {
+        console.error('Mandate not found:', mandateError);
         toast.error('Mandat introuvable');
         navigate(-1);
         return;
       }
 
-      setMandate(data as MandateDetails);
+      console.log('Mandate data:', mandateData);
+
+      // Fetch property separately
+      let property = null;
+      if (mandateData.property_id) {
+        const { data: propData } = await supabase
+          .from('properties')
+          .select('id, title, city, neighborhood, monthly_rent, main_image')
+          .eq('id', mandateData.property_id)
+          .maybeSingle();
+        property = propData;
+      }
+
+      // Fetch agency profile separately
+      let agency = null;
+      if (mandateData.agency_id) {
+        const { data: agencyData } = await supabase
+          .from('profiles')
+          .select('id, agency_name, email, phone, city, agency_logo')
+          .eq('id', mandateData.agency_id)
+          .maybeSingle();
+        agency = agencyData;
+      }
+
+      // Fetch owner profile separately
+      let owner = null;
+      if (mandateData.owner_id) {
+        const { data: ownerData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, phone, city')
+          .eq('id', mandateData.owner_id)
+          .maybeSingle();
+        owner = ownerData;
+      }
+
+      const fullMandate = {
+        ...mandateData,
+        property,
+        agency,
+        owner,
+      } as MandateDetails;
+
+      console.log('Full mandate:', fullMandate);
+
+      setMandate(fullMandate);
 
       // Determine view mode
       if (user) {
-        if (data.owner_id === user.id) {
+        if (fullMandate.owner_id === user.id) {
           setViewMode('owner');
-        } else if (data.agency?.user_id === user.id || data.agency?.id === user.id) {
+        } else if (fullMandate.agency?.id === user.id) {
           setViewMode('agency');
         }
       }
@@ -579,7 +621,11 @@ export default function MandateDetailPage() {
               <h2 className="text-lg font-bold text-[#2C1810] mb-4">Actions</h2>
               <div className="space-y-3">
                 <button
-                  onClick={() => navigate(`/mandat/signer/${mandate.id}`)}
+                  onClick={() => navigate(
+                    viewMode === 'owner'
+                      ? `/proprietaire/mes-mandats/signer/${mandate.id}`
+                      : `/agences/mandats/signer/${mandate.id}`
+                  )}
                   className="w-full flex items-center gap-3 px-4 py-3 bg-[#F16522] text-white rounded-xl font-semibold hover:bg-[#d1571e] transition-colors"
                 >
                   <FileSignature className="h-5 w-5" />

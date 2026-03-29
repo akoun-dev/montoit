@@ -149,6 +149,7 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [creatingNew, setCreatingNew] = useState(false);
 
   const documentsConfig = DOCUMENTS_CONFIG[dossierType];
   const requiredDocs = documentsConfig.filter((doc) => doc.required);
@@ -166,6 +167,9 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
         : 'draft'
       : null
     : null;
+
+  // Vérifier si l'application est terminée (approuvée ou rejetée)
+  const isApplicationFinalized = application?.status === 'approved' || application?.status === 'rejected';
 
   // Charger la demande existante
   useEffect(() => {
@@ -351,6 +355,30 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
     } finally {
       console.log('Setting submitting to false');
       setSubmitting(false);
+    }
+  };
+
+  const handleCreateNewApplication = async () => {
+    const confirmed = window.confirm(
+      'Voulez-vous vraiment créer un nouveau dossier ?\n\nLes documents de votre dossier actuel devront être réuploadés.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setCreatingNew(true);
+      // Créer une nouvelle demande
+      const newApp = await verificationApplicationsService.create(user.id, {
+        dossier_type: dossierType,
+      });
+      setApplication(newApp);
+      setDocuments({});
+      toast.success('Nouveau dossier créé avec succès !');
+    } catch (error) {
+      console.error('Error creating new application:', error);
+      toast.error('Erreur lors de la création du nouveau dossier');
+    } finally {
+      setCreatingNew(false);
     }
   };
 
@@ -560,7 +588,34 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
 
       {/* Submit Button Section */}
       <div className="flex justify-end pt-4 border-t border-gray-200">
-        {!hasBeenSubmitted ? (
+        {isApplicationFinalized ? (
+          /* Application terminée (approuvée ou rejetée) - proposer de créer un nouveau dossier */
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-gray-600">
+              {application?.status === 'approved'
+                ? 'Votre dossier est valide. Vous pouvez créer un nouveau dossier pour mettre à jour vos documents.'
+                : 'Votre dossier a été rejeté. Vous pouvez créer un nouveau dossier.'}
+            </p>
+            <Button
+              onClick={handleCreateNewApplication}
+              disabled={creatingNew}
+              variant={application?.status === 'approved' ? 'outline' : 'default'}
+              className="flex items-center gap-2"
+            >
+              {creatingNew ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Création...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4" />
+                  Créer un nouveau dossier
+                </>
+              )}
+            </Button>
+          </div>
+        ) : !hasBeenSubmitted ? (
           /* Aucune application - afficher le bouton de soumission */
           <>
             {hasDocuments && missingRequiredDocs.length > 0 && (
@@ -623,18 +678,6 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <Clock className="w-4 h-4" />
             <span>Dossier en cours de verification</span>
-          </div>
-        ) : displayStatus === 'approved' ? (
-          /* Approuve */
-          <div className="flex items-center gap-2 text-sm text-green-600">
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Dossier valide</span>
-          </div>
-        ) : displayStatus === 'rejected' ? (
-          /* Refuse */
-          <div className="flex items-center gap-2 text-sm text-red-600">
-            <XCircle className="w-4 h-4" />
-            <span>Dossier refuse - Veuillez reessayer</span>
           </div>
         ) : null}
       </div>

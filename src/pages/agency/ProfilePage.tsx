@@ -149,6 +149,7 @@ export default function AgencyProfilePage() {
         user.id,
         'agency'
       );
+      // Prioriser les dossiers en cours, sinon prendre le plus récent
       const activeApp =
         applications.find(
           (app) =>
@@ -159,9 +160,8 @@ export default function AgencyProfilePage() {
         applications[0] ||
         null;
 
-      if (activeApp) {
-        setDossierApplication(activeApp);
-      }
+      // Mettre à jour l'état même si null (pour rafraîchir si aucun dossier)
+      setDossierApplication(activeApp);
     } catch (error) {
       console.error('Error loading dossier application:', error);
     }
@@ -284,6 +284,13 @@ export default function AgencyProfilePage() {
       loadDossierApplication();
     }
   }, [user?.id]);
+
+  // Rafraîchir le dossier quand l'onglet verification est activé
+  useEffect(() => {
+    if (activeTab === 'verification' && user?.id) {
+      loadDossierApplication();
+    }
+  }, [activeTab, user?.id]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDocumentUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -1026,26 +1033,6 @@ function VerificationItem({
         >
           {statusConfig.label}
         </span>
-        {shouldShowButton && (
-          <Button
-            onClick={onVerify}
-            variant="outline"
-            size="small"
-            className="whitespace-nowrap px-5 py-2.5"
-          >
-            <span className="inline-flex items-center gap-2">
-              {isDossier
-                ? status === 'failed' || status === 'more_info_requested'
-                  ? 'Compléter le dossier'
-                  : verified || status === 'verified'
-                    ? 'Voir le dossier'
-                    : 'Commencer la vérification du dossier'
-                : status === 'failed'
-                  ? 'Réessayer'
-                  : 'Vérifier'}
-            </span>
-          </Button>
-        )}
       </div>
     </div>
   );

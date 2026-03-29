@@ -27,8 +27,6 @@ const AgencyProfilePage = lazyWithRetry(() => import('@/pages/agency/ProfilePage
 const MyMandatesPage = lazyWithRetry(() => import('@/pages/agency/MyMandatesPage'));
 // Lazy load SignMandateWithOTPPage for /mandat/signer-otp route
 const SignMandateWithOTPPage = lazyWithRetry(() => import('@/features/mandates/SignMandateWithOTPPage'));
-// Lazy load SignMandateChoicePage for /mandat/signer route (no auth required - public link)
-const SignMandateChoicePage = lazyWithRetry(() => import('@/pages/mandates/SignMandateChoicePage'));
 
 function AliasRedirect({ fromPrefix, toPrefix }: { fromPrefix: string; toPrefix: string }) {
   const location = useLocation();
@@ -117,12 +115,6 @@ export const routes: RouteObject[] = [
             <MyMandatesPage />
           </ProtectedRoute>
         ),
-      },
-
-      // Mandate signature choice route (public - accessible via link without role restriction)
-      {
-        path: 'mandat/signer/:id',
-        element: <SignMandateChoicePage />,
       },
 
       // Mandate signature with OTP route (requires auth)

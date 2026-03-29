@@ -76,19 +76,46 @@ export default function AgencyPropertiesPage() {
 
   const loadAgencyAndProperties = useCallback(async () => {
     try {
-      // Get agency_id for this user
-      const { data: agencyData } = await supabase
-        .from('agencies')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
+      console.log('[AgencyPropertiesPage] Loading agency and properties for user:', user?.id);
 
-      if (!agencyData) {
+      // Get agency_id for this user - use profiles instead of agencies table
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user?.id)
+        .eq('user_type', 'agency')
+        .maybeSingle();
+
+      console.log('[AgencyPropertiesPage] Profile data:', {
+        profileData,
+        profileError
+      });
+
+      if (!profileData) {
+        console.log('[AgencyPropertiesPage] No profile data found');
         setLoading(false);
         return;
       }
 
-      setAgencyId(agencyData.id);
+      setAgencyId(profileData.id);
+
+      // First, check ALL properties (debug)
+      const { data: allProperties, error: allError } = await supabase
+        .from('properties')
+        .select('id, title, managed_by_agency, owner_id');
+
+      console.log('[AgencyPropertiesPage] ALL properties in database:', {
+        count: allProperties?.length || 0,
+        myAgencyId: profileData.id,
+        properties: allProperties?.map(p => ({
+          id: p.id,
+          title: p.title,
+          managed_by_agency: p.managed_by_agency,
+          owner_id: p.owner_id,
+          matches_my_agency: p.managed_by_agency === profileData.id
+        })),
+        error: allError
+      });
 
       // Load properties with owner information
       const { data: propertiesData, error } = await supabase
@@ -96,22 +123,31 @@ export default function AgencyPropertiesPage() {
         .select(
           `
           *,
-          owner:owner_id (
+          owner:profiles!properties_owner_id_fkey (
             full_name,
             email,
             phone
           )
         `
         )
-        .eq('managed_by_agency', agencyData.id)
+        .eq('managed_by_agency', profileData.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      console.log('[AgencyPropertiesPage] Properties query result:', {
+        count: propertiesData?.length || 0,
+        properties: propertiesData,
+        error
+      });
+
+      if (error) {
+        console.error('[AgencyPropertiesPage] Properties query error:', error);
+        throw error;
+      }
 
       setProperties(propertiesData || []);
       calculateStats(propertiesData || []);
     } catch (error) {
-      console.error('Error loading properties:', error);
+      console.error('[AgencyPropertiesPage] Error loading properties:', error);
     } finally {
       setLoading(false);
     }

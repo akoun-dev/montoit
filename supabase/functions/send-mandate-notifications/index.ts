@@ -13,13 +13,15 @@ type MandateNotificationType =
   | "mandate_suspended"
   | "mandate_reactivated"
   | "mandate_terminated"
-  | "mandate_permissions_updated";
+  | "mandate_permissions_updated"
+  | "mandate_signed";
 
 interface NotificationRequest {
   mandateId: string;
   type: MandateNotificationType;
   reason?: string;
   terminatedBy?: "owner" | "agency";
+  signerType?: "owner" | "agency";
 }
 
 interface NotificationConfig {
@@ -46,6 +48,7 @@ interface MandateData {
   agency_email: string;
   reason?: string;
   terminatedBy?: string;
+  signerType?: string;
 }
 
 const notificationConfigs: Record<MandateNotificationType, NotificationConfig> = {
@@ -107,23 +110,40 @@ const notificationConfigs: Record<MandateNotificationType, NotificationConfig> =
     actionUrl: (id) => `/mandat/${id}`,
     notificationType: "mandat",
   },
+  mandate_signed: {
+    title: "✍️ Signature enregistrée",
+    getMessage: (data) => {
+      const signerName = data.signerType === "owner" ? data.owner_name : data.agency_name;
+      return `${signerName} a signé le mandat de gestion pour "${data.property_title}"`;
+    },
+    recipient: "both",
+    actionUrl: (id) => `/mandat/${id}`,
+    notificationType: "mandat",
+  },
 };
 
 // deno-lint-ignore no-explicit-any
 async function createInAppNotification(
   supabase: Record<string, unknown>,
   userId: string,
-  title: string,
-  message: string,
-  actionUrl: string,
-  type: string
+  templateCode: string,
+  data: Record<string, unknown>,
+  actionUrl?: string
 ): Promise<void> {
   const { error } = await supabase.from("notifications").insert({
     user_id: userId,
-    title,
-    message,
+    template_code: templateCode,
+    channels: ['in_app'],
+    data,
+    status: 'sent',
+    priority: 'normal',
+    sent_at: new Date().toISOString(),
+    read_channels: [],
+    // Legacy fields for backward compatibility
+    type: templateCode,
+    title: templateCode.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+    message: Object.values(data).join(' • '),
     action_url: actionUrl,
-    type,
     is_read: false,
   });
 
@@ -147,7 +167,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { mandateId, type, reason, terminatedBy }: NotificationRequest = await req.json();
+    const { mandateId, type, reason, terminatedBy, signerType }: NotificationRequest = await req.json();
 
     console.log(`[send-mandate-notifications] Processing ${type} for mandate ${mandateId}`);
 
@@ -162,7 +182,8 @@ const handler = async (req: Request): Promise<Response> => {
         status,
         commission_rate,
         property:properties(title, city),
-        agency:agencies(agency_name, user_id, email)
+        agency:profiles!agency_mandates_agency_id_fkey(agency_name, email),
+        owner:profiles!agency_mandates_owner_id_fkey(full_name, email)
       `)
       .eq("id", mandateId)
       .single();
@@ -180,13 +201,8 @@ const handler = async (req: Request): Promise<Response> => {
     const property = Array.isArray(mandate.property) ? mandate.property[0] : mandate.property as any;
     // deno-lint-ignore no-explicit-any
     const agency = Array.isArray(mandate.agency) ? mandate.agency[0] : mandate.agency as any;
-
-    // Fetch owner profile
-    const { data: ownerProfile } = await supabase
-      .from("profiles")
-      .select("full_name, email")
-      .eq("user_id", mandate.owner_id)
-      .single();
+    // deno-lint-ignore no-explicit-any
+    const owner = Array.isArray(mandate.owner) ? mandate.owner[0] : mandate.owner as any;
 
     // Build mandate data
     const mandateData: MandateData = {
@@ -199,12 +215,13 @@ const handler = async (req: Request): Promise<Response> => {
       property_title: property?.title || "Propriété",
       property_city: property?.city || "",
       agency_name: agency?.agency_name || "Agence",
-      agency_user_id: agency?.user_id || "",
+      agency_user_id: mandate.agency_id,
       agency_email: agency?.email || "",
-      owner_name: ownerProfile?.full_name || "Propriétaire",
-      owner_email: ownerProfile?.email || "",
+      owner_name: owner?.full_name || "Propriétaire",
+      owner_email: owner?.email || "",
       reason,
       terminatedBy,
+      signerType,
     };
 
     const config = notificationConfigs[type];
@@ -236,10 +253,20 @@ const handler = async (req: Request): Promise<Response> => {
       await createInAppNotification(
         supabase,
         recipientId,
-        title,
-        message,
-        actionUrl,
-        config.notificationType
+        type, // Use type as template_code (e.g., 'mandate_accepted')
+        {
+          // Build data object for template
+          mandate_id: mandateId,
+          owner_name: mandateData.owner_name,
+          agency_name: mandateData.agency_name,
+          property_title: mandateData.property_title,
+          property_city: mandateData.property_city,
+          commission_rate: String(mandateData.commission_rate),
+          start_date: new Date().toISOString(), // Could fetch actual date if needed
+          ...(reason && { refusal_reason: reason }),
+          ...(terminatedBy && { terminated_by: terminatedBy }),
+        },
+        actionUrl
       );
     }
 

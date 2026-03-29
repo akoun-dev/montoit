@@ -9,7 +9,7 @@ const AgencyDashboard = lazyWithRetry(() => import('@/pages/agency/DashboardPage
 const AgencyMandatesPage = lazyWithRetry(() => import('@/features/agency/pages/AgencyMandatesPage'));
 const MandateDetailPage = lazyWithRetry(() => import('@/components/mandates/MandateDetailPage'));
 const SignMandatePage = lazyWithRetry(() => import('@/pages/agency/SignMandatePage'));
-const HandwrittenSignaturePage = lazyWithRetry(() => import('@/pages/mandates/HandwrittenSignaturePage'));
+const HandwrittenSignaturePageSimple = lazyWithRetry(() => import('@/pages/mandates/HandwrittenSignaturePageSimple'));
 const AgencyPropertiesPage = lazyWithRetry(() => import('@/pages/agency/AgencyPropertiesPage'));
 const AgencyPropertyDetailPage = lazyWithRetry(() => import('@/pages/agency/AgencyPropertyDetailPage'));
 const AgencyPropertyEditPage = lazyWithRetry(() => import('@/pages/agency/AgencyPropertyEditPage'));
@@ -59,12 +59,12 @@ export const agencyRoutes: RouteObject[] = [
         element: <MandateDetailPage />,
       },
       {
-        path: 'signer-mandat/:id',
-        element: <SignMandatePage />,
+        path: 'mandats/signer/:id',
+        element: <HandwrittenSignaturePageSimple />,
       },
       {
-        path: 'mes-mandats/signer/:id',
-        element: <HandwrittenSignaturePage />,
+        path: 'signer-mandat/:id',
+        element: <SignMandatePage />,
       },
 
       // Property management

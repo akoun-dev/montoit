@@ -11,6 +11,7 @@ import {
   Calendar,
   FileText,
   Check,
+  CheckCircle,
   ChevronRight,
   Shield,
   Users,
@@ -117,14 +118,22 @@ export default function CreateMandateForm({ isOpen, onClose, onSuccess, property
 
     setProperties((propertiesData || []) as Property[]);
 
-    // Load agencies
+    // Load agencies from profiles (user_type = 'agency')
     const { data: agenciesData } = await supabase
-      .from('agencies')
-      .select('id, agency_name, email, phone, city, logo_url, commission_rate')
-      .eq('status', 'active')
+      .from('profiles')
+      .select('id, agency_name, email, phone, city, agency_logo')
+      .eq('user_type', 'agency')
       .order('agency_name');
 
-    setAgencies((agenciesData || []) as Agency[]);
+    setAgencies((agenciesData || []).map((profile: any) => ({
+      id: profile.id,
+      agency_name: profile.agency_name,
+      email: profile.email,
+      phone: profile.phone,
+      city: profile.city,
+      logo_url: profile.agency_logo,
+      commission_rate: 8,
+    })) as Agency[]);
   };
 
   const filteredProperties = searchQuery

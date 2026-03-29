@@ -16,7 +16,7 @@ import {
   Bed,
   Bath,
   Maximize,
-  Euro,
+  Banknote,
   User,
   Phone,
   Mail,
@@ -123,17 +123,33 @@ export default function AgencyAddPropertyPage() {
 
   const loadMandates = async () => {
     try {
-      const { data: agencyData } = await supabase
-        .from('agencies')
+      // Get agency_id from profiles table (agencies are stored in profiles)
+      const { data: profileData } = await supabase
+        .from('profiles')
         .select('id')
-        .eq('user_id', user?.id)
-        .single();
+        .eq('id', user?.id)
+        .eq('user_type', 'agency')
+        .maybeSingle();
 
-      if (!agencyData) {
+      if (!profileData) {
+        console.log('[AddPropertyPage] No agency profile found for user:', user?.id);
         setMandates([]);
         setLoading(false);
         return;
       }
+
+      console.log('[AddPropertyPage] Agency profile found:', profileData.id);
+
+      // First, let's see ALL mandates for this agency (any status)
+      const { data: allMandates, error: allError } = await supabase
+        .from('agency_mandates')
+        .select('id, status, owner_signed_at, agency_signed_at, cryptoneo_signature_status')
+        .eq('agency_id', profileData.id);
+
+      console.log('[AddPropertyPage] ALL mandates for agency (any status):', {
+        count: allMandates?.length || 0,
+        mandates: allMandates || []
+      });
 
       const { data, error } = await supabase
         .from('agency_mandates')
@@ -159,7 +175,7 @@ export default function AgencyAddPropertyPage() {
             images,
             status
           ),
-          owner:owner_id (
+          owner:profiles!agency_mandates_owner_id_fkey (
             id,
             full_name,
             email,
@@ -167,11 +183,25 @@ export default function AgencyAddPropertyPage() {
           )
         `
         )
-        .eq('agency_id', agencyData.id)
+        .eq('agency_id', profileData.id)
         .in('status', ['active', 'pending'])
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[AddPropertyPage] Error loading mandates:', error);
+        throw error;
+      }
+
+      console.log('[AddPropertyPage] Loaded mandates:', {
+        count: data?.length || 0,
+        mandates: (data || []).map((m: any) => ({
+          id: m.id,
+          status: m.status,
+          owner_signed_at: m.owner_signed_at,
+          agency_signed_at: m.agency_signed_at,
+          cryptoneo_signature_status: m.cryptoneo_signature_status,
+        }))
+      });
 
       const formattedMandates = (data || []).map((mandate: unknown) => ({
         id: mandate.id,
@@ -334,17 +364,36 @@ export default function AgencyAddPropertyPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateStep()) return;
+    console.log('[AddPropertyPage] handleSubmit called');
+
+    if (!validateStep()) {
+      console.log('[AddPropertyPage] Validation failed');
+      return;
+    }
+
+    console.log('[AddPropertyPage] Validation passed');
 
     setSubmitting(true);
     try {
-      const agencyId = (
-        await supabase
-          .from('agencies')
-          .select('id')
-          .eq('user_id', user?.id)
-          .single()
-      ).data?.id;
+      // Get agency ID from profiles table
+      const profileResult = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user?.id)
+        .eq('user_type', 'agency')
+        .maybeSingle();
+
+      const agencyId = profileResult.data?.id;
+
+      console.log('[AddPropertyPage] Agency ID retrieved:', {
+        userId: user?.id,
+        agencyId,
+        profileError: profileResult.error
+      });
+
+      if (!agencyId) {
+        throw new Error('Agency ID not found');
+      }
 
       // Prepare property data
       const propertyData: unknown = {
@@ -368,37 +417,60 @@ export default function AgencyAddPropertyPage() {
         main_image: formData.images && formData.images.length > 0 ? formData.images[0] : null,
       };
 
+      console.log('[AddPropertyPage] Property data prepared:', propertyData);
+
       let propertyId = selectedMandate!.property_id;
+
+      console.log('[AddPropertyPage] Existing property_id from mandate:', propertyId);
 
       // If property already exists, update it
       if (propertyId) {
+        console.log('[AddPropertyPage] Updating existing property:', propertyId);
         const { error: updateError } = await supabase
           .from('properties')
           .update(propertyData)
           .eq('id', propertyId);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('[AddPropertyPage] Update error:', updateError);
+          throw updateError;
+        }
+        console.log('[AddPropertyPage] Property updated successfully');
       } else {
         // Create new property
+        console.log('[AddPropertyPage] Creating new property');
         const { data: newProperty, error: insertError } = await supabase
           .from('properties')
           .insert(propertyData)
           .select()
           .single();
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('[AddPropertyPage] Insert error:', insertError);
+          throw insertError;
+        }
+
+        console.log('[AddPropertyPage] Property created successfully:', newProperty);
         propertyId = newProperty.id;
 
         // Update mandate with property_id
-        await supabase
+        console.log('[AddPropertyPage] Updating mandate with property_id:', propertyId);
+        const { error: mandateUpdateError } = await supabase
           .from('agency_mandates')
           .update({ property_id: propertyId })
           .eq('id', selectedMandate!.id);
+
+        if (mandateUpdateError) {
+          console.error('[AddPropertyPage] Mandate update error:', mandateUpdateError);
+        } else {
+          console.log('[AddPropertyPage] Mandate updated successfully');
+        }
       }
 
+      console.log('[AddPropertyPage] Navigating to property:', propertyId);
       navigate(`/agences/biens/${propertyId}`);
     } catch (error) {
-      console.error('Error saving property:', error);
+      console.error('[AddPropertyPage] Error saving property:', error);
       alert('Erreur lors de la sauvegarde de la propriété');
     } finally {
       setSubmitting(false);
@@ -549,7 +621,7 @@ export default function AgencyAddPropertyPage() {
 
                         <div className="flex items-center gap-4 text-sm text-[#6B5A4E] mb-3">
                           <div className="flex items-center gap-1">
-                            <Euro className="w-4 h-4" />
+                            <Banknote className="w-4 h-4" />
                             <span>{mandate.commission_rate}%</span>
                           </div>
                         </div>
@@ -851,7 +923,7 @@ export default function AgencyAddPropertyPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-[#2C1810] mb-2">
-                        <Euro className="inline w-4 h-4 mr-1" />
+                        <Banknote className="inline w-4 h-4 mr-1" />
                         Loyer (FCFA) *
                       </label>
                       <input

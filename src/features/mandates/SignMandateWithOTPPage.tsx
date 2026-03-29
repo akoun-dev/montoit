@@ -113,8 +113,8 @@ export default function SignMandateWithOTPPage() {
         .select(`
           *,
           property:properties(id, title, city, neighborhood, monthly_rent),
-          agency:agencies(id, agency_name, email, phone),
-          owner:profiles(full_name, email, phone)
+          agency:profiles!agency_mandates_agency_id_fkey(id, agency_name, email, phone),
+          owner:profiles!agency_mandates_owner_id_fkey(full_name, email, phone)
         `)
         .eq('id', id)
         .single();
@@ -703,7 +703,7 @@ export default function SignMandateWithOTPPage() {
                 >
                   Voir mes mandats
                 </Button>
-                <Button onClick={() => navigate(`/mandat/${mandate.id}`)}>
+                <Button onClick={() => navigate(signerType === 'owner' ? `/proprietaire/mes-mandats/${mandate.id}` : `/agences/mandats/${mandate.id}`)}>
                   Voir le détail du mandat
                 </Button>
               </div>

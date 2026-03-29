@@ -471,6 +471,195 @@ Cordialement,
 L'équipe MonToit`,
     variables: ['full_name', 'match_count', 'matches_list', 'has_matches', 'manage_alerts_url', 'week_start', 'week_end'],
   },
+
+  // ========== NOTIFICATIONS MANDATS ==========
+
+  // Nouveau mandat créé - pour l'agence
+  'mandate_created_agency': {
+    id: 'mandate_created_agency',
+    code: 'mandate_created_agency',
+    category: 'approval_needed',
+    channels: ['email', 'in_app'],
+    priority: 'high',
+    subject: '📋 Nouvelle demande de mandat',
+    template_fr: `Bonjour {{agency_name}},
+
+Vous avez reçu une nouvelle demande de mandat de gestion.
+
+Détails du mandat :
+- Propriétaire : {{owner_name}}
+- Bien : {{property_title}}
+- Ville : {{property_city}}
+- Commission : {{commission_rate}}%
+- Date de début : {{start_date}}
+
+Connectez-vous à votre espace pour accepter ou refuser cette demande.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['agency_name', 'owner_name', 'property_title', 'property_city', 'commission_rate', 'start_date'],
+  },
+
+  // Mandat accepté - pour le propriétaire
+  'mandate_accepted': {
+    id: 'mandate_accepted',
+    code: 'mandate_accepted',
+    category: 'approval_needed',
+    channels: ['email', 'in_app'],
+    priority: 'high',
+    subject: '✅ Votre mandat a été accepté',
+    template_fr: `Bonjour {{owner_name},
+
+Nous avons le plaisir de vous informer que l'agence {{agency_name}} a accepté votre mandat de gestion.
+
+Détails du mandat :
+- Bien : {{property_title}}
+- Ville : {{property_city}}
+- Commission : {{commission_rate}}%
+- Date de début : {{start_date}}
+
+L'agence va maintenant pouvoir gérer votre bien.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['owner_name', 'agency_name', 'property_title', 'property_city', 'commission_rate', 'start_date'],
+  },
+
+  // Mandat refusé - pour le propriétaire
+  'mandate_refused': {
+    id: 'mandate_refused',
+    code: 'mandate_refused',
+    category: 'approval_needed',
+    channels: ['email', 'in_app'],
+    priority: 'normal',
+    subject: '❌ Votre mandat a été refusé',
+    template_fr: `Bonjour {{owner_name},
+
+L'agence {{agency_name}} a malheureusement refusé votre mandat de gestion.
+
+Détails du mandat :
+- Bien : {{property_title}}
+- Ville : {{property_city}}
+
+{{#has_reason}}
+Motif du refus :
+{{refusal_reason}}
+{{/has_reason}}
+
+Vous pouvez contacter une autre agence pour votre bien.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['owner_name', 'agency_name', 'property_title', 'property_city', 'refusal_reason', 'has_reason'],
+  },
+
+  // Mandat signé - notification quand une partie signe
+  'mandate_signed': {
+    id: 'mandate_signed',
+    code: 'mandate_signed',
+    category: 'contract',
+    channels: ['email', 'in_app'],
+    priority: 'high',
+    subject: '✍️ Signature enregistrée pour votre mandat',
+    template_fr: `Bonjour {{recipient_name}},
+
+Une signature a été enregistrée pour le mandat de gestion.
+
+Détails du mandat :
+- Bien : {{property_title}}
+- Signé par : {{signer_name}}
+- Date : {{signature_date}}
+
+{{#is_fully_signed}}
+🎉 Bonne nouvelle ! Le mandat est maintenant complété signé par les deux parties.
+{{/is_fully_signed}}
+
+{{^is_fully_signed}}
+En attente de la signature de l'autre partie.
+{{/is_fully_signed}}
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['recipient_name', 'property_title', 'signer_name', 'signature_date', 'is_fully_signed'],
+  },
+
+  // Mandat résilié - pour les deux parties
+  'mandate_terminated': {
+    id: 'mandate_terminated',
+    code: 'mandate_terminated',
+    category: 'contract',
+    channels: ['email', 'in_app'],
+    priority: 'high',
+    subject: '🔴 Mandat résilié',
+    template_fr: `Bonjour {{recipient_name},
+
+Le mandat de gestion a été résilié.
+
+Détails du mandat :
+- Bien : {{property_title}}
+- Date de fin : {{end_date}}
+- Résilié par : {{terminated_by}}
+
+{{#has_reason}}
+Motif :
+{{termination_reason}}
+{{/has_reason}}
+
+Veuillez prendre les dispositions nécessaires pour la transition.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['recipient_name', 'property_title', 'end_date', 'terminated_by', 'termination_reason', 'has_reason'],
+  },
+
+  // Mandat suspendu - pour le propriétaire
+  'mandate_suspended': {
+    id: 'mandate_suspended',
+    code: 'mandate_suspended',
+    category: 'contract',
+    channels: ['email', 'in_app'],
+    priority: 'normal',
+    subject: '⏸️ Mandat suspendu',
+    template_fr: `Bonjour {{owner_name},
+
+L'agence {{agency_name}} a suspendu temporairement le mandat de gestion.
+
+Détails du mandat :
+- Bien : {{property_title}}
+
+{{#has_reason}}
+Motif :
+{{suspension_reason}}
+{{/has_reason}}
+
+La suspension est temporaire. L'agence pourra réactiver le mandat à tout moment.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['owner_name', 'agency_name', 'property_title', 'suspension_reason', 'has_reason'],
+  },
+
+  // Mandat réactivé - pour le propriétaire
+  'mandate_reactivated': {
+    id: 'mandate_reactivated',
+    code: 'mandate_reactivated',
+    category: 'contract',
+    channels: ['email', 'in_app'],
+    priority: 'normal',
+    subject: '▶️ Mandat réactivé',
+    template_fr: `Bonjour {{owner_name},
+
+L'agence {{agency_name}} a réactivé le mandat de gestion.
+
+Détails du mandat :
+- Bien : {{property_title}}
+
+La gestion de votre bien reprend normalement.
+
+Cordialement,
+L'équipe MonToit`,
+    variables: ['owner_name', 'agency_name', 'property_title'],
+  },
 };
 
 /**

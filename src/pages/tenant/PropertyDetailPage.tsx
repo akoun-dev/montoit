@@ -363,7 +363,7 @@ export default function PropertyDetailPage() {
       if (data.is_anonymous) {
         const { data: mandateData } = await supabase
           .from('agency_mandates')
-          .select('agency:agencies(agency_name)')
+          .select('agency:profiles!agency_mandates_agency_id_fkey(agency_name)')
           .eq('property_id', propertyId)
           .eq('status', 'active')
           .maybeSingle();

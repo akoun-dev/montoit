@@ -62,8 +62,8 @@ class CryptoNeoSignatureService {
         .select(`
           *,
           property:properties(id, title, city),
-          agency:agencies(agency_name, email, phone),
-          owner:profiles(full_name, email, phone)
+          agency:profiles!agency_mandates_agency_id_fkey(agency_name, email, phone),
+          owner:profiles!agency_mandates_owner_id_fkey(full_name, email, phone)
         `)
         .eq('id', request.mandateId)
         .single();
@@ -440,8 +440,8 @@ class CryptoNeoSignatureService {
         .from('agency_mandates')
         .select(`
           *,
-          owner:profiles(full_name, phone),
-          agency:agencies(agency_name, phone)
+          owner:profiles!agency_mandates_owner_id_fkey(full_name, phone),
+          agency:profiles!agency_mandates_agency_id_fkey(agency_name, phone)
         `)
         .eq('id', mandateId)
         .single();

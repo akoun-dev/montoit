@@ -44,6 +44,14 @@ const NOTIFICATION_ICONS: Record<string, React.ElementType> = {
   contract_signed: FileText,
   payment_received: Check,
   payment_overdue: AlertCircle,
+  // Notifications de mandat
+  mandate_created_agency: FileText,
+  mandate_accepted: Check,
+  mandate_refused: X,
+  mandate_signed: FileText,
+  mandate_terminated: AlertCircle,
+  mandate_suspended: AlertCircle,
+  mandate_reactivated: Check,
   default: Bell,
 };
 
@@ -68,6 +76,14 @@ const NOTIFICATION_COLORS: Record<string, { bg: string; text: string; border: st
   contract_signed: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200' },
   payment_received: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' },
   payment_overdue: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200' },
+  // Notifications de mandat
+  mandate_created_agency: { bg: 'bg-[#F16522]/10', text: 'text-[#F16522]', border: 'border-[#F16522]/20' },
+  mandate_accepted: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' },
+  mandate_refused: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200' },
+  mandate_signed: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' },
+  mandate_terminated: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200' },
+  mandate_suspended: { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200' },
+  mandate_reactivated: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' },
   default: { bg: 'bg-[#8B7466]/10', text: 'text-[#6B5A4E]', border: 'border-[#EFEBE9]' },
 };
 
@@ -90,6 +106,14 @@ const NOTIFICATION_REDIRECTS: Record<string, (_data: Record<string, unknown>) =>
   verification_expired: () => `/agences/profil`,
   document_approved: () => `/agences/documents`,
   document_rejected: () => `/agences/documents`,
+  // Notifications de mandat - rediriger vers la page des mandats
+  mandate_created_agency: (data) => `/agences/mandats`,
+  mandate_accepted: (data) => `/agences/mandats`,
+  mandate_refused: (data) => `/agences/mandats`,
+  mandate_signed: (data) => `/agences/mandats`,
+  mandate_terminated: (data) => `/agences/mandats`,
+  mandate_suspended: (data) => `/agences/mandats`,
+  mandate_reactivated: (data) => `/agences/mandats`,
 };
 
 type NotificationFilter = 'all' | 'unread' | 'read';
@@ -170,11 +194,11 @@ export default function AgencyNotificationsPage() {
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
-      await supabase.from('notifications').update({ is_read: true, read_at: new Date().toISOString() }).eq('id', notificationId);
+      await notificationService.markAsRead(notificationId, ['in_app']);
       setNotifications(prev =>
         prev.map((n) =>
           n.id === notificationId
-            ? { ...n, is_read: true, read_at: new Date().toISOString() }
+            ? { ...n, read_channels: [...(n.read_channels || []), 'in_app'], read_at: new Date().toISOString() }
             : n
         )
       );
@@ -187,16 +211,16 @@ export default function AgencyNotificationsPage() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      const unreadNotifications = notifications.filter((n) => !n.is_read);
+      const unreadNotifications = notifications.filter((n) => !n.read_channels?.includes('in_app'));
       await Promise.all(
         unreadNotifications.map((n) =>
-          supabase.from('notifications').update({ is_read: true, read_at: new Date().toISOString() }).eq('id', n.id)
+          notificationService.markAsRead(n.id, ['in_app'])
         )
       );
       setNotifications(prev =>
         prev.map((n) => ({
           ...n,
-          is_read: true,
+          read_channels: [...(n.read_channels || []), 'in_app'],
           read_at: new Date().toISOString(),
         }))
       );
@@ -237,11 +261,12 @@ export default function AgencyNotificationsPage() {
   };
 
   const handleNotificationClick = (notification: Notification) => {
-    if (!notification.is_read) {
+    const isRead = notification.read_channels?.includes('in_app');
+    if (!isRead) {
       handleMarkAsRead(notification.id);
     }
 
-    const redirectFn = NOTIFICATION_REDIRECTS[notification.type];
+    const redirectFn = NOTIFICATION_REDIRECTS[notification.template_code];
     if (redirectFn) {
       const path = redirectFn(notification.data as Record<string, unknown>);
       navigate(path);
@@ -253,19 +278,21 @@ export default function AgencyNotificationsPage() {
   };
 
   const filteredNotifications = notifications.filter((notif) => {
-    if (filter === 'unread' && notif.is_read) return false;
-    if (filter === 'read' && !notif.is_read) return false;
+    const isRead = notif.read_channels?.includes('in_app');
+    if (filter === 'unread' && isRead) return false;
+    if (filter === 'read' && !isRead) return false;
 
     if (searchQuery) {
-      const searchText = `${notif.title} ${notif.message}`.toLowerCase();
+      const template = NOTIFICATION_ICONS[notif.template_code] ? NOTIFICATION_ICONS[notif.template_code] : Bell;
+      const searchText = `${notif.template_code}`.toLowerCase();
       if (!searchText.includes(searchQuery.toLowerCase())) return false;
     }
 
     return true;
   });
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
-  const readCount = notifications.filter((n) => n.is_read).length;
+  const unreadCount = notifications.filter((n) => !n.read_channels?.includes('in_app')).length;
+  const readCount = notifications.filter((n) => n.read_channels?.includes('in_app')).length;
 
   const getNotificationConfig = (type: string) => {
     const colors = NOTIFICATION_COLORS[type] || NOTIFICATION_COLORS.default;
@@ -461,9 +488,9 @@ export default function AgencyNotificationsPage() {
           <div className="bg-white rounded-[24px] border border-[#EFEBE9] shadow-sm overflow-hidden">
             <div className="divide-y divide-[#EFEBE9]">
               {filteredNotifications.map((notification) => {
-                const isRead = notification.is_read;
+                const isRead = notification.read_channels?.includes('in_app');
                 const isSelected = selectedNotifications.has(notification.id);
-                const { colors, Icon } = getNotificationConfig(notification.type);
+                const { colors, Icon } = getNotificationConfig(notification.template_code);
 
                 return (
                   <div
@@ -507,12 +534,14 @@ export default function AgencyNotificationsPage() {
                                 !isRead ? 'text-[#F16522]' : ''
                               }`}
                             >
-                              {notification.title}
+                              {notification.template_code.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                               {!isRead && (
                                 <span className="ml-2 w-2 h-2 bg-[#F16522] rounded-full inline-block"></span>
                               )}
                             </h4>
-                            <p className="text-sm text-[#8B7466] mt-1">{notification.message}</p>
+                            <p className="text-sm text-[#8B7466] mt-1">
+                              {Object.values(notification.data || {}).slice(0, 2).join(' • ')}
+                            </p>
                             <p className="text-xs text-[#8B7466] mt-2">
                               {format(new Date(notification.created_at), 'Pp', { locale: fr })}
                             </p>

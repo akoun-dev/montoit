@@ -94,7 +94,7 @@ export default function HandwrittenSignaturePage() {
         .select(`
           *,
           property:properties(id, title, city, neighborhood, price),
-          agency:agencies(id, user_id, agency_name)
+          agency:profiles!agency_mandates_agency_id_fkey(id, agency_name)
         `)
         .eq('id', id)
         .single();
@@ -362,7 +362,7 @@ export default function HandwrittenSignaturePage() {
           <CardContent className="pt-8 text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Mandat introuvable</h2>
-            <Button onClick={() => navigate('/mandat/signer/' + id)} className="mt-4">
+            <Button onClick={() => navigate(-1)} className="mt-4">
               Retour
             </Button>
           </CardContent>

@@ -27,8 +27,8 @@ const SignLease = lazyWithRetry(() => import('@/pages/tenant/SignLeasePage'));
 const ApplicationForm = lazyWithRetry(() => import('@/pages/tenant/ApplicationFormPage'));
 // MyMandatesPage can be used by both owners and agencies
 const MyMandatesPage = lazyWithRetry(() => import('@/pages/agency/MyMandatesPage'));
-// HandwrittenSignaturePage for signing mandates
-const HandwrittenSignaturePage = lazyWithRetry(() => import('@/pages/mandates/HandwrittenSignaturePage'));
+// HandwrittenSignaturePageSimple for signing mandates (simplified version)
+const HandwrittenSignaturePageSimple = lazyWithRetry(() => import('@/pages/mandates/HandwrittenSignaturePageSimple'));
 // MandateDetailPage for mandate details
 const MandateDetailPage = lazyWithRetry(() => import('@/components/mandates/MandateDetailPage'));
 // Layout-agnostic messaging view
@@ -148,7 +148,7 @@ export const ownerRoutes: RouteObject[] = [
       },
       {
         path: 'mes-mandats/signer/:id',
-        element: <HandwrittenSignaturePage />,
+        element: <HandwrittenSignaturePageSimple />,
       },
 
       // Messages (layout-agnostic view wrapped in OwnerDashboardLayout)

@@ -1,8 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 
-type Agency = Database['public']['Tables']['agencies']['Row'];
+type AgencyProfile = {
+  id: string;
+  agency_name: string | null;
+  email: string | null;
+  phone: string | null;
+  city: string | null;
+  agency_logo: string | null;
+  user_type: string;
+};
 
 export interface UserAgency {
   id: string;
@@ -25,21 +32,24 @@ export function useUserAgency() {
       }
 
       const { data, error } = await supabase
-        .from('agencies')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .from('profiles')
+        .select('id, agency_name, email, phone, city, agency_logo, user_type')
+        .eq('id', user.id)
+        .eq('user_type', 'agency')
+        .maybeSingle();
 
       if (error) throw error;
 
-      const agency = data?.[0] as Agency | undefined;
-
-      if (!agency) {
+      if (!data) {
         throw new Error('Agence non trouvée');
       }
 
-      return agency as UserAgency;
+      return {
+        id: data.id,
+        agency_name: data.agency_name || '',
+        user_id: data.id,
+        status: 'active',
+      } as UserAgency;
     },
     retry: false,
     staleTime: Infinity, // Agency data doesn't change often
