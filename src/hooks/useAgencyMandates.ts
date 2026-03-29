@@ -339,6 +339,20 @@ export function useAgencyMandates() {
     async (mandateId: string): Promise<boolean> => {
       const toastId = toast.loading('Acceptation du mandat en cours...');
 
+      // First, get the mandate details to check if it has a property
+      const { data: mandateData, error: mandateError } = await supabase
+        .from('agency_mandates')
+        .select('id, property_id, agency_id')
+        .eq('id', mandateId)
+        .maybeSingle();
+
+      if (mandateError || !mandateData) {
+        console.error('Error fetching mandate for acceptance:', mandateError);
+        toast.error('Erreur lors de l\'acceptation du mandat', { id: toastId });
+        return false;
+      }
+
+      // Update mandate status
       const { error: err } = await supabase
         .from('agency_mandates')
         .update({
@@ -351,6 +365,26 @@ export function useAgencyMandates() {
         console.error('Error accepting mandate:', err);
         toast.error('Erreur lors de l\'acceptation du mandat', { id: toastId });
         return false;
+      }
+
+      // If mandate has a property, update managed_by_agency
+      if (mandateData.property_id) {
+        console.log('[acceptMandate] Updating property managed_by_agency:', {
+          propertyId: mandateData.property_id,
+          agencyId: mandateData.agency_id
+        });
+
+        const { error: propertyError } = await supabase
+          .from('properties')
+          .update({ managed_by_agency: mandateData.agency_id })
+          .eq('id', mandateData.property_id);
+
+        if (propertyError) {
+          console.error('Error updating property managed_by_agency:', propertyError);
+          // Don't fail the mandate acceptance if property update fails
+        } else {
+          console.log('[acceptMandate] Property updated successfully');
+        }
       }
 
       // Send notification to owner

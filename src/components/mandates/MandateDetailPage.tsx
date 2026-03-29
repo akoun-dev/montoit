@@ -620,6 +620,28 @@ export default function MandateDetailPage() {
             <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9]">
               <h2 className="text-lg font-bold text-[#2C1810] mb-4">Actions</h2>
               <div className="space-y-3">
+                {/* Créer un bien - seulement pour les agences avec mandat actif sans bien associé */}
+                {viewMode === 'agency' && mandate.status === 'active' && !mandate.property_id && (
+                  <button
+                    onClick={() => navigate(`/agences/ajouter-bien?mandateId=${mandate.id}`)}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-green-100 text-green-700 rounded-xl font-semibold hover:bg-green-200 transition-colors"
+                  >
+                    <Home className="h-5 w-5" />
+                    Créer un bien
+                  </button>
+                )}
+
+                {/* Voir le bien - si un bien est associé au mandat */}
+                {viewMode === 'agency' && mandate.property_id && (
+                  <button
+                    onClick={() => navigate(`/agences/biens/${mandate.property_id}`)}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-blue-100 text-blue-700 rounded-xl font-semibold hover:bg-blue-200 transition-colors"
+                  >
+                    <Home className="h-5 w-5" />
+                    Voir le bien
+                  </button>
+                )}
+
                 <button
                   onClick={() => navigate(
                     viewMode === 'owner'

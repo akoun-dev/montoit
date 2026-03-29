@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -84,6 +84,8 @@ const propertyTypes = [
 export default function AgencyAddPropertyPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const mandateIdFromUrl = searchParams.get('mandateId');
   const [mandates, setMandates] = useState<Mandate[]>([]);
   const [selectedMandate, setSelectedMandate] = useState<Mandate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -288,6 +290,17 @@ export default function AgencyAddPropertyPage() {
     setFormData(newFormData);
     setStep(2);
   };
+
+  // Auto-select mandate if mandateId is in URL
+   
+  useEffect(() => {
+    if (mandateIdFromUrl && mandates.length > 0 && !selectedMandate) {
+      const mandate = mandates.find(m => m.id === mandateIdFromUrl);
+      if (mandate) {
+        handleMandateSelect(mandate);
+      }
+    }
+  }, [mandateIdFromUrl, mandates, selectedMandate]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;

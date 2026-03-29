@@ -330,6 +330,26 @@ serve(async (req) => {
       updateData
     });
 
+    // Update property managed_by_agency when agency signs
+    if (signerType === 'agency' && mandate.property_id) {
+      console.log(`[cryptoneo-sign-mandate] Updating property managed_by_agency:`, {
+        propertyId: mandate.property_id,
+        agencyId: mandate.agency_id
+      });
+
+      const { error: propertyError } = await supabaseAdmin
+        .from('properties')
+        .update({ managed_by_agency: mandate.agency_id })
+        .eq('id', mandate.property_id);
+
+      if (propertyError) {
+        console.error('[cryptoneo-sign-mandate] Property update error:', propertyError);
+        // Don't fail the signature if property update fails
+      } else {
+        console.log('[cryptoneo-sign-mandate] Property managed_by_agency updated successfully');
+      }
+    }
+
     // Send notification
     try {
       await fetch(`${SUPABASE_URL}/functions/v1/send-mandate-notifications`, {

@@ -117,6 +117,21 @@ export default function AgencyPropertiesPage() {
         error: allError
       });
 
+      const matchingProperties = allProperties?.filter(p => p.managed_by_agency === profileData.id) || [];
+      console.log('[AgencyPropertiesPage] Properties matching my agency:', {
+        myAgencyId: profileData.id,
+        matchingProperties: matchingProperties,
+        count: matchingProperties.length
+      });
+
+      // Log the properties with their managed_by_agency values for debugging
+      console.table(allProperties?.map(p => ({
+        id: p.id,
+        title: p.title,
+        managed_by_agency: p.managed_by_agency,
+        matches: p.managed_by_agency === profileData.id ? '✓ YES' : '✗ NO'
+      })));
+
       // Load properties with owner information
       const { data: propertiesData, error } = await supabase
         .from('properties')
