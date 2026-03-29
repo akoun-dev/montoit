@@ -43,39 +43,39 @@ const navSections = [
     items: [
       { label: 'Tableau de bord', href: '/locataire/dashboard', icon: LayoutDashboard },
       { label: 'Mon Espace', href: '/locataire/mon-espace', icon: Home },
-      { label: 'Recherche', href: '/recherche', icon: Search },
+      { label: 'Chercher un bien', href: '/recherche', icon: Search },
       { label: 'Favoris', href: '/locataire/favoris', icon: Heart },
     ],
   },
   {
     title: 'Location',
     items: [
-      { label: 'Candidatures', href: '/locataire/mes-candidatures', icon: Users, counterKey: 'pendingApplications' as const },
-      { label: 'Visites', href: '/locataire/mes-visites', icon: Calendar, counterKey: 'pendingVisits' as const },
-      { label: 'Contrats', href: '/locataire/mes-contrats', icon: FileText },
-      { label: 'Paiements', href: '/locataire/mes-paiements', icon: CreditCard },
+      { label: 'Mes Candidatures', href: '/locataire/mes-candidatures', icon: Users, counterKey: 'pendingApplications' as const },
+      { label: 'Mes Visites', href: '/locataire/mes-visites', icon: Calendar, counterKey: 'pendingVisits' as const },
+      { label: 'Mes Contrats', href: '/locataire/mes-contrats', icon: FileText },
+      { label: 'Mes Paiements', href: '/locataire/mes-paiements', icon: CreditCard },
     ],
   },
-  {
-    title: 'Compte',
-    items: [
-      { label: 'Profil', href: '/locataire/profil', icon: User },
-      { label: 'Paramètres', href: '/locataire/parametres', icon: Settings },
-      { label: 'Avis', href: '/locataire/avis', icon: Star },
-      { label: 'Maintenance', href: '/locataire/maintenance', icon: Wrench },
-      { label: 'Historique', href: '/locataire/profil/historique-locations', icon: Folder },
-    ],
-  },
+
   {
     title: 'Messages',
     items: [
       { label: 'Messages', href: '/locataire/messages', icon: MessageSquare, counterKey: 'unreadMessages' as const },
       { label: 'Notifications', href: '/locataire/notifications', icon: Bell, counterKey: 'unreadNotifications' as const },
     ],
+  },  
+  {
+    title: 'Compte',
+    items: [
+      { label: 'Mes avis', href: '/locataire/avis', icon: Star },
+      { label: 'Maintenance', href: '/locataire/maintenance', icon: Wrench },
+      { label: 'Historique', href: '/locataire/profil/historique-locations', icon: Folder },
+      { label: 'Paramètres', href: '/locataire/parametres', icon: Settings },
+    ],
   },
+
 ];
 
-const quickItems = [{ label: 'Rechercher', href: '/recherche', icon: Search }];
 
 export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
   const location = useLocation();
@@ -365,33 +365,6 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
               </ul>
             </div>
           ))}
-
-          {/* Quick Items */}
-          <div className="border-t border-neutral-100 pt-4">
-            <ul className="space-y-1">
-              {quickItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.href);
-                return (
-                  <li key={item.href}>
-                    <Link
-                      to={item.href}
-                      onClick={onClose}
-                      className={cn(
-                        'flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all',
-                        active
-                          ? 'bg-[#FFF2E6] text-[#D95318]'
-                          : 'text-[#5C4A3D] hover:bg-[#FAF4EE] hover:text-[#2C1810]'
-                      )}
-                    >
-                      <Icon className={cn('h-5 w-5', active ? 'text-[#F16522]' : '')} />
-                      <span>{item.label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
         </nav>
 
         {/* Footer */}

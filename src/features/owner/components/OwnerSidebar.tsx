@@ -38,7 +38,7 @@ const navSections = [
     items: [
       { label: 'Tableau de bord', href: '/proprietaire/dashboard', icon: LayoutDashboard },
       { label: 'Mes biens', href: '/proprietaire/mes-biens', icon: Building2 },
-      { label: 'Recherche', href: '/recherche', icon: Search },
+      { label: 'Chercher un bien', href: '/recherche', icon: Search },
     ],
   },
   {
@@ -55,19 +55,19 @@ const navSections = [
     ],
   },
   {
-    title: 'Compte',
-    items: [
-      { label: 'Profil', href: '/proprietaire/profil', icon: UserCircle2 },
-      { label: 'Paramètres', href: '/proprietaire/parametres', icon: Settings },
-    ],
-  },
-  {
     title: 'Messages',
     items: [
       { label: 'Messages', href: '/proprietaire/messages', icon: MessageSquare, counterKey: 'unreadMessages' as const },
       { label: 'Notifications', href: '/proprietaire/notifications', icon: Bell, counterKey: 'unreadNotifications' as const },
     ],
+  },  
+  {
+    title: 'Compte',
+    items: [
+      { label: 'Paramètres', href: '/proprietaire/parametres', icon: Settings },
+    ],
   },
+
 ];
 
 const quickItems = [{ label: 'Rechercher', href: '/recherche', icon: Search }];
