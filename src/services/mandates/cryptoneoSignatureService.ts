@@ -1,6 +1,15 @@
 /**
- * Service de signature électronique CryptoNeo avec OTP InTouch
+ * Service de signature électronique CryptoNeo
  * Permet la signature électronique des mandats de gestion immobilière
+ * Documentation: https://ansut.cryptoneoplatforms.com/esignaturedemo
+ *
+ * Flow:
+ * 1. Authentication (POST /user/auth) → Token
+ * 2. Generate Certificate (POST /generateCert/generateCertificat) → aliasCertificat
+ * 3. Send OTP (POST /otp/send) → OTP envoyé par email/SMS
+ * 4. Sign Batch (POST /sign/signFileBatch) → operationId
+ * 5. Verify Signature (POST /sign/verifySignedBatch) → Polling jusqu'à statusCode 7000
+ * 6. Download Signed File (GET /sign/getSignedFile/{fileName})
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -9,9 +18,8 @@ import { supabase } from '@/integrations/supabase/client';
 export interface SignatureRequest {
   mandateId: string;
   signatoryRole: 'owner' | 'agency';
-  signatoryName: string;
-  signatoryEmail: string;
-  signatoryPhone: string; // Pour l'OTP InTouch
+  signatoryName?: string;
+  signatoryEmail?: string;
 }
 
 export interface SignatureStatus {
@@ -23,7 +31,7 @@ export interface SignatureStatus {
   expiresAt: string | null;
 }
 
-export interface InTouchOTPResponse {
+export interface CryptoNeoOTPResponse {
   success: boolean;
   transactionId?: string;
   message?: string;
@@ -39,12 +47,49 @@ export interface CryptoNeoSignatureResponse {
 
 // Configuration
 const CRYPTONEO_CONFIG = {
-  apiUrl: import.meta.env.VITE_CRYPTONEO_API_URL || 'https://api.cryptoneo.com/v1',
-  apiKey: import.meta.env.VITE_CRYPTONEO_API_KEY,
-  intouchApiUrl: import.meta.env.VITE_INTOUCH_API_URL || 'https://api.intouch.ci/v1',
-  intouchApiKey: import.meta.env.VITE_INTOUCH_API_KEY,
+  baseUrl: import.meta.env.VITE_CRYPTONEO_BASE_URL || 'https://ansut.cryptoneoplatforms.com/esignaturedemo',
+  appKey: import.meta.env.VITE_CRYPTONEO_APP_KEY,
+  appSecret: import.meta.env.VITE_CRYPTONEO_APP_SECRET,
   signatureExpiryHours: 72, // 72 heures pour signer
 };
+
+// Token storage
+let authToken: string | null = null;
+
+/**
+ * Récupère ou génère le token d'authentification
+ */
+async function getAuthToken(): Promise<string> {
+  if (authToken) {
+    return authToken;
+  }
+
+  if (!CRYPTONEO_CONFIG.appKey || !CRYPTONEO_CONFIG.appSecret) {
+    throw new Error('Clés API CryptoNeo non configurées');
+  }
+
+  const response = await fetch(`${CRYPTONEO_CONFIG.baseUrl}/user/auth`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      appKey: CRYPTONEO_CONFIG.appKey,
+      appSecret: CRYPTONEO_CONFIG.appSecret,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Erreur d\'authentification CryptoNeo');
+  }
+
+  const result = await response.json();
+  authToken = result.data?.token;
+
+  if (!authToken) {
+    throw new Error('Token non reçu de CryptoNeo');
+  }
+
+  return authToken;
+}
 
 /**
  * Service CryptoNeo Signature Service
@@ -52,7 +97,7 @@ const CRYPTONEO_CONFIG = {
 class CryptoNeoSignatureService {
   /**
    * Initier une signature de mandat
-   * Crée une opération CryptoNeo et envoie l'OTP via InTouch
+   * Crée un certificat CryptoNeo et envoie l'OTP
    */
   async initiateSignature(request: SignatureRequest): Promise<CryptoNeoSignatureResponse> {
     try {
@@ -73,26 +118,27 @@ class CryptoNeoSignatureService {
         return { success: false, error: 'Mandat introuvable' };
       }
 
-      // 2. Préparer les données pour CryptoNeo
-      const signatureData = {
-        documentName: `Mandat de gestion - ${mandate.property?.title || 'Bien immobilier'}`,
-        documentType: 'MANDATE',
-        signatories: [
-          {
+      // 2. Déterminer le signataire actuel
+      const signatory = request.signatoryRole === 'owner'
+        ? {
             id: mandate.owner_id,
             name: mandate.owner?.full_name || 'Propriétaire',
             email: mandate.owner?.email,
             phone: mandate.owner?.phone,
             role: 'PROPRIETAIRE',
-          },
-          {
+          }
+        : {
             id: mandate.agency_id,
             name: mandate.agency?.agency_name || 'Agence',
             email: mandate.agency?.email,
             phone: mandate.agency?.phone,
             role: 'AGENCE',
-          },
-        ],
+          };
+
+      // 3. Créer l'opération de signature chez CryptoNeo (génère certificat + envoie OTP)
+      const cryptoNeoResponse = await this.createCryptoNeoOperation({
+        signatoryRole: request.signatoryRole,
+        signatories: [signatory],
         expiryDate: new Date(
           Date.now() + CRYPTONEO_CONFIG.signatureExpiryHours * 60 * 60 * 1000
         ).toISOString(),
@@ -104,10 +150,7 @@ class CryptoNeoSignatureService {
           startDate: mandate.start_date,
           endDate: mandate.end_date,
         },
-      };
-
-      // 3. Créer l'opération de signature chez CryptoNeo
-      const cryptoNeoResponse = await this.createCryptoNeoOperation(signatureData);
+      });
 
       if (!cryptoNeoResponse.success || !cryptoNeoResponse.operationId) {
         return {
@@ -116,46 +159,19 @@ class CryptoNeoSignatureService {
         };
       }
 
-      // 4. Envoyer l'OTP via InTouch
-      const signatoryPhone =
-        request.signatoryRole === 'owner'
-          ? mandate.owner?.phone
-          : mandate.agency?.phone;
-
-      if (signatoryPhone) {
-        const otpResponse = await this.sendInTouchOTP({
-          phoneNumber: signatoryPhone,
-          operationId: cryptoNeoResponse.operationId,
-          signatoryName: request.signatoryName,
-        });
-
-        if (!otpResponse.success) {
-          console.warn('Failed to send OTP via InTouch:', otpResponse.error);
-          // On continue quand même, l'utilisateur peut demander un nouvel OTP
-        }
-      }
-
-      // 5. Mettre à jour le mandat avec les informations de signature
-      const updateData: unknown = {
+      // 4. Mettre à jour le mandat avec l'ID d'opération (alias du certificat)
+      // Note: Le statut de signature sera mis à jour après vérification OTP
+      const updateData: any = {
         cryptoneo_operation_id: cryptoNeoResponse.operationId,
-        cryptoneo_signature_status:
-          request.signatoryRole === 'owner' ? 'owner_signed' : 'agency_signed',
       };
 
-      if (request.signatoryRole === 'owner') {
-        updateData.owner_signed_at = new Date().toISOString();
-      } else {
-        updateData.agency_signed_at = new Date().toISOString();
-      }
-
-      // Vérifier si les deux parties ont signé
-      const bothSigned =
-        (mandate.owner_signed_at || request.signatoryRole === 'owner') &&
-        (mandate.agency_signed_at || request.signatoryRole === 'agency');
-
-      if (bothSigned) {
-        updateData.cryptoneo_signature_status = 'completed';
-        updateData.signed_mandate_url = cryptoNeoResponse.signatureUrl || null;
+      // Si c'est une nouvelle signature, réinitialiser les dates
+      if (!mandate.cryptoneo_operation_id || mandate.cryptoneo_operation_id !== cryptoNeoResponse.operationId) {
+        if (request.signatoryRole === 'owner') {
+          updateData.owner_signed_at = null;
+        } else {
+          updateData.agency_signed_at = null;
+        }
       }
 
       const { error: updateError } = await supabase
@@ -170,7 +186,6 @@ class CryptoNeoSignatureService {
       return {
         success: true,
         operationId: cryptoNeoResponse.operationId,
-        signatureUrl: cryptoNeoResponse.signatureUrl,
       };
     } catch (error) {
       console.error('Error in initiateSignature:', error);
@@ -179,31 +194,37 @@ class CryptoNeoSignatureService {
   }
 
   /**
-   * Créer une opération de signature chez CryptoNeo
+   * Générer un certificat chez CryptoNeo
+   * Documentation: POST /generateCert/generateCertificat
    */
-  private async createCryptoNeoOperation(data: unknown): Promise<CryptoNeoSignatureResponse> {
+  private async generateCertificate(data: {
+    firstName: string;
+    lastName: string;
+    gender: string;
+    email: string;
+    phone: string;
+    organisation: string;
+    typePiece: string;
+    hashPiece: string;
+    base64: string;
+    consent: boolean;
+    consentDate: string;
+  }): Promise<{ success: boolean; aliasCertificat?: string; error?: string }> {
     try {
-      // Dans un environnement réel, cela appellerait l'API CryptoNeo
-      // Pour l'instant, nous simulons la réponse
-
-      if (!CRYPTONEO_CONFIG.apiKey) {
-        // Mode simulation - retourner une fausse réponse pour développement
-        const mockOperationId = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        console.log('CryptoNeo API: Simulation mode', { mockOperationId, data });
-
-        return {
-          success: true,
-          operationId: mockOperationId,
-          signatureUrl: `https://cryptoneo.com/sign/${mockOperationId}`,
-        };
+      if (!CRYPTONEO_CONFIG.appKey || !CRYPTONEO_CONFIG.appSecret) {
+        // Mode simulation
+        const mockAlias = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        console.log('CryptoNeo API: Simulation mode - generateCertificate', { mockAlias, data });
+        return { success: true, aliasCertificat: mockAlias };
       }
 
-      // Appel API réel (à implémenter avec l'API CryptoNeo)
-      const response = await fetch(`${CRYPTONEO_CONFIG.apiUrl}/signatures`, {
+      const token = await getAuthToken();
+
+      const response = await fetch(`${CRYPTONEO_CONFIG.baseUrl}/generateCert/generateCertificat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${CRYPTONEO_CONFIG.apiKey}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(data),
       });
@@ -213,14 +234,289 @@ class CryptoNeoSignatureService {
       if (!response.ok) {
         return {
           success: false,
-          error: result.message || 'Erreur API CryptoNeo',
+          error: result.statusMessage || result.message || 'Erreur API CryptoNeo',
         };
       }
 
       return {
         success: true,
-        operationId: result.operationId,
-        signatureUrl: result.signatureUrl,
+        aliasCertificat: result.data?.aliasCertificat,
+      };
+    } catch (error) {
+      console.error('CryptoNeo generateCertificate error:', error);
+      return {
+        success: false,
+        error: 'Erreur de connexion avec CryptoNeo',
+      };
+    }
+  }
+
+  /**
+   * Envoyer un OTP via CryptoNeo
+   * Documentation: POST /otp/send
+   */
+  private async sendOTP(params: {
+    aliasCertificat: string;
+    canal: 'MAIL' | 'SMS';
+  }): Promise<CryptoNeoOTPResponse> {
+    try {
+      if (!CRYPTONEO_CONFIG.appKey || !CRYPTONEO_CONFIG.appSecret) {
+        // Mode simulation
+        console.log('CryptoNeo API: Simulation mode - sendOTP', params);
+        return {
+          success: true,
+          transactionId: `mock_${Date.now()}`,
+          message: 'OTP envoyé avec succès',
+        };
+      }
+
+      const token = await getAuthToken();
+
+      const response = await fetch(`${CRYPTONEO_CONFIG.baseUrl}/otp/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          aliasCertificat: params.aliasCertificat,
+          typeOperation: 'SIGNATURE_ELECTRONIQUE',
+          canal: params.canal,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: result.statusMessage || result.message || 'Erreur API CryptoNeo',
+        };
+      }
+
+      return {
+        success: true,
+        transactionId: result.data?.transactionId,
+        message: result.statusMessage || 'OTP envoyé',
+      };
+    } catch (error) {
+      console.error('CryptoNeo sendOTP error:', error);
+      return {
+        success: false,
+        error: 'Erreur de connexion avec CryptoNeo',
+      };
+    }
+  }
+
+  /**
+   * Signer des documents
+   * Documentation: POST /sign/signFileBatch
+   */
+  private async signBatch(params: {
+    aliasCertificat: string;
+    otp: string;
+    callBackUrl: string;
+    signRequest: Array<{
+      codeDoc: string;
+      urlDoc: string;
+      hashDoc: string;
+      visibiliteImage: boolean;
+      urlImage: string;
+      hashImage: string;
+      positionImage: string;
+      pageImage: string;
+      lieuSignature: string;
+      motifSignature: string;
+    }>;
+  }): Promise<{ success: boolean; operationId?: string; error?: string }> {
+    try {
+      if (!CRYPTONEO_CONFIG.appKey || !CRYPTONEO_CONFIG.appSecret) {
+        // Mode simulation
+        const mockOperationId = `mock_op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        console.log('CryptoNeo API: Simulation mode - signBatch', { mockOperationId, params });
+        return { success: true, operationId: mockOperationId };
+      }
+
+      const token = await getAuthToken();
+
+      const response = await fetch(`${CRYPTONEO_CONFIG.baseUrl}/sign/signFileBatch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(params),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: result.statusMessage || result.message || 'Erreur API CryptoNeo',
+        };
+      }
+
+      return {
+        success: true,
+        operationId: result.data?.operationId,
+      };
+    } catch (error) {
+      console.error('CryptoNeo signBatch error:', error);
+      return {
+        success: false,
+        error: 'Erreur de connexion avec CryptoNeo',
+      };
+    }
+  }
+
+  /**
+   * Vérifier une signature
+   * Documentation: POST /sign/verifySignedBatch
+   */
+  private async verifySignedBatch(operationId: string): Promise<{
+    success: boolean;
+    results?: Array<{
+      statusCode: number;
+      statusMessage: string;
+      data: {
+        fileName: string;
+        hashSignDoc?: string;
+      };
+    }>;
+    error?: string;
+  }> {
+    try {
+      if (!CRYPTONEO_CONFIG.appKey || !CRYPTONEO_CONFIG.appSecret) {
+        // Mode simulation - retourne succès après quelques tentatives
+        console.log('CryptoNeo API: Simulation mode - verifySignedBatch', { operationId });
+        return {
+          success: true,
+          results: [{
+            statusCode: 7000,
+            statusMessage: 'Signature réussie',
+            data: { fileName: 'mandat_signed.pdf' },
+          }],
+        };
+      }
+
+      const token = await getAuthToken();
+
+      const response = await fetch(`${CRYPTONEO_CONFIG.baseUrl}/sign/verifySignedBatch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ operationId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: result.statusMessage || result.message || 'Erreur API CryptoNeo',
+        };
+      }
+
+      return {
+        success: true,
+        results: result.data?.results,
+      };
+    } catch (error) {
+      console.error('CryptoNeo verifySignedBatch error:', error);
+      return {
+        success: false,
+        error: 'Erreur de connexion avec CryptoNeo',
+      };
+    }
+  }
+
+  /**
+   * Télécharger un document signé
+   * Documentation: GET /sign/getSignedFile/{fileName}
+   */
+  private async downloadSignedFile(fileName: string): Promise<{ success: boolean; blob?: Blob; error?: string }> {
+    try {
+      if (!CRYPTONEO_CONFIG.appKey || !CRYPTONEO_CONFIG.appSecret) {
+        // Mode simulation
+        console.log('CryptoNeo API: Simulation mode - downloadSignedFile', { fileName });
+        return { success: true, blob: new Blob(['mock document']) };
+      }
+
+      const token = await getAuthToken();
+
+      const response = await fetch(`${CRYPTONEO_CONFIG.baseUrl}/sign/getSignedFile/${fileName}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        return {
+          success: false,
+          error: result.statusMessage || result.message || 'Erreur API CryptoNeo',
+        };
+      }
+
+      const blob = await response.blob();
+      return { success: true, blob };
+    } catch (error) {
+      console.error('CryptoNeo downloadSignedFile error:', error);
+      return {
+        success: false,
+        error: 'Erreur de connexion avec CryptoNeo',
+      };
+    }
+  }
+
+  /**
+   * Créer une opération de signature chez CryptoNeo (méthode principale)
+   */
+  private async createCryptoNeoOperation(signatureData: any): Promise<CryptoNeoSignatureResponse> {
+    try {
+      // 1. Générer le certificat pour le signataire
+      const signatory = signatureData.signatories.find((s: any) =>
+        s.role === (signatureData.metadata?.signatoryRole || 'PROPRIETAIRE')
+      ) || signatureData.signatories[0];
+
+      const certResponse = await this.generateCertificate({
+        firstName: signatory.name?.split(' ')[0] || '',
+        lastName: signatory.name?.split(' ').slice(1).join(' ') || signatory.name || '',
+        gender: 'Homme',
+        email: signatory.email || '',
+        phone: signatory.phone || '',
+        organisation: signatory.role === 'AGENCE' ? 'Agence Immobilière' : 'Particulier',
+        typePiece: 'CNI',
+        hashPiece: '',
+        base64: '',
+        consent: true,
+        consentDate: new Date().toISOString().slice(0, 19).replace('T', ' '),
+      });
+
+      if (!certResponse.success || !certResponse.aliasCertificat) {
+        return {
+          success: false,
+          error: certResponse.error || 'Erreur lors de la génération du certificat',
+        };
+      }
+
+      // 2. Envoyer l'OTP
+      const otpResponse = await this.sendOTP({
+        aliasCertificat: certResponse.aliasCertificat,
+        canal: 'MAIL', // Par défaut, email
+      });
+
+      if (!otpResponse.success) {
+        console.warn('Failed to send OTP:', otpResponse.error);
+      }
+
+      return {
+        success: true,
+        operationId: certResponse.aliasCertificat, // Utiliser l'alias comme operationId
       };
     } catch (error) {
       console.error('CryptoNeo API error:', error);
@@ -231,62 +527,6 @@ class CryptoNeoSignatureService {
     }
   }
 
-  /**
-   * Envoyer un OTP via InTouch
-   */
-  private async sendInTouchOTP(params: {
-    phoneNumber: string;
-    operationId: string;
-    signatoryName: string;
-  }): Promise<InTouchOTPResponse> {
-    try {
-      if (!CRYPTONEO_CONFIG.intouchApiKey) {
-        // Mode simulation
-        console.log('InTouch API: Simulation mode - OTP sent to', params.phoneNumber);
-        return {
-          success: true,
-          transactionId: `mock_${Date.now()}`,
-          message: 'OTP envoyé avec succès',
-        };
-      }
-
-      // Appel API réel InTouch
-      const response = await fetch(`${CRYPTONEO_CONFIG.intouchApiUrl}/otp/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${CRYPTONEO_CONFIG.intouchApiKey}`,
-        },
-        body: JSON.stringify({
-          phoneNumber: this.formatPhoneNumber(params.phoneNumber),
-          message: `Votre code de signature pour le mandat est: {OTP}. Valide pendant 10 minutes.`,
-          transactionId: params.operationId,
-          expiryMinutes: 10,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        return {
-          success: false,
-          error: result.message || 'Erreur API InTouch',
-        };
-      }
-
-      return {
-        success: true,
-        transactionId: result.transactionId,
-        message: result.message,
-      };
-    } catch (error) {
-      console.error('InTouch API error:', error);
-      return {
-        success: false,
-        error: 'Erreur de connexion avec InTouch',
-      };
-    }
-  }
 
   /**
    * Vérifier un OTP et finaliser la signature
@@ -312,51 +552,90 @@ class CryptoNeoSignatureService {
         return { success: false, error: 'Aucune signature en cours' };
       }
 
-      // 2. Vérifier l'OTP avec CryptoNeo/InTouch
-      const verificationResult = await this.verifyOTPWithInTouch({
-        operationId: mandate.cryptoneo_operation_id,
+      // 2. Signer avec l'OTP via signBatch
+      const signResponse = await this.signBatch({
+        aliasCertificat: mandate.cryptoneo_operation_id,
         otp: params.otp,
+        callBackUrl: `${window.location.origin}/api/cryptoneo/callback`,
+        signRequest: [
+          {
+            codeDoc: `MANDATE_${mandate.id}`,
+            urlDoc: mandate.mandate_url || '',
+            hashDoc: mandate.mandate_hash || '',
+            visibiliteImage: true,
+            urlImage: '',
+            hashImage: '',
+            positionImage: '130,213',
+            pageImage: '1',
+            lieuSignature: 'Abidjan',
+            motifSignature: 'Signature Electronique - Mandat de Gestion Immobilière',
+          },
+        ],
       });
 
-      if (!verificationResult.success) {
-        return { success: false, error: 'Code OTP invalide' };
+      if (!signResponse.success || !signResponse.operationId) {
+        return { success: false, error: signResponse.error || 'Erreur lors de la signature' };
       }
 
-      // 3. Mettre à jour le statut de signature
-      const updateData: unknown = {};
+      // 3. Polling pour vérifier le statut
+      const maxAttempts = 20; // 20 essais max
+      const pollInterval = 3000; // 3 secondes entre chaque vérification
 
-      if (params.signatoryRole === 'owner') {
-        updateData.owner_signed_at = new Date().toISOString();
-        if (mandate.agency_signed_at) {
-          updateData.cryptoneo_signature_status = 'completed';
-        } else {
-          updateData.cryptoneo_signature_status = 'owner_signed';
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+        const verifyResponse = await this.verifySignedBatch(signResponse.operationId);
+
+        if (verifyResponse.success && verifyResponse.results) {
+          const result = verifyResponse.results[0];
+
+          // StatusCode 7000 = Signature réussie
+          if (result.statusCode === 7000) {
+            // 4. Mettre à jour le statut de signature
+            const updateData: any = {};
+
+            if (params.signatoryRole === 'owner') {
+              updateData.owner_signed_at = new Date().toISOString();
+              if (mandate.agency_signed_at) {
+                updateData.cryptoneo_signature_status = 'completed';
+              } else {
+                updateData.cryptoneo_signature_status = 'owner_signed';
+              }
+            } else {
+              updateData.agency_signed_at = new Date().toISOString();
+              if (mandate.owner_signed_at) {
+                updateData.cryptoneo_signature_status = 'completed';
+              } else {
+                updateData.cryptoneo_signature_status = 'agency_signed';
+              }
+            }
+
+            // Si signature complète, stocker le nom du fichier
+            if (updateData.cryptoneo_signature_status === 'completed') {
+              updateData.signed_mandate_file_name = result.data.fileName;
+            }
+
+            const { error: updateError } = await supabase
+              .from('agency_mandates')
+              .update(updateData)
+              .eq('id', params.mandateId);
+
+            if (updateError) {
+              console.error('Error updating mandate:', updateError);
+            }
+
+            return { success: true };
+          }
+
+          // StatusCode autre que 7000 = Erreur ou en attente
+          if (result.statusCode < 7000) {
+            return { success: false, error: result.statusMessage || 'Erreur lors de la signature' };
+          }
         }
-      } else {
-        updateData.agency_signed_at = new Date().toISOString();
-        if (mandate.owner_signed_at) {
-          updateData.cryptoneo_signature_status = 'completed';
-        } else {
-          updateData.cryptoneo_signature_status = 'agency_signed';
-        }
       }
 
-      // Si signature complète, récupérer l'URL du document signé
-      if (updateData.cryptoneo_signature_status === 'completed') {
-        const signedDoc = await this.getSignedDocumentUrl(mandate.cryptoneo_operation_id);
-        updateData.signed_mandate_url = signedDoc.url;
-      }
-
-      const { error: updateError } = await supabase
-        .from('agency_mandates')
-        .update(updateData)
-        .eq('id', params.mandateId);
-
-      if (updateError) {
-        console.error('Error updating mandate:', updateError);
-      }
-
-      return { success: true };
+      // Timeout après maxAttempts
+      return { success: false, error: 'Délai d\'attente dépassé. Veuillez réessayer.' };
     } catch (error) {
       console.error('Error verifying OTP:', error);
       return { success: false, error: 'Erreur lors de la vérification' };
@@ -364,67 +643,32 @@ class CryptoNeoSignatureService {
   }
 
   /**
-   * Vérifier un OTP avec InTouch
-   */
-  private async verifyOTPWithInTouch(params: {
-    operationId: string;
-    otp: string;
-  }): Promise<{ success: boolean; error?: string }> {
-    try {
-      if (!CRYPTONEO_CONFIG.intouchApiKey) {
-        // Mode simulation - accepter n'importe quel OTP de 6 chiffres
-        const isValid = /^\d{6}$/.test(params.otp);
-        return {
-          success: isValid,
-          error: isValid ? undefined : 'OTP invalide (doit contenir 6 chiffres)',
-        };
-      }
-
-      // Appel API réel InTouch
-      const response = await fetch(`${CRYPTONEO_CONFIG.intouchApiUrl}/otp/verify`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${CRYPTONEO_CONFIG.intouchApiKey}`,
-        },
-        body: JSON.stringify({
-          transactionId: params.operationId,
-          otp: params.otp,
-        }),
-      });
-
-      const result = await response.json();
-
-      return {
-        success: result.valid || false,
-        error: result.valid ? undefined : result.message,
-      };
-    } catch (error) {
-      console.error('InTouch verification error:', error);
-      return { success: false, error: 'Erreur de vérification' };
-    }
-  }
-
-  /**
    * Récupérer l'URL du document signé
    */
-  private async getSignedDocumentUrl(operationId: string): Promise<{ url: string | null }> {
+  private async getSignedDocumentUrl(fileName: string): Promise<{ url: string | null }> {
     try {
-      if (!CRYPTONEO_CONFIG.apiKey) {
+      if (!CRYPTONEO_CONFIG.appKey || !CRYPTONEO_CONFIG.appSecret) {
         // Mode simulation
-        return { url: `https://cryptoneo.com/documents/${operationId}/signed` };
+        return { url: `https://cryptoneo.com/documents/${fileName}/signed` };
       }
 
-      const response = await fetch(`${CRYPTONEO_CONFIG.apiUrl}/signatures/${operationId}/document`, {
+      const token = await getAuthToken();
+
+      const response = await fetch(`${CRYPTONEO_CONFIG.baseUrl}/sign/getSignedFile/${fileName}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${CRYPTONEO_CONFIG.apiKey}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
-      const result = await response.json();
+      if (!response.ok) {
+        return { url: null };
+      }
 
-      return { url: result.documentUrl || null };
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      return { url };
     } catch (error) {
       console.error('Error getting signed document:', error);
       return { url: null };
@@ -432,9 +676,9 @@ class CryptoNeoSignatureService {
   }
 
   /**
-   * Renvoyer un OTP
+   * Renvoyer un OTP via CryptoNeo
    */
-  async resendOTP(mandateId: string, signatoryRole: 'owner' | 'agency'): Promise<{ success: boolean; error?: string }> {
+  async resendOTP(mandateId: string, signatoryRole: 'owner' | 'agency', canal: 'MAIL' | 'SMS' = 'MAIL'): Promise<{ success: boolean; error?: string }> {
     try {
       const { data: mandate, error } = await supabase
         .from('agency_mandates')
@@ -454,43 +698,20 @@ class CryptoNeoSignatureService {
         return { success: false, error: 'Aucune signature en cours' };
       }
 
-      const signatoryPhone =
-        signatoryRole === 'owner' ? mandate.owner?.phone : mandate.agency?.phone;
-      const signatoryName =
-        signatoryRole === 'owner'
-          ? mandate.owner?.full_name
-          : mandate.agency?.agency_name;
-
-      if (!signatoryPhone) {
-        return { success: false, error: 'Numéro de téléphone introuvable' };
-      }
-
-      const result = await this.sendInTouchOTP({
-        phoneNumber: signatoryPhone,
-        operationId: mandate.cryptoneo_operation_id,
-        signatoryName: signatoryName || '',
+      const result = await this.sendOTP({
+        aliasCertificat: mandate.cryptoneo_operation_id,
+        canal,
       });
 
-      return result;
+      if (!result.success) {
+        return { success: false, error: result.error || 'Erreur lors de l\'envoi de l\'OTP' };
+      }
+
+      return { success: true };
     } catch (error) {
       console.error('Error resending OTP:', error);
       return { success: false, error: 'Erreur lors de l\'envoi de l\'OTP' };
     }
-  }
-
-  /**
-   * Formatter un numéro de téléphone pour la Côte d'Ivoire
-   */
-  private formatPhoneNumber(phone: string): string {
-    // Nettoyer le numéro
-    let cleaned = phone.replace(/\D/g, '');
-
-    // Ajouter le code pays si nécessaire
-    if (!cleaned.startsWith('225')) {
-      cleaned = '225' + cleaned;
-    }
-
-    return cleaned;
   }
 
   /**

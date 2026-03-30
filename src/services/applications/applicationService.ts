@@ -582,6 +582,359 @@ export interface TenantApplicationWithDetails {
 }
 
 /**
+ * Récupère toutes les candidatures des biens gérés par une agence via mandats actifs
+ */
+export async function getAgencyApplications(
+  agencyId: string,
+  filters?: ApplicationFilters
+): Promise<ApplicationWithDetails[]> {
+  // D'abord, récupérer les IDs des propriétés gérées par l'agence via mandats actifs
+  const { data: mandates, error: mandatesError } = await supabase
+    .from('agency_mandates')
+    .select('property_id')
+    .eq('agency_id', agencyId)
+    .eq('status', 'active')
+    .eq('can_view_applications', true);
+
+  if (mandatesError) {
+    console.error('Error fetching agency mandates:', mandatesError);
+    throw mandatesError;
+  }
+
+  if (!mandates || mandates.length === 0) {
+    return [];
+  }
+
+  // Récupérer les biens gérés (soit via mandat avec property_id, soit via mandat tous_biens)
+  // Pour les mandats "tous_biens", on doit récupérer tous les biens du propriétaire
+  const propertyIds = mandates
+    .map((m) => m.property_id)
+    .filter((id): id is string => id !== null);
+
+  // Récupérer les propriétaires qui ont donné mandat "tous biens" à l'agence
+  const { data: allPropertiesMandates } = await supabase
+    .from('agency_mandates')
+    .select('owner_id')
+    .eq('agency_id', agencyId)
+    .eq('status', 'active')
+    .eq('mandate_scope', 'all_properties')
+    .eq('can_view_applications', true);
+
+  if (allPropertiesMandates && allPropertiesMandates.length > 0) {
+    const ownerIds = allPropertiesMandates.map((m) => m.owner_id);
+    const { data: ownerProperties } = await supabase
+      .from('properties')
+      .select('id')
+      .in('owner_id', ownerIds);
+
+    if (ownerProperties) {
+      ownerProperties.forEach((p) => {
+        if (!propertyIds.includes(p.id)) {
+          propertyIds.push(p.id);
+        }
+      });
+    }
+  }
+
+  if (propertyIds.length === 0) {
+    return [];
+  }
+
+  // Construire la requête de base
+  let query = supabase
+    .from('rental_applications')
+    .select(
+      `
+      id,
+      property_id,
+      tenant_id,
+      status,
+      application_message,
+      credit_score,
+      applied_at,
+      updated_at
+    `
+    )
+    .in('property_id', propertyIds)
+    .order('applied_at', { ascending: false });
+
+  // Appliquer les filtres
+  if (filters?.status && filters.status !== 'all') {
+    query = query.eq('status', filters.status);
+  }
+
+  if (filters?.propertyId && filters.propertyId !== 'all') {
+    query = query.eq('property_id', filters.propertyId);
+  }
+
+  const { data: applications, error } = await query;
+
+  if (error) {
+    console.error('Error fetching agency applications:', error);
+    throw error;
+  }
+
+  if (!applications || applications.length === 0) {
+    return [];
+  }
+
+  const applicantIds = [...new Set(applications.map((a) => a.tenant_id))];
+  const approvedTenantIds = await fetchApprovedTenantIds(applicantIds);
+  const visibleApplications = applications.filter((app) => approvedTenantIds.has(app.tenant_id));
+
+  if (visibleApplications.length === 0) {
+    return [];
+  }
+
+  // Récupérer les détails des propriétés
+  const uniquePropertyIds = [...new Set(visibleApplications.map((a) => a.property_id))];
+  let propertiesData: Array<Record<string, unknown>> | null = null;
+  const { data: propertiesViewData, error: propertiesViewError } = await supabase
+    .from('properties_with_monthly_rent')
+    .select('id, title, city, neighborhood, monthly_rent, main_image')
+    .in('id', uniquePropertyIds);
+
+  if (propertiesViewError) {
+    console.warn('properties_with_monthly_rent unavailable, fallback to properties', {
+      error: propertiesViewError,
+    });
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('properties')
+      .select('id, title, city, neighborhood, price, main_image')
+      .in('id', uniquePropertyIds);
+
+    if (fallbackError) {
+      console.error('Fallback properties query failed', fallbackError);
+    } else {
+      propertiesData = (fallbackData || []).map((p) => ({
+        ...p,
+        monthly_rent: p.monthly_rent ?? p.price ?? null,
+      }));
+    }
+  } else {
+    propertiesData = propertiesViewData || [];
+  }
+
+  const propertiesMap = new Map(propertiesData?.map((p) => [p.id, p]) || []);
+
+  // Récupérer les profils des candidats via RPC
+  const { data: profilesData, error: profilesError } = await supabase.rpc('get_public_profiles', {
+    profile_user_ids: applicantIds,
+  });
+  if (profilesError) {
+    console.warn('get_public_profiles failed, using profiles fallback', profilesError);
+  }
+
+  // Récupérer les profils complets (fallback si RPC incomplet)
+  const { data: fullProfiles } = await supabase
+    .from('profiles')
+    .select(
+      'id, email, phone, full_name, avatar_url, trust_score, is_verified, oneci_verified, facial_verification_status'
+    )
+    .in('id', applicantIds);
+
+  const profilesMap = new Map(
+    (profilesData || []).map(
+      (p: {
+        user_id: string;
+        id?: string;
+        full_name: string;
+        avatar_url: string;
+        trust_score: number;
+        is_verified: boolean;
+        oneci_verified: boolean;
+      }) => [p.user_id ?? p.id, p]
+    )
+  );
+  const fallbackProfilesMap = new Map(
+    (fullProfiles || []).map((p) => [p.id, p])
+  );
+
+  // Combiner les données
+  let result: ApplicationWithDetails[] = visibleApplications
+    .filter((app) => app.status !== null)
+    .map((app) => {
+      const profile = profilesMap.get(app.tenant_id) || fallbackProfilesMap.get(app.tenant_id);
+      const emailData = fallbackProfilesMap.get(app.tenant_id);
+
+      return {
+        ...app,
+        applicant_id: app.tenant_id,
+        status: app.status as string,
+        applied_at: app.applied_at,
+        created_at: app.applied_at,
+        contract_id: null,
+        contract_status: null,
+        property: propertiesMap.get(app.property_id) || null,
+        applicant: profile
+          ? {
+              user_id: profile.user_id ?? app.tenant_id,
+              id: profile.id ?? app.tenant_id,
+              full_name: profile.full_name ?? emailData?.full_name ?? null,
+              email: emailData?.email || null,
+              phone: emailData?.phone || null,
+              avatar_url: profile.avatar_url ?? emailData?.avatar_url ?? null,
+              trust_score: profile.trust_score ?? emailData?.trust_score ?? null,
+              is_verified: profile.is_verified ?? emailData?.is_verified ?? null,
+              oneci_verified: profile.oneci_verified ?? emailData?.oneci_verified ?? null,
+            }
+          : emailData
+            ? {
+                user_id: app.tenant_id,
+                id: app.tenant_id,
+                full_name: emailData.full_name ?? null,
+                email: emailData.email || null,
+                phone: emailData.phone || null,
+                avatar_url: emailData.avatar_url ?? null,
+                trust_score: emailData.trust_score ?? null,
+                is_verified: emailData.is_verified ?? null,
+                oneci_verified: emailData.oneci_verified ?? null,
+              }
+            : null,
+      };
+    });
+
+  // Filtrer par terme de recherche si présent
+  if (filters?.searchTerm) {
+    const term = filters.searchTerm.toLowerCase();
+    result = result.filter(
+      (app) =>
+        app.applicant?.full_name?.toLowerCase().includes(term) ||
+        app.applicant?.email?.toLowerCase().includes(term) ||
+        app.property?.title?.toLowerCase().includes(term)
+    );
+  }
+
+  return result;
+}
+
+/**
+ * Récupère les statistiques des candidatures d'une agence
+ */
+export async function getAgencyApplicationStats(agencyId: string): Promise<ApplicationStats> {
+  // Récupérer les IDs des propriétés gérées par l'agence
+  const { data: mandates } = await supabase
+    .from('agency_mandates')
+    .select('property_id')
+    .eq('agency_id', agencyId)
+    .eq('status', 'active')
+    .eq('can_view_applications', true);
+
+  if (!mandates || mandates.length === 0) {
+    return { total: 0, pending: 0, inProgress: 0, accepted: 0, rejected: 0 };
+  }
+
+  const propertyIds = mandates
+    .map((m) => m.property_id)
+    .filter((id): id is string => id !== null);
+
+  // Pour les mandats "tous biens"
+  const { data: allPropertiesMandates } = await supabase
+    .from('agency_mandates')
+    .select('owner_id')
+    .eq('agency_id', agencyId)
+    .eq('status', 'active')
+    .eq('mandate_scope', 'all_properties')
+    .eq('can_view_applications', true);
+
+  if (allPropertiesMandates && allPropertiesMandates.length > 0) {
+    const ownerIds = allPropertiesMandates.map((m) => m.owner_id);
+    const { data: ownerProperties } = await supabase
+      .from('properties')
+      .select('id')
+      .in('owner_id', ownerIds);
+
+    if (ownerProperties) {
+      ownerProperties.forEach((p) => {
+        if (!propertyIds.includes(p.id)) {
+          propertyIds.push(p.id);
+        }
+      });
+    }
+  }
+
+  if (propertyIds.length === 0) {
+    return { total: 0, pending: 0, inProgress: 0, accepted: 0, rejected: 0 };
+  }
+
+  const { data: applications } = await supabase
+    .from('rental_applications')
+    .select('status, tenant_id')
+    .in('property_id', propertyIds);
+
+  if (!applications) {
+    return { total: 0, pending: 0, inProgress: 0, accepted: 0, rejected: 0 };
+  }
+
+  const applicantIds = [...new Set(applications.map((a) => a.tenant_id))];
+  const approvedTenantIds = await fetchApprovedTenantIds(applicantIds);
+  const visibleApplications = applications.filter((a) => approvedTenantIds.has(a.tenant_id));
+
+  return {
+    total: visibleApplications.length,
+    pending: visibleApplications.filter((a) => a.status === 'pending').length,
+    inProgress: visibleApplications.filter((a) => a.status === 'in_progress').length,
+    accepted: visibleApplications.filter((a) => a.status === 'accepted').length,
+    rejected: visibleApplications.filter((a) => a.status === 'rejected').length,
+  };
+}
+
+/**
+ * Récupère les propriétés gérées par une agence (pour le filtre)
+ */
+export async function getAgencyProperties(
+  agencyId: string
+): Promise<{ id: string; title: string }[]> {
+  // Récupérer les biens via mandats actifs
+  const { data: mandates } = await supabase
+    .from('agency_mandates')
+    .select('property_id, owner_id, mandate_scope')
+    .eq('agency_id', agencyId)
+    .eq('status', 'active');
+
+  if (!mandates || mandates.length === 0) {
+    return [];
+  }
+
+  const propertyIds = mandates
+    .map((m) => m.property_id)
+    .filter((id): id is string => id !== null);
+
+  // Pour les mandats "tous biens", récupérer tous les biens des propriétaires concernés
+  const allPropertiesOwnerIds = mandates
+    .filter((m) => m.mandate_scope === 'all_properties')
+    .map((m) => m.owner_id);
+
+  if (allPropertiesOwnerIds.length > 0) {
+    const { data: ownerProperties } = await supabase
+      .from('properties')
+      .select('id, title')
+      .in('owner_id', allPropertiesOwnerIds);
+
+    if (ownerProperties) {
+      return ownerProperties || [];
+    }
+  }
+
+  if (propertyIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('properties')
+    .select('id, title')
+    .in('id', propertyIds)
+    .order('title');
+
+  if (error) {
+    console.error('Error fetching agency properties:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+/**
  * Récupère toutes les candidatures d'un locataire
  */
 export async function getTenantApplications(

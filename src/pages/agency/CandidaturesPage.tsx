@@ -13,13 +13,22 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { Link } from 'react-router-dom';
 import {
   ApplicationWithDetails,
-  getOwnerApplications,
+  getAgencyApplications,
+  getAgencyApplicationStats,
+  ApplicationStats,
 } from '@/services/applications/applicationService';
 
 export default function CandidaturesPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState<ApplicationWithDetails[]>([]);
+  const [stats, setStats] = useState<ApplicationStats>({
+    total: 0,
+    pending: 0,
+    inProgress: 0,
+    accepted: 0,
+    rejected: 0,
+  });
   const [filter, setFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
 
@@ -32,11 +41,16 @@ export default function CandidaturesPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const data = await getOwnerApplications(user.id, {
+      // Récupérer les candidatures des biens gérés par l'agence via mandats actifs
+      const data = await getAgencyApplications(user.id, {
         status: filter !== 'all' ? filter : undefined,
         searchTerm: search || undefined,
       });
       setApplications(data);
+
+      // Récupérer les statistiques
+      const statsData = await getAgencyApplicationStats(user.id);
+      setStats(statsData);
     } catch (error) {
       console.error('Erreur lors du chargement des candidatures:', error);
     } finally {
@@ -144,7 +158,7 @@ export default function CandidaturesPage() {
               </div>
               <span className="text-sm text-[#6B5A4E]">Total candidatures</span>
             </div>
-            <p className="text-3xl font-bold text-[#2C1810]">{applications.length}</p>
+            <p className="text-3xl font-bold text-[#2C1810]">{stats.total}</p>
           </div>
 
           <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9] card-animate-in card-hover-premium">
@@ -154,9 +168,7 @@ export default function CandidaturesPage() {
               </div>
               <span className="text-sm text-[#6B5A4E]">Acceptées</span>
             </div>
-            <p className="text-3xl font-bold text-[#2C1810]">
-              {applications.filter((a) => a.status === 'accepted').length}
-            </p>
+            <p className="text-3xl font-bold text-[#2C1810]">{stats.accepted}</p>
           </div>
 
           <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9] card-animate-in card-hover-premium">
@@ -166,9 +178,7 @@ export default function CandidaturesPage() {
               </div>
               <span className="text-sm text-[#6B5A4E]">En attente</span>
             </div>
-            <p className="text-3xl font-bold text-[#2C1810]">
-              {applications.filter((a) => a.status === 'pending').length}
-            </p>
+            <p className="text-3xl font-bold text-[#2C1810]">{stats.pending}</p>
           </div>
 
           <div className="bg-white rounded-[20px] p-6 border border-[#EFEBE9] card-animate-in card-hover-premium">
@@ -178,9 +188,7 @@ export default function CandidaturesPage() {
               </div>
               <span className="text-sm text-[#6B5A4E]">Refusées</span>
             </div>
-            <p className="text-3xl font-bold text-[#2C1810]">
-              {applications.filter((a) => a.status === 'rejected').length}
-            </p>
+            <p className="text-3xl font-bold text-[#2C1810]">{stats.rejected}</p>
           </div>
         </div>
 

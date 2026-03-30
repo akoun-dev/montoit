@@ -12,6 +12,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
+import { getRoutingForProperty, getNotificationRecipients } from '@/services/mandates/mandateRoutingService';
 
 interface Property {
   id: string;
@@ -153,40 +154,72 @@ export default function ScheduleVisit() {
 
       const visitDateStr = selectedDate.toISOString().split('T')[0];
 
+      // Vérifier le routage basé sur les mandats agence
+      const routing = await getRoutingForProperty(property.id, 'can_manage_applications');
+
       const { error } = await supabase.from('visit_requests').insert({
         property_id: property.id,
         tenant_id: user.id,
-        owner_id: property.owner_id,
+        owner_id: routing.recipientId, // Utiliser le destinataire approprié (agence ou propriétaire)
         visit_type: visitType,
         visit_date: visitDateStr,
         visit_time: selectedTime,
         status: 'pending',
+        agency_id: routing.agencyId || null, // Stocker l'ID de l'agence si mandat existe
       } as never);
 
       if (error) throw error;
 
-      // Envoyer une notification au propriétaire via l'Edge Function
-      try {
-        const { data: notifData, error: notifError } = await supabase.functions.invoke('create-visit-notification', {
-          body: {
-            action: 'new',
-            property_id: property.id,
-            tenant_id: user.id,
-            owner_id: property.owner_id,
-            visit_date: visitDateStr,
-            visit_time: selectedTime,
-            visit_type: visitType,
-            property_title: property.title,
-          },
-        });
+      // Récupérer les destinataires de notification
+      const { agencyIds, ownerIds } = await getNotificationRecipients(property.id);
 
-        if (notifError) {
-          console.error('Erreur lors de l\'envoi de la notification:', notifError);
-        }
-      } catch (notifError) {
-        console.error('Erreur lors de l\'envoi de la notification:', notifError);
-        // Ne pas bloquer le succès si la notification échoue
+      // Envoyer les notifications appropriées
+      const notificationPromises: Promise<void>[] = [];
+
+      // Notification à l'agence
+      for (const agencyId of agencyIds) {
+        notificationPromises.push(
+          supabase.functions.invoke('create-visit-notification', {
+            body: {
+              action: 'new',
+              property_id: property.id,
+              tenant_id: user.id,
+              owner_id: agencyId,
+              visit_date: visitDateStr,
+              visit_time: selectedTime,
+              visit_type: visitType,
+              property_title: property.title,
+              notification_type: 'agency', // Indique que c'est pour une agence
+            },
+          }).then(({ error }) => {
+            if (error) console.error('[ScheduleVisit] Agency notification error:', error);
+          })
+        );
       }
+
+      // Notification au propriétaire (si nécessaire)
+      for (const ownerId of ownerIds) {
+        notificationPromises.push(
+          supabase.functions.invoke('create-visit-notification', {
+            body: {
+              action: 'new',
+              property_id: property.id,
+              tenant_id: user.id,
+              owner_id: ownerId,
+              visit_date: visitDateStr,
+              visit_time: selectedTime,
+              visit_type: visitType,
+              property_title: property.title,
+              notification_type: 'owner', // Indique que c'est pour le propriétaire
+            },
+          }).then(({ error }) => {
+            if (error) console.error('[ScheduleVisit] Owner notification error:', error);
+          })
+        );
+      }
+
+      // Attendre toutes les notifications (ne pas bloquer en cas d'erreur)
+      await Promise.allSettled(notificationPromises);
 
       setSuccess(true);
       setTimeout(() => {

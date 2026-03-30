@@ -29,6 +29,7 @@ import verificationApplicationsService, {
 import DossierSubmissionTab from '@/shared/ui/verification/DossierSubmissionTab';
 import type { Database } from '@/shared/lib/database.types';
 import { formatAddress } from '@/shared/utils/address';
+import { getRoutingForProperty, getNotificationRecipients } from '@/services/mandates/mandateRoutingService';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 
@@ -329,14 +330,19 @@ export default function ApplicationForm() {
       // Calculer le score final
       const finalScore = await ScoringService.calculateSimpleScore(profile, user?.id);
 
-      // Insérer la candidature
+      // Vérifier le routage basé sur les mandats agence
+      const routing = await getRoutingForProperty(property.id, 'can_manage_applications');
+
+      // Insérer la candidature avec le bon destinataire
       const { data: applicationData, error: insertError } = await supabase
         .from('rental_applications')
         .insert({
           property_id: property.id,
           tenant_id: user.id,
+          owner_id: routing.recipientId, // Utiliser le destinataire approprié (agence ou propriétaire)
           credit_score: finalScore,
           status: 'pending',
+          agency_id: routing.agencyId || null, // Stocker l'ID de l'agence si mandat existe
         } as never)
         .select('id')
         .single();
@@ -347,12 +353,44 @@ export default function ApplicationForm() {
 
       const appId = (applicationData as { id: string } | null)?.id;
 
-      // Envoyer la notification
-      if (appId) {
-        await notifyApplicationReceived(appId).catch((notifErr) => {
-          console.warn('Notification failed (non-critical)', { error: notifErr });
-        });
+      // Récupérer les destinataires de notification
+      const { agencyIds, ownerIds } = await getNotificationRecipients(property.id);
+
+      // Envoyer les notifications appropriées
+      const notificationPromises: Promise<void>[] = [];
+
+      // Notification à l'agence
+      for (const agencyId of agencyIds) {
+        notificationPromises.push(
+          supabase.functions.invoke('send-application-notifications', {
+            body: {
+              application_id: appId,
+              recipient_id: agencyId,
+              notification_type: 'agency',
+            },
+          }).then(({ error }) => {
+            if (error) console.error('[ApplicationForm] Agency notification error:', error);
+          })
+        );
       }
+
+      // Notification au propriétaire (si nécessaire)
+      for (const ownerId of ownerIds) {
+        notificationPromises.push(
+          supabase.functions.invoke('send-application-notifications', {
+            body: {
+              application_id: appId,
+              recipient_id: ownerId,
+              notification_type: 'owner',
+            },
+          }).then(({ error }) => {
+            if (error) console.error('[ApplicationForm] Owner notification error:', error);
+          })
+        );
+      }
+
+      // Attendre toutes les notifications (ne pas bloquer en cas d'erreur)
+      await Promise.allSettled(notificationPromises);
 
       setSuccess(true);
       setTimeout(() => navigate('/locataire/mes-candidatures'), 2000);

@@ -188,7 +188,7 @@ export function useAgencyMandates() {
     setError(null);
 
     try {
-      // Fetch mandates with profiles join (agency info)
+      // Fetch mandates with profiles join (agency info and owner info)
       // Add timestamp to bypass cache
       const cacheBuster = `__t=${Date.now()}`;
       const { data, error: err } = await supabase
@@ -196,7 +196,8 @@ export function useAgencyMandates() {
         .select(`
           *,
           property:properties(id, title, city, neighborhood, main_image),
-          agency:profiles!agency_mandates_agency_id_fkey(id, agency_name, email, phone, city, agency_logo)
+          agency:profiles!agency_mandates_agency_id_fkey(id, agency_name, email, phone, city, agency_logo),
+          owner:profiles!agency_mandates_owner_id_fkey(id, full_name, email, phone, city)
         `)
         .order('created_at', { ascending: false });
 
@@ -685,7 +686,8 @@ export function useAgencyMandates() {
         .select(`
           *,
           property:properties(id, title, city, neighborhood, price, main_image),
-          agency:profiles!agency_mandates_agency_id_fkey(id, agency_name, email, phone, city, agency_logo)
+          agency:profiles!agency_mandates_agency_id_fkey(id, agency_name, email, phone, city, agency_logo),
+          owner:profiles!agency_mandates_owner_id_fkey(id, full_name, email, phone, city)
         `)
         .eq('id', mandateId)
         .single();

@@ -209,30 +209,114 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
     if (!user) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('visit_requests')
-        .select(
-          `
-          id,
-          visit_date,
-          visit_time,
-          confirmed_date,
-          visit_type,
-          status,
-          notes,
-          tenant_id,
-          property:properties (
+      let data, error;
+
+      if (mode === 'agency') {
+        // MODE AGENCE : Récupérer les visites des biens gérés via mandats actifs
+        // 1. Récupérer d'abord les IDs des propriétés gérées par l'agence
+        const { data: mandates } = await supabase
+          .from('agency_mandates')
+          .select('property_id, owner_id, mandate_scope')
+          .eq('agency_id', user.id)
+          .eq('status', 'active');
+
+        if (!mandates || mandates.length === 0) {
+          setVisits([]);
+          setLoading(false);
+          return;
+        }
+
+        // Récupérer les IDs des propriétés
+        const propertyIds = mandates
+          .map((m) => m.property_id)
+          .filter((id): id is string => id !== null);
+
+        // Pour les mandats "tous biens", récupérer tous les biens des propriétaires concernés
+        const allPropertiesOwnerIds = mandates
+          .filter((m) => m.mandate_scope === 'all_properties')
+          .map((m) => m.owner_id);
+
+        if (allPropertiesOwnerIds.length > 0) {
+          const { data: ownerProperties } = await supabase
+            .from('properties')
+            .select('id')
+            .in('owner_id', allPropertiesOwnerIds);
+
+          if (ownerProperties) {
+            ownerProperties.forEach((p) => {
+              if (!propertyIds.includes(p.id)) {
+                propertyIds.push(p.id);
+              }
+            });
+          }
+        }
+
+        if (propertyIds.length === 0) {
+          setVisits([]);
+          setLoading(false);
+          return;
+        }
+
+        // Récupérer les visites sur les biens gérés
+        const result = await supabase
+          .from('visit_requests')
+          .select(
+            `
             id,
-            title,
-            city,
-            address,
-            main_image
+            visit_date,
+            visit_time,
+            confirmed_date,
+            visit_type,
+            status,
+            notes,
+            tenant_id,
+            agency_id,
+            property:properties (
+              id,
+              title,
+              city,
+              address,
+              main_image
+            )
+          `
           )
-        `
-        )
-        .eq('owner_id', user.id)
-        .order('visit_date', { ascending: true, nullsFirst: false })
-        .order('visit_time', { ascending: true, nullsFirst: false });
+          .in('property_id', propertyIds)
+          .order('visit_date', { ascending: true, nullsFirst: false })
+          .order('visit_time', { ascending: true, nullsFirst: false });
+
+        data = result.data;
+        error = result.error;
+      } else {
+        // MODE PROPRIÉTAIRE : seulement les visites de ses propres biens
+        const result = await supabase
+          .from('visit_requests')
+          .select(
+            `
+            id,
+            visit_date,
+            visit_time,
+            confirmed_date,
+            visit_type,
+            status,
+            notes,
+            tenant_id,
+            agency_id,
+            property:properties (
+              id,
+              title,
+              city,
+              address,
+              main_image
+            )
+          `
+          )
+          .eq('owner_id', user.id)
+          .order('visit_date', { ascending: true, nullsFirst: false })
+          .order('visit_time', { ascending: true, nullsFirst: false });
+
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
 
