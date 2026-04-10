@@ -219,6 +219,28 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
 
     try {
       console.log('[OnboardingModal] Updating profile with data:', formData);
+      
+      // Mettre à jour le profil directement via Supabase pour inclure profile_setup_completed
+      const { error: updateError, data } = await supabase
+        .from('profiles')
+        .update({
+          full_name: formData.full_name,
+          phone: formData.phone,
+          city: formData.city,
+          address: formData.address,
+          bio: formData.bio,
+          gender: formData.gender,
+          profile_setup_completed: true, // Marquer le profil comme complété
+        } as any)
+        .eq('id', user?.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Mettre à jour le contexte AuthProvider avec les données fraîches
       await updateProfile({
         full_name: formData.full_name,
         phone: formData.phone,
@@ -226,6 +248,7 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
         address: formData.address,
         bio: formData.bio,
         gender: formData.gender,
+        profile_setup_completed: true,
       });
 
       toast.success('Profil complété avec succès !');
@@ -429,6 +452,16 @@ export default function OnboardingModal({ isOpen, onClose }: OnboardingModalProp
       const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
 
       if (error) throw error;
+
+      // Mettre à jour le contexte AuthProvider avec profile_setup_completed
+      await updateProfile({
+        full_name: formData.full_name || undefined,
+        phone: formData.phone || undefined,
+        city: formData.city || undefined,
+        bio: formData.bio || undefined,
+        gender: formData.gender || undefined,
+        profile_setup_completed: true,
+      });
 
       // Informer l'utilisateur que les données ont été sauvegardées
       toast.success('Informations sauvegardées ! Vous pourrez compléter votre profil plus tard.');
