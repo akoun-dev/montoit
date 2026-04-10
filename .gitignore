@@ -35,6 +35,7 @@ env/
 .env.*.local
 .env.production
 .env.staging
+.env.development
 
 # ─────────────────────────────────────────────────────────────
 # Build & Artifacts
