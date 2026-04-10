@@ -1,3 +1,4 @@
+import React from "react";
 import { RouteObject, Navigate } from 'react-router-dom';
 import { lazyWithRetry } from '@/shared/utils/lazyLoad';
 import ProtectedRoute from '@/shared/ui/ProtectedRoute';

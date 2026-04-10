@@ -8,24 +8,25 @@ import {
   PhoneIcon,
   QuestionMarkCircleIcon,
   UserIcon,
-  Cog6ToothIcon
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 
 interface MobileMenuProps {
   className?: string;
+  breakpoint?: number;
 }
 
 const MobileMenu: React.FC<MobileMenuProps> = ({ className = '' }) => {
-  const { isOpen, isAnimating, closeMenu } = useMobileMenu();
+  const { isOpen, isAnimating, closeMenu, breakpoint = 768 } = useMobileMenu();
   const menuRef = useRef<HTMLDivElement>(null);
   const firstFocusableRef = useRef<HTMLButtonElement>(null);
 
-  // Gestion du focus pour l'accessibilité
+  // Gestion du focus pour l'accessibilité et de la réactivité
   useEffect(() => {
     if (isOpen && firstFocusableRef.current) {
       firstFocusableRef.current.focus();
     }
-  }, [isOpen]);
+  }, [isOpen, breakpoint]);
 
   // Trappe le focus dans le menu
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -33,7 +34,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ className = '' }) => {
       const focusableElements = menuRef.current?.querySelectorAll(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
       );
-      
+
       if (!focusableElements || focusableElements.length === 0) return;
 
       const firstElement = focusableElements[0] as HTMLElement;
@@ -59,32 +60,32 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ className = '' }) => {
       label: 'Accueil',
       href: '/',
       icon: HomeIcon,
-      description: 'Retour à la page d\'accueil'
+      description: "Retour à la page d'accueil",
     },
     {
       label: 'Rechercher',
       href: '/recherche',
       icon: MagnifyingGlassIcon,
-      description: 'Rechercher des propriétés'
+      description: 'Rechercher des propriétés',
     },
     {
       label: 'Ajouter un bien',
       href: '/ajouter-bien',
       icon: PlusCircleIcon,
-      description: 'Publier une propriété'
+      description: 'Publier une propriété',
     },
     {
       label: 'Contact',
       href: '/contact',
       icon: PhoneIcon,
-      description: 'Nous contacter'
+      description: 'Nous contacter',
     },
     {
       label: 'Aide & FAQ',
       href: '/aide',
       icon: QuestionMarkCircleIcon,
-      description: 'Questions fréquentes'
-    }
+      description: 'Questions fréquentes',
+    },
   ];
 
   // Actions utilisateur
@@ -93,14 +94,14 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ className = '' }) => {
       label: 'Mon compte',
       href: '/mon-compte',
       icon: UserIcon,
-      description: 'Gérer mon profil'
+      description: 'Gérer mon profil',
     },
     {
       label: 'Paramètres',
       href: '/auth/parametres',
       icon: Cog6ToothIcon,
-      description: 'Configurer mon compte'
-    }
+      description: 'Configurer mon compte',
+    },
   ];
 
   if (!isOpen && !isAnimating) {
@@ -110,14 +111,15 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ className = '' }) => {
   return (
     <>
       {/* Overlay */}
-      <div 
+      <div
         className={`fixed inset-0 bg-black transition-opacity duration-300 z-40 ${
           isOpen ? 'opacity-50' : 'opacity-0'
         }`}
         onClick={closeMenu}
         aria-hidden="true"
+        style={{ display: window.innerWidth >= breakpoint ? 'none' : 'block' }}
       />
-      
+
       {/* Menu */}
       <div
         id="mobile-menu"
@@ -129,6 +131,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ className = '' }) => {
         aria-modal="true"
         aria-labelledby="mobile-menu-title"
         onKeyDown={handleKeyDown}
+        style={{ display: window.innerWidth >= breakpoint ? 'none' : 'block' }}
       >
         {/* En-tête du menu */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
@@ -228,9 +231,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ className = '' }) => {
         {/* Pied du menu */}
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <div className="text-center">
-            <p className="text-xs text-gray-500">
-              © 2025 MonToit - Tous droits réservés
-            </p>
+            <p className="text-xs text-gray-500">© 2025 MonToit - Tous droits réservés</p>
             <div className="mt-2 flex justify-center space-x-4">
               <a
                 href="/mentions-legales"
