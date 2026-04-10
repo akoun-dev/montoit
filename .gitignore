@@ -81,3 +81,6 @@ cryptonoe.md
 INTOUCH_VERIFICATION.md
 intouch.md
 data.md
+.env.development
+.env
+.env.*
