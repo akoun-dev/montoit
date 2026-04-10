@@ -56,7 +56,7 @@ const PERIOD_FILTERS = [
 
 // Onglets de statistiques
 const TABS = [
-  { id: 'overview', label: 'Vue d\'ensemble', icon: TrendingUp },
+  { id: 'overview', label: "Vue d'ensemble", icon: TrendingUp },
   { id: 'missions', label: 'Missions', icon: Briefcase },
   { id: 'disputes', label: 'Litiges', icon: Scale },
   { id: 'certifications', label: 'Certifications', icon: Award },
@@ -129,9 +129,16 @@ export default function StatsPage() {
         title: 'Taux de complétion',
         value: `${overviewStats.missionCompletionRate}%`,
         icon: <CheckCircle2 />,
-        trend: overviewStats.monthlyTrend > 0 ? `+${overviewStats.monthlyTrend}%` : `${overviewStats.monthlyTrend}%`,
+        trend:
+          overviewStats.monthlyTrend > 0
+            ? `+${overviewStats.monthlyTrend}%`
+            : `${overviewStats.monthlyTrend}%`,
         trendUp: overviewStats.monthlyTrend > 0,
-        variant: (overviewStats.missionCompletionRate >= 80 ? 'success' : overviewStats.missionCompletionRate >= 50 ? 'warning' : 'danger') as const,
+        variant: (overviewStats.missionCompletionRate >= 80
+          ? 'success'
+          : overviewStats.missionCompletionRate >= 50
+            ? 'warning'
+            : 'danger') as const,
       },
       {
         title: 'Temps moyen de résolution',
@@ -188,9 +195,27 @@ export default function StatsPage() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="missions" stroke={COLORS.primary} strokeWidth={2} name="Missions" />
-                <Line type="monotone" dataKey="disputes" stroke={COLORS.danger} strokeWidth={2} name="Litiges" />
-                <Line type="monotone" dataKey="certifications" stroke={COLORS.success} strokeWidth={2} name="Certifications" />
+                <Line
+                  type="monotone"
+                  dataKey="missions"
+                  stroke={COLORS.primary}
+                  strokeWidth={2}
+                  name="Missions"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="disputes"
+                  stroke={COLORS.danger}
+                  strokeWidth={2}
+                  name="Litiges"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="certifications"
+                  stroke={COLORS.success}
+                  strokeWidth={2}
+                  name="Certifications"
+                />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -224,9 +249,7 @@ export default function StatsPage() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="text-center text-gray-400 py-8">
-                  Aucune donnée disponible
-                </div>
+                <div className="text-center text-gray-400 py-8">Aucune donnée disponible</div>
               )}
             </CardContent>
           </Card>
@@ -275,7 +298,13 @@ export default function StatsPage() {
             title="Taux de complétion"
             value={`${missionStats.completionRate}%`}
             icon={<Award />}
-            variant={missionStats.completionRate >= 80 ? 'success' : missionStats.completionRate >= 50 ? 'warning' : 'danger'}
+            variant={
+              missionStats.completionRate >= 80
+                ? 'success'
+                : missionStats.completionRate >= 50
+                  ? 'warning'
+                  : 'danger'
+            }
           />
         </div>
 
@@ -344,7 +373,9 @@ export default function StatsPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                    label={({ name, value, percent }) =>
+                      `${name}: ${value} (${(percent * 100).toFixed(0)}%)`
+                    }
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -380,7 +411,13 @@ export default function StatsPage() {
             title="Taux de résolution"
             value={`${disputeStats.resolutionRate}%`}
             icon={<CheckCircle2 />}
-            variant={disputeStats.resolutionRate >= 80 ? 'success' : disputeStats.resolutionRate >= 50 ? 'warning' : 'danger'}
+            variant={
+              disputeStats.resolutionRate >= 80
+                ? 'success'
+                : disputeStats.resolutionRate >= 50
+                  ? 'warning'
+                  : 'danger'
+            }
           />
           <KPICard
             title="Durée moyenne"
@@ -442,8 +479,20 @@ export default function StatsPage() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="resolved" stroke={COLORS.success} strokeWidth={2} name="Résolus" />
-                <Line type="monotone" dataKey="escalated" stroke={COLORS.danger} strokeWidth={2} name="Escaladés" />
+                <Line
+                  type="monotone"
+                  dataKey="resolved"
+                  stroke={COLORS.success}
+                  strokeWidth={2}
+                  name="Résolus"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="escalated"
+                  stroke={COLORS.danger}
+                  strokeWidth={2}
+                  name="Escaladés"
+                />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -515,7 +564,12 @@ export default function StatsPage() {
                   <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip />
-                  <Line type="monotone" dataKey="properties" stroke={COLORS.success} strokeWidth={2} />
+                  <Line
+                    type="monotone"
+                    dataKey="properties"
+                    stroke={COLORS.success}
+                    strokeWidth={2}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -528,17 +582,23 @@ export default function StatsPage() {
             <CardTitle>Statut des dossiers</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="text-center p-4 rounded-lg bg-green-50">
-                <p className="text-3xl font-bold text-green-600">{certificationStats.dossiers.approved}</p>
+                <p className="text-3xl font-bold text-green-600">
+                  {certificationStats.dossiers.approved}
+                </p>
                 <p className="text-sm text-green-700">Approuvés</p>
               </div>
               <div className="text-center p-4 rounded-lg bg-yellow-50">
-                <p className="text-3xl font-bold text-yellow-600">{certificationStats.dossiers.pending}</p>
+                <p className="text-3xl font-bold text-yellow-600">
+                  {certificationStats.dossiers.pending}
+                </p>
                 <p className="text-sm text-yellow-700">En attente</p>
               </div>
               <div className="text-center p-4 rounded-lg bg-red-50">
-                <p className="text-3xl font-bold text-red-600">{certificationStats.dossiers.rejected}</p>
+                <p className="text-3xl font-bold text-red-600">
+                  {certificationStats.dossiers.rejected}
+                </p>
                 <p className="text-sm text-red-700">Rejetés</p>
               </div>
             </div>
@@ -593,7 +653,9 @@ export default function StatsPage() {
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-primary-500" />
-                  <span className="text-gray-600">{overviewStats?.totalMissions || 0} missions</span>
+                  <span className="text-gray-600">
+                    {overviewStats?.totalMissions || 0} missions
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-red-500" />
@@ -601,7 +663,9 @@ export default function StatsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-green-500" />
-                  <span className="text-gray-600">{overviewStats?.totalCertifications || 0} certifications</span>
+                  <span className="text-gray-600">
+                    {overviewStats?.totalCertifications || 0} certifications
+                  </span>
                 </div>
               </div>
             </div>

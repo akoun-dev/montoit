@@ -67,6 +67,16 @@ export default function HandwrittenSignaturePageSimple() {
     fetchMandate();
   }, [id]);
 
+  // Auto-redirect after signature is completed
+  useEffect(() => {
+    if (completed && signerType) {
+      const timer = setTimeout(() => {
+        navigate(signerType === 'owner' ? '/proprietaire/mes-mandats' : '/agences/mandats');
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [completed, signerType, navigate]);
+
   const fetchMandate = async () => {
     try {
       setLoading(true);
@@ -328,13 +338,7 @@ export default function HandwrittenSignaturePageSimple() {
             ? "Votre signature a été enregistrée. L'agence doit maintenant signer pour compléter le mandat."
             : "Votre signature a été enregistrée."}
         </p>
-        <button
-          onClick={() => navigate(signerType === 'owner' ? '/proprietaire/mes-mandats' : '/agences/mandats')}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-[#F16522] hover:bg-[#d1571e] text-white rounded-xl font-medium transition-colors"
-        >
-          <Home className="h-5 w-5" />
-          Retour au tableau de bord
-        </button>
+        <p className="text-sm text-[#6B5A4E]">Redirection vers la liste des mandats...</p>
       </div>
     );
   }

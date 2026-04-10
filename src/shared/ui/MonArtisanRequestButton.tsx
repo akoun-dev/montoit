@@ -64,29 +64,31 @@ export default function MonArtisanRequestButton({
       </button>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                    <Wrench className="w-6 h-6 text-blue-600" />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full mx-auto max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-4 md:p-6">
+              <div className="flex items-center justify-between mb-4 md:mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Wrench className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Demander un artisan</h2>
-                    <p className="text-sm text-gray-500">Via Mon Artisan</p>
+                    <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+                      Demander un artisan
+                    </h2>
+                    <p className="text-xs md:text-sm text-gray-500">Via Mon Artisan</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
+              <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+                <div className="bg-gray-50 p-4 rounded-xl">
                   <h3 className="font-semibold text-gray-900 mb-2">Type de travaux</h3>
                   <p className="text-gray-700">{jobType}</p>
                   <p className="text-sm text-gray-500 mt-2">{description}</p>
@@ -104,7 +106,7 @@ export default function MonArtisanRequestButton({
                         urgency_level: e.target.value as 'low' | 'medium' | 'high' | 'emergency',
                       })
                     }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   >
                     <option value="low">Faible - Peut attendre</option>
@@ -125,7 +127,7 @@ export default function MonArtisanRequestButton({
                       value={formData.preferred_date}
                       onChange={(e) => setFormData({ ...formData, preferred_date: e.target.value })}
                       min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
 
@@ -139,7 +141,7 @@ export default function MonArtisanRequestButton({
                       onChange={(e) =>
                         setFormData({ ...formData, preferred_time_slot: e.target.value })
                       }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="morning">Matin (8h-12h)</option>
                       <option value="afternoon">Après-midi (12h-17h)</option>
@@ -161,14 +163,14 @@ export default function MonArtisanRequestButton({
                     placeholder="Ex: 50000"
                     min="0"
                     step="1000"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Optionnel - Aide les artisans à proposer des devis adaptés
                   </p>
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
                   <h4 className="font-semibold text-blue-900 mb-2">Comment ça marche ?</h4>
                   <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
                     <li>Votre demande est envoyée aux artisans qualifiés de Mon Artisan</li>
@@ -178,18 +180,18 @@ export default function MonArtisanRequestButton({
                   </ol>
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex-1 sm:flex-none px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                    className="flex-1 sm:flex-none px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
                   >
                     {loading ? (
                       <>

@@ -86,6 +86,7 @@ export default function SignMandateWithOTPPage() {
   const [countdown, setCountdown] = useState(600); // 10 minutes
   const [operationId, setOperationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
 
   // Countdown timer
   useEffect(() => {
@@ -97,6 +98,16 @@ export default function SignMandateWithOTPPage() {
       setError('Le délai de signature a expiré. Veuillez demander un nouveau code.');
     }
   }, [countdown, currentStep]);
+
+  // Auto-redirect to mandate list after signature is complete
+  useEffect(() => {
+    if (shouldRedirect && currentStep === 'complete') {
+      const timer = setTimeout(() => {
+        navigate(signerType === 'owner' ? '/proprietaire/mes-mandats' : '/agences/mandats');
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldRedirect, currentStep, navigate, signerType]);
 
   // Fetch mandate on mount
   useEffect(() => {
@@ -234,6 +245,7 @@ export default function SignMandateWithOTPPage() {
       }
 
       setCurrentStep('complete');
+      setShouldRedirect(true);
 
       if (result.error === undefined) {
         // Check if both parties have signed
@@ -696,17 +708,7 @@ export default function SignMandateWithOTPPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button
-                  variant="outline"
-                  onClick={() => navigate(signerType === 'owner' ? '/proprietaire/mes-mandats' : '/agences/mandats')}
-                >
-                  Voir mes mandats
-                </Button>
-                <Button onClick={() => navigate(signerType === 'owner' ? `/proprietaire/mes-mandats/${mandate.id}` : `/agences/mandats/${mandate.id}`)}>
-                  Voir le détail du mandat
-                </Button>
-              </div>
+              <p className="text-sm text-green-600">Redirection vers la liste des mandats...</p>
             </CardContent>
           </Card>
         )}

@@ -9,7 +9,11 @@ import { AdminTable } from '@/shared/ui/admin/AdminTable';
 import Button from '@/components/ui/Button';
 import { useUserRoles } from '@/hooks/shared/useUserRoles';
 import { APIKey, ColumnConfig } from '@/types/admin';
-import { getApiKeys, deleteApiKey, toggleApiKey } from '@/features/admin/services/adminExtended.api';
+import {
+  getApiKeys,
+  deleteApiKey,
+  toggleApiKey,
+} from '@/features/admin/services/adminExtended.api';
 
 export default function ApiKeysPage() {
   const navigate = useNavigate();
@@ -78,7 +82,15 @@ export default function ApiKeysPage() {
   const handleExport = () => {
     if (!apiKeysData?.data) return;
 
-    const headers = ['Nom', 'Service', 'Utilisations', 'Limite', 'Dernière utilisation', 'Expiration', 'Statut'];
+    const headers = [
+      'Nom',
+      'Service',
+      'Utilisations',
+      'Limite',
+      'Dernière utilisation',
+      'Expiration',
+      'Statut',
+    ];
     const rows = apiKeysData.data.map((key) => [
       key.name,
       key.service,
@@ -113,11 +125,13 @@ export default function ApiKeysPage() {
   };
 
   const handleToggleKeyVisibility = (keyId: string) => {
-    setShowKey(prev => ({ ...prev, [keyId]: !prev[keyId] }));
+    setShowKey((prev) => ({ ...prev, [keyId]: !prev[keyId] }));
   };
 
   const handleDeleteKey = (keyId: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette clé API ? Cette action est irréversible.')) {
+    if (
+      confirm('Êtes-vous sûr de vouloir supprimer cette clé API ? Cette action est irréversible.')
+    ) {
       deleteMutation.mutate(keyId);
     }
   };
@@ -131,17 +145,18 @@ export default function ApiKeysPage() {
   };
 
   // Filtrer les données
-  const filteredData = apiKeysData?.data?.filter((key) => {
-    if (search) {
-      const searchLower = search.toLowerCase();
-      return (
-        key.name.toLowerCase().includes(searchLower) ||
-        key.key_preview.toLowerCase().includes(searchLower) ||
-        (key.created_by && key.created_by.toLowerCase().includes(searchLower))
-      );
-    }
-    return true;
-  }) || [];
+  const filteredData =
+    apiKeysData?.data?.filter((key) => {
+      if (search) {
+        const searchLower = search.toLowerCase();
+        return (
+          key.name.toLowerCase().includes(searchLower) ||
+          key.key_preview.toLowerCase().includes(searchLower) ||
+          (key.created_by && key.created_by.toLowerCase().includes(searchLower))
+        );
+      }
+      return true;
+    }) || [];
 
   // Colonnes du tableau
   const columns: ColumnConfig[] = [
@@ -237,8 +252,8 @@ export default function ApiKeysPage() {
       onClick: (key: APIKey) => handleCopyKey(key.key_preview),
     },
     {
-      label: (key: APIKey) => key.is_active ? 'Désactiver' : 'Activer',
-      icon: (key: APIKey) => key.is_active ? XCircle : CheckCircle,
+      label: (key: APIKey) => (key.is_active ? 'Désactiver' : 'Activer'),
+      icon: (key: APIKey) => (key.is_active ? XCircle : CheckCircle),
       onClick: (key: APIKey) => handleToggleKeyStatus(key.id, key.is_active),
     },
     {
@@ -252,8 +267,10 @@ export default function ApiKeysPage() {
   // Statistiques
   const stats = {
     total: apiKeysData?.total || 0,
-    active: apiKeysData?.data?.filter(k => k.is_active).length || 0,
-    expired: apiKeysData?.data?.filter(k => k.expires_at && new Date(k.expires_at) < new Date()).length || 0,
+    active: apiKeysData?.data?.filter((k) => k.is_active).length || 0,
+    expired:
+      apiKeysData?.data?.filter((k) => k.expires_at && new Date(k.expires_at) < new Date())
+        .length || 0,
   };
 
   if (rolesLoading) {
@@ -292,7 +309,7 @@ export default function ApiKeysPage() {
         />
 
         {/* Statistiques */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 mx-auto max-w-4xl">
           <div className="bg-white rounded-2xl border border-[#EFEBE9] p-4">
             <p className="text-sm text-[#6B5A4E]">Total clés</p>
             <p className="text-2xl font-bold text-[#2C1810]">{stats.total}</p>
@@ -312,16 +329,22 @@ export default function ApiKeysPage() {
           columns={columns}
           data={filteredData}
           loading={isLoading}
-          emptyMessage={isError ? 'Erreur lors du chargement des clés API' : 'Aucune clé API trouvée'}
-          pagination={apiKeysData ? {
-            data: filteredData,
-            total: filteredData.length,
-            page,
-            limit,
-            totalPages: Math.ceil(filteredData.length / limit),
-            hasNextPage: page * limit < filteredData.length,
-            hasPreviousPage: page > 1,
-          } : undefined}
+          emptyMessage={
+            isError ? 'Erreur lors du chargement des clés API' : 'Aucune clé API trouvée'
+          }
+          pagination={
+            apiKeysData
+              ? {
+                  data: filteredData,
+                  total: filteredData.length,
+                  page,
+                  limit,
+                  totalPages: Math.ceil(filteredData.length / limit),
+                  hasNextPage: page * limit < filteredData.length,
+                  hasPreviousPage: page > 1,
+                }
+              : undefined
+          }
           onPageChange={setPage}
           rowActions={rowActions}
           selectable={true}

@@ -9,9 +9,24 @@ import type { AdminPeriod, ExportFormat } from '@/types/admin';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { FormatService } from '@/services/format/formatService';
 import { exportToCSV, exportToExcel, exportToPDF } from '@/services/exportService';
-import { AnalyticsLineChart, AnalyticsBarChart, AnalyticsPieChart, StatCard } from '@/shared/ui/charts';
+import {
+  AnalyticsLineChart,
+  AnalyticsBarChart,
+  AnalyticsPieChart,
+  StatCard,
+} from '@/shared/ui/charts';
 import { ExportButton } from '@/shared/ui/admin';
-import { ArrowUpRight, ArrowDownRight, TrendingUp, Users, Home, FileText, DollarSign, Activity, Calendar } from 'lucide-react';
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  TrendingUp,
+  Users,
+  Home,
+  FileText,
+  DollarSign,
+  Activity,
+  Calendar,
+} from 'lucide-react';
 
 export default function AnalyticsPage() {
   const navigate = useNavigate();
@@ -93,7 +108,11 @@ export default function AnalyticsPage() {
           sheets: [
             { name: 'Résumé', headers: ['Métrique', 'Valeur'], data: summaryRows },
             { name: 'Statuts propriétés', headers: ['Statut', 'Nombre'], data: propertyStatusRows },
-            { name: 'Statuts transactions', headers: ['Statut', 'Nombre'], data: transactionStatusRows },
+            {
+              name: 'Statuts transactions',
+              headers: ['Statut', 'Nombre'],
+              data: transactionStatusRows,
+            },
           ],
         });
       } else {
@@ -119,7 +138,7 @@ export default function AnalyticsPage() {
         );
       }
     } catch (err) {
-      console.error('Erreur lors de l\'export des analytics:', err);
+      console.error("Erreur lors de l'export des analytics:", err);
     } finally {
       setExporting(false);
     }
@@ -150,19 +169,34 @@ export default function AnalyticsPage() {
       <div className="min-h-screen bg-[#FAF7F4] p-6">
         <div className="w-full">
           <div className="bg-white rounded-2xl border border-red-200 p-8 text-center">
-            <p className="text-red-600">Erreur lors du chargement des données: {error?.message || 'Erreur inconnue'}</p>
+            <p className="text-red-600">
+              Erreur lors du chargement des données: {error?.message || 'Erreur inconnue'}
+            </p>
           </div>
         </div>
       </div>
     );
   }
 
-  const { currentPeriod, previousPeriod, userGrowth, propertyMetrics, transactionMetrics, systemMetrics } = analytics;
+  const {
+    currentPeriod,
+    previousPeriod,
+    userGrowth,
+    propertyMetrics,
+    transactionMetrics,
+    systemMetrics,
+  } = analytics;
 
   // Calcul des indicateurs de croissance
   const newUserGrowth = getGrowthRate(currentPeriod.newUsers, previousPeriod?.newUsers);
-  const newPropertyGrowth = getGrowthRate(currentPeriod.newProperties, previousPeriod?.newProperties);
-  const transactionGrowth = getGrowthRate(currentPeriod.totalTransactions, previousPeriod?.totalTransactions);
+  const newPropertyGrowth = getGrowthRate(
+    currentPeriod.newProperties,
+    previousPeriod?.newProperties
+  );
+  const transactionGrowth = getGrowthRate(
+    currentPeriod.totalTransactions,
+    previousPeriod?.totalTransactions
+  );
   const revenueGrowth = getGrowthRate(currentPeriod.totalRevenue, previousPeriod?.totalRevenue);
 
   // Données pour les graphiques
@@ -309,7 +343,9 @@ export default function AnalyticsPage() {
                       />
                     </div>
                   </div>
-                  <span className="text-sm font-medium text-[#6B5A4E] w-12 text-right">{city.percentage}%</span>
+                  <span className="text-sm font-medium text-[#6B5A4E] w-12 text-right">
+                    {city.percentage}%
+                  </span>
                 </div>
               ))}
             </div>
@@ -332,7 +368,7 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Transaction Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mx-auto max-w-4xl">
           <div className="bg-white rounded-2xl border border-[#EFEBE9] p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-green-100 rounded-lg">
@@ -340,7 +376,9 @@ export default function AnalyticsPage() {
               </div>
               <div>
                 <p className="text-sm text-[#6B5A4E]">Total Transactions</p>
-                <p className="text-2xl font-bold text-[#2C1810]">{FormatService.formatCurrency(transactionMetrics.totalAmount)}</p>
+                <p className="text-2xl font-bold text-[#2C1810]">
+                  {FormatService.formatCurrency(transactionMetrics.totalAmount)}
+                </p>
               </div>
             </div>
           </div>
@@ -351,7 +389,9 @@ export default function AnalyticsPage() {
               </div>
               <div>
                 <p className="text-sm text-[#6B5A4E]">Montant Moyen</p>
-                <p className="text-2xl font-bold text-[#2C1810]">{FormatService.formatCurrency(transactionMetrics.averageAmount)}</p>
+                <p className="text-2xl font-bold text-[#2C1810]">
+                  {FormatService.formatCurrency(transactionMetrics.averageAmount)}
+                </p>
               </div>
             </div>
           </div>
@@ -362,7 +402,9 @@ export default function AnalyticsPage() {
               </div>
               <div>
                 <p className="text-sm text-[#6B5A4E]">Taux de Complétion</p>
-                <p className="text-2xl font-bold text-[#2C1810]">{transactionMetrics.completionRate.toFixed(1)}%</p>
+                <p className="text-2xl font-bold text-[#2C1810]">
+                  {transactionMetrics.completionRate.toFixed(1)}%
+                </p>
               </div>
             </div>
           </div>
@@ -376,11 +418,15 @@ export default function AnalyticsPage() {
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="text-center">
-              <p className="text-3xl font-bold text-green-600">{systemMetrics.uptime.toFixed(1)}%</p>
+              <p className="text-3xl font-bold text-green-600">
+                {systemMetrics.uptime.toFixed(1)}%
+              </p>
               <p className="text-sm text-[#6B5A4E] mt-1">Disponibilité</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-amber-600">{systemMetrics.errorRate.toFixed(2)}%</p>
+              <p className="text-3xl font-bold text-amber-600">
+                {systemMetrics.errorRate.toFixed(2)}%
+              </p>
               <p className="text-sm text-[#6B5A4E] mt-1">Taux d'erreur</p>
             </div>
             <div className="text-center">
@@ -406,52 +452,98 @@ export default function AnalyticsPage() {
                 <thead>
                   <tr className="border-b border-[#EFEBE9]">
                     <th className="text-left p-4 text-sm font-semibold text-[#6B5A4E]">Métrique</th>
-                    <th className="text-right p-4 text-sm font-semibold text-[#6B5A4E]">Période Actuelle</th>
-                    <th className="text-right p-4 text-sm font-semibold text-[#6B5A4E]">Période Précédente</th>
-                    <th className="text-right p-4 text-sm font-semibold text-[#6B5A4E]">Évolution</th>
+                    <th className="text-right p-4 text-sm font-semibold text-[#6B5A4E]">
+                      Période Actuelle
+                    </th>
+                    <th className="text-right p-4 text-sm font-semibold text-[#6B5A4E]">
+                      Période Précédente
+                    </th>
+                    <th className="text-right p-4 text-sm font-semibold text-[#6B5A4E]">
+                      Évolution
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-b border-[#EFEBE9]">
                     <td className="p-4 text-sm text-[#2C1810]">Nouveaux Utilisateurs</td>
-                    <td className="p-4 text-sm text-right text-[#2C1810]">{currentPeriod.newUsers}</td>
-                    <td className="p-4 text-sm text-right text-[#6B5A4E]">{previousPeriod.newUsers}</td>
+                    <td className="p-4 text-sm text-right text-[#2C1810]">
+                      {currentPeriod.newUsers}
+                    </td>
+                    <td className="p-4 text-sm text-right text-[#6B5A4E]">
+                      {previousPeriod.newUsers}
+                    </td>
                     <td className="p-4 text-sm text-right">
-                      <span className={`inline-flex items-center gap-1 ${newUserGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {newUserGrowth >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                      <span
+                        className={`inline-flex items-center gap-1 ${newUserGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                      >
+                        {newUserGrowth >= 0 ? (
+                          <ArrowUpRight className="w-4 h-4" />
+                        ) : (
+                          <ArrowDownRight className="w-4 h-4" />
+                        )}
                         {Math.abs(newUserGrowth).toFixed(1)}%
                       </span>
                     </td>
                   </tr>
                   <tr className="border-b border-[#EFEBE9]">
                     <td className="p-4 text-sm text-[#2C1810]">Nouvelles Propriétés</td>
-                    <td className="p-4 text-sm text-right text-[#2C1810]">{currentPeriod.newProperties}</td>
-                    <td className="p-4 text-sm text-right text-[#6B5A4E]">{previousPeriod.newProperties}</td>
+                    <td className="p-4 text-sm text-right text-[#2C1810]">
+                      {currentPeriod.newProperties}
+                    </td>
+                    <td className="p-4 text-sm text-right text-[#6B5A4E]">
+                      {previousPeriod.newProperties}
+                    </td>
                     <td className="p-4 text-sm text-right">
-                      <span className={`inline-flex items-center gap-1 ${newPropertyGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {newPropertyGrowth >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                      <span
+                        className={`inline-flex items-center gap-1 ${newPropertyGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                      >
+                        {newPropertyGrowth >= 0 ? (
+                          <ArrowUpRight className="w-4 h-4" />
+                        ) : (
+                          <ArrowDownRight className="w-4 h-4" />
+                        )}
                         {Math.abs(newPropertyGrowth).toFixed(1)}%
                       </span>
                     </td>
                   </tr>
                   <tr className="border-b border-[#EFEBE9]">
                     <td className="p-4 text-sm text-[#2C1810]">Transactions</td>
-                    <td className="p-4 text-sm text-right text-[#2C1810]">{currentPeriod.totalTransactions}</td>
-                    <td className="p-4 text-sm text-right text-[#6B5A4E]">{previousPeriod.totalTransactions}</td>
+                    <td className="p-4 text-sm text-right text-[#2C1810]">
+                      {currentPeriod.totalTransactions}
+                    </td>
+                    <td className="p-4 text-sm text-right text-[#6B5A4E]">
+                      {previousPeriod.totalTransactions}
+                    </td>
                     <td className="p-4 text-sm text-right">
-                      <span className={`inline-flex items-center gap-1 ${transactionGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {transactionGrowth >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                      <span
+                        className={`inline-flex items-center gap-1 ${transactionGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                      >
+                        {transactionGrowth >= 0 ? (
+                          <ArrowUpRight className="w-4 h-4" />
+                        ) : (
+                          <ArrowDownRight className="w-4 h-4" />
+                        )}
                         {Math.abs(transactionGrowth).toFixed(1)}%
                       </span>
                     </td>
                   </tr>
                   <tr>
                     <td className="p-4 text-sm text-[#2C1810]">Revenus</td>
-                    <td className="p-4 text-sm text-right text-[#2C1810]">{FormatService.formatCurrency(currentPeriod.totalRevenue)}</td>
-                    <td className="p-4 text-sm text-right text-[#6B5A4E]">{FormatService.formatCurrency(previousPeriod.totalRevenue)}</td>
+                    <td className="p-4 text-sm text-right text-[#2C1810]">
+                      {FormatService.formatCurrency(currentPeriod.totalRevenue)}
+                    </td>
+                    <td className="p-4 text-sm text-right text-[#6B5A4E]">
+                      {FormatService.formatCurrency(previousPeriod.totalRevenue)}
+                    </td>
                     <td className="p-4 text-sm text-right">
-                      <span className={`inline-flex items-center gap-1 ${revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {revenueGrowth >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                      <span
+                        className={`inline-flex items-center gap-1 ${revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                      >
+                        {revenueGrowth >= 0 ? (
+                          <ArrowUpRight className="w-4 h-4" />
+                        ) : (
+                          <ArrowDownRight className="w-4 h-4" />
+                        )}
                         {Math.abs(revenueGrowth).toFixed(1)}%
                       </span>
                     </td>

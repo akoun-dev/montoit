@@ -83,7 +83,7 @@ export default function CreateMandateForm({ isOpen, onClose, onSuccess, property
     can_create_properties: false,
     can_delete_properties: false,
     can_view_applications: true,
-    can_manage_applications: false,
+    can_manage_applications: true, // CORRECTION: true par défaut pour router les candidatures vers l'agence
     can_create_leases: false,
     can_view_financials: false,
     can_manage_maintenance: false,
@@ -207,7 +207,7 @@ export default function CreateMandateForm({ isOpen, onClose, onSuccess, property
       can_create_properties: false,
       can_delete_properties: false,
       can_view_applications: true,
-      can_manage_applications: false,
+      can_manage_applications: true, // CORRECTION: true par défaut
       can_create_leases: false,
       can_view_financials: false,
       can_manage_maintenance: false,
@@ -536,6 +536,9 @@ export default function CreateMandateForm({ isOpen, onClose, onSuccess, property
                     <Users className="h-5 w-5 text-[#F16522]" />
                     Candidats & Baux
                   </h4>
+                  <p className="text-sm text-[#6B5A4E] mb-3">
+                    ⚠️ <strong>Gérer les candidatures</strong> : Si activé, les candidatures et visites seront envoyées à l'agence. Si désactivé, elles seront envoyées au propriétaire.
+                  </p>
                   <div className="grid grid-cols-2 gap-3">
                     {[
                       { key: 'can_view_applications', label: 'Voir les candidatures' },

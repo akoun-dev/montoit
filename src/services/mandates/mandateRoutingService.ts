@@ -46,20 +46,40 @@ export async function getRoutingForProperty(
     }
 
     // Vérifier s'il y a un mandat actif pour ce bien
+    // Deux types de mandats possibles :
+    // 1. mandate_scope = 'single_property' avec property_id correspondant
+    // 2. mandate_scope = 'all_properties' avec property_id = NULL (couvre tous les biens du propriétaire)
     const { data: mandate, error: mandateError } = await supabase
       .from('agency_mandates')
       .select(`
         id,
         agency_id,
+        owner_id,
         status,
         mandate_scope,
+        property_id,
         can_manage_applications,
         can_view_applications,
         can_communicate_tenants
       `)
-      .eq('property_id', propertyId)
+      .or(`property_id.eq.${propertyId},and(mandate_scope.eq.all_properties,property_id.is.null)`)
       .eq('status', 'active')
+      .eq('owner_id', property.owner_id) // S'assurer que le mandat appartient au bon propriétaire
       .maybeSingle();
+
+    console.log('[MandateRouting] Mandate query result:', {
+      propertyId,
+      ownerId: property.owner_id,
+      mandateFound: !!mandate,
+      mandate: mandate ? {
+        id: mandate.id,
+        mandate_scope: mandate.mandate_scope,
+        property_id: mandate.property_id,
+        agency_id: mandate.agency_id,
+        can_manage_applications: mandate.can_manage_applications,
+      } : null,
+      error: mandateError,
+    });
 
     if (mandateError) {
       console.error('[MandateRouting] Mandate query error:', mandateError);
@@ -90,10 +110,9 @@ export async function getRoutingForProperty(
     const shouldNotifyAgency = canView || canManage || canCommunicate;
 
     // Le propriétaire doit être notifié si l'agence ne gère pas exclusivement
-    // (Optionnel : selon vos règles métier, vous pouvez vouloir toujours notifier le propriétaire)
-    const shouldNotifyOwner = !canManage; // Notify owner if agency doesn't manage
+    const shouldNotifyOwner = !canManage;
 
-    return {
+    const routing = {
       hasActiveMandate: true,
       recipientId,
       agencyId: mandate.agency_id,
@@ -103,6 +122,14 @@ export async function getRoutingForProperty(
       shouldNotifyAgency,
       shouldNotifyOwner,
     };
+
+    console.log('[MandateRouting] Routing decision:', {
+      ...routing,
+      mandate_scope: mandate.mandate_scope,
+      can_communicate_tenants: canCommunicate,
+    });
+
+    return routing;
   } catch (error) {
     console.error('[MandateRouting] Error:', error);
     // En cas d'erreur, router vers le propriétaire par défaut

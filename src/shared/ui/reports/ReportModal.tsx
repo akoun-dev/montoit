@@ -66,7 +66,7 @@ export default function ReportModal({
     },
     onError: (error: Error) => {
       console.error('Report creation error:', error);
-      alert(error.message || 'Erreur lors de l\'envoi du signalement');
+      alert(error.message || "Erreur lors de l'envoi du signalement");
     },
   });
 
@@ -107,17 +107,17 @@ export default function ReportModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-2xl">
+      <div className="bg-white rounded-2xl max-w-lg w-full mx-auto max-h-[90vh] overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-200">
+        <div className="flex items-center justify-between p-4 md:p-6 border-b border-neutral-200">
           <div className="flex items-center gap-3">
             <div
               className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                 step === 'success'
                   ? 'bg-green-100'
                   : step === 'confirm'
-                  ? 'bg-orange-100'
-                  : 'bg-red-100'
+                    ? 'bg-orange-100'
+                    : 'bg-red-100'
               }`}
             >
               {step === 'success' ? (
@@ -129,38 +129,40 @@ export default function ReportModal({
               )}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-neutral-900">
+              <h2 className="text-lg md:text-xl font-bold text-neutral-900">
                 {step === 'success'
                   ? 'Signalement envoyé'
                   : step === 'confirm'
-                  ? 'Confirmer le signalement'
-                  : step === 'details'
-                  ? 'Détails du signalement'
-                  : 'Signaler un contenu'}
+                    ? 'Confirmer le signalement'
+                    : step === 'details'
+                      ? 'Détails du signalement'
+                      : 'Signaler un contenu'}
               </h2>
               {entityTitle && step !== 'success' && (
-                <p className="text-sm text-neutral-500 truncate max-w-xs">{entityTitle}</p>
+                <p className="text-xs md:text-sm text-neutral-500 truncate max-w-xs">
+                  {entityTitle}
+                </p>
               )}
             </div>
           </div>
           <button
             onClick={handleClose}
             disabled={reportMutation.isPending}
-            className="p-2 hover:bg-neutral-100 rounded-xl transition-colors disabled:opacity-50"
+            className="p-1.5 hover:bg-neutral-100 rounded-xl transition-colors disabled:opacity-50"
           >
             <X className="w-5 h-5 text-neutral-500" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[60vh]">
+        <div className="p-4 md:p-6 overflow-y-auto max-h-[60vh]">
           {/* Step 1: Select Reason */}
           {step === 'reason' && (
             <div className="space-y-4">
               <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
                 <p className="text-sm text-amber-900">
-                  Votre signalement sera envoyé à notre équipe de modération qui l'examinera
-                  dans les plus brefs délais.
+                  Votre signalement sera envoyé à notre équipe de modération qui l'examinera dans
+                  les plus brefs délais.
                 </p>
               </div>
 
@@ -209,7 +211,10 @@ export default function ReportModal({
 
               {/* Description */}
               <div>
-                <label htmlFor="description" className="block text-sm font-semibold text-neutral-900 mb-2">
+                <label
+                  htmlFor="description"
+                  className="block text-sm font-semibold text-neutral-900 mb-2"
+                >
                   Description <span className="text-neutral-400">(optionnel)</span>
                 </label>
                 <textarea
@@ -267,12 +272,12 @@ export default function ReportModal({
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setStep('reason')}
                   disabled={reportMutation.isPending}
-                  className="flex-1 px-4 py-3 border border-neutral-300 rounded-xl font-medium text-neutral-700 hover:bg-neutral-50 transition-colors disabled:opacity-50"
+                  className="flex-1 sm:flex-none px-4 py-3 border border-neutral-300 rounded-xl font-medium text-neutral-700 hover:bg-neutral-50 transition-colors disabled:opacity-50"
                 >
                   Retour
                 </button>
@@ -280,7 +285,7 @@ export default function ReportModal({
                   type="button"
                   onClick={() => setStep('confirm')}
                   disabled={reportMutation.isPending}
-                  className="flex-1 px-4 py-3 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors disabled:opacity-50"
+                  className="flex-1 sm:flex-none px-4 py-3 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors disabled:opacity-50"
                 >
                   Continuer
                 </button>
@@ -304,22 +309,22 @@ export default function ReportModal({
               </div>
 
               <div className="space-y-3">
-                <div className="flex justify-between items-center py-2 border-b border-neutral-200">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 py-2 border-b border-neutral-200">
                   <span className="text-sm text-neutral-500">Type de contenu</span>
                   <span className="text-sm font-medium text-neutral-900 capitalize">
                     {entityType === 'property'
                       ? 'Propriété'
                       : entityType === 'user'
-                      ? 'Utilisateur'
-                      : entityType === 'message'
-                      ? 'Message'
-                      : entityType === 'review'
-                      ? 'Avis'
-                      : 'Contrat'}
+                        ? 'Utilisateur'
+                        : entityType === 'message'
+                          ? 'Message'
+                          : entityType === 'review'
+                            ? 'Avis'
+                            : 'Contrat'}
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center py-2 border-b border-neutral-200">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 py-2 border-b border-neutral-200">
                   <span className="text-sm text-neutral-500">Motif</span>
                   <span className="text-sm font-medium text-neutral-900">
                     {REPORT_REASON_LABELS[selectedReason]}
@@ -334,7 +339,7 @@ export default function ReportModal({
                 )}
 
                 {evidence.length > 0 && (
-                  <div className="flex justify-between items-center py-2 border-b border-neutral-200">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 py-2 border-b border-neutral-200">
                     <span className="text-sm text-neutral-500">Pièces jointes</span>
                     <span className="text-sm font-medium text-neutral-900">
                       {evidence.length} fichier{evidence.length > 1 ? 's' : ''}
@@ -349,19 +354,19 @@ export default function ReportModal({
                   <div className="text-sm">
                     <p className="font-semibold text-red-900">Important</p>
                     <p className="text-red-800 mt-1">
-                      Les signalements abusifs ou infondés peuvent entraîner des
-                      restrictions sur votre compte.
+                      Les signalements abusifs ou infondés peuvent entraîner des restrictions sur
+                      votre compte.
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setStep('details')}
                   disabled={reportMutation.isPending}
-                  className="flex-1 px-4 py-3 border border-neutral-300 rounded-xl font-medium text-neutral-700 hover:bg-neutral-50 transition-colors disabled:opacity-50"
+                  className="flex-1 sm:flex-none px-4 py-3 border border-neutral-300 rounded-xl font-medium text-neutral-700 hover:bg-neutral-50 transition-colors disabled:opacity-50"
                 >
                   Modifier
                 </button>
@@ -369,7 +374,7 @@ export default function ReportModal({
                   type="button"
                   onClick={handleSubmit}
                   disabled={reportMutation.isPending}
-                  className="flex-1 px-4 py-3 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 sm:flex-none px-4 py-3 bg-orange-500 text-white rounded-xl font-medium hover:bg-orange-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {reportMutation.isPending ? (
                     <>
@@ -397,8 +402,8 @@ export default function ReportModal({
                 Signalement envoyé avec succès !
               </h3>
               <p className="text-neutral-500 mb-6">
-                Merci de votre contribution. Notre équipe va examiner ce signalement
-                dans les plus brefs délais.
+                Merci de votre contribution. Notre équipe va examiner ce signalement dans les plus
+                brefs délais.
               </p>
               <div className="bg-neutral-50 rounded-xl p-4 text-sm text-neutral-600">
                 <p className="font-medium mb-1">Que se passe-t-il maintenant ?</p>

@@ -31,7 +31,15 @@ import { Textarea } from '@/shared/ui/textarea';
 
 // Types
 type ModerationStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
-type PropertyType = 'apartment' | 'house' | 'villa' | 'studio' | 'office' | 'retail' | 'land' | 'other';
+type PropertyType =
+  | 'apartment'
+  | 'house'
+  | 'villa'
+  | 'studio'
+  | 'office'
+  | 'retail'
+  | 'land'
+  | 'other';
 
 interface PropertyForModeration {
   id: string;
@@ -77,12 +85,15 @@ interface PropertyDetail extends PropertyForModeration {
 }
 
 // Configuration
-const STATUS_CONFIG: Record<ModerationStatus, {
-  label: string;
-  color: string;
-  bg: string;
-  icon: React.ElementType;
-}> = {
+const STATUS_CONFIG: Record<
+  ModerationStatus,
+  {
+    label: string;
+    color: string;
+    bg: string;
+    icon: React.ElementType;
+  }
+> = {
   pending: {
     label: 'En attente',
     color: 'text-amber-700',
@@ -151,10 +162,12 @@ export default function PropertyModerationPage() {
       // Récupérer toutes les propriétés avec info propriétaire
       const { data: propertiesData, error } = await supabase
         .from('properties')
-        .select(`
+        .select(
+          `
           *,
           profiles:owner_id(full_name, email)
-        `)
+        `
+        )
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -198,10 +211,12 @@ export default function PropertyModerationPage() {
       // Récupérer les détails complets
       const { data, error } = await supabase
         .from('properties')
-        .select(`
+        .select(
+          `
           *,
           profiles:owner_id(full_name, email)
-        `)
+        `
+        )
         .eq('id', propertyId)
         .single();
 
@@ -232,9 +247,12 @@ export default function PropertyModerationPage() {
 
       setSelectedProperty({
         ...(data as Record<string, unknown>),
-        owner_name: (data.profiles as Record<string, unknown> | null)?.full_name as string || 'Non renseigné',
-        owner_email: (data.profiles as Record<string, unknown> | null)?.email as string || '',
-        moderation_status: (data.moderation_status as string | null) || (data.status as string) || 'pending',
+        owner_name:
+          ((data.profiles as Record<string, unknown> | null)?.full_name as string) ||
+          'Non renseigné',
+        owner_email: ((data.profiles as Record<string, unknown> | null)?.email as string) || '',
+        moderation_status:
+          (data.moderation_status as string | null) || (data.status as string) || 'pending',
         images: images || [],
         applications_count: applicationsCount || 0,
         favorites_count: 0,
@@ -277,7 +295,7 @@ export default function PropertyModerationPage() {
       loadProperties();
     } catch (error) {
       console.error('Error approving property:', error);
-      toast.error('Erreur lors de l\'approbation');
+      toast.error("Erreur lors de l'approbation");
     } finally {
       setActionLoading(null);
     }
@@ -400,9 +418,7 @@ export default function PropertyModerationPage() {
                 <Shield className="h-6 w-6 text-emerald-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Modération des Annonces
-                </h1>
+                <h1 className="text-2xl font-bold text-gray-900">Modération des Annonces</h1>
                 <p className="text-gray-600">
                   Valider, rejeter ou suspendre les annonces immobilières
                 </p>
@@ -413,11 +429,31 @@ export default function PropertyModerationPage() {
           {/* Stats Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             {[
-              { label: 'Total', value: stats.total, color: 'bg-gray-50 text-gray-700 border-gray-200' },
-              { label: 'En attente', value: stats.pending, color: 'bg-amber-50 text-amber-700 border-amber-200' },
-              { label: 'Approuvées', value: stats.approved, color: 'bg-green-50 text-green-700 border-green-200' },
-              { label: 'Rejetées', value: stats.rejected, color: 'bg-red-50 text-red-700 border-red-200' },
-              { label: 'Suspendues', value: stats.suspended, color: 'bg-purple-50 text-purple-700 border-purple-200' },
+              {
+                label: 'Total',
+                value: stats.total,
+                color: 'bg-gray-50 text-gray-700 border-gray-200',
+              },
+              {
+                label: 'En attente',
+                value: stats.pending,
+                color: 'bg-amber-50 text-amber-700 border-amber-200',
+              },
+              {
+                label: 'Approuvées',
+                value: stats.approved,
+                color: 'bg-green-50 text-green-700 border-green-200',
+              },
+              {
+                label: 'Rejetées',
+                value: stats.rejected,
+                color: 'bg-red-50 text-red-700 border-red-200',
+              },
+              {
+                label: 'Suspendues',
+                value: stats.suspended,
+                color: 'bg-purple-50 text-purple-700 border-purple-200',
+              },
             ].map((stat) => (
               <div key={stat.label} className={`p-4 rounded-xl border ${stat.color}`}>
                 <p className="text-sm font-medium">{stat.label}</p>
@@ -464,9 +500,7 @@ export default function PropertyModerationPage() {
         {filteredProperties.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
             <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Aucune annonce trouvée
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucune annonce trouvée</h3>
             <p className="text-gray-500">
               {searchQuery || statusFilter !== 'all'
                 ? 'Aucune annonce ne correspond à votre recherche'
@@ -553,7 +587,9 @@ export default function PropertyModerationPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${statusConfig.bg} ${statusConfig.color}`}>
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${statusConfig.bg} ${statusConfig.color}`}
+                          >
                             <StatusIcon className="w-3.5 h-3.5" />
                             {statusConfig.label}
                           </span>
@@ -735,12 +771,10 @@ export default function PropertyModerationPage() {
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mx-auto max-w-4xl">
                 <div className="text-center">
                   <Eye className="w-5 h-5 mx-auto mb-1 text-gray-600" />
-                  <p className="text-2xl font-bold text-gray-900">
-                    {selectedProperty.views_count}
-                  </p>
+                  <p className="text-2xl font-bold text-gray-900">{selectedProperty.views_count}</p>
                   <p className="text-xs text-gray-500">Vues</p>
                 </div>
                 <div className="text-center">
@@ -772,9 +806,7 @@ export default function PropertyModerationPage() {
               {/* Rejection reason */}
               {selectedProperty.rejection_reason && (
                 <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <h4 className="font-medium text-red-900 mb-2">
-                    Raison du rejet/suspension
-                  </h4>
+                  <h4 className="font-medium text-red-900 mb-2">Raison du rejet/suspension</h4>
                   <p className="text-sm text-red-700">{selectedProperty.rejection_reason}</p>
                 </div>
               )}
@@ -784,9 +816,7 @@ export default function PropertyModerationPage() {
               <Button variant="outline" onClick={() => setSelectedProperty(null)}>
                 Fermer
               </Button>
-              <Button
-                onClick={() => window.open(`/propriete/${selectedProperty.id}`, '_blank')}
-              >
+              <Button onClick={() => window.open(`/propriete/${selectedProperty.id}`, '_blank')}>
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Voir l'annonce
               </Button>

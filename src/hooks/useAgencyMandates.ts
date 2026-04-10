@@ -142,7 +142,7 @@ const DEFAULT_PERMISSIONS: MandatePermissions = {
   can_create_properties: false,
   can_delete_properties: false,
   can_view_applications: true,
-  can_manage_applications: false,
+  can_manage_applications: true, // CORRECTION: true par défaut pour router les candidatures vers l'agence
   can_create_leases: false,
   can_view_financials: false,
   can_manage_maintenance: false,

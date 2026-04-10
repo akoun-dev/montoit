@@ -317,7 +317,7 @@ export default function ServiceMonitoringPage() {
         </div>
 
         {/* Métriques système */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 mx-auto max-w-4xl">
           <div className="bg-white rounded-2xl border border-[#EFEBE9] p-6">
             <h3 className="text-lg font-bold text-[#2C1810] mb-4">Utilisation CPU</h3>
             <div className="flex items-end justify-between">

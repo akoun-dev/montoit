@@ -265,7 +265,7 @@ export default function UserRolesPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mx-auto max-w-4xl">
           {/* Colonne gauche: Liste des rôles */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl border border-[#EFEBE9] p-6">
@@ -317,8 +317,8 @@ export default function UserRolesPage() {
                 <li className="flex items-start gap-2">
                   <div className="w-2 h-2 mt-1.5 rounded-full bg-purple-500 flex-shrink-0" />
                   <span>
-                    <strong>Tiers de confiance:</strong> Validation et certification des utilisateurs et
-                    propriétés.
+                    <strong>Tiers de confiance:</strong> Validation et certification des
+                    utilisateurs et propriétés.
                   </span>
                 </li>
               </ul>

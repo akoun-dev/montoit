@@ -68,7 +68,7 @@ export function ConfirmationModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div
-        className={`w-full max-w-2xl rounded-2xl shadow-xl ${styles.bg} border ${styles.border}`}
+        className={`w-full max-w-2xl mx-auto rounded-2xl shadow-xl ${styles.bg} border ${styles.border}`}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200/50">
@@ -135,16 +135,16 @@ export function ConfirmationModal({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 p-4 border-t border-gray-200/50">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 p-4 border-t border-gray-200/50">
           <button
             onClick={handleCancel}
-            className="flex-1 px-4 py-2.5 rounded-xl font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition"
+            className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition"
           >
             {cancelText}
           </button>
           <button
             onClick={handleConfirm}
-            className={`flex-1 px-4 py-2.5 rounded-xl font-semibold text-white ${styles.button} transition`}
+            className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-semibold text-white ${styles.button} transition`}
           >
             {confirmText}
           </button>

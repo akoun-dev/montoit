@@ -47,6 +47,7 @@ export default function SignMandatePage() {
   const [signerType, setSignerType] = useState<'owner' | 'agency' | null>(null);
    
   const [_signatureComplete, setSignatureComplete] = useState(false);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
 
   const { step: currentStep, slideDirection, goToStep, nextStep, prevStep } = useFormStepper(3);
 
@@ -60,8 +61,20 @@ export default function SignMandatePage() {
         cryptoneo_signature_status: mandate.cryptoneo_signature_status,
         signerType,
       });
+      // Trigger auto-redirect after signature is complete
+      setShouldRedirect(true);
     }
   }, [currentStep, mandate, signerType]);
+
+  // Auto-redirect to mandate list after signature
+  useEffect(() => {
+    if (shouldRedirect && currentStep === 3) {
+      const timer = setTimeout(() => {
+        navigate('/agences/mandats');
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldRedirect, currentStep, navigate]);
 
   // Fetch mandate data - fetch directly from DB instead of relying on local list
   useEffect(() => {
@@ -708,14 +721,7 @@ export default function SignMandatePage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Button variant="outline" onClick={() => navigate('/agences/mandats')}>
-                    Voir mes mandats
-                  </Button>
-                  <Button onClick={() => navigate(`/agences/mandats/${mandate.id}`)}>
-                    Voir le détail du mandat
-                  </Button>
-                </div>
+                <p className="text-sm text-green-600">Redirection vers la liste des mandats...</p>
               </CardContent>
             </Card>
           </FormStepContent>

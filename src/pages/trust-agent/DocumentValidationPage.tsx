@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileCheck, FileX, Check, X, AlertCircle, FileText, Eye, Download, XCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  FileCheck,
+  FileX,
+  Check,
+  X,
+  AlertCircle,
+  FileText,
+  Eye,
+  Download,
+  XCircle,
+} from 'lucide-react';
 import { Card, CardContent } from '@/shared/ui/Card';
 import { Button } from '@/shared/ui/Button';
 import { Badge } from '@/shared/ui/badge';
@@ -186,9 +197,7 @@ export default function DocumentValidationPage() {
       console.log('[getSignedDocumentUrl] Extracted bucket:', bucket, 'path:', filePath);
 
       // Créer une URL signée valide pour 1 heure
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(filePath, 3600);
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
 
       if (error) {
         console.error('[getSignedDocumentUrl] Error creating signed URL:', error);
@@ -254,7 +263,7 @@ export default function DocumentValidationPage() {
   const isImageFile = (url: string) => {
     if (!url) return false;
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
-    return imageExtensions.some(ext => url.toLowerCase().endsWith(ext));
+    return imageExtensions.some((ext) => url.toLowerCase().endsWith(ext));
   };
 
   const isPdfFile = (url: string) => {
@@ -313,7 +322,7 @@ export default function DocumentValidationPage() {
 
       <main className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-8">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <Card>
             <CardContent className="pt-4 text-center">
               <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>

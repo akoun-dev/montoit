@@ -10,16 +10,17 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar as CalendarIcon, ArrowLeft, Plus, List, Filter, Grid } from 'lucide-react';
-import {
-  isSameDay,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  format,
-  addDays,
-} from 'date-fns';
+import { isSameDay, startOfWeek, endOfWeek, eachDayOfInterval, format, addDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { DndContext, closestCenter, DragEndEvent, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import {
+  DndContext,
+  closestCenter,
+  DragEndEvent,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { Button } from '@/shared/ui/Button';
@@ -226,7 +227,11 @@ export default function CalendarPage() {
                 </button>
               </div>
 
-              <Button onClick={() => {/* Open plan modal */}}>
+              <Button
+                onClick={() => {
+                  /* Open plan modal */
+                }}
+              >
                 <Plus className="h-4 w-4 mr-1" />
                 Nouvelle
               </Button>
@@ -264,7 +269,7 @@ export default function CalendarPage() {
 
           <Card className="lg:col-span-3">
             <CardContent className="p-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-blue-100">
                     <CalendarIcon className="h-5 w-5 text-blue-600" />
@@ -316,8 +321,7 @@ export default function CalendarPage() {
                       <span>
                         {viewMode === 'week'
                           ? `Semaine du ${format(visibleDays[0], 'dd MMM', { locale: fr })}`
-                          : format(selectedDate, 'MMMM yyyy', { locale: fr })
-                        }
+                          : format(selectedDate, 'MMMM yyyy', { locale: fr })}
                       </span>
                       <div className="flex gap-1">
                         <Button
@@ -367,20 +371,19 @@ export default function CalendarPage() {
                             id={day.toISOString()}
                             className={cn(
                               'min-h-[120px] p-2 rounded-lg border-2 border-dashed transition-all',
-                              isToday ? 'border-primary-300 bg-primary-50' : 'border-gray-200 bg-gray-50',
+                              isToday
+                                ? 'border-primary-300 bg-primary-50'
+                                : 'border-gray-200 bg-gray-50',
                               'hover:border-primary-400'
                             )}
                           >
                             <div className="flex items-center justify-between mb-2">
-                              <span className={cn(
-                                'text-sm font-medium',
-                                isToday && 'text-primary-600'
-                              )}>
+                              <span
+                                className={cn('text-sm font-medium', isToday && 'text-primary-600')}
+                              >
                                 {format(day, 'd')}
                               </span>
-                              {isToday && (
-                                <Badge className="text-xs">Auj.</Badge>
-                              )}
+                              {isToday && <Badge className="text-xs">Auj.</Badge>}
                             </div>
 
                             <div className="space-y-1">
@@ -448,10 +451,7 @@ export default function CalendarPage() {
                             return (
                               <div
                                 key={mission.id}
-                                className={cn(
-                                  'p-3 rounded-lg',
-                                  'bg-white border border-gray-200'
-                                )}
+                                className={cn('p-3 rounded-lg', 'bg-white border border-gray-200')}
                               >
                                 <div className="flex items-start gap-2">
                                   <div className={cn('w-3 h-3 rounded-full mt-1', config.color)} />
@@ -459,9 +459,7 @@ export default function CalendarPage() {
                                     <p className="font-medium text-sm truncate">
                                       {mission.property?.title || 'Mission'}
                                     </p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      {config.label}
-                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">{config.label}</p>
                                     {mission.property?.address && (
                                       <p className="text-xs text-gray-400 mt-1 truncate">
                                         {mission.property.address}
@@ -492,7 +490,7 @@ export default function CalendarPage() {
             <DragOverlay>
               {activeMissionId && (
                 <div className="p-3 rounded-lg bg-primary-500 text-white shadow-lg cursor-grabbing">
-                  {missions.find(m => m.id === activeMissionId)?.property?.title || 'Mission'}
+                  {missions.find((m) => m.id === activeMissionId)?.property?.title || 'Mission'}
                 </div>
               )}
             </DragOverlay>
