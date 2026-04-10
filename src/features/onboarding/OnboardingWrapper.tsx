@@ -32,6 +32,7 @@ async function needsOnboarding(profile: any, userId?: string): Promise<boolean> 
 
   // PRIORITÉ: Si déjà soumis au TC, pas besoin d'onboarding
   if (profile.submitted_to_tc === true) {
+    console.log('[needsOnboarding] submitted_to_tc is true, no onboarding needed');
     return false;
   }
 
@@ -39,11 +40,13 @@ async function needsOnboarding(profile: any, userId?: string): Promise<boolean> 
   if (profile.verification_status === 'pending' ||
       profile.verification_status === 'in_review' ||
       profile.verification_status === 'approved') {
+    console.log('[needsOnboarding] verification_status is', profile.verification_status, ', no onboarding needed');
     return false;
   }
 
   // PRIORITÉ: Si profile_setup_completed est explicitement true, pas d'onboarding
   if (profile.profile_setup_completed === true) {
+    console.log('[needsOnboarding] profile_setup_completed is true, no onboarding needed');
     return false;
   }
 
@@ -67,6 +70,7 @@ async function needsOnboarding(profile: any, userId?: string): Promise<boolean> 
             .from('profiles')
             .update({ profile_setup_completed: true, submitted_to_tc: true } as any)
             .eq('id', userId);
+          console.log('[needsOnboarding] Application already submitted, marking profile as complete');
           return false;
         }
       }
@@ -75,21 +79,20 @@ async function needsOnboarding(profile: any, userId?: string): Promise<boolean> 
     }
   }
 
-  // Si profile_setup_completed est explicitement false, onboarding est nécessaire
-  // MAIS seulement si pas encore soumis au TC
-  if (profile.profile_setup_completed === false) {
-    return true;
+  // Si profile_setup_completed est undefined ou false, vérifier les critères d'onboarding
+  // Note: On ne retourne true que si profile_setup_completed n'est pas true ET qu'il manque des infos de base
+  if (profile.profile_setup_completed !== true) {
+    const hasBasicProfile = profile.full_name && profile.full_name.trim() !== '';
+    const hasPhone = profile.phone && profile.phone.trim() !== '';
+
+    // Si aucune info de base, onboarding nécessaire
+    if (!hasBasicProfile || !hasPhone) {
+      console.log('[needsOnboarding] Missing basic profile info, onboarding needed');
+      return true;
+    }
   }
 
-  // Vérifier les critères d'onboarding
-  const hasBasicProfile = profile.full_name && profile.full_name.trim() !== '';
-  const hasPhone = profile.phone && profile.phone.trim() !== '';
-
-  // Si aucune info de base, onboarding nécessaire
-  if (!hasBasicProfile || !hasPhone) {
-    return true;
-  }
-
+  console.log('[needsOnboarding] Profile is complete enough, no onboarding needed');
   return false;
 }
 
@@ -125,15 +128,18 @@ export default function OnboardingWrapper({ children }: { children: React.ReactN
 
   // Mettre à jour l'état si le profil change
   useEffect(() => {
-    if (hasCheckedOnboarding && profile && !isExcludedRoute && user && !userManuallyClosed) {
+    if (hasCheckedOnboarding && profile && !isExcludedRoute && user) {
       needsOnboarding(profile, user.id).then(needsIt => {
         // Si le modal est ouvert et que le profil est maintenant complet
         if (!needsIt && showOnboarding) {
+          console.log('[OnboardingWrapper] Profile is now complete, closing onboarding modal');
           setShowOnboarding(false);
+          setUserManuallyClosed(false); // Réinitialiser pour permettre une future réouverture si nécessaire
         }
         // Si le modal n'est pas ouvert et que le profil est incomplet
         // NE PAS réafficher si l'utilisateur l'a fermé manuellement
         else if (needsIt && !showOnboarding && hasCheckedOnboarding && !userManuallyClosed) {
+          console.log('[OnboardingWrapper] Profile incomplete and not manually closed, showing onboarding');
           setShowOnboarding(true);
         }
       });
