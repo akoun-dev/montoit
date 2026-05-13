@@ -870,11 +870,11 @@ export default function EnhancedProfilePage() {
   ];
 
   const tabs = [
-    { id: 'infos', label: 'Informations profil', icon: User },
-    { id: 'verification', label: "Vérifications d'identité", icon: Shield },
-    { id: 'history', label: 'Historique', icon: Calendar },
-    { id: 'dossier', label: 'Dossier locataire', icon: FileText },
-    { id: 'stats', label: 'Statistiques', icon: Star },
+    { id: 'infos', label: 'Informations profil', shortLabel: 'Profil', icon: User },
+    { id: 'verification', label: "Vérifications d'identité", shortLabel: 'Vérifications', icon: Shield },
+    { id: 'history', label: 'Historique', shortLabel: 'Historique', icon: Calendar },
+    { id: 'dossier', label: 'Dossier locataire', shortLabel: 'Dossier', icon: FileText },
+    { id: 'stats', label: 'Statistiques', shortLabel: 'Stats', icon: Star },
   ];
 
   if (loading) {
@@ -1039,10 +1039,10 @@ export default function EnhancedProfilePage() {
           <div className="bg-white rounded-2xl border border-[#EFEBE9] mb-5">
             <div className="flex items-center justify-between px-4 pt-4">
               <p className="text-[11px] uppercase tracking-[0.2em] text-[#A69B95]">Navigation</p>
-              <span className="text-xs text-[#6B5A4E]">Glissez pour voir</span>
+              <span className="sm:hidden text-xs text-[#6B5A4E]">Glissez pour voir</span>
             </div>
-            <nav className="mt-3 px-3 pb-3 overflow-x-auto">
-              <div className="flex gap-2 min-w-max">
+            <nav className="mt-3 px-3 pb-3 overflow-x-auto scrollbar-hide">
+              <div className="flex gap-2">
                 {tabs.map((tab) => {
                   const isActive = activeTab === tab.id;
                   return (
@@ -1050,20 +1050,21 @@ export default function EnhancedProfilePage() {
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
                       aria-pressed={isActive}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-sm transition-all whitespace-nowrap border ${
+                      title={tab.label}
+                      className={`flex items-center justify-center gap-0 sm:gap-2 px-0 sm:px-4 w-10 sm:w-auto h-10 sm:h-auto rounded-full font-semibold text-xs sm:text-sm transition-all whitespace-nowrap border ${
                         isActive
                           ? 'bg-[#F16522] text-white border-[#F16522] shadow-md shadow-orange-500/20'
                           : 'bg-white text-[#6B5A4E] border-[#EFEBE9] hover:bg-[#FAF7F4] hover:text-[#2C1810]'
                       }`}
                     >
                       <span
-                        className={`flex h-7 w-7 items-center justify-center rounded-full ${
+                        className={`flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full ${
                           isActive ? 'bg-white/20' : 'bg-[#F5E6D3] text-[#9C3D0D]'
                         }`}
                       >
-                        <tab.icon className="w-4 h-4" />
+                        <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </span>
-                      {tab.label}
+                      <span className="hidden sm:inline">{tab.label}</span>
                     </button>
                   );
                 })}

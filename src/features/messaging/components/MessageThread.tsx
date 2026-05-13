@@ -182,12 +182,11 @@ export function MessageThread({
 
   return (
     <div className="flex flex-col h-full bg-[#FAF7F4]/50 relative z-10">
-      {/* Header Premium */}
-      <div className="px-6 py-4 bg-white/80 backdrop-blur-md border-b border-[#EFEBE9] flex items-center gap-4 sticky top-0 z-20">
+      <div className="px-3 sm:px-6 py-3 sm:py-4 bg-white/80 backdrop-blur-md border-b border-[#EFEBE9] flex items-center gap-2 sm:gap-4 sticky top-0 z-20">
         {onBack && (
           <button
             onClick={onBack}
-            className="p-2 hover:bg-[#FAF7F4] rounded-full transition-colors md:hidden"
+            className="p-1.5 sm:p-2 hover:bg-[#FAF7F4] rounded-full transition-colors md:hidden"
           >
             <ArrowLeft className="h-5 w-5 text-[#6B5A4E]" />
           </button>
@@ -196,18 +195,17 @@ export function MessageThread({
         <img
           src={conversation.other_participant?.avatar_url ?? getDefaultAvatar(participantName)}
           alt={participantName}
-          className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-white shadow-sm"
         />
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-[#2C1810] truncate">{participantName}</h3>
+          <h3 className="text-sm sm:text-base font-bold text-[#2C1810] truncate">{participantName}</h3>
           <span className="text-xs text-[#F16522] font-medium bg-[#F16522]/10 px-2 py-0.5 rounded-full inline-block">
             Contact
           </span>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0 sm:gap-1">
           <MessageSearch
             messages={messages}
             onSearch={handleSearch}
@@ -217,32 +215,32 @@ export function MessageThread({
           {hasWhatsApp && (
             <button
               onClick={handleWhatsAppReply}
-              className="p-2.5 hover:bg-[#25D366]/10 rounded-full text-[#25D366] transition-colors"
+              className="p-1.5 sm:p-2.5 hover:bg-[#25D366]/10 rounded-full text-[#25D366] transition-colors"
               title="Répondre via WhatsApp"
             >
-              <MessageCircle className="h-5 w-5" />
+              <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
           )}
           <button
             onClick={handleVideoCall}
-            className="p-2.5 hover:bg-[#FAF7F4] rounded-full text-[#6B5A4E] transition-colors"
+            className="p-1.5 sm:p-2.5 hover:bg-[#FAF7F4] rounded-full text-[#6B5A4E] transition-colors"
             title="Appel vidéo"
           >
-            <Video className="h-5 w-5" />
+            <Video className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
           <button
             onClick={handleVoiceCall}
-            className="p-2.5 hover:bg-[#FAF7F4] rounded-full text-[#6B5A4E] transition-colors"
+            className="p-1.5 sm:p-2.5 hover:bg-[#FAF7F4] rounded-full text-[#6B5A4E] transition-colors"
             title="Appel vocal"
           >
-            <Phone className="h-5 w-5" />
+            <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
           <button
             onClick={handleMoreActions}
-            className="p-2.5 hover:bg-[#FAF7F4] rounded-full text-[#6B5A4E] transition-colors"
+            className="p-1.5 sm:p-2.5 hover:bg-[#FAF7F4] rounded-full text-[#6B5A4E] transition-colors"
             title="Plus d'actions"
           >
-            <MoreVertical className="h-5 w-5" />
+            <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
         </div>
       </div>

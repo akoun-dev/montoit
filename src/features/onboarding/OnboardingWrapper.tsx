@@ -68,14 +68,14 @@ async function needsOnboarding(profile: any, userId?: string): Promise<boolean> 
           // Marquer le profil comme complété pour éviter les vérifications futures
           await supabase
             .from('profiles')
-            .update({ profile_setup_completed: true, submitted_to_tc: true } as any)
+            .update({ profile_setup_completed: true, submitted_to_tc: true })
             .eq('id', userId);
           console.log('[needsOnboarding] Application already submitted, marking profile as complete');
           return false;
         }
       }
     } catch (error) {
-      // Silently catch error
+      console.error('[OnboardingWrapper] Error checking verification applications:', error);
     }
   }
 

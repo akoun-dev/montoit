@@ -22,7 +22,7 @@ export default function RoleSwitcher() {
 
     setSwitching(true);
     try {
-      await updateProfile({ user_type: newRole });
+      await updateProfile({ user_type: newRole as 'tenant' | 'owner' | 'agency' | 'trust_agent' | 'admin' });
 
       // Redirect to appropriate dashboard using centralized logic
       navigate(getDashboardRoute(newRole));

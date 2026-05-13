@@ -306,9 +306,9 @@ export default function NotificationsPage() {
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-6">
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-6 hidden lg:block">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
                 <Bell className="h-7 w-7 text-white" />
@@ -325,7 +325,7 @@ export default function NotificationsPage() {
                 <p className="text-[#E8D4C5]">Gérez toutes vos notifications</p>
               </div>
             </div>
-            {/* Realtime connection indicator */}
+            {/* Realtime connection indicator (desktop) */}
             <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
               realtimeConnected
                 ? 'bg-green-500/20 text-green-300'
@@ -344,6 +344,26 @@ export default function NotificationsPage() {
               )}
             </div>
           </div>
+        </div>
+      </div>
+      {/* Realtime connection indicator (mobile) */}
+      <div className="px-4 sm:px-6 mb-6 lg:hidden">
+        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+          realtimeConnected
+            ? 'bg-green-100 text-green-700'
+            : 'bg-red-100 text-red-700'
+        }`}>
+          {realtimeConnected ? (
+            <>
+              <Wifi className="w-3.5 h-3.5" />
+              <span>En direct</span>
+            </>
+          ) : (
+            <>
+              <WifiOff className="w-3.5 h-3.5" />
+              <span>Hors ligne</span>
+            </>
+          )}
         </div>
       </div>
 

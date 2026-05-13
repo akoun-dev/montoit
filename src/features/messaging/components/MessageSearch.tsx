@@ -56,7 +56,7 @@ export function MessageSearch({ messages, onSearch, resultCount }: MessageSearch
             setTimeout(() => inputRef.current?.focus(), 100);
           }
         }}
-        className={`p-2 hover:bg-[#FAF7F4] rounded-lg transition-colors ${
+        className={`p-1.5 sm:p-2 hover:bg-[#FAF7F4] rounded-lg transition-colors ${
           isOpen ? 'bg-[#FAF7F4]' : ''
         }`}
         title="Rechercher dans la conversation"
@@ -66,7 +66,7 @@ export function MessageSearch({ messages, onSearch, resultCount }: MessageSearch
 
       {/* Search panel */}
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-lg border border-[#EFEBE9] overflow-hidden z-20 min-w-[300px]">
+        <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-lg border border-[#EFEBE9] overflow-hidden z-20 min-w-[260px] sm:min-w-[300px]">
           {/* Input */}
           <div className="p-3 border-b border-[#EFEBE9]">
             <div className="relative flex items-center gap-2">

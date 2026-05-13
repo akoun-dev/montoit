@@ -26,9 +26,8 @@ import {
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useMenuCounters } from '@/hooks/useMenuCounters';
-import { supabase } from '@/integrations/supabase/client';
 
 const cn = (...inputs: (string | undefined | null | false)[]) => twMerge(clsx(inputs));
 
@@ -80,61 +79,13 @@ const navSections = [
 export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, profile, user } = useAuth();
+  const { signOut, profile } = useAuth();
   const { counters } = useMenuCounters();
   const currentPath = location.pathname;
   const sidebarRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<number | null>(null);
 
   const displayName = profile?.full_name?.trim() || 'Locataire';
-
-  // Calculer le Trust Score
-  const [trustScore, setTrustScore] = useState<number>(0);
-
-  useEffect(() => {
-    async function calculateTrustScore() {
-      if (!profile || !user) {
-        setTrustScore(0);
-        return;
-      }
-
-      try {
-        const { ScoringService, TENANT_SCORING_WEIGHTS } = await import('@/services/scoringService');
-
-        const profileScoreResult = ScoringService.calculateProfileScore(profile);
-        const profileComplete = ScoringService.isProfileComplete(profileScoreResult.details);
-
-        const { data: dossierApplications } = await supabase
-          .from('verification_applications')
-          .select('status, documents')
-          .eq('user_id', user.id)
-          .eq('application_type', 'tenant_dossier');
-
-        const dossierApplication =
-          dossierApplications?.find((app) => app.status === 'approved') ||
-          dossierApplications?.[0] ||
-          null;
-
-        const dossierDocs = dossierApplication?.documents as { document_type: string }[] | null;
-        const dossierHasDocs = dossierDocs && dossierDocs.length > 0;
-        const dossierStatus = dossierHasDocs ? dossierApplication?.status : null;
-        const dossierApproved = dossierStatus === 'approved';
-
-        const computedScore =
-          (profileComplete ? TENANT_SCORING_WEIGHTS.profileComplete : 0) +
-          (profile?.facial_verification_status === 'verified' ? TENANT_SCORING_WEIGHTS.facial : 0) +
-          (profile?.oneci_verified ? TENANT_SCORING_WEIGHTS.oneci : 0) +
-          (dossierApproved && dossierHasDocs ? TENANT_SCORING_WEIGHTS.dossier : 0);
-
-        setTrustScore(Math.min(100, Math.max(0, Math.round(computedScore))));
-      } catch (error) {
-        console.warn('Error calculating trust score:', error);
-        setTrustScore(0);
-      }
-    }
-
-    calculateTrustScore();
-  }, [profile, user]);
 
   const isActive = (href: string) => {
     if (href === '/locataire/dashboard') {
@@ -298,26 +249,14 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
                 <p className="text-sm font-semibold text-[#2C1810] truncate">{displayName}</p>
                 <p className="text-xs text-[#8B7355] truncate">Locataire</p>
               </div>
-              <span className="ml-auto text-xs font-semibold text-[#9C3D0D] bg-[#FFF2E6] border border-[#F5D9C6] px-2 py-1 rounded-full">
-                {Math.round(trustScore)}%
-              </span>
             </div>
-            <div className="grid grid-cols-2 gap-2 mt-3">
-              <Link
-                to="/locataire/profil"
-                onClick={onClose}
-                className="text-xs font-semibold text-[#2C1810] bg-white border border-[#EFE3D8] rounded-lg px-3 py-2 text-center hover:border-[#F16522] hover:text-[#F16522] transition-colors"
-              >
-                Mon Profil
-              </Link>
-              <Link
-                to="/locataire/mon-score"
-                onClick={onClose}
-                className="text-xs font-semibold text-white bg-[#F16522] rounded-lg px-3 py-2 text-center hover:bg-[#D95318] transition-colors"
-              >
-                Mon Score
-              </Link>
-            </div>
+            <Link
+              to="/locataire/profil"
+              onClick={onClose}
+              className="block mt-3 text-xs font-semibold text-[#2C1810] bg-white border border-[#EFE3D8] rounded-lg px-3 py-2 text-center hover:border-[#F16522] hover:text-[#F16522] transition-colors"
+            >
+              Mon Profil
+            </Link>
           </div>
         </div>
 
@@ -369,17 +308,6 @@ export default function TenantSidebar({ isOpen, onClose }: TenantSidebarProps) {
 
         {/* Footer */}
         <div className="p-3 sm:p-4 border-t border-neutral-100">
-          <div className="bg-primary-50 rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
-            <p className="text-xs sm:text-sm font-medium text-primary-700 mb-0.5 sm:mb-1">Besoin d'aide ?</p>
-            <p className="text-[10px] sm:text-xs text-primary-600 mb-2 sm:mb-3">Notre équipe est là pour vous</p>
-            <Link
-              to="/contact"
-              onClick={onClose}
-              className="block text-center text-xs sm:text-sm font-semibold text-white bg-primary-500 hover:bg-primary-600 py-2 px-3 sm:px-4 rounded-lg transition-colors touch-manipulation"
-            >
-              Nous contacter
-            </Link>
-          </div>
           <button
             onClick={handleSignOut}
             className="flex items-center justify-center gap-2 w-full text-xs sm:text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 py-2 px-3 sm:px-4 rounded-lg transition-colors border border-red-200 min-h-[44px] touch-manipulation"

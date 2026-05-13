@@ -82,7 +82,6 @@ export function OwnerSidebar({ isOpen, onClose }: OwnerSidebarProps) {
 
   const displayName =
     profile?.full_name?.trim() || profile?.agency_name?.trim() || 'Propriétaire';
-  const trustScore = typeof profile?.trust_score === 'number' ? profile.trust_score : 0;
 
   const isActive = (href: string) => {
     if (href === '/proprietaire/dashboard') {
@@ -239,9 +238,6 @@ export function OwnerSidebar({ isOpen, onClose }: OwnerSidebarProps) {
                 <p className="text-sm font-semibold text-[#2C1810] truncate">{displayName}</p>
                 <p className="text-xs text-[#8B7355] truncate">Propriétaire</p>
               </div>
-              <span className="ml-auto text-xs font-semibold text-[#9C3D0D] bg-[#FFF2E6] border border-[#F5D9C6] px-2 py-1 rounded-full">
-                {Math.round(trustScore)}%
-              </span>
             </div>
             <div className="grid grid-cols-2 gap-2 mt-3">
               <Link
@@ -333,16 +329,6 @@ export function OwnerSidebar({ isOpen, onClose }: OwnerSidebarProps) {
         </nav>
 
         <div className="p-4 border-t border-neutral-100">
-          <div className="bg-primary-50 rounded-xl p-4 mb-4">
-            <p className="text-sm font-medium text-primary-700 mb-1">Besoin d'aide ?</p>
-            <p className="text-xs text-primary-600 mb-3">Notre équipe est là pour vous</p>
-            <Link
-              to="/contact"
-              className="block text-center text-sm font-semibold text-white bg-primary-500 hover:bg-primary-600 py-2 px-4 rounded-lg transition-colors"
-            >
-              Nous contacter
-            </Link>
-          </div>
           <button
             onClick={handleSignOut}
             className="flex items-center justify-center gap-2 w-full text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 py-2 px-4 rounded-lg transition-colors border border-red-200"

@@ -762,9 +762,9 @@ export default function OwnerApplicationsPage() {
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8 hidden lg:block">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
                 <Users className="h-7 w-7 text-white" />
@@ -775,7 +775,7 @@ export default function OwnerApplicationsPage() {
               </div>
             </div>
 
-            {/* View Toggle */}
+            {/* View Toggle (desktop) */}
             <div className="flex items-center gap-2 bg-white/10 rounded-xl p-1">
               <button
                 onClick={() => setViewMode('list')}
@@ -801,6 +801,33 @@ export default function OwnerApplicationsPage() {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+      {/* View Toggle (mobile) */}
+      <div className="px-4 sm:px-6 mb-8 lg:hidden">
+        <div className="flex items-center gap-2 bg-white rounded-xl shadow-sm border border-gray-200 p-1 w-fit">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`p-2 rounded-lg transition-colors ${
+              viewMode === 'list'
+                ? 'bg-orange-500 text-white'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+            }`}
+            title="Vue liste"
+          >
+            <List className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`p-2 rounded-lg transition-colors ${
+              viewMode === 'grid'
+                ? 'bg-orange-500 text-white'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+            }`}
+            title="Vue grille"
+          >
+            <Grid3x3 className="h-5 w-5" />
+          </button>
         </div>
       </div>
 

@@ -16,30 +16,6 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   );
 }
 
-// Aggressive token cleanup - remove all Supabase auth data
-const aggressiveTokenCleanup = () => {
-  try {
-    // Remove all possible Supabase auth keys
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.includes('supabase') || key.includes('auth'))) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach((key) => {
-      try {
-        localStorage.removeItem(key);
-      } catch {
-        // Ignore individual removal errors
-      }
-    });
-    console.log('Cleaned up', keysToRemove.length, 'Supabase/auth items from localStorage');
-  } catch (error) {
-    console.warn('Could not perform aggressive token cleanup:', error);
-  }
-};
-
 // Export the Supabase URL for use in other configurations
 export const SUPABASE_API_URL = SUPABASE_URL;
 
@@ -80,13 +56,4 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
       eventsPerSecond: 10,
     },
   },
-});
-
-// Handle auth errors more gracefully
-supabase.auth.onAuthStateChange((event, session) => {
-  // Only perform cleanup on actual sign out, not on token refresh
-  if (event === 'SIGNED_OUT' && !session) {
-    console.log('User signed out, performing token cleanup');
-    aggressiveTokenCleanup();
-  }
 });

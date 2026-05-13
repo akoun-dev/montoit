@@ -161,7 +161,7 @@ export default function ReceivedReviewsPage() {
   return (
     <div className="min-h-screen bg-[#FAF7F4]">
       {/* Header */}
-      <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8">
+      <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8 hidden lg:block">
         <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3 mb-2">
           <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center">
             <Star className="h-6 w-6 text-white" />

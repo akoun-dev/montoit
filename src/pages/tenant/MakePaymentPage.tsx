@@ -169,7 +169,7 @@ export default function MakePaymentPage() {
 
   if (loading) {
     return (
-      <TenantDashboardLayout title="Effectuer un paiement">
+      <TenantDashboardLayout title="Effectuer un paiement" icon={<Smartphone className="h-5 w-5" />} description="Payez votre loyer en ligne">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#F16522]"></div>
         </div>
@@ -179,7 +179,7 @@ export default function MakePaymentPage() {
 
   if (success) {
     return (
-      <TenantDashboardLayout title="Paiement effectué">
+      <TenantDashboardLayout title="Paiement effectué" icon={<Smartphone className="h-5 w-5" />} description="Payez votre loyer en ligne">
         <div className="max-w-2xl mx-auto py-12">
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -227,7 +227,7 @@ export default function MakePaymentPage() {
   }
 
   return (
-    <TenantDashboardLayout title="Effectuer un paiement">
+    <TenantDashboardLayout title="Effectuer un paiement" icon={<Smartphone className="h-5 w-5" />} description="Payez votre loyer en ligne">
       <div className="w-full space-y-6">
         {/* Error Display */}
         {error && (

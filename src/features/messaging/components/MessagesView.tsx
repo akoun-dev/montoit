@@ -130,7 +130,7 @@ export function MessagesView() {
   }
 
   return (
-    <div className="min-h-[75vh] bg-[#FAF7F4] px-2 sm:px-4 pb-4 pt-6 lg:pt-2 flex gap-4 lg:gap-6">
+    <div className="min-h-[75vh] bg-[#FAF7F4] px-1 sm:px-4 pb-4 pt-2 lg:pt-2 flex gap-2 sm:gap-4 lg:gap-6">
       {/* Conversations List */}
       <div
         className={`w-full md:w-80 lg:w-96 bg-white rounded-[24px] border border-[#EFEBE9] shadow-sm flex flex-col overflow-hidden ${

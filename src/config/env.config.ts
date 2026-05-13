@@ -25,11 +25,11 @@ interface EnvironmentConfig {
  */
 const developmentConfig: EnvironmentConfig = {
   name: 'Development',
-  supabaseUrl: import.meta.env.VITE_SUPABASE_URL || 'http://127.0.0.1:54321',
-  supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
-  siteUrl: import.meta.env.SITE_URL || 'http://localhost:8080',
-  enableDevTools: import.meta.env.VITE_ENABLE_DEVTOOLS === 'true',
-  logLevel: (import.meta.env.VITE_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'debug',
+  supabaseUrl: import.meta.env['VITE_SUPABASE_URL'] || 'http://127.0.0.1:54321',
+  supabaseAnonKey: import.meta.env['VITE_SUPABASE_ANON_KEY'] || '',
+  siteUrl: import.meta.env['VITE_SITE_URL'] || 'http://localhost:8080',
+  enableDevTools: import.meta.env['VITE_ENABLE_DEVTOOLS'] === 'true',
+  logLevel: (import.meta.env['VITE_LOG_LEVEL'] as 'debug' | 'info' | 'warn' | 'error') || 'debug',
   enableAnalytics: false,
   enableExperimentalFeatures: true,
   mapProvider: 'leaflet',
@@ -40,16 +40,16 @@ const developmentConfig: EnvironmentConfig = {
  */
 const stagingConfig: EnvironmentConfig = {
   name: 'Staging',
-  supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
-  supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
-  siteUrl: import.meta.env.SITE_URL || 'https://staging.mon-toit.ci',
-  enableDevTools: import.meta.env.VITE_ENABLE_DEVTOOLS === 'true',
-  logLevel: (import.meta.env.VITE_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'info',
-  enableAnalytics: import.meta.env.VITE_ENABLE_ANALYTICS === 'true',
-  enableExperimentalFeatures: import.meta.env.VITE_ENABLE_EXPERIMENTAL_FEATURES === 'true',
+  supabaseUrl: import.meta.env['VITE_SUPABASE_URL'] || '',
+  supabaseAnonKey: import.meta.env['VITE_SUPABASE_ANON_KEY'] || '',
+  siteUrl: import.meta.env['VITE_SITE_URL'] || 'https://staging.mon-toit.ci',
+  enableDevTools: import.meta.env['VITE_ENABLE_DEVTOOLS'] === 'true',
+  logLevel: (import.meta.env['VITE_LOG_LEVEL'] as 'debug' | 'info' | 'warn' | 'error') || 'info',
+  enableAnalytics: import.meta.env['VITE_ENABLE_ANALYTICS'] === 'true',
+  enableExperimentalFeatures: import.meta.env['VITE_ENABLE_EXPERIMENTAL_FEATURES'] === 'true',
   mapProvider: 'mapbox',
-  sentryDsn: import.meta.env.VITE_SENTRY_DSN,
-  gaTrackingId: import.meta.env.VITE_GA_TRACKING_ID,
+  sentryDsn: import.meta.env['VITE_SENTRY_DSN'],
+  gaTrackingId: import.meta.env['VITE_GA_TRACKING_ID'],
 };
 
 /**
@@ -57,16 +57,16 @@ const stagingConfig: EnvironmentConfig = {
  */
 const productionConfig: EnvironmentConfig = {
   name: 'Production',
-  supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
-  supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
-  siteUrl: import.meta.env.SITE_URL || 'https://mon-toit.ci',
+  supabaseUrl: import.meta.env['VITE_SUPABASE_URL'] || '',
+  supabaseAnonKey: import.meta.env['VITE_SUPABASE_ANON_KEY'] || '',
+  siteUrl: import.meta.env['VITE_SITE_URL'] || 'https://mon-toit.ci',
   enableDevTools: false,
-  logLevel: (import.meta.env.VITE_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'error',
-  enableAnalytics: import.meta.env.VITE_ENABLE_ANALYTICS === 'true',
+  logLevel: (import.meta.env['VITE_LOG_LEVEL'] as 'debug' | 'info' | 'warn' | 'error') || 'error',
+  enableAnalytics: import.meta.env['VITE_ENABLE_ANALYTICS'] === 'true',
   enableExperimentalFeatures: false,
   mapProvider: 'mapbox',
-  sentryDsn: import.meta.env.VITE_SENTRY_DSN,
-  gaTrackingId: import.meta.env.VITE_GA_TRACKING_ID,
+  sentryDsn: import.meta.env['VITE_SENTRY_DSN'],
+  gaTrackingId: import.meta.env['VITE_GA_TRACKING_ID'],
 };
 
 /**

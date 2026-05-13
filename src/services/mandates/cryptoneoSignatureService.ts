@@ -161,7 +161,7 @@ class CryptoNeoSignatureService {
 
       // 4. Mettre à jour le mandat avec l'ID d'opération (alias du certificat)
       // Note: Le statut de signature sera mis à jour après vérification OTP
-      const updateData: any = {
+      const updateData: { cryptoneo_operation_id: string; owner_signed_at?: null; agency_signed_at?: null } = {
         cryptoneo_operation_id: cryptoNeoResponse.operationId,
       };
 
@@ -212,10 +212,7 @@ class CryptoNeoSignatureService {
   }): Promise<{ success: boolean; aliasCertificat?: string; error?: string }> {
     try {
       if (!CRYPTONEO_CONFIG.appKey || !CRYPTONEO_CONFIG.appSecret) {
-        // Mode simulation
-        const mockAlias = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        console.log('CryptoNeo API: Simulation mode - generateCertificate', { mockAlias, data });
-        return { success: true, aliasCertificat: mockAlias };
+        throw new Error('CryptoNeo configuration missing. Cannot generate certificate in production.');
       }
 
       const token = await getAuthToken();
@@ -261,13 +258,7 @@ class CryptoNeoSignatureService {
   }): Promise<CryptoNeoOTPResponse> {
     try {
       if (!CRYPTONEO_CONFIG.appKey || !CRYPTONEO_CONFIG.appSecret) {
-        // Mode simulation
-        console.log('CryptoNeo API: Simulation mode - sendOTP', params);
-        return {
-          success: true,
-          transactionId: `mock_${Date.now()}`,
-          message: 'OTP envoyé avec succès',
-        };
+        throw new Error('CryptoNeo configuration missing. Cannot send OTP in production.');
       }
 
       const token = await getAuthToken();
@@ -331,10 +322,7 @@ class CryptoNeoSignatureService {
   }): Promise<{ success: boolean; operationId?: string; error?: string }> {
     try {
       if (!CRYPTONEO_CONFIG.appKey || !CRYPTONEO_CONFIG.appSecret) {
-        // Mode simulation
-        const mockOperationId = `mock_op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        console.log('CryptoNeo API: Simulation mode - signBatch', { mockOperationId, params });
-        return { success: true, operationId: mockOperationId };
+        throw new Error('CryptoNeo configuration missing. Cannot sign batch in production.');
       }
 
       const token = await getAuthToken();
@@ -388,16 +376,7 @@ class CryptoNeoSignatureService {
   }> {
     try {
       if (!CRYPTONEO_CONFIG.appKey || !CRYPTONEO_CONFIG.appSecret) {
-        // Mode simulation - retourne succès après quelques tentatives
-        console.log('CryptoNeo API: Simulation mode - verifySignedBatch', { operationId });
-        return {
-          success: true,
-          results: [{
-            statusCode: 7000,
-            statusMessage: 'Signature réussie',
-            data: { fileName: 'mandat_signed.pdf' },
-          }],
-        };
+        throw new Error('CryptoNeo configuration missing. Cannot verify signed batch in production.');
       }
 
       const token = await getAuthToken();
@@ -440,9 +419,7 @@ class CryptoNeoSignatureService {
   private async downloadSignedFile(fileName: string): Promise<{ success: boolean; blob?: Blob; error?: string }> {
     try {
       if (!CRYPTONEO_CONFIG.appKey || !CRYPTONEO_CONFIG.appSecret) {
-        // Mode simulation
-        console.log('CryptoNeo API: Simulation mode - downloadSignedFile', { fileName });
-        return { success: true, blob: new Blob(['mock document']) };
+        throw new Error('CryptoNeo configuration missing. Cannot download signed file in production.');
       }
 
       const token = await getAuthToken();
@@ -476,10 +453,28 @@ class CryptoNeoSignatureService {
   /**
    * Créer une opération de signature chez CryptoNeo (méthode principale)
    */
-  private async createCryptoNeoOperation(signatureData: any): Promise<CryptoNeoSignatureResponse> {
+  private async createCryptoNeoOperation(signatureData: {
+    signatoryRole: string;
+    signatories: Array<{
+      id: string;
+      name: string;
+      email?: string;
+      phone?: string;
+      role: string;
+    }>;
+    expiryDate: string;
+    metadata: {
+      mandateId: string;
+      propertyId?: string;
+      agencyId?: string;
+      commissionRate?: number;
+      startDate?: string;
+      endDate?: string;
+    };
+  }): Promise<CryptoNeoSignatureResponse> {
     try {
       // 1. Générer le certificat pour le signataire
-      const signatory = signatureData.signatories.find((s: any) =>
+      const signatory = signatureData.signatories.find((s) =>
         s.role === (signatureData.metadata?.signatoryRole || 'PROPRIETAIRE')
       ) || signatureData.signatories[0];
 
@@ -592,7 +587,12 @@ class CryptoNeoSignatureService {
           // StatusCode 7000 = Signature réussie
           if (result.statusCode === 7000) {
             // 4. Mettre à jour le statut de signature
-            const updateData: any = {};
+            const updateData: {
+              owner_signed_at?: string;
+              agency_signed_at?: string;
+              cryptoneo_signature_status?: string;
+              signed_mandate_file_name?: string;
+            } = {};
 
             if (params.signatoryRole === 'owner') {
               updateData.owner_signed_at = new Date().toISOString();
@@ -648,8 +648,7 @@ class CryptoNeoSignatureService {
   private async getSignedDocumentUrl(fileName: string): Promise<{ url: string | null }> {
     try {
       if (!CRYPTONEO_CONFIG.appKey || !CRYPTONEO_CONFIG.appSecret) {
-        // Mode simulation
-        return { url: `https://cryptoneo.com/documents/${fileName}/signed` };
+        throw new Error('CryptoNeo configuration missing. Cannot get signed document URL in production.');
       }
 
       const token = await getAuthToken();

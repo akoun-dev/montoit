@@ -512,9 +512,9 @@ export default function OwnerContractsPage() {
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8 hidden lg:block">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
                 <FileText className="h-7 w-7 text-white" />
@@ -534,6 +534,15 @@ export default function OwnerContractsPage() {
             </Link>
           </div>
         </div>
+      </div>
+      <div className="px-4 sm:px-6 mb-8 lg:hidden">
+        <Link
+          to={ROUTES.CONTRACTS.CREATE.split(':')[0]}
+          className="inline-flex items-center gap-2 bg-[#F16522] hover:bg-[#d9571d] text-white px-6 py-3 rounded-xl font-medium transition-colors"
+        >
+          <Plus className="h-5 w-5" />
+          <span>Nouveau contrat</span>
+        </Link>
       </div>
 
       <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12">

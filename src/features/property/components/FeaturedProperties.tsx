@@ -81,63 +81,66 @@ function PropertyCard({
       style={{ transitionDelay: isVisible ? `${index * 150}ms` : '0ms' }}
     >
       {/* Image Container */}
-      <div className="relative h-64 overflow-hidden">
+      <div className="relative h-56 sm:h-64 overflow-hidden">
         <img
           src={propertyImage}
           alt={property.title || 'Propriété'}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          loading="lazy"
         />
 
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
         {/* Top Badges */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
-          <div className="flex gap-2 flex-wrap">
-            <span className="px-3 py-1.5 bg-[var(--terracotta-500)] text-white text-xs font-bold rounded-full uppercase tracking-wide">
+        <div className="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 flex justify-between items-start">
+          <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+            <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 bg-[var(--terracotta-500)] text-white text-[10px] sm:text-xs font-bold rounded-full uppercase tracking-wide">
               {property.property_type || 'Appartement'}
             </span>
             {/* Badge Certifié ANSUT */}
             {property.ansut_verified && (
-              <span className="bg-emerald-600/90 text-white text-[10px] font-bold px-2 py-1.5 rounded-full uppercase shadow-sm backdrop-blur-sm flex items-center gap-1">
+              <span className="bg-emerald-600/90 text-white text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-full uppercase shadow-sm backdrop-blur-sm flex items-center gap-1">
                 <span>✓</span>
-                <span>Certifié ANSUT</span>
+                <span className="hidden sm:inline">Certifié ANSUT</span>
+                <span className="sm:hidden">ANSUT</span>
               </span>
             )}
           </div>
           <button
-            className="p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white hover:scale-110 transition-all"
+            className="p-1.5 sm:p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white hover:scale-110 transition-all"
             onClick={(e) => {
               e.preventDefault();
               // Handle favorite
             }}
+            aria-label="Ajouter aux favoris"
           >
-            <Heart className="h-5 w-5 text-[var(--earth-700)]" />
+            <Heart className="h-4 w-4 sm:h-5 sm:w-5 text-[var(--earth-700)]" />
           </button>
         </div>
 
         {/* Price Badge - Consistently positioned */}
-        <div className="absolute bottom-4 left-4">
-          <div className="bg-white/95 backdrop-blur-sm rounded-xl px-4 py-2 shadow-md">
-            <span className="text-h3 font-bold text-[var(--terracotta-600)]">
+        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4">
+          <div className="bg-white/95 backdrop-blur-sm rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2 shadow-md">
+            <span className="text-base sm:text-lg font-bold text-[var(--terracotta-600)]">
               {property.price?.toLocaleString() || 'N/A'}
             </span>
-            <span className="text-sm text-[var(--earth-700)] ml-1">FCFA/mois</span>
+            <span className="text-xs sm:text-sm text-[var(--earth-700)] ml-1">FCFA/mois</span>
           </div>
         </div>
 
         {/* Trust Score Badge - Consistently positioned */}
         {property.owner_trust_score != null && (
-          <div className="absolute bottom-4 right-4">
+          <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4">
             <ScoreBadge score={property.owner_trust_score} variant="compact" size="sm" />
           </div>
         )}
       </div>
 
       {/* Content */}
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {/* Title */}
-        <h3 className="text-h4 font-semibold text-[var(--earth-900)] mb-3 group-hover:text-[var(--terracotta-500)] transition-colors line-clamp-1">
+        <h3 className="text-base sm:text-lg font-semibold text-[var(--earth-900)] mb-2 sm:mb-3 group-hover:text-[var(--terracotta-500)] transition-colors line-clamp-2 sm:line-clamp-1">
           {property.title && property.title.trim() !== '' ? (
             property.title
           ) : (
@@ -162,31 +165,31 @@ function PropertyCard({
         </h3>
 
         {/* Location */}
-        <div className="flex items-center gap-2 text-[var(--earth-700)] mb-4">
-          <MapPin className="h-4 w-4 text-[var(--terracotta-500)]" />
-          <span className="text-sm">
+        <div className="flex items-center gap-1.5 sm:gap-2 text-[var(--earth-700)] mb-3 sm:mb-4">
+          <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[var(--terracotta-500)] flex-shrink-0" />
+          <span className="text-xs sm:text-sm">
             {property.neighborhood ? `${property.neighborhood}, ` : ''}
             {property.city || 'Abidjan'}
           </span>
         </div>
 
         {/* Features */}
-        <div className="flex items-center gap-4 text-sm text-[var(--earth-700)] pt-4 border-t border-[var(--sand-200)]">
+        <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-[var(--earth-700)] pt-3 sm:pt-4 border-t border-[var(--sand-200)]">
           {property.bedrooms && (
-            <div className="flex items-center gap-1.5">
-              <Bed className="h-4 w-4 text-[var(--terracotta-400)]" />
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <Bed className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[var(--terracotta-400)] flex-shrink-0" />
               <span>{property.bedrooms} ch.</span>
             </div>
           )}
           {property.bathrooms && (
-            <div className="flex items-center gap-1.5">
-              <Bath className="h-4 w-4 text-[var(--terracotta-400)]" />
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <Bath className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[var(--terracotta-400)] flex-shrink-0" />
               <span>{property.bathrooms} sdb</span>
             </div>
           )}
           {property.surface_area && (
-            <div className="flex items-center gap-1.5">
-              <Maximize className="h-4 w-4 text-[var(--terracotta-400)]" />
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <Maximize className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[var(--terracotta-400)] flex-shrink-0" />
               <span>{property.surface_area} m²</span>
             </div>
           )}
@@ -221,8 +224,8 @@ export default function FeaturedProperties({ properties, loading }: FeaturedProp
   const { ref: sectionRef, isVisible } = useScrollAnimation<HTMLElement>({ threshold: 0.1 });
 
   return (
-    <section ref={sectionRef} className="py-10 md:py-14" style={{ backgroundColor: '#FAF7F4' }}>
-      <div className="container">
+    <section ref={sectionRef} className="py-8 md:py-10 lg:py-14" style={{ backgroundColor: '#FAF7F4' }}>
+      <div className="container mx-auto px-4 sm:px-6">
         {/* Section Header - Animation fadeUp */}
         <div
           className={`flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8 md:mb-10 transition-all duration-700 ease-out ${
@@ -254,23 +257,23 @@ export default function FeaturedProperties({ properties, loading }: FeaturedProp
 
         {/* Properties Grid - Limited to 4 with stagger animation */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {[...Array(4)].map((_, i) => (
               <PropertySkeleton key={i} />
             ))}
           </div>
         ) : displayProperties.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-2xl">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-              <MapPin className="h-10 w-10 text-muted-foreground" />
+          <div className="text-center py-12 sm:py-16 bg-white rounded-2xl px-4">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 rounded-full bg-muted flex items-center justify-center">
+              <MapPin className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground" />
             </div>
-            <h3 className="text-xl font-semibold text-foreground mb-2">
+            <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
               Aucune propriété disponible
             </h3>
-            <p className="text-muted-foreground">De nouvelles annonces arrivent bientôt</p>
+            <p className="text-sm sm:text-base text-muted-foreground">De nouvelles annonces arrivent bientôt</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {displayProperties.map((property, index) => (
               <PropertyCard
                 key={property.id}

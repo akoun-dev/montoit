@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (healthError) {
           logger.warn(
             'Health check failed, continuing with profile load',
-            healthError instanceof Error ? healthError : undefined
+            healthError instanceof Error ? { error: healthError.message } : undefined
           );
         }
       }
@@ -251,13 +251,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const { error } = await supabase.from('profiles').upsert(
         {
-          id: userId,
-          email: userData.user.email || null,
           full_name: fullName,
           user_type: normalizedUserType,
           phone,
         },
-        { onConflict: 'id' }
+        { onConflict: 'ignore' }
       );
 
       if (error) {
@@ -307,8 +305,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Create profile immediately after successful signup using Edge Function
       if (data.user) {
         try {
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL;
-          const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+          const supabaseUrl = import.meta.env['VITE_SUPABASE_URL'] || import.meta.env['VITE_PUBLIC_SUPABASE_URL'];
+          const supabaseAnonKey = import.meta.env['VITE_SUPABASE_ANON_KEY'];
 
           if (supabaseUrl && supabaseAnonKey) {
             const profileResponse = await fetch(`${supabaseUrl}/functions/v1/create-user-profile`, {
@@ -328,7 +326,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
 
             if (profileResponse.ok) {
-              const profileData = await profileResponse.json();
+              await profileResponse.json();
             } else {
               const errorData = await profileResponse.json();
               console.error('[AuthProvider] Error creating profile via Edge Function:', errorData);
@@ -347,8 +345,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Send OTP email for verification
         try {
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL;
-          const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+          const supabaseUrl = import.meta.env['VITE_SUPABASE_URL'] || import.meta.env['VITE_PUBLIC_SUPABASE_URL'];
+          const supabaseAnonKey = import.meta.env['VITE_SUPABASE_ANON_KEY'];
 
           if (supabaseUrl && supabaseAnonKey) {
             await fetch(`${supabaseUrl}/functions/v1/send-verification-otp`, {
@@ -382,8 +380,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.user && !data.session) {
         // Send OTP email for verification
         try {
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL;
-          const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+          const supabaseUrl = import.meta.env['VITE_SUPABASE_URL'] || import.meta.env['VITE_PUBLIC_SUPABASE_URL'];
+          const supabaseAnonKey = import.meta.env['VITE_SUPABASE_ANON_KEY'];
 
           if (supabaseUrl && supabaseAnonKey) {
             await fetch(`${supabaseUrl}/functions/v1/send-verification-otp`, {

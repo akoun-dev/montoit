@@ -187,7 +187,7 @@ export default function ProfileSelection() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <div className="grid grid-cols-3 gap-8 mb-8">
           {profileTypes.map((profileType, index) => {
             const Icon = profileType.icon;
             const isSelected = selectedType === profileType.type;
@@ -243,7 +243,7 @@ export default function ProfileSelection() {
                 </div>
               </div>
             );
-          })}
+            })}
         </div>
 
         <div className="text-center animate-slide-up">

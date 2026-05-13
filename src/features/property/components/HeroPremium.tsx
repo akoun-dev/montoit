@@ -124,9 +124,9 @@ export default function HeroPremium() {
             </div>
 
             {/* ==================== ZONE DE RECHERCHE MODERNE ==================== */}
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-4">
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 sm:p-4 border border-white/10 space-y-3 sm:space-y-4">
               {/* Recherche rapide : Ville + Type + Budget */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                 {/* Ville */}
                 <div className="relative">
                   <input
@@ -134,13 +134,13 @@ export default function HeroPremium() {
                     placeholder="Ville ou quartier..."
                     value={searchCity}
                     onChange={(e) => setSearchCity(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all"
+                    className="w-full px-3 sm:px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all text-sm sm:text-base"
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   />
                 </div>
 
                 {/* Type de bien */}
-                <div className="relative mt-2">
+                <div className="relative">
                   <select
                     value={searchType}
                     onChange={(e) => setSearchType(e.target.value)}
@@ -149,7 +149,7 @@ export default function HeroPremium() {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                       color: 'white',
                     }}
-                    className="w-full px-4 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 appearance-none cursor-pointer"
+                    className="w-full px-3 sm:px-4 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 appearance-none cursor-pointer"
                   >
                     <option value="" style={{ backgroundColor: '#2C1810', color: 'white' }}>Tous les types</option>
                     <option value="apartment" style={{ backgroundColor: '#2C1810', color: 'white' }}>Appartement</option>
@@ -167,21 +167,21 @@ export default function HeroPremium() {
                     placeholder="Budget max (FCFA)"
                     value={searchMaxPrice}
                     onChange={(e) => setSearchMaxPrice(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all"
+                    className="w-full px-3 sm:px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all text-sm sm:text-base"
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   />
                 </div>
               </div>
 
               {/* Actions : Localisation rapide + Bouton rechercher */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-2 sm:gap-3">
                 {/* Localisation rapide */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                  <span className="text-xs font-medium text-white/70 whitespace-nowrap">Localisation :</span>
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                  <span className="text-xs font-medium text-white/70 whitespace-nowrap shrink-0">Localisation :</span>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setLocationMode('all')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0 ${
                         locationMode === 'all'
                           ? 'bg-white text-[#2C1810] shadow-md'
                           : 'bg-white/10 text-white/80 hover:bg-white/20'
@@ -191,7 +191,7 @@ export default function HeroPremium() {
                     </button>
                     <button
                       onClick={() => setLocationMode('abidjan')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0 ${
                         locationMode === 'abidjan'
                           ? 'bg-[#FF6C2F] text-white shadow-md'
                           : 'bg-white/10 text-white/80 hover:bg-white/20'
@@ -201,7 +201,7 @@ export default function HeroPremium() {
                     </button>
                     <button
                       onClick={() => setLocationMode('outside_abidjan')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0 ${
                         locationMode === 'outside_abidjan'
                           ? 'bg-white text-[#2C1810] shadow-md'
                           : 'bg-white/10 text-white/80 hover:bg-white/20'
@@ -215,7 +215,7 @@ export default function HeroPremium() {
                 {/* Bouton rechercher */}
                 <button
                   onClick={handleSearch}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-[#FF6C2F] text-white hover:bg-[#e05519] transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                  className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-sm font-semibold bg-[#FF6C2F] text-white hover:bg-[#e05519] transition-all shadow-lg hover:shadow-xl transform hover:scale-105 min-h-[44px] sm:min-h-0"
                 >
                   <Search className="w-4 h-4" />
                   Rechercher

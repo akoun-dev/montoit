@@ -16,11 +16,15 @@ export default function HomePage() {
       {/* Carte interactive avec biens disponibles */}
       <HomeMapSection />
 
-      {/* Section Comment ça marche (transition fluide via gradient) */}
-      <HowItWorksCompact />
+      {/* Section Comment ça marche (transition fluide via gradient) - Cachée sur mobile */}
+      <div className="hidden sm:block">
+        <HowItWorksCompact />
+      </div>
 
-      {/* Témoignages (fond neutre pour conclure) */}
-      <Testimonials />
+      {/* Témoignages (fond neutre pour conclure) - Cachés sur mobile */}
+      <div className="hidden sm:block">
+        <Testimonials />
+      </div>
     </div>
   );
 }

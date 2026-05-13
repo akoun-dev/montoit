@@ -174,22 +174,22 @@ export default function Testimonials() {
             </div>
 
             {/* Navigation arrows */}
-            <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2 md:-mx-4">
+            <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-1 sm:px-2 md:-mx-4">
               <Button
                 variant="outline"
                 size="small"
                 onClick={goToPrev}
-                className="rounded-full bg-background shadow-md p-2 min-h-0 min-w-0 w-9 h-9"
+                className="rounded-full bg-background shadow-md p-2 min-h-0 min-w-0 w-9 h-9 sm:w-10 sm:h-10"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
               <Button
                 variant="outline"
                 size="small"
                 onClick={goToNext}
-                className="rounded-full bg-background shadow-md p-2 min-h-0 min-w-0 w-9 h-9"
+                className="rounded-full bg-background shadow-md p-2 min-h-0 min-w-0 w-9 h-9 sm:w-10 sm:h-10"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             </div>
           </div>

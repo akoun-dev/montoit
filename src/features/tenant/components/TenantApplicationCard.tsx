@@ -79,7 +79,7 @@ export default function TenantApplicationCard({
     <div className="premium-card card-hover-premium overflow-hidden">
       <div className="flex flex-col sm:flex-row">
         {/* Property Image */}
-        <div className="sm:w-52 h-44 sm:h-auto flex-shrink-0 relative">
+        <div className="sm:w-52 h-36 sm:h-44 flex-shrink-0 relative">
           {application.property?.main_image ? (
             <img
               src={application.property.main_image}
@@ -102,18 +102,18 @@ export default function TenantApplicationCard({
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-5">
+        <div className="flex-1 p-4 sm:p-5">
           <div className="flex flex-col h-full">
             {/* Top Section */}
             <div className="flex-1">
               {/* Property Title */}
-              <h3 className="text-lg font-bold text-[var(--color-chocolat)] line-clamp-1 mb-1">
+              <h3 className="text-base sm:text-lg font-bold text-[var(--color-chocolat)] line-clamp-1 mb-1">
                 {application.property?.title || 'Propriété supprimée'}
               </h3>
 
               {/* Location */}
-              <div className="flex items-center text-[var(--color-gris-texte)] text-sm mb-3">
-                <MapPin className="h-4 w-4 mr-1.5 text-[var(--color-orange)] flex-shrink-0" />
+              <div className="flex items-center text-[var(--color-gris-texte)] text-xs sm:text-sm mb-2 sm:mb-3">
+                <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5 text-[var(--color-orange)] flex-shrink-0" />
                 <span className="line-clamp-1">
                   {application.property?.city}
                   {application.property?.neighborhood && `, ${application.property.neighborhood}`}
@@ -121,7 +121,7 @@ export default function TenantApplicationCard({
               </div>
 
               {/* Details Row */}
-              <div className="flex flex-wrap items-center gap-4 text-sm mb-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm mb-2 sm:mb-3">
                 {/* Rent - Premium Orange */}
                 {application.property?.monthly_rent && (
                   <span className="font-bold text-[var(--color-orange)]">
@@ -138,7 +138,7 @@ export default function TenantApplicationCard({
 
               {/* Owner Info */}
               {application.owner && (
-                <div className="flex items-center gap-2 text-sm text-[var(--color-gris-texte)]">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-[var(--color-gris-texte)]">
                   <div className="w-7 h-7 rounded-full bg-[var(--color-sable-light)] overflow-hidden border border-[var(--color-border)]">
                     {application.owner.avatar_url ? (
                       <img
@@ -168,7 +168,7 @@ export default function TenantApplicationCard({
             </div>
 
             {/* Actions */}
-            <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-[var(--color-border)]">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-[var(--color-border)]">
               {/* View Property */}
               <Link
                 to={`/propriete/${application.property_id}`}

@@ -215,7 +215,7 @@ export default function MyContracts() {
 
   if (!user) {
     return (
-      <TenantDashboardLayout title="Mes Contrats">
+      <TenantDashboardLayout title="Mes Contrats" icon={<FileText className="h-5 w-5" />} description="Gérez vos contrats de bail">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <FileText className="w-16 h-16 text-neutral-400 mx-auto mb-4" />
@@ -228,12 +228,12 @@ export default function MyContracts() {
   }
 
   return (
-    <TenantDashboardLayout title="Mes Contrats">
+    <TenantDashboardLayout title="Mes Contrats" icon={<FileText className="h-5 w-5" />} description="Gérez vos contrats de bail">
       <div className="w-full">
         {/* Header Banner */}
-        <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
+        <div className="bg-[#2C1810] rounded-[20px] p-4 sm:p-6 mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div className="hidden lg:flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center flex-shrink-0">
                 <FileText className="h-6 w-6 text-white" />
               </div>
@@ -243,7 +243,7 @@ export default function MyContracts() {
               </div>
             </div>
 
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-1.5 sm:gap-2 flex-wrap">
               <button
                 onClick={() => setFilter('all')}
                 className={`px-4 py-2 rounded-xl font-semibold transition ${
@@ -301,16 +301,16 @@ export default function MyContracts() {
         ) : (
           <div className="space-y-6">
             {contracts.map((contract) => (
-              <div key={contract.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
+              <div key={contract.id} className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
                 <div className="flex flex-col md:flex-row">
                   <div className="md:w-1/4">
                     <img
                       src={contract.property.main_image || 'https://via.placeholder.com/400x300'}
                       alt={contract.property.title}
-                      className="w-full h-48 md:h-full object-cover"
+                      className="w-full h-36 sm:h-48 md:h-full object-cover"
                     />
                   </div>
-                  <div className="flex-1 p-6">
+                  <div className="flex-1 p-4 sm:p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div>
                         <div className="flex items-center space-x-3 mb-2">
@@ -328,7 +328,7 @@ export default function MyContracts() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Type</p>
                         <p className="text-sm font-semibold text-gray-900">
@@ -394,7 +394,7 @@ export default function MyContracts() {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-3">
+                    <div className="flex flex-wrap gap-2 sm:gap-3">
                       <button
                         onClick={() => navigate(`/locataire/contrat/${contract.id}`)}
                         className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition flex items-center space-x-2"

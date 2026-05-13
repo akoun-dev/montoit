@@ -465,7 +465,7 @@ export default function DocumentsPage() {
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8 hidden lg:block">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -490,6 +490,19 @@ export default function DocumentsPage() {
             </button>
           </div>
         </div>
+      </div>
+      <div className="px-4 sm:px-6 mb-8 lg:hidden">
+        <button
+          onClick={() => {
+            setUploadCategory('other');
+            setUploadPropertyId('');
+            setShowUploadModal(true);
+          }}
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-[#F16522] hover:bg-[#e55a1d] transition-colors"
+        >
+          <Upload className="w-5 h-5" />
+          Ajouter
+        </button>
       </div>
 
       <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12">

@@ -231,7 +231,7 @@ export default function MyVisits() {
 
   if (!user) {
     return (
-      <TenantDashboardLayout title="Mes Visites">
+      <TenantDashboardLayout title="Mes Visites" icon={<Calendar className="h-5 w-5" />} description="Suivez vos visites et préparez votre prochaine rencontre">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <Calendar className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
@@ -244,11 +244,11 @@ export default function MyVisits() {
   }
 
   return (
-    <TenantDashboardLayout title="Mes Visites">
+    <TenantDashboardLayout title="Mes Visites" icon={<Calendar className="h-5 w-5" />} description="Suivez vos visites et préparez votre prochaine rencontre">
       <div className="w-full">
-        <div className="bg-[#2C1810] rounded-[24px] p-6 mb-6 text-white">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div className="flex items-center gap-3">
+        <div className="bg-[#2C1810] rounded-[24px] p-4 sm:p-6 mb-4 sm:mb-6 text-white">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-6">
+            <div className="hidden lg:flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-[#F16522] flex items-center justify-center flex-shrink-0">
                 <Calendar className="h-6 w-6 text-white" />
               </div>
@@ -260,14 +260,14 @@ export default function MyVisits() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2 items-center">
               <Link
                 to="/recherche"
-                className="px-4 py-2 rounded-xl font-semibold bg-white text-[#F16522] hover:bg-[#FFE7DA] transition"
+                className="px-3 sm:px-4 py-2 rounded-xl font-semibold bg-white text-[#F16522] hover:bg-[#FFE7DA] transition text-sm sm:text-base"
               >
                 Planifier une visite
               </Link>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 <button
                   onClick={() => setFilter('all')}
                   className={`px-3 py-2 rounded-xl text-sm font-semibold transition ${
@@ -302,14 +302,14 @@ export default function MyVisits() {
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="mt-4 sm:mt-5 grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
             {[
               { label: 'Total', value: statusCounts.total },
               { label: 'À venir', value: statusCounts.upcoming },
               { label: 'Terminées', value: statusCounts.completed },
               { label: 'Annulées', value: statusCounts.cancelled },
             ].map((stat) => (
-              <div key={stat.label} className="rounded-2xl bg-white/10 p-4">
+              <div key={stat.label} className="rounded-2xl bg-white/10 p-3 sm:p-4">
                 <p className="text-xs text-[#E8D4C5]">{stat.label}</p>
                 <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
               </div>
@@ -345,14 +345,14 @@ export default function MyVisits() {
                     <img
                       src={visit.property.main_image || 'https://via.placeholder.com/400x300'}
                       alt={visit.property.title}
-                      className="w-full h-44 md:h-full object-cover"
+                      className="w-full h-36 sm:h-44 md:h-full object-cover"
                     />
                     <div className="absolute top-3 left-3">{getStatusBadge(visit.status)}</div>
                     <span className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full text-xs font-semibold bg-white/90 text-[#2C1810]">
                       {visit.visit_type === 'in_person' ? 'Visite physique' : 'Visite virtuelle'}
                     </span>
                   </div>
-                  <div className="p-5 space-y-4">
+                  <div className="p-4 sm:p-5 space-y-3 sm:space-y-4">
                     <div>
                       <h3 className="text-lg font-bold text-gray-900">{visit.property.title}</h3>
                       <p className="text-sm text-gray-500 mt-1">

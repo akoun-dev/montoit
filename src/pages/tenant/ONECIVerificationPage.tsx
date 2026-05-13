@@ -266,6 +266,7 @@ export default function ONECIVerificationPage() {
 
   const trimmedFaceNni = faceNni.trim();
   const isFaceNniValid = trimmedFaceNni.length >= 8 && trimmedFaceNni.length <= 12;
+  const isModalFlow = sourceParam === 'modal';
 
   if (loading) {
     return (
@@ -322,17 +323,17 @@ export default function ONECIVerificationPage() {
     <div className="min-h-screen bg-gradient-to-br from-[#FDF6E3] to-white">
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-[#F16522]/15 bg-white/80 backdrop-blur-xl">
-        <div className="container mx-auto flex items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 transition hover:border-[#F16522] hover:text-[#2C1810]"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Retour</span>
-            </button>
-            <div>
-              <h1 className="text-lg font-bold text-[#2C1810]">Vérification ONECI</h1>
+        <div className="container mx-auto flex items-center gap-3 px-4 py-3">
+          <button
+            onClick={handleBack}
+            className="flex items-center justify-center rounded-xl border border-neutral-200 bg-white w-9 h-9 text-neutral-700 transition hover:border-[#F16522] hover:text-[#2C1810]"
+            aria-label="Retour"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <h1 className="text-base sm:text-lg font-bold text-[#2C1810]">Vérification ONECI</h1>
+            {!isModalFlow && (
               <p className="text-xs text-neutral-500">
                 {showMethodSelector
                   ? 'Choisissez votre méthode de vérification'
@@ -340,17 +341,17 @@ export default function ONECIVerificationPage() {
                     ? 'Vérifier vos informations personnelles'
                     : 'Authentification faciale'}
               </p>
-            </div>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
-        <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className={`container mx-auto px-4 py-8 ${isModalFlow ? 'max-w-2xl' : 'max-w-5xl'}`}>
+        <div className={isModalFlow ? '' : 'grid gap-8 lg:grid-cols-[1.15fr_0.85fr]'}>
           <div className="space-y-6">
-            <section className="rounded-[32px] bg-white/90 px-6 py-6 shadow-lg shadow-orange-100 ring-1 ring-orange-50">
-              {showMethodSelector ? (
+            {showMethodSelector && (
+              <section className="rounded-[32px] bg-white/90 px-6 py-6 shadow-lg shadow-orange-100 ring-1 ring-orange-50">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between mb-6">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
@@ -360,22 +361,6 @@ export default function ONECIVerificationPage() {
                     <p className="mt-2 text-sm text-neutral-500 max-w-2xl">{headerDescription}</p>
                   </div>
                 </div>
-              ) : (
-                <div className="flex items-center justify-between mb-6 pb-4 border-b border-neutral-100">
-                  <div>
-                    <button
-                      onClick={() => setStep('attributes')}
-                      className="text-xs font-semibold uppercase tracking-wider text-neutral-500 hover:text-[#F16522] transition-colors mb-1"
-                    >
-                      ← Changer de méthode
-                    </button>
-                    <h2 className="text-xl font-bold text-[#2C1810]">
-                      {step === 'attributes' ? 'Vérifier vos informations personnelles' : 'Authentification faciale'}
-                    </h2>
-                  </div>
-                </div>
-              )}
-              {showMethodSelector && (
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   {METHOD_CARD_DATA.map((method) => {
                     const isActive = step === method.id;
@@ -425,8 +410,8 @@ export default function ONECIVerificationPage() {
                     );
                   })}
                 </div>
-              )}
-            </section>
+              </section>
+            )}
 
             {error && (
               <div className="flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50/80 p-4 text-red-800 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -485,45 +470,47 @@ export default function ONECIVerificationPage() {
             )}
           </div>
 
-          <aside className="space-y-6">
-            <section className="rounded-3xl border border-neutral-100 bg-white/95 px-5 py-6 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                Préparation
-              </p>
-              <h3 className="mt-2 text-lg font-semibold text-[#2C1810]">Ce qu’il faut prévoir</h3>
-              <ul className="mt-4 space-y-3 text-sm text-neutral-600">
-                {PRECHECK_ITEMS.map((item) => (
-                  <li key={item} className="flex items-start gap-2">
-                    <span className="mt-1 h-2 w-2 rounded-full bg-[#F16522]" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-5 text-xs text-neutral-500">
-                Les documents sont transmis via une connexion chiffrée et ne sont utilisés que pour
-                l’identification.
-              </p>
-            </section>
+          {!isModalFlow && (
+            <aside className="space-y-6">
+              <section className="rounded-3xl border border-neutral-100 bg-white/95 px-5 py-6 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                  Préparation
+                </p>
+                <h3 className="mt-2 text-lg font-semibold text-[#2C1810]">Ce qu’il faut prévoir</h3>
+                <ul className="mt-4 space-y-3 text-sm text-neutral-600">
+                  {PRECHECK_ITEMS.map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <span className="mt-1 h-2 w-2 rounded-full bg-[#F16522]" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-5 text-xs text-neutral-500">
+                  Les documents sont transmis via une connexion chiffrée et ne sont utilisés que pour
+                  l’identification.
+                </p>
+              </section>
 
-            <section className="rounded-3xl bg-gradient-to-br from-emerald-50/80 to-white/80 px-5 py-6 shadow-lg">
-              <div className="flex items-start gap-3">
-                <div className="rounded-2xl bg-emerald-100 p-2">
-                  <CheckCircle className="h-5 w-5 text-emerald-600" />
+              <section className="rounded-3xl bg-gradient-to-br from-emerald-50/80 to-white/80 px-5 py-6 shadow-lg">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-2xl bg-emerald-100 p-2">
+                    <CheckCircle className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-semibold text-[#2C1810]">Confiance et suivi</h4>
+                    <p className="text-sm text-neutral-600">
+                      Une fois vérifié, vous voyez tout de suite le statut sur votre profil et pouvez
+                      partager le certificat avec les propriétaires.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-base font-semibold text-[#2C1810]">Confiance et suivi</h4>
-                  <p className="text-sm text-neutral-600">
-                    Une fois vérifié, vous voyez tout de suite le statut sur votre profil et pouvez
-                    partager le certificat avec les propriétaires.
-                  </p>
+                <div className="mt-5 space-y-2 text-sm text-neutral-600">
+                  <p>Vous pouvez revenir au processus à tout moment.</p>
+                  <p>Notre équipe est disponible si vous avez besoin d’assistance.</p>
                 </div>
-              </div>
-              <div className="mt-5 space-y-2 text-sm text-neutral-600">
-                <p>Vous pouvez revenir au processus à tout moment.</p>
-                <p>Notre équipe est disponible si vous avez besoin d’assistance.</p>
-              </div>
-            </section>
-          </aside>
+              </section>
+            </aside>
+          )}
         </div>
       </div>
     </div>

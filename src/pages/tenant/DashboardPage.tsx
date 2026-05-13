@@ -289,7 +289,7 @@ export default function TenantDashboard() {
 
   if (loading) {
     return (
-      <TenantDashboardLayout title="Tableau de bord">
+      <TenantDashboardLayout title="Tableau de bord" icon={<Home className="h-5 w-5" />} description="Vue d'ensemble de votre activité">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#F16522]"></div>
         </div>
@@ -298,12 +298,12 @@ export default function TenantDashboard() {
   }
 
   return (
-    <TenantDashboardLayout title="Tableau de bord">
+    <TenantDashboardLayout title="Tableau de bord" icon={<Home className="h-5 w-5" />} description="Vue d'ensemble de votre activité">
       <div>
         {/* Header */}
         <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8 dashboard-header-animate">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
+            <div className="hidden lg:block">
               <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center icon-pulse-premium">
                   <Home className="h-6 w-6 text-white" />

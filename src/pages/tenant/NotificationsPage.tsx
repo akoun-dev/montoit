@@ -326,81 +326,92 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div>
-      <div className="w-full">
-        {/* Header Banner */}
-        <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center flex-shrink-0">
-                <Bell className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
-                  Notifications
-                  {unreadCount > 0 && (
-                    <span className="bg-white/20 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      {unreadCount} non lue{unreadCount > 1 ? 's' : ''}
-                    </span>
-                  )}
-                </h1>
-                <p className="text-[#E8D4C5] mt-1">
-                  Restez informé des dernières actualités concernant vos demandes
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 self-start">
-              {/* Realtime connection indicator */}
-              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-                realtimeConnected
-                  ? 'bg-green-500/20 text-green-300'
-                  : 'bg-red-500/20 text-red-300'
-              }`}>
-                {realtimeConnected ? (
-                  <>
-                    <Wifi className="w-3.5 h-3.5" />
-                    <span>En direct</span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="w-3.5 h-3.5" />
-                    <span>Hors ligne</span>
-                  </>
-                )}
-              </div>
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAllAsRead}
-                  className="bg-white/10 hover:bg-white/20 text-white font-semibold py-3 px-6 rounded-xl transition-colors flex items-center gap-2"
-                >
-                  Tout marquer comme lu
-                </button>
-              )}
-            </div>
-          </div>
+    <div className="w-full">
+      {/* Desktop heading row */}
+      <div className="hidden lg:flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">
+            Notifications
+            {unreadCount > 0 && (
+              <span className="ml-3 text-sm font-medium text-neutral-500">
+                {unreadCount} non lue{unreadCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </h1>
+          <p className="text-sm text-neutral-500 mt-1">
+            Restez informé des dernières actualités
+          </p>
         </div>
+        <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+            realtimeConnected
+              ? 'bg-green-100 text-green-700'
+              : 'bg-red-100 text-red-700'
+          }`}>
+            {realtimeConnected ? (
+              <><Wifi className="w-3.5 h-3.5" /><span>En direct</span></>
+            ) : (
+              <><WifiOff className="w-3.5 h-3.5" /><span>Hors ligne</span></>
+            )}
+          </div>
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllAsRead}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-neutral-700 bg-white border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors"
+            >
+              <Check className="h-4 w-4" />
+              Tout marquer comme lu
+            </button>
+          )}
+        </div>
+      </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
-              </div>
+      {/* Mobile realtime + actions row */}
+      <div className="lg:hidden flex items-center justify-between mb-3">
+        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium ${
+          realtimeConnected
+            ? 'bg-green-100 text-green-700'
+            : 'bg-red-100 text-red-700'
+        }`}>
+          {realtimeConnected ? (
+            <><Wifi className="w-3 h-3" /><span>En direct</span></>
+          ) : (
+            <><WifiOff className="w-3 h-3" /><span>Hors ligne</span></>
+          )}
+        </div>
+        {unreadCount > 0 && (
+          <button
+            onClick={markAllAsRead}
+            className="text-xs font-medium text-primary-600 hover:text-primary-700 flex items-center gap-1"
+          >
+            <Check className="h-3 w-3" />
+            Tout marquer comme lu
+          </button>
+        )}
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-3 sm:p-6 mb-4 sm:mb-6">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-neutral-400" />
               <input
                 type="text"
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="w-full pl-9 sm:pl-10 pr-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Rechercher..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              className="flex-1 min-w-0 sm:flex-none px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
             >
-              <option value="all">Toutes les catégories</option>
+              <option value="all">Catégories</option>
               {Object.entries(categoryConfig).map(([key, config]) => (
                 <option key={key} value={key}>
                   {config.label}
@@ -410,148 +421,146 @@ export default function NotificationsPage() {
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              className="flex-1 min-w-0 sm:flex-none px-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
             >
-              <option value="all">Tous les types</option>
+              <option value="all">Types</option>
               <option value="info">Information</option>
               <option value="success">Succès</option>
               <option value="warning">Attention</option>
               <option value="error">Erreur</option>
               <option value="system">Système</option>
             </select>
-            <div className="flex items-center">
+            <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer flex-shrink-0">
               <input
                 type="checkbox"
                 id="unread-only"
                 checked={showUnreadOnly}
                 onChange={(e) => setShowUnreadOnly(e.target.checked)}
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                className="h-4 w-4 text-primary-500 focus:ring-primary-500 border-neutral-300 rounded"
               />
-              <label htmlFor="unread-only" className="ml-2 text-sm text-gray-700">
-                Non lues uniquement
-              </label>
-            </div>
+              Non lues
+            </label>
           </div>
         </div>
+      </div>
 
-        {/* Notifications List */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {filteredNotifications.length} notification
-              {filteredNotifications.length > 1 ? 's' : ''}
-            </h2>
+      {/* Notifications List */}
+      <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-neutral-200">
+          <h2 className="text-sm sm:text-lg font-semibold text-neutral-900">
+            {filteredNotifications.length} notification
+            {filteredNotifications.length > 1 ? 's' : ''}
+          </h2>
+        </div>
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
           </div>
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-            </div>
-          ) : filteredNotifications.length === 0 ? (
-            <div className="p-12 text-center">
-              <Bell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {searchTerm ||
-                selectedCategory !== 'all' ||
-                selectedType !== 'all' ||
-                showUnreadOnly
-                  ? 'Aucune notification trouvée'
-                  : 'Aucune notification'}
-              </h3>
-              <p className="text-gray-600">
-                {searchTerm ||
-                selectedCategory !== 'all' ||
-                selectedType !== 'all' ||
-                showUnreadOnly
-                  ? 'Essayez de modifier vos filtres'
-                  : "Vous n'avez pas de notifications pour le moment"}
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {filteredNotifications.map((notification) => {
-                const config = notificationConfig[notification.type] || notificationConfig.info;
-                const Icon = config.icon;
-                const categoryConfigItem = notification.category ? categoryConfig[notification.category] : null;
-                const CategoryIcon = categoryConfigItem ? categoryConfigItem.icon : null;
-                return (
-                  <div
-                    key={notification.id}
-                    className={`p-6 hover:bg-gray-50 transition-colors ${
-                      !notification.is_read ? 'bg-blue-50' : ''
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-4">
-                        <div
-                          className={`p-2 rounded-lg ${config.bgColor}`}
-                        >
-                          <Icon
-                            className={`w-5 h-5 ${config.color}`}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h3
-                              className={`text-sm font-medium text-gray-900 ${
-                                !notification.is_read ? 'font-semibold' : ''
-                              }`}
-                            >
-                              {notification.title}
-                            </h3>
-                            {CategoryIcon && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                <CategoryIcon className="w-3 h-3 mr-1" />
-                                {categoryConfigItem?.label || 'Notification'}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
-                          <div className="flex items-center space-x-4 text-xs text-gray-500">
-                            <span className="flex items-center">
-                              <Calendar className="w-3 h-3 mr-1" />
-                              {formatDate(notification.created_at)}
+        ) : filteredNotifications.length === 0 ? (
+          <div className="p-8 sm:p-12 text-center">
+            <Bell className="w-12 h-12 sm:w-16 sm:h-16 text-neutral-400 mx-auto mb-4" />
+            <h3 className="text-base sm:text-xl font-semibold text-neutral-900 mb-2">
+              {searchTerm ||
+              selectedCategory !== 'all' ||
+              selectedType !== 'all' ||
+              showUnreadOnly
+                ? 'Aucune notification trouvée'
+                : 'Aucune notification'}
+            </h3>
+            <p className="text-sm sm:text-base text-neutral-600">
+              {searchTerm ||
+              selectedCategory !== 'all' ||
+              selectedType !== 'all' ||
+              showUnreadOnly
+                ? 'Essayez de modifier vos filtres'
+                : "Vous n'avez pas de notifications pour le moment"}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-neutral-100">
+            {filteredNotifications.map((notification) => {
+              const config = notificationConfig[notification.type] || notificationConfig.info;
+              const Icon = config.icon;
+              const categoryConfigItem = notification.category ? categoryConfig[notification.category] : null;
+              const CategoryIcon = categoryConfigItem ? categoryConfigItem.icon : null;
+              return (
+                <div
+                  key={notification.id}
+                  className={`p-3 sm:p-6 hover:bg-neutral-50 transition-colors ${
+                    !notification.is_read ? 'bg-blue-50/50' : ''
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 sm:gap-3">
+                    <div className="flex items-start gap-2 sm:gap-4 min-w-0">
+                      <div
+                        className={`p-1.5 sm:p-2 rounded-lg flex-shrink-0 ${config.bgColor}`}
+                      >
+                        <Icon
+                          className={`w-4 h-4 sm:w-5 sm:h-5 ${config.color}`}
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1 flex-wrap">
+                          <h3
+                            className={`text-xs sm:text-sm text-neutral-900 ${
+                              !notification.is_read ? 'font-semibold' : 'font-medium'
+                            }`}
+                          >
+                            {notification.title}
+                          </h3>
+                          {CategoryIcon && (
+                            <span className="inline-flex items-center px-1.5 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-neutral-100 text-neutral-700">
+                              <CategoryIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
+                              {categoryConfigItem?.label || 'Notification'}
                             </span>
-                            {!notification.is_read && (
-                              <span className="text-blue-600 font-medium">Non lue</span>
-                            )}
-                          </div>
-                          {notification.action_url && (
-                            <div className="mt-3">
-                              <a
-                                href={notification.action_url}
-                                className="inline-flex items-center px-3 py-1 bg-primary-500 text-white text-sm rounded hover:bg-primary-600 transition"
-                              >
-                                {notification.action_text || 'Voir les détails'}
-                              </a>
-                            </div>
                           )}
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-2 ml-4">
-                        {!notification.is_read && (
-                          <button
-                            onClick={() => markAsRead(notification.id)}
-                            className="p-2 text-gray-400 hover:text-green-600 transition-colors"
-                            title="Marquer comme lu"
-                          >
-                            <Check className="w-5 h-5" />
-                          </button>
+                        <p className="text-xs sm:text-sm text-neutral-600 mb-1.5 sm:mb-2 line-clamp-2">{notification.message}</p>
+                        <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs text-neutral-500">
+                          <span className="flex items-center">
+                            <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
+                            {formatDate(notification.created_at)}
+                          </span>
+                          {!notification.is_read && (
+                            <span className="text-blue-600 font-medium">Non lue</span>
+                          )}
+                        </div>
+                        {notification.action_url && (
+                          <div className="mt-2 sm:mt-3">
+                            <a
+                              href={notification.action_url}
+                              className="inline-flex items-center px-2.5 sm:px-3 py-1 sm:py-1.5 bg-primary-500 text-white text-[11px] sm:text-sm rounded-lg hover:bg-primary-600 transition font-medium"
+                            >
+                              {notification.action_text || 'Voir les détails'}
+                            </a>
+                          </div>
                         )}
-                        <button
-                          onClick={() => archiveNotification(notification.id)}
-                          className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                          title="Archiver"
-                        >
-                          <Archive className="w-5 h-5" />
-                        </button>
                       </div>
                     </div>
+                    <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                      {!notification.is_read && (
+                        <button
+                          onClick={() => markAsRead(notification.id)}
+                          className="p-1.5 sm:p-2 text-neutral-400 hover:text-green-600 transition-colors rounded-lg hover:bg-green-50"
+                          title="Marquer comme lu"
+                        >
+                          <Check className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => archiveNotification(notification.id)}
+                        className="p-1.5 sm:p-2 text-neutral-400 hover:text-neutral-600 transition-colors rounded-lg hover:bg-neutral-100"
+                        title="Archiver"
+                      >
+                        <Archive className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+                      </button>
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -121,10 +121,10 @@ export default function Favorites() {
   }
 
   return (
-    <TenantDashboardLayout title="Mes Favoris">
+    <TenantDashboardLayout title="Mes Favoris" icon={<Heart className="h-5 w-5" />} description="Propriétés sauvegardées">
       <div className="w-full">
         {/* Header Banner */}
-        <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8">
+        <div className="hidden lg:block bg-[#2C1810] rounded-[20px] p-6 mb-8">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center flex-shrink-0">
               <Heart className="h-6 w-6 text-white fill-current" />
@@ -158,17 +158,17 @@ export default function Favorites() {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {favorites.map((favorite) => (
               <div
                 key={favorite.id}
-                className="bg-white rounded-lg shadow-lg overflow-hidden group"
+                className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden group"
               >
                 <div className="relative">
                   <img
                     src={favorite.property?.main_image || 'https://via.placeholder.com/400x300'}
                     alt={favorite.property?.title}
-                    className="w-full h-48 object-cover"
+                    className="w-full h-44 sm:h-48 object-cover"
                   />
                   <button
                     onClick={() => removeFavorite(favorite.id)}
@@ -182,8 +182,8 @@ export default function Favorites() {
                   </div>
                 </div>
 
-                <div className="p-5">
-                  <h3 className="text-lg font-bold text-neutral-900 mb-2 line-clamp-1">
+                <div className="p-4 sm:p-5">
+                  <h3 className="text-base sm:text-lg font-bold text-neutral-900 mb-2 line-clamp-1">
                     {favorite.property?.title}
                   </h3>
 

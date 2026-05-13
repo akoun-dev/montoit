@@ -35,7 +35,7 @@ export default function HowItWorksCompact() {
   return (
     <section
       ref={ref}
-      className="py-10 md:py-14 relative overflow-hidden bg-gradient-to-b from-[#FAF7F4] via-white to-neutral-50"
+      className="py-8 sm:py-10 md:py-14 relative overflow-hidden bg-gradient-to-b from-[#FAF7F4] via-white to-neutral-50"
     >
       {/* Subtle decorations */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -43,7 +43,7 @@ export default function HowItWorksCompact() {
         <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-[#FF6C2F]/5 rounded-full blur-3xl" />
       </div>
 
-      <div className="container mx-auto px-4 md:px-6 relative z-10">
+      <div className="container mx-auto px-4 sm:px-6 relative z-10">
         {/* Header */}
         <div
           className={`text-center mb-10 md:mb-12 ${getAnimationClasses(isVisible, 'fadeUp', 0)}`}
@@ -65,7 +65,7 @@ export default function HowItWorksCompact() {
         </div>
 
         {/* Steps Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-5">
           {steps.map((step, index) => (
             <div
               key={step.title}
@@ -73,24 +73,24 @@ export default function HowItWorksCompact() {
             >
               {/* Mobile/Tablet connector line */}
               {index < steps.length - 1 && (
-                <div className="lg:hidden absolute left-8 top-16 w-0.5 h-[calc(100%+1.5rem)] bg-gradient-to-b from-[#FF6C2F]/40 to-[#FF6C2F]/10" />
+                <div className="lg:hidden absolute left-7 sm:left-8 top-14 w-0.5 h-[calc(100%+1.5rem)] bg-gradient-to-b from-[#FF6C2F]/40 to-[#FF6C2F]/10" />
               )}
 
               {/* Card */}
-              <div className="relative bg-card rounded-2xl p-5 shadow-sm border border-border/50 hover:shadow-lg hover:border-[#FF6C2F]/20 transition-all duration-300 group">
+              <div className="relative bg-card rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-sm border border-border/50 hover:shadow-lg hover:border-[#FF6C2F]/20 transition-all duration-300 group">
                 {/* Number badge */}
-                <div className="absolute -top-3 left-5 flex items-center justify-center w-9 h-9 rounded-full bg-[#FF6C2F] text-white font-bold text-sm shadow-lg shadow-[#FF6C2F]/25 group-hover:scale-110 transition-transform duration-300">
+                <div className="absolute -top-2.5 sm:-top-3 left-4 sm:left-5 flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#FF6C2F] text-white font-bold text-xs sm:text-sm shadow-lg shadow-[#FF6C2F]/25 group-hover:scale-110 transition-transform duration-300">
                   {step.number}
                 </div>
 
                 {/* Icon container */}
-                <div className="mt-5 mb-3 flex items-center justify-center w-14 h-14 rounded-2xl bg-[#FF6C2F]/10 group-hover:bg-[#FF6C2F]/15 transition-colors duration-300">
-                  <step.icon className="h-7 w-7 text-[#FF6C2F]" />
+                <div className="mt-4 sm:mt-5 mb-2.5 sm:mb-3 flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-[#FF6C2F]/10 group-hover:bg-[#FF6C2F]/15 transition-colors duration-300">
+                  <step.icon className="h-6 w-6 sm:h-7 sm:w-7 text-[#FF6C2F]" />
                 </div>
 
                 {/* Text content */}
-                <h3 className="text-lg font-semibold text-foreground mb-1.5">{step.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{step.description}</p>
+                <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1 sm:mb-1.5">{step.title}</h3>
+                <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">{step.description}</p>
               </div>
             </div>
           ))}

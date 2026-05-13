@@ -1,6 +1,9 @@
 /**
  * Global error interceptor for handling JWT and authentication errors
+ * Uses Supabase's built-in auth methods instead of direct localStorage access
  */
+
+import { supabase } from '@/integrations/supabase/client';
 
 // Store original console methods
 const originalConsoleError = console.error;
@@ -15,39 +18,29 @@ console.error = function (...args) {
     errorMessage.includes('JWT') ||
     errorMessage.includes('Invalid token')
   ) {
-    // Clean up auth data immediately
+    // Use Supabase's signOut method to properly clean up auth
     try {
-      const keysToRemove = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.includes('supabase') || key.includes('auth'))) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach((key) => {
-        try {
-          localStorage.removeItem(key);
-        } catch (e) {
-          // Ignore individual removal errors
-        }
-      });
+      supabase.auth.signOut({ scope: 'global' })
+        .then(() => {
+          if (import.meta.env.DEV) {
+            console.warn('🔐 JWT Error intercepted - user signed out via Supabase');
+          }
+        })
+        .catch((err) => {
+          originalConsoleError('[error-interceptor] Error during Supabase signOut:', err);
+        });
 
-      // Show user-friendly message in development
-      if (process.env['NODE_ENV'] === 'development') {
-        console.warn('🔐 JWT Error intercepted and auth data cleaned up. Please refresh the page.');
-      }
-
-      // Optionally show notification to user
+      // Show user-friendly notification
       showAuthErrorNotification();
     } catch (error) {
-      // Fallback - at least log it
+      originalConsoleError('[error-interceptor] Error during JWT cleanup:', error);
     }
 
     // Don't log the original JWT error to avoid noise
     return;
   }
 
-  // For non-JWT errors, use original console.error
+  // For non-JWT errors, use the original console.error
   originalConsoleError.apply(console, args);
 };
 
@@ -102,45 +95,26 @@ window.addEventListener('unhandledrejection', (event) => {
       errorMessage.includes('JWT') ||
       errorMessage.includes('Invalid token')
     ) {
-      // Prevent the default error handling
+      // Prevent default error handling
       event.preventDefault();
 
-      // Clean up auth data
-      try {
-        const keysToRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.includes('supabase') || key.includes('auth'))) {
-            keysToRemove.push(key);
-          }
-        }
-        keysToRemove.forEach((key) => localStorage.removeItem(key));
-        showAuthErrorNotification();
-      } catch (error) {
-        // Fallback
-      }
+      // Use Supabase's signOut method
+      supabase.auth.signOut({ scope: 'global' })
+        .then(showAuthErrorNotification)
+        .catch((error) => {
+          originalConsoleError('[error-interceptor] Error during JWT cleanup in unhandledrejection:', error);
+        });
     }
   }
 });
 
+// Export cleanup function that uses Supabase's signOut
 export function cleanupAuthData() {
-  try {
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.includes('supabase') || key.includes('auth'))) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach((key) => {
-      try {
-        localStorage.removeItem(key);
-      } catch (e) {
-        // Ignore individual removal errors
-      }
+  supabase.auth.signOut({ scope: 'global' })
+    .then(() => {
+      console.log('Manually cleaned up auth data via Supabase signOut');
+    })
+    .catch((error) => {
+      console.warn('Could not clean auth data:', error);
     });
-    console.log('Manually cleaned up auth data');
-  } catch (error) {
-    console.warn('Could not clean auth data:', error);
-  }
 }

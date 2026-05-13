@@ -657,7 +657,7 @@ export default function ModernAuthPage() {
 
   // ===================== RENDER =====================
   return (
-    <div className="min-h-screen flex bg-white font-sans selection:bg-[#F16522] selection:text-white">
+    <div className="h-screen flex bg-white font-sans selection:bg-[#F16522] selection:text-white overflow-hidden">
       {/* --- COLONNE GAUCHE : VISUEL IMMERSIF (Hidden on Mobile) --- */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#2C1810]">
         {AUTH_SLIDES.map((slide, index) => (
@@ -723,28 +723,28 @@ export default function ModernAuthPage() {
       </div>
 
       {/* --- COLONNE DROITE : FORMULAIRE --- */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 lg:p-12 bg-[#FAF7F4] relative">
+      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6 bg-[#FAF7F4] relative">
         {/* Déco de fond */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#F16522]/5 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#2C1810]/5 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="w-full max-w-md space-y-6 relative z-10">
+        <div className="w-full max-w-md space-y-3 sm:space-y-4 relative z-10">
           {/* Header Mobile Only */}
-          <div className="lg:hidden flex items-center justify-center gap-2 mb-6">
-            <img src="/logo.png" alt="Mon Toit" className="w-9 h-9 object-contain" />
-            <span className="text-2xl font-bold text-[#2C1810]">Mon Toit</span>
+          <div className="lg:hidden flex items-center justify-center gap-2 mb-4">
+            <img src="/logo.png" alt="Mon Toit" className="w-8 h-8 object-contain" />
+            <span className="text-xl sm:text-2xl font-bold text-[#2C1810]">Mon Toit</span>
           </div>
 
           {/* Titre */}
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-extrabold text-[#2C1810]">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#2C1810]">
               {phoneStep === 'name'
                 ? 'Bienvenue !'
                 : phoneStep === 'verify'
                   ? 'Vérification'
                   : 'Bienvenue chez vous'}
             </h1>
-            <p className="text-[#6B5A4E]">
+            <p className="text-[#6B5A4E] text-sm sm:text-base">
               {phoneStep === 'name'
                 ? 'Entrez votre nom pour finaliser'
                 : phoneStep === 'verify'
@@ -755,31 +755,31 @@ export default function ModernAuthPage() {
 
           {/* Sélecteur de méthode - Style Toggle Premium */}
           {phoneStep === 'enter' && (
-            <div className="bg-white p-1.5 rounded-2xl border border-[#EFEBE9] flex shadow-sm">
+            <div className="bg-white p-1.5 sm:p-3 rounded-2xl border border-[#EFEBE9] flex shadow-sm">
               <button
                 onClick={() => handleMethodChange('phone')}
-                className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 ${
+                className={`flex-1 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-bold flex items-center justify-center gap-2 transition-all duration-300 ${
                   authMethod === 'phone'
                     ? 'bg-[#2C1810] text-white shadow-md'
                     : 'text-[#A69B95] hover:bg-[#FAF7F4]'
                 }`}
               >
-                <Smartphone className="w-4 h-4 shrink-0" /> Téléphone
+                <Smartphone className="w-4 h-4 sm:w-5 shrink-0" /> Téléphone
                 {authMethod === 'phone' && (
-                  <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded-full">
+                  <span className="text-xs sm:text-sm bg-green-500 text-white px-1 sm:px-1.5 py-0.5 sm:py-1 rounded-full">
                     Rapide
                   </span>
                 )}
               </button>
               <button
                 onClick={() => handleMethodChange('email')}
-                className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 ${
+                className={`flex-1 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-bold flex items-center justify-center gap-2 transition-all duration-300 ${
                   authMethod === 'email'
                     ? 'bg-[#2C1810] text-white shadow-md'
                     : 'text-[#A69B95] hover:bg-[#FAF7F4]'
                 }`}
               >
-                <Mail className="w-4 h-4 shrink-0" /> Email
+                <Mail className="w-4 h-4 sm:w-5 shrink-0" /> Email
               </button>
             </div>
           )}
@@ -827,7 +827,7 @@ export default function ModernAuthPage() {
                   <button
                     onClick={handleSendOTP}
                     disabled={loading || !isPhoneValid}
-                    className="w-full py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2 sm:py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-base sm:text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <Loader2 className="w-6 h-6 animate-spin" />
@@ -895,7 +895,7 @@ export default function ModernAuthPage() {
                   <button
                     onClick={() => handleVerifyOTP(false)}
                     disabled={loading || otp.length !== 6}
-                    className="w-full py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2 sm:py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-base sm:text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <Loader2 className="w-6 h-6 animate-spin" />
@@ -938,7 +938,7 @@ export default function ModernAuthPage() {
                       placeholder="Ex: Jean Kouassi"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full py-4 pl-12 pr-4 rounded-xl bg-white border border-[#EFEBE9] text-[#2C1810] font-medium placeholder:text-[#A69B95] focus:border-[#F16522] focus:ring-4 focus:ring-[#F16522]/10 outline-none transition-all"
+                      className="w-full py-2 sm:py-4 pl-4 sm:pl-12 pr-4 rounded-xl bg-white border border-[#EFEBE9] text-[#2C1810] font-medium placeholder:text-[#A69B95] focus:border-[#F16522] focus:ring-4 focus:ring-[#F16522]/10 outline-none transition-all"
                       autoFocus
                     />
                   </div>
@@ -997,7 +997,7 @@ export default function ModernAuthPage() {
                   <button
                     onClick={handleSubmitName}
                     disabled={loading || !fullName.trim()}
-                    className="w-full py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2 sm:py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-base sm:text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <Loader2 className="w-6 h-6 animate-spin" />
@@ -1061,7 +1061,7 @@ export default function ModernAuthPage() {
                     type="button"
                     onClick={handleVerifyEmailOtp}
                     disabled={loading || emailOtp.length < 6}
-                    className="w-full py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2 sm:py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-base sm:text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Valider le code'}
                   </button>
@@ -1250,7 +1250,7 @@ export default function ModernAuthPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2 sm:py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-base sm:text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <Loader2 className="w-6 h-6 animate-spin" />
@@ -1266,8 +1266,8 @@ export default function ModernAuthPage() {
             </div>
           )}
 
-          {/* Footer Légal */}
-          <div className="text-center text-xs text-[#A69B95] space-y-2 pt-4">
+          {/* Footer Légal - Caché sur mobile */}
+          <div className="hidden sm:block text-center text-xs text-[#A69B95] space-y-2 pt-4">
             <p className="flex items-center justify-center gap-1">
               <Shield className="w-3 h-3" /> Vos données sont chiffrées et sécurisées.
             </p>

@@ -162,8 +162,8 @@ function FooterContent() {
             </div>
           </div>
 
-          {/* Liens rapides */}
-          <div>
+          {/* Liens rapides - Caché sur mobile */}
+          <div className="hidden sm:block">
             <h3 className="text-white font-bold text-lg mb-6">Liens Rapides</h3>
             <ul className="space-y-4">
               {[
@@ -189,8 +189,8 @@ function FooterContent() {
             </ul>
           </div>
 
-          {/* Légal */}
-          <div>
+          {/* Légal - Caché sur mobile */}
+          <div className="hidden sm:block">
             <h3 className="text-white font-bold text-lg mb-6">Légal</h3>
             <ul className="space-y-4">
               {[
@@ -211,8 +211,8 @@ function FooterContent() {
             </ul>
           </div>
 
-          {/* Newsletter & Contact */}
-          <div className="flex flex-col h-full">
+          {/* Newsletter & Contact - Caché sur mobile */}
+          <div className="hidden sm:flex flex-col h-full">
             <h3 className="text-white font-bold text-lg mb-4">Restez informé</h3>
             <p className="text-[#E8D4C5]/70 text-sm mb-4">
               Recevez nos dernières offres exclusives.
@@ -283,8 +283,8 @@ function FooterContent() {
           </div>
         </div>
 
-        {/* Copyright */}
-        <div className="pt-6 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-3 text-xs text-[#E8D4C5]/30">
+        {/* Copyright - Caché sur mobile */}
+        <div className="hidden sm:block pt-6 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-3 text-xs text-[#E8D4C5]/30">
           <p>© {currentYear} Mon Toit. Tous droits réservés.</p>
 
           <div className="flex items-center gap-5">
@@ -304,8 +304,8 @@ function FooterContent() {
           </div>
         </div>
 
-        {/* Badge Certifié + Version - Plus discret */}
-        <div className="mt-4 flex flex-col md:flex-row justify-center items-center gap-3 text-[#E8D4C5]/20">
+        {/* Badge Certifié + Version - Caché sur mobile */}
+        <div className="hidden sm:block mt-4 flex flex-col md:flex-row justify-center items-center gap-3 text-[#E8D4C5]/20">
           <span className="text-[10px]">Fait avec ♥ à Abidjan</span>
           <span className="text-xs text-[#E8D4C5]/30 font-mono">v{APP_CONFIG.version}</span>
         </div>
@@ -317,7 +317,9 @@ function FooterContent() {
 export default function FooterPremium() {
   return (
     <FooterErrorBoundary>
-      <FooterContent />
+      <div className="hidden sm:block">
+        <FooterContent />
+      </div>
     </FooterErrorBoundary>
   );
 }
