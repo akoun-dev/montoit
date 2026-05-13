@@ -1,5 +1,5 @@
 /**
- * Service API pour l'agent de confiance (trust-agent)
+ * Service API pour le tiers de confiance (trust-agent)
  *
  * Ce service centralise toutes les opérations spécifiques aux agents de confiance avec validation stricte des permissions.
  */
@@ -57,7 +57,7 @@ interface PropertyNeedingVerification {
 }
 
 /**
- * API d'agent de confiance sécurisée
+ * API de tiers de confiance sécurisée
  */
 export const trustAgentApi = {
   /**
@@ -317,7 +317,7 @@ export const trustAgentApi = {
           'id, title, address, ansut_verified, ansut_verification_date, created_at, city, neighborhood, property_type, main_image, owner_id, is_verified'
         )
         .or('ansut_verified.is.false,ansut_verified.is.null')
-        .eq('status', 'disponible')
+        .eq('status', 'available')
         .order('created_at', { ascending: false })
         .limit(50);
 

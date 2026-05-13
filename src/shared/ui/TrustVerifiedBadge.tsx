@@ -16,7 +16,7 @@ const TrustVerifiedBadge: React.FC<TrustVerifiedBadgeProps> = ({ verified, class
     <Badge variant="success" className={`flex items-center gap-1 ${className}`}>
       <Shield className="h-3 w-3" />
       <CheckCircle className="h-3 w-3" />
-      <span>Vérifié par Trust Agent</span>
+      <span>Vérifié par un tiers de confiance</span>
     </Badge>
   );
 };

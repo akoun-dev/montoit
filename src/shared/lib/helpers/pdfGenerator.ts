@@ -377,7 +377,7 @@ export const generateLeasePDF = (leaseData: LeaseData): jsPDF => {
 export const uploadPDFToStorage = async (
   pdf: jsPDF,
   leaseId: string,
-  supabaseClient: any
+  supabaseClient: unknown
 ): Promise<string> => {
   const pdfBlob = pdf.output('blob');
   const fileName = `leases/${leaseId}/contract_${Date.now()}.pdf`;

@@ -1,17 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { Link } from 'react-router-dom';
-import { getRoleBasedRoute } from '@/shared/utils/roleRoutes';
 import { supabase } from '@/integrations/supabase/client';
+import { TENANT_SCORING_WEIGHTS } from '@/services/scoringService';
 import {
   User,
   Mail,
-  Phone,
-  MapPin,
   Shield,
   CheckCircle,
   AlertCircle,
-  Star,
   ChevronRight,
   TrendingUp,
   Clock,
@@ -39,11 +36,11 @@ export default function ProfileContent() {
   // Déterminer la route du profil selon le rôle
   const getProfileRoute = () => {
     const userType = profile?.user_type?.toLowerCase();
-    if (userType === 'locataire' || userType === 'tenant') {
+    if (userType === 'tenant' || userType === 'tenant') {
       return '/locataire/profil';
-    } else if (userType === 'proprietaire' || userType === 'owner') {
+    } else if (userType === 'owner' || userType === 'owner') {
       return '/proprietaire/profil';
-    } else if (userType === 'agence' || userType === 'agency') {
+    } else if (userType === 'agency' || userType === 'agency') {
       return '/agences/profil';
     }
     return '/locataire/profil';
@@ -60,15 +57,9 @@ export default function ProfileContent() {
         // Charger les stats - récupérer toutes les données puis filtrer
         const [leasesRes, appsRes, visitsRes] = await Promise.all([
           // Toutes les locations pour compter les actives
-          supabase
-            .from('lease_contracts')
-            .select('id, status')
-            .eq('tenant_id', profile.id),
+          supabase.from('lease_contracts').select('id, status').eq('tenant_id', profile.id),
           // Toutes les candidatures
-          supabase
-            .from('rental_applications')
-            .select('id, status')
-            .eq('tenant_id', profile.id),
+          supabase.from('rental_applications').select('id, status').eq('tenant_id', profile.id),
           // Toutes les visites
           supabase
             .from('property_visits')
@@ -95,20 +86,19 @@ export default function ProfileContent() {
 
         // Filtrer localement pour compter correctement
         const now = new Date();
-        const activeLeases = leasesRes.data?.filter(
-          (l) => l.status === 'actif' || l.status === 'en_attente_signature'
-        ).length || 0;
+        const activeLeases =
+          leasesRes.data?.filter((l) => l.status === 'active' || l.status === 'pending_signature')
+            .length || 0;
 
-        const pendingApplications = appsRes.data?.filter(
-          (a) => a.status === 'en_attente' || a.status === 'en_negociation'
-        ).length || 0;
+        const pendingApplications =
+          appsRes.data?.filter((a) => a.status === 'pending' || a.status === 'in_progress')
+            .length || 0;
 
-        const upcomingVisits = visitsRes.data?.filter(
-          (v) => {
+        const upcomingVisits =
+          visitsRes.data?.filter((v) => {
             const visitDate = new Date(v.visit_date);
-            return visitDate >= now && (v.status === 'planifie' || v.status === 'confirme');
-          }
-        ).length || 0;
+            return visitDate >= now && (v.status === 'scheduled' || v.status === 'confirmed');
+          }).length || 0;
 
         console.log('Computed stats:', { activeLeases, pendingApplications, upcomingVisits });
 
@@ -142,7 +132,7 @@ export default function ProfileContent() {
   const verificationItems = [
     {
       id: 'email',
-      label: 'Email vérifié',
+      label: 'Profil locataire',
       verified: true, // Toujours vrai avec Supabase Auth
       href: `${getProfileRoute()}?tab=verification`,
     },
@@ -165,9 +155,17 @@ export default function ProfileContent() {
   const verificationProgress = Math.round((completedVerifications / 3) * 100);
 
   const getScoreColor = (score: number) => {
-    if (score >= 90) return { text: 'Excellent', color: 'text-green-600', bg: 'bg-green-100', bar: 'bg-green-500' };
-    if (score >= 70) return { text: 'Très bon', color: 'text-blue-600', bg: 'bg-blue-100', bar: 'bg-blue-500' };
-    if (score >= 50) return { text: 'Bon', color: 'text-amber-600', bg: 'bg-amber-100', bar: 'bg-amber-500' };
+    if (score >= 90)
+      return {
+        text: 'Excellent',
+        color: 'text-green-600',
+        bg: 'bg-green-100',
+        bar: 'bg-green-500',
+      };
+    if (score >= 70)
+      return { text: 'Très bon', color: 'text-blue-600', bg: 'bg-blue-100', bar: 'bg-blue-500' };
+    if (score >= 50)
+      return { text: 'Bon', color: 'text-amber-600', bg: 'bg-amber-100', bar: 'bg-amber-500' };
     return { text: 'En cours', color: 'text-gray-600', bg: 'bg-gray-100', bar: 'bg-gray-500' };
   };
 
@@ -188,7 +186,9 @@ export default function ProfileContent() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold mb-1">Votre Score de Confiance</h2>
-            <p className="text-white/80 text-sm">Plus votre score est élevé, plus vous avez de chances d'être accepté</p>
+            <p className="text-white/80 text-sm">
+              Plus votre score est élevé, plus vous avez de chances d'être accepté
+            </p>
           </div>
           <Link
             to="/locataire/mon-score"
@@ -205,7 +205,10 @@ export default function ProfileContent() {
             <span className="text-2xl font-bold">{score}%</span>
           </div>
           <div className="w-full bg-white/20 rounded-full h-3">
-            <div className={`h-3 rounded-full transition-all duration-500 ${scoreInfo.bar}`} style={{ width: `${score}%` }} />
+            <div
+              className={`h-3 rounded-full transition-all duration-500 ${scoreInfo.bar}`}
+              style={{ width: `${score}%` }}
+            />
           </div>
         </div>
       </div>
@@ -344,14 +347,14 @@ export default function ProfileContent() {
           })}
         </div>
 
-        {/* Certification ANSUT Bonus */}
+        {/* Dossier locataire */}
         <div className="mt-3 p-3 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg">
           <div className="flex items-center gap-2">
             <Award className="h-4 w-4 text-orange-600" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-orange-900">Bonus Certification ANSUT</p>
+              <p className="text-sm font-medium text-orange-900">Dossier locataire</p>
               <p className="text-xs text-orange-600">
-                Dossier validé = Score 100% automatique
+                Dossier locataire validé = +{TENANT_SCORING_WEIGHTS.dossier}% sur votre score
               </p>
             </div>
           </div>

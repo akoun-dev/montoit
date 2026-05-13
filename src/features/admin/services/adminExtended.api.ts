@@ -93,14 +93,14 @@ export async function getUsersWithRoles(
       roles: userRoles.map((r) => ({
         id: r.id,
         user_id: r.user_id,
-        role: r.role as 'admin' | 'moderator' | 'trust_agent' | 'user',
+        role: r.role as 'admin' | 'trust_agent',
         assigned_at: r.assigned_at,
         assigned_by: r.assigned_by,
         expires_at: r.expires_at,
         is_active: r.is_active ?? true,
       })),
       status: profile.is_active ? 'active' : 'suspended',
-      verification_status: profile.is_verified ? 'verified' : 'not_started',
+      verification_status: profile.is_verified ? 'approved' : 'pending',
     };
   });
 
@@ -582,7 +582,7 @@ export async function reassignCEVMission(missionId: string, newAgentId: string):
 // =============================================================================
 
 /**
- * Récupère les profils des trust agents
+ * Récupère les profils des tiers de confiance
  */
 export async function getTrustAgents(): Promise<TrustAgentProfile[]> {
   await requirePermission('canAccessAdminPanel')();
@@ -620,7 +620,7 @@ export async function getTrustAgents(): Promise<TrustAgentProfile[]> {
       certifications: [],
       specializations: [],
       is_active: true,
-      verification_status: 'verified',
+      verification_status: 'approved',
       assigned_missions: agentMissions.filter((m) => m.status === 'assigned' || m.status === 'in_progress').length,
       completed_missions: agentMissions.filter((m) => m.status === 'completed').length,
       average_rating: null,
@@ -630,7 +630,7 @@ export async function getTrustAgents(): Promise<TrustAgentProfile[]> {
 }
 
 /**
- * Récupère les statistiques d'un trust agent
+ * Récupère les statistiques d'un tiers de confiance
  */
 export async function getTrustAgentStats(agentId: string): Promise<TrustAgentStats> {
   await requirePermission('canAccessAdminPanel')();
@@ -669,7 +669,7 @@ export async function getTrustAgentStats(agentId: string): Promise<TrustAgentSta
 }
 
 /**
- * Récupère un trust agent par ID
+ * Récupère un tiers de confiance par ID
  */
 export async function getTrustAgentById(agentId: string): Promise<TrustAgentProfile> {
   await requirePermission('canAccessAdminPanel')();
@@ -705,7 +705,7 @@ export async function getTrustAgentById(agentId: string): Promise<TrustAgentProf
     certifications: [],
     specializations: [],
     is_active: roles?.some((r: { is_active?: boolean }) => r.is_active !== false) ?? true,
-    verification_status: 'verified',
+    verification_status: 'approved',
     assigned_missions: agentMissions.filter((m) => m.status === 'assigned' || m.status === 'in_progress').length,
     completed_missions: agentMissions.filter((m) => m.status === 'completed').length,
     average_rating: null,
@@ -714,7 +714,7 @@ export async function getTrustAgentById(agentId: string): Promise<TrustAgentProf
 }
 
 /**
- * Types pour la création et mise à jour de trust agents
+ * Types pour la création et mise à jour de tiers de confiance
  */
 export interface CreateTrustAgentInput {
   email: string;
@@ -733,7 +733,7 @@ export interface UpdateTrustAgentInput {
 }
 
 /**
- * Crée un nouveau trust agent
+ * Crée un nouveau tiers de confiance
  * Crée un utilisateur auth et un profil, puis assigne le rôle trust_agent
  */
 export async function createTrustAgent(input: CreateTrustAgentInput): Promise<TrustAgentProfile> {
@@ -818,7 +818,7 @@ export async function createTrustAgent(input: CreateTrustAgentInput): Promise<Tr
     certifications: input.certifications || [],
     specializations: input.specializations || [],
     is_active: true,
-    verification_status: 'verified',
+    verification_status: 'approved',
     assigned_missions: 0,
     completed_missions: 0,
     average_rating: null,
@@ -827,7 +827,7 @@ export async function createTrustAgent(input: CreateTrustAgentInput): Promise<Tr
 }
 
 /**
- * Met à jour un trust agent
+ * Met à jour un tiers de confiance
  */
 export async function updateTrustAgent(
   agentId: string,
@@ -867,7 +867,7 @@ export async function updateTrustAgent(
 }
 
 /**
- * Supprime un trust agent
+ * Supprime un tiers de confiance
  * Note: Cette fonction désactive le compte au lieu de le supprimer définitivement
  */
 export async function deleteTrustAgent(agentId: string): Promise<void> {
@@ -905,7 +905,7 @@ export async function deleteTrustAgent(agentId: string): Promise<void> {
 }
 
 /**
- * Active un trust agent
+ * Active un tiers de confiance
  */
 export async function activateTrustAgent(agentId: string): Promise<TrustAgentProfile> {
   await requirePermission('canManageUsers')();
@@ -944,7 +944,7 @@ export async function activateTrustAgent(agentId: string): Promise<TrustAgentPro
 }
 
 /**
- * Désactive un trust agent
+ * Désactive un tiers de confiance
  */
 export async function deactivateTrustAgent(agentId: string): Promise<TrustAgentProfile> {
   await requirePermission('canManageUsers')();
@@ -1016,7 +1016,7 @@ export async function getAdminLogs(
   pagination: PaginationParams,
   filters?: LogFilters
 ): Promise<PaginatedResult<LogEntry>> {
-  await requireRole(['admin', 'admin_ansut']);
+  await requireRole(['admin', 'admin']);
 
   let query = supabase
     .from('admin_audit_logs')
@@ -1113,7 +1113,7 @@ async function requireRole(roles: string[]) {
 export async function getApiKeys(
   pagination: PaginationParams
 ): Promise<PaginatedResult<APIKey>> {
-  await requireRole(['admin', 'admin_ansut']);
+  await requireRole(['admin', 'admin']);
 
   const { data, error, count } = await supabase
     .from('api_keys')
@@ -1145,7 +1145,7 @@ export async function createApiKey(data: {
   service: string;
   expires_at?: string;
 }): Promise<APIKey> {
-  await requireRole(['admin', 'admin_ansut']);
+  await requireRole(['admin', 'admin']);
 
   const {
     data: { user },
@@ -1184,7 +1184,7 @@ export async function createApiKey(data: {
  * Supprime une clé API
  */
 export async function deleteApiKey(keyId: string): Promise<void> {
-  await requireRole(['admin', 'admin_ansut']);
+  await requireRole(['admin', 'admin']);
 
   const { error } = await supabase.from('api_keys').delete().eq('id', keyId);
 
@@ -1201,7 +1201,7 @@ export async function deleteApiKey(keyId: string): Promise<void> {
  * Active/désactive une clé API
  */
 export async function toggleApiKey(keyId: string, isActive: boolean): Promise<void> {
-  await requireRole(['admin', 'admin_ansut']);
+  await requireRole(['admin', 'admin']);
 
   const { error } = await supabase
     .from('api_keys')
@@ -1226,7 +1226,7 @@ export async function toggleApiKey(keyId: string, isActive: boolean): Promise<vo
  * Récupère les fournisseurs de services
  */
 export async function getServiceProviders(): Promise<ServiceProvider[]> {
-  await requireRole(['admin', 'admin_ansut']);
+  await requireRole(['admin', 'admin']);
 
   // Pour l'instant, retourner des données depuis system_settings
   const { data, error } = await supabase
@@ -1306,7 +1306,7 @@ export async function getServiceProviders(): Promise<ServiceProvider[]> {
  * Teste la connexion à un service
  */
 export async function testServiceProvider(providerId: string): Promise<{ success: boolean; message: string }> {
-  await requireRole(['admin', 'admin_ansut']);
+  await requireRole(['admin', 'admin']);
 
   // Simulation de test de connexion
   await new Promise(resolve => setTimeout(resolve, 1000));
@@ -1334,7 +1334,7 @@ export async function testServiceProvider(providerId: string): Promise<{ success
  * Récupère les règles métier
  */
 export async function getBusinessRules(): Promise<BusinessRule[]> {
-  await requireRole(['admin', 'admin_ansut']);
+  await requireRole(['admin', 'admin']);
 
   const { data, error } = await supabase
     .from('system_settings')
@@ -1364,7 +1364,7 @@ export async function updateBusinessRule(
   ruleId: string,
   value: Json
 ): Promise<BusinessRule> {
-  await requireRole(['admin', 'admin_ansut']);
+  await requireRole(['admin', 'admin']);
 
   const {
     data: { user },

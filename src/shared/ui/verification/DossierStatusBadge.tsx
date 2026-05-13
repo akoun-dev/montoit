@@ -9,13 +9,22 @@ import { cn } from '@/shared/lib/utils';
 import type { DossierStatus } from '@/features/verification/services/verificationApplications.service';
 
 export interface DossierStatusBadgeProps {
-  status: DossierStatus;
+  status: DossierStatus | 'draft';
   size?: 'sm' | 'md' | 'lg';
   showIcon?: boolean;
   className?: string;
 }
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<
+  DossierStatus | 'draft',
+  {
+    label: string;
+    icon: typeof CheckCircle2;
+    bgColor: string;
+    textColor: string;
+    borderColor: string;
+  }
+> = {
   pending: {
     label: 'En attente',
     icon: Clock,
@@ -50,6 +59,13 @@ const STATUS_CONFIG = {
     bgColor: 'bg-purple-100',
     textColor: 'text-purple-700',
     borderColor: 'border-purple-200',
+  },
+  draft: {
+    label: 'Préparation',
+    icon: FileText,
+    bgColor: 'bg-slate-100',
+    textColor: 'text-slate-700',
+    borderColor: 'border-slate-200',
   },
 };
 

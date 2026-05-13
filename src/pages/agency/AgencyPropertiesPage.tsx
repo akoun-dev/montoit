@@ -8,12 +8,10 @@ import {
   MapPin,
   Users,
   Search,
-  Filter,
   Edit,
   Trash2,
   Eye,
   Loader2,
-  Image as ImageIcon,
   Bed,
   Bath,
   Maximize,
@@ -21,6 +19,8 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  Filter,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface Property {
@@ -36,7 +36,7 @@ interface Property {
   bedrooms: number;
   bathrooms: number;
   description: string;
-  status: 'disponible' | 'loue' | 'maintenance' | 'en_attente' | 'retire';
+  status: 'available' | 'rented' | 'maintenance' | 'pending' | 'inactive';
   main_image?: string;
   created_at: string;
   owner_id: string;
@@ -49,8 +49,8 @@ interface Property {
 
 interface PropertyStats {
   total: number;
-  disponible: number;
-  loue: number;
+  available: number;
+  rented: number;
   maintenance: number;
   totalValue: number;
   avgRent: number;
@@ -65,35 +65,72 @@ export default function AgencyPropertiesPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [stats, setStats] = useState<PropertyStats>({
     total: 0,
-    disponible: 0,
-    loue: 0,
+    available: 0,
+    rented: 0,
     maintenance: 0,
     totalValue: 0,
     avgRent: 0,
   });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [agencyId, setAgencyId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (user) {
-      loadAgencyAndProperties();
-    }
-  }, [user, loadAgencyAndProperties]);
 
   const loadAgencyAndProperties = useCallback(async () => {
     try {
-      // Get agency_id for this user
-      const { data: agencyData } = await supabase
-        .from('agencies')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
+      console.log('[AgencyPropertiesPage] Loading agency and properties for user:', user?.id);
 
-      if (!agencyData) {
+      // Get agency_id for this user - use profiles instead of agencies table
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user?.id)
+        .eq('user_type', 'agency')
+        .maybeSingle();
+
+      console.log('[AgencyPropertiesPage] Profile data:', {
+        profileData,
+        profileError
+      });
+
+      if (!profileData) {
+        console.log('[AgencyPropertiesPage] No profile data found');
         setLoading(false);
         return;
       }
 
-      setAgencyId(agencyData.id);
+      setAgencyId(profileData.id);
+
+      // First, check ALL properties (debug)
+      const { data: allProperties, error: allError } = await supabase
+        .from('properties')
+        .select('id, title, managed_by_agency, owner_id');
+
+      console.log('[AgencyPropertiesPage] ALL properties in database:', {
+        count: allProperties?.length || 0,
+        myAgencyId: profileData.id,
+        properties: allProperties?.map(p => ({
+          id: p.id,
+          title: p.title,
+          managed_by_agency: p.managed_by_agency,
+          owner_id: p.owner_id,
+          matches_my_agency: p.managed_by_agency === profileData.id
+        })),
+        error: allError
+      });
+
+      const matchingProperties = allProperties?.filter(p => p.managed_by_agency === profileData.id) || [];
+      console.log('[AgencyPropertiesPage] Properties matching my agency:', {
+        myAgencyId: profileData.id,
+        matchingProperties: matchingProperties,
+        count: matchingProperties.length
+      });
+
+      // Log the properties with their managed_by_agency values for debugging
+      console.table(allProperties?.map(p => ({
+        id: p.id,
+        title: p.title,
+        managed_by_agency: p.managed_by_agency,
+        matches: p.managed_by_agency === profileData.id ? '✓ YES' : '✗ NO'
+      })));
 
       // Load properties with owner information
       const { data: propertiesData, error } = await supabase
@@ -101,38 +138,53 @@ export default function AgencyPropertiesPage() {
         .select(
           `
           *,
-          owner:owner_id (
+          owner:profiles!properties_owner_id_fkey (
             full_name,
             email,
             phone
           )
         `
         )
-        .eq('managed_by_agency', agencyData.id)
+        .eq('managed_by_agency', profileData.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      console.log('[AgencyPropertiesPage] Properties query result:', {
+        count: propertiesData?.length || 0,
+        properties: propertiesData,
+        error
+      });
+
+      if (error) {
+        console.error('[AgencyPropertiesPage] Properties query error:', error);
+        throw error;
+      }
 
       setProperties(propertiesData || []);
       calculateStats(propertiesData || []);
     } catch (error) {
-      console.error('Error loading properties:', error);
+      console.error('[AgencyPropertiesPage] Error loading properties:', error);
     } finally {
       setLoading(false);
     }
   }, [user]);
 
+  useEffect(() => {
+    if (user) {
+      loadAgencyAndProperties();
+    }
+  }, [user, loadAgencyAndProperties]);
+
   const calculateStats = (props: Property[]) => {
-    const disponible = props.filter((p) => p.status === 'disponible').length;
-    const loue = props.filter((p) => p.status === 'loue').length;
+    const available = props.filter((p) => p.status === 'available').length;
+    const rented = props.filter((p) => p.status === 'rented').length;
     const maintenance = props.filter((p) => p.status === 'maintenance').length;
     const totalValue = props.reduce((sum, p) => sum + (p.price || 0), 0);
     const avgRent = props.length > 0 ? totalValue / props.length : 0;
 
     setStats({
       total: props.length,
-      disponible,
-      loue,
+      available,
+      rented,
       maintenance,
       totalValue,
       avgRent,
@@ -146,22 +198,25 @@ export default function AgencyPropertiesPage() {
       property.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
       property.neighborhood?.toLowerCase().includes(searchQuery.toLowerCase());
 
+    const normalizedStatus = property.status
+      ? property.status.toLowerCase()
+      : 'available';
     const matchesFilter =
-      filterStatus === 'all' || property.status === filterStatus;
+      filterStatus === 'all' || normalizedStatus === filterStatus;
 
     return matchesSearch && matchesFilter;
   });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'disponible':
+      case 'available':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
             <CheckCircle2 className="w-3 h-3 mr-1" />
             Disponible
           </span>
         );
-      case 'loue':
+      case 'rented':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
             <Users className="w-3 h-3 mr-1" />
@@ -175,14 +230,14 @@ export default function AgencyPropertiesPage() {
             En travaux
           </span>
         );
-      case 'en_attente':
+      case 'pending':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
             <Clock className="w-3 h-3 mr-1" />
             En attente
           </span>
         );
-      case 'retire':
+      case 'inactive':
         return (
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
             <XCircle className="w-3 h-3 mr-1" />
@@ -281,7 +336,7 @@ export default function AgencyPropertiesPage() {
               <div>
                 <p className="text-[#6B5A4E] text-sm font-medium">Disponibles</p>
                 <p className="text-2xl sm:text-3xl font-bold text-green-600 mt-1">
-                  {stats.disponible}
+                  {stats.available}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center">
@@ -295,7 +350,7 @@ export default function AgencyPropertiesPage() {
               <div>
                 <p className="text-[#6B5A4E] text-sm font-medium">Louées</p>
                 <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-1">
-                  {stats.loue}
+                  {stats.rented}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
@@ -357,11 +412,11 @@ export default function AgencyPropertiesPage() {
                 className="px-4 py-3 bg-[#FAF7F4] border-2 border-[#EFEBE9] rounded-xl focus:outline-none focus:border-[#F16522] transition-colors pr-8"
               >
                 <option value="all">Tous les statuts</option>
-                <option value="disponible">Disponibles</option>
-                <option value="loue">Louées</option>
+                <option value="available">Disponibles</option>
+                <option value="rented">Louées</option>
                 <option value="maintenance">En travaux</option>
-                <option value="en_attente">En attente</option>
-                <option value="retire">Retirés</option>
+                <option value="pending">En attente</option>
+                <option value="inactive">Retirés</option>
               </select>
             </div>
           </div>

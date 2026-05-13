@@ -57,11 +57,35 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
-export type PropertyStatus = 'available' | 'rented' | 'maintenance' | 'unavailable';
-export type LeaseStatus = 'draft' | 'pending' | 'active' | 'expired' | 'terminated';
-export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'refunded';
-export type VerificationStatus = 'pending' | 'verified' | 'rejected';
-export type UserType = 'tenant' | 'owner' | 'agency';
+export type PropertyStatus =
+  | 'available'
+  | 'rented'
+  | 'unavailable'
+  | 'pending'
+  | 'maintenance'
+  | 'inactive';
+export type LeaseStatus =
+  | 'draft'
+  | 'pending'
+  | 'active'
+  | 'expired'
+  | 'terminated'
+  | 'cancelled';
+export type PaymentStatus =
+  | 'pending'
+  | 'completed'
+  | 'failed'
+  | 'overdue'
+  | 'partial'
+  | 'cancelled'
+  | 'refunded';
+export type VerificationStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'approved'
+  | 'rejected'
+  | 'expired';
+export type UserType = 'tenant' | 'owner' | 'agency' | 'trust_agent' | 'admin';
 
 export interface ApiError {
   message: string;

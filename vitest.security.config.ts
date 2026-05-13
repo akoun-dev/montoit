@@ -19,14 +19,8 @@ export default defineConfig({
     hookTimeout: 10000,
 
     // Isoler les tests de sécurité pour éviter les interférences
-    include: [
-      'src/tests/**/*.test.{ts,tsx}',
-    ],
-    exclude: [
-      'node_modules',
-      'dist',
-      'src/tests/e2e/**/*',
-    ],
+    include: ['src/tests/**/*.test.{ts,tsx}'],
+    exclude: ['node_modules', 'dist', 'src/tests/e2e/**/*'],
 
     // Configurer les rapports
     reporter: [
@@ -47,12 +41,7 @@ export default defineConfig({
         'src/features/*/services/**/*.{ts,tsx}',
         'src/shared/middleware/**/*.{ts,tsx}',
       ],
-      exclude: [
-        'src/tests/**/*',
-        '**/*.d.ts',
-        '**/*.config.*',
-        '**/index.ts',
-      ],
+      exclude: ['src/tests/**/*', '**/*.d.ts', '**/*.config.*', '**/index.ts'],
       thresholds: {
         global: {
           branches: 80,
@@ -66,8 +55,8 @@ export default defineConfig({
     // Variables d'environnement pour les tests
     env: {
       NODE_ENV: 'test',
-      SUPABASE_URL: process.env.VITE_SUPABASE_URL_TEST || 'http://localhost:54321',
-      SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY_TEST || 'test-key',
+      SUPABASE_URL: process.env.SUPABASE_URL_TEST || 'http://localhost:54321',
+      SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY_TEST || 'test-key',
     },
 
     // Mocks pour les dépendances externes
@@ -92,10 +81,6 @@ export default defineConfig({
 
   // Optimisations pour les tests de sécurité
   optimizeDeps: {
-    include: [
-      'react',
-      'react-dom',
-      '@supabase/supabase-js',
-    ],
+    include: ['react', 'react-dom', '@supabase/supabase-js'],
   },
 });

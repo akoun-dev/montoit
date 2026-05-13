@@ -99,7 +99,7 @@ export default function VoiceSearch({ onTranscript, onError }: VoiceSearchProps)
         toast.info('Parlez maintenant...', {
           description: 'Dites par exemple "Appartement 2 chambres à Cocody"',
         });
-      } catch (_error) {
+      } catch {
         toast.error('Impossible de démarrer la recherche vocale');
       }
     }
@@ -202,13 +202,13 @@ export function parseVoiceQuery(transcript: string): ParsedVoiceQuery {
 
   // Parse property type
   const propertyTypes = [
-    { keywords: ['appartement', 'appart'], value: 'appartement' },
-    { keywords: ['maison'], value: 'maison' },
+    { keywords: ['apartment', 'appart'], value: 'apartment' },
+    { keywords: ['house'], value: 'house' },
     { keywords: ['villa'], value: 'villa' },
     { keywords: ['studio'], value: 'studio' },
     { keywords: ['duplex'], value: 'duplex' },
-    { keywords: ['bureau'], value: 'bureau' },
-    { keywords: ['commerce', 'commercial'], value: 'commerce' },
+    { keywords: ['office'], value: 'office' },
+    { keywords: ['retail', 'commercial'], value: 'retail' },
   ];
 
   for (const type of propertyTypes) {

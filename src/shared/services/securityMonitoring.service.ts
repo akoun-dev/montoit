@@ -323,7 +323,7 @@ export class SecurityMonitoringService {
   /**
    * Gère les patterns suspects
    */
-  private async handleSuspiciousPatterns(patterns: any[]): Promise<void> {
+  private async handleSuspiciousPatterns(patterns: unknown[]): Promise<void> {
     for (const pattern of patterns) {
       // Logger le pattern
       await this.persistSecurityAlert({
@@ -495,7 +495,7 @@ export class SecurityMonitoringService {
   /**
    * Persiste une alerte de sécurité
    */
-  private async persistSecurityAlert(alert: any): Promise<void> {
+  private async persistSecurityAlert(alert: unknown): Promise<void> {
     try {
       await supabase.from('security_alerts').insert({
         ...alert,
@@ -544,7 +544,7 @@ export class SecurityMonitoringService {
   /**
    * Notifie une activité suspecte
    */
-  private async notifySuspiciousActivity(userId: string, pattern: any): Promise<void> {
+  private async notifySuspiciousActivity(userId: string, pattern: unknown): Promise<void> {
     // TODO: Envoyer un email à l'utilisateur et aux admins
     console.warn(`Suspicious activity detected for user ${userId}:`, pattern);
   }

@@ -118,7 +118,7 @@ export default function AgentManagementPage() {
   const [availableAgents, setAvailableAgents] = useState<AvailableAgent[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Available users to promote to trust agent
+  // Available users to promote to tiers de confiance
   const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; email: string; full_name: string }>>([]);
 
   useEffect(() => {
@@ -140,7 +140,7 @@ export default function AgentManagementPage() {
 
   const loadAvailableUsers = async () => {
     try {
-      // Get users that are NOT trust agents yet
+      // Get users that are NOT tiers de confiance yet
       const { data, error } = await supabase
         .from('profiles')
         .select('id, email, full_name')
@@ -206,7 +206,7 @@ export default function AgentManagementPage() {
           return;
         }
 
-        // Check if user is already a trust agent
+        // Check if user is already a tiers de confiance
         const { data: existingRole } = await supabase
           .from('user_roles')
           .select('*')
@@ -215,11 +215,11 @@ export default function AgentManagementPage() {
           .single();
 
         if (existingRole) {
-          toast.error('Cet utilisateur est déjà un agent de confiance');
+          toast.error('Cet utilisateur est déjà un tiers de confiance');
           return;
         }
 
-        // Promote user to trust agent
+        // Promote user to tiers de confiance
         const { error: insertError } = await supabase
           .from('user_roles')
           .insert({
@@ -229,7 +229,7 @@ export default function AgentManagementPage() {
 
         if (insertError) throw insertError;
 
-        // Create trust agent profile with role
+        // Create tiers de confiance profile with role
         const { error: profileError } = await supabase
           .from('trust_agent_profiles')
           .insert({
@@ -238,7 +238,7 @@ export default function AgentManagementPage() {
           });
 
         if (profileError) {
-          console.warn('Failed to create trust agent profile:', profileError);
+          console.warn('Failed to create tiers de confiance profile:', profileError);
         }
 
         // Create notification for the new agent
@@ -259,7 +259,7 @@ export default function AgentManagementPage() {
 
         toast.success(`${promoteAgentForm.role === 'manager' ? 'Manager' : 'Agent'} de confiance créé avec succès`);
       } else {
-        // Create new user and promote to trust agent
+        // Create new user and promote to tiers de confiance
         if (!newAgentForm.email || !newAgentForm.password || !newAgentForm.full_name) {
           toast.error('Veuillez remplir tous les champs requis');
           return;
@@ -334,7 +334,7 @@ export default function AgentManagementPage() {
           console.warn('Failed to assign trust_agent role:', roleError);
         }
 
-        // Create trust agent profile with role
+        // Create tiers de confiance profile with role
         const { error: profileError } = await supabase
           .from('trust_agent_profiles')
           .insert({
@@ -343,7 +343,7 @@ export default function AgentManagementPage() {
           });
 
         if (profileError) {
-          console.warn('Failed to create trust agent profile:', profileError);
+          console.warn('Failed to create tiers de confiance profile:', profileError);
         }
 
         // Sign back in with the original user to restore session
@@ -432,7 +432,7 @@ export default function AgentManagementPage() {
 
       if (deleteError) throw deleteError;
 
-      toast.success('Rôle d\'agent de confiance supprimé');
+      toast.success('Rôle de tiers de confiance supprimé');
       setDeleteAgentDialog(null);
       loadAgentsWorkload();
     } catch (error: unknown) {
@@ -529,7 +529,7 @@ export default function AgentManagementPage() {
 
   // KPIs
   const kpiData = [
-    { title: 'Total Agents', value: stats.totalAgents, icon: <Users />, variant: 'default' as const },
+    { title: 'Total tiers de confiance', value: stats.totalAgents, icon: <Users />, variant: 'default' as const },
     { title: 'Missions en cours', value: stats.totalActiveMissions, icon: <Briefcase />, variant: 'info' as const },
     { title: 'Litiges en cours', value: stats.totalActiveDisputes, icon: <Scale />, variant: 'warning' as const },
     { title: 'Taux complétion moyen', value: `${stats.avgCompletionRate}%`, icon: <TrendingUp />, variant: 'success' as const },
@@ -539,15 +539,15 @@ export default function AgentManagementPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Page Header */}
       <TrustAgentPageHeader
-        title="Gestion des Agents"
-        subtitle="Gérez votre équipe d'agents de confiance"
+        title="Gestion des tiers de confiance"
+        subtitle="Gérez votre équipe de tiers de confiance"
         badges={[
-          { label: `${stats.totalAgents} agents`, variant: 'default' as any },
+          { label: `${stats.totalAgents} tiers de confiance`, variant: 'default' as any },
           { label: `${stats.totalActiveMissions + stats.totalActiveDisputes} tâches`, variant: 'info' as any },
         ]}
         actions={[
           {
-            label: 'Nouvel Agent',
+            label: 'Nouveau tiers de confiance',
             icon: <Plus className="h-4 w-4" />,
             onClick: () => openCreateDialog('create'),
             variant: 'primary',
@@ -586,7 +586,7 @@ export default function AgentManagementPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Rechercher un agent par nom ou email..."
+                placeholder="Rechercher un tiers de confiance par nom ou email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -605,11 +605,11 @@ export default function AgentManagementPage() {
         ) : filteredAgents.length === 0 ? (
           <EmptyState
             icon={<Users />}
-            title={searchQuery ? 'Aucun agent trouvé' : 'Aucun agent de confiance'}
+            title={searchQuery ? 'Aucun tiers de confiance trouvé' : 'Aucun tiers de confiance'}
             description={
               searchQuery
                 ? 'Essayez d\'ajuster votre recherche'
-                : 'Commencez par ajouter un agent de confiance à votre équipe'
+                : 'Commencez par ajouter un tiers de confiance à votre équipe'
             }
             action={
               !searchQuery
@@ -792,7 +792,7 @@ export default function AgentManagementPage() {
                       type="email"
                       value={newAgentForm.email}
                       onChange={(e) => setNewAgentForm({ ...newAgentForm, email: e.target.value })}
-                      placeholder="agent@example.com"
+                      placeholder="tiers@example.com"
                     />
                   </div>
                   <div>
@@ -916,7 +916,7 @@ export default function AgentManagementPage() {
                             </li>
                             <li className="flex items-center gap-2 text-sm text-primary-700">
                               <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                              Gestion des autres agents de confiance
+                              Gestion des autres tiers de confiance
                             </li>
                           </>
                         ) : (
@@ -985,7 +985,7 @@ export default function AgentManagementPage() {
                   </select>
                   {availableUsers.length === 0 && (
                     <p className="text-xs text-gray-500 mt-2">
-                      Tous les utilisateurs sont déjà des agents de confiance
+                      Tous les utilisateurs sont déjà des tiers de confiance
                     </p>
                   )}
                 </div>
@@ -1101,7 +1101,7 @@ export default function AgentManagementPage() {
                             </li>
                             <li className="flex items-center gap-2 text-sm text-primary-700">
                               <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                              Gestion des autres agents de confiance
+                              Gestion des autres tiers de confiance
                             </li>
                           </>
                         ) : (
@@ -1239,7 +1239,7 @@ export default function AgentManagementPage() {
                 <p className="font-medium text-red-900">Attention</p>
                 <p className="text-sm text-red-700 mt-1">
                   Vous êtes sur le point de supprimer le rôle d'Agent de Confiance à <strong>{deleteAgentDialog?.agentName}</strong>.
-                  Cette action révoquera tous ses accès aux fonctionnalités d'agent de confiance.
+                  Cette action révoquera tous ses accès aux fonctionnalités de tiers de confiance.
                 </p>
               </div>
             </div>
@@ -1374,7 +1374,7 @@ export default function AgentManagementPage() {
               <Textarea
                 value={reassignmentReason}
                 onChange={(e) => setReassignmentReason(e.target.value)}
-                placeholder="Ex: Agent en congé, agent indisponible, etc."
+                placeholder="Ex: Tiers de confiance en congé, tiers de confiance indisponible, etc."
                 rows={3}
                 className="mt-1"
               />

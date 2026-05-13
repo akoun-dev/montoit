@@ -55,7 +55,7 @@ export default function ProfileSelection() {
       hoverColor: 'hover:border-terracotta-500',
     },
     {
-      type: 'agent' as UserTypeEn,
+      type: 'agency' as UserTypeEn,
       icon: Briefcase,
       title: 'Agence Immobilière',
       subtitle: 'Je suis une agence professionnelle',
@@ -86,7 +86,7 @@ export default function ProfileSelection() {
 
       // Mettre à jour le profile avec le user_type et le full_name si disponible
       const updateData: {
-        user_type: string;
+        user_type: UserTypeEn;
         full_name?: string;
         updated_at: string;
       } = {
@@ -109,14 +109,14 @@ export default function ProfileSelection() {
       // Nettoyer le sessionStorage
       sessionStorage.removeItem('pending_full_name');
 
-      // Redirection selon le type sélectionné (utiliser window.location pour éviter le re-render)
+      // Redirection selon le type sélectionné avec React Router
       let dashboardUrl = '/locataire/dashboard';
       if (selectedType === 'owner') {
-        dashboardUrl = getDashboardRoute('proprietaire');
-      } else if (selectedType === 'agent') {
-        dashboardUrl = getDashboardRoute('agence');
+        dashboardUrl = getDashboardRoute('owner');
+      } else if (selectedType === 'agency') {
+        dashboardUrl = getDashboardRoute('agency');
       }
-      window.location.href = dashboardUrl;
+      navigate(dashboardUrl, { state: { fromProfileSelection: true }, replace: true });
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : 'Erreur lors de la mise à jour du profil';
@@ -187,7 +187,7 @@ export default function ProfileSelection() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <div className="grid grid-cols-3 gap-8 mb-8">
           {profileTypes.map((profileType, index) => {
             const Icon = profileType.icon;
             const isSelected = selectedType === profileType.type;
@@ -243,7 +243,7 @@ export default function ProfileSelection() {
                 </div>
               </div>
             );
-          })}
+            })}
         </div>
 
         <div className="text-center animate-slide-up">

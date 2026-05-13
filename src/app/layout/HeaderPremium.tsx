@@ -55,30 +55,29 @@ export default function HeaderPremium() {
 
   // Générer le label de rôle contextuel
   const getRoleLabel = () => {
-    if (permissions.isTrustAgent) return '🛡️ Agent de confiance';
+    if (permissions.isTrustAgent) return '🛡️ Tiers de confiance';
     if (permissions.isOwner && permissions.isTenant) return '🏠 Propriétaire & 🔑 Locataire';
     if (permissions.isOwner) return '🏠 Propriétaire';
     if (permissions.isTenant) return '🔑 Locataire';
-    if (permissions.isAgent) return '🏢 Agent';
+    if (permissions.isAgency) return '🏢 Agence';
     return '👋 Nouveau membre';
   };
 
-  // Badge rôle système (Admin, Trust Agent, Moderator)
+  // Badge rôle système (Admin, Tiers de confiance)
   const getSystemRoleBadge = () => {
     if (permissions.isAdmin)
       return { label: 'Admin', icon: Shield, color: 'bg-purple-100 text-purple-700' };
     if (permissions.isTrustAgent)
       return {
-        label: 'Agent Certifié',
+        label: 'Tiers de confiance',
         icon: BadgeCheck,
         color: 'bg-emerald-100 text-emerald-700',
       };
-    if (permissions.isModerator)
-      return { label: 'Modérateur', icon: Eye, color: 'bg-blue-100 text-blue-700' };
     return null;
   };
 
   const systemRoleBadge = getSystemRoleBadge();
+  const showContextRoleLabel = !systemRoleBadge;
   const contextLinks: Array<{
     label: string;
     href: string;
@@ -107,19 +106,19 @@ export default function HeaderPremium() {
       accent: 'owner',
     });
   }
-  if (permissions.isAgent) {
+  if (permissions.isAgency) {
     contextLinks.push({
       label: 'Espace agence',
       href: '/agences/dashboard',
       icon: Building2,
       badge: undefined,
       isActive: location.pathname.startsWith('/agences'),
-      accent: 'agent',
+      accent: 'agency',
     });
   }
   if (permissions.isTrustAgent) {
     contextLinks.push({
-      label: 'Espace trust agent',
+      label: 'Espace tiers de confiance',
       href: '/trust-agent/dashboard',
       icon: Shield,
       badge: undefined,
@@ -196,7 +195,7 @@ export default function HeaderPremium() {
       ];
     }
 
-    // Navigation trust agent (mais TrustAgentLayout a déjà son propre header)
+    // Navigation tiers de confiance (mais TrustAgentLayout a déjà son propre header)
     if (isInTrustAgentContext) {
       return [
         { label: 'Accueil', href: '/', icon: Home },
@@ -244,8 +243,8 @@ export default function HeaderPremium() {
             ? 'trust'
             : permissions.isOwner
               ? 'owner'
-              : permissions.isAgent
-                ? 'agent'
+              : permissions.isAgency
+                ? 'agency'
                 : permissions.isTenant
                   ? 'tenant'
                   : 'guest';
@@ -272,7 +271,7 @@ export default function HeaderPremium() {
     }
 
     // Agence
-    if (permissions.isAgent) {
+    if (permissions.isAgency) {
       addItem('Espace agence', '/agences/dashboard', Building2);
       addItem('Mandats', '/agences/mandats', LayoutDashboard);
       addItem('Candidatures', '/agences/candidatures', LayoutDashboard);
@@ -281,9 +280,9 @@ export default function HeaderPremium() {
       addItem('Profil agence', '/agences/profil', Settings);
     }
 
-    // Trust agent
+    // Tiers de confiance
     if (permissions.isTrustAgent) {
-      addItem('Espace trust agent', '/trust-agent/dashboard', Shield);
+      addItem('Espace tiers de confiance', '/trust-agent/dashboard', Shield);
       addItem('Missions', '/trust-agent/missions', LayoutDashboard);
       addItem('Certifications', '/trust-agent/certifications/users', BadgeCheck);
       addItem('Historique', '/trust-agent/history', Clock);
@@ -292,7 +291,7 @@ export default function HeaderPremium() {
     // Profil/settings par défaut selon le contexte principal
     const profilePaths: Record<string, string> = {
       owner: '/proprietaire/profil',
-      agent: '/agences/profil',
+      agency: '/agences/profil',
       tenant: '/locataire/profil',
       trust: '/trust-agent/dashboard',
       guest: '/profil',
@@ -418,10 +417,12 @@ export default function HeaderPremium() {
                           )}
                         </div>
                         <p className="text-xs text-[#A69B95] truncate">{user.email}</p>
-                        <p className="text-xs text-[#F16522] font-medium mt-1">{getRoleLabel()}</p>
+                        {showContextRoleLabel && (
+                          <p className="text-xs text-[#F16522] font-medium mt-1">{getRoleLabel()}</p>
+                        )}
                       </div>
 
-                      {/* Admin & Trust Agent Links */}
+                      {/* Admin & Tiers de confiance Links */}
                       {(permissions.canAccessAdmin || permissions.canCertifyUser) && (
                         <div className="px-2 py-2 border-b border-[#EFEBE9]">
                           <p className="px-2 py-1 text-xs font-bold text-[#A69B95] uppercase tracking-wider">
@@ -604,11 +605,13 @@ export default function HeaderPremium() {
                 )}
               </div>
               <p className="text-xs text-[#A69B95] truncate">{user.email}</p>
-              <p className="text-xs text-[#F16522] font-medium mt-1">{getRoleLabel()}</p>
+              {showContextRoleLabel && (
+                <p className="text-xs text-[#F16522] font-medium mt-1">{getRoleLabel()}</p>
+              )}
             </div>
           )}
 
-          {/* Admin & Trust Agent Links - Mobile */}
+          {/* Admin & Tiers de confiance Links - Mobile */}
           {user && (permissions.canAccessAdmin || permissions.canCertifyUser) && (
             <div className="pb-4 border-b border-[#EFEBE9]">
               <p className="px-4 py-2 text-xs font-bold text-[#A69B95] uppercase tracking-wider">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,7 +18,7 @@ import {
   Star,
   MapPin,
 } from 'lucide-react';
-import { format, differenceInDays, isPast, isWithinDays } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 interface LeaseContract {
@@ -34,6 +34,23 @@ interface LeaseContract {
     main_image: string | null;
   } | null;
 }
+
+// Fonction de validation pour les contrats
+const validateContract = (contract: unknown): contract is LeaseContract => {
+  return (
+    contract &&
+    typeof contract.id === 'string' &&
+    typeof contract.contract_number === 'string' &&
+    typeof contract.monthly_rent === 'number' &&
+    typeof contract.start_date === 'string' &&
+    typeof contract.end_date === 'string' &&
+    typeof contract.status === 'string' &&
+    (contract.property === null ||
+      (contract.property &&
+        typeof contract.property.title === 'string' &&
+        typeof contract.property.city === 'string'))
+  );
+};
 
 interface Payment {
   id: string;
@@ -52,13 +69,7 @@ export default function TenantDashboardContent() {
   const [upcomingPayments, setUpcomingPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user?.id) {
-      fetchTenantData();
-    }
-  }, [user?.id]);
-
-  const fetchTenantData = async () => {
+  const fetchTenantData = useCallback(async () => {
     if (!user?.id) return;
 
     try {
@@ -103,7 +114,13 @@ export default function TenantDashboardContent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchTenantData();
+    }
+  }, [user?.id, fetchTenantData]);
 
   const getStatusBadge = (status: string | null) => {
     const defaultConfig = {
@@ -115,13 +132,23 @@ export default function TenantDashboardContent() {
       string,
       { label: string; className: string; icon: React.ElementType }
     > = {
-      actif: { label: 'Actif', className: 'bg-green-100 text-green-700', icon: CheckCircle },
-      en_cours: { label: 'En cours', className: 'bg-blue-100 text-blue-700', icon: CheckCircle },
-      signé: { label: 'Signé', className: 'bg-green-100 text-green-700', icon: CheckCircle },
-      terminé: { label: 'Terminé', className: 'bg-gray-100 text-gray-700', icon: AlertCircle },
-      brouillon: defaultConfig,
+      draft: defaultConfig,
+      pending_signature: {
+        label: 'En attente de signature',
+        className: 'bg-amber-100 text-amber-700',
+        icon: AlertCircle,
+      },
+      active: { label: 'Actif', className: 'bg-green-100 text-green-700', icon: CheckCircle },
+      terminated: {
+        label: 'Résilié',
+        className: 'bg-purple-100 text-purple-700',
+        icon: AlertCircle,
+      },
+      cancelled: { label: 'Annulé', className: 'bg-gray-100 text-gray-700', icon: AlertCircle },
+      expired: { label: 'Expiré', className: 'bg-red-100 text-red-700', icon: AlertCircle },
     };
-    const config = statusConfig[status || 'brouillon'] ?? defaultConfig;
+    const normalizedStatus = status ?? 'draft';
+    const config = statusConfig[normalizedStatus] ?? defaultConfig;
     const Icon = config.icon;
     return (
       <span
@@ -136,13 +163,30 @@ export default function TenantDashboardContent() {
   const getPaymentUrgency = (dueDate: string | null) => {
     if (!dueDate) return { level: 'normal', className: 'text-gray-500', label: 'Non définie' };
     const days = differenceInDays(new Date(dueDate), new Date());
-    if (days < 0) return { level: 'overdue', className: 'text-red-600 font-semibold', label: 'En retard' };
-    if (days <= 3) return { level: 'urgent', className: 'text-orange-600 font-semibold', label: `${days} jour${days > 1 ? 's' : ''}` };
-    if (days <= 7) return { level: 'soon', className: 'text-amber-600', label: `${days} jour${days > 1 ? 's' : ''}` };
-    return { level: 'normal', className: 'text-gray-500', label: `${days} jour${days > 1 ? 's' : ''}` };
+    if (days < 0)
+      return { level: 'overdue', className: 'text-red-600 font-semibold', label: 'En retard' };
+    if (days <= 3)
+      return {
+        level: 'urgent',
+        className: 'text-orange-600 font-semibold',
+        label: `${days} jour${days > 1 ? 's' : ''}`,
+      };
+    if (days <= 7)
+      return {
+        level: 'soon',
+        className: 'text-amber-600',
+        label: `${days} jour${days > 1 ? 's' : ''}`,
+      };
+    return {
+      level: 'normal',
+      className: 'text-gray-500',
+      label: `${days} jour${days > 1 ? 's' : ''}`,
+    };
   };
 
-  const activeLease = leases.find((l) => ['actif', 'en_cours', 'signé'].includes(l.status));
+  // Filtrer les contrats valides et trouver le bail actif
+  const validLeases = leases.filter(validateContract);
+  const activeLease = validLeases.find((l) => ['active', 'pending_signature'].includes(l.status));
 
   if (loading) {
     return (
@@ -162,7 +206,9 @@ export default function TenantDashboardContent() {
               <Home className="h-6 w-6 text-[#F16522]" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-[#2C1810]">Trouvez votre prochain logement</h3>
+              <h3 className="text-lg font-semibold text-[#2C1810]">
+                Trouvez votre prochain logement
+              </h3>
               <p className="text-[#6B5A4E] mt-1">
                 Explorez les annonces disponibles et postulez en ligne
               </p>
@@ -283,62 +329,70 @@ export default function TenantDashboardContent() {
       </div>
 
       {/* Urgent Payments Alert */}
-      {upcomingPayments.length > 0 && upcomingPayments.some((p) => {
-        const urgency = getPaymentUrgency(p.due_date);
-        return urgency.level === 'overdue' || urgency.level === 'urgent';
-      }) && (
-        <div className="bg-red-50 rounded-xl border border-red-100 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Bell className="h-5 w-5 text-red-600" />
-            <h3 className="font-semibold text-red-900">Paiements urgents</h3>
-          </div>
-          <div className="space-y-2">
-            {upcomingPayments
-              .filter((p) => {
-                const urgency = getPaymentUrgency(p.due_date);
-                return urgency.level === 'overdue' || urgency.level === 'urgent';
-              })
-              .slice(0, 2)
-              .map((payment) => {
-                const urgency = getPaymentUrgency(payment.due_date);
-                return (
-                  <div key={payment.id} className="flex items-center justify-between bg-white rounded-lg p-3">
-                    <div>
-                      <p className="font-medium text-[#2C1810]">
-                        {payment.payment_type === 'loyer' ? 'Loyer' : payment.payment_type}
-                      </p>
-                      <p className={`text-xs ${urgency.className} flex items-center gap-1`}>
-                        <Clock className="h-3 w-3" />
-                        {payment.due_date
-                          ? format(new Date(payment.due_date), 'd MMM', { locale: fr })
-                          : 'Non définie'}
-                        {' • '}{urgency.label}
-                      </p>
+      {upcomingPayments.length > 0 &&
+        upcomingPayments.some((p) => {
+          const urgency = getPaymentUrgency(p.due_date);
+          return urgency.level === 'overdue' || urgency.level === 'urgent';
+        }) && (
+          <div className="bg-red-50 rounded-xl border border-red-100 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Bell className="h-5 w-5 text-red-600" />
+              <h3 className="font-semibold text-red-900">Paiements urgents</h3>
+            </div>
+            <div className="space-y-2">
+              {upcomingPayments
+                .filter((p) => {
+                  const urgency = getPaymentUrgency(p.due_date);
+                  return urgency.level === 'overdue' || urgency.level === 'urgent';
+                })
+                .slice(0, 2)
+                .map((payment) => {
+                  const urgency = getPaymentUrgency(payment.due_date);
+                  return (
+                    <div
+                      key={payment.id}
+                      className="flex items-center justify-between bg-white rounded-lg p-3"
+                    >
+                      <div>
+                        <p className="font-medium text-[#2C1810]">
+                          {payment.payment_type === 'rent' ? 'Loyer' : payment.payment_type}
+                        </p>
+                        <p className={`text-xs ${urgency.className} flex items-center gap-1`}>
+                          <Clock className="h-3 w-3" />
+                          {payment.due_date
+                            ? format(new Date(payment.due_date), 'd MMM', { locale: fr })
+                            : 'Non définie'}
+                          {' • '}
+                          {urgency.label}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-[#2C1810]">
+                          {payment.amount?.toLocaleString('fr-FR')} FCFA
+                        </p>
+                        <Link
+                          to={`/locataire/effectuer-paiement?payment=${payment.id}`}
+                          className="text-xs text-[#F16522] hover:underline font-medium"
+                        >
+                          Payer →
+                        </Link>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-[#2C1810]">
-                        {payment.amount?.toLocaleString('fr-FR')} FCFA
-                      </p>
-                      <Link
-                        to={`/locataire/effectuer-paiement?payment=${payment.id}`}
-                        className="text-xs text-[#F16522] hover:underline font-medium"
-                      >
-                        Payer →
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* All Leases */}
       {leases.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-[#2C1810]">Tous mes baux</h2>
-            <Link to="/locataire/mes-contrats" className="text-sm text-[#F16522] hover:underline font-medium">
+            <Link
+              to="/locataire/mes-contrats"
+              className="text-sm text-[#F16522] hover:underline font-medium"
+            >
               Voir tous →
             </Link>
           </div>
@@ -367,9 +421,7 @@ export default function TenantDashboardContent() {
                     </p>
                     {getStatusBadge(lease.status)}
                   </div>
-                  <p className="text-xs text-[#6B5A4E] mt-0.5">
-                    {lease.property?.city}
-                  </p>
+                  <p className="text-xs text-[#6B5A4E] mt-0.5">{lease.property?.city}</p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-[#A69B95] group-hover:text-[#F16522] transition-colors" />
               </Link>
@@ -379,53 +431,54 @@ export default function TenantDashboardContent() {
       )}
 
       {/* Upcoming Payments (non-urgent) */}
-      {upcomingPayments.length > 0 && !upcomingPayments.every((p) => {
-        const urgency = getPaymentUrgency(p.due_date);
-        return urgency.level === 'overdue' || urgency.level === 'urgent';
-      }) && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-[#2C1810]">Échéances à venir</h2>
-            <Link
-              to="/locataire/mes-paiements"
-              className="text-sm text-[#F16522] hover:underline font-medium"
-            >
-              Voir tout →
-            </Link>
-          </div>
-          <div className="bg-white rounded-xl border border-[#EFEBE9] divide-y divide-[#EFEBE9]">
-            {upcomingPayments
-              .filter((p) => {
-                const urgency = getPaymentUrgency(p.due_date);
-                return urgency.level !== 'overdue' && urgency.level !== 'urgent';
-              })
-              .slice(0, 3)
-              .map((payment) => {
-                const urgency = getPaymentUrgency(payment.due_date);
-                return (
-                  <div key={payment.id} className="flex items-center justify-between p-3">
-                    <div>
-                      <p className="text-sm font-medium text-[#2C1810]">
-                        {payment.payment_type === 'loyer' ? 'Loyer' : payment.payment_type}
-                      </p>
-                      <p className={`text-xs ${urgency.className} flex items-center gap-1`}>
-                        <Clock className="h-3 w-3" />
-                        {payment.due_date
-                          ? format(new Date(payment.due_date), 'd MMMM yyyy', { locale: fr })
-                          : 'Date non définie'}
-                      </p>
+      {upcomingPayments.length > 0 &&
+        !upcomingPayments.every((p) => {
+          const urgency = getPaymentUrgency(p.due_date);
+          return urgency.level === 'overdue' || urgency.level === 'urgent';
+        }) && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-[#2C1810]">Échéances à venir</h2>
+              <Link
+                to="/locataire/mes-paiements"
+                className="text-sm text-[#F16522] hover:underline font-medium"
+              >
+                Voir tout →
+              </Link>
+            </div>
+            <div className="bg-white rounded-xl border border-[#EFEBE9] divide-y divide-[#EFEBE9]">
+              {upcomingPayments
+                .filter((p) => {
+                  const urgency = getPaymentUrgency(p.due_date);
+                  return urgency.level !== 'overdue' && urgency.level !== 'urgent';
+                })
+                .slice(0, 3)
+                .map((payment) => {
+                  const urgency = getPaymentUrgency(payment.due_date);
+                  return (
+                    <div key={payment.id} className="flex items-center justify-between p-3">
+                      <div>
+                        <p className="text-sm font-medium text-[#2C1810]">
+                          {payment.payment_type === 'rent' ? 'Loyer' : payment.payment_type}
+                        </p>
+                        <p className={`text-xs ${urgency.className} flex items-center gap-1`}>
+                          <Clock className="h-3 w-3" />
+                          {payment.due_date
+                            ? format(new Date(payment.due_date), 'd MMMM yyyy', { locale: fr })
+                            : 'Date non définie'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-[#2C1810]">
+                          {payment.amount?.toLocaleString('fr-FR')} FCFA
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold text-[#2C1810]">
-                        {payment.amount?.toLocaleString('fr-FR')} FCFA
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }

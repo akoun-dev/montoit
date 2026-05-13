@@ -10,35 +10,27 @@ import {
   Calendar,
   Users,
   TrendingUp,
-  Settings,
   MessageSquare,
   Home,
   Briefcase,
   CheckCircle,
   BarChart3,
+  Settings,
 } from 'lucide-react';
-import { useAuth } from '@/app/providers/AuthProvider';
+import { useMenuCounters } from '@/hooks/useMenuCounters';
 
 export interface NavigationItem {
   href: string;
   label: string;
-  icon: any;
+  icon: unknown;
   badgeCount?: number;
   badgeColor?: 'red' | 'orange' | 'blue' | 'green';
   badgePulse?: boolean;
 }
 
 export function useNavigationItems() {
-  const { user } = useAuth();
   const location = useLocation();
-
-  // TODO: Fetch actual badge counts from API/database
-  const badgeCounts = useMemo(() => ({
-    pendingApplications: 0,
-    pendingPayments: 0,
-    overduePayments: 0,
-    pendingReminders: 0,
-  }), []);
+  const { counters } = useMenuCounters();
 
   // Agent/Agency navigation items
   const agentItems: NavigationItem[] = useMemo(() => [
@@ -49,21 +41,21 @@ export function useNavigationItems() {
     },
     {
       href: '/agences/biens',
-      label: 'Biens immobiliers',
+      label: 'Biens',
       icon: Building2,
     },
     {
       href: '/agences/mandats',
-      label: 'Mes mandats',
+      label: 'Mandats',
       icon: Briefcase,
     },
     {
       href: '/agences/candidatures',
       label: 'Candidatures',
       icon: FileText,
-      badgeCount: badgeCounts.pendingApplications,
+      badgeCount: counters.pendingApplications,
       badgeColor: 'orange',
-      badgePulse: badgeCounts.pendingApplications > 0,
+      badgePulse: counters.pendingApplications > 0,
     },
     {
       href: '/agences/contrats',
@@ -71,34 +63,38 @@ export function useNavigationItems() {
       icon: CheckCircle,
     },
     {
-      href: '/agences/paiements',
-      label: 'Paiements & Charges',
-      icon: Wallet,
-      badgeCount: badgeCounts.pendingPayments + badgeCounts.overduePayments,
-      badgeColor: badgeCounts.overduePayments > 0 ? 'red' : 'orange',
-      badgePulse: badgeCounts.overduePayments > 0,
-    },
-    {
-      href: '/agences/documents',
-      label: 'Documents',
-      icon: FolderOpen,
-    },
-    {
-      href: '/agences/rappels',
-      label: 'Rappels',
-      icon: Bell,
-      badgeCount: badgeCounts.pendingReminders,
-      badgeColor: 'blue',
-    },
-    {
       href: '/agences/visites',
       label: 'Visites',
       icon: Calendar,
+      badgeCount: counters.pendingVisits,
+      badgeColor: 'blue',
+      badgePulse: counters.pendingVisits > 0,
     },
     {
       href: '/agences/messages',
       label: 'Messages',
       icon: MessageSquare,
+      badgeCount: counters.unreadMessages,
+      badgeColor: 'green',
+      badgePulse: counters.unreadMessages > 0,
+    },
+    {
+      href: '/agences/notifications',
+      label: 'Notifications',
+      icon: Bell,
+      badgeCount: counters.unreadNotifications,
+      badgeColor: 'orange',
+      badgePulse: counters.unreadNotifications > 0,
+    },
+    {
+      href: '/agences/paiements',
+      label: 'Paiements',
+      icon: Wallet,
+    },
+    {
+      href: '/agences/documents',
+      label: 'Documents',
+      icon: FolderOpen,
     },
     {
       href: '/agences/analytics',
@@ -112,7 +108,7 @@ export function useNavigationItems() {
     },
     {
       href: '/agences/equipe',
-      label: 'Mon équipe',
+      label: 'Équipe',
       icon: Users,
     },
     {
@@ -120,9 +116,14 @@ export function useNavigationItems() {
       label: 'Commissions',
       icon: TrendingUp,
     },
-  ], [badgeCounts]);
+    {
+      href: '/agences/parametres',
+      label: 'Paramètres',
+      icon: Settings,
+    },
+  ], [counters]);
 
-  // Bottom navigation items (Profile, Settings, etc.)
+  // Bottom navigation items (Profile, etc.)
   const bottomItems: NavigationItem[] = useMemo(() => [
     {
       href: '/agences/profil',
@@ -211,6 +212,11 @@ export function useNavigationItems() {
       href: '/locataire/mes-avis',
       label: 'Mes avis',
       icon: MessageSquare,
+    },
+    {
+      href: '/locataire/parametres',
+      label: 'Paramètres',
+      icon: Settings,
     },
   ], []);
 

@@ -4,7 +4,7 @@
  * Documentation: https://apidist.gutouch.net/apidist/sec
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_API_URL } from '@/integrations/supabase/client';
 
 export type MobileMoneyOperator = 'OM' | 'MTN' | 'MOOV' | 'WAVE';
 
@@ -14,6 +14,7 @@ export interface PaymentRequest {
   partner_transaction_id?: string;
   callback_url?: string;
   operator: MobileMoneyOperator;
+  otp?: string;
 }
 
 export interface PaymentResponse {
@@ -29,10 +30,7 @@ class InTouchService {
    * Vérifie si le service InTouch est configuré
    */
   isConfigured(): boolean {
-    return !!(
-      import.meta.env.VITE_INTOUCH_USERNAME &&
-      import.meta.env.VITE_INTOUCH_PASSWORD
-    );
+    return !!(import.meta.env.VITE_INTOUCH_USERNAME && import.meta.env.VITE_INTOUCH_PASSWORD);
   }
 
   /**
@@ -44,18 +42,15 @@ class InTouchService {
       throw new Error('Service InTouch non configuré');
     }
 
-    console.log('[InTouch] Initiating payment via Edge Function:', data);
-
     // Récupérer les infos de session Supabase
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session) {
       throw new Error('Non authentifié');
     }
 
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const functionUrl = `${supabaseUrl}/functions/v1/initiate-payment`;
-
-    console.log('[InTouch] Calling Edge Function with fetch:', functionUrl);
+    const functionUrl = `${SUPABASE_API_URL}/functions/v1/payment?action=initiate`;
 
     try {
       // Utiliser fetch avec un timeout de 30 secondes
@@ -66,15 +61,13 @@ class InTouchService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify(data),
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
-
-      console.log('[InTouch] Response status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -83,17 +76,16 @@ class InTouchService {
       }
 
       const responseData = await response.json();
-      console.log('[InTouch] Payment response:', responseData);
 
       if (!responseData.success) {
-        throw new Error(responseData.error || 'Erreur lors de l\'initiation du paiement');
+        throw new Error(responseData.error || "Erreur lors de l'initiation du paiement");
       }
 
       return responseData;
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         console.error('[InTouch] Request timeout after 30s');
-        throw new Error('Délai d\'attente dépassé - Le serveur ne répond pas');
+        throw new Error("Délai d'attente dépassé - Le serveur ne répond pas");
       }
       console.error('[InTouch] Payment exception:', err);
       throw err;
@@ -123,36 +115,55 @@ class InTouchService {
   validatePhoneNumber(phone: string): {
     valid: boolean;
     formatted: string;
-    error?: string
+    error?: string;
   } {
+    if (!phone) {
+      return {
+        valid: false,
+        formatted: '',
+        error: 'Numéro de téléphone manquant',
+      };
+    }
+
     const cleaned = phone.replace(/\D/g, '');
 
-    // Accepter 10 chiffres (nouveau format) ou 12 avec l'indicatif 225
-    if (cleaned.length < 10) {
-      return {
-        valid: false,
-        formatted: cleaned,
-        error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${cleaned.length})`
-      };
-    }
-
+    // Si le numéro est trop long (plus de 12 chiffres), on prend les 10 derniers
+    // Cela gère les cas où le numéro est stocké avec des préfixes multiples
+    let phoneNumber = cleaned;
     if (cleaned.length > 12) {
+      // Prendre les 10 derniers chiffres (le numéro sans indicatif)
+      phoneNumber = cleaned.slice(-10);
+    }
+
+    // Vérifier qu'on a au moins 10 chiffres
+    if (phoneNumber.length < 10) {
       return {
         valid: false,
-        formatted: cleaned,
-        error: 'Numéro de téléphone invalide (trop long)'
+        formatted: phoneNumber,
+        error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${phoneNumber.length})`,
       };
     }
 
-    const formatted = this.formatPhoneNumber(phone);
+    // Formater : supprimer l'indicatif 225 si présent
+    let formatted = phoneNumber;
+    if (formatted.startsWith('225') && formatted.length === 12) {
+      formatted = formatted.substring(2);
+    } else if (formatted.length === 11 && formatted.startsWith('225')) {
+      formatted = formatted.substring(2);
+    }
 
-    // Après formatage, on doit avoir 10 chiffres
+    // Après formatage, on doit avoir exactement 10 chiffres
     if (formatted.length !== 10) {
-      return {
-        valid: false,
-        formatted,
-        error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${formatted.length})`
-      };
+      // Si on a plus de 10 chiffres, prendre les 10 derniers
+      if (formatted.length > 10) {
+        formatted = formatted.slice(-10);
+      } else {
+        return {
+          valid: false,
+          formatted,
+          error: `Numéro de téléphone invalide (doit contenir 10 chiffres, trouvé: ${formatted.length})`,
+        };
+      }
     }
 
     // Préfixes opérateurs Mobile Money en Côte d'Ivoire (nouveau format 2021)
@@ -170,7 +181,7 @@ class InTouchService {
       return {
         valid: false,
         formatted,
-        error: `Préfixe de numéro invalide pour Mobile Money (${prefix}). Préfixes valides: 01 (Moov), 05 (MTN), 07 (Orange), 04 (Wave)`
+        error: `Préfixe de numéro invalide pour Mobile Money (${prefix}). Préfixes valides: 01 (Moov), 05 (MTN), 07 (Orange), 04 (Wave)`,
       };
     }
 
@@ -182,8 +193,4 @@ class InTouchService {
 export const intouchService = new InTouchService();
 
 // Export types
-export type {
-  PaymentRequest,
-  PaymentResponse,
-  MobileMoneyOperator,
-};
+export type { PaymentRequest, PaymentResponse, MobileMoneyOperator };

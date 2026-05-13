@@ -6,7 +6,7 @@ import { useMessages } from '../hooks/useMessages';
 import { ConversationList } from '../components/ConversationList';
 import { MessageThread } from '../components/MessageThread';
 import { EmptyConversation } from '../components/EmptyConversation';
-import { Conversation } from '../services/messaging.service';
+import { Conversation, Attachment } from '../services/messaging.service';
 import OwnerDashboardLayout from '@/features/owner/components/OwnerDashboardLayout';
 
 export default function MessagesPage() {
@@ -70,7 +70,7 @@ export default function MessagesPage() {
   }, [messages, selectedConversation, refetchConversations]);
 
   const handleSendMessage = useCallback(
-    async (receiverId: string, content: string, attachment?: any) => {
+    async (receiverId: string, content: string, attachment?: Attachment | null) => {
       const result = await sendMessage(receiverId, content, attachment);
       if (result) {
         refetchConversations();

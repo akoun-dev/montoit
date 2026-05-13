@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText,
@@ -7,8 +7,6 @@ import {
   Search,
   Filter,
   Calendar,
-  Home,
-  CreditCard,
   Shield,
   FolderOpen,
   File,
@@ -17,12 +15,6 @@ import {
   Clock,
   X,
   AlertCircle,
-  Building,
-  FileCode,
-  Image,
-  Plus,
-  Trash2,
-  RefreshCw,
   ExternalLink,
   ChevronRight,
   Receipt,
@@ -45,6 +37,21 @@ interface DocumentItem {
   expiry_date: string | null;
   status: 'valid' | 'expired' | 'pending';
   size?: number;
+  description?: string;
+}
+
+interface DatabaseDocument {
+  id: string;
+  name: string;
+  type: string;
+  category?: string;
+  file_url?: string | null;
+  file_type?: string;
+  created_at: string;
+  updated_at?: string;
+  expiry_date?: string | null;
+  status?: string;
+  file_size?: number;
   description?: string;
 }
 
@@ -144,7 +151,7 @@ export default function DocumentsPage() {
     }
   }, [user, activeTab]);
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -159,10 +166,10 @@ export default function DocumentsPage() {
         .single();
 
       // Filtrer par type de document actif
-      const allDocs = (profile?.documents as any[]) || [];
-      const filteredDocs = allDocs.filter((doc: any) => doc.type === activeTab);
+      const allDocs = (profile?.documents as DatabaseDocument[]) || [];
+      const filteredDocs = allDocs.filter((doc: DatabaseDocument) => doc.type === activeTab);
 
-      const docs: DocumentItem[] = filteredDocs.map((doc: any) => ({
+      const docs: DocumentItem[] = filteredDocs.map((doc: DatabaseDocument) => ({
         id: doc.id,
         name: doc.name,
         type: doc.type,
@@ -183,7 +190,11 @@ export default function DocumentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, activeTab, setLoading, setDocuments]);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
 
   const loadCurrentContract = async () => {
     if (!user || activeTab !== 'contract') return;
@@ -206,7 +217,7 @@ export default function DocumentsPage() {
           )
         `)
         .eq('tenant_id', user.id)
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .maybeSingle();
 
       // Map properties.monthly_rent to monthly_rent
@@ -248,8 +259,8 @@ export default function DocumentsPage() {
         .eq('id', user?.id)
         .single();
 
-      const currentDocs = (profile?.documents as any[]) || [];
-      const updatedDocs = currentDocs.filter((d: any) => d.id !== docId);
+      const currentDocs = (profile?.documents as DatabaseDocument[]) || [];
+      const updatedDocs = currentDocs.filter((d: DatabaseDocument) => d.id !== docId);
 
       const { error } = await supabase
         .from('profiles')
@@ -376,7 +387,7 @@ export default function DocumentsPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-[#2C1810]">
-                  {payments.filter(p => p.status === 'complete').length}
+                  {payments.filter(p => p.status === 'completed').length}
                 </p>
                 <p className="text-xs text-[#6B5A4E]">Payés</p>
               </div>
@@ -419,7 +430,7 @@ export default function DocumentsPage() {
               <div>
                 <p className="text-lg font-bold text-[#2C1810]">
                   {payments
-                    .filter(p => p.status === 'complete')
+                    .filter(p => p.status === 'completed')
                     .reduce((sum, p) => sum + p.amount, 0)
                     .toLocaleString()} FCFA
                 </p>
@@ -440,9 +451,9 @@ export default function DocumentsPage() {
                 <div key={payment.id} className="p-4 flex items-center justify-between hover:bg-[#FAF7F4] transition-colors">
                   <div className="flex items-center gap-4">
                     <div className={`p-2.5 rounded-lg ${
-                      payment.status === 'complete' ? 'bg-green-100' : 'bg-amber-100'
+                      payment.status === 'completed' ? 'bg-green-100' : 'bg-amber-100'
                     }`}>
-                      {payment.status === 'complete' ? (
+                      {payment.status === 'completed' ? (
                         <CheckCircle className="h-5 w-5 text-green-600" />
                       ) : (
                         <Clock className="h-5 w-5 text-amber-600" />
@@ -458,7 +469,7 @@ export default function DocumentsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {getStatusBadge(payment.status === 'complete' ? 'valid' : 'pending')}
+                    {getStatusBadge(payment.status === 'completed' ? 'valid' : 'pending')}
                     {payment.receipt_url && (
                       <button
                         onClick={() => handleDownload(payment.receipt_url!, `Quittance_${payment.id}.pdf`)}
@@ -635,10 +646,10 @@ export default function DocumentsPage() {
   };
 
   return (
-    <TenantDashboardLayout title="Documents">
+    <TenantDashboardLayout title="Documents" icon={<FolderOpen className="h-5 w-5" />} description="Tous vos documents locatifs au même endroit">
       <div className="space-y-6">
         {/* Header */}
-        <div className="bg-[#2C1810] rounded-[20px] p-6">
+        <div className="hidden lg:block bg-[#2C1810] rounded-[20px] p-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3 mb-2">
             <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center">
               <FolderOpen className="h-6 w-6 text-white" />
@@ -659,7 +670,7 @@ export default function DocumentsPage() {
                 <button
                   key={key}
                   onClick={() => {
-                    setActiveTab(key as any);
+                    setActiveTab(key as DocumentType);
                     setSelectedCategory(null);
                     setSearchQuery('');
                   }}

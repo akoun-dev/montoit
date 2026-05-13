@@ -5,6 +5,9 @@ import SearchErrorBoundary from '@/features/tenant/components/SearchErrorBoundar
 import ProtectedRoute from '@/shared/ui/ProtectedRoute';
 import { TENANT_ROLES, OWNER_ROLES, PROPERTY_MANAGER_ROLES, AGENCY_ROLES } from '@/shared/constants/roles';
 
+// ONECI verification page (shared across all user types)
+const ONECIVerificationPage = lazyWithRetry(() => import('@/pages/tenant/ONECIVerificationPage'));
+
 // TEST: Import direct de HomePage pour déboguer le problème de lazy loading
 import Home from '@/pages/public/HomePage';
 
@@ -76,6 +79,16 @@ export const publicRoutes: RouteObject[] = [
     element: (
       <ProtectedRoute allowedRoles={[...TENANT_ROLES, ...OWNER_ROLES, ...PROPERTY_MANAGER_ROLES, ...AGENCY_ROLES]}>
         <ContractDetail />
+      </ProtectedRoute>
+    ),
+  },
+
+  // ONECI verification (shared across all user types - identity verification)
+  {
+    path: 'verification-oneci',
+    element: (
+      <ProtectedRoute allowedRoles={[...TENANT_ROLES, ...OWNER_ROLES, ...PROPERTY_MANAGER_ROLES, ...AGENCY_ROLES]}>
+        <ONECIVerificationPage />
       </ProtectedRoute>
     ),
   },

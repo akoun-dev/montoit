@@ -7,13 +7,11 @@ import {
   CheckCircle,
   ChevronLeft,
   Upload,
-  AlertCircle,
   Sparkles,
   Shield,
   Smile,
   ArrowRight,
   Loader2,
-  XCircle,
 } from 'lucide-react';
 import { FormStepper, FormStepContent, useFormStepper } from '@/shared/ui/FormStepper';
 import NeofaceVerification from '@/shared/ui/NeofaceVerification';
@@ -47,6 +45,9 @@ export default function BiometricVerificationPage() {
 
     if (hasResetParam && !isResetting.current) {
       isResetting.current = true;
+      sessionStorage.removeItem('neoface_verification');
+      sessionStorage.removeItem('neoface_result');
+      sessionStorage.removeItem('neoface_session');
       setVerificationResult(null);
       resetStepper();
       setCniPhotoUrl(null);

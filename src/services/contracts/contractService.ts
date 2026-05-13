@@ -71,16 +71,16 @@ export async function generateAndUploadContract(leaseId: string): Promise<string
 
   // 2. Récupérer les profils du propriétaire et du locataire
   const { data: profiles, error: profilesError } = await supabase
-    .from('profiles_with_user_id')
-    .select('user_id, full_name, email, phone')
-    .in('user_id', [contract.owner_id, contract.tenant_id]);
+    .from('profiles')
+    .select('id, full_name, email, phone')
+    .in('id', [contract.owner_id, contract.tenant_id]);
 
   if (profilesError || !profiles) {
     throw new Error(`Erreur lors de la récupération des profils: ${profilesError?.message}`);
   }
 
-  const ownerProfile = profiles.find((p: ProfileData) => p.user_id === contract.owner_id);
-  const tenantProfile = profiles.find((p: ProfileData) => p.user_id === contract.tenant_id);
+  const ownerProfile = profiles.find((p: ProfileData) => p.id === contract.owner_id);
+  const tenantProfile = profiles.find((p: ProfileData) => p.id === contract.tenant_id);
 
   if (!ownerProfile || !tenantProfile) {
     throw new Error('Profils du propriétaire ou du locataire introuvables');
@@ -114,12 +114,8 @@ export async function generateAndUploadContract(leaseId: string): Promise<string
   const fileName = `contrat-${contract.contract_number.replace(/[^a-zA-Z0-9-]/g, '')}.pdf`;
   const filePath = `${leaseId}/${fileName}`;
 
-  // Ajout de logs pour debug
-  console.log('Tentative d\'upload:', { fileName, filePath, bucket: 'lease-documents' });
-
   // Vérifier que l'utilisateur est authentifié
   const { data: { session } } = await supabase.auth.getSession();
-  console.log('Session utilisateur:', !!session, session?.user?.role);
 
   const { error: uploadError } = await supabase.storage
     .from('lease-documents')
@@ -132,8 +128,6 @@ export async function generateAndUploadContract(leaseId: string): Promise<string
     console.error('Erreur upload détaillée:', uploadError);
     throw new Error(`Erreur lors de l'upload du PDF: ${uploadError.message}`);
   }
-
-  console.log('Upload réussi pour:', filePath);
 
   // 6. Créer une URL signée valide 1 an
   const { data: urlData, error: urlError } = await supabase.storage
@@ -209,7 +203,7 @@ export async function deleteContract(leaseId: string): Promise<void> {
     throw new Error('Contrat introuvable');
   }
 
-  if (contract.status !== 'brouillon') {
+  if (contract.status !== 'draft') {
     throw new Error('Seuls les brouillons peuvent être supprimés');
   }
 
@@ -249,7 +243,7 @@ export async function sendSignatureReminder(leaseId: string, tenantId: string): 
 /**
  * Résilie un contrat actif
  */
-export async function terminateContract(leaseId: string, reason: string): Promise<void> {
+export async function terminateContract(leaseId: string, _reason: string): Promise<void> {
   // Get lease details first
   const { data: lease } = await supabase
     .from('lease_contracts')
@@ -262,16 +256,14 @@ export async function terminateContract(leaseId: string, reason: string): Promis
   }
 
   // Vérifier que le contrat peut être résilié
-  if (lease.status !== 'actif') {
+  if (lease.status !== 'active') {
     throw new Error(`Seuls les contrats actifs peuvent être résiliés. Statut actuel: ${lease.status}`);
   }
-
-  console.log('Tentative de résiliation du contrat', leaseId, 'avec statut', lease.status);
 
   const { data, error } = await supabase
     .from('lease_contracts')
     .update({
-      status: 'resilie',
+      status: 'terminated',
       terminated_at: new Date().toISOString(),
       termination_notice_days: 0,
       updated_at: new Date().toISOString(),
@@ -285,11 +277,9 @@ export async function terminateContract(leaseId: string, reason: string): Promis
     throw new Error(`Erreur lors de la résiliation: ${error.message}`);
   }
 
-  console.log('Contrat résilié avec succès:', data);
-
   // Update property status back to available
   if (lease.property_id) {
-    await supabase.from('properties').update({ status: 'disponible' }).eq('id', lease.property_id);
+    await supabase.from('properties').update({ status: 'available' }).eq('id', lease.property_id);
   }
 
   // Send termination notification
@@ -299,6 +289,14 @@ export async function terminateContract(leaseId: string, reason: string): Promis
     await notifyLeaseTerminated(leaseId);
   } catch (notifError) {
     console.error('Error sending termination notification:', notifError);
+  }
+
+  // Trigger review requests for both parties
+  try {
+    await sendReviewRequests(leaseId);
+  } catch (reviewError) {
+    console.error('Error sending review requests:', reviewError);
+    // Don't throw - termination should succeed even if review requests fail
   }
 }
 
@@ -318,17 +316,15 @@ export async function cancelContract(leaseId: string, reason: string): Promise<v
   }
 
   // Vérifier que le contrat peut être annulé
-  if (lease.status !== 'brouillon' && lease.status !== 'en_attente_signature') {
+  if (lease.status !== 'draft' && lease.status !== 'pending_signature') {
     throw new Error(`Seuls les brouillons et les contrats en attente peuvent être annulés. Statut actuel: ${lease.status}`);
   }
 
-  console.log('Tentative d\'annulation du contrat', leaseId, 'avec statut', lease.status);
-
-  // Changer le statut à 'annule' au lieu de supprimer
+  // Changer le statut à 'cancelled' au lieu de supprimer
   const { data, error } = await supabase
     .from('lease_contracts')
     .update({
-      status: 'annule',
+      status: 'cancelled',
       updated_at: new Date().toISOString(),
       notes: reason || 'Contrat annulé par le propriétaire',
     })
@@ -341,15 +337,13 @@ export async function cancelContract(leaseId: string, reason: string): Promise<v
     throw new Error(`Erreur lors de l'annulation: ${error.message}`);
   }
 
-  console.log('Contrat annulé avec succès:', data);
-
   // Update property status back to available
   if (lease.property_id) {
-    await supabase.from('properties').update({ status: 'disponible' }).eq('id', lease.property_id);
+    await supabase.from('properties').update({ status: 'available' }).eq('id', lease.property_id);
   }
 
   // Envoyer une notification au locataire si le contrat était en attente
-  if (lease.status === 'en_attente_signature' && lease.tenant_id) {
+  if (lease.status === 'pending_signature' && lease.tenant_id) {
     try {
       await supabase.from('notifications').insert({
         user_id: lease.tenant_id,
@@ -362,5 +356,25 @@ export async function cancelContract(leaseId: string, reason: string): Promise<v
     } catch (notifError) {
       console.error('Error sending cancellation notification:', notifError);
     }
+  }
+}
+
+/**
+ * Envoie les demandes d'avis aux deux parties après la fin d'un bail
+ * Appelle l'Edge Function send-review-requests
+ */
+export async function sendReviewRequests(leaseId: string): Promise<void> {
+  try {
+    const { error } = await supabase.functions.invoke('send-review-requests', {
+      body: { contractId: leaseId },
+    });
+
+    if (error) {
+      console.error('Error invoking send-review-requests:', error);
+      throw error;
+    }
+  } catch (error) {
+    console.error('Failed to send review requests:', error);
+    throw new Error(`Erreur lors de l'envoi des demandes d'avis: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

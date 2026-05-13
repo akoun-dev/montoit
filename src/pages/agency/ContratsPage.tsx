@@ -36,11 +36,11 @@ interface Contract {
 
 const STATUS_FILTERS = [
   { id: 'all', label: 'Tous' },
-  { id: 'actif', label: 'Actifs' },
-  { id: 'en_attente_signature', label: 'En attente signature' },
-  { id: 'expire', label: 'Expirés' },
-  { id: 'resilie', label: 'Résiliés' },
-  { id: 'brouillon', label: 'Brouillons' },
+  { id: 'active', label: 'Actifs' },
+  { id: 'pending_signature', label: 'En attente signature' },
+  { id: 'expired', label: 'Expirés' },
+  { id: 'terminated', label: 'Résiliés' },
+  { id: 'draft', label: 'Brouillons' },
 ];
 
 export default function ContratsPage() {
@@ -98,8 +98,8 @@ export default function ContratsPage() {
       `,
       ];
 
-      let contractsData: any[] | null = null;
-      let lastError: any = null;
+      let contractsData: unknown[] | null = null;
+      let lastError: unknown = null;
 
       for (const columns of selectVariants) {
         const { data, error } = await supabase
@@ -126,7 +126,7 @@ export default function ContratsPage() {
         return;
       }
 
-      const formatted: Contract[] = (contractsData || []).map((c: any) => {
+      const formatted: Contract[] = (contractsData || []).map((c: unknown) => {
         const start = c.start_date || c.created_at || '';
         const end = c.end_at || c.created_at || '';
         return {
@@ -170,15 +170,15 @@ export default function ContratsPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'actif':
+      case 'active':
         return <CheckCircle className="h-5 w-5 text-green-600" />;
-      case 'expire':
+      case 'expired':
         return <XCircle className="h-5 w-5 text-red-600" />;
-      case 'en_attente_signature':
+      case 'pending_signature':
         return <Clock className="h-5 w-5 text-amber-600" />;
-      case 'resilie':
+      case 'terminated':
         return <XCircle className="h-5 w-5 text-gray-500" />;
-      case 'brouillon':
+      case 'draft':
         return <Clock className="h-5 w-5 text-gray-400" />;
       default:
         return <Clock className="h-5 w-5 text-gray-500" />;
@@ -187,15 +187,15 @@ export default function ContratsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'actif':
+      case 'active':
         return 'bg-green-100 text-green-700';
-      case 'expire':
+      case 'expired':
         return 'bg-red-100 text-red-700';
-      case 'en_attente_signature':
+      case 'pending_signature':
         return 'bg-amber-100 text-amber-700';
-      case 'resilie':
+      case 'terminated':
         return 'bg-gray-100 text-gray-700';
-      case 'brouillon':
+      case 'draft':
         return 'bg-gray-100 text-gray-500';
       default:
         return 'bg-gray-100 text-gray-700';
@@ -204,15 +204,15 @@ export default function ContratsPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'actif':
+      case 'active':
         return 'Actif';
-      case 'expire':
+      case 'expired':
         return 'Expiré';
-      case 'en_attente_signature':
+      case 'pending_signature':
         return 'En attente de signature';
-      case 'resilie':
+      case 'terminated':
         return 'Résilié';
-      case 'brouillon':
+      case 'draft':
         return 'Brouillon';
       default:
         return status;
@@ -265,19 +265,19 @@ export default function ContratsPage() {
         <StatCard label="Total contrats" value={contracts.length} icon={FileText} />
         <StatCard
           label="Contrats actifs"
-          value={contracts.filter((c) => c.status === 'actif').length}
+          value={contracts.filter((c) => c.status === 'active').length}
           icon={CheckCircle}
           accent="green"
         />
         <StatCard
           label="En attente signature"
-          value={contracts.filter((c) => c.status === 'en_attente_signature').length}
+          value={contracts.filter((c) => c.status === 'pending_signature').length}
           icon={Clock}
           accent="amber"
         />
         <StatCard
           label="Contrats expirés"
-          value={contracts.filter((c) => c.status === 'expire').length}
+          value={contracts.filter((c) => c.status === 'expired').length}
           icon={XCircle}
           accent="red"
         />

@@ -7,9 +7,10 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Profile } from '@/types';
 
 export interface ScoreBreakdown {
-  profileScore: number; // 0-100 (20% du total)
-  verificationScore: number; // 0-100 (40% du total)
-  historyScore: number; // 0-100 (40% du total)
+  // Tenant weights: Profil complet 5%, Facial 20%, ONECI 25%, Dossier 50%
+  profileScore: number; // 0-100 (complétude du profil)
+  verificationScore: number; // 0-100 (facial + ONECI)
+  historyScore: number; // 0-100 (dossier validé)
   globalScore: number; // 0-100 (moyenne pondérée)
   recommendation: 'approved' | 'conditional' | 'rejected';
   details: {
@@ -23,6 +24,7 @@ export interface ProfileScoreDetails {
   fullName: boolean;
   phone: boolean;
   city: boolean;
+  gender: boolean;
   bio: boolean;
   avatar: boolean;
   address: boolean;
@@ -32,6 +34,7 @@ export interface ProfileScoreDetails {
 export interface VerificationScoreDetails {
   oneci: boolean;
   facial: boolean;
+  dossier: boolean;
   total: number;
 }
 
@@ -54,14 +57,17 @@ export interface AgencyScoreDetails {
   total: number;
 }
 
-// Pondérations des sous-scores
-const WEIGHTS = {
-  profile: 0.2, // 20%
-  verification: 0.4, // 40%
-  history: 0.4, // 40%
-};
+// Pondérations des sous-scores (locataire)
+export const TENANT_SCORING_WEIGHTS = {
+  profileComplete: 5,
+  facial: 20,
+  oneci: 25,
+  dossier: 50,
+} as const;
 
-// Points pour chaque élément du profil
+const TENANT_VERIFICATION_TOTAL = TENANT_SCORING_WEIGHTS.facial + TENANT_SCORING_WEIGHTS.oneci;
+
+// Points pour chaque élément du profil (complétude)
 const PROFILE_POINTS = {
   fullName: 15,
   phone: 15,
@@ -71,27 +77,37 @@ const PROFILE_POINTS = {
   address: 20,
 };
 
-// Points pour chaque vérification (uniquement ONECI et Facial)
-const VERIFICATION_POINTS = {
-  oneci: 50, // 50 points sur 100
-  facial: 50, // 50 points sur 100
-};
-
 // Si l'edge function n'existe pas / renvoie 500, on évite de la rappeler
 let skipTenantScoring = false; // activé par défaut, sera désactivé automatiquement en cas d'erreur
 
 export const ScoringService = {
+  isProfileComplete(details: ProfileScoreDetails): boolean {
+    return details.fullName && details.phone && details.city && details.address && details.gender;
+  },
+
   /**
    * Calcule le score de profil (complétude)
    */
   calculateProfileScore(profile: Profile | null): { score: number; details: ProfileScoreDetails } {
+    const hasText = (value: string | null | undefined): boolean =>
+      typeof value === 'string' && value.trim().length > 0;
+    const hasJsonValue = (value: unknown): boolean => {
+      if (!value) return false;
+      if (typeof value === 'string') return value.trim().length > 0;
+      if (Array.isArray(value)) return value.length > 0;
+      if (typeof value === 'object')
+        return Object.keys(value as Record<string, unknown>).length > 0;
+      return false;
+    };
+
     const details: ProfileScoreDetails = {
-      fullName: !!profile?.full_name,
-      phone: !!profile?.phone,
-      city: !!profile?.city,
-      bio: !!profile?.bio,
-      avatar: !!profile?.avatar_url,
-      address: !!profile?.address,
+      fullName: hasText(profile?.full_name),
+      phone: hasText(profile?.phone ?? ''),
+      city: hasText(profile?.city),
+      gender: hasText(profile?.gender),
+      bio: hasText(profile?.bio),
+      avatar: hasText(profile?.avatar_url),
+      address: hasJsonValue(profile?.address),
       total: 0,
     };
 
@@ -108,7 +124,7 @@ export const ScoringService = {
   },
 
   /**
-   * Calcule le score de vérification
+   * Calcule le score de vérification (facial + ONECI)
    */
   calculateVerificationScore(profile: Profile | null): {
     score: number;
@@ -117,12 +133,14 @@ export const ScoringService = {
     const details: VerificationScoreDetails = {
       oneci: !!profile?.oneci_verified,
       facial: profile?.facial_verification_status === 'verified',
+      dossier: false,
       total: 0,
     };
 
-    let score = 0;
-    if (details.oneci) score += VERIFICATION_POINTS.oneci;
-    if (details.facial) score += VERIFICATION_POINTS.facial;
+    const earned =
+      (details.oneci ? TENANT_SCORING_WEIGHTS.oneci : 0) +
+      (details.facial ? TENANT_SCORING_WEIGHTS.facial : 0);
+    const score = Math.round((earned / TENANT_VERIFICATION_TOTAL) * 100);
 
     details.total = score;
     return { score, details };
@@ -230,6 +248,7 @@ export const ScoringService = {
             fullName: !!profile?.full_name,
             phone: !!profile?.phone,
             city: !!agency?.city || !!profile?.city,
+            gender: !!profile?.gender,
             bio: !!agency?.description,
             avatar: !!profile?.avatar_url,
             address: !!agency?.address || !!profile?.address,
@@ -238,6 +257,7 @@ export const ScoringService = {
           verification: {
             oneci: !!profile?.oneci_verified,
             facial: profile?.facial_verification_status === 'verified',
+            dossier: true,
             total: 100,
           },
           history: {
@@ -257,9 +277,7 @@ export const ScoringService = {
 
     // Score total: Infos agence (50%) + Représentant (25%) + Vérifications (25%)
     const globalScore = Math.round(
-      agencyInfoScore * 0.5 +
-        representativeScore * 0.25 +
-        verificationScore * 0.25
+      agencyInfoScore * 0.5 + representativeScore * 0.25 + verificationScore * 0.25
     );
 
     // Arrondir à 100 si très proche
@@ -286,6 +304,7 @@ export const ScoringService = {
           fullName: !!profile?.full_name,
           phone: !!profile?.phone,
           city: !!agency?.city || !!profile?.city,
+          gender: !!profile?.gender,
           bio: !!agency?.description,
           avatar: !!profile?.avatar_url,
           address: !!agency?.address || !!profile?.address,
@@ -294,6 +313,7 @@ export const ScoringService = {
         verification: {
           oneci: !!profile?.oneci_verified,
           facial: profile?.facial_verification_status === 'verified',
+          dossier: false,
           total: verificationScore,
         },
         history: {
@@ -309,7 +329,7 @@ export const ScoringService = {
   /**
    * Calcule le score des infos agence (max 100)
    */
-  calculateAgencyInfoScore(agency: any, profile: Profile | null): number {
+  calculateAgencyInfoScore(agency: Record<string, unknown> | null, profile: Profile | null): number {
     let score = 0;
     // Nom de l'agence (20 points)
     if (agency?.agency_name || profile?.agency_name) score += 20;
@@ -357,9 +377,8 @@ export const ScoringService = {
   },
 
   /**
-   * Calcule le Global Trust Score complet
-   * Si le dossier (verification_application) est approuvé, retourne directement 100%
-   * Sinon, calcule le score basé sur les vérifications complétées
+   * Calcule le Global Trust Score complet en utilisant la fonction Edge
+   * Si la fonction Edge n'est pas disponible, utilise le calcul côté client en fallback
    */
   async calculateGlobalTrustScore(
     userId: string,
@@ -371,77 +390,141 @@ export const ScoringService = {
 
     // Vérifier si c'est une agence
     const userType = profile?.user_type?.toLowerCase();
-    const isAgency = userType === 'agence' || userType === 'agency';
+    const isAgency = userType === 'agency' || userType === 'agency';
 
-    // Pour les agences, utiliser le calcul spécifique
+    // Pour les agences, utiliser le calcul spécifique (pas de fonction Edge pour les agences)
     if (isAgency) {
       return await this.calculateAgencyScore(userId, profile);
     }
 
-    // Vérifier si un dossier est approuvé (priorité absolue)
-    const { data: approvedDossier } = await supabase
-      .from('verification_applications')
-      .select('id, status, dossier_type')
-      .eq('user_id', userId)
-      .eq('status', 'approved')
-      .maybeSingle();
+    // Essayer d'utiliser la fonction Edge pour le calcul complet
+    if (!skipTenantScoring) {
+      try {
+        const { data, error } = await supabase.functions.invoke('tenant-scoring', {
+          body: {
+            applicantId: userId,
+            propertyId: propertyId || null,
+            monthlyRent: monthlyRent || 0,
+          },
+        });
 
-    // Si un dossier est approuvé, score = 100% immédiatement
-    if (approvedDossier) {
-      return {
-        profileScore: 100,
-        verificationScore: 100,
-        historyScore: 100,
-        globalScore: 100,
-        recommendation: 'approved',
-        details: {
-          profile: {
-            fullName: !!profile?.full_name,
-            phone: !!profile?.phone,
-            city: !!profile?.city,
-            bio: !!profile?.bio,
-            avatar: !!profile?.avatar_url,
-            address: !!profile?.address,
-            total: 100,
-          },
-          verification: {
-            oneci: !!profile?.oneci_verified,
-            facial: profile?.facial_verification_status === 'verified',
-            total: 100,
-          },
-          history: {
-            paymentReliability: 100,
-            propertyCondition: 100,
-            leaseCompliance: 100,
-            total: 100,
-          },
-        },
-      };
+        if (!error && data && typeof data.globalScore === 'number') {
+          // La fonction Edge a retourné un résultat valide
+          const breakdown = data.breakdown || {};
+          const details = breakdown.details || {};
+
+          return {
+            profileScore: breakdown.profile?.score || 0,
+            verificationScore: breakdown.verification?.score || 0,
+            historyScore: breakdown.history?.score || 0,
+            globalScore: data.globalScore,
+            recommendation: data.recommendation || 'rejected',
+            details: {
+              profile: this.mapProfileDetails(details.profile || {}, profile),
+              verification: {
+                oneci: !!details.verification?.oneci,
+                facial: details.verification?.facial || false,
+                dossier: !!details.verification?.ansut,
+                total: breakdown.verification?.score || 0,
+              },
+              history: {
+                paymentReliability: details.history?.paymentReliability || 50,
+                propertyCondition: details.history?.propertyCondition || 50,
+                leaseCompliance: details.history?.leaseCompliance || 50,
+                total: breakdown.history?.score || 0,
+              },
+            },
+          };
+        }
+      } catch (err) {
+        console.warn('Edge function tenant-scoring failed, using client-side calculation', err);
+        skipTenantScoring = true;
+      }
     }
 
-    // Calculer les sous-scores
+    // Fallback: calcul côté client
+    return await this.calculateClientSideScore(userId, profile, propertyId, monthlyRent);
+  },
+
+  /**
+   * Mappe les détails de la fonction Edge vers le format local
+   */
+  mapProfileDetails(edgeDetails: Record<string, unknown>, profile: Profile | null): ProfileScoreDetails {
+    return {
+      fullName: !!edgeDetails.fullName,
+      phone: !!edgeDetails.phone,
+      city: !!edgeDetails.city,
+      gender: !!profile?.gender,
+      bio: !!edgeDetails.bio,
+      avatar: !!edgeDetails.avatar,
+      address: !!edgeDetails.address,
+      total: typeof edgeDetails.total === 'number' ? edgeDetails.total : 0,
+    };
+  },
+
+  /**
+   * Calcul côté client en fallback si la fonction Edge n'est pas disponible
+   */
+  async calculateClientSideScore(
+    userId: string,
+    profile: Profile | null,
+    _propertyId?: string,
+    _monthlyRent?: number
+  ): Promise<ScoreBreakdown> {
+    // Vérifier si un dossier est approuvé (Dossier locataire)
+    // Même logique que la page de profil
+    const { data: dossierApplications } = await supabase
+      .from('verification_applications')
+      .select('id, status')
+      .eq('user_id', userId)
+      .eq('dossier_type', 'tenant');
+
+    const dossierApplication =
+      dossierApplications?.find((app) => app.status === 'approved') ||
+      dossierApplications?.[0] ||
+      null;
+
+    // Récupérer les documents depuis la table verification_documents (comme dans la page de profil)
+    let dossierHasDocs = false;
+    if (dossierApplication) {
+      const { data: dossierDocuments } = await supabase
+        .from('verification_documents')
+        .select('id')
+        .eq('application_id', dossierApplication.id);
+
+      dossierHasDocs = dossierDocuments && dossierDocuments.length > 0;
+    }
+
+    const dossierStatus = dossierApplication?.status || null;
+    const dossierApproved = dossierStatus === 'approved';
+
+    // Calculer les sous-scores (locataire)
     const profileResult = this.calculateProfileScore(profile);
+    const profileComplete = this.isProfileComplete(profileResult.details);
 
-    // Email toujours vérifié avec Supabase Auth
-    const isEmailVerified = !!profile?.email_verified || true;
-    const verificationScore = this.calculateEnhancedVerificationScore(profile, isEmailVerified);
+    const facialVerified = profile?.facial_verification_status === 'verified';
+    const oneciVerified = !!profile?.oneci_verified;
 
-    // SANS DOSSIER: Historique = 100 (ne pas pénaliser les nouveaux utilisateurs)
-    // Le score est basé uniquement sur Profil + Vérifications
-    const historyScore = 100;
+    const profileContribution = profileComplete ? TENANT_SCORING_WEIGHTS.profileComplete : 0;
+    const facialContribution = facialVerified ? TENANT_SCORING_WEIGHTS.facial : 0;
+    const oneciContribution = oneciVerified ? TENANT_SCORING_WEIGHTS.oneci : 0;
+    // Même logique que la page de profil : dossier doit être approved ET avoir des documents
+    const dossierContribution = (dossierApproved && dossierHasDocs) ? TENANT_SCORING_WEIGHTS.dossier : 0;
+
+    const verificationScore = Math.round(
+      ((facialContribution + oneciContribution) / TENANT_VERIFICATION_TOTAL) * 100
+    );
+
+    const historyScore = dossierApproved ? 100 : 0;
     const historyDetails: HistoryScoreDetails = {
-      paymentReliability: 100,
-      propertyCondition: 100,
-      leaseCompliance: 100,
-      total: 100,
+      paymentReliability: historyScore,
+      propertyCondition: historyScore,
+      leaseCompliance: historyScore,
+      total: historyScore,
     };
 
-    // CALCUL : Profil (50%) + Vérifications (50%) = 100% possible sans dossier
-    // Profil complet (100) + Vérifications complètes (100) = 100%
-    const globalScore = Math.round(
-      profileResult.score * 0.5 +
-        verificationScore * 0.5
-    );
+    const globalScore =
+      profileContribution + facialContribution + oneciContribution + dossierContribution;
 
     // Arrondir à 100 si c'est très proche
     const finalScore = globalScore >= 99.5 ? 100 : globalScore;
@@ -457,7 +540,7 @@ export const ScoringService = {
     }
 
     return {
-      profileScore: profileResult.score,
+      profileScore: profileComplete ? 100 : 0,
       verificationScore: verificationScore,
       historyScore: historyScore,
       globalScore: finalScore,
@@ -465,8 +548,9 @@ export const ScoringService = {
       details: {
         profile: profileResult.details,
         verification: {
-          oneci: !!profile?.oneci_verified,
-          facial: profile?.facial_verification_status === 'verified',
+          oneci: oneciVerified,
+          facial: facialVerified,
+          dossier: dossierApproved,
           total: verificationScore,
         },
         history: historyDetails,
@@ -475,31 +559,28 @@ export const ScoringService = {
   },
 
   /**
-   * Calcule le score de vérification ENHANCÉ (incluant email et facial)
-   * Email: 33 points, ONECI: 33 points, Facial: 34 points = 100 max
+   * Calcule le score de vérification (facial + ONECI) sur 100
    */
-  calculateEnhancedVerificationScore(profile: Profile | null, isEmailVerified: boolean = true): number {
-    let score = 0;
-
-    // Email vérifié (toujours vrai avec Supabase Auth)
-    if (isEmailVerified) score += 33;
-
-    // ONECI vérifié
-    if (profile?.oneci_verified) score += 33;
-
-    // Reconnaissance faciale vérifiée
-    if (profile?.facial_verification_status === 'verified') score += 34;
-
-    return Math.min(score, 100);
+  calculateEnhancedVerificationScore(profile: Profile | null): number {
+    const facial = profile?.facial_verification_status === 'verified';
+    const oneci = !!profile?.oneci_verified;
+    const earned =
+      (facial ? TENANT_SCORING_WEIGHTS.facial : 0) + (oneci ? TENANT_SCORING_WEIGHTS.oneci : 0);
+    return Math.round((earned / TENANT_VERIFICATION_TOTAL) * 100);
   },
 
   /**
-   * Calcule un score simple pour les candidatures
-   * Si un dossier est approuvé, retourne 100%
-   * Sinon, calcul basé sur Profil (50%) + Vérifications (50%)
+   * Calcule un score simple pour les candidatures (locataire)
+   * Profil complet (5%) + Facial (20%) + ONECI (25%) + Dossier validé (50%)
    */
   async calculateSimpleScore(profile: Profile | null, userId?: string): Promise<number> {
-    // Vérifier si un dossier est approuvé
+    const profileResult = this.calculateProfileScore(profile);
+    const profileComplete = this.isProfileComplete(profileResult.details);
+
+    const facialVerified = profile?.facial_verification_status === 'verified';
+    const oneciVerified = !!profile?.oneci_verified;
+    let dossierApproved = false;
+
     if (userId) {
       const { data: approvedDossier } = await supabase
         .from('verification_applications')
@@ -507,21 +588,14 @@ export const ScoringService = {
         .eq('user_id', userId)
         .eq('status', 'approved')
         .maybeSingle();
-
-      if (approvedDossier) {
-        return 100;
-      }
+      dossierApproved = !!approvedDossier;
     }
 
-    const profileResult = this.calculateProfileScore(profile);
-    // Email toujours vérifié avec Supabase Auth
-    const verificationScore = this.calculateEnhancedVerificationScore(profile, true);
-
-    // CALCUL : Profil (50%) + Vérifications (50%) = 100% possible
-    const score = Math.round(
-      profileResult.score * 0.5 +
-        verificationScore * 0.5
-    );
+    const score =
+      (profileComplete ? TENANT_SCORING_WEIGHTS.profileComplete : 0) +
+      (facialVerified ? TENANT_SCORING_WEIGHTS.facial : 0) +
+      (oneciVerified ? TENANT_SCORING_WEIGHTS.oneci : 0) +
+      (dossierApproved ? TENANT_SCORING_WEIGHTS.dossier : 0);
 
     // Arrondir à 100 si très proche
     return score >= 99.5 ? 100 : score;
@@ -552,6 +626,24 @@ export const ScoringService = {
         return 'text-yellow-600';
       case 'rejected':
         return 'text-red-600';
+    }
+  },
+
+  /**
+   * Persiste le trust_score calculé dans la table profiles
+   */
+  async persistTrustScore(userId: string, score: number): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ trust_score: score })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Error persisting trust score:', error);
+      }
+    } catch (err) {
+      console.error('Error persisting trust score:', err);
     }
   },
 };

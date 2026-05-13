@@ -1,0 +1,7 @@
+-- Migration: Add missing RLS policy for properties that depends on rental_applications
+-- Description: This policy was removed from create_properties.sql because rental_applications table didn't exist yet.
+-- Order: After rental_applications creation (migration 16) and before any other dependent policies.
+--
+-- NOTE: The "Tenants can view applied properties" policy was removed due to infinite recursion
+-- when querying rental_applications with nested properties selection. The existing
+-- "Everyone can view public properties" policy already provides sufficient access.

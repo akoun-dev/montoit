@@ -1,9 +1,8 @@
-import { Shield, UserCheck, Eye, Users } from 'lucide-react';
+import { Shield, UserCheck, Users } from 'lucide-react';
 
 interface RoleStats {
   admin: number;
   trust_agent: number;
-  moderator: number;
   total: number;
 }
 
@@ -23,19 +22,11 @@ const roleConfig = [
   },
   {
     key: 'trust_agent' as const,
-    label: 'Trust Agents',
+    label: 'Tiers de confiance',
     icon: UserCheck,
     bgColor: 'bg-purple-50',
     textColor: 'text-purple-700',
     iconColor: 'text-purple-600',
-  },
-  {
-    key: 'moderator' as const,
-    label: 'Modérateurs',
-    icon: Eye,
-    bgColor: 'bg-blue-50',
-    textColor: 'text-blue-700',
-    iconColor: 'text-blue-600',
   },
   {
     key: 'total' as const,

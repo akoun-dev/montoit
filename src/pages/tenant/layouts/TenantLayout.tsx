@@ -28,7 +28,7 @@ const navGroups = [
     label: 'Espace Locataire',
     items: [
       { path: '/locataire/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-      { path: '/locataire/recherche', label: 'Recherche', icon: Search },
+      { path: '/locataire/recherche', label: 'Chercher un bien', icon: Search },
       { path: '/locataire/favoris', label: 'Favoris', icon: Heart },
     ],
   },
@@ -54,7 +54,7 @@ const navGroups = [
     items: [
       { path: '/locataire/profil', label: 'Mon profil', icon: User },
       { path: '/locataire/paiements', label: 'Mes paiements', icon: CreditCard },
-      { path: '/locataire/parametres', label: 'Paramètres', icon: Settings },
+      { path: '/auth/parametres', label: 'Paramètres', icon: Settings },
     ],
   },
 ];

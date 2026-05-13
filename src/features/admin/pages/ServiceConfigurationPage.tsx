@@ -1,4 +1,4 @@
-import { Settings, ArrowLeft, ToggleLeft, Database, Globe, Lock } from 'lucide-react';
+import { Settings, ToggleLeft, Database, Globe, Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/shared/ui';
 

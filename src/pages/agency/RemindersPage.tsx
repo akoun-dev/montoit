@@ -212,11 +212,13 @@ export default function AgencyRemindersPage() {
     if (!user) return;
 
     try {
-      // Use RPC function to get user's agency (bypasses RLS)
+      // Get user's agency
       const { data: agencyData } = await supabase
-        .rpc('get_user_agency', {
-          user_uuid: user.id
-        });
+        .from('agencies')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       const agencyId = agencyData?.[0]?.id || null;
 

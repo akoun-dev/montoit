@@ -87,7 +87,7 @@ Deno.serve(async (req: Request) => {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: Record<string, unknown>) {
     console.error('[Get Image] Server error:', error);
     return new Response(
       JSON.stringify({

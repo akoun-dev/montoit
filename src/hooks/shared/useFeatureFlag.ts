@@ -34,7 +34,7 @@ export function useFeatureFlag(
       }
 
       const response = await fetch(
-        `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/check-feature-flag?key=${flagKey}`,
+        `${import.meta.env['SUPABASE_URL']}/functions/v1/check-feature-flag?key=${flagKey}`,
         { headers }
       );
 
@@ -97,7 +97,7 @@ export function useFeatureFlagsByCategory(category: string) {
       if (!session) throw new Error('Not authenticated');
 
       const response = await fetch(
-        `${import.meta.env['VITE_SUPABASE_URL']}/functions/v1/manage-feature-flags?category=${category}`,
+        `${import.meta.env['SUPABASE_URL']}/functions/v1/manage-feature-flags?category=${category}`,
         {
           headers: {
             Authorization: `Bearer ${session.access_token}`,

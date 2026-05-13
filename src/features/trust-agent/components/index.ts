@@ -1,5 +1,5 @@
 /**
- * Components pour Trust Agent - Médiation et Confiance
+ * Components pour Tiers de confiance - Médiation et Confiance
  */
 
 export { default as MediationWorkflow } from './MediationWorkflow';

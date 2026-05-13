@@ -51,7 +51,7 @@ await createApplication(propertyId, applicantId, formData);
 
 // Récupérer les candidatures avec filtres
 const { applications, loading } = useApplications({
-  filters: { status: ['en_attente', 'en_cours'] },
+  filters: { status: ['pending', 'in_progress'] },
   pagination: { page: 1, pageSize: 10 },
 });
 ```
@@ -81,13 +81,13 @@ const { applications, loading } = useApplications({
 
 ## 📊 Statuts de Candidature
 
-| Statut       | Description              | Couleur | Actions           |
-| ------------ | ------------------------ | ------- | ----------------- |
-| `en_attente` | En attente de traitement | Jaune   | Éditer, Supprimer |
-| `en_cours`   | En cours d'examen        | Bleu    | Aucune            |
-| `acceptee`   | Acceptée                 | Vert    | Aucune            |
-| `refusee`    | Refusée                  | Rouge   | Supprimer         |
-| `annulee`    | Annulée                  | Gris    | Supprimer         |
+| Statut        | Description              | Couleur | Actions           |
+| ------------- | ------------------------ | ------- | ----------------- |
+| `pending`     | En attente de traitement | Jaune   | Éditer, Supprimer |
+| `in_progress` | En cours d'examen        | Bleu    | Aucune            |
+| `accepted`    | Acceptée                 | Vert    | Aucune            |
+| `rejected`    | Refusée                  | Rouge   | Supprimer         |
+| `cancelled`   | Annulée                  | Gris    | Supprimer         |
 
 ## 🔧 Utilisation
 
@@ -259,8 +259,8 @@ const handleStatusFilter = (statuses: ApplicationStatus[]) => {
 
 ```bash
 # Supabase
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_anon_key
 
 # Stockage des documents
 VITE_MAX_FILE_SIZE=5242880  # 5MB

@@ -86,8 +86,8 @@ export default function AdminDashboard() {
         // Check admin access based on user_type instead of RPC
         const userType = profile?.user_type?.toLowerCase() || '';
 
-        // Allow access for admin_ansut or admin user types
-        const hasAdminAccess = userType === 'admin_ansut' || userType === 'admin';
+        // Allow access for admin user types
+        const hasAdminAccess = userType === 'admin' || userType === 'admin';
 
         if (!hasAdminAccess) {
           console.error('Access denied: user_type is', profile?.user_type);
@@ -404,7 +404,7 @@ export default function AdminDashboard() {
           })}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mx-auto max-w-4xl">
           <div className="lg:col-span-2 space-y-6">
             {/* Performance Chart */}
             <div className="bg-white rounded-[20px] border border-[#EFEBE9] p-6 card-animate-in card-stagger-5">

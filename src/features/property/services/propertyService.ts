@@ -4,7 +4,7 @@ export interface PropertyData {
   // Informations générales
   title: string;
   description: string;
-  propertyType: 'appartement' | 'maison' | 'villa' | 'terrain' | 'bureau' | 'local-commercial';
+  propertyType: 'apartment' | 'house' | 'villa' | 'land' | 'office' | 'commercial_space';
   bedrooms: number;
   bathrooms: number;
   area: number; // surface en m²
@@ -239,7 +239,7 @@ class PropertyService {
         has_garden: data.garden,
         has_ac: data.amenities.includes('climatisation'),
         deposit_amount: data.priceType === 'location' ? data.price * 2 : null, // 2 mois de caution par défaut
-        status: 'disponible',
+        status: 'available',
       };
 
       const { data: property, error } = await supabase
@@ -299,12 +299,12 @@ class PropertyService {
   // Obtenir les types de propriétés
   getPropertyTypes() {
     return [
-      { value: 'appartement', label: 'Appartement' },
-      { value: 'maison', label: 'Maison' },
+      { value: 'apartment', label: 'Appartement' },
+      { value: 'house', label: 'Maison' },
       { value: 'villa', label: 'Villa' },
-      { value: 'terrain', label: 'Terrain' },
-      { value: 'bureau', label: 'Bureau' },
-      { value: 'local-commercial', label: 'Local Commercial' },
+      { value: 'land', label: 'Terrain' },
+      { value: 'office', label: 'Bureau' },
+      { value: 'commercial_space', label: 'Local Commercial' },
     ];
   }
 

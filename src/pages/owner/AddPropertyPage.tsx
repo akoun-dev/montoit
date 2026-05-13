@@ -6,7 +6,6 @@ import {
   Home,
   X,
   Image as ImageIcon,
-  Building2,
   Check,
   RefreshCw,
   MapPin,
@@ -15,6 +14,7 @@ import {
   FileText,
   Navigation,
   Loader2,
+  Plus,
 } from 'lucide-react';
 import { NativeCameraUpload } from '@/components/native';
 import Modal from '@/shared/ui/Modal';
@@ -22,7 +22,6 @@ import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import {
   RESIDENTIAL_PROPERTY_TYPES,
-  COMMERCIAL_PROPERTY_TYPES,
   CITIES,
   ABIDJAN_COMMUNES,
   STORAGE_KEYS,
@@ -36,6 +35,11 @@ import { useNativeGeolocation } from '@/hooks/native/useNativeGeolocation';
 
 type PropertyType = Database['public']['Tables']['properties']['Row']['property_type'];
 
+interface CustomEquipment {
+  id: string;
+  name: string;
+}
+
 interface PropertyFormData {
   title: string;
   description: string;
@@ -43,7 +47,7 @@ interface PropertyFormData {
   city: string;
   neighborhood: string;
   property_type: PropertyType;
-  property_category: 'residential' | 'commercial';
+  property_category: 'residential';
   bedrooms: number;
   bathrooms: number;
   surface_area: string;
@@ -57,6 +61,7 @@ interface PropertyFormData {
   is_anonymous: boolean;
   latitude?: number | null;
   longitude?: number | null;
+  custom_equipment: CustomEquipment[];
 }
 
 // Character limits
@@ -72,7 +77,7 @@ const INITIAL_FORM_DATA: PropertyFormData = {
   address: '',
   city: '',
   neighborhood: '',
-  property_type: 'appartement' as PropertyType,
+  property_type: 'apartment' as PropertyType,
   property_category: 'residential',
   bedrooms: 1,
   bathrooms: 1,
@@ -87,6 +92,7 @@ const INITIAL_FORM_DATA: PropertyFormData = {
   is_anonymous: false,
   latitude: null,
   longitude: null,
+  custom_equipment: [],
 };
 
 // Step configuration
@@ -96,11 +102,9 @@ const STEPS = [
   { id: 3, label: 'Tarification', icon: DollarSign },
 ];
 
-const toDbCategory = (category: PropertyFormData['property_category']) =>
-  category === 'commercial' ? 'commercial' : 'residentiel';
+const toDbCategory = () => 'residential';
 
-const toUiCategory = (category?: string | null): PropertyFormData['property_category'] =>
-  category === 'commercial' ? 'commercial' : 'residential';
+const toUiCategory = (): PropertyFormData['property_category'] => 'residential';
 
 export default function AddProperty() {
   return <AddPropertyContent />;
@@ -134,7 +138,6 @@ export function AddPropertyContent() {
 
   // Hook de géolocalisation
   const {
-    position: geoPosition,
     isLoading: geoLoading,
     error: geoError,
     getCurrentPosition,
@@ -150,8 +153,13 @@ export function AddPropertyContent() {
   const isEditMode = !!editPropertyId;
   // Le layout est déjà géré par les routes, pas besoin d'encapsuler
 
-  // Load draft from localStorage on mount - show confirmation modal
+  // Load draft from localStorage on mount - show confirmation modal (only in create mode)
   useEffect(() => {
+    // Don't show draft modal in edit mode
+    if (isEditMode) {
+      return;
+    }
+
     const savedDraft = localStorage.getItem(STORAGE_KEYS.PROPERTY_DRAFT);
     if (savedDraft) {
       try {
@@ -166,7 +174,7 @@ export function AddPropertyContent() {
         localStorage.removeItem(STORAGE_KEYS.PROPERTY_DRAFT);
       }
     }
-  }, []);
+  }, [isEditMode]);
 
   const loadPropertyData = useCallback(
     async (propertyId: string) => {
@@ -198,10 +206,12 @@ export function AddPropertyContent() {
 
           // Charger les images existantes depuis la base de données
           const images = data.images || [];
-          const existingImagesData: ExistingImage[] = images.map((url: string) => ({
-            url,
-            id: url,
-          }));
+          const existingImagesData: ExistingImage[] = Array.isArray(images)
+            ? (images as string[]).map((url: string) => ({
+                url,
+                id: url,
+              }))
+            : [];
 
           setExistingImages(existingImagesData);
           setRemovedExistingImageUrls([]);
@@ -212,12 +222,12 @@ export function AddPropertyContent() {
             address: addressValue,
             city: data.city || '',
             neighborhood: data.neighborhood || '',
-            property_type: (data.property_type as PropertyType) || 'appartement',
-            property_category: toUiCategory(data.property_category),
+            property_type: (data.property_type as PropertyType) || 'apartment',
+            property_category: toUiCategory(),
             bedrooms: data.bedrooms ?? 0,
             bathrooms: data.bathrooms ?? 0,
             surface_area: data.surface_area?.toString() || '',
-            monthly_rent: (data.monthly_rent ?? data.price ?? '').toString(),
+            monthly_rent: (data.monthly_rent ?? (data as any).price ?? '').toString(),
             deposit_amount: data.deposit_amount?.toString() || '',
             charges_amount: data.charges_amount?.toString() || '',
             has_parking: data.has_parking ?? false,
@@ -227,6 +237,9 @@ export function AddPropertyContent() {
             is_anonymous: data.is_anonymous ?? false,
             latitude: data.latitude ?? null,
             longitude: data.longitude ?? null,
+            custom_equipment:
+              (data.custom_equipment as CustomEquipment[]) ??
+                [],
           });
         }
       } catch (error) {
@@ -243,6 +256,8 @@ export function AddPropertyContent() {
   // Load property data in edit mode
   useEffect(() => {
     if (isEditMode && editPropertyId) {
+      // Clear any existing draft when entering edit mode to avoid confusion
+      localStorage.removeItem(STORAGE_KEYS.PROPERTY_DRAFT);
       loadPropertyData(editPropertyId);
     }
   }, [isEditMode, editPropertyId, loadPropertyData]);
@@ -254,8 +269,13 @@ export function AddPropertyContent() {
     setTimeout(() => setDraftSaved(false), 2000);
   }, [formData]);
 
-  // Auto-save draft on form changes (debounced)
+  // Auto-save draft on form changes (debounced) - only in create mode
   useEffect(() => {
+    // Don't auto-save draft in edit mode
+    if (isEditMode) {
+      return;
+    }
+
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
@@ -270,7 +290,7 @@ export function AddPropertyContent() {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [formData, saveDraft]);
+  }, [formData, saveDraft, isEditMode]);
 
   // Clear draft
   const clearDraft = useCallback(() => {
@@ -308,13 +328,9 @@ export function AddPropertyContent() {
   };
 
   useEffect(() => {
-    const category = formData.property_category;
+    // Toujours utiliser les types résidentiels puisque la catégorie commerciale n'est plus disponible
+    const validTypes: string[] = RESIDENTIAL_PROPERTY_TYPES.map((pt) => pt.value);
     const currentType = formData.property_type;
-
-    const validTypes: string[] =
-      category === 'commercial'
-        ? COMMERCIAL_PROPERTY_TYPES.map((pt) => pt.value)
-        : RESIDENTIAL_PROPERTY_TYPES.map((pt) => pt.value);
 
     if (!validTypes.includes(currentType)) {
       setFormData((prev) => ({
@@ -347,6 +363,36 @@ export function AddPropertyContent() {
         longitude: result.longitude,
       }));
     }
+  };
+
+  // Handler pour ajouter un équipement personnalisé
+  const handleAddCustomEquipment = (equipmentName: string) => {
+    if (!equipmentName.trim()) return;
+
+    const trimmedName = equipmentName.trim();
+
+    // Vérifier si l'équipement existe déjà
+    if (formData.custom_equipment.some((eq) => eq.name.toLowerCase() === trimmedName.toLowerCase())) {
+      return; // Équipement déjà existant
+    }
+
+    const newEquipment: CustomEquipment = {
+      id: `custom-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      name: trimmedName,
+    };
+
+    setFormData((prev) => ({
+      ...prev,
+      custom_equipment: [...prev.custom_equipment, newEquipment],
+    }));
+  };
+
+  // Handler pour supprimer un équipement personnalisé
+  const handleRemoveCustomEquipment = (equipmentId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      custom_equipment: prev.custom_equipment.filter((eq) => eq.id !== equipmentId),
+    }));
   };
 
   // Validation en temps réel pour les champs critiques
@@ -405,9 +451,8 @@ export function AddPropertyContent() {
   };
 
   const getPropertyTypesForCategory = () => {
-    return formData.property_category === 'commercial'
-      ? COMMERCIAL_PROPERTY_TYPES
-      : RESIDENTIAL_PROPERTY_TYPES;
+    // Toujours retourner les types résidentiels puisque la catégorie commerciale n'est plus disponible
+    return RESIDENTIAL_PROPERTY_TYPES;
   };
 
   // Character count helpers
@@ -447,14 +492,9 @@ export function AddPropertyContent() {
   const uploadImages = async (propertyId: string): Promise<string[]> => {
     const uploadedUrls: string[] = [];
 
-    console.log('[uploadImages] Starting upload for property:', propertyId);
-    console.log('[uploadImages] Files to upload:', imageFiles.length);
-
     for (const file of imageFiles) {
       const fileExt = file.name.split('.').pop();
       const fileName = `${propertyId}/${Math.random().toString(36).substring(7)}.${fileExt}`;
-
-      console.log('[uploadImages] Uploading:', fileName);
 
       const { error: uploadError } = await supabase.storage
         .from('property-images')
@@ -469,11 +509,9 @@ export function AddPropertyContent() {
         data: { publicUrl },
       } = supabase.storage.from('property-images').getPublicUrl(fileName);
 
-      console.log('[uploadImages] Public URL:', publicUrl);
       uploadedUrls.push(publicUrl);
     }
 
-    console.log('[uploadImages] All uploads complete:', uploadedUrls);
     return uploadedUrls;
   };
 
@@ -512,7 +550,7 @@ export function AddPropertyContent() {
         city: formData.city || '',
         neighborhood: formData.neighborhood || null,
         property_type: formData.property_type,
-        property_category: toDbCategory(formData.property_category),
+        property_category: toDbCategory(),
         bedrooms: Number.isNaN(bedroomsValue) ? 0 : bedroomsValue,
         bathrooms: Number.isNaN(bathroomsValue) ? 0 : bathroomsValue,
         surface_area: normalizedSurface,
@@ -526,10 +564,11 @@ export function AddPropertyContent() {
         is_anonymous: !!formData.is_anonymous,
         latitude: formData.latitude ?? null,
         longitude: formData.longitude ?? null,
-        status: 'disponible' as const,
+        status: 'available' as const,
         images: [],
         main_image: null,
         views_count: 0,
+        custom_equipment: formData.custom_equipment,
       };
 
       let data, error;
@@ -560,7 +599,11 @@ export function AddPropertyContent() {
           `Erreur lors de ${isEditMode ? 'la mise à jour' : 'la création'} de la propriété`
         );
 
-      if (imageFiles.length > 0 || existingImages.length > 0 || removedExistingImageUrls.length > 0) {
+      if (
+        imageFiles.length > 0 ||
+        existingImages.length > 0 ||
+        removedExistingImageUrls.length > 0
+      ) {
         setUploadingImages(true);
 
         // Upload des nouvelles images
@@ -573,16 +616,11 @@ export function AddPropertyContent() {
         // - Garder les images existantes qui n'ont pas été supprimées
         // - Ajouter les nouvelles images uploadées
         const finalImages = [
-          ...existingImages.map((img) => img.url).filter((url) => !removedExistingImageUrls.includes(url)),
+          ...existingImages
+            .map((img) => img.url)
+            .filter((url) => !removedExistingImageUrls.includes(url)),
           ...newImageUrls,
         ];
-
-        console.log('[handleSubmit] Final images:', {
-          existing: existingImages.length,
-          removed: removedExistingImageUrls.length,
-          new: newImageUrls.length,
-          final: finalImages.length,
-        });
 
         const { error: updateError } = await supabase
           .from('properties')
@@ -596,8 +634,6 @@ export function AddPropertyContent() {
           console.error('[handleSubmit] Update error:', updateError);
           throw updateError;
         }
-
-        console.log('[handleSubmit] Property updated successfully with images');
       }
 
       // Clear draft after successful submission
@@ -834,32 +870,35 @@ export function AddPropertyContent() {
             >
               {/* Photos Section with NativeCameraUpload */}
               <div
-                className="bg-white p-6 rounded-2xl border shadow-sm"
+                className="bg-white p-4 rounded-xl border shadow-sm"
                 style={{ borderColor: 'var(--color-border)' }}
               >
-                <div className="flex items-center gap-2 mb-4">
-                  <ImageIcon className="w-5 h-5" style={{ color: 'var(--color-orange)' }} />
-                  <h2 className="font-bold" style={{ color: 'var(--color-chocolat)' }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <ImageIcon className="w-4 h-4" style={{ color: 'var(--color-orange)' }} />
+                  <h2 className="font-semibold text-sm" style={{ color: 'var(--color-chocolat)' }}>
                     Photos de la propriété
                   </h2>
                 </div>
 
                 {/* Preview grid for existing images from database */}
                 {existingImages.length > 0 && (
-                  <div className="mb-4">
+                  <div className="mb-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium" style={{ color: 'var(--color-gris-texte)' }}>
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: 'var(--color-gris-texte)' }}
+                      >
                         Photos actuelles ({existingImages.length})
                       </span>
                       <span className="text-xs" style={{ color: 'var(--color-gris-neutre)' }}>
                         Cliquez sur × pour supprimer
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
                       {existingImages.map((image, index) => (
                         <div
                           key={`existing-${image.id}`}
-                          className="relative aspect-square rounded-xl overflow-hidden group border border-gray-200"
+                          className="relative aspect-video rounded-lg overflow-hidden group border border-gray-200"
                         >
                           <img
                             src={image.url}
@@ -869,17 +908,17 @@ export function AddPropertyContent() {
                           <button
                             type="button"
                             onClick={() => removeExistingImage(image.url)}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            className="absolute top-1 right-1 bg-red-500 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
                             title="Supprimer cette photo"
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-3 w-3" />
                           </button>
                           {index === 0 && (
                             <div
-                              className="absolute bottom-2 left-2 text-white text-xs px-2 py-1 rounded-full font-medium"
+                              className="absolute bottom-1 left-1 text-white text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                               style={{ backgroundColor: 'var(--color-orange)' }}
                             >
-                              Photo principale
+                              Principal
                             </div>
                           )}
                         </div>
@@ -890,10 +929,13 @@ export function AddPropertyContent() {
 
                 {/* Preview grid for newly uploaded images */}
                 {imagePreviews.length > 0 && (
-                  <div className="mb-4">
+                  <div className="mb-3">
                     {existingImages.length > 0 && (
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium" style={{ color: 'var(--color-gris-texte)' }}>
+                        <span
+                          className="text-xs font-medium"
+                          style={{ color: 'var(--color-gris-texte)' }}
+                        >
                           Nouvelles photos ({imagePreviews.length})
                         </span>
                         <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">
@@ -901,11 +943,11 @@ export function AddPropertyContent() {
                         </span>
                       </div>
                     )}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
                       {imagePreviews.map((preview, index) => (
                         <div
                           key={`new-${index}`}
-                          className="relative aspect-square rounded-xl overflow-hidden group border-2 border-blue-200"
+                          className="relative aspect-video rounded-lg overflow-hidden group border-2 border-blue-200"
                         >
                           <img
                             src={preview}
@@ -915,20 +957,20 @@ export function AddPropertyContent() {
                           <button
                             type="button"
                             onClick={() => removeImage(index)}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            className="absolute top-1 right-1 bg-red-500 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
                             title="Supprimer cette photo"
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-3 w-3" />
                           </button>
-                          <span className="absolute top-2 left-2 text-xs px-2 py-1 rounded-full font-medium bg-blue-500 text-white">
+                          <span className="absolute top-1 left-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-blue-500 text-white">
                             Nouveau
                           </span>
                           {existingImages.length === 0 && index === 0 && (
                             <div
-                              className="absolute bottom-2 left-2 text-white text-xs px-2 py-1 rounded-full font-medium"
+                              className="absolute bottom-1 left-1 text-white text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                               style={{ backgroundColor: 'var(--color-orange)' }}
                             >
-                              Photo principale
+                              Principal
                             </div>
                           )}
                         </div>
@@ -939,36 +981,37 @@ export function AddPropertyContent() {
 
                 {/* NativeCameraUpload for adding new images */}
                 {existingImages.length + imageFiles.length < 10 && (
-                  <NativeCameraUpload
-                    multiple
-                    maxImages={10 - existingImages.length - imageFiles.length}
-                    showPreview={false}
-                    label="Ajouter des photos"
-                    variant="card"
-                    compressionQuality={0.8}
-                    compressionMaxWidth={1920}
-                    onImageCaptured={(file, preview) => {
-                      if (existingImages.length + imageFiles.length < 10) {
-                        setImageFiles((prev) => [...prev, file]);
-                        setImagePreviews((prev) => [...prev, preview]);
-                      }
-                    }}
-                    onMultipleImages={(files, previews) => {
-                      const remaining = 10 - existingImages.length - imageFiles.length;
-                      const filesToAdd = files.slice(0, remaining);
-                      const previewsToAdd = previews.slice(0, remaining);
-                      setImageFiles((prev) => [...prev, ...filesToAdd]);
-                      setImagePreviews((prev) => [...prev, ...previewsToAdd]);
-                    }}
-                  />
+                  <div className="mt-3">
+                    <NativeCameraUpload
+                      multiple
+                      maxImages={10 - existingImages.length - imageFiles.length}
+                      showPreview={false}
+                      label="Ajouter des photos"
+                      compressionQuality={0.8}
+                      compressionMaxWidth={1920}
+                      onImageCaptured={(file, preview) => {
+                        if (existingImages.length + imageFiles.length < 10) {
+                          setImageFiles((prev) => [...prev, file]);
+                          setImagePreviews((prev) => [...prev, preview]);
+                        }
+                      }}
+                      onMultipleImages={(files, previews) => {
+                        const remaining = 10 - existingImages.length - imageFiles.length;
+                        const filesToAdd = files.slice(0, remaining);
+                        const previewsToAdd = previews.slice(0, remaining);
+                        setImageFiles((prev) => [...prev, ...filesToAdd]);
+                        setImagePreviews((prev) => [...prev, ...previewsToAdd]);
+                      }}
+                    />
+                  </div>
                 )}
 
                 <p
-                  className="text-xs text-center mt-3"
+                  className="text-xs text-center mt-2"
                   style={{ color: 'var(--color-gris-neutre)' }}
                 >
-                  {existingImages.length + imageFiles.length}/10 photos • La première photo sera
-                  l'image principale
+                  {existingImages.length + imageFiles.length}/10 photos • La première sera
+                  principale
                 </p>
               </div>
 
@@ -1013,30 +1056,10 @@ export function AddPropertyContent() {
                     >
                       <Home className="w-4 h-4" /> Résidentiel
                     </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({ ...prev, property_category: 'commercial' }))
-                      }
-                      className={`flex-1 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
-                        formData.property_category === 'commercial'
-                          ? 'text-white shadow-lg'
-                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                      }`}
-                      style={{
-                        backgroundColor:
-                          formData.property_category === 'commercial'
-                            ? 'var(--color-orange)'
-                            : undefined,
-                        boxShadow:
-                          formData.property_category === 'commercial'
-                            ? '0 8px 20px rgba(241, 101, 34, 0.25)'
-                            : undefined,
-                      }}
-                    >
-                      <Building2 className="w-4 h-4" /> Commercial
-                    </button>
                   </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Seules les propriétés résidentielles sont acceptées
+                  </p>
                 </div>
 
                 {/* Title */}
@@ -1224,9 +1247,10 @@ export function AddPropertyContent() {
                   className="p-4 rounded-xl border-2 border-dashed flex items-center justify-between"
                   style={{
                     borderColor: 'var(--color-border)',
-                    backgroundColor: (formData.latitude && formData.longitude)
-                      ? 'var(--color-orange-50)'
-                      : 'transparent'
+                    backgroundColor:
+                      formData.latitude && formData.longitude
+                        ? 'var(--color-orange-50)'
+                        : 'transparent',
                   }}
                 >
                   <div className="flex items-center gap-3">
@@ -1234,10 +1258,7 @@ export function AddPropertyContent() {
                       className="p-2 rounded-full"
                       style={{ backgroundColor: 'var(--color-orange-100)' }}
                     >
-                      <Navigation
-                        className="w-5 h-5"
-                        style={{ color: 'var(--color-orange)' }}
-                      />
+                      <Navigation className="w-5 h-5" style={{ color: 'var(--color-orange)' }} />
                     </div>
                     <div>
                       <p
@@ -1248,17 +1269,12 @@ export function AddPropertyContent() {
                           ? 'Position capturée'
                           : 'Géolocalisation'}
                       </p>
-                      <p
-                        className="text-xs"
-                        style={{ color: 'var(--color-gris-neutre)' }}
-                      >
+                      <p className="text-xs" style={{ color: 'var(--color-gris-neutre)' }}>
                         {formData.latitude && formData.longitude
                           ? `${formData.latitude.toFixed(6)}, ${formData.longitude.toFixed(6)}`
                           : 'Utilisez votre position actuelle'}
                       </p>
-                      {geoError && (
-                        <p className="text-xs text-red-500 mt-1">{geoError}</p>
-                      )}
+                      {geoError && <p className="text-xs text-red-500 mt-1">{geoError}</p>}
                     </div>
                   </div>
                   <button
@@ -1506,9 +1522,93 @@ export function AddPropertyContent() {
                   ))}
                 </div>
 
+                {/* Custom Equipment Section */}
+                <div className="pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span
+                      className="font-semibold text-sm"
+                      style={{ color: 'var(--color-chocolat)' }}
+                    >
+                      + Équipements personnalisés
+                    </span>
+                    <span
+                      className="text-xs"
+                      style={{ color: 'var(--color-gris-neutre)' }}
+                    >
+                      Ajoutez vos propres équipements
+                    </span>
+                  </div>
+
+                  {/* Input for adding custom equipment */}
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      type="text"
+                      id="custom-equipment-input"
+                      placeholder="Ex: Piscine, Chauffe-eau, Cheminée..."
+                      className="input-premium flex-1"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const input = e.currentTarget;
+                          handleAddCustomEquipment(input.value);
+                          input.value = '';
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const input = document.getElementById(
+                          'custom-equipment-input'
+                        ) as HTMLInputElement;
+                        if (input) {
+                          handleAddCustomEquipment(input.value);
+                          input.value = '';
+                        }
+                      }}
+                      className="px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2"
+                      style={{
+                        backgroundColor: 'var(--color-orange)',
+                        color: 'white',
+                      }}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Ajouter
+                    </button>
+                  </div>
+
+                  {/* List of custom equipment */}
+                  {formData.custom_equipment.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.custom_equipment.map((equipment) => (
+                        <div
+                          key={equipment.id}
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium"
+                          style={{
+                            backgroundColor: 'var(--color-orange-50)',
+                            color: 'var(--color-chocolat)',
+                            border: '1px solid var(--color-orange-100)',
+                          }}
+                        >
+                          <span>{equipment.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCustomEquipment(equipment.id)}
+                            className="p-0.5 rounded-full hover:bg-red-100 transition-colors"
+                            title="Supprimer"
+                          >
+                            <X className="h-3 w-3 text-red-500" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {/* Option Gestion Anonyme */}
                 <div className="pt-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                  <label
+                  <div
+                    onClick={() => setFormData((prev) => ({ ...prev, is_anonymous: !prev.is_anonymous }))}
                     className={`flex items-start gap-4 p-4 rounded-xl cursor-pointer transition-all border ${
                       formData.is_anonymous
                         ? 'border-[var(--color-orange)] bg-[var(--color-orange-50)]'
@@ -1520,6 +1620,7 @@ export function AddPropertyContent() {
                       name="is_anonymous"
                       checked={formData.is_anonymous}
                       onChange={handleChange}
+                      onClick={(e) => e.stopPropagation()}
                       className="w-5 h-5 mt-0.5 rounded text-[var(--color-orange)] focus:ring-[var(--color-orange)]"
                       style={{ accentColor: 'var(--color-orange)' }}
                     />
@@ -1542,7 +1643,7 @@ export function AddPropertyContent() {
                         place. Nécessite un mandat avec une agence.
                       </span>
                     </div>
-                  </label>
+                  </div>
                 </div>
               </div>
 

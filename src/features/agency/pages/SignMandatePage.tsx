@@ -45,7 +45,6 @@ export default function SignMandatePage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedResponsibilities, setAcceptedResponsibilities] = useState(false);
   const [signerType, setSignerType] = useState<'owner' | 'agency' | null>(null);
-  const [_signatureComplete, setSignatureComplete] = useState(false);
 
   const { step: currentStep, slideDirection, goToStep, nextStep, prevStep } = useFormStepper(3);
 
@@ -556,7 +555,7 @@ export default function SignMandatePage() {
                 <Button variant="outline" onClick={() => navigate('/agences/mandats')}>
                   Voir mes mandats
                 </Button>
-                <Button onClick={() => navigate(`/mandat/${mandate.id}`)}>
+                <Button onClick={() => navigate(`/agences/mandats/${mandate.id}`)}>
                   Voir le détail du mandat
                 </Button>
               </div>

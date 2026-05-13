@@ -41,8 +41,6 @@ const fallbackToast = (message: string, type: ToastType, options?: ToastOptions)
   const fullMessage = options?.description
     ? `${prefix} ${message}: ${options.description}`
     : `${prefix} ${message}`;
-
-  console.log(`[Toast ${type}]`, fullMessage);
 };
 
 const showToast = (message: string, type: ToastType = 'info', options?: ToastOptions) => {

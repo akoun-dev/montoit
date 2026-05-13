@@ -15,26 +15,34 @@ export type AdminStatus = 'active' | 'inactive' | 'pending' | 'suspended' | 'del
 
 export type LogLevel = 'info' | 'warning' | 'error' | 'debug';
 
-export type UserRole =
-  | 'admin'
-  | 'admin_ansut'
-  | 'moderator'
-  | 'trust_agent'
-  | 'user'
-  | 'locataire'
-  | 'proprietaire'
-  | 'agence'
-  | 'owner'
-  | 'agent'
-  | 'tenant';
+export type UserRole = 'admin' | 'trust_agent' | 'tenant' | 'owner' | 'agency';
 
-export type UserType = 'locataire' | 'proprietaire' | 'agence' | 'admin' | 'admin_ansut' | 'trust_agent' | 'moderator';
+export type UserType = 'tenant' | 'owner' | 'agency' | 'trust_agent' | 'admin';
 
-export type VerificationStatus = 'not_started' | 'pending' | 'in_review' | 'verified' | 'rejected';
+export type VerificationStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'approved'
+  | 'rejected'
+  | 'expired';
 
-export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'refunded' | 'cancelled';
+export type PaymentStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'overdue'
+  | 'partial'
+  | 'refunded'
+  | 'cancelled';
 
-export type PropertyStatus = 'available' | 'rented' | 'unavailable' | 'pending';
+export type PropertyStatus =
+  | 'available'
+  | 'rented'
+  | 'unavailable'
+  | 'pending'
+  | 'maintenance'
+  | 'inactive';
 
 export type CEVMissionStatus = 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
 
@@ -542,7 +550,7 @@ export type ExportFormat = 'csv' | 'pdf' | 'excel';
 
 export interface ExportParams {
   format: ExportFormat;
-  data: any[];
+  data: unknown[];
   filename: string;
   columns?: string[];
   includeHeaders?: boolean;
@@ -653,7 +661,7 @@ export interface ColumnConfig {
   align?: 'left' | 'center' | 'right';
   sortable?: boolean;
   filterable?: boolean;
-  render?: (value: any, record: any) => React.ReactNode;
+  render?: (value: unknown, record: unknown) => React.ReactNode;
 }
 
 export interface SortConfig {
@@ -664,5 +672,5 @@ export interface SortConfig {
 export interface FilterConfig {
   key: string;
   operator: 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'like' | 'ilike' | 'in';
-  value: any;
+  value: unknown;
 }

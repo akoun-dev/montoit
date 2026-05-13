@@ -22,7 +22,7 @@ export function SimpleUsage() {
 
 // Exemple 2: Utilisation avec hooks personnalisés
 export function CustomUsage() {
-  const { isOpen, toggleMenu, closeMenu } = useMobileMenu();
+  const { isOpen, toggleMenu } = useMobileMenu();
 
   return (
     <div className="min-h-screen">
@@ -30,7 +30,8 @@ export function CustomUsage() {
       <Header />
       
       {/* Bouton personnalisé pour trigger le menu */}
-      <button 
+      <button
+        type="button"
         onClick={toggleMenu}
         className="fixed bottom-8 right-8 bg-blue-600 text-white p-4 rounded-full shadow-lg z-30"
       >
@@ -77,8 +78,8 @@ export function ConditionalLayout() {
 
 // Exemple 4: Page avec gestion d'état complexe
 export function ComplexPage() {
-  const { isOpen, openMenu, closeMenu } = useMobileMenu();
-  const [user, setUser] = React.useState(null);
+  const { isOpen, openMenu, closeMenu, toggleMenu } = useMobileMenu();
+  const [user] = React.useState<{ name: string } | null>({ name: 'Utilisateur' });
 
   // Auto-close menu on navigation (simulation)
   React.useEffect(() => {
@@ -99,7 +100,8 @@ export function ComplexPage() {
         <h2>Bienvenue {user?.name || 'Utilisateur'}</h2>
         <div className="flex items-center space-x-4">
           <span className="text-sm text-gray-600">Connecté</span>
-          <button 
+          <button
+            type="button"
             onClick={openMenu}
             className="bg-blue-600 text-white px-3 py-1 rounded text-sm"
           >
@@ -123,7 +125,8 @@ export function ComplexPage() {
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="font-semibold mb-2">Actions</h3>
-              <button 
+              <button
+                type="button"
                 onClick={toggleMenu}
                 className="bg-green-600 text-white px-4 py-2 rounded"
               >
@@ -175,10 +178,11 @@ export function AppWithRouting() {
               {navigationItems.map(item => (
                 <button
                   key={item.id}
+                  type="button"
                   onClick={() => handleNavigation(item.id)}
                   className={`block w-full text-left p-3 rounded transition-colors ${
-                    currentPage === item.id 
-                      ? 'bg-blue-100 text-blue-700' 
+                    currentPage === item.id
+                      ? 'bg-blue-100 text-blue-700'
                       : 'hover:bg-gray-100'
                   }`}
                 >
@@ -225,8 +229,9 @@ export function PerformanceTest() {
             <h3 className="font-semibold mb-4">Métriques</h3>
             <p>État: {isOpen ? 'Ouvert' : 'Fermé'}</p>
             <p>Temps d'ouverture: {metrics.openTime?.toFixed(2) || 'N/A'}ms</p>
-            
-            <button 
+
+            <button
+              type="button"
               onClick={toggleMenu}
               className="mt-4 bg-blue-600 text-white px-4 py-2 rounded"
             >
@@ -269,7 +274,7 @@ export default function MenuExamples() {
       {/* Sélecteur d'exemple */}
       <div className="fixed top-4 left-4 z-50 bg-white rounded-lg shadow-lg p-4">
         <h3 className="font-semibold mb-2">Exemples</h3>
-        <select 
+        <select
           value={example}
           onChange={(e) => setExample(e.target.value)}
           className="border rounded px-2 py-1 text-sm"

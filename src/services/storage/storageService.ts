@@ -7,9 +7,6 @@ export function getPublicUrl(bucket: string, path: string): string {
   // En production, on s'assure d'avoir l'URL de production
   const publicUrl = data.publicUrl;
 
-  // Pour le débogage
-  console.log('[Storage Service] URL générée pour', bucket, ':', publicUrl);
-
   return publicUrl;
 }
 

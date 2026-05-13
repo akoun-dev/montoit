@@ -29,13 +29,13 @@ export default function AgencyAnalyticsPage() {
       const propertyIds = (propsData || []).map((p) => p.id);
 
       const [{ data: contracts }, { data: applications }, { data: visits }] = await Promise.all([
-        supabase.from('lease_contracts').select('id').eq('owner_id', user.id).eq('status', 'actif'),
+        supabase.from('lease_contracts').select('id').eq('owner_id', user.id).eq('status', 'active'),
         propertyIds.length > 0
           ? supabase
               .from('rental_applications')
               .select('id, status')
               .in('property_id', propertyIds)
-              .eq('status', 'en_attente')
+              .eq('status', 'pending')
           : Promise.resolve({ data: [] }),
         supabase
           .from('visit_requests')
@@ -48,9 +48,9 @@ export default function AgencyAnalyticsPage() {
       const pendingApplications = applications?.length || 0;
       const now = new Date();
       const upcomingVisits =
-        visits?.filter((v: any) => {
+        visits?.filter((v: unknown) => {
           const d = v.confirmed_date ? new Date(v.confirmed_date) : null;
-          return d && d >= now && (v.status === 'en_attente' || v.status === 'confirmee');
+          return d && d >= now && (v.status === 'pending' || v.status === 'confirmed');
         }).length || 0;
 
       // Mandates: approximation = properties owned (if no dedicated table)

@@ -23,7 +23,7 @@ interface AzureOpenAIConfig extends ApiConfig {
   apiVersion: string;
 }
 
-interface AzureAIServicesConfig extends ApiConfig {}
+type AzureAIServicesConfig = ApiConfig;
 
 interface AzureSpeechConfig extends ApiConfig {
   region: string;
@@ -31,7 +31,7 @@ interface AzureSpeechConfig extends ApiConfig {
   ttsEndpoint: string;
 }
 
-interface MapConfig extends ApiConfig {}
+type MapConfig = ApiConfig;
 
 interface PaymentConfig {
   baseUrl: string;
@@ -59,12 +59,13 @@ interface EmailConfig extends ApiConfig {
   domain: string;
 }
 
-interface LLMConfig extends ApiConfig {}
+type LLMConfig = ApiConfig;
 
 interface ONECIConfig extends ApiConfig {
   apiBase: string;
   cevEndpoint: string;
   secretKey: string;
+  apiKey: string;
 }
 
 class ApiKeysConfig {
@@ -150,11 +151,17 @@ class ApiKeysConfig {
 
     oneci: {
       key: import.meta.env['VITE_ONECI_API_KEY'] || '',
-      endpoint: import.meta.env['VITE_ONECI_API_URL'] || 'https://api-rnpp.verif.ci/api/v1',
-      apiBase: import.meta.env['VITE_ONECI_API_URL'] || 'https://api-rnpp.verif.ci/api/v1',
-      cevEndpoint: '/cev',
+      endpoint: import.meta.env['VITE_ONECI_API_URL'] || 'https://api-rnpp.verif.ci',
+      apiBase: import.meta.env['VITE_ONECI_API_URL'] || 'https://api-rnpp.verif.ci',
+      cevEndpoint: '/api/v1/cev',
       secretKey: import.meta.env['VITE_ONECI_SECRET_KEY'] || '',
-      isConfigured: !!import.meta.env['VITE_ONECI_API_KEY'],
+      apiKey: import.meta.env['VITE_ONECI_API_KEY'] || '',
+      // Les credentials ONECI vivent desormais cote edge function; le front n'a
+      // besoin que de la configuration publique Supabase pour appeler le proxy.
+      isConfigured: !!(
+        (import.meta.env['VITE_SUPABASE_URL'] || import.meta.env['SUPABASE_URL']) &&
+        (import.meta.env['VITE_SUPABASE_ANON_KEY'] || import.meta.env['SUPABASE_ANON_KEY'])
+      ),
     } as ONECIConfig,
   };
 
@@ -179,9 +186,8 @@ class ApiKeysConfig {
       domain: import.meta.env['RESEND_DOMAIN'] || 'notifications.ansut.ci',
       isConfigured: !!import.meta.env['RESEND_API_KEY'],
     } as EmailConfig,
-    // SMS/WhatsApp : passent par les Edge Functions Supabase (send-sms-brevo, send-whatsapp-hybrid)
-    // La clé BREVO_API_KEY est stockée dans Supabase Secrets, jamais côté client
-    // Voir: docs/security/brevo-ip-whitelist.md
+    // SMS/WhatsApp : passent par les Edge Functions Supabase (send-sms-azure)
+    // La clé Azure SMS est stockée dans Supabase Secrets, jamais côté client
   };
 
   readonly llm = {
@@ -223,7 +229,7 @@ class ApiKeysConfig {
     }
 
     if (!this.verification.oneci.isConfigured) {
-      warnings.push('ONECI - La vérification d\'identité nationale ne sera pas disponible');
+      warnings.push("ONECI - La vérification d'identité nationale ne sera pas disponible");
     }
 
     if (!this.signature.cryptoneo.isConfigured) {
@@ -255,7 +261,7 @@ class ApiKeysConfig {
       oneciVerification: this.verification.oneci.isConfigured,
       cryptoneoSignature: this.signature.cryptoneo.isConfigured,
       emailService: this.communication.email.isConfigured,
-      // SMS/WhatsApp: toujours disponible via Edge Functions (send-sms-brevo, send-whatsapp-hybrid)
+      // SMS/WhatsApp: toujours disponible via Edge Functions (send-sms-azure)
       smsService: true, // Géré par Supabase Edge Functions
       geminiLLM: this.llm.gemini.isConfigured,
       deepseekLLM: this.llm.deepseek.isConfigured,

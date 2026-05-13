@@ -45,7 +45,7 @@ export interface OTPSendRequest {
 export interface OTPSendResponse {
   statusCode: number;
   statusMessage: string;
-  data: any;
+  data: unknown;
 }
 
 export interface SignDocumentRequest {
@@ -102,12 +102,68 @@ export interface SignatureResult {
  */
 export class CryptoNeoService {
   private tokenCache: { token: string; expiresAt: number } | null = null;
+  private healthCheckCache: { healthy: boolean; checkedAt: number } | null = null;
 
   /**
    * Vérifie si le service est configuré
    */
   isConfigured(): boolean {
     return apiKeysConfig.signature.cryptoneo.isConfigured;
+  }
+
+  /**
+   * Get the edge function URL
+   */
+  private getFunctionUrl(functionName: string): string {
+    const supabaseUrl = supabase.functions.url || import.meta.env.VITE_SUPABASE_URL || '';
+    return supabaseUrl.replace('/rest/v1', '').replace('/functions/v1', '') + `/functions/v1/${functionName}`;
+  }
+
+  /**
+   * Vérifie la santé des edge functions CryptoNeo
+   */
+  async healthCheck(): Promise<{ healthy: boolean; error?: string }> {
+    // Cache health check result for 30 seconds
+    if (this.healthCheckCache && this.healthCheckCache.checkedAt > Date.now() - 30000) {
+      return { healthy: this.healthCheckCache.healthy };
+    }
+
+    try {
+      const authUrl = this.getFunctionUrl('cryptoneo-auth');
+      console.log('[CryptoNeo] Health check URL:', authUrl);
+
+      const response = await fetch(authUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+
+      this.healthCheckCache = {
+        healthy: response.ok || response.status < 500, // Accept 4xx as service is running
+        checkedAt: Date.now(),
+      };
+
+      if (!response.ok && response.status >= 500) {
+        return {
+          healthy: false,
+          error: `Edge function returned ${response.status}`,
+        };
+      }
+
+      return { healthy: true };
+    } catch (error) {
+      console.error('[CryptoNeo] Health check failed:', error);
+      this.healthCheckCache = {
+        healthy: false,
+        checkedAt: Date.now(),
+      };
+      return {
+        healthy: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
   }
 
   /**
@@ -150,8 +206,12 @@ export class CryptoNeoService {
       throw new Error('Non authentifié');
     }
 
-    const functionUrl = `${supabase.functions.url}/cryptoneo-generate-certificate`;
+    // Build the edge function URL properly
+    const supabaseUrl = supabase.functions.url || import.meta.env.VITE_SUPABASE_URL || '';
+    const functionUrl = supabaseUrl.replace('/rest/v1', '').replace('/functions/v1', '') + '/functions/v1/cryptoneo-generate-certificate';
+
     console.log('CryptoNeo generateCertificate URL:', functionUrl);
+    console.log('Supabase URL:', supabaseUrl);
     console.log('Request body size:', JSON.stringify(request).length, 'bytes');
 
     console.log('CryptoNeo generateCertificate request BEFORE sending:', JSON.stringify({
@@ -164,6 +224,7 @@ export class CryptoNeoService {
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 secondes timeout
 
     try {
+      console.log('[CryptoNeo] Starting fetch request to:', functionUrl);
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
@@ -201,8 +262,17 @@ export class CryptoNeoService {
         throw new Error('Timeout : la génération du certificat prend trop de temps (>60s)');
       }
       if (error instanceof Error && error.message === 'Failed to fetch') {
-        console.error('Network error - check console for CORS details');
-        throw new Error('Erreur réseau : vérifiez votre connexion ou les paramètres CORS');
+        console.error('[CryptoNeo] Network error - Failed to fetch');
+        console.error('[CryptoNeo] Possible causes:');
+        console.error('  1. Edge function not deployed');
+        console.error('  2. CORS configuration issue');
+        console.error('  3. Network connectivity problem');
+        console.error('  4. CRYPTONEO_BASE_URL not set in Supabase dashboard');
+        throw new Error('Erreur réseau : le service de signature est inaccessible. Vérifiez votre connexion ou réessayez plus tard.');
+      }
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('[CryptoNeo] TypeError during fetch:', error);
+        throw new Error('Erreur de communication avec le service de signature. Veuillez réessayer.');
       }
       throw error;
     }
@@ -219,38 +289,51 @@ export class CryptoNeoService {
       throw new Error('Non authentifié');
     }
 
-    const response = await fetch(`${supabase.functions.url}/cryptoneo-send-otp`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        canal: request.canal,
-        phone: request.phone,
-        email: request.email,
-      }),
-    });
+    const functionUrl = this.getFunctionUrl('cryptoneo-send-otp');
+    console.log('[CryptoNeo] sendOTP URL:', functionUrl);
 
-    const responseText = await response.text();
+    try {
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          canal: request.canal,
+          phone: request.phone,
+          email: request.email,
+        }),
+      });
 
-    console.log('CryptoNeo sendOTP response:', {
-      status: response.status,
-      ok: response.ok,
-      body: responseText.substring(0, 500),
-    });
+      const responseText = await response.text();
 
-    if (!response.ok) {
-      try {
-        const errorJson = JSON.parse(responseText);
-        throw new Error(errorJson.error || errorJson.message || responseText);
-      } catch {
-        throw new Error(`Erreur d'envoi OTP (${response.status}): ${responseText}`);
+      console.log('CryptoNeo sendOTP response:', {
+        status: response.status,
+        ok: response.ok,
+        body: responseText.substring(0, 500),
+      });
+
+      if (!response.ok) {
+        try {
+          const errorJson = JSON.parse(responseText);
+          throw new Error(errorJson.error || errorJson.message || responseText);
+        } catch {
+          throw new Error(`Erreur d'envoi OTP (${response.status}): ${responseText}`);
+        }
       }
-    }
 
-    const data = JSON.parse(responseText);
-    return data as OTPSendResponse;
+      const data = JSON.parse(responseText);
+      return data as OTPSendResponse;
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Failed to fetch') {
+        throw new Error('Erreur réseau : le service d\'envoi OTP est inaccessible. Veuillez réessayer.');
+      }
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Erreur de communication avec le service. Veuillez réessayer.');
+      }
+      throw error;
+    }
   }
 
   /**
@@ -264,34 +347,47 @@ export class CryptoNeoService {
       throw new Error('Non authentifié');
     }
 
-    const response = await fetch(`${supabase.functions.url}/cryptoneo-sign-document`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
+    const functionUrl = this.getFunctionUrl('cryptoneo-sign-document');
+    console.log('[CryptoNeo] signDocuments URL:', functionUrl);
 
-    const responseText = await response.text();
+    try {
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      });
 
-    console.log('CryptoNeo signDocuments response:', {
-      status: response.status,
-      ok: response.ok,
-      body: responseText.substring(0, 500),
-    });
+      const responseText = await response.text();
 
-    if (!response.ok) {
-      try {
-        const errorJson = JSON.parse(responseText);
-        throw new Error(errorJson.error || errorJson.message || responseText);
-      } catch {
-        throw new Error(`Erreur de signature (${response.status}): ${responseText}`);
+      console.log('CryptoNeo signDocuments response:', {
+        status: response.status,
+        ok: response.ok,
+        body: responseText.substring(0, 500),
+      });
+
+      if (!response.ok) {
+        try {
+          const errorJson = JSON.parse(responseText);
+          throw new Error(errorJson.error || errorJson.message || responseText);
+        } catch {
+          throw new Error(`Erreur de signature (${response.status}): ${responseText}`);
+        }
       }
-    }
 
-    const data = JSON.parse(responseText);
-    return data as SignDocumentResponse;
+      const data = JSON.parse(responseText);
+      return data as SignDocumentResponse;
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Failed to fetch') {
+        throw new Error('Erreur réseau : le service de signature est inaccessible. Veuillez réessayer.');
+      }
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Erreur de communication avec le service de signature. Veuillez réessayer.');
+      }
+      throw error;
+    }
   }
 
   /**

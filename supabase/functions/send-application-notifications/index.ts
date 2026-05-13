@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,68 +32,72 @@ interface PropertyDetails {
   monthly_rent: number;
 }
 
-interface ProfileDetails {
-  user_id: string;
-  full_name: string;
-  email: string;
-}
+// Mapping des types de notifications vers les types de la base de données
+const notificationTypeMapping: Record<string, 'info' | 'success' | 'warning' | 'error'> = {
+  'application_received': 'info',
+  'application_viewed': 'info',
+  'application_accepted': 'success',
+  'application_rejected': 'error',
+  'visit_scheduled': 'info',
+  'documents_requested': 'warning',
+};
 
 // Configuration des types de notifications
 const notificationConfig: Record<string, {
-  title: (data: any) => string;
-  message: (data: any) => string;
+  title: (data: Record<string, unknown>) => string;
+  message: (data: Record<string, unknown>) => string;
   actionUrl: (applicationId: string, propertyId?: string) => string;
   emailTemplate: string;
-  emailSubject: (data: any) => string;
+  emailSubject: (data: Record<string, unknown>) => string;
   getRecipients: (application: ApplicationDetails, property: PropertyDetails, recipientId?: string) => string[];
 }> = {
   'application_received': {
     title: () => '📩 Nouvelle candidature reçue',
     message: (data) => `${data.applicantName} a postulé pour "${data.propertyTitle}" avec un score de ${data.score}/100`,
-    actionUrl: (_appId, _propId) => '/dashboard/candidatures',
+    actionUrl: (_appId: string, _propId?: string) => '/proprietaire/candidatures',
     emailTemplate: 'application-received',
     emailSubject: (data) => `📩 Nouvelle candidature - ${data.propertyTitle}`,
-    getRecipients: (_app, property) => [property.owner_id]
+    getRecipients: (_app: ApplicationDetails, property: PropertyDetails) => [property.owner_id]
   },
   'application_viewed': {
     title: () => '👁️ Candidature consultée',
     message: (data) => `Le propriétaire a consulté votre candidature pour "${data.propertyTitle}"`,
-    actionUrl: () => '/mes-candidatures',
+    actionUrl: (_appId?: string, _propId?: string) => '/locataire/mes-candidatures',
     emailTemplate: 'application-viewed',
     emailSubject: (data) => `👁️ Votre candidature a été vue - ${data.propertyTitle}`,
-    getRecipients: (app) => [app.applicant_id]
+    getRecipients: (app: ApplicationDetails) => [app.applicant_id]
   },
   'application_accepted': {
     title: () => '🎉 Candidature acceptée !',
     message: (data) => `Félicitations ! Votre candidature pour "${data.propertyTitle}" a été acceptée.`,
-    actionUrl: (appId) => `/locataire/candidature/${appId}`,
+    actionUrl: (_appId: string, _propId?: string) => `/locataire/mes-candidatures`,
     emailTemplate: 'application-accepted',
     emailSubject: (data) => `🎉 Candidature acceptée - ${data.propertyTitle}`,
-    getRecipients: (app) => [app.applicant_id]
+    getRecipients: (app: ApplicationDetails) => [app.applicant_id]
   },
   'application_rejected': {
     title: () => '❌ Candidature refusée',
     message: (data) => `Votre candidature pour "${data.propertyTitle}" n'a malheureusement pas été retenue.${data.reason ? ` Raison: ${data.reason}` : ''}`,
-    actionUrl: () => '/recherche',
+    actionUrl: (_appId?: string, _propId?: string) => '/recherche',
     emailTemplate: 'application-rejected',
     emailSubject: (data) => `Candidature non retenue - ${data.propertyTitle}`,
-    getRecipients: (app) => [app.applicant_id]
+    getRecipients: (app: ApplicationDetails) => [app.applicant_id]
   },
   'visit_scheduled': {
     title: () => '📅 Visite planifiée',
     message: (data) => `Une visite est planifiée le ${data.visitDate} pour "${data.propertyTitle}"`,
-    actionUrl: () => '/mes-visites',
+    actionUrl: (_appId?: string, _propId?: string) => '/locataire/mes-visites',
     emailTemplate: 'visit-scheduled-for-application',
     emailSubject: (data) => `📅 Visite planifiée - ${data.propertyTitle}`,
-    getRecipients: (app) => [app.applicant_id]
+    getRecipients: (app: ApplicationDetails) => [app.applicant_id]
   },
   'documents_requested': {
     title: () => '📋 Documents supplémentaires requis',
     message: (data) => `Des documents supplémentaires sont demandés pour votre candidature: ${data.documents?.join(', ') || 'documents'}`,
-    actionUrl: (appId) => `/locataire/candidature/${appId}`,
+    actionUrl: (_appId: string, _propId?: string) => `/locataire/mes-candidatures`,
     emailTemplate: 'documents-requested',
     emailSubject: (data) => `📋 Documents requis - ${data.propertyTitle}`,
-    getRecipients: (app) => [app.applicant_id]
+    getRecipients: (app: ApplicationDetails) => [app.applicant_id]
   }
 };
 
@@ -165,8 +169,8 @@ Deno.serve(async (req: Request) => {
       .single();
 
     // Determine recipients
-    const recipientIds = recipientId 
-      ? [recipientId] 
+    const recipientIds = recipientId
+      ? [recipientId]
       : config.getRecipients(application as ApplicationDetails, property as PropertyDetails);
 
     // Fetch recipient profiles
@@ -189,14 +193,31 @@ Deno.serve(async (req: Request) => {
       documents
     };
 
+    // Get notification type
+    const notificationType = notificationTypeMapping[type] || 'info';
+
+    // Determine notification category
+    const notificationCategory = 'application';
+
     // Create in-app notifications
     const notifications = recipientIds.map(userId => ({
       user_id: userId,
-      type: type,
+      type: notificationType,
       title: config.title(notificationData),
       message: config.message(notificationData),
       action_url: config.actionUrl(applicationId, property.id),
-      metadata: { applicationId, propertyId: property.id, type }
+      action_text: 'Voir',
+      category: notificationCategory,
+      data: {
+        applicationId,
+        propertyId: property.id,
+        type,
+        reason,
+        visitDate,
+        documents
+      },
+      sent_via_in_app: true,
+      is_read: false,
     }));
 
     const { error: insertError } = await supabaseClient
@@ -209,11 +230,21 @@ Deno.serve(async (req: Request) => {
       console.log(`[send-application-notifications] Created ${notifications.length} in-app notification(s)`);
     }
 
-    // Send emails to each recipient
+    // Send emails to each recipient (sauf pour les emails dérivés de téléphone)
+    const PHONE_EMAIL_DOMAIN = '@phone.montoit.ci';
     let emailsSent = 0;
+    let skippedPhoneEmails = 0;
+
     for (const userId of recipientIds) {
       const profile = profiles?.find(p => p.user_id === userId);
       if (profile?.email) {
+        // Vérifier si c'est un email dérivé de téléphone
+        if (profile.email.endsWith(PHONE_EMAIL_DOMAIN)) {
+          console.log(`[send-application-notifications] Skipping phone-derived email for user ${userId}: ${profile.email}`);
+          skippedPhoneEmails++;
+          continue;
+        }
+
         try {
           const { error: emailError } = await supabaseClient.functions.invoke('send-email', {
             body: {
@@ -223,8 +254,8 @@ Deno.serve(async (req: Request) => {
                 name: profile.full_name || 'Utilisateur',
                 email: profile.email,
                 ...notificationData,
-                applicationUrl: `${Deno.env.get('SITE_URL') || 'https://montoit.ansut.ci'}${config.actionUrl(applicationId, property.id)}`,
-                searchUrl: `${Deno.env.get('SITE_URL') || 'https://montoit.ansut.ci'}/recherche`
+                applicationUrl: `${Deno.env.get('SITE_URL') || 'https://mon-toit.ansut.ci'}${config.actionUrl(applicationId, property.id)}`,
+                searchUrl: `${Deno.env.get('SITE_URL') || 'https://mon-toit.ansut.ci'}/recherche`
               }
             }
           });
@@ -241,19 +272,23 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    if (skippedPhoneEmails > 0) {
+      console.log(`[send-application-notifications] Skipped ${skippedPhoneEmails} phone-derived email(s) - users will receive in-app notifications only`);
+    }
+
     console.log(`[send-application-notifications] Successfully processed ${type} notification`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         notificationsSent: recipientIds.length,
         emailsSent,
-        type 
+        type
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error: any) {
+  } catch (error: Record<string, unknown>) {
     console.error('[send-application-notifications] Error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),

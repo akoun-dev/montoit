@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   Send,
   MessageSquare,
@@ -13,11 +13,13 @@ import {
   Zap,
   ChevronRight,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 interface QuickActionButton {
   id: string;
   label: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string }>;
   color: 'blue' | 'green' | 'red' | 'purple' | 'orange' | 'indigo';
   count?: number;
   urgent?: boolean;
@@ -31,6 +33,14 @@ interface QuickActionsPanelProps {
 
 export default function QuickActionsPanel({ actions, className = '' }: QuickActionsPanelProps) {
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const navigateWithMessage = useCallback(
+    (path: string, label: string) => {
+      navigate(path);
+      toast.success(`${label} ouvert`);
+    },
+    [navigate]
+  );
 
   // Actions par défaut - handlers à implémenter
   const defaultActions: QuickActionButton[] = [
@@ -40,9 +50,7 @@ export default function QuickActionsPanel({ actions, className = '' }: QuickActi
       icon: Send,
       color: 'blue',
       count: 4,
-      action: () => {
-        /* TODO: Implement send proposal */
-      },
+      action: () => navigateWithMessage('/trust-agent/dossiers', 'File des dossiers'),
     },
     {
       id: 'contact_parties',
@@ -50,9 +58,7 @@ export default function QuickActionsPanel({ actions, className = '' }: QuickActi
       icon: MessageSquare,
       color: 'green',
       count: 7,
-      action: () => {
-        /* TODO: Implement contact parties */
-      },
+      action: () => navigateWithMessage('/trust-agent/dossiers', 'Contacts rapides'),
     },
     {
       id: 'escalate_dispute',
@@ -61,9 +67,7 @@ export default function QuickActionsPanel({ actions, className = '' }: QuickActi
       color: 'red',
       count: 2,
       urgent: true,
-      action: () => {
-        /* TODO: Implement escalate dispute */
-      },
+      action: () => navigateWithMessage('/trust-agent/disputes', 'Escadrille litiges'),
     },
     {
       id: 'mark_resolved',
@@ -71,9 +75,7 @@ export default function QuickActionsPanel({ actions, className = '' }: QuickActi
       icon: CheckCircle,
       color: 'purple',
       count: 5,
-      action: () => {
-        /* TODO: Implement mark resolved */
-      },
+      action: () => navigateWithMessage('/trust-agent/disputes?status=resolved', 'Litiges résolus'),
     },
     {
       id: 'schedule_meeting',
@@ -81,18 +83,14 @@ export default function QuickActionsPanel({ actions, className = '' }: QuickActi
       icon: Clock,
       color: 'indigo',
       count: 3,
-      action: () => {
-        /* TODO: Implement schedule meeting */
-      },
+      action: () => navigateWithMessage('/trust-agent/calendar', 'Agenda de visites'),
     },
     {
       id: 'generate_report',
       label: 'Générer rapport',
       icon: FileText,
       color: 'orange',
-      action: () => {
-        /* TODO: Implement generate report */
-      },
+      action: () => navigateWithMessage('/trust-agent/reports', 'Rapports'),
     },
   ];
 
@@ -181,16 +179,17 @@ export default function QuickActionsPanel({ actions, className = '' }: QuickActi
             icon={UserCheck}
             label="Validation rapide"
             color="text-green-600"
-            onClick={() => {
-              /* TODO: Implement quick validation */
-            }}
+            onClick={() => navigateWithMessage('/trust-agent/dossiers?priority=urgent', 'Validation rapide')}
           />
           <SpecialActionButton
             icon={Phone}
             label="Appel urgence"
             color="text-red-600"
             onClick={() => {
-              /* TODO: Implement emergency call */
+              if (typeof window !== 'undefined') {
+                window.location.href = 'tel:+225272000000';
+              }
+              toast('Appel d\'urgence en cours');
             }}
           />
           <SpecialActionButton
@@ -198,7 +197,10 @@ export default function QuickActionsPanel({ actions, className = '' }: QuickActi
             label="Email modèle"
             color="text-blue-600"
             onClick={() => {
-              /* TODO: Implement template email */
+              if (typeof window !== 'undefined') {
+                window.location.href = 'mailto:litiges@mon-toit.ci?subject=Besoin%20d\'assistance';
+              }
+              toast('Email modèle prêt à l\'envoi');
             }}
           />
           <SpecialActionButton
@@ -206,7 +208,7 @@ export default function QuickActionsPanel({ actions, className = '' }: QuickActi
             label="Export données"
             color="text-purple-600"
             onClick={() => {
-              /* TODO: Implement data export */
+              navigateWithMessage('/trust-agent/reports', 'Exports de données');
             }}
           />
         </div>

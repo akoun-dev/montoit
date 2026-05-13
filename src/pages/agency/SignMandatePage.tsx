@@ -45,9 +45,36 @@ export default function SignMandatePage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedResponsibilities, setAcceptedResponsibilities] = useState(false);
   const [signerType, setSignerType] = useState<'owner' | 'agency' | null>(null);
+   
   const [_signatureComplete, setSignatureComplete] = useState(false);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
 
   const { step: currentStep, slideDirection, goToStep, nextStep, prevStep } = useFormStepper(3);
+
+  // Log when step changes to confirmation
+  useEffect(() => {
+    if (currentStep === 3 && mandate) {
+      console.log('[SignMandatePage] Confirmation step - Mandate state:', {
+        owner_signed_at: mandate.owner_signed_at,
+        agency_signed_at: mandate.agency_signed_at,
+        status: mandate.status,
+        cryptoneo_signature_status: mandate.cryptoneo_signature_status,
+        signerType,
+      });
+      // Trigger auto-redirect after signature is complete
+      setShouldRedirect(true);
+    }
+  }, [currentStep, mandate, signerType]);
+
+  // Auto-redirect to mandate list after signature
+  useEffect(() => {
+    if (shouldRedirect && currentStep === 3) {
+      const timer = setTimeout(() => {
+        navigate('/agences/mandats');
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldRedirect, currentStep, navigate]);
 
   // Fetch mandate data - fetch directly from DB instead of relying on local list
   useEffect(() => {
@@ -123,13 +150,31 @@ export default function SignMandatePage() {
           owner: ownerData,
         } as AgencyMandate;
 
+        console.log('[SignMandatePage] Mandate loaded:', {
+          mandateId: mandateData.id,
+          ownerId: mandateData.owner_id,
+          agencyId: mandateData.agency_id,
+          agencyUserId: agencyData?.user_id,
+          userId: user?.id,
+          owner_signed_at: mandateData.owner_signed_at,
+          agency_signed_at: mandateData.agency_signed_at,
+        });
+
         setMandate(completeMandate);
 
         // Determine signer type
         if (mandateData.owner_id === user?.id) {
+          console.log('[SignMandatePage] Signer type determined: owner');
           setSignerType('owner');
         } else if (agencyData?.user_id === user?.id) {
+          console.log('[SignMandatePage] Signer type determined: agency');
           setSignerType('agency');
+        } else {
+          console.error('[SignMandatePage] Cannot determine signer type!', {
+            mandateOwnerId: mandateData.owner_id,
+            agencyUserId: agencyData?.user_id,
+            userId: user?.id,
+          });
         }
 
       } catch (err) {
@@ -164,6 +209,15 @@ export default function SignMandatePage() {
       return;
     }
 
+    console.log('[SignMandatePage] Starting signature process:', {
+      mandateId: mandate.id,
+      signerType,
+      currentOwnerSigned: mandate.owner_signed_at,
+      currentAgencySigned: mandate.agency_signed_at,
+      currentStatus: mandate.status,
+      currentCryptoStatus: mandate.cryptoneo_signature_status,
+    });
+
     setSigning(true);
 
     try {
@@ -175,15 +229,48 @@ export default function SignMandatePage() {
         },
       });
 
+      console.log('[SignMandatePage] Response received:', {
+        error,
+        data,
+        fullResponse: { data, error }
+      });
+
       if (error) {
-        console.error('Signature error:', error);
+        console.error('[SignMandatePage] Signature error:', error);
         toast.error('Erreur lors de la signature');
         return;
       }
 
       if (data?.error) {
+        console.error('[SignMandatePage] API error:', data.error);
         toast.error(data.error);
         return;
+      }
+
+      console.log('[SignMandatePage] Signature successful:', {
+        signedAt: data.signedAt,
+        signatureStatus: data.signatureStatus,
+        isComplete: data.isComplete,
+        signerType: data.signerType
+      });
+
+      // Update local mandate state with new signature data
+      if (signerType === 'owner') {
+        console.log('[SignMandatePage] Updating owner signature in local state');
+        setMandate(prev => prev ? {
+          ...prev,
+          owner_signed_at: data.signedAt,
+          cryptoneo_signature_status: data.signatureStatus,
+          ...(data?.isComplete && { status: 'active', signed_at: data.signedAt })
+        } : null);
+      } else {
+        console.log('[SignMandatePage] Updating agency signature in local state');
+        setMandate(prev => prev ? {
+          ...prev,
+          agency_signed_at: data.signedAt,
+          cryptoneo_signature_status: data.signatureStatus,
+          ...(data?.isComplete && { status: 'active', signed_at: data.signedAt })
+        } : null);
       }
 
       setSignatureComplete(true);
@@ -195,7 +282,7 @@ export default function SignMandatePage() {
         toast.success('Signature enregistrée avec succès');
       }
     } catch (err) {
-      console.error('Sign mandate error:', err);
+      console.error('[SignMandatePage] Sign mandate error:', err);
       toast.error('Erreur lors de la signature du mandat');
     } finally {
       setSigning(false);
@@ -219,6 +306,7 @@ export default function SignMandatePage() {
     return labels[permission] || permission;
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isAgencyUser = profile?.user_type
     ? (AGENCY_ROLES as readonly string[]).includes(profile.user_type)
     : false;
@@ -633,14 +721,7 @@ export default function SignMandatePage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Button variant="outline" onClick={() => navigate('/agences/mandats')}>
-                    Voir mes mandats
-                  </Button>
-                  <Button onClick={() => navigate(`/agences/mandats/${mandate.id}`)}>
-                    Voir le détail du mandat
-                  </Button>
-                </div>
+                <p className="text-sm text-green-600">Redirection vers la liste des mandats...</p>
               </CardContent>
             </Card>
           </FormStepContent>

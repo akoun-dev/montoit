@@ -30,17 +30,16 @@ export function ConversationList({
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Header Premium Ivorian */}
-      <div className="p-6 border-b border-[#EFEBE9]">
-        <h1 className="text-2xl font-bold text-[#2C1810] mb-4">Messages</h1>
+      <div className="p-4 sm:p-6 border-b border-[#EFEBE9]">
+        <h1 className="hidden sm:block text-2xl font-bold text-[#2C1810] mb-4">Messages</h1>
         <div className="relative">
-          <Search className="absolute left-4 top-3.5 w-4 h-4 text-[#A69B95]" />
+          <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A69B95]" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher une conversation..."
-            className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#FAF7F4] border-transparent focus:bg-white focus:border-[#F16522] focus:ring-2 focus:ring-[#F16522]/10 transition-all text-sm font-medium text-[#2C1810] placeholder:text-[#A69B95] outline-none"
+            className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 rounded-xl bg-[#FAF7F4] border-transparent focus:bg-white focus:border-[#F16522] focus:ring-2 focus:ring-[#F16522]/10 transition-all text-sm font-medium text-[#2C1810] placeholder:text-[#A69B95] outline-none"
           />
         </div>
       </div>

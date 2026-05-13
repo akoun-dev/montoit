@@ -18,7 +18,7 @@ import { useDebouncedCallback } from '@/hooks/shared';
 import type { Database } from '@/shared/lib/database.types';
 
 type PropertyType = Database['public']['Tables']['properties']['Row']['property_type'];
-type PropertyCategory = 'residentiel' | 'commercial';
+type PropertyCategory = 'residential' | 'commercial';
 
 interface SearchFiltersProps {
   searchCity: string;
@@ -56,8 +56,6 @@ export default function SearchFilters({
   setSearchCity,
   propertyType,
   setPropertyType,
-  propertyCategory: _propertyCategory,
-  setPropertyCategory: _setPropertyCategory,
   minPrice,
   setMinPrice,
   maxPrice,
@@ -112,14 +110,14 @@ export default function SearchFilters({
   ];
 
   const propertyTypes: { value: PropertyType; label: string }[] = [
-    { value: 'appartement', label: 'Appartement' },
-    { value: 'maison', label: 'Maison' },
+    { value: 'apartment', label: 'Appartement' },
+    { value: 'house', label: 'Maison' },
     { value: 'villa', label: 'Villa' },
     { value: 'studio', label: 'Studio' },
     { value: 'duplex', label: 'Duplex' },
-    { value: 'bureau', label: 'Bureau' },
-    { value: 'commerce', label: 'Commerce' },
-    { value: 'terrain', label: 'Terrain' },
+    { value: 'office', label: 'Bureau' },
+    { value: 'retail', label: 'Commerce' },
+    { value: 'land', label: 'Terrain' },
   ];
 
   return (
@@ -261,7 +259,7 @@ export default function SearchFilters({
                 <option value="">Indifférent</option>
                 {[1, 2, 3, 4, 5, 6].map((num) => (
                   <option key={num} value={num}>
-                    {num} {num === 1 ? 'chambre' : 'chambres'}
+                    {num} {num === 1 ? 'room' : 'chambres'}
                   </option>
                 ))}
               </select>

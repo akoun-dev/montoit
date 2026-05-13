@@ -12,11 +12,9 @@ import {
   Bath,
   Maximize,
   Euro,
-  Calendar,
   User,
   Building2,
   Loader2,
-  AlertCircle,
   Image as ImageIcon,
   XCircle,
   CheckCircle,
@@ -40,7 +38,7 @@ interface Property {
   bathrooms: number;
   status: string;
   main_image?: string;
-  images?: any;
+  images?: unknown;
   latitude?: number | null;
   longitude?: number | null;
   owner_id: string;
@@ -60,6 +58,7 @@ interface Property {
 }
 
 export default function AgencyPropertyDetailPage() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -128,28 +127,28 @@ export default function AgencyPropertyDetailPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'disponible':
+      case 'available':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
             <CheckCircle className="w-4 h-4 mr-1" />
             Disponible
           </span>
         );
-      case 'loue':
+      case 'rented':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
             <User className="w-4 h-4 mr-1" />
             Loué
           </span>
         );
-      case 'en_attente':
+      case 'pending':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
             <Clock className="w-4 h-4 mr-1" />
             En attente
           </span>
         );
-      case 'retire':
+      case 'inactive':
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
             <XCircle className="w-4 h-4 mr-1" />

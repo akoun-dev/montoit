@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   Eye,
-  ArrowLeft,
   Home,
   FileText,
   RefreshCw,
@@ -53,7 +52,7 @@ export default function DataGeneratorPage() {
           bedrooms: 4,
           bathrooms: 3,
           surface_area: 250,
-          status: 'disponible',
+          status: 'available',
         },
         {
           title: 'Appartement 3 Pièces Vue Lagune',
@@ -64,7 +63,7 @@ export default function DataGeneratorPage() {
           bedrooms: 2,
           bathrooms: 2,
           surface_area: 95,
-          status: 'disponible',
+          status: 'available',
         },
         {
           title: 'Studio Meublé Centre-Ville',
@@ -75,7 +74,7 @@ export default function DataGeneratorPage() {
           bedrooms: 1,
           bathrooms: 1,
           surface_area: 35,
-          status: 'disponible',
+          status: 'available',
         },
         {
           title: 'Duplex Luxueux Riviera',
@@ -86,7 +85,7 @@ export default function DataGeneratorPage() {
           bedrooms: 5,
           bathrooms: 4,
           surface_area: 320,
-          status: 'disponible',
+          status: 'available',
         },
         {
           title: 'Villa Familiale Bingerville',
@@ -97,7 +96,7 @@ export default function DataGeneratorPage() {
           bedrooms: 4,
           bathrooms: 2,
           surface_area: 200,
-          status: 'disponible',
+          status: 'available',
         },
         {
           title: 'Appartement Économique Yopougon',
@@ -108,7 +107,7 @@ export default function DataGeneratorPage() {
           bedrooms: 2,
           bathrooms: 1,
           surface_area: 55,
-          status: 'disponible',
+          status: 'available',
         },
         {
           title: 'Penthouse Premium II Plateaux',
@@ -119,7 +118,7 @@ export default function DataGeneratorPage() {
           bedrooms: 4,
           bathrooms: 3,
           surface_area: 280,
-          status: 'disponible',
+          status: 'available',
         },
         {
           title: 'Maison Traditionnelle Rénovée',
@@ -130,7 +129,7 @@ export default function DataGeneratorPage() {
           bedrooms: 3,
           bathrooms: 2,
           surface_area: 150,
-          status: 'disponible',
+          status: 'available',
         },
         {
           title: 'Appartement Standing Deux Plateaux',
@@ -141,7 +140,7 @@ export default function DataGeneratorPage() {
           bedrooms: 3,
           bathrooms: 2,
           surface_area: 120,
-          status: 'loue',
+          status: 'rented',
         },
         {
           title: 'Villa avec Piscine Riviera 3',
@@ -152,7 +151,7 @@ export default function DataGeneratorPage() {
           bedrooms: 5,
           bathrooms: 4,
           surface_area: 400,
-          status: 'disponible',
+          status: 'available',
         },
       ];
 
@@ -205,7 +204,7 @@ export default function DataGeneratorPage() {
         .from('properties')
         .select('id, monthly_rent, title')
         .eq('owner_id', user.id)
-        .eq('status', 'disponible')
+        .eq('status', 'available')
         .limit(5);
 
       if (!properties || properties.length === 0) {
@@ -217,9 +216,9 @@ export default function DataGeneratorPage() {
       }
 
       const leaseStatuses = [
-        { status: 'brouillon', description: 'Brouillon - PDF non généré' },
-        { status: 'en_attente_signature', description: 'En attente de signature' },
-        { status: 'actif', description: 'Actif - signé par tous' },
+        { status: 'draft', description: 'Brouillon - PDF non généré' },
+        { status: 'pending_signature', description: 'En attente de signature' },
+        { status: 'active', description: 'Actif - signé par tous' },
         { status: 'signature_electronique_pending', description: 'Signature CryptoNeo en cours' },
       ];
 
@@ -251,7 +250,7 @@ export default function DataGeneratorPage() {
         };
 
         // Ajouter les signatures selon le statut
-        if (leaseStatus.status === 'actif') {
+        if (leaseStatus.status === 'active') {
           insertData['owner_signed_at'] = new Date().toISOString();
           insertData['tenant_signed_at'] = new Date().toISOString();
           insertData['signed_at'] = new Date().toISOString();
@@ -289,7 +288,7 @@ export default function DataGeneratorPage() {
       const { data: leases } = await supabase
         .from('lease_contracts')
         .select('id, tenant_id, owner_id, monthly_rent, property_id')
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .limit(3);
 
       if (!leases || leases.length === 0) {
@@ -316,7 +315,7 @@ export default function DataGeneratorPage() {
             property_id: lease.property_id,
             tenant_id: lease.tenant_id,
             amount: lease.monthly_rent,
-            payment_type: 'loyer',
+            payment_type: 'rent',
             status,
             due_date: dueDate.toISOString().split('T')[0],
             paid_at: status === 'completed' ? dueDate.toISOString() : null,
@@ -714,7 +713,7 @@ export default function DataGeneratorPage() {
             </h4>
             <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
               <li>Générer des contrats avec le bouton ci-dessus</li>
-              <li>Aller sur un contrat "en_attente_signature"</li>
+              <li>Aller sur un contrat "pending_signature"</li>
               <li>Cliquer sur "Signer électroniquement"</li>
               <li>Recevoir l'OTP et valider</li>
             </ol>

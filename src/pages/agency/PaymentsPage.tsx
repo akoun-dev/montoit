@@ -143,7 +143,10 @@ const StatCard = ({
 };
 
 // Helper function to format currency
-const formatCurrency = (amount: number): string => {
+const formatCurrency = (amount: number | null | undefined): string => {
+  if (amount === null || amount === undefined || isNaN(amount)) {
+    return '0 FCFA';
+  }
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
     currency: 'XOF',
@@ -153,7 +156,10 @@ const formatCurrency = (amount: number): string => {
 };
 
 // Helper function to format compact number
-const formatCompact = (amount: number): string => {
+const formatCompact = (amount: number | null | undefined): string => {
+  if (amount === null || amount === undefined || isNaN(amount)) {
+    return '0';
+  }
   return new Intl.NumberFormat('fr-FR', {
     notation: 'compact',
     compactDisplay: 'short',
@@ -215,7 +221,7 @@ export default function AgencyPaymentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [propertyFilter, setPropertyFilter] = useState<PropertyFilter>('all');
-  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'charges'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'service_charges'>('overview');
 
   // Stats
   const [stats, setStats] = useState({
@@ -239,11 +245,13 @@ export default function AgencyPaymentsPage() {
     try {
       setLoading(true);
 
-      // Use RPC function to get user's agency (bypasses RLS)
+      // Get user's agency
       const { data: agencyData } = await supabase
-        .rpc('get_user_agency', {
-          user_uuid: user.id
-        });
+        .from('agencies')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       const agencyId = agencyData?.[0]?.id || null;
 
@@ -274,7 +282,7 @@ export default function AgencyPaymentsPage() {
             agency_id
           )
         `)
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .order('created_at', { ascending: false });
 
       if (contractsError) throw contractsError;
@@ -290,7 +298,7 @@ export default function AgencyPaymentsPage() {
         profile_user_ids: tenantIds as string[],
       });
 
-      const tenantsMap = new Map((tenantsData || []).map((t: any) => [t.user_id, t]));
+      const tenantsMap = new Map((tenantsData || []).map((t: unknown) => [t.user_id, t]));
 
       // Get payments for each contract
       const contractsWithDetails = await Promise.all(
@@ -342,7 +350,7 @@ export default function AgencyPaymentsPage() {
           } else {
             setCharges([]);
           }
-        } catch (e) {
+        } catch {
           setCharges([]);
         }
       } else {
@@ -407,7 +415,7 @@ export default function AgencyPaymentsPage() {
   const sendPaymentReminder = async (_tenantId: string, tenantName: string) => {
     try {
       toast.success(`Rappel envoyé à ${tenantName || 'le locataire'}`);
-    } catch (error) {
+    } catch {
       toast.error('Erreur lors de l\'envoi du rappel');
     }
   };
@@ -420,7 +428,7 @@ export default function AgencyPaymentsPage() {
 
       toast.success('Paiement marqué comme payé');
       loadData();
-    } catch (error) {
+    } catch {
       toast.error('Erreur lors de la mise à jour du paiement');
     }
   };
@@ -559,9 +567,9 @@ export default function AgencyPaymentsPage() {
                   </div>
                 </button>
                 <button
-                  onClick={() => setActiveTab('charges')}
+                  onClick={() => setActiveTab('service_charges')}
                   className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${
-                    activeTab === 'charges'
+                    activeTab === 'service_charges'
                       ? 'text-white bg-[#F16522]'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
@@ -810,7 +818,7 @@ export default function AgencyPaymentsPage() {
                 )}
 
                 {/* Charges Tab */}
-                {activeTab === 'charges' && (
+                {activeTab === 'service_charges' && (
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-bold" style={{ color: COLORS.chocolat }}>

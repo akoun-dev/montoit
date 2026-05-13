@@ -1,4 +1,4 @@
-import { useState, useRef, FormEvent, KeyboardEvent, useEffect, useCallback } from 'react';
+import { useState, useRef, FormEvent, KeyboardEvent, useEffect } from 'react';
 import { Send, Smile, Paperclip, Mic, Image as ImageIcon, FileText } from 'lucide-react';
 import { Attachment } from '../services/messaging.service';
 import { AttachmentPreview } from './AttachmentPreview';

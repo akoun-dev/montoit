@@ -6,11 +6,10 @@ import AgencyDashboardLayout from '@/features/agency/components/AgencyDashboardL
 
 // Agency pages
 const AgencyDashboard = lazyWithRetry(() => import('@/pages/agency/DashboardPage'));
-const MyMandatesPage = lazyWithRetry(() => import('@/pages/agency/MyMandatesPage'));
 const AgencyMandatesPage = lazyWithRetry(() => import('@/features/agency/pages/AgencyMandatesPage'));
 const MandateDetailPage = lazyWithRetry(() => import('@/components/mandates/MandateDetailPage'));
 const SignMandatePage = lazyWithRetry(() => import('@/pages/agency/SignMandatePage'));
-const HandwrittenSignaturePage = lazyWithRetry(() => import('@/pages/mandates/HandwrittenSignaturePage'));
+const HandwrittenSignaturePageSimple = lazyWithRetry(() => import('@/pages/mandates/HandwrittenSignaturePageSimple'));
 const AgencyPropertiesPage = lazyWithRetry(() => import('@/pages/agency/AgencyPropertiesPage'));
 const AgencyPropertyDetailPage = lazyWithRetry(() => import('@/pages/agency/AgencyPropertyDetailPage'));
 const AgencyPropertyEditPage = lazyWithRetry(() => import('@/pages/agency/AgencyPropertyEditPage'));
@@ -27,9 +26,14 @@ const AgencyVisitsPage = lazyWithRetry(() => import('@/pages/agency/VisitsPage')
 const AgencyPaymentsPage = lazyWithRetry(() => import('@/pages/agency/PaymentsPage'));
 const AgencyDocumentsPage = lazyWithRetry(() => import('@/pages/agency/DocumentsPage'));
 const AgencyRemindersPage = lazyWithRetry(() => import('@/pages/agency/RemindersPage'));
+const AgencyNotificationsPage = lazyWithRetry(() => import('@/pages/agency/NotificationsPage'));
 const TeamManagementPage = lazyWithRetry(() => import('@/pages/agency/TeamManagementPage'));
 const PropertyAssignmentsPage = lazyWithRetry(() => import('@/features/agency/pages/PropertyAssignmentsPage'));
 const CommissionsPage = lazyWithRetry(() => import('@/pages/agency/CommissionsPage'));
+const AgencySettingsMenuPage = lazyWithRetry(() => import('@/pages/agency/SettingsMenuPage'));
+const AgencyNotificationPreferencesPage = lazyWithRetry(() => import('@/pages/agency/NotificationPreferencesPage'));
+const AgencySecuritySettingsPage = lazyWithRetry(() => import('@/pages/agency/SecuritySettingsPage'));
+const AgencySessionsPage = lazyWithRetry(() => import('@/pages/agency/SessionsPage'));
 
 export const agencyRoutes: RouteObject[] = [
   {
@@ -55,12 +59,12 @@ export const agencyRoutes: RouteObject[] = [
         element: <MandateDetailPage />,
       },
       {
-        path: 'signer-mandat/:id',
-        element: <SignMandatePage />,
+        path: 'mandats/signer/:id',
+        element: <HandwrittenSignaturePageSimple />,
       },
       {
-        path: 'mes-mandats/signer/:id',
-        element: <HandwrittenSignaturePage />,
+        path: 'signer-mandat/:id',
+        element: <SignMandatePage />,
       },
 
       // Property management
@@ -155,6 +159,12 @@ export const agencyRoutes: RouteObject[] = [
         element: <AgencyRemindersPage />,
       },
 
+      // Notifications
+      {
+        path: 'notifications',
+        element: <AgencyNotificationsPage />,
+      },
+
       // Team & Settings
       {
         path: 'equipe',
@@ -167,6 +177,24 @@ export const agencyRoutes: RouteObject[] = [
       {
         path: 'commissions',
         element: <CommissionsPage />,
+      },
+
+      // Settings
+      {
+        path: 'parametres',
+        element: <AgencySettingsMenuPage />,
+      },
+      {
+        path: 'parametres/notifications',
+        element: <AgencyNotificationPreferencesPage />,
+      },
+      {
+        path: 'parametres/securite',
+        element: <AgencySecuritySettingsPage />,
+      },
+      {
+        path: 'parametres/sessions',
+        element: <AgencySessionsPage />,
       },
     ],
   },

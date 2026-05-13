@@ -58,21 +58,21 @@ export interface CompleteApplicationData {
     id: string;
     title: string;
     address: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   applicant?: {
     id: string;
     full_name: string;
     email: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   documents?: {
     id: string;
     document_type: string;
     file_url: string;
-    [key: string]: any;
+    [key: string]: unknown;
   }[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -258,12 +258,12 @@ export interface ProfileMetadata {
 /**
  * Types d'utilisateur
  */
-export type UserRole = 'tenant' | 'owner' | 'agency' | 'admin' | 'trust_agent' | 'super_admin';
+export type UserRole = 'tenant' | 'owner' | 'agency' | 'trust_agent' | 'admin';
 
 /**
  * Status de vérification
  */
-export type VerificationStatus = 'pending' | 'verified' | 'rejected' | 'expired';
+export type VerificationStatus = 'pending' | 'in_progress' | 'approved' | 'rejected' | 'expired';
 
 // ============================================================================
 // TYPES PROPRIÉTÉ ET RECHERCHE
@@ -273,20 +273,27 @@ export type VerificationStatus = 'pending' | 'verified' | 'rejected' | 'expired'
  * Types de propriétés
  */
 export type PropertyType =
+  | 'apartment'
+  | 'house'
   | 'studio'
-  | 'appartement_1p'
-  | 'appartement_2p'
-  | 'appartement_3p'
-  | 'appartement_4p+'
-  | 'maison_villa'
+  | 'villa'
   | 'duplex'
-  | 'loft'
-  | 'chambre_sdb';
+  | 'room'
+  | 'office'
+  | 'retail'
+  | 'warehouse'
+  | 'land';
 
 /**
  * Statuts de propriété
  */
-export type PropertyStatus = 'available' | 'rented' | 'maintenance' | 'unavailable' | 'draft';
+export type PropertyStatus =
+  | 'available'
+  | 'rented'
+  | 'unavailable'
+  | 'pending'
+  | 'maintenance'
+  | 'inactive';
 
 /**
  * Filtres de recherche de propriétés

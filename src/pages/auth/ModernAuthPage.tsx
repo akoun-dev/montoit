@@ -26,10 +26,11 @@ import {
 import { supabase } from '@/services/supabase/client';
 import { InputWithIcon } from '@/shared/ui';
 import { PhoneInputWithCountry } from '@/shared/components/PhoneInputWithCountry';
-import { otpUnifiedService } from '@/services/brevo/otp-unified.service';
+import { otpService } from '@/services/auth/otp.service';
 
 // Regex de validation email conforme RFC 5322
-const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+const EMAIL_REGEX =
+  /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 
 // Regex de validation nom complet (minimum 5 caractères, lettres avec accents, espaces, tirets, apostrophes)
 const FULL_NAME_REGEX = /^[\p{L}\s'-]{5,}$/u;
@@ -52,13 +53,15 @@ const AUTH_SLIDES = [
   {
     image:
       'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&auto=format&fit=crop&q=80',
-    quote: 'J\'ai trouvé mon appartement à Cocody en moins d\'une semaine. Vraiment efficace et sécurisé !',
+    quote:
+      "J'ai trouvé mon appartement à Cocody en moins d'une semaine. Vraiment efficace et sécurisé !",
     author: 'Sarah & Marc, Cocody',
   },
   {
     image:
       'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&auto=format&fit=crop&q=80',
-    quote: 'La signature numérique et le paiement par Mobile Money ont rendu ma location super simple.',
+    quote:
+      'La signature numérique et le paiement par Mobile Money ont rendu ma location super simple.',
     author: 'Aïcha K., Plateau',
   },
   {
@@ -90,14 +93,15 @@ export default function ModernAuthPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [profileType, setProfileType] = useState<'locataire' | 'proprietaire' | 'agence'>(
-    'locataire'
-  );
+  const [profileType, setProfileType] = useState<'tenant' | 'owner' | 'agency'>('tenant');
   const [emailOtp, setEmailOtp] = useState('');
   const [pendingEmail, setPendingEmail] = useState('');
   const [pendingPassword, setPendingPassword] = useState('');
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
-  const [generatedOtp, setGeneratedOtp] = useState('');
+
+  // Consentement légal
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false);
 
   // Phone fields
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -108,12 +112,6 @@ export default function ModernAuthPage() {
   // WhatsApp désactivé - SMS uniquement
   const [sendMethod] = useState<'sms'>('sms');
   const [resendTimer, setResendTimer] = useState(0);
-
-  const isLocalDevEnv = () => {
-    if (typeof window === 'undefined') return import.meta.env.DEV;
-    const host = window.location.hostname;
-    return import.meta.env.DEV || host === 'localhost' || host === '127.0.0.1';
-  };
 
   // Rotation automatique des slides
   useEffect(() => {
@@ -158,7 +156,6 @@ export default function ModernAuthPage() {
     setPendingEmail('');
     setPendingPassword('');
     setPendingUserId(null);
-    setGeneratedOtp('');
 
     if (method === 'email') {
       setEmailMode(deriveEmailModeFromPath(location.pathname));
@@ -205,20 +202,26 @@ export default function ModernAuthPage() {
     setFullName('');
     setError('');
     setSuccess('');
-    setGeneratedOtp('');
   };
 
   const sendResendOtp = async (
     targetEmail: string
   ): Promise<{ code: string; viaFallback: boolean }> => {
     try {
-      // Appeler notre edge function send-verification-otp qui utilise Resend
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-otp`, {
+      // Appeler notre edge function email-otp-send qui utilise Azure Gateway
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Configuration Supabase manquante');
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/email-otp-send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${supabaseAnonKey}`,
+          apikey: supabaseAnonKey,
         },
         body: JSON.stringify({
           email: targetEmail,
@@ -235,19 +238,33 @@ export default function ModernAuthPage() {
 
       // Afficher l'OTP dans la console navigateur
       if (result.devOtp) {
-        console.log('%c========================================', 'color: #f97316; font-weight: bold');
-        console.log('%c📧 OTP EMAIL VÉRIFICATION', 'color: #f97316; font-weight: bold; font-size: 14px');
-        console.log('%c========================================', 'color: #f97316; font-weight: bold');
+        console.log(
+          '%c========================================',
+          'color: #f97316; font-weight: bold'
+        );
+        console.log(
+          '%c📧 OTP EMAIL VÉRIFICATION',
+          'color: #f97316; font-weight: bold; font-size: 14px'
+        );
+        console.log(
+          '%c========================================',
+          'color: #f97316; font-weight: bold'
+        );
         console.log(`Email:   %c${targetEmail}`, 'color: #2C1810; font-weight: bold');
-        console.log(`OTP:    %c${result.devOtp}`, 'color: #f97316; font-size: 18px; font-weight: bold; font-size: 24px;');
+        console.log(
+          `OTP:    %c${result.devOtp}`,
+          'color: #f97316; font-size: 18px; font-weight: bold; font-size: 24px;'
+        );
         console.log(`Valide:  %c10 minutes`, 'color: #6B7280');
-        console.log('%c========================================\n', 'color: #f97316; font-weight: bold');
+        console.log(
+          '%c========================================\n',
+          'color: #f97316; font-weight: bold'
+        );
       }
 
       const code = result.devOtp || '(voir email)';
       console.log('[sendResendOtp] OTP envoyé avec succès via Resend');
       return { code, viaFallback: false };
-
     } catch (err: unknown) {
       console.error('Failed to send OTP email via edge function:', err);
       throw new Error(err instanceof Error ? err.message : 'Envoi du code impossible');
@@ -263,7 +280,7 @@ export default function ModernAuthPage() {
     try {
       // Validation email
       if (!EMAIL_REGEX.test(email)) {
-        throw new Error('Format d\'email invalide. Ex: exemple@domaine.com');
+        throw new Error("Format d'email invalide. Ex: exemple@domaine.com");
       }
 
       console.log('Attempting login with email:', email);
@@ -293,7 +310,7 @@ export default function ModernAuthPage() {
     try {
       // Validation email
       if (!EMAIL_REGEX.test(email)) {
-        throw new Error('Format d\'email invalide. Ex: exemple@domaine.com');
+        throw new Error("Format d'email invalide. Ex: exemple@domaine.com");
       }
       // Validation nom complet (minimum 5 caractères, lettres uniquement)
       if (!FULL_NAME_REGEX.test(fullName.trim())) {
@@ -306,15 +323,32 @@ export default function ModernAuthPage() {
         throw new Error('Mot de passe trop court (minimum 6 caractères)');
       }
 
+      // Validation du consentement légal
+      if (!acceptTerms || !acceptPrivacy) {
+        throw new Error(
+          'Vous devez accepter les Conditions Générales d\'Utilisation et la Politique de Confidentialité pour continuer'
+        );
+      }
+
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { full_name: fullName },
+          data: {
+            full_name: fullName,
+            terms_accepted_at: new Date().toISOString(),
+            privacy_accepted_at: new Date().toISOString(),
+          },
         },
       });
 
       if (signUpError) throw signUpError;
+
+      // Empêcher l'auto-connexion si confirmations email désactivées.
+      // L'utilisateur ne doit être connecté qu'après vérification OTP.
+      if (authData.session) {
+        await supabase.auth.signOut();
+      }
 
       setPendingEmail(email);
       setPendingPassword(password);
@@ -344,7 +378,7 @@ export default function ModernAuthPage() {
 
     try {
       // Vérifier le rate limiting
-      const rateLimitCheck = await otpUnifiedService.checkRateLimit(phoneNumber, 'otp-send', 5, 3);
+      const rateLimitCheck = await otpService.checkRateLimit(phoneNumber, 'otp-send', 5, 3);
       if (!rateLimitCheck.allowed && rateLimitCheck.remainingTime) {
         setResendTimer(rateLimitCheck.remainingTime);
         setError(`Patientez ${rateLimitCheck.remainingTime} secondes avant de réessayer`);
@@ -354,7 +388,7 @@ export default function ModernAuthPage() {
 
       // Envoyer l'OTP via le service unifié (utilise send-sms-azure pour SMS/WhatsApp)
       const method = sendMethod === 'whatsapp' ? 'whatsapp' : 'sms';
-      const result = await otpUnifiedService.sendOTP({
+      const result = await otpService.sendOTP({
         recipient: phoneNumber,
         method,
         purpose: 'auth',
@@ -362,7 +396,8 @@ export default function ModernAuthPage() {
       });
 
       if (!result.success) {
-        throw new Error(result.error || "Erreur lors de l'envoi du code");
+        setError(result.error || "Erreur lors de l'envoi du SMS");
+        return;
       }
 
       const channelLabel = sendMethod === 'whatsapp' ? 'WhatsApp' : 'SMS';
@@ -385,20 +420,76 @@ export default function ModernAuthPage() {
 
     try {
       const siteUrl = window.location.origin;
-      const { data, error: invokeError } = await supabase.functions.invoke('verify-otp-azure', {
-        body: { phoneNumber, code: otp, fullName: withName ? fullName : undefined, siteUrl },
+      const response = await supabase.functions.invoke('phone-otp-verify', {
+        body: {
+          phoneNumber,
+          code: otp,
+          fullName: withName ? fullName : undefined,
+          siteUrl,
+          termsAcceptedAt: acceptTerms ? new Date().toISOString() : undefined,
+          privacyAcceptedAt: acceptPrivacy ? new Date().toISOString() : undefined,
+        },
       });
 
-      if (invokeError) throw new Error(invokeError.message || 'Code invalide');
-      if (data?.error) throw new Error(data.error);
+      const data = response.data;
+      const invokeError = response.error;
 
-      if (data?.action === 'needsName') {
+      if (invokeError) {
+        throw new Error(invokeError.message || 'Erreur de communication');
+      }
+
+      if (!data.success) {
+        // Handle specific error codes
+        switch (data.errorCode) {
+          case 'INVALID_OTP':
+            throw new Error('Le code est incorrect ou expiré.');
+          case 'USER_EXISTS_CONFLICT':
+            // Cas rare : proposer plutôt une connexion directe
+            throw new Error('Ce numéro est déjà associé à un compte. Veuillez réessayer.');
+          case 'REGISTRATION_FAILED':
+            console.error('[handleVerifyOTP] Registration failed details:', data.details);
+            throw new Error('Une erreur est survenue lors de la création. Réessayez.');
+          case 'SESSION_GENERATION_FAILED':
+            console.error('[handleVerifyOTP] Session generation failed details:', data.details);
+            throw new Error('Impossible de générer le lien de connexion. Veuillez réessayer.');
+          case 'INTERNAL_LOGIN_ERROR':
+            console.error('[handleVerifyOTP] Internal login error details:', data.details);
+            throw new Error('Erreur interne lors de la connexion. Veuillez réessayer.');
+          case 'INTERNAL_SERVER_ERROR':
+            console.error('[handleVerifyOTP] Internal server error details:', data.details);
+            throw new Error('Erreur serveur inattendue. Veuillez réessayer.');
+          case 'SERVER_CONFIG_ERROR':
+            console.error('[handleVerifyOTP] Server config error details:', data.details);
+            throw new Error('Erreur de configuration serveur. Contactez le support.');
+          case 'MISSING_INPUT':
+            throw new Error('Numéro de téléphone et code OTP requis.');
+          default:
+            throw new Error(data.error || 'Erreur inconnue');
+        }
+      }
+
+      // Handle success responses with different actions
+      if (data.action === 'needsName') {
         setSuccess('Code vérifié ! Entrez votre nom pour continuer.');
         setPhoneStep('name');
         setLoading(false);
         return;
       }
 
+      if (data.action === 'register' || data.action === 'login') {
+        setSuccess(
+          data.action === 'register' ? 'Compte créé ! Connexion...' : 'Connexion en cours...'
+        );
+        if (data.needsProfileCompletion) {
+          sessionStorage.setItem('needsProfileCompletion', 'true');
+        }
+        console.log('Redirecting to sessionUrl:', data.sessionUrl);
+        const safeSessionUrl = buildSafeSessionUrl(data.sessionUrl);
+        window.location.href = safeSessionUrl;
+        return;
+      }
+
+      // Fallback for old API response format
       if (data?.sessionUrl) {
         setSuccess(data.isNewUser ? 'Compte créé ! Connexion...' : 'Connexion en cours...');
         if (data.needsProfileCompletion) {
@@ -425,10 +516,16 @@ export default function ModernAuthPage() {
       setError('Le nom complet doit contenir au moins 5 lettres');
       return;
     }
-    // Sauvegarder le nom complet dans sessionStorage pour la page de choix de profil
-    sessionStorage.setItem('pending_full_name', fullName.trim());
-    // Rediriger vers la page de choix de profil
-    navigate('/choix-profil');
+
+    // Validation du consentement légal
+    if (!acceptTerms || !acceptPrivacy) {
+      setError('Vous devez accepter les Conditions Générales d\'Utilisation et la Politique de Confidentialité pour continuer');
+      return;
+    }
+
+    // Appeler handleVerifyOTP avec withName = true pour créer le compte avec le nom
+    // Cela va authentifier l'utilisateur et rediriger vers sessionUrl
+    await handleVerifyOTP(true);
   };
 
   // ===================== EMAIL OTP FLOW =====================
@@ -437,16 +534,22 @@ export default function ModernAuthPage() {
     setLoading(true);
     try {
       const targetEmail = pendingEmail || email;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Configuration Supabase manquante');
+      }
 
       // Vérifier l'OTP via l'edge function
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-email-otp`,
+        `${supabaseUrl}/functions/v1/email-otp-verify`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+            apikey: supabaseAnonKey,
           },
           body: JSON.stringify({
             email: targetEmail,
@@ -457,6 +560,21 @@ export default function ModernAuthPage() {
       );
 
       const result = await response.json();
+
+      if (!result.success) {
+        // Handle specific error codes
+        switch (result.errorCode) {
+          case 'INVALID_OTP':
+            throw new Error('Le code est incorrect ou expiré.');
+          case 'USER_EXISTS_CONFLICT':
+            throw new Error('Ce numéro est déjà associé à un compte. Veuillez réessayer.');
+          case 'REGISTRATION_FAILED':
+            console.error('[handleVerifyEmailOtp] Registration failed details:', result.details);
+            throw new Error('Une erreur est survenue lors de la création. Réessayez.');
+          default:
+            throw new Error(result.error || 'Code invalide ou expiré');
+        }
+      }
 
       if (!response.ok) {
         throw new Error(result.error || 'Code invalide ou expiré');
@@ -515,7 +633,7 @@ export default function ModernAuthPage() {
     }
   };
 
-  const handleSelectRole = async (role: 'locataire' | 'proprietaire' | 'agence') => {
+  const handleSelectRole = async (role: 'tenant' | 'owner' | 'agency') => {
     setProfileType(role);
     setLoading(true);
     setError('');
@@ -539,7 +657,7 @@ export default function ModernAuthPage() {
 
   // ===================== RENDER =====================
   return (
-    <div className="min-h-screen flex bg-white font-sans selection:bg-[#F16522] selection:text-white">
+    <div className="h-screen flex bg-white font-sans selection:bg-[#F16522] selection:text-white overflow-hidden">
       {/* --- COLONNE GAUCHE : VISUEL IMMERSIF (Hidden on Mobile) --- */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#2C1810]">
         {AUTH_SLIDES.map((slide, index) => (
@@ -605,28 +723,28 @@ export default function ModernAuthPage() {
       </div>
 
       {/* --- COLONNE DROITE : FORMULAIRE --- */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 lg:p-12 bg-[#FAF7F4] relative">
+      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6 bg-[#FAF7F4] relative">
         {/* Déco de fond */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-[#F16522]/5 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#2C1810]/5 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="w-full max-w-md space-y-6 relative z-10">
+        <div className="w-full max-w-md space-y-3 sm:space-y-4 relative z-10">
           {/* Header Mobile Only */}
-          <div className="lg:hidden flex items-center justify-center gap-2 mb-6">
-            <img src="/logo.png" alt="Mon Toit" className="w-9 h-9 object-contain" />
-            <span className="text-2xl font-bold text-[#2C1810]">Mon Toit</span>
+          <div className="lg:hidden flex items-center justify-center gap-2 mb-4">
+            <img src="/logo.png" alt="Mon Toit" className="w-8 h-8 object-contain" />
+            <span className="text-xl sm:text-2xl font-bold text-[#2C1810]">Mon Toit</span>
           </div>
 
           {/* Titre */}
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-extrabold text-[#2C1810]">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#2C1810]">
               {phoneStep === 'name'
                 ? 'Bienvenue !'
                 : phoneStep === 'verify'
                   ? 'Vérification'
                   : 'Bienvenue chez vous'}
             </h1>
-            <p className="text-[#6B5A4E]">
+            <p className="text-[#6B5A4E] text-sm sm:text-base">
               {phoneStep === 'name'
                 ? 'Entrez votre nom pour finaliser'
                 : phoneStep === 'verify'
@@ -637,31 +755,31 @@ export default function ModernAuthPage() {
 
           {/* Sélecteur de méthode - Style Toggle Premium */}
           {phoneStep === 'enter' && (
-            <div className="bg-white p-1.5 rounded-2xl border border-[#EFEBE9] flex shadow-sm">
+            <div className="bg-white p-1.5 sm:p-3 rounded-2xl border border-[#EFEBE9] flex shadow-sm">
               <button
                 onClick={() => handleMethodChange('phone')}
-                className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 ${
+                className={`flex-1 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-bold flex items-center justify-center gap-2 transition-all duration-300 ${
                   authMethod === 'phone'
                     ? 'bg-[#2C1810] text-white shadow-md'
                     : 'text-[#A69B95] hover:bg-[#FAF7F4]'
                 }`}
               >
-                <Smartphone className="w-4 h-4 shrink-0" /> Téléphone
+                <Smartphone className="w-4 h-4 sm:w-5 shrink-0" /> Téléphone
                 {authMethod === 'phone' && (
-                  <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded-full">
+                  <span className="text-xs sm:text-sm bg-green-500 text-white px-1 sm:px-1.5 py-0.5 sm:py-1 rounded-full">
                     Rapide
                   </span>
                 )}
               </button>
               <button
                 onClick={() => handleMethodChange('email')}
-                className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 ${
+                className={`flex-1 py-2 sm:py-3 rounded-xl text-sm sm:text-base font-bold flex items-center justify-center gap-2 transition-all duration-300 ${
                   authMethod === 'email'
                     ? 'bg-[#2C1810] text-white shadow-md'
                     : 'text-[#A69B95] hover:bg-[#FAF7F4]'
                 }`}
               >
-                <Mail className="w-4 h-4 shrink-0" /> Email
+                <Mail className="w-4 h-4 sm:w-5 shrink-0" /> Email
               </button>
             </div>
           )}
@@ -699,7 +817,8 @@ export default function ModernAuthPage() {
                   {/* Info */}
                   <div className="p-3 bg-[#F16522]/5 border border-[#F16522]/20 rounded-xl">
                     <p className="text-sm text-[#2C1810]">
-                      💡 Un code à 6 chiffres sera envoyé par <span className="font-semibold">SMS</span> à votre numéro MTN.
+                      💡 Un code à 6 chiffres sera envoyé par{' '}
+                      <span className="font-semibold">SMS</span> à votre numéro MTN.
                       <span className="font-medium"> Nouveau ?</span> Votre compte sera créé
                       automatiquement.
                     </p>
@@ -708,7 +827,7 @@ export default function ModernAuthPage() {
                   <button
                     onClick={handleSendOTP}
                     disabled={loading || !isPhoneValid}
-                    className="w-full py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2 sm:py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-base sm:text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <Loader2 className="w-6 h-6 animate-spin" />
@@ -776,7 +895,7 @@ export default function ModernAuthPage() {
                   <button
                     onClick={() => handleVerifyOTP(false)}
                     disabled={loading || otp.length !== 6}
-                    className="w-full py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2 sm:py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-base sm:text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <Loader2 className="w-6 h-6 animate-spin" />
@@ -819,15 +938,66 @@ export default function ModernAuthPage() {
                       placeholder="Ex: Jean Kouassi"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full py-4 pl-12 pr-4 rounded-xl bg-white border border-[#EFEBE9] text-[#2C1810] font-medium placeholder:text-[#A69B95] focus:border-[#F16522] focus:ring-4 focus:ring-[#F16522]/10 outline-none transition-all"
+                      className="w-full py-2 sm:py-4 pl-4 sm:pl-12 pr-4 rounded-xl bg-white border border-[#EFEBE9] text-[#2C1810] font-medium placeholder:text-[#A69B95] focus:border-[#F16522] focus:ring-4 focus:ring-[#F16522]/10 outline-none transition-all"
                       autoFocus
                     />
+                  </div>
+
+                  {/* Consentement légal */}
+                  <div className="space-y-3 pt-2 border-t border-gray-200">
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={acceptTerms}
+                        onChange={(e) => setAcceptTerms(e.target.checked)}
+                        className="mt-1 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                        required
+                      />
+                      <span className="text-sm text-gray-600">
+                        J'accepte les{' '}
+                        <Link
+                          to="/conditions-generales"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-orange-600 hover:text-orange-700 underline font-medium"
+                        >
+                          Conditions Générales d'Utilisation
+                        </Link>
+                        {' '}*
+                      </span>
+                    </label>
+
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={acceptPrivacy}
+                        onChange={(e) => setAcceptPrivacy(e.target.checked)}
+                        className="mt-1 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                        required
+                      />
+                      <span className="text-sm text-gray-600">
+                        J'ai lu et j'accepte la{' '}
+                        <Link
+                          to="/politique-confidentialite"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-orange-600 hover:text-orange-700 underline font-medium"
+                        >
+                          Politique de Confidentialité
+                        </Link>
+                        {' '}*
+                      </span>
+                    </label>
+
+                    <p className="text-xs text-gray-500 pl-7">
+                      * En cochant ces cases, vous acceptez nos conditions et notre politique de confidentialité.
+                    </p>
                   </div>
 
                   <button
                     onClick={handleSubmitName}
                     disabled={loading || !fullName.trim()}
-                    className="w-full py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2 sm:py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-base sm:text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <Loader2 className="w-6 h-6 animate-spin" />
@@ -891,7 +1061,7 @@ export default function ModernAuthPage() {
                     type="button"
                     onClick={handleVerifyEmailOtp}
                     disabled={loading || emailOtp.length < 6}
-                    className="w-full py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2 sm:py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-base sm:text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Valider le code'}
                   </button>
@@ -912,19 +1082,19 @@ export default function ModernAuthPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[
                       {
-                        value: 'locataire',
+                        value: 'tenant',
                         label: 'Locataire',
                         icon: Home,
                         bullets: ['Recherche & alertes', 'Candidature en 1 clic'],
                       },
                       {
-                        value: 'proprietaire',
+                        value: 'owner',
                         label: 'Propriétaire',
                         icon: Star,
                         bullets: ['Publier un bien', 'Contrats digitaux'],
                       },
                       {
-                        value: 'agence',
+                        value: 'agency',
                         label: 'Agence',
                         icon: Shield,
                         bullets: ['Mandats & équipe', 'Reporting & commissions'],
@@ -933,9 +1103,7 @@ export default function ModernAuthPage() {
                       <button
                         key={opt.value}
                         type="button"
-                        onClick={() =>
-                          handleSelectRole(opt.value as 'locataire' | 'proprietaire' | 'agence')
-                        }
+                        onClick={() => handleSelectRole(opt.value as 'tenant' | 'owner' | 'agency')}
                         className={`flex items-start gap-3 px-4 py-4 rounded-2xl border transition text-left ${
                           profileType === opt.value
                             ? 'border-[#F16522] bg-[#F16522]/10 text-[#F16522] shadow-lg'
@@ -996,6 +1164,7 @@ export default function ModernAuthPage() {
                     icon={Lock}
                     label="Mot de passe"
                     type="password"
+                    isPassword
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
@@ -1018,6 +1187,7 @@ export default function ModernAuthPage() {
                       icon={Lock}
                       label="Confirmer le mot de passe"
                       type="password"
+                      isPassword
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="••••••••"
@@ -1025,10 +1195,62 @@ export default function ModernAuthPage() {
                     />
                   )}
 
+                  {emailMode === 'register' && (
+                    <div className="space-y-3 pt-2 border-t border-gray-200">
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={acceptTerms}
+                          onChange={(e) => setAcceptTerms(e.target.checked)}
+                          className="mt-1 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                          required
+                        />
+                        <span className="text-sm text-gray-600">
+                          J'accepte les{' '}
+                          <Link
+                            to="/conditions-generales"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-orange-600 hover:text-orange-700 underline font-medium"
+                          >
+                            Conditions Générales d'Utilisation
+                          </Link>
+                          {' '}*
+                        </span>
+                      </label>
+
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={acceptPrivacy}
+                          onChange={(e) => setAcceptPrivacy(e.target.checked)}
+                          className="mt-1 w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                          required
+                        />
+                        <span className="text-sm text-gray-600">
+                          J'ai lu et j'accepte la{' '}
+                          <Link
+                            to="/politique-confidentialite"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-orange-600 hover:text-orange-700 underline font-medium"
+                          >
+                            Politique de Confidentialité
+                          </Link>
+                          {' '}*
+                        </span>
+                      </label>
+
+                      <p className="text-xs text-gray-500 pl-7">
+                        * En cochant ces cases, vous acceptez nos conditions et notre politique de confidentialité.
+                      </p>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-2 sm:py-4 bg-[#F16522] hover:bg-[#D95318] text-white rounded-xl font-bold text-base sm:text-lg shadow-xl shadow-[#F16522]/20 flex items-center justify-center gap-2 transform active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
                       <Loader2 className="w-6 h-6 animate-spin" />
@@ -1044,8 +1266,8 @@ export default function ModernAuthPage() {
             </div>
           )}
 
-          {/* Footer Légal */}
-          <div className="text-center text-xs text-[#A69B95] space-y-2 pt-4">
+          {/* Footer Légal - Caché sur mobile */}
+          <div className="hidden sm:block text-center text-xs text-[#A69B95] space-y-2 pt-4">
             <p className="flex items-center justify-center gap-1">
               <Shield className="w-3 h-3" /> Vos données sont chiffrées et sécurisées.
             </p>

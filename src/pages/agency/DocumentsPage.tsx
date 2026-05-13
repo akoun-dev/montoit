@@ -52,13 +52,43 @@ interface Document {
 }
 
 const CATEGORIES = [
-  { value: 'contract', label: 'Contrats de location', icon: FileText, color: 'bg-blue-50 text-blue-600' },
-  { value: 'lease', label: 'Bail commercial', icon: FileSignature, color: 'bg-purple-50 text-purple-600' },
-  { value: 'insurance', label: 'Assurances', icon: CheckCircle, color: 'bg-green-50 text-green-600' },
-  { value: 'diagnostic', label: 'Diagnostics', icon: AlertCircle, color: 'bg-amber-50 text-amber-600' },
+  {
+    value: 'contract',
+    label: 'Contrats de location',
+    icon: FileText,
+    color: 'bg-blue-50 text-blue-600',
+  },
+  {
+    value: 'lease',
+    label: 'Bail commercial',
+    icon: FileSignature,
+    color: 'bg-purple-50 text-purple-600',
+  },
+  {
+    value: 'insurance',
+    label: 'Assurances',
+    icon: CheckCircle,
+    color: 'bg-green-50 text-green-600',
+  },
+  {
+    value: 'diagnostic',
+    label: 'Diagnostics',
+    icon: AlertCircle,
+    color: 'bg-amber-50 text-amber-600',
+  },
   { value: 'invoice', label: 'Factures', icon: File, color: 'bg-red-50 text-red-600' },
-  { value: 'receipt', label: 'Quittances de loyer', icon: Calendar, color: 'bg-orange-50 text-orange-600' },
-  { value: 'mandate', label: 'Mandats de gestion', icon: FileSignature, color: 'bg-indigo-50 text-indigo-600' },
+  {
+    value: 'receipt',
+    label: 'Quittances de loyer',
+    icon: Calendar,
+    color: 'bg-orange-50 text-orange-600',
+  },
+  {
+    value: 'mandate',
+    label: 'Mandats de gestion',
+    icon: FileSignature,
+    color: 'bg-indigo-50 text-indigo-600',
+  },
   { value: 'other', label: 'Autres', icon: FileText, color: 'bg-gray-50 text-gray-600' },
 ];
 
@@ -97,7 +127,12 @@ const StatCard = ({
 const DocumentStatusBadge = ({ status }: { status: string }) => {
   const config = {
     ready: { label: 'Pret', color: 'text-green-700', bg: 'bg-green-100', icon: CheckCircle },
-    processing: { label: 'OCR en cours', color: 'text-amber-700', bg: 'bg-amber-100', icon: Sparkles },
+    processing: {
+      label: 'OCR en cours',
+      color: 'text-amber-700',
+      bg: 'bg-amber-100',
+      icon: Sparkles,
+    },
     error: { label: 'Erreur', color: 'text-red-700', bg: 'bg-red-100', icon: AlertCircle },
   };
 
@@ -107,7 +142,9 @@ const DocumentStatusBadge = ({ status }: { status: string }) => {
   if (status === 'ready') return null;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${statusConfig.bg} ${statusConfig.color}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${statusConfig.bg} ${statusConfig.color}`}
+    >
       <Icon className="w-3.5 h-3.5" />
       {statusConfig.label}
     </span>
@@ -120,7 +157,9 @@ const CategoryBadge = ({ category }: { category: string }) => {
   const Icon = cat.icon;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${cat.color}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${cat.color}`}
+    >
       <Icon className="w-3.5 h-3.5" />
       {cat.label}
     </span>
@@ -172,11 +211,13 @@ export default function AgencyDocumentsPage() {
     try {
       setLoading(true);
 
-      // Use RPC function to get user's agency (bypasses RLS)
+      // Get user's agency
       const { data: agencyData } = await supabase
-        .rpc('get_user_agency', {
-          user_uuid: user.id
-        });
+        .from('agencies')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       const agencyId = agencyData?.[0]?.id || null;
 
@@ -200,7 +241,23 @@ export default function AgencyDocumentsPage() {
       let docsError;
 
       try {
-        const result = await (supabase as unknown as { from: (table: string) => { select: (cols: string) => { eq: (col: string, val: string) => { order: (col: string, opts: { ascending: boolean }) => Promise<{ data: Document[] | null; error: { message: string } | null }> } } } })
+        const result = await (
+          supabase as unknown as {
+            from: (table: string) => {
+              select: (cols: string) => {
+                eq: (
+                  col: string,
+                  val: string
+                ) => {
+                  order: (
+                    col: string,
+                    opts: { ascending: boolean }
+                  ) => Promise<{ data: Document[] | null; error: { message: string } | null }>;
+                };
+              };
+            };
+          }
+        )
           .from('agency_documents')
           .select('*, properties(id, title, city, main_image)')
           .eq('agency_id', agencyId)
@@ -212,11 +269,26 @@ export default function AgencyDocumentsPage() {
       }
 
       if (docsError) {
-        console.log('agency_documents table does not exist yet, trying owner_documents:', docsError.message);
         // Fallback to owner_documents filtered by agency properties
         const propertyIds = (propertiesData || []).map((p: Property) => p.id);
         if (propertyIds.length > 0) {
-          const { data: ownerDocs } = await (supabase as unknown as typeof supabase & { from: (table: string) => { select: (cols: string) => { in: (col: string, vals: string[]) => { order: (col: string, opts: { ascending: boolean }) => Promise<{ data: Document[] | null; error: { message: string } | null }> } } } })
+          const { data: ownerDocs } = await (
+            supabase as unknown as typeof supabase & {
+              from: (table: string) => {
+                select: (cols: string) => {
+                  in: (
+                    col: string,
+                    vals: string[]
+                  ) => {
+                    order: (
+                      col: string,
+                      opts: { ascending: boolean }
+                    ) => Promise<{ data: Document[] | null; error: { message: string } | null }>;
+                  };
+                };
+              };
+            }
+          )
             .from('owner_documents')
             .select('*, properties(id, title, city, main_image)')
             .in('property_id', propertyIds)
@@ -261,11 +333,13 @@ export default function AgencyDocumentsPage() {
     setUploading(true);
 
     try {
-      // Use RPC function to get user's agency (bypasses RLS)
+      // Get user's agency
       const { data: agencyData } = await supabase
-        .rpc('get_user_agency', {
-          user_uuid: user!.id
-        });
+        .from('agencies')
+        .select('id')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       const agencyId = agencyData?.[0]?.id || null;
 
@@ -274,14 +348,8 @@ export default function AgencyDocumentsPage() {
         setUploading(false);
         return;
       }
-      if (!agencyId) {
-        toast.error('Profil agence non trouvé');
-        return;
-      }
 
       for (const file of Array.from(files)) {
-        console.log('🚀 [AgencyDocumentsPage] Début traitement fichier:', file.name);
-
         const toastId = toast.loading(`OCR en cours: ${file.name}...`, {
           description: 'Initialisation de Tesseract...',
         });
@@ -297,7 +365,6 @@ export default function AgencyDocumentsPage() {
         });
 
         const ocrResult = await documentProcessorService.extractTextFromFile(file);
-        console.log('✅ [AgencyDocumentsPage] OCR terminé, résultat:', ocrResult.success);
 
         unsubscribe();
 
@@ -325,32 +392,37 @@ export default function AgencyDocumentsPage() {
 
         // Try agency-documents bucket first, fallback to owner-documents
         let bucketName = 'agency-documents';
-        let uploadResult = await supabase.storage
-          .from(bucketName)
-          .upload(filePath, file);
+        let uploadResult = await supabase.storage.from(bucketName).upload(filePath, file);
 
         if (uploadResult.error && uploadResult.error.message.includes('bucket not found')) {
           bucketName = 'owner-documents';
-          uploadResult = await supabase.storage
-            .from(bucketName)
-            .upload(filePath, file);
+          uploadResult = await supabase.storage.from(bucketName).upload(filePath, file);
         }
 
         if (uploadResult.error) {
           console.error('Storage upload error:', uploadResult.error);
-          if (uploadResult.error.message.includes('bucket not found') || uploadResult.error.message.includes('The resource was not found')) {
-            toast.error('Bucket de stockage non configure. Contactez l\'administrateur.');
+          if (
+            uploadResult.error.message.includes('bucket not found') ||
+            uploadResult.error.message.includes('The resource was not found')
+          ) {
+            toast.error("Bucket de stockage non configure. Contactez l'administrateur.");
             return;
           }
           throw uploadResult.error;
         }
 
-        const { data: urlData } = supabase.storage
-          .from(bucketName)
-          .getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(filePath);
 
         // Try agency_documents table first
-        const dbResult1 = await (supabase as unknown as { from: (table: string) => { insert: (data: Record<string, unknown>) => Promise<{ error: { error?: { message: string } } | null }>} })
+        const dbResult1 = await (
+          supabase as unknown as {
+            from: (table: string) => {
+              insert: (
+                data: Record<string, unknown>
+              ) => Promise<{ error: { error?: { message: string } } | null }>;
+            };
+          }
+        )
           .from('agency_documents')
           .insert({
             agency_id: agencyId,
@@ -367,7 +439,15 @@ export default function AgencyDocumentsPage() {
           });
 
         if (dbResult1.error?.error?.message?.includes('relation')) {
-          const dbResult2 = await (supabase as unknown as { from: (table: string) => { insert: (data: Record<string, unknown>) => Promise<{ error: { error?: { message: string } } | null }>} })
+          const dbResult2 = await (
+            supabase as unknown as {
+              from: (table: string) => {
+                insert: (
+                  data: Record<string, unknown>
+                ) => Promise<{ error: { error?: { message: string } } | null }>;
+              };
+            }
+          )
             .from('owner_documents')
             .insert({
               owner_id: user!.id,
@@ -385,23 +465,29 @@ export default function AgencyDocumentsPage() {
 
           if (dbResult2.error?.error) {
             console.error('Database insert error:', dbResult2.error.error);
-            if (dbResult2.error.error.message.includes('relation') || dbResult2.error.error.message.includes('does not exist')) {
-              toast.error(`Table de documents non configuree. Contactez l\'administrateur.`);
+            if (
+              dbResult2.error.error.message.includes('relation') ||
+              dbResult2.error.error.message.includes('does not exist')
+            ) {
+              toast.error(`Table de documents non configuree. Contactez l'administrateur.`);
               return;
             }
             throw dbResult2.error.error;
           }
         } else if (dbResult1.error?.error) {
           console.error('Database insert error:', dbResult1.error.error);
-          if (dbResult1.error.error.message.includes('relation') || dbResult1.error.error.message.includes('does not exist')) {
-            toast.error(`Table de documents non configuree. Contactez l\'administrateur.`);
+          if (
+            dbResult1.error.error.message.includes('relation') ||
+            dbResult1.error.error.message.includes('does not exist')
+          ) {
+            toast.error(`Table de documents non configuree. Contactez l'administrateur.`);
             return;
           }
           throw dbResult1.error.error;
         }
 
         if (ocrResult.success) {
-          console.log(`OCR réussi pour ${file.name}: ${ocrResult.text.length} caractères extraits`);
+          // OCR success notification
         }
       }
 
@@ -412,7 +498,7 @@ export default function AgencyDocumentsPage() {
       setUploadPropertyId('');
       setOcrProgress(0);
       setCurrentFileName('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Upload error:', error);
       toast.error(error?.message || 'Erreur lors du telechargement');
     } finally {
@@ -422,14 +508,17 @@ export default function AgencyDocumentsPage() {
     }
   };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      handleFileSelect(files);
-    }
-  }, [uploadCategory, uploadPropertyId]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFileSelect(files);
+      }
+    },
+    [uploadCategory, uploadPropertyId]
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -440,34 +529,56 @@ export default function AgencyDocumentsPage() {
 
     try {
       // Try agency_documents first
-      const result1 = await (supabase as unknown as { from: (table: string) => { delete: () => { eq: (col: string, val: string) => Promise<{ error: { error?: { message: string } } | null }> } } })
+      const result1 = await (
+        supabase as unknown as {
+          from: (table: string) => {
+            delete: () => {
+              eq: (
+                col: string,
+                val: string
+              ) => Promise<{ error: { error?: { message: string } } | null }>;
+            };
+          };
+        }
+      )
         .from('agency_documents')
         .delete()
         .eq('id', docId);
 
       if (result1.error?.error) {
-        const result2 = await (supabase as unknown as { from: (table: string) => { delete: () => { eq: (col: string, val: string) => Promise<{ error: { error?: { message: string } } | null }> } } })
+        const result2 = await (
+          supabase as unknown as {
+            from: (table: string) => {
+              delete: () => {
+                eq: (
+                  col: string,
+                  val: string
+                ) => Promise<{ error: { error?: { message: string } } | null }>;
+              };
+            };
+          }
+        )
           .from('owner_documents')
           .delete()
           .eq('id', docId);
 
         if (result2.error?.error) throw result2.error.error;
-      } else if (result1.error?.error) {
-        throw result1.error.error;
       }
 
       toast.success('Document supprime');
       loadData();
-    } catch (error) {
+    } catch {
       toast.error('Erreur lors de la suppression');
     }
   };
 
-  const handleSign = async (_docId: string) => {
+  const handleSign = async (docId: string) => {
+    void docId; // Paramètre réservé pour implémentation future
     toast.info('Signature electronique - Fonctionnalite a venir');
   };
 
-  const handleShare = async (_docId: string) => {
+  const handleShare = async (docId: string) => {
+    void docId; // Paramètre réservé pour implémentation future
     toast.info('Partage securise - Fonctionnalite a venir');
   };
 
@@ -548,7 +659,12 @@ export default function AgencyDocumentsPage() {
           <StatCard icon={FileText} label="Total documents" value={stats.total} color="gray" />
           <StatCard icon={PenTool} label="Signes" value={stats.signed} color="green" />
           <StatCard icon={Tag} label="Taggés" value={stats.pending} color="blue" />
-          <StatCard icon={FolderOpen} label="Taille totale" value={formatFileSize(stats.totalSize)} color="purple" />
+          <StatCard
+            icon={FolderOpen}
+            label="Taille totale"
+            value={formatFileSize(stats.totalSize)}
+            color="purple"
+          />
         </div>
 
         {/* Search and Filters */}
@@ -616,7 +732,10 @@ export default function AgencyDocumentsPage() {
         ) : (
           <div className="space-y-6">
             {documentsByCategory.map((group) => (
-              <div key={group.value} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+              <div
+                key={group.value}
+                className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
+              >
                 <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-b border-gray-200">
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${group.color}`}>
@@ -652,7 +771,9 @@ export default function AgencyDocumentsPage() {
                           <div className="flex items-center gap-3 text-sm text-gray-500 flex-wrap">
                             <span>{formatFileSize(doc.file_size)}</span>
                             <span>-</span>
-                            <span>{format(new Date(doc.created_at), 'dd MMM yyyy', { locale: fr })}</span>
+                            <span>
+                              {format(new Date(doc.created_at), 'dd MMM yyyy', { locale: fr })}
+                            </span>
                             {doc.property && (
                               <>
                                 <span>-</span>
@@ -816,9 +937,7 @@ export default function AgencyDocumentsPage() {
                         OCR en cours: {currentFileName}
                       </span>
                     </div>
-                    <span className="text-sm font-semibold text-orange-600">
-                      {ocrProgress}%
-                    </span>
+                    <span className="text-sm font-semibold text-orange-600">{ocrProgress}%</span>
                   </div>
                   <div className="w-full bg-orange-200 rounded-full h-2 overflow-hidden">
                     <div
@@ -827,15 +946,19 @@ export default function AgencyDocumentsPage() {
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-2 text-center">
-                    {ocrProgress < 20 ? 'Initialisation de Tesseract...' :
-                     ocrProgress < 80 ? 'Extraction du texte en cours...' :
-                     'Finalisation...'}
+                    {ocrProgress < 20
+                      ? 'Initialisation de Tesseract...'
+                      : ocrProgress < 80
+                        ? 'Extraction du texte en cours...'
+                        : 'Finalisation...'}
                   </p>
                 </div>
               )}
 
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Traitement automatique IA</h3>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                  Traitement automatique IA
+                </h3>
                 <div className="grid grid-cols-1 gap-3">
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100">
                     <div className="p-2 rounded-lg bg-white">
@@ -852,7 +975,9 @@ export default function AgencyDocumentsPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-800">Tagging intelligent</p>
-                      <p className="text-xs text-gray-500">Génération automatique de tags pertinents</p>
+                      <p className="text-xs text-gray-500">
+                        Génération automatique de tags pertinents
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100">
@@ -861,7 +986,9 @@ export default function AgencyDocumentsPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-800">Recherche full-text</p>
-                      <p className="text-xs text-gray-500">Recherche dans le contenu des documents</p>
+                      <p className="text-xs text-gray-500">
+                        Recherche dans le contenu des documents
+                      </p>
                     </div>
                   </div>
                 </div>

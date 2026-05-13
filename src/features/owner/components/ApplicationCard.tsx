@@ -57,13 +57,13 @@ function ScoreBadge({ score }: { score: number | null }) {
 function StatusBadge({ status }: { status: string }) {
   const getStatusStyle = () => {
     switch (status) {
-      case 'en_attente':
+      case 'pending':
         return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'en_cours':
+      case 'in_progress':
         return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'acceptee':
+      case 'accepted':
         return 'bg-green-100 text-green-700 border-green-200';
-      case 'refusee':
+      case 'rejected':
         return 'bg-red-100 text-red-700 border-red-200';
       default:
         return 'bg-gray-100 text-gray-700 border-gray-200';
@@ -72,13 +72,13 @@ function StatusBadge({ status }: { status: string }) {
 
   const getStatusLabel = () => {
     switch (status) {
-      case 'en_attente':
+      case 'pending':
         return 'En attente';
-      case 'en_cours':
+      case 'in_progress':
         return 'En cours';
-      case 'acceptee':
+      case 'accepted':
         return 'Acceptée';
-      case 'refusee':
+      case 'rejected':
         return 'Refusée';
       default:
         return status;
@@ -224,7 +224,7 @@ export default function ApplicationCard({
 
         {/* Actions */}
         <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-2">
-          {application.status === 'en_attente' && (
+          {application.status === 'pending' && (
             <>
               <button
                 onClick={() => onAccept(application.id)}
@@ -253,7 +253,7 @@ export default function ApplicationCard({
             </>
           )}
 
-          {application.status === 'en_cours' && (
+          {application.status === 'in_progress' && (
             <>
               <button
                 onClick={() => onAccept(application.id)}
@@ -274,7 +274,7 @@ export default function ApplicationCard({
             </>
           )}
 
-          {application.status === 'acceptee' && (
+          {application.status === 'accepted' && (
             <Link
               to={`${ROUTES.CONTRACTS.CREATE.replace(':propertyId', application.property_id)}?tenantId=${application.applicant_id || application.tenant_id}`}
               className="flex-1 min-w-[100px] bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium py-2 px-3 rounded-lg text-sm flex items-center justify-center gap-1.5 transition-all"
@@ -284,7 +284,7 @@ export default function ApplicationCard({
             </Link>
           )}
 
-          {application.status === 'refusee' && (
+          {application.status === 'rejected' && (
             <button
               onClick={() => onAccept(application.id)}
               disabled={loading}

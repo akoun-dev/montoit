@@ -16,7 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 
-// New Trust Agent UI Components
+// New Tiers de confiance UI Components
 import {
   KPICard,
   EmptyState,

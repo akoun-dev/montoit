@@ -6,9 +6,9 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { supabase } from '@/services/supabase/client';
 
 describe('Security Integration Tests', () => {
-  const testUsers: any[] = [];
-  const testProperties: any[] = [];
-  const testContracts: any[] = [];
+  const testUsers: unknown[] = [];
+  const testProperties: unknown[] = [];
+  const testContracts: unknown[] = [];
 
   beforeAll(async () => {
     // Créer des données de test
@@ -37,7 +37,7 @@ describe('Security Integration Tests', () => {
             password: 'wrongpassword',
           });
           successfulLogins++;
-        } catch (error: any) {
+        } catch (error: unknown) {
           if (error.message?.includes('Too many')) {
             blockedAttempts++;
           }
@@ -59,7 +59,7 @@ describe('Security Integration Tests', () => {
           email: existingEmail,
           password: 'wrong',
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         const existingErrorMsg = error.message;
       }
 
@@ -68,7 +68,7 @@ describe('Security Integration Tests', () => {
           email: nonExistingEmail,
           password: 'wrong',
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         const nonExistingErrorMsg = error.message;
       }
 
@@ -151,7 +151,7 @@ describe('Security Integration Tests', () => {
       // Les erreurs ne devraient pas révéler la structure interne de la BD
       try {
         await supabase.from('nonexistent_table').select('*');
-      } catch (error: any) {
+      } catch (error: unknown) {
         expect(error.message).not.toContain('column');
         expect(error.message).not.toContain('database');
       }
@@ -192,7 +192,7 @@ describe('Security Integration Tests', () => {
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await fetch('/api/upload', {
+        const response = await fetch('http://localhost/api/upload', {
           method: 'POST',
           body: formData,
         });
@@ -225,7 +225,7 @@ describe('Security Integration Tests', () => {
   describe('API Security Headers', () => {
     it('should include security headers in API responses', async () => {
       // Faire une requête à une API
-      const response = await fetch('/api/health');
+      const response = await fetch('http://localhost/api/health');
 
       // Vérifier les headers de sécurité
       expect(response.headers.get('X-Frame-Options')).toBe('DENY');
@@ -235,7 +235,7 @@ describe('Security Integration Tests', () => {
 
     it('should implement proper CORS', async () => {
       // Test depuis une origine non autorisée
-      const response = await fetch('/api/test', {
+      const response = await fetch('http://localhost/api/test', {
         headers: {
           Origin: 'https://malicious-site.com',
         },
@@ -279,7 +279,7 @@ describe('Security Integration Tests', () => {
         data: 'x'.repeat(10 * 1024 * 1024), // 10MB
       };
 
-      const response = await fetch('/api/test', {
+      const response = await fetch('http://localhost/api/test', {
         method: 'POST',
         body: JSON.stringify(largePayload),
         headers: { 'Content-Type': 'application/json' },
@@ -371,7 +371,7 @@ describe('Security Integration Tests', () => {
   describe('Cross-Site Request Forgery (CSRF) Protection', () => {
     it('should require CSRF token for state-changing requests', async () => {
       // Tenter une requête POST sans token CSRF
-      const response = await fetch('/api/update-profile', {
+      const response = await fetch('http://localhost/api/update-profile', {
         method: 'POST',
         body: JSON.stringify({ name: 'Hacked' }),
         headers: { 'Content-Type': 'application/json' },

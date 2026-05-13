@@ -13,12 +13,9 @@ import {
   Grid3x3,
   List,
   LayoutDashboard,
-  TrendingUp,
-  Users,
   AlertCircle,
   CheckCircle2,
   Clock,
-  Columns,
   MapPin,
   Eye,
   Pause,
@@ -47,7 +44,6 @@ export default function AgencyMandatesKanbanPage() {
 
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMandate, setSelectedMandate] = useState<AgencyMandate | null>(null);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
 
   const {
@@ -496,9 +492,6 @@ function KanbanCard({
   onClick,
   onAccept,
   onRefuse,
-  onSuspend: _onSuspend,
-  onReactivate: _onReactivate,
-  onTerminate: _onTerminate,
   formatDate,
   formatCurrency,
 }: KanbanCardProps) {

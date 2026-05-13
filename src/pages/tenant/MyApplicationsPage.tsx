@@ -22,7 +22,7 @@ import {
 import { toast } from 'sonner';
 import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 
-type StatusFilter = 'all' | 'en_attente' | 'en_cours' | 'acceptee' | 'refusee' | 'annulee';
+type StatusFilter = 'all' | 'pending' | 'in_progress' | 'accepted' | 'rejected' | 'cancelled';
 
 export default function MyApplicationsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -109,15 +109,15 @@ export default function MyApplicationsPage() {
 
   const statusOptions: { value: StatusFilter; label: string; color: string }[] = [
     { value: 'all', label: 'Toutes', color: 'bg-neutral-100 text-neutral-700' },
-    { value: 'en_attente', label: 'En attente', color: 'bg-amber-100 text-amber-700' },
-    { value: 'en_cours', label: 'En cours', color: 'bg-blue-100 text-blue-700' },
-    { value: 'acceptee', label: 'Acceptées', color: 'bg-green-100 text-green-700' },
-    { value: 'refusee', label: 'Refusées', color: 'bg-red-100 text-red-700' },
+    { value: 'pending', label: 'En attente', color: 'bg-amber-100 text-amber-700' },
+    { value: 'in_progress', label: 'En cours', color: 'bg-blue-100 text-blue-700' },
+    { value: 'accepted', label: 'Acceptées', color: 'bg-green-100 text-green-700' },
+    { value: 'rejected', label: 'Refusées', color: 'bg-red-100 text-red-700' },
   ];
 
   if (authLoading || loading) {
     return (
-      <TenantDashboardLayout title="Mes Candidatures">
+      <TenantDashboardLayout title="Mes Candidatures" icon={<Users className="h-5 w-5" />} description="Suivez toutes vos demandes de location">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
         </div>
@@ -126,10 +126,10 @@ export default function MyApplicationsPage() {
   }
 
   return (
-    <TenantDashboardLayout title="Mes Candidatures">
+    <TenantDashboardLayout title="Mes Candidatures" icon={<Users className="h-5 w-5" />} description="Suivez toutes vos demandes de location">
       <div className="space-y-6">
         {/* Header */}
-        <div className="bg-[#2C1810] rounded-[20px] p-6">
+        <div className="hidden lg:block bg-[#2C1810] rounded-[20px] p-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center">
               <Users className="h-6 w-6 text-white" />
@@ -140,78 +140,78 @@ export default function MyApplicationsPage() {
         </div>
 
         {/* Statistics */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <div
             onClick={() => setStatusFilter('all')}
-            className={`bg-white rounded-xl p-4 border cursor-pointer transition-all hover:border-primary-300 ${
+            className={`bg-white rounded-xl p-3 sm:p-4 border cursor-pointer transition-all hover:border-primary-300 ${
               statusFilter === 'all'
                 ? 'border-primary-500 ring-2 ring-primary-100'
                 : 'border-neutral-200'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-neutral-100 flex items-center justify-center">
-                <FileText className="h-5 w-5 text-neutral-600" />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-neutral-100 flex items-center justify-center">
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-neutral-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-neutral-900">{stats.total}</p>
+                <p className="text-lg sm:text-2xl font-bold text-neutral-900">{stats.total}</p>
                 <p className="text-xs text-neutral-500">Total</p>
               </div>
             </div>
           </div>
 
           <div
-            onClick={() => setStatusFilter('en_attente')}
-            className={`bg-white rounded-xl p-4 border cursor-pointer transition-all hover:border-amber-300 ${
-              statusFilter === 'en_attente'
+            onClick={() => setStatusFilter('pending')}
+            className={`bg-white rounded-xl p-3 sm:p-4 border cursor-pointer transition-all hover:border-amber-300 ${
+              statusFilter === 'pending'
                 ? 'border-amber-500 ring-2 ring-amber-100'
                 : 'border-neutral-200'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                <Clock className="h-5 w-5 text-amber-600" />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
+                <p className="text-lg sm:text-2xl font-bold text-amber-600">{stats.pending}</p>
                 <p className="text-xs text-neutral-500">En attente</p>
               </div>
             </div>
           </div>
 
           <div
-            onClick={() => setStatusFilter('acceptee')}
-            className={`bg-white rounded-xl p-4 border cursor-pointer transition-all hover:border-green-300 ${
-              statusFilter === 'acceptee'
+            onClick={() => setStatusFilter('accepted')}
+            className={`bg-white rounded-xl p-3 sm:p-4 border cursor-pointer transition-all hover:border-green-300 ${
+              statusFilter === 'accepted'
                 ? 'border-green-500 ring-2 ring-green-100'
                 : 'border-neutral-200'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <CheckCircle className="h-5 w-5 text-green-600" />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-green-600">{stats.accepted}</p>
+                <p className="text-lg sm:text-2xl font-bold text-green-600">{stats.accepted}</p>
                 <p className="text-xs text-neutral-500">Acceptées</p>
               </div>
             </div>
           </div>
 
           <div
-            onClick={() => setStatusFilter('refusee')}
-            className={`bg-white rounded-xl p-4 border cursor-pointer transition-all hover:border-red-300 ${
-              statusFilter === 'refusee'
+            onClick={() => setStatusFilter('rejected')}
+            className={`bg-white rounded-xl p-3 sm:p-4 border cursor-pointer transition-all hover:border-red-300 ${
+              statusFilter === 'rejected'
                 ? 'border-red-500 ring-2 ring-red-100'
                 : 'border-neutral-200'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-                <XCircle className="h-5 w-5 text-red-600" />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
+                <p className="text-lg sm:text-2xl font-bold text-red-600">{stats.rejected}</p>
                 <p className="text-xs text-neutral-500">Refusées</p>
               </div>
             </div>
@@ -219,43 +219,41 @@ export default function MyApplicationsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-xl p-4 border border-neutral-200">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-400" />
-              <input
-                type="text"
-                placeholder="Rechercher par propriété, ville ou propriétaire..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
+        <div className="bg-white rounded-xl p-3 sm:p-4 border border-neutral-200 space-y-3 sm:space-y-0">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-neutral-400" />
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
 
-            {/* Status Filter Pills */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              <Filter className="h-4 w-4 text-neutral-400 flex-shrink-0" />
-              {statusOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => setStatusFilter(option.value)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-                    statusFilter === option.value
-                      ? option.color + ' ring-2 ring-offset-1 ring-neutral-300'
-                      : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+          {/* Status Filter Pills */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-neutral-400 flex-shrink-0 hidden sm:block" />
+            {statusOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setStatusFilter(option.value)}
+                className={`px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all ${
+                  statusFilter === option.value
+                    ? option.color + ' ring-2 ring-offset-1 ring-neutral-300'
+                    : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Applications List */}
         {filteredApplications.length === 0 ? (
-          <div className="bg-white rounded-xl p-12 border border-neutral-200 text-center">
+          <div className="bg-white rounded-xl p-6 sm:p-12 border border-neutral-200 text-center">
             <div className="w-20 h-20 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="h-10 w-10 text-neutral-400" />
             </div>

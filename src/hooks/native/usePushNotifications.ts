@@ -6,7 +6,8 @@ import {
   ActionPerformed,
 } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
-// import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/app/providers/AuthProvider';
 
 interface NotificationData {
   title: string;
@@ -15,6 +16,7 @@ interface NotificationData {
 }
 
 export function usePushNotifications() {
+  const { user } = useAuth();
   const [token, setToken] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,15 +24,34 @@ export function usePushNotifications() {
 
   const isNative = Capacitor.isNativePlatform();
 
-  const registerToken = useCallback(async (_pushToken: string, _userId: string) => {
-    // Store token in database for server-side push
-    // Note: You may need to add a push_token column to profiles table
-    // and uncomment the following code:
-    // const { error: dbError } = await supabase
-    //   .from('profiles')
-    //   .update({ push_token: _pushToken })
-    //   .eq('user_id', _userId);
-    // if (dbError) console.error('Error storing push token:', dbError);
+  const registerToken = useCallback(async (
+    pushToken: string,
+    userId: string
+  ) => {
+    try {
+      // Upsert token in database
+      const { error } = await supabase
+        .from('push_tokens')
+        .upsert({
+          token: pushToken,
+          user_id: userId,
+          platform: Capacitor.getPlatform(),
+          last_seen: new Date().toISOString(),
+          is_active: true,
+        }, {
+          onConflict: 'token'
+        });
+
+      if (error) {
+        console.error('Error storing push token:', error);
+        throw error;
+      }
+
+      console.log('Push token stored successfully');
+    } catch (err) {
+      console.error('Failed to store push token:', err);
+      throw err;
+    }
   }, []);
 
   const register = useCallback(async () => {
@@ -77,8 +98,17 @@ export function usePushNotifications() {
     if (!isNative) return;
 
     // Token received
-    const tokenListener = PushNotifications.addListener('registration', (tokenData: Token) => {
+    const tokenListener = PushNotifications.addListener('registration', async (tokenData: Token) => {
       setToken(tokenData.value);
+
+      // Store token in database when user is available
+      if (tokenData.value && user) {
+        try {
+          await registerToken(tokenData.value, user.id);
+        } catch (err) {
+          console.error('Failed to store push token:', err);
+        }
+      }
     });
 
     // Registration error
@@ -124,7 +154,7 @@ export function usePushNotifications() {
       notificationListener.then((l) => l.remove());
       actionListener.then((l) => l.remove());
     };
-  }, [isNative]);
+  }, [isNative, user, registerToken]);
 
   return {
     isNative,

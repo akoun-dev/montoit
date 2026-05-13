@@ -43,7 +43,7 @@ export function usePaymentAlerts(): PaymentAlertsHookReturn {
         .from('lease_contracts')
         .select('id, property_id, monthly_rent, start_date, end_date, status, properties(title)')
         .eq('tenant_id', user.id)
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .order('start_date', { ascending: false });
 
       if (contractsError) throw contractsError;

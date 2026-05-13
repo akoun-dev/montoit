@@ -78,7 +78,7 @@ const pageSize = APP_CONFIG.pagination.defaultPageSize;
 - **NeoFace/Smileless** : Vérification faciale
 - **CryptoNeo** : Signature électronique
 - **Resend** : Service d'emails
-- **Brevo** : Service SMS
+- **Azure SMS** : Service SMS
 - **Gemini/DeepSeek** : LLM alternatifs
 
 ## Variables d'Environnement
@@ -88,8 +88,8 @@ Toutes les variables d'environnement doivent être définies dans le fichier `.e
 ### Essentielles
 
 ```env
-VITE_SUPABASE_URL=https://xxx.supabase.co
-VITE_SUPABASE_ANON_KEY=xxx
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_ANON_KEY=xxx
 ```
 
 ### Optionnelles

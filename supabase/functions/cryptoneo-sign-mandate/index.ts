@@ -51,7 +51,13 @@ serve(async (req) => {
 
     const { mandateId, signerType, otp, signatureMethod }: SignMandateRequest = await req.json();
 
-    console.log(`Processing ${signatureMethod} signature for mandate ${mandateId} by ${signerType}`);
+    console.log(`[cryptoneo-sign-mandate] Processing signature:`, {
+      mandateId,
+      signerType,
+      signatureMethod,
+      userId: user.id,
+      userEmail: user.email,
+    });
 
     // Fetch mandate with agency details
     const { data: mandate, error: mandateError } = await supabaseAdmin
@@ -65,18 +71,42 @@ serve(async (req) => {
       .single();
 
     if (mandateError || !mandate) {
-      console.error('Mandate fetch error:', mandateError);
+      console.error('[cryptoneo-sign-mandate] Mandate fetch error:', mandateError);
       return new Response(
         JSON.stringify({ error: 'Mandat introuvable' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('[cryptoneo-sign-mandate] Mandate fetched:', {
+      mandateId: mandate.id,
+      ownerId: mandate.owner_id,
+      agencyId: mandate.agency_id,
+      agencyUserId: mandate.agency?.user_id,
+      ownerSignedAt: mandate.owner_signed_at,
+      agencySignedAt: mandate.agency_signed_at,
+      currentStatus: mandate.status,
+      currentCryptoStatus: mandate.cryptoneo_signature_status,
+    });
+
     // Verify user has permission to sign
     const isOwner = mandate.owner_id === user.id;
     const isAgencyUser = mandate.agency?.user_id === user.id;
 
+    console.log('[cryptoneo-sign-mandate] Permission check:', {
+      userId: user.id,
+      signerType,
+      isOwner,
+      isAgencyUser,
+      agencyUserId: mandate.agency?.user_id,
+    });
+
     if ((signerType === 'owner' && !isOwner) || (signerType === 'agency' && !isAgencyUser)) {
+      console.error('[cryptoneo-sign-mandate] Permission denied:', {
+        signerType,
+        isOwner,
+        isAgencyUser,
+      });
       return new Response(
         JSON.stringify({ error: 'Vous n\'êtes pas autorisé à signer ce mandat' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -85,12 +115,14 @@ serve(async (req) => {
 
     // Check if already signed by this party
     if (signerType === 'owner' && mandate.owner_signed_at) {
+      console.log('[cryptoneo-sign-mandate] Owner already signed');
       return new Response(
         JSON.stringify({ error: 'Vous avez déjà signé ce mandat', alreadySigned: true }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     if (signerType === 'agency' && mandate.agency_signed_at) {
+      console.log('[cryptoneo-sign-mandate] Agency already signed');
       return new Response(
         JSON.stringify({ error: 'L\'agence a déjà signé ce mandat', alreadySigned: true }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -277,17 +309,45 @@ serve(async (req) => {
     }
 
     // Update the mandate
+    console.log(`[cryptoneo-sign-mandate] Updating mandate with:`, updateData);
+
     const { error: updateError } = await supabaseAdmin
       .from('agency_mandates')
       .update(updateData)
       .eq('id', mandateId);
 
     if (updateError) {
-      console.error('Mandate update error:', updateError);
+      console.error('[cryptoneo-sign-mandate] Mandate update error:', updateError);
       return new Response(
         JSON.stringify({ error: 'Erreur lors de la mise à jour du mandat' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    console.log(`[cryptoneo-sign-mandate] Mandate updated successfully:`, {
+      mandateId,
+      signatureStatus,
+      updateData
+    });
+
+    // Update property managed_by_agency when agency signs
+    if (signerType === 'agency' && mandate.property_id) {
+      console.log(`[cryptoneo-sign-mandate] Updating property managed_by_agency:`, {
+        propertyId: mandate.property_id,
+        agencyId: mandate.agency_id
+      });
+
+      const { error: propertyError } = await supabaseAdmin
+        .from('properties')
+        .update({ managed_by_agency: mandate.agency_id })
+        .eq('id', mandate.property_id);
+
+      if (propertyError) {
+        console.error('[cryptoneo-sign-mandate] Property update error:', propertyError);
+        // Don't fail the signature if property update fails
+      } else {
+        console.log('[cryptoneo-sign-mandate] Property managed_by_agency updated successfully');
+      }
     }
 
     // Send notification
@@ -299,9 +359,9 @@ serve(async (req) => {
           'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
         },
         body: JSON.stringify({
-          type: signerType === 'owner' ? 'mandate_owner_signed' : 'mandate_agency_signed',
+          type: 'mandate_signed',
           mandateId,
-          signatureStatus
+          signerType
         })
       });
     } catch (notifError) {

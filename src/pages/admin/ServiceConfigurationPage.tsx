@@ -26,10 +26,11 @@ const SERVICE_INFO: Record<string, { label: string; icon: string; color: string 
 };
 
 const PROVIDER_INFO: Record<string, { label: string; color: string }> = {
-  brevo: { label: 'Brevo', color: 'bg-blue-50 text-blue-700' },
+  resend: { label: 'Resend', color: 'bg-blue-50 text-blue-700' },
   sendgrid: { label: 'SendGrid', color: 'bg-cyan-50 text-cyan-700' },
   intouch: { label: 'InTouch', color: 'bg-orange-50 text-orange-700' },
   sinch: { label: 'Sinch', color: 'bg-purple-50 text-purple-700' },
+  azure: { label: 'Azure', color: 'bg-indigo-50 text-indigo-700' },
   stripe: { label: 'Stripe', color: 'bg-indigo-50 text-indigo-700' },
   aws_s3: { label: 'AWS S3', color: 'bg-yellow-50 text-yellow-700' },
   google_maps: { label: 'Google Maps', color: 'bg-green-50 text-green-700' },

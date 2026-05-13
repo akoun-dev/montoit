@@ -265,7 +265,7 @@ export class CertificationService {
         await supabase.from('user_verifications').insert({
           user_id: userId,
           verification_type: 'identity',
-          status: 'verifie',
+          status: 'approved',
           metadata: {
             certified_by: certifiedBy,
             notes: certificationData.notes,

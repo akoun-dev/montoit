@@ -6,13 +6,41 @@ import {
   ActionPerformed,
 } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
-// import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 
 interface NotificationData {
   title: string;
   body: string;
   data?: Record<string, unknown>;
 }
+
+type PushTokenPlatform = 'native' | 'web';
+
+interface PushTokenPayload {
+  token: string;
+  platform: PushTokenPlatform;
+  details?: Record<string, unknown>;
+}
+
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_PUBLIC_PUSH_VAPID_KEY;
+const isBrowser = typeof window !== 'undefined' && typeof navigator !== 'undefined';
+const isServiceWorkerSupported = isBrowser && 'serviceWorker' in navigator;
+const isPushManagerSupported = isBrowser && 'PushManager' in window;
+const isNotificationSupported = isBrowser && 'Notification' in window;
+const isWebPushSupported = isServiceWorkerSupported && isPushManagerSupported && isNotificationSupported;
+
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+
+  return outputArray;
+};
 
 export function usePushNotifications() {
   const [token, setToken] = useState<string | null>(null);
@@ -22,25 +50,64 @@ export function usePushNotifications() {
 
   const isNative = Capacitor.isNativePlatform();
 
-  const registerToken = useCallback(async (_pushToken: string, _userId: string) => {
-    // Store token in database for server-side push
-    // Note: You may need to add a push_token column to profiles table
-    // and uncomment the following code:
-    // const { error: dbError } = await supabase
-    //   .from('profiles')
-    //   .update({ push_token: _pushToken })
-    //   .eq('user_id', _userId);
-    // if (dbError) console.error('Error storing push token:', dbError);
+  const registerToken = useCallback(async ({ token: pushToken, platform, details }: PushTokenPayload) => {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.warn('Impossible de stocker le token push : utilisateur non authentifié');
+        return;
+      }
+
+      const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null;
+
+      const metadata = {
+        userAgent,
+        time: new Date().toISOString(),
+        ...(details || {}),
+      };
+
+      const { error: upsertError } = await supabase
+        .from('push_tokens')
+        .upsert(
+          {
+            user_id: user.id,
+            token: pushToken,
+            platform,
+            platform_details: metadata,
+            last_seen: new Date().toISOString(),
+            is_active: true,
+          },
+          { onConflict: 'token' }
+        );
+
+      if (upsertError) {
+        console.error('Erreur lors de l\'enregistrement du token push:', upsertError);
+      }
+    } catch (err) {
+      console.error('Erreur lors de l\'enregistrement du token push:', err);
+    }
   }, []);
 
-  const register = useCallback(async () => {
-    if (!isNative) {
-      // Web fallback - could use Web Push API
-      return;
-    }
+  const deactivateToken = useCallback(async (pushToken?: string) => {
+    if (!pushToken) return;
 
+    const { error: updateError } = await supabase
+      .from('push_tokens')
+      .update({ is_active: false, last_seen: new Date().toISOString() })
+      .eq('token', pushToken);
+
+    if (updateError) {
+      console.error('Erreur lors de la désactivation du token push:', updateError);
+    }
+  }, []);
+
+  const registerNative = useCallback(async () => {
     try {
-      // Request permission
+      setError(null);
       const permStatus = await PushNotifications.checkPermissions();
 
       if (permStatus.receive === 'prompt') {
@@ -52,41 +119,120 @@ export function usePushNotifications() {
         throw new Error('Permission notifications refusée');
       }
 
-      // Register with APNs/FCM
       await PushNotifications.register();
       setIsRegistered(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur inscription notifications';
+      console.error('Native push registration failed', err);
       setError(message);
     }
-  }, [isNative]);
+  }, []);
 
-  const unregister = useCallback(async () => {
-    if (!isNative) return;
+  const registerWeb = useCallback(async () => {
+    if (!isWebPushSupported) {
+      setError('Ce navigateur ne supporte pas les notifications push');
+      return;
+    }
+
+    if (!VAPID_PUBLIC_KEY) {
+      setError('Clé VAPID publique manquante');
+      return;
+    }
 
     try {
-      await PushNotifications.removeAllListeners();
+      setError(null);
+
+      let registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        registration = await navigator.serviceWorker.register('/sw.js');
+      }
+
+      if (!registration) {
+        throw new Error('Impossible de charger le service worker des notifications');
+      }
+
+      if (Notification.permission === 'default') {
+        const requested = await Notification.requestPermission();
+        if (requested !== 'granted') {
+          throw new Error('Permission notifications refusée');
+        }
+      }
+
+      if (Notification.permission !== 'granted') {
+        throw new Error('Permission notifications refusée');
+      }
+
+      const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+      let subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        });
+      }
+
+      if (!subscription) {
+        throw new Error('Impossible de créer l\'abonnement push');
+      }
+
+      await registerToken({
+        token: subscription.endpoint,
+        platform: 'web',
+        details: { subscription: subscription.toJSON() },
+      });
+
+      setToken(subscription.endpoint);
+      setIsRegistered(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erreur inscription notifications';
+      console.error('Web push registration failed', err);
+      setError(message);
       setIsRegistered(false);
-      setToken(null);
+    }
+  }, [registerToken]);
+
+  const register = useCallback(async () => {
+    if (isNative) {
+      await registerNative();
+      return;
+    }
+
+    await registerWeb();
+  }, [isNative, registerNative, registerWeb]);
+
+  const unregister = useCallback(async () => {
+    try {
+      if (isNative) {
+        await PushNotifications.removeAllListeners();
+      } else if (isWebPushSupported) {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+          await subscription.unsubscribe();
+          await deactivateToken(subscription.endpoint);
+        }
+      }
     } catch (err) {
       console.error('Error unregistering push notifications:', err);
+    } finally {
+      setIsRegistered(false);
+      setToken(null);
     }
-  }, [isNative]);
+  }, [isNative, deactivateToken]);
 
   useEffect(() => {
     if (!isNative) return;
 
-    // Token received
-    const tokenListener = PushNotifications.addListener('registration', (tokenData: Token) => {
+    const tokenListener = PushNotifications.addListener('registration', async (tokenData: Token) => {
       setToken(tokenData.value);
+      await registerToken({ token: tokenData.value, platform: 'native' });
     });
 
-    // Registration error
     const errorListener = PushNotifications.addListener('registrationError', (err) => {
       setError(err.error);
     });
 
-    // Notification received while app is open
     const notificationListener = PushNotifications.addListener(
       'pushNotificationReceived',
       (notification: PushNotificationSchema) => {
@@ -98,7 +244,6 @@ export function usePushNotifications() {
       }
     );
 
-    // User tapped on notification
     const actionListener = PushNotifications.addListener(
       'pushNotificationActionPerformed',
       (action: ActionPerformed) => {
@@ -109,22 +254,20 @@ export function usePushNotifications() {
           data: notification.data,
         });
 
-        // Handle navigation based on notification data
         const data = notification.data;
         if (data?.route) {
-          // Navigate to the route specified in the notification
           window.location.href = data.route as string;
         }
       }
     );
 
     return () => {
-      tokenListener.then((l) => l.remove());
-      errorListener.then((l) => l.remove());
-      notificationListener.then((l) => l.remove());
-      actionListener.then((l) => l.remove());
+      tokenListener.then((listener) => listener.remove());
+      errorListener.then((listener) => listener.remove());
+      notificationListener.then((listener) => listener.remove());
+      actionListener.then((listener) => listener.remove());
     };
-  }, [isNative]);
+  }, [isNative, registerToken]);
 
   return {
     isNative,

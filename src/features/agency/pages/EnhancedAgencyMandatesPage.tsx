@@ -9,36 +9,29 @@ import {
   FileText,
   Plus,
   Search,
-  Filter,
   Download,
-  Calendar,
   ChevronDown,
   Grid3x3,
   List,
   LayoutDashboard,
   TrendingUp,
-  Users,
   AlertCircle,
   CheckCircle2,
   Clock,
   XCircle,
   MoreHorizontal,
   Eye,
-  Settings,
   FileSignature,
-  PenTool,
   Pause,
   Play,
   Trash2,
   ArrowUpDown,
-  RefreshCw,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useAgencyMandates, type AgencyMandate } from '@/shared/hooks/useAgencyMandates';
 import MandateStatusBadge from '../components/MandateStatusBadge';
-import MandateQuickActions from '../components/MandateQuickActions';
 import MandateDetailPanel from '../components/MandateDetailPanel';
 
 type ViewMode = 'grid' | 'list';
@@ -86,7 +79,6 @@ export default function EnhancedAgencyMandatesPage() {
     terminateMandate,
     suspendMandate,
     reactivateMandate,
-    updateMandatePermissions,
   } = useAgencyMandates();
 
   // Redirect if not an agency
@@ -820,9 +812,6 @@ function MandateGridCard({
   onViewDetails,
   onAccept,
   onRefuse,
-  onTerminate,
-  onSuspend,
-  onReactivate,
   formatDate,
   formatCurrency,
 }: MandateGridCardProps) {

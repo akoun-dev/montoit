@@ -38,7 +38,7 @@ export default function TenantCalendar() {
       return;
     }
 
-    if (profile && profile.user_type !== 'locataire') {
+    if (profile && profile.user_type !== 'tenant') {
       navigate('/');
       return;
     }
@@ -60,7 +60,7 @@ export default function TenantCalendar() {
         .from('lease_contracts' as any)
         .select('*')
         .eq('tenant_id', user.id)
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .maybeSingle();
 
       if (leaseData) {
@@ -107,7 +107,7 @@ export default function TenantCalendar() {
         .eq('tenant_id', user.id)
         .gte('created_at', startOfMonth.toISOString())
         .lte('created_at', endOfMonth.toISOString())
-        .eq('status', 'complete');
+        .eq('status', 'completed');
 
       if (paymentsData) {
         (paymentsData as any[]).forEach((payment) => {
@@ -129,7 +129,7 @@ export default function TenantCalendar() {
         .eq('tenant_id', user.id)
         .gte('visit_date', startOfMonth.toISOString().split('T')[0])
         .lte('visit_date', endOfMonth.toISOString().split('T')[0])
-        .eq('status', 'acceptee');
+        .eq('status', 'confirmed');
 
       if (visitsData) {
         (visitsData as any[]).forEach((visit) => {

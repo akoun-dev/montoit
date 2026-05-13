@@ -103,7 +103,7 @@ const StatCard = ({
   color = 'gray',
   trend,
 }: {
-  icon: any;
+  icon: unknown;
   label: string;
   value: string | number;
   subtitle?: string;
@@ -213,7 +213,7 @@ export default function PaymentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [propertyFilter, setPropertyFilter] = useState<PropertyFilter>('all');
-  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'charges'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'service_charges'>('overview');
 
   // Stats
   const [stats, setStats] = useState({
@@ -259,22 +259,22 @@ export default function PaymentsPage() {
         `
         )
         .eq('owner_id', user.id)
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .order('created_at', { ascending: false });
 
       if (contractsError) throw contractsError;
 
       // Get tenant profiles
-      const tenantIds = (contractsData || []).map((c: any) => c.tenant_id).filter(Boolean);
+      const tenantIds = (contractsData || []).map((c: unknown) => c.tenant_id).filter(Boolean);
       const { data: tenantsData } = await supabase.rpc('get_public_profiles', {
         profile_user_ids: tenantIds as string[],
       });
 
-      const tenantsMap = new Map((tenantsData || []).map((t: any) => [t.user_id, t]));
+      const tenantsMap = new Map((tenantsData || []).map((t: unknown) => [t.user_id, t]));
 
       // Get payments for each contract
       const contractsWithDetails = await Promise.all(
-        (contractsData || []).map(async (contract: any) => {
+        (contractsData || []).map(async (contract: unknown) => {
           const { data: paymentsData } = await supabase
             .from('payments')
             .select('*')
@@ -297,7 +297,7 @@ export default function PaymentsPage() {
       if (FEATURES.PROPERTY_CHARGES) {
         try {
           const propertyIds = (contractsWithDetails || [])
-            .map((c: any) => c.property?.id)
+            .map((c: unknown) => c.property?.id)
             .filter(Boolean);
 
           if (propertyIds.length > 0) {
@@ -413,7 +413,7 @@ export default function PaymentsPage() {
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter((item: any) => {
+      result = result.filter((item: unknown) => {
         const matchesTenant = item.contract.tenant?.full_name?.toLowerCase().includes(query);
         const matchesProperty = item.contract.property?.title?.toLowerCase().includes(query);
         return matchesTenant || matchesProperty;
@@ -422,7 +422,7 @@ export default function PaymentsPage() {
 
     // Apply status filter
     if (statusFilter !== 'all') {
-      result = result.filter((item: any) => {
+      result = result.filter((item: unknown) => {
         if (statusFilter === 'paid') return item.status === 'completed';
         if (statusFilter === 'pending') return item.status === 'pending';
         if (statusFilter === 'late') {
@@ -434,7 +434,7 @@ export default function PaymentsPage() {
 
     // Apply property filter
     if (propertyFilter !== 'all') {
-      result = result.filter((item: any) => item.contract.property?.id === propertyFilter);
+      result = result.filter((item: unknown) => item.contract.property?.id === propertyFilter);
     }
 
     return result;
@@ -461,7 +461,7 @@ export default function PaymentsPage() {
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8 hidden lg:block">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
@@ -538,9 +538,9 @@ export default function PaymentsPage() {
                   </div>
                 </button>
                 <button
-                  onClick={() => setActiveTab('charges')}
+                  onClick={() => setActiveTab('service_charges')}
                   className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors ${
-                    activeTab === 'charges'
+                    activeTab === 'service_charges'
                       ? 'text-white bg-[#F16522]'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
@@ -717,7 +717,7 @@ export default function PaymentsPage() {
                           )}
                         </div>
                       ) : (
-                        filteredPayments.map((payment: any) => (
+                        filteredPayments.map((payment: unknown) => (
                           <div
                             key={payment.id}
                             className="p-4 bg-gray-50 rounded-xl border hover:bg-gray-100 transition-colors"
@@ -790,7 +790,7 @@ export default function PaymentsPage() {
                 )}
 
                 {/* Charges Tab */}
-                {activeTab === 'charges' && (
+                {activeTab === 'service_charges' && (
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-bold" style={{ color: COLORS.chocolat }}>

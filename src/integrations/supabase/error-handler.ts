@@ -12,7 +12,7 @@ export interface SupabaseError {
 /**
  * Check if error is related to JWT token issues
  */
-export const isJWTError = (error: any): boolean => {
+export const isJWTError = (error: unknown): boolean => {
   if (!error) return false;
 
   const errorMessage = error?.message || error?.error_description || '';
@@ -32,7 +32,7 @@ export const isJWTError = (error: any): boolean => {
 /**
  * Handle Supabase API errors with proper cleanup for JWT issues
  */
-export const handleSupabaseError = (error: any, context?: string): SupabaseError => {
+export const handleSupabaseError = (error: unknown, context?: string): SupabaseError => {
   const baseError: SupabaseError = {
     message: error?.message || 'Une erreur est survenue',
     code: error?.code,
@@ -79,7 +79,7 @@ export const withErrorHandling = async <T>(
   try {
     const result = await asyncFn();
     return { data: result, error: null };
-  } catch (error: any) {
+  } catch (error: unknown) {
     const handledError = handleSupabaseError(error, context);
     return { data: null, error: handledError };
   }
@@ -88,6 +88,6 @@ export const withErrorHandling = async <T>(
 /**
  * Check if user needs to re-authenticate
  */
-export const needsReauth = (error: any): boolean => {
+export const needsReauth = (error: unknown): boolean => {
   return isJWTError(error);
 };

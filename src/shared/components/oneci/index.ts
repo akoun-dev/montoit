@@ -1,0 +1,28 @@
+/**
+ * Composants pour l'intégration ONECI
+ *
+ * Export principal des composants de vérification d'identité ONECI
+ */
+
+export { OneciVerificationForm } from './OneciVerificationForm';
+export { SimpleInput } from './SimpleInput';
+export type {
+  OneciFormData,
+  OneciVerificationFormProps,
+  OneciVerificationSuccessData,
+} from './OneciVerificationForm';
+
+export { OneciFaceAuth } from './OneciFaceAuth';
+export type { OneciFaceAuthProps } from './OneciFaceAuth';
+
+export {
+  OneciVerificationStatus,
+  OneciVerificationBadge,
+  OneciVerificationProgress,
+} from './OneciVerificationStatus';
+export type {
+  OneciVerificationStatus,
+  OneciVerificationStatusProps,
+  OneciVerificationBadgeProps,
+  OneciVerificationProgressProps,
+} from './OneciVerificationStatus';

@@ -52,7 +52,7 @@ export function ProtectedRoute({
       try {
         const role = await getCurrentUserRole();
         setUserRole(role);
-      } catch (err: any) {
+      } catch (err: unknown) {
         setError(err.message);
       } finally {
         setIsCheckingRole(false);

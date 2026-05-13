@@ -353,6 +353,17 @@ label {
   scrollbar-width: none;
 }
 
+/* Utility class pour masquer la scrollbar sur mobile */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+  -webkit-appearance: none;
+}
+
 /* ===== IMAGES OPTIMISÉES ===== */
 
 img {

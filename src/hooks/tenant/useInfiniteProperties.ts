@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useMemo } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { queryKeys, searchPropertiesConfig, propertyDetailConfig } from '@/shared/lib/query-config';
+import { ABIDJAN_NEIGHBORHOODS } from '@/shared/data/cities';
 
 type Property = Database['public']['Tables']['properties']['Row'];
 type PropertyWithScore = Property & {
@@ -17,9 +18,15 @@ interface UseInfinitePropertiesOptions {
   minPrice?: string;
   maxPrice?: string;
   bedrooms?: string;
+  bathrooms?: string;
+  minSurface?: string;
+  maxSurface?: string;
+  furnished?: string;
+  hasParking?: string;
   sortBy?: 'recent' | 'price_asc' | 'price_desc';
   pageSize?: number;
   ansutVerifiedOnly?: boolean;
+  locationMode?: 'all' | 'abidjan' | 'outside_abidjan';
 }
 
 interface UseInfinitePropertiesResult {
@@ -41,21 +48,40 @@ const DEFAULT_PAGE_SIZE = 20;
  */
 interface Filters {
   cityOrNeighborhood?: string;
+  excludeCity?: boolean; // Changed to boolean for cleaner logic
+  abidjanNeighborhoods?: string[]; // List of Abidjan neighborhoods to include/exclude
   propertyType?: string;
   minPrice?: number;
   maxPrice?: number;
   bedrooms?: number;
+  bathrooms?: number;
+  minSurface?: number;
+  maxSurface?: number;
+  furnished?: boolean;
+  hasParking?: boolean;
 }
 
 function buildQueryParams(options: UseInfinitePropertiesOptions) {
-  const { city, propertyType, minPrice, maxPrice, bedrooms, sortBy } = options;
+  const { city, propertyType, minPrice, maxPrice, bedrooms, bathrooms, minSurface, maxSurface, furnished, hasParking, sortBy, locationMode } = options;
 
   const filters: Filters = {};
 
-  if (city?.trim()) {
+  // Handle location mode with proper Abidjan neighborhood filtering
+  if (locationMode === 'abidjan') {
+    // For "Abidjan uniquement": include properties where city is "Abidjan" OR city is an Abidjan neighborhood
+    // We don't set cityOrNeighborhood here - it will be handled in the query with proper logic
+    filters.abidjanNeighborhoods = ABIDJAN_NEIGHBORHOODS;
+    filters.excludeCity = false;
+  } else if (locationMode === 'outside_abidjan') {
+    // For "Hors Abidjan": exclude properties where city is "Abidjan" OR city is an Abidjan neighborhood
+    filters.abidjanNeighborhoods = ABIDJAN_NEIGHBORHOODS;
+    filters.excludeCity = true;
+  } else if (city?.trim()) {
+    // When a specific city is searched (and locationMode is 'all')
     const searchValue = city.trim();
     filters.cityOrNeighborhood = searchValue;
   }
+
   if (propertyType?.trim()) {
     filters.propertyType = propertyType.trim();
   }
@@ -76,6 +102,32 @@ function buildQueryParams(options: UseInfinitePropertiesOptions) {
     if (!isNaN(beds) && beds > 0) {
       filters.bedrooms = beds;
     }
+  }
+  if (bathrooms?.trim()) {
+    const baths = parseInt(bathrooms, 10);
+    if (!isNaN(baths) && baths > 0) {
+      filters.bathrooms = baths;
+    }
+  }
+  if (minSurface?.trim()) {
+    const minS = parseInt(minSurface, 10);
+    if (!isNaN(minS) && minS > 0) {
+      filters.minSurface = minS;
+    }
+  }
+  if (maxSurface?.trim()) {
+    const maxS = parseInt(maxSurface, 10);
+    if (!isNaN(maxS) && maxS > 0) {
+      filters.maxSurface = maxS;
+    }
+  }
+  if (furnished === 'true') {
+    filters.furnished = true;
+  } else if (furnished === 'false') {
+    filters.furnished = false;
+  }
+  if (hasParking === 'true') {
+    filters.hasParking = true;
   }
 
   const orderColumn =
@@ -106,18 +158,34 @@ async function fetchProperties({
   let query = supabase
     .from('properties')
     .select('*', { count: 'exact' })
-    .eq('status', 'disponible');
+    .in('status', ['available', 'rented']);
 
   // Filtrer uniquement les propriétés certifiées ANSUT si demandé
   if (ansutVerifiedOnly) {
     query = query.eq('ansut_verified', true);
   }
 
+  // Handle location filtering - proper Abidjan neighborhood logic
+  if (filters.abidjanNeighborhoods) {
+    const neighborhoodList = filters.abidjanNeighborhoods;
+    if (filters.excludeCity) {
+      // "Hors Abidjan" - exclude Abidjan AND all its neighborhoods
+      query = query.not('city', 'in', `(${['Abidjan', ...neighborhoodList].join(',')})`);
+    } else {
+      // "Abidjan uniquement" - include Abidjan OR any of its neighborhoods
+      query = query.or(
+        `city.eq.Abidjan,city.in.(${neighborhoodList.join(',')})`
+      );
+    }
+  }
+
+  // City/Neighborhood filter for specific city search (when locationMode is 'all')
   if (filters.cityOrNeighborhood) {
     query = query.or(
       `city.ilike.%${filters.cityOrNeighborhood}%,neighborhood.ilike.%${filters.cityOrNeighborhood}%`
     );
   }
+
   if (filters.propertyType) {
     query = query.eq('property_type', filters.propertyType);
   }
@@ -127,8 +195,25 @@ async function fetchProperties({
   if (filters.maxPrice !== undefined) {
     query = query.lte('price', filters.maxPrice);
   }
+  // FIX: Use gte (greater than or equal) instead of eq for "3+ bedrooms" functionality
   if (filters.bedrooms !== undefined) {
-    query = query.eq('bedrooms', filters.bedrooms);
+    query = query.gte('bedrooms', filters.bedrooms);
+  }
+  // FIX: Use gte for bathrooms as well
+  if (filters.bathrooms !== undefined) {
+    query = query.gte('bathrooms', filters.bathrooms);
+  }
+  if (filters.minSurface !== undefined) {
+    query = query.gte('surface_area', filters.minSurface);
+  }
+  if (filters.maxSurface !== undefined) {
+    query = query.lte('surface_area', filters.maxSurface);
+  }
+  if (filters.furnished !== undefined) {
+    query = query.eq('furnished', filters.furnished);
+  }
+  if (filters.hasParking !== undefined) {
+    query = query.eq('has_parking', filters.hasParking);
   }
 
   const { data, error: queryError, count } = await query
@@ -204,16 +289,22 @@ export function useInfiniteProperties(
     minPrice,
     maxPrice,
     bedrooms,
+    bathrooms,
+    minSurface,
+    maxSurface,
+    furnished,
+    hasParking,
     sortBy = 'recent',
     pageSize = DEFAULT_PAGE_SIZE,
     ansutVerifiedOnly,
+    locationMode,
   } = options;
 
   const queryClient = useQueryClient();
   const { filters, orderColumn, ascending } = buildQueryParams(options);
   const prefetchedPages = useRef<Set<number>>(new Set());
 
-  // Build cache key based on filters
+  // Build cache key based on filters - include all new filters
   const queryKey = [
     ...queryKeys.properties.list({
       city,
@@ -221,7 +312,14 @@ export function useInfiniteProperties(
       minPrice,
       maxPrice,
       bedrooms,
+      bathrooms,
+      minSurface,
+      maxSurface,
+      furnished,
+      hasParking,
       sortBy,
+      locationMode,
+      ansutVerifiedOnly,
     }),
   ];
 
@@ -251,11 +349,14 @@ export function useInfiniteProperties(
       }
       return undefined;
     },
-    ...searchPropertiesConfig,
+    // Force refetch to get latest data including rented properties
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
   });
 
   // Flatten all pages into a single array
-  const properties = data?.pages.flatMap((page) => page.data) ?? [];
+  const properties = useMemo(() => data?.pages.flatMap((page) => page.data) ?? [], [data?.pages]);
 
   // Get count from first page
   const totalCount = data?.pages[0]?.count ?? 0;
@@ -293,7 +394,7 @@ export function useInfiniteProperties(
                 .from('properties')
                 .select('*')
                 .eq('id', property.id)
-                .eq('status', 'disponible')
+                .in('status', ['available', 'rented', 'pending'])
                 .single();
 
               if (!data) return null;
@@ -354,7 +455,7 @@ export function useInfiniteProperties(
         });
       }
     },
-    [queryClient, queryKey, filters, orderColumn, ascending, pageSize]
+    [queryClient, queryKey, filters, orderColumn, ascending, pageSize, ansutVerifiedOnly]
   );
 
   return {

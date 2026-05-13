@@ -36,6 +36,7 @@ interface MandateCardProps {
   onReactivate?: (id: string) => void;
   onManagePermissions?: (mandate: AgencyMandate) => void;
   onSign?: (mandate: AgencyMandate) => void;
+  onDelete?: (id: string) => void;
 }
 
 export default function MandateCard({
@@ -48,6 +49,7 @@ export default function MandateCard({
   onReactivate,
   onManagePermissions,
   onSign,
+  onDelete,
 }: MandateCardProps) {
   const [showMenu, setShowMenu] = useState(false);
 
@@ -175,7 +177,7 @@ export default function MandateCard({
       <div className="p-4">
         {/* Property Info */}
         <Link
-          to={`/mandat/${mandate.id}`}
+          to={`/${viewAs === 'owner' ? 'proprietaire/mes-mandats' : 'agences/mandats'}/${mandate.id}`}
           className="block font-semibold text-neutral-900 truncate mb-1 hover:text-primary transition-colors"
         >
           {mandate.property?.title || 'Propriété'}
@@ -269,9 +271,20 @@ export default function MandateCard({
         )}
 
         {mandate.status === 'pending' && viewAs === 'owner' && (
-          <p className="text-center text-sm text-amber-600 bg-amber-50 py-2 rounded-lg">
-            En attente de réponse de l'agence
-          </p>
+          <div className="flex flex-col gap-2">
+            <p className="text-center text-sm text-amber-600 bg-amber-50 py-2 rounded-lg">
+              En attente de réponse de l'agence
+            </p>
+            {onDelete && (
+              <button
+                onClick={() => onDelete(mandate.id)}
+                className="flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 py-2 px-3 rounded-lg text-sm font-medium transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+                Annuler l'invitation
+              </button>
+            )}
+          </div>
         )}
 
         {/* Sign button for active or pending mandates without signature */}
@@ -284,6 +297,15 @@ export default function MandateCard({
             Signer le mandat
           </button>
         )}
+
+        {/* Voir les détails button - always visible */}
+        <Link
+          to={`/${viewAs === 'owner' ? 'proprietaire/mes-mandats' : 'agences/mandats'}/${mandate.id}`}
+          className="w-full flex items-center justify-center gap-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 py-2 px-3 rounded-lg text-sm font-medium transition-colors mt-2"
+        >
+          <Eye className="h-4 w-4" />
+          Voir les détails
+        </Link>
       </div>
     </div>
   );

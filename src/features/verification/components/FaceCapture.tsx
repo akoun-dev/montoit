@@ -32,6 +32,7 @@ export function FaceCapture({
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const startCameraRef = useRef<(() => void) | null>(null); // Ref vers la fonction startCamera
   const isStartingRef = useRef(false);
 

@@ -6,9 +6,8 @@
  */
 
 import { supabase } from '@/services/supabase/client';
-import { hasPermission, hasRole } from '@/shared/services/roleValidation.service';
+import { hasRole } from '@/shared/services/roleValidation.service';
 import { SecureUploadService } from '@/shared/services/secureUpload.service';
-import type { Database } from '@/shared/lib/database.types';
 
 export interface Conversation {
   id: string;
@@ -56,6 +55,32 @@ export interface Attachment {
   type: 'image' | 'document';
   name: string;
   size: number;
+}
+
+interface ConversationRow {
+  id: string;
+  participant1_id: string;
+  participant2_id: string;
+  property_id: string | null;
+  last_message_at: string;
+  last_message_preview: string | null;
+  created_at: string;
+  updated_at: string;
+  subject?: string | null;
+}
+
+interface MessageRow {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+  attachment_url?: string | null;
+  attachment_type?: string | null;
+  attachment_name?: string | null;
+  attachment_size?: number | null;
 }
 
 /**
@@ -145,7 +170,7 @@ export const messagingApi = {
 
     // Enrichir avec les détails des participants
     const conversationsWithDetails = await Promise.all(
-      (data || []).map(async (conv: any) => {
+      (data || []).map(async (conv: ConversationRow) => {
         const otherParticipantId =
           conv.participant1_id === user.id ? conv.participant2_id : conv.participant1_id;
 
@@ -258,7 +283,7 @@ export const messagingApi = {
 
     // Enrichir avec les profils des expéditeurs
     const messagesWithSenders = await Promise.all(
-      (data || []).map(async (msg: any) => {
+      (data || []).map(async (msg: MessageRow) => {
         const { data: profile } = await supabase
           .from('profiles')
           .select('id, full_name, avatar_url')
@@ -312,7 +337,7 @@ export const messagingApi = {
         ? conversation.participant2_id
         : conversation.participant1_id;
 
-    let attachmentData: any = null;
+    let attachmentData: Attachment | null = null;
     if (attachment) {
       // Upload sécurisé de la pièce jointe
       const uploadResult = await SecureUploadService.uploadSecure({

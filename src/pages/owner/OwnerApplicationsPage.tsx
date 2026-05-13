@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Users,
   Search,
-  Filter,
   Clock,
   CheckCircle,
   XCircle,
@@ -25,6 +24,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -41,14 +41,32 @@ import {
 import {
   notifyApplicationAccepted,
   notifyApplicationRejected,
-  notifyVisitScheduled,
 } from '@/services/notifications/applicationNotificationService';
 
 interface VisitFormData {
   date: string;
   time: string;
-  type: 'physique' | 'virtuelle';
+  type: 'in_person' | 'virtual';
   notes: string;
+}
+
+interface VerificationDocument {
+  id: string;
+  document_type: string;
+  document_url: string;
+  verification_status: string | null;
+  file_name: string | null;
+  uploaded_at: string | null;
+}
+
+interface ApplicantVerificationState {
+  loading: boolean;
+  oneciVerified: boolean;
+  neofaceVerified: boolean;
+  dossierStatus: string | null;
+  dossierRejectionReason: string | null;
+  documents: VerificationDocument[];
+  dossierAccessError: boolean;
 }
 
 // Period filter type
@@ -72,34 +90,92 @@ const PERIOD_FILTERS: PeriodFilterOption[] = [
 // Status filter options
 const STATUS_FILTERS = [
   { value: 'all', label: 'Toutes' },
-  { value: 'en_attente', label: 'En attente' },
-  { value: 'en_cours', label: 'En cours' },
-  { value: 'acceptee', label: 'Acceptées' },
-  { value: 'refusee', label: 'Refusées' },
+  { value: 'pending', label: 'En attente' },
+  { value: 'in_progress', label: 'En cours' },
+  { value: 'accepted', label: 'Acceptées' },
+  { value: 'rejected', label: 'Refusées' },
 ];
 
 // Status configuration
 const STATUS_CONFIG = {
-  en_attente: {
+  pending: {
     label: 'En attente',
     color: 'bg-amber-100 text-amber-700 border-amber-200',
     icon: Clock,
   },
-  en_cours: {
+  in_progress: {
     label: 'En cours',
     color: 'bg-blue-100 text-blue-700 border-blue-200',
     icon: Loader2,
   },
-  acceptee: {
+  accepted: {
     label: 'Acceptée',
     color: 'bg-green-100 text-green-700 border-green-200',
     icon: CheckCircle,
   },
-  refusee: {
+  rejected: {
     label: 'Refusée',
     color: 'bg-red-100 text-red-700 border-red-200',
     icon: XCircle,
   },
+};
+
+const DOSSIER_DOCUMENT_LABELS: Record<string, string> = {
+  id_card: "Carte d'identité",
+  proof_of_income: 'Justificatif de revenus',
+  proof_of_residence: 'Justificatif de domicile',
+  bank_statement: 'Relevé bancaire',
+};
+
+const DOSSIER_STATUS_LABELS: Record<string, string> = {
+  draft: 'Préparation',
+  pending: 'En attente',
+  in_review: 'En vérification',
+  approved: 'Validé',
+  rejected: 'Refusé',
+  more_info_requested: 'Infos demandées',
+};
+
+const DOSSIER_STATUS_COLORS: Record<string, string> = {
+  draft: 'bg-slate-100 text-slate-700 border-slate-200',
+  pending: 'bg-amber-100 text-amber-700 border-amber-200',
+  in_review: 'bg-blue-100 text-blue-700 border-blue-200',
+  approved: 'bg-green-100 text-green-700 border-green-200',
+  rejected: 'bg-red-100 text-red-700 border-red-200',
+  more_info_requested: 'bg-purple-100 text-purple-700 border-purple-200',
+};
+
+const DOCUMENT_STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-amber-100 text-amber-700',
+  approved: 'bg-green-100 text-green-700',
+  rejected: 'bg-red-100 text-red-700',
+};
+
+const DOCUMENT_STATUS_LABELS: Record<string, string> = {
+  pending: 'En attente',
+  approved: 'Approuvé',
+  rejected: 'Refusé',
+};
+
+const DOSSIER_TYPE_ALIASES = ['tenant', 'locataire'];
+const matchesDossierType = (value?: string | null) => {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return DOSSIER_TYPE_ALIASES.some((alias) => normalized.includes(alias));
+};
+
+// Helper function to get proper download URL from Supabase storage
+const getDownloadUrl = (documentUrl: string): string => {
+  if (!documentUrl) return documentUrl;
+  // Add download parameter to Supabase storage URLs
+  try {
+    const url = new URL(documentUrl);
+    url.searchParams.set('download', 'true');
+    return url.toString();
+  } catch {
+    // If URL parsing fails, return as-is
+    return documentUrl;
+  }
 };
 
 // Helper component
@@ -110,7 +186,7 @@ const StatCard = ({
   color = 'gray',
   onClick,
 }: {
-  icon: any;
+  icon: unknown;
   label: string;
   value: number;
   color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'amber';
@@ -159,7 +235,7 @@ const ApplicationRow = ({
   loading: boolean;
 }) => {
   const navigate = useNavigate();
-  const statusConfig = STATUS_CONFIG[application.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.en_attente;
+  const statusConfig = STATUS_CONFIG[application.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
   const StatusIcon = statusConfig.icon;
 
   return (
@@ -281,7 +357,7 @@ const ApplicationRow = ({
               <Eye className="h-4 w-4" />
               Voir détails
             </button>
-            {(application.status === 'en_attente' || application.status === 'en_cours') && (
+            {(application.status === 'pending' || application.status === 'in_progress') && (
               <button
                 onClick={() => onScheduleVisit(application.id)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
@@ -293,7 +369,7 @@ const ApplicationRow = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {application.status === 'en_attente' && (
+            {application.status === 'pending' && (
               <>
                 <button
                   onClick={() => onAccept(application.id)}
@@ -313,7 +389,7 @@ const ApplicationRow = ({
                 </button>
               </>
             )}
-            {application.status === 'refusee' && (
+            {application.status === 'rejected' && (
               <button
                 onClick={() => onAccept(application.id)}
                 disabled={loading}
@@ -323,7 +399,7 @@ const ApplicationRow = ({
                 Rouvrir
               </button>
             )}
-            {application.status === 'acceptee' && (
+            {application.status === 'accepted' && (
               application.contract_id ? (
                 <button
                   onClick={() => navigate(`/proprietaire/contrats/${application.contract_id}`)}
@@ -383,12 +459,46 @@ export default function OwnerApplicationsPage() {
   const [selectedApplication, setSelectedApplication] = useState<ApplicationWithDetails | null>(null);
   const [showVisitModal, setShowVisitModal] = useState(false);
   const [visitApplicationId, setVisitApplicationId] = useState<string | null>(null);
+  const [verificationState, setVerificationState] = useState<ApplicantVerificationState>({
+    loading: false,
+    oneciVerified: false,
+    neofaceVerified: false,
+    dossierStatus: null,
+    dossierRejectionReason: null,
+    documents: [],
+    dossierAccessError: false,
+  });
   const [visitForm, setVisitForm] = useState<VisitFormData>({
     date: '',
     time: '10:00',
-    type: 'physique',
+    type: 'in_person',
     notes: '',
   });
+
+  const loadData = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const [applicationsData, statsData, propertiesData] = await Promise.all([
+        getOwnerApplications(user.id, {
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          propertyId: propertyFilter !== 'all' ? propertyFilter : undefined,
+          searchTerm: searchTerm || undefined,
+        }),
+        getApplicationStats(user.id),
+        getOwnerProperties(user.id),
+      ]);
+
+      setApplications(applicationsData);
+      setStats(statsData);
+      setProperties(propertiesData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast.error('Erreur lors du chargement des données');
+    } finally {
+      setLoading(false);
+    }
+  }, [user, statusFilter, propertyFilter, searchTerm]);
 
   useEffect(() => {
     if (!user) {
@@ -396,13 +506,13 @@ export default function OwnerApplicationsPage() {
       return;
     }
 
-    if (profile && profile.user_type !== 'owner' && profile.user_type !== 'proprietaire') {
+    if (profile && profile.user_type !== 'owner' && profile.user_type !== 'owner') {
       navigate('/dashboard');
       return;
     }
 
     loadData();
-  }, [user, profile, navigate, statusFilter, propertyFilter, searchTerm]);
+  }, [user, profile, navigate, statusFilter, propertyFilter, searchTerm, loadData]);
 
   // Filter applications by period
   const filteredByPeriod = useMemo(() => {
@@ -426,13 +536,14 @@ export default function OwnerApplicationsPage() {
           return submittedDate >= new Date(today.getTime() - 180 * 24 * 60 * 60 * 1000);
         case 'last_year':
           return submittedDate >= new Date(today.getTime() - 365 * 24 * 60 * 60 * 1000);
-        case 'custom':
+        case 'custom': {
           if (!customStartDate || !customEndDate) return true;
           const start = new Date(customStartDate);
           start.setHours(0, 0, 0, 0);
           const end = new Date(customEndDate);
           end.setHours(23, 59, 59, 999);
           return submittedDate >= start && submittedDate <= end;
+        }
         default:
           return true;
       }
@@ -442,34 +553,121 @@ export default function OwnerApplicationsPage() {
   // Combine all filters for the final displayed applications
   const displayedApplications = filteredByPeriod;
 
-  const loadData = async () => {
-    if (!user) return;
+  const loadVerificationDetails = async (tenantId: string) => {
+    setVerificationState((prev) => ({ ...prev, loading: true }));
 
     try {
-      const [applicationsData, statsData, propertiesData] = await Promise.all([
-        getOwnerApplications(user.id, {
-          status: statusFilter !== 'all' ? statusFilter : undefined,
-          propertyId: propertyFilter !== 'all' ? propertyFilter : undefined,
-          searchTerm: searchTerm || undefined,
-        }),
-        getApplicationStats(user.id),
-        getOwnerProperties(user.id),
-      ]);
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('oneci_verified, facial_verification_status')
+        .eq('id', tenantId)
+        .maybeSingle();
 
-      setApplications(applicationsData);
-      setStats(statsData);
-      setProperties(propertiesData);
+      if (profileError) {
+        console.warn('Failed to load applicant profile verification', profileError);
+      }
+
+      const { data: dossierData, error: dossierError } = await supabase
+        .from('verification_applications')
+        .select('id, status, rejection_reason, submitted_at, created_at, dossier_type')
+        .eq('user_id', tenantId)
+        .order('submitted_at', { ascending: false })
+        .limit(5);
+
+      if (dossierError) {
+        console.warn('Failed to load applicant dossier', dossierError);
+      }
+
+      const dossierApp =
+        dossierData?.find((app) => matchesDossierType(app.dossier_type)) ||
+        dossierData?.[0] ||
+        null;
+      const isDraft =
+        !!dossierApp?.submitted_at &&
+        !!dossierApp?.created_at &&
+        Math.abs(
+          new Date(dossierApp.submitted_at).getTime() -
+            new Date(dossierApp.created_at).getTime()
+        ) < 1500;
+      let documents: VerificationDocument[] = [];
+      let documentsError = false;
+
+      if (dossierApp) {
+        const { data: docsData, error: docsError } = await supabase
+          .from('verification_documents')
+          .select('id, document_type, document_url, verification_status, file_name, uploaded_at')
+          .eq('application_id', dossierApp.id)
+          .order('uploaded_at', { ascending: false });
+
+        if (docsError) {
+          console.warn('Failed to load dossier documents', docsError);
+          documentsError = true;
+        }
+
+        documents = (docsData as VerificationDocument[]) || [];
+      }
+
+      setVerificationState({
+        loading: false,
+        oneciVerified: !!profileData?.oneci_verified,
+        neofaceVerified: profileData?.facial_verification_status === 'verified',
+        dossierStatus: dossierApp ? (isDraft ? 'draft' : dossierApp.status) : null,
+        dossierRejectionReason: dossierApp?.rejection_reason ?? null,
+        documents,
+        dossierAccessError: !!dossierError || documentsError,
+      });
     } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Erreur lors du chargement des données');
-    } finally {
-      setLoading(false);
+      console.error('Error loading verification details:', error);
+      setVerificationState((prev) => ({ ...prev, loading: false, dossierAccessError: true }));
     }
   };
 
+  useEffect(() => {
+    if (!selectedApplication) {
+      setVerificationState({
+        loading: false,
+        oneciVerified: false,
+        neofaceVerified: false,
+        dossierStatus: null,
+        dossierRejectionReason: null,
+        documents: [],
+        dossierAccessError: false,
+      });
+      return;
+    }
+
+    loadVerificationDetails(selectedApplication.tenant_id);
+  }, [selectedApplication]);
+
+  // Close period dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      const periodDropdown = document.querySelector('[data-period-dropdown]');
+      const periodButton = document.querySelector('[data-period-button]');
+
+      if (
+        showPeriodDropdown &&
+        periodDropdown &&
+        !periodDropdown.contains(target) &&
+        periodButton &&
+        !periodButton.contains(target)
+      ) {
+        setShowPeriodDropdown(false);
+      }
+    };
+
+    if (showPeriodDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showPeriodDropdown]);
+
   const handleAccept = async (applicationId: string) => {
     const application = applications.find((a) => a.id === applicationId);
-    if (application?.status === 'refusee') {
+    if (application?.status === 'rejected') {
       // Rouvrir la candidature
       setActionLoading(true);
       try {
@@ -533,16 +731,10 @@ export default function OwnerApplicationsPage() {
     setActionLoading(true);
     try {
       await scheduleVisitFromApplication(visitApplicationId, visitForm);
-      try {
-        const visitDateTime = `${new Date(visitForm.date).toLocaleDateString('fr-FR')} à ${visitForm.time}`;
-        await notifyVisitScheduled(visitApplicationId, visitDateTime);
-      } catch (notifError) {
-        console.error('Failed to send visit notification:', notifError);
-      }
       toast.success('Visite planifiée avec succès');
       setShowVisitModal(false);
       setVisitApplicationId(null);
-      setVisitForm({ date: '', time: '10:00', type: 'physique', notes: '' });
+      setVisitForm({ date: '', time: '10:00', type: 'in_person', notes: '' });
       loadData();
     } catch {
       toast.error('Erreur lors de la planification');
@@ -570,9 +762,9 @@ export default function OwnerApplicationsPage() {
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8 hidden lg:block">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
                 <Users className="h-7 w-7 text-white" />
@@ -583,7 +775,7 @@ export default function OwnerApplicationsPage() {
               </div>
             </div>
 
-            {/* View Toggle */}
+            {/* View Toggle (desktop) */}
             <div className="flex items-center gap-2 bg-white/10 rounded-xl p-1">
               <button
                 onClick={() => setViewMode('list')}
@@ -611,6 +803,33 @@ export default function OwnerApplicationsPage() {
           </div>
         </div>
       </div>
+      {/* View Toggle (mobile) */}
+      <div className="px-4 sm:px-6 mb-8 lg:hidden">
+        <div className="flex items-center gap-2 bg-white rounded-xl shadow-sm border border-gray-200 p-1 w-fit">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`p-2 rounded-lg transition-colors ${
+              viewMode === 'list'
+                ? 'bg-orange-500 text-white'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+            }`}
+            title="Vue liste"
+          >
+            <List className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`p-2 rounded-lg transition-colors ${
+              viewMode === 'grid'
+                ? 'bg-orange-500 text-white'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+            }`}
+            title="Vue grille"
+          >
+            <Grid3x3 className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
 
       <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
         {/* Stats Grid */}
@@ -626,28 +845,28 @@ export default function OwnerApplicationsPage() {
             label="En attente"
             value={stats.pending}
             color="amber"
-            onClick={() => setStatusFilter('en_attente')}
+            onClick={() => setStatusFilter('pending')}
           />
           <StatCard
             icon={Loader2}
             label="En cours"
             value={stats.inProgress}
             color="blue"
-            onClick={() => setStatusFilter('en_cours')}
+            onClick={() => setStatusFilter('in_progress')}
           />
           <StatCard
             icon={CheckCircle}
             label="Acceptées"
             value={stats.accepted}
             color="green"
-            onClick={() => setStatusFilter('acceptee')}
+            onClick={() => setStatusFilter('accepted')}
           />
           <StatCard
             icon={XCircle}
             label="Refusées"
             value={stats.rejected}
             color="red"
-            onClick={() => setStatusFilter('refusee')}
+            onClick={() => setStatusFilter('rejected')}
           />
         </div>
 
@@ -688,7 +907,7 @@ export default function OwnerApplicationsPage() {
                 <select
                   value={propertyFilter}
                   onChange={(e) => setPropertyFilter(e.target.value)}
-                  className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 cursor-pointer"
                 >
                   <option value="all">Toutes les propriétés</option>
                   {properties.map((p) => (
@@ -700,10 +919,11 @@ export default function OwnerApplicationsPage() {
               )}
 
               {/* Period filter dropdown */}
-              <div className="relative">
+              <div className="relative" data-period-dropdown-container>
                 <button
+                  data-period-button
                   onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <Calendar className="w-4 h-4 text-gray-600" />
                   <span className="text-sm text-gray-700">
@@ -715,16 +935,25 @@ export default function OwnerApplicationsPage() {
                 </button>
 
                 {showPeriodDropdown && (
-                  <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50">
+                  <div
+                    data-period-dropdown
+                    className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50"
+                  >
                     <div className="p-2 space-y-1">
                       {PERIOD_FILTERS.map((option) => (
                         <button
                           key={option.value}
-                          onClick={() => {
-                            setPeriodFilter(option.value);
-                            setShowPeriodDropdown(false);
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (option.value === 'custom') {
+                              setPeriodFilter('custom');
+                              // Don't close dropdown for custom option
+                            } else {
+                              setPeriodFilter(option.value);
+                              setShowPeriodDropdown(false);
+                            }
                           }}
-                          className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                             periodFilter === option.value
                               ? 'bg-orange-50 text-orange-600'
                               : 'text-gray-700 hover:bg-gray-50'
@@ -745,6 +974,7 @@ export default function OwnerApplicationsPage() {
                           <input
                             type="date"
                             value={customStartDate}
+                            onClick={(e) => e.stopPropagation()}
                             onChange={(e) => setCustomStartDate(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                           />
@@ -756,10 +986,20 @@ export default function OwnerApplicationsPage() {
                           <input
                             type="date"
                             value={customEndDate}
+                            onClick={(e) => e.stopPropagation()}
                             onChange={(e) => setCustomEndDate(e.target.value)}
                             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                           />
                         </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowPeriodDropdown(false);
+                          }}
+                          className="w-full py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-sm font-medium rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all"
+                        >
+                          Appliquer
+                        </button>
                       </div>
                     )}
                   </div>
@@ -871,7 +1111,7 @@ export default function OwnerApplicationsPage() {
                           </div>
                           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
                             STATUS_CONFIG[application.status as keyof typeof STATUS_CONFIG]?.color ||
-                            STATUS_CONFIG.en_attente.color
+                            STATUS_CONFIG.pending.color
                           }`}>
                             {STATUS_CONFIG[application.status as keyof typeof STATUS_CONFIG]?.label ||
                               'En attente'}
@@ -901,7 +1141,7 @@ export default function OwnerApplicationsPage() {
                         Voir détails →
                       </button>
                       <div className="flex items-center gap-2">
-                        {application.status === 'en_attente' && (
+                        {application.status === 'pending' && (
                           <>
                             <button
                               onClick={() => handleAccept(application.id)}
@@ -919,7 +1159,7 @@ export default function OwnerApplicationsPage() {
                             </button>
                           </>
                         )}
-                        {application.status === 'en_cours' && (
+                        {application.status === 'in_progress' && (
                           <button
                             onClick={() => handleScheduleVisit(application.id)}
                             className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors"
@@ -927,7 +1167,7 @@ export default function OwnerApplicationsPage() {
                             Visite
                           </button>
                         )}
-                        {application.status === 'acceptee' && (
+                        {application.status === 'accepted' && (
                           application.contract_id ? (
                             <button
                               onClick={() => navigate(`/proprietaire/contrats/${application.contract_id}`)}
@@ -1033,9 +1273,9 @@ export default function OwnerApplicationsPage() {
                     <input
                       type="radio"
                       name="visitType"
-                      value="physique"
-                      checked={visitForm.type === 'physique'}
-                      onChange={() => setVisitForm({ ...visitForm, type: 'physique' })}
+                      value="in_person"
+                      checked={visitForm.type === 'in_person'}
+                      onChange={() => setVisitForm({ ...visitForm, type: 'in_person' })}
                       className="text-orange-500 focus:ring-orange-500"
                     />
                     <span className="text-sm">Physique</span>
@@ -1044,9 +1284,9 @@ export default function OwnerApplicationsPage() {
                     <input
                       type="radio"
                       name="visitType"
-                      value="virtuelle"
-                      checked={visitForm.type === 'virtuelle'}
-                      onChange={() => setVisitForm({ ...visitForm, type: 'virtuelle' })}
+                      value="virtual"
+                      checked={visitForm.type === 'virtual'}
+                      onChange={() => setVisitForm({ ...visitForm, type: 'virtual' })}
                       className="text-orange-500 focus:ring-orange-500"
                     />
                     <span className="text-sm">Virtuelle</span>
@@ -1091,7 +1331,7 @@ export default function OwnerApplicationsPage() {
       {/* Application Details Modal */}
       {selectedApplication && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto shadow-xl">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-bold text-gray-900">Détails de la candidature</h3>
@@ -1103,83 +1343,223 @@ export default function OwnerApplicationsPage() {
                 </button>
               </div>
 
-              <div className="space-y-6">
-                {/* Applicant info */}
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden">
-                    {selectedApplication.applicant?.avatar_url ? (
-                      <img
-                        src={selectedApplication.applicant.avatar_url}
-                        alt={selectedApplication.applicant.full_name || ''}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <Users className="h-8 w-8 text-orange-500" />
-                    )}
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-lg">
-                      {selectedApplication.applicant?.full_name || 'Candidat'}
-                    </h4>
-                    <p className="text-gray-500">{selectedApplication.applicant?.email}</p>
-                    {selectedApplication.applicant?.phone && (
-                      <p className="text-gray-500">{selectedApplication.applicant.phone}</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Property */}
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="text-sm text-gray-500 mb-1">Propriété</p>
-                  <p className="font-semibold">{selectedApplication.property?.title}</p>
-                  <p className="text-sm text-gray-600">{selectedApplication.property?.city}</p>
-                  <p className="text-orange-600 font-bold mt-1">
-                    {selectedApplication.property?.monthly_rent?.toLocaleString()} FCFA/mois
-                  </p>
-                </div>
-
-                {/* Score */}
-                {(selectedApplication.applicant?.trust_score ||
-                  selectedApplication.application_score) && (
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <p className="text-sm text-gray-500 mb-2">Score de confiance</p>
-                    <div className="flex items-center gap-2">
-                      <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div
-                          className={`h-3 rounded-full ${
-                            (selectedApplication.applicant?.trust_score ??
-                              selectedApplication.application_score ??
-                              0) >= 70
-                              ? 'bg-green-500'
-                              : (selectedApplication.applicant?.trust_score ??
-                                    selectedApplication.application_score ??
-                                    0) >= 50
-                                ? 'bg-amber-500'
-                                : 'bg-red-500'
-                          }`}
-                          style={{
-                            width: `${selectedApplication.applicant?.trust_score ?? selectedApplication.application_score ?? 0}%`,
-                          }}
+              <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
+                <div className="space-y-6">
+                  {/* Applicant info */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden">
+                      {selectedApplication.applicant?.avatar_url ? (
+                        <img
+                          src={selectedApplication.applicant.avatar_url}
+                          alt={selectedApplication.applicant.full_name || ''}
+                          className="w-full h-full object-cover"
                         />
-                      </div>
-                      <span className="font-bold text-lg">
-                        {selectedApplication.applicant?.trust_score ??
-                          selectedApplication.application_score}
-                        /100
-                      </span>
+                      ) : (
+                        <Users className="h-8 w-8 text-orange-500" />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-lg">
+                        {selectedApplication.applicant?.full_name || 'Candidat'}
+                      </h4>
+                      <p className="text-gray-500">{selectedApplication.applicant?.email}</p>
+                      {selectedApplication.applicant?.phone && (
+                        <p className="text-gray-500">{selectedApplication.applicant.phone}</p>
+                      )}
                     </div>
                   </div>
-                )}
 
-                {/* Cover letter */}
-                {selectedApplication.cover_letter && (
-                  <div>
-                    <p className="text-sm text-gray-500 mb-2">Lettre de motivation</p>
-                    <p className="text-gray-700 bg-gray-50 rounded-xl p-4 italic">
-                      "{selectedApplication.cover_letter}"
+                  {/* Property */}
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="text-sm text-gray-500 mb-1">Propriété</p>
+                    <p className="font-semibold">{selectedApplication.property?.title}</p>
+                    <p className="text-sm text-gray-600">{selectedApplication.property?.city}</p>
+                    <p className="text-orange-600 font-bold mt-1">
+                      {selectedApplication.property?.monthly_rent?.toLocaleString()} FCFA/mois
                     </p>
                   </div>
-                )}
+
+                  {/* Score */}
+                  {(selectedApplication.applicant?.trust_score ||
+                    selectedApplication.application_score) && (
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <p className="text-sm text-gray-500 mb-2">Score de confiance</p>
+                      <div className="flex items-center gap-2">
+                        <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div
+                            className={`h-3 rounded-full ${
+                              (selectedApplication.applicant?.trust_score ??
+                                selectedApplication.application_score ??
+                                0) >= 70
+                                ? 'bg-green-500'
+                                : (selectedApplication.applicant?.trust_score ??
+                                      selectedApplication.application_score ??
+                                      0) >= 50
+                                  ? 'bg-amber-500'
+                                  : 'bg-red-500'
+                            }`}
+                            style={{
+                              width: `${selectedApplication.applicant?.trust_score ?? selectedApplication.application_score ?? 0}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="font-bold text-lg">
+                          {selectedApplication.applicant?.trust_score ??
+                            selectedApplication.application_score}
+                          /100
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cover letter */}
+                  {selectedApplication.cover_letter && (
+                    <div>
+                      <p className="text-sm text-gray-500 mb-2">Lettre de motivation</p>
+                      <p className="text-gray-700 bg-gray-50 rounded-xl p-4 italic">
+                        "{selectedApplication.cover_letter}"
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-6">
+                  {/* Verifications */}
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="text-sm text-gray-500 mb-3">Vérifications</p>
+                    {verificationState.loading ? (
+                      <div className="text-sm text-gray-500">Chargement...</div>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div
+                          className={`rounded-lg border p-3 ${
+                            verificationState.oneciVerified
+                              ? 'bg-green-50 border-green-200'
+                              : 'bg-amber-50 border-amber-200'
+                          }`}
+                        >
+                          <p className="text-xs text-gray-500">ONECI</p>
+                          <p className="font-semibold text-gray-900">
+                            {verificationState.oneciVerified ? 'Vérifiée' : 'Non vérifiée'}
+                          </p>
+                        </div>
+                        <div
+                          className={`rounded-lg border p-3 ${
+                            verificationState.neofaceVerified
+                              ? 'bg-green-50 border-green-200'
+                              : 'bg-amber-50 border-amber-200'
+                          }`}
+                        >
+                          <p className="text-xs text-gray-500">Neoface</p>
+                          <p className="font-semibold text-gray-900">
+                            {verificationState.neofaceVerified ? 'Vérifiée' : 'Non vérifiée'}
+                          </p>
+                        </div>
+                        <div
+                          className={`rounded-lg border p-3 sm:col-span-2 ${
+                            verificationState.dossierAccessError
+                              ? 'bg-gray-100 border-gray-200'
+                              : verificationState.dossierStatus === 'approved'
+                                ? 'bg-green-50 border-green-200'
+                                : verificationState.dossierStatus &&
+                                    verificationState.dossierStatus !== 'draft'
+                                  ? 'bg-amber-50 border-amber-200'
+                                  : 'bg-gray-100 border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-xs text-gray-500">Dossier locataire</p>
+                              <p className="font-semibold text-gray-900">
+                                {verificationState.dossierAccessError
+                                  ? 'Statut indisponible'
+                                  : verificationState.dossierStatus
+                                    ? DOSSIER_STATUS_LABELS[verificationState.dossierStatus] ||
+                                      verificationState.dossierStatus
+                                    : 'Non soumis'}
+                              </p>
+                              {verificationState.dossierAccessError && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Accès restreint aux informations du dossier.
+                                </p>
+                              )}
+                              {verificationState.dossierRejectionReason && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {verificationState.dossierRejectionReason}
+                                </p>
+                              )}
+                            </div>
+                            {verificationState.dossierStatus && !verificationState.dossierAccessError && (
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                                  DOSSIER_STATUS_COLORS[verificationState.dossierStatus] ||
+                                  'bg-gray-100 text-gray-600 border-gray-200'
+                                }`}
+                              >
+                                {DOSSIER_STATUS_LABELS[verificationState.dossierStatus] ||
+                                  verificationState.dossierStatus}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dossier documents */}
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <p className="text-sm text-gray-500 mb-3">Documents du dossier</p>
+                    {verificationState.loading ? (
+                      <div className="text-sm text-gray-500">Chargement des documents...</div>
+                    ) : verificationState.dossierAccessError ? (
+                      <div className="text-sm text-gray-500">
+                        Accès restreint aux documents du dossier.
+                      </div>
+                    ) : verificationState.documents.length === 0 ? (
+                      <div className="text-sm text-gray-500">Aucun document soumis.</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {verificationState.documents.map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {DOSSIER_DOCUMENT_LABELS[doc.document_type] ||
+                                  doc.document_type}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate">
+                                {doc.file_name || doc.document_url}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                  DOCUMENT_STATUS_COLORS[doc.verification_status || 'pending'] ||
+                                  'bg-gray-100 text-gray-600'
+                                }`}
+                              >
+                                {DOCUMENT_STATUS_LABELS[doc.verification_status || 'pending'] ||
+                                  doc.verification_status ||
+                                  'En attente'}
+                              </span>
+                              <a
+                                href={getDownloadUrl(doc.document_url)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs font-semibold text-orange-600 hover:underline"
+                                title="Télécharger le document"
+                              >
+                                Voir
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <button

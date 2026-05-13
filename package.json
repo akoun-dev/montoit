@@ -3,10 +3,18 @@
   "private": true,
   "version": "3.2.2",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "vite",
+    "dev:staging": "vite --mode staging",
+    "dev:production": "vite --mode production",
+    "functions:serve": "npx supabase functions serve --env-file supabase/.env",
     "build": "vite build --config vite.config.optimized.ts",
-    "build:dev": "vite build",
+    "build:dev": "vite build --mode development",
+    "build:staging": "vite build --mode staging",
+    "build:production": "vite build --mode production",
     "build:standard": "vite build",
     "build:analyze": "vite build --config vite.config.optimized.ts && open stats.html",
     "lint": "eslint .",
@@ -14,6 +22,8 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "preview": "vite preview",
+    "preview:staging": "vite preview --mode staging",
+    "preview:production": "vite preview --mode production",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "test": "vitest",
     "test:ui": "vitest --ui",
@@ -34,7 +44,10 @@
     "test:penetration": "node src/tests/penetration-test.cjs",
     "test:security:all": "npm run test:security:run && npm run test:integration:security && npm run test:penetration",
     "cap:sync": "npx cap sync",
-    "cap:open:android": "CAPACITOR_ANDROID_STUDIO_PATH=/snap/android-studio/current/bin/studio.sh npx cap open android"
+    "cap:open:android": "CAPACITOR_ANDROID_STUDIO_PATH=/snap/android-studio/current/bin/studio.sh npx cap open android",
+    "ci": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "ci:staging": "npm run lint && npm run typecheck && npm run test && npm run build:staging",
+    "ci:production": "npm run lint && npm run typecheck && npm run test && npm run build:production && npm run test:security"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
@@ -45,7 +58,7 @@
     ]
   },
   "dependencies": {
-    "@capacitor/android": "^7.4.4",
+    "@capacitor/android": "^7.6.1",
     "@capacitor/app": "^7.1.0",
     "@capacitor/camera": "^7.0.2",
     "@capacitor/cli": "7.4.5",
@@ -82,6 +95,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
+    "framer-motion": "^12.38.0",
     "html2pdf.js": "^0.14.0",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",
@@ -101,7 +115,7 @@
     "zustand": "^4.5.7"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
+    "@capacitor/assets": "^1.0.0",
     "@eslint/js": "^9.9.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^14.3.1",
@@ -125,7 +139,7 @@
     "postcss": "^8.4.35",
     "prettier": "^3.6.2",
     "rollup-plugin-visualizer": "^6.0.5",
-    "supabase": "2.75.3",
+    "supabase": "^2.89.1",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",

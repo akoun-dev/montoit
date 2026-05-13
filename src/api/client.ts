@@ -61,7 +61,7 @@ export async function handlePaginatedQuery<T>(
   const to = from + pageSize - 1;
 
   try {
-    const { data, error, count } = await queryBuilder.range(from, to);
+    const { data, error, count } = await (queryBuilder as any).range(from, to);
 
     if (error) {
       logger.error('Paginated query error', undefined, { error });

@@ -3,33 +3,24 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   X,
   Home,
   Building2,
-  MapPin,
   Percent,
   Calendar,
   FileText,
   Check,
+  CheckCircle,
   ChevronRight,
-  AlertCircle,
-  Info,
   Shield,
   Users,
-  FileCheck,
   Settings,
-  Eye,
-  Edit,
-  Trash2,
-  Plus,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
 
 interface Property {
   id: string;
@@ -74,7 +65,6 @@ interface CreateMandateFormProps {
 type Step = 'property' | 'agency' | 'permissions' | 'confirm';
 
 export default function CreateMandateForm({ isOpen, onClose, onSuccess, propertyId }: CreateMandateFormProps) {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState<Step>('property');
   const [loading, setLoading] = useState(false);
@@ -93,7 +83,7 @@ export default function CreateMandateForm({ isOpen, onClose, onSuccess, property
     can_create_properties: false,
     can_delete_properties: false,
     can_view_applications: true,
-    can_manage_applications: false,
+    can_manage_applications: true, // CORRECTION: true par défaut pour router les candidatures vers l'agence
     can_create_leases: false,
     can_view_financials: false,
     can_manage_maintenance: false,
@@ -113,6 +103,7 @@ export default function CreateMandateForm({ isOpen, onClose, onSuccess, property
         setCurrentStep('agency');
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, propertyId]);
 
   const loadData = async () => {
@@ -127,14 +118,22 @@ export default function CreateMandateForm({ isOpen, onClose, onSuccess, property
 
     setProperties((propertiesData || []) as Property[]);
 
-    // Load agencies
+    // Load agencies from profiles (user_type = 'agency')
     const { data: agenciesData } = await supabase
-      .from('agencies')
-      .select('id, agency_name, email, phone, city, logo_url, commission_rate')
-      .eq('status', 'active')
+      .from('profiles')
+      .select('id, agency_name, email, phone, city, agency_logo')
+      .eq('user_type', 'agency')
       .order('agency_name');
 
-    setAgencies((agenciesData || []) as Agency[]);
+    setAgencies((agenciesData || []).map((profile: any) => ({
+      id: profile.id,
+      agency_name: profile.agency_name,
+      email: profile.email,
+      phone: profile.phone,
+      city: profile.city,
+      logo_url: profile.agency_logo,
+      commission_rate: 8,
+    })) as Agency[]);
   };
 
   const filteredProperties = searchQuery
@@ -208,7 +207,7 @@ export default function CreateMandateForm({ isOpen, onClose, onSuccess, property
       can_create_properties: false,
       can_delete_properties: false,
       can_view_applications: true,
-      can_manage_applications: false,
+      can_manage_applications: true, // CORRECTION: true par défaut
       can_create_leases: false,
       can_view_financials: false,
       can_manage_maintenance: false,
@@ -537,6 +536,9 @@ export default function CreateMandateForm({ isOpen, onClose, onSuccess, property
                     <Users className="h-5 w-5 text-[#F16522]" />
                     Candidats & Baux
                   </h4>
+                  <p className="text-sm text-[#6B5A4E] mb-3">
+                    ⚠️ <strong>Gérer les candidatures</strong> : Si activé, les candidatures et visites seront envoyées à l'agence. Si désactivé, elles seront envoyées au propriétaire.
+                  </p>
                   <div className="grid grid-cols-2 gap-3">
                     {[
                       { key: 'can_view_applications', label: 'Voir les candidatures' },
@@ -709,8 +711,8 @@ export default function CreateMandateForm({ isOpen, onClose, onSuccess, property
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(permissions)
-                      .filter(([_, value]) => value)
-                      .map(([key, _]) => (
+                      .filter(([, value]) => value)
+                      .map(([key]) => (
                         <span
                           key={key}
                           className="px-3 py-1 bg-[#F16522] text-white rounded-full text-xs font-medium"

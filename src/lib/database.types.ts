@@ -1,25 +1,34 @@
-export type UserType = 'locataire' | 'proprietaire' | 'agence' | 'admin';
-export type UserRole = 'admin' | 'user' | 'agent' | 'moderator';
-export type PropertyCategory = 'residentiel' | 'commercial';
+export type UserType = 'tenant' | 'owner' | 'agency' | 'trust_agent' | 'admin';
+export type UserRole = 'admin' | 'trust_agent';
+export type PropertyCategory = 'residential' | 'commercial';
 export type PropertyType =
-  | 'appartement'
-  | 'maison'
+  | 'apartment'
+  | 'house'
   | 'villa'
   | 'studio'
   | 'duplex'
-  | 'chambre'
-  | 'bureau'
-  | 'commerce'
-  | 'entrepot'
-  | 'terrain';
-export type PropertyStatus = 'disponible' | 'loue' | 'en_attente' | 'retire';
-export type ApplicationStatus = 'en_attente' | 'acceptee' | 'refusee' | 'annulee';
-export type VerificationStatus = 'en_attente' | 'verifie' | 'rejete';
-export type PaymentStatus = 'en_attente' | 'complete' | 'echoue' | 'annule';
-export type PaymentType = 'loyer' | 'depot_garantie' | 'charges' | 'frais_agence';
-export type PaymentMethod = 'mobile_money' | 'carte_bancaire' | 'virement' | 'especes';
-export type LeaseStatus = 'brouillon' | 'en_attente_signature' | 'actif' | 'expire' | 'resilie';
-export type LeaseType = 'courte_duree' | 'longue_duree';
+  | 'room'
+  | 'office'
+  | 'retail'
+  | 'warehouse'
+  | 'land';
+export type PropertyStatus = 'available' | 'rented' | 'unavailable' | 'pending' | 'maintenance' | 'inactive';
+export type ApplicationStatus = 'pending' | 'in_progress' | 'accepted' | 'rejected' | 'cancelled';
+export type VerificationStatus = 'pending' | 'in_progress' | 'approved' | 'rejected' | 'expired';
+export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'overdue' | 'partial' | 'cancelled' | 'refunded';
+export type PaymentType = 'rent' | 'security_deposit' | 'service_charges' | 'fees' | 'reservation' | 'refund';
+export type PaymentMethod =
+  | 'bank_transfer'
+  | 'cash'
+  | 'check'
+  | 'card'
+  | 'mobile_money'
+  | 'orange_money'
+  | 'mtn_money'
+  | 'moov_money'
+  | 'wave';
+export type LeaseStatus = 'draft' | 'pending' | 'active' | 'terminated' | 'cancelled' | 'expired';
+export type LeaseType = 'short_term' | 'long_term' | 'seasonal' | 'furnished' | 'commercial';
 
 export interface Database {
   public: {

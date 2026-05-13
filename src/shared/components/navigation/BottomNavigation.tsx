@@ -9,7 +9,7 @@ interface NavItem {
   href: string;
   badge?: number;
   requiresAuth?: boolean;
-  allowedUserTypes?: Array<'proprietaire' | 'agence' | 'locataire'>;
+  allowedUserTypes?: Array<'owner' | 'agency' | 'tenant'>;
 }
 
 export default function BottomNavigation() {
@@ -29,7 +29,7 @@ export default function BottomNavigation() {
       icon: PlusCircle,
       label: 'Publier',
       href: '/ajouter-propriete',
-      allowedUserTypes: ['proprietaire', 'agence'],
+      allowedUserTypes: ['owner', 'agency'],
     },
     {
       icon: MessageCircle,

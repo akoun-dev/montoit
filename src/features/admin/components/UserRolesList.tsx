@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { Trash2, Clock, Shield, UserCheck, Eye, User } from 'lucide-react';
+import { Trash2, Clock, Shield, UserCheck, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { formatUserContact } from '@/shared/utils/contactDisplay';
 
 interface UserWithRole {
   id: string;
-  role: 'admin' | 'trust_agent' | 'moderator' | 'user';
+  role: 'admin' | 'trust_agent';
   granted_at: string | null;
   granted_by: string | null;
   user_id: string;
   profile: {
     full_name: string | null;
     email: string | null;
+    phone: string | null;
     avatar_url: string | null;
   } | null;
 }
@@ -37,21 +39,14 @@ const getRoleBadge = (role: string) => {
       return (
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
           <UserCheck className="h-3.5 w-3.5" />
-          Trust Agent
-        </span>
-      );
-    case 'moderator':
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-          <Eye className="h-3.5 w-3.5" />
-          Modérateur
+          Tiers de confiance
         </span>
       );
     default:
       return (
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
           <User className="h-3.5 w-3.5" />
-          Utilisateur
+          Rôle inconnu
         </span>
       );
   }
@@ -64,7 +59,7 @@ export function UserRolesList({
   onRevokeRole,
   revoking,
 }: UserRolesListProps) {
-  const [_confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
+  const [, setConfirmRevoke] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -136,7 +131,7 @@ export function UserRolesList({
                   {isCurrentUser && <span className="ml-2 text-xs text-gray-500">(vous)</span>}
                 </p>
                 <p className="text-sm text-gray-500 truncate">
-                  {userRole.profile?.email || 'Email non renseigné'}
+                  {formatUserContact(userRole.profile?.email, userRole.profile?.phone)}
                 </p>
               </div>
 
@@ -160,6 +155,7 @@ export function UserRolesList({
                     onClick={() => {
                       setConfirmRevoke(userRole.id);
                       onRevokeRole(userRole.id, userRole.user_id, userRole.role);
+                      setConfirmRevoke(null);
                     }}
                     disabled={revoking === userRole.id}
                     className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"

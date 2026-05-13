@@ -109,7 +109,7 @@ export const createLazyComponent = (
 ) => {
   const LazyComponent = lazy(importFunc);
 
-  return (props: any) => (
+  return (props: unknown) => (
     <LazyErrorBoundary fallback={errorFallback}>
       <LazyWrapper fallback={fallback}>
         <LazyComponent {...props} />

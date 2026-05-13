@@ -38,7 +38,7 @@ export async function performHealthCheck(): Promise<HealthCheckResult> {
     } else {
       result.checks.database = true;
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     result.errors.push(`Database: ${err.message}`);
   }
 
@@ -49,7 +49,7 @@ export async function performHealthCheck(): Promise<HealthCheckResult> {
     } else {
       result.checks.auth = true;
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     result.errors.push(`Auth: ${err.message}`);
   }
 
@@ -60,7 +60,7 @@ export async function performHealthCheck(): Promise<HealthCheckResult> {
     } else {
       result.checks.storage = true;
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     result.errors.push(`Storage: ${err.message}`);
   }
 
@@ -101,7 +101,7 @@ export async function testDatabaseConnection(): Promise<{ success: boolean; mess
       return { success: false, message: error.message };
     }
     return { success: true, message: 'Database connection successful' };
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err.message.includes('timeout')) {
       return {
         success: false,
@@ -138,7 +138,7 @@ export async function testProfileAccess(
     }
 
     return { success: true, message: 'Profile access successful', hasProfile: true };
-  } catch (err: any) {
+  } catch (err: unknown) {
     return { success: false, message: err.message, hasProfile: false };
   }
 }
@@ -150,7 +150,7 @@ export async function testAuthConnection(): Promise<{ success: boolean; message:
       return { success: false, message: error.message };
     }
     return { success: true, message: 'Auth connection successful' };
-  } catch (err: any) {
+  } catch (err: unknown) {
     return { success: false, message: err.message };
   }
 }
@@ -165,7 +165,7 @@ export async function testStorageConnection(): Promise<{ success: boolean; messa
       success: true,
       message: `Storage connection successful (${data.length} buckets found)`,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     return { success: false, message: err.message };
   }
 }

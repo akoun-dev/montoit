@@ -11,6 +11,7 @@ import { GlobalLoadingSkeleton } from '@/shared/ui/GlobalLoadingSkeleton';
 import { FloatingCallButton } from '@/shared/ui/FloatingCallButton';
 import SUTAChatWidget from '@/shared/components/SUTAChatWidget';
 import { CookieConsent } from '@/shared/ui/CookieConsent';
+import OnboardingWrapper from '@/features/onboarding/OnboardingWrapper';
 const noLayoutRoutes = ['/auth/callback'];
 const noHeaderFooterRoutes = [
   '/admin',
@@ -57,7 +58,7 @@ const ownerSidebarPrefixes = [
 // Routes avec navigation latérale pour agence (éviter header + breadcrumb doublons)
 const agencySidebarPrefixes = ['/agences', '/agences/mandats', '/mandat'];
 
-// Routes avec layout dédié pour trust agent
+// Routes avec layout dédié pour tiers de confiance
 const trustAgentSidebarPrefixes = ['/trust-agent'];
 
 // Map routes to skeleton variants
@@ -119,11 +120,13 @@ export default function Layout() {
       {shouldShowHeaderFooter && <SUTAChatWidget mode="floating" position="bottom-right" />}
       <ChunkLoadErrorBoundary>
         <Suspense fallback={<GlobalLoadingSkeleton variant={skeletonVariant} />}>
-          <main className={shouldShowHeaderFooter ? 'min-h-screen' : ''}>
-            <PageTransition key={location.pathname}>
-              <Outlet />
-            </PageTransition>
-          </main>
+          <OnboardingWrapper>
+            <main className={shouldShowHeaderFooter ? 'min-h-screen' : ''}>
+              <PageTransition key={location.pathname}>
+                <Outlet />
+              </PageTransition>
+            </main>
+          </OnboardingWrapper>
         </Suspense>
       </ChunkLoadErrorBoundary>
       {shouldShowHeaderFooter && <FooterPremium />}

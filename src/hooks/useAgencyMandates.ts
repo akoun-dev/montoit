@@ -142,7 +142,7 @@ const DEFAULT_PERMISSIONS: MandatePermissions = {
   can_create_properties: false,
   can_delete_properties: false,
   can_view_applications: true,
-  can_manage_applications: false,
+  can_manage_applications: true, // CORRECTION: true par défaut pour router les candidatures vers l'agence
   can_create_leases: false,
   can_view_financials: false,
   can_manage_maintenance: false,
@@ -157,6 +157,7 @@ export function useAgencyMandates() {
   const [myAgency, setMyAgency] = useState<Agency | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   // Fetch user's agency if they are an agency
   const fetchMyAgency = useCallback(async () => {
@@ -187,17 +188,28 @@ export function useAgencyMandates() {
     setError(null);
 
     try {
-      // Fetch mandates with agencies join
+      // Fetch mandates with profiles join (agency info and owner info)
+      // Add timestamp to bypass cache
+      const cacheBuster = `__t=${Date.now()}`;
       const { data, error: err } = await supabase
         .from('agency_mandates')
         .select(`
           *,
           property:properties(id, title, city, neighborhood, main_image),
-          agency:agencies(*)
+          agency:profiles!agency_mandates_agency_id_fkey(id, agency_name, email, phone, city, agency_logo),
+          owner:profiles!agency_mandates_owner_id_fkey(id, full_name, email, phone, city)
         `)
         .order('created_at', { ascending: false });
 
       if (err) throw err;
+
+      console.log('[useAgencyMandates] Fetched mandates:', JSON.stringify((data || []).map(m => ({
+        id: m.id,
+        status: m.status,
+        owner_signed_at: m.owner_signed_at,
+        agency_signed_at: m.agency_signed_at,
+        cryptoneo_signature_status: m.cryptoneo_signature_status,
+      })), null, 2));
 
       setMandates((data || []) as unknown as AgencyMandate[]);
     } catch (err) {
@@ -210,28 +222,47 @@ export function useAgencyMandates() {
 
   // Fetch all active agencies (for property owners to invite)
   const fetchAgencies = useCallback(async () => {
-    // Fetch from agencies table
-    const { data: agenciesData, error: agenciesError } = await supabase
-      .from('agencies')
-      .select('*')
-      .eq('status', 'active')
+    // Fetch from profiles where user_type = 'agency'
+    const { data: agencyProfiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, agency_name, email, phone, city, agency_logo')
+      .eq('user_type', 'agency')
       .order('agency_name');
 
-    if (agenciesError) {
-      console.error('Error fetching agencies:', agenciesError);
+    if (profilesError) {
+      console.error('Error fetching agencies:', profilesError);
       return;
     }
 
+    const agencies: Agency[] = (agencyProfiles || []).map((profile) => ({
+      id: profile.id,
+      user_id: profile.id,
+      agency_name: profile.agency_name || '',
+      email: profile.email,
+      phone: profile.phone,
+      city: profile.city,
+      logo_url: profile.agency_logo,
+      commission_rate: 8,
+      is_verified: false,
+      status: 'active' as const,
+      registration_number: null,
+      address: null,
+      website: null,
+      description: null,
+      created_at: '',
+      updated_at: '',
+    } as Agency));
+
     console.log('fetchAgencies - Found agencies:', {
-      count: agenciesData?.length || 0,
-      agencies: agenciesData?.map((a: any) => ({
+      count: agencies.length,
+      agencies: agencies.map((a) => ({
         id: a.id,
         name: a.agency_name,
         city: a.city,
       })) || [],
     });
 
-    setAgencies((agenciesData || []) as Agency[]);
+    setAgencies(agencies);
   }, []);
 
   // Create a new mandate (owner invites agency)
@@ -292,8 +323,10 @@ export function useAgencyMandates() {
         },
       };
 
-      // Send notification to agency
-      await notifyMandateCreated(mandateWithAgency.id);
+      // Send notification to agency (non-blocking)
+      notifyMandateCreated(mandateWithAgency.id).catch((err) => {
+        console.warn('Failed to send notification (non-blocking):', err);
+      });
 
       toast.success("Invitation envoyée à l'agence");
       await fetchMandates();
@@ -305,6 +338,22 @@ export function useAgencyMandates() {
   // Accept a mandate (agency)
   const acceptMandate = useCallback(
     async (mandateId: string): Promise<boolean> => {
+      const toastId = toast.loading('Acceptation du mandat en cours...');
+
+      // First, get the mandate details to check if it has a property
+      const { data: mandateData, error: mandateError } = await supabase
+        .from('agency_mandates')
+        .select('id, property_id, agency_id')
+        .eq('id', mandateId)
+        .maybeSingle();
+
+      if (mandateError || !mandateData) {
+        console.error('Error fetching mandate for acceptance:', mandateError);
+        toast.error('Erreur lors de l\'acceptation du mandat', { id: toastId });
+        return false;
+      }
+
+      // Update mandate status
       const { error: err } = await supabase
         .from('agency_mandates')
         .update({
@@ -315,14 +364,34 @@ export function useAgencyMandates() {
 
       if (err) {
         console.error('Error accepting mandate:', err);
-        toast.error("Erreur lors de l'acceptation du mandat");
+        toast.error('Erreur lors de l\'acceptation du mandat', { id: toastId });
         return false;
+      }
+
+      // If mandate has a property, update managed_by_agency
+      if (mandateData.property_id) {
+        console.log('[acceptMandate] Updating property managed_by_agency:', {
+          propertyId: mandateData.property_id,
+          agencyId: mandateData.agency_id
+        });
+
+        const { error: propertyError } = await supabase
+          .from('properties')
+          .update({ managed_by_agency: mandateData.agency_id })
+          .eq('id', mandateData.property_id);
+
+        if (propertyError) {
+          console.error('Error updating property managed_by_agency:', propertyError);
+          // Don't fail the mandate acceptance if property update fails
+        } else {
+          console.log('[acceptMandate] Property updated successfully');
+        }
       }
 
       // Send notification to owner
       await notifyMandateAccepted(mandateId);
 
-      toast.success('Mandat accepté');
+      toast.success('✅ Mandat accepté avec succès', { id: toastId });
       await fetchMandates();
       return true;
     },
@@ -332,6 +401,8 @@ export function useAgencyMandates() {
   // Refuse a mandate (agency)
   const refuseMandate = useCallback(
     async (mandateId: string, reason?: string): Promise<boolean> => {
+      const toastId = toast.loading('Traitement du refus...');
+
       const { error: err } = await supabase
         .from('agency_mandates')
         .update({
@@ -342,14 +413,14 @@ export function useAgencyMandates() {
 
       if (err) {
         console.error('Error refusing mandate:', err);
-        toast.error('Erreur lors du refus du mandat');
+        toast.error('Erreur lors du refus du mandat', { id: toastId });
         return false;
       }
 
       // Send notification to owner
       await notifyMandateRefused(mandateId, reason);
 
-      toast.success('Mandat refusé');
+      toast.success('❌ Mandat refusé', { id: toastId });
       await fetchMandates();
       return true;
     },
@@ -543,7 +614,7 @@ export function useAgencyMandates() {
         return false;
       }
 
-      const updateData: any = {
+      const updateData: unknown = {
         mandate_scope: scope,
         property_id: scope === 'all_properties' ? null : propertyId,
       };
@@ -615,7 +686,8 @@ export function useAgencyMandates() {
         .select(`
           *,
           property:properties(id, title, city, neighborhood, price, main_image),
-          agency:agencies(*)
+          agency:profiles!agency_mandates_agency_id_fkey(id, agency_name, email, phone, city, agency_logo),
+          owner:profiles!agency_mandates_owner_id_fkey(id, full_name, email, phone, city)
         `)
         .eq('id', mandateId)
         .single();
@@ -662,7 +734,7 @@ export function useAgencyMandates() {
         return false;
       }
 
-      const updateData: any = {};
+      const updateData: unknown = {};
 
       if (params.property_id !== undefined) updateData.property_id = params.property_id;
       if (params.mandate_scope !== undefined) {
@@ -752,7 +824,7 @@ export function useAgencyMandates() {
       };
 
       try {
-        const filename = `mandat-${mandate.agency?.agency_name?.replace(/\s+/g, '-').toLowerCase() || 'agence'}-${new Date().toISOString().split('T')[0]}.pdf`;
+        const filename = `mandat-${mandate.agency?.agency_name?.replace(/\s+/g, '-').toLowerCase() || 'agency'}-${new Date().toISOString().split('T')[0]}.pdf`;
         await downloadMandatePDF(pdfData, filename);
         toast.success('Document de mandat téléchargé');
         return true;
@@ -767,10 +839,11 @@ export function useAgencyMandates() {
 
   // Initial load
   useEffect(() => {
+    console.log('[useAgencyMandates] useEffect triggered', { user: !!user, refreshCounter });
     if (user) {
       Promise.all([fetchMandates(), fetchMyAgency(), fetchAgencies()]);
     }
-  }, [user, fetchMandates, fetchMyAgency, fetchAgencies]);
+  }, [user, refreshCounter]); // Supprimé fetchMandates, fetchMyAgency, fetchAgencies des dépendances
 
   // Filter helpers
   const pendingMandates = mandates.filter((m) => m.status === 'pending');
@@ -783,7 +856,7 @@ export function useAgencyMandates() {
   const ownerMandates = mandates.filter((m) => m.owner_id === user?.id);
 
   // Mandates where user is the agency
-  const agencyMandates = mandates.filter((m) => m.agency?.user_id === user?.id);
+  const agencyMandates = mandates.filter((m) => m.agency_id === user?.id);
 
   return {
     // Data
@@ -825,7 +898,10 @@ export function useAgencyMandates() {
     downloadMandate,
 
     // Refresh
-    refresh: fetchMandates,
+    refresh: () => {
+      console.log('[useAgencyMandates] refresh() called, incrementing counter');
+      setRefreshCounter(prev => prev + 1);
+    },
     refreshAgencies: fetchAgencies,
   };
 }

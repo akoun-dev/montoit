@@ -11,11 +11,13 @@ export type StatusType =
   | 'suspended'
   | 'deleted'
   | 'verified'
+  | 'approved'
   | 'rejected'
   | 'completed'
   | 'failed'
   | 'processing'
   | 'cancelled'
+  | 'expired'
   | 'available'
   | 'rented'
   | 'unavailable'
@@ -41,11 +43,13 @@ const statusConfig: Record<StatusType, { label: string; color: string; icon?: Re
   suspended: { label: 'Suspendu', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
   deleted: { label: 'Supprimé', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
   verified: { label: 'Vérifié', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle },
+  approved: { label: 'Approuvé', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle },
   rejected: { label: 'Rejeté', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
   completed: { label: 'Terminé', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle },
   failed: { label: 'Échoué', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
   processing: { label: 'En cours', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Clock },
   cancelled: { label: 'Annulé', color: 'bg-neutral-100 text-neutral-700 border-neutral-200', icon: XCircle },
+  expired: { label: 'Expiré', color: 'bg-neutral-100 text-neutral-700 border-neutral-200', icon: XCircle },
   available: { label: 'Disponible', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle },
   rented: { label: 'Loué', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: CheckCircle },
   unavailable: { label: 'Indisponible', color: 'bg-neutral-100 text-neutral-700 border-neutral-200', icon: XCircle },
@@ -92,13 +96,10 @@ export function StatusBadge({
 export function UserTypeBadge({ userType, size = 'md', className = '' }: { userType: string; size?: 'sm' | 'md' | 'lg'; className?: string }) {
   const typeConfig: Record<string, { label: string; color: string }> = {
     admin: { label: 'Admin', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-    admin_ansut: { label: 'Admin ANSUT', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-    moderator: { label: 'Modérateur', color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-    trust_agent: { label: 'Trust Agent', color: 'bg-teal-100 text-teal-700 border-teal-200' },
-    locataire: { label: 'Locataire', color: 'bg-green-100 text-green-700 border-green-200' },
-    proprietaire: { label: 'Propriétaire', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-    agence: { label: 'Agence', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-    user: { label: 'Utilisateur', color: 'bg-neutral-100 text-neutral-700 border-neutral-200' },
+    trust_agent: { label: 'Tiers de confiance', color: 'bg-teal-100 text-teal-700 border-teal-200' },
+    tenant: { label: 'Locataire', color: 'bg-green-100 text-green-700 border-green-200' },
+    owner: { label: 'Propriétaire', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+    agency: { label: 'Agence', color: 'bg-amber-100 text-amber-700 border-amber-200' },
   };
 
   const config = typeConfig[userType] || {

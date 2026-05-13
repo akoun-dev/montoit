@@ -50,7 +50,7 @@ const STORAGE_KEY = 'property_form_draft';
 const INITIAL_FORM_DATA: PropertyData = {
   title: '',
   description: '',
-  propertyType: 'appartement',
+  propertyType: 'apartment',
   bedrooms: 1,
   bathrooms: 1,
   area: 0,

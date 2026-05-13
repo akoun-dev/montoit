@@ -49,7 +49,7 @@ export function ConfirmRoleModal({
         };
       case 'trust_agent':
         return {
-          title: 'Attribution Trust Agent',
+          title: 'Attribution Tiers de confiance',
           color: 'purple',
           icon: Shield,
           warning:

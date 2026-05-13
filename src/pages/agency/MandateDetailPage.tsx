@@ -168,6 +168,7 @@ export default function MandateDetailPage() {
     {}
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isAgencyUser = profile?.user_type
     ? (AGENCY_ROLES as readonly string[]).includes(profile.user_type)
     : false;

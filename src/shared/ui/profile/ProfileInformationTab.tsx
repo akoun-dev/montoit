@@ -1,10 +1,30 @@
 import { useState } from 'react';
 import { User, Mail, Phone, MapPin, Save } from 'lucide-react';
+import type { User as AuthUser } from '@supabase/supabase-js';
+import { formatUserContact, isPhoneEmail } from '@/shared/utils/contactDisplay';
+
+export interface ProfileFormData {
+  full_name: string;
+  phone: string;
+  city: string;
+  address: string;
+  bio?: string;
+  gender?: 'Homme' | 'Femme' | 'Non spécifié' | '';
+}
+
+interface BaseProfile {
+  full_name: string | null;
+  phone: string | null;
+  city: string | null;
+  address: string | null;
+  bio?: string | null;
+  gender?: 'Homme' | 'Femme' | 'Non spécifié' | null;
+}
 
 interface ProfileInformationTabProps {
-  profile: any;
-  user: any;
-  onSave: (formData: any) => Promise<void>;
+  profile: BaseProfile | null;
+  user: AuthUser | null;
+  onSave: (formData: ProfileFormData) => Promise<void>;
 }
 
 export default function ProfileInformationTab({
@@ -13,11 +33,13 @@ export default function ProfileInformationTab({
   onSave,
 }: ProfileInformationTabProps) {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProfileFormData>({
     full_name: profile?.full_name || '',
     phone: profile?.phone || '',
     city: profile?.city || '',
     address: profile?.address || '',
+    bio: profile?.bio || '',
+    gender: profile?.gender || '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,16 +80,29 @@ export default function ProfileInformationTab({
 
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-2">
-            <Mail className="inline h-4 w-4 mr-2" />
-            Email
+            {isPhoneEmail(user?.email) ? (
+              <>
+                <Phone className="inline h-4 w-4 mr-2" />
+                Téléphone
+              </>
+            ) : (
+              <>
+                <Mail className="inline h-4 w-4 mr-2" />
+                Email
+              </>
+            )}
           </label>
           <input
-            type="email"
-            value={user?.email}
+            type={isPhoneEmail(user?.email) ? "tel" : "email"}
+            value={formatUserContact(user?.email, profile?.phone, (user?.user_metadata?.phone as string | undefined))}
             disabled
             className="w-full px-4 py-3 bg-gray-100 border-2 border-gray-200 rounded-xl text-gray-600 cursor-not-allowed"
           />
-          <p className="text-xs text-gray-500 mt-1">L'email ne peut pas être modifié</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {isPhoneEmail(user?.email)
+              ? 'Le téléphone est utilisé comme identifiant de connexion'
+              : 'L\'email ne peut pas être modifié'}
+          </p>
         </div>
 
         <div>

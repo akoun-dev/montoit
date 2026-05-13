@@ -1,12 +1,18 @@
 /**
  * Page de réinitialisation du mot de passe
  * L'utilisateur arrive ici via le lien envoyé par email (méthode native Supabase)
+ *
+ * Le flux Supabase :
+ * 1. L'utilisateur clique sur le lien dans l'email
+ * 2. Supabase redirige vers cette page avec access_token dans l'URL
+ * 3. La session de récupération est automatiquement établie
+ * 4. L'utilisateur peut définir son nouveau mot de passe
  */
 
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Lock, Eye, EyeOff, Check, X, KeyRound, ArrowLeft, Loader2 } from 'lucide-react';
+import { Lock, Eye, EyeOff, Check, X, KeyRound, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import Button from '@/shared/ui/Button';
 import { toast } from 'sonner';
 
@@ -21,8 +27,6 @@ interface PasswordCriteria {
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  // Supabase utilise access_token au lieu de token
-  const accessToken = searchParams.get('access_token');
   const type = searchParams.get('type');
 
   const [password, setPassword] = useState('');
@@ -30,14 +34,50 @@ const ResetPasswordPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
-  // Vérifier la présence du token et le type
+  // Vérifier si on est en mode récupération
   useEffect(() => {
-    if (!accessToken || type !== 'recovery') {
-      setTokenError('Lien de réinitialisation invalide. Veuillez demander un nouveau lien.');
-    }
-  }, [accessToken, type]);
+    const checkRecoveryMode = async () => {
+      try {
+        // Vérifier les paramètres URL
+        if (type !== 'recovery') {
+          setError('Lien de réinitialisation invalide. Veuillez demander un nouveau lien.');
+          setIsCheckingSession(false);
+          return;
+        }
+
+        // Supabase gère automatiquement la session de récupération
+        // On vérifie juste qu'on a une session active
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error('Erreur session:', sessionError);
+          setError('Session invalide. Veuillez demander un nouveau lien.');
+          setIsCheckingSession(false);
+          return;
+        }
+
+        if (!session) {
+          setError('Aucune session active. Le lien a peut-être expiré. Veuillez demander un nouveau lien.');
+          setIsCheckingSession(false);
+          return;
+        }
+
+        // Nous sommes en mode récupération avec une session valide
+        setIsRecoveryMode(true);
+        setIsCheckingSession(false);
+      } catch (err) {
+        console.error('Erreur vérification session:', err);
+        setError('Une erreur est survenue. Veuillez réessayer.');
+        setIsCheckingSession(false);
+      }
+    };
+
+    checkRecoveryMode();
+  }, [type]);
 
   // Validation des critères du mot de passe
   const criteria: PasswordCriteria = useMemo(
@@ -54,34 +94,40 @@ const ResetPasswordPage = () => {
   const isPasswordValid =
     criteria.minLength && criteria.hasUppercase && criteria.hasLowercase && criteria.hasNumber;
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
-  const canSubmit = isPasswordValid && passwordsMatch && !loading && accessToken;
+  const canSubmit = isPasswordValid && passwordsMatch && !loading && isRecoveryMode;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!canSubmit || !accessToken) return;
+    if (!canSubmit) return;
 
     setLoading(true);
+    setError(null);
 
     try {
-      // Utiliser la méthode native de Supabase avec le access_token
-      const { error } = await supabase.auth.updateUser(
-        { password },
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
+      // Mettre à jour le mot de passe de l'utilisateur connecté
+      // Supabase utilise automatiquement la session de récupération
+      const { error: updateError } = await supabase.auth.updateUser({
+        password
+      });
 
-      if (error) {
-        throw new Error(error.message || 'Erreur lors de la réinitialisation');
+      if (updateError) {
+        throw new Error(updateError.message || 'Erreur lors de la réinitialisation');
       }
 
       toast.success('Mot de passe mis à jour avec succès !');
-      navigate('/connexion', {
-        state: {
-          message: 'Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter.',
-        },
-      });
+
+      // Rediriger vers la page de connexion après un court délai
+      setTimeout(() => {
+        navigate('/connexion', {
+          state: {
+            message: 'Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter.',
+          },
+        });
+      }, 1500);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Une erreur est survenue';
+      setError(errorMessage);
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -101,16 +147,31 @@ const ResetPasswordPage = () => {
     </div>
   );
 
-  // Affichage erreur token
-  if (tokenError) {
+  // État de chargement
+  if (isCheckingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-card p-8 text-center">
+          <Loader2 className="w-12 h-12 mx-auto mb-4 text-primary-600 animate-spin" />
+          <h1 className="text-xl font-semibold text-foreground mb-2">Vérification du lien...</h1>
+          <p className="text-muted-foreground">Veuillez patienter pendant que nous vérifions votre lien de récupération.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // État d'erreur
+  if (error || !isRecoveryMode) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-card p-8 text-center">
           <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
-            <X className="w-8 h-8 text-red-600" />
+            <AlertCircle className="w-8 h-8 text-red-600" />
           </div>
-          <h1 className="text-xl font-semibold text-foreground mb-2">Lien invalide</h1>
-          <p className="text-muted-foreground mb-6">{tokenError}</p>
+          <h1 className="text-xl font-semibold text-foreground mb-2">Lien invalide ou expiré</h1>
+          <p className="text-muted-foreground mb-6">
+            {error || 'Le lien de réinitialisation est invalide ou a expiré.'}
+          </p>
           <Link to="/mot-de-passe-oublie">
             <Button className="w-full">Demander un nouveau lien</Button>
           </Link>
@@ -126,6 +187,7 @@ const ResetPasswordPage = () => {
     );
   }
 
+  // Formulaire de réinitialisation
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-card p-8">
@@ -172,11 +234,11 @@ const ResetPasswordPage = () => {
           {/* Critères de validation */}
           {password.length > 0 && (
             <div className="bg-neutral-50 rounded-xl p-4 space-y-2">
+              <p className="text-sm font-medium text-foreground mb-2">Le mot de passe doit contenir :</p>
               <CriteriaItem met={criteria.minLength} label="Au moins 8 caractères" />
               <CriteriaItem met={criteria.hasUppercase} label="Une lettre majuscule" />
               <CriteriaItem met={criteria.hasLowercase} label="Une lettre minuscule" />
               <CriteriaItem met={criteria.hasNumber} label="Un chiffre" />
-              <CriteriaItem met={criteria.hasSpecial} label="Un caractère spécial (optionnel)" />
             </div>
           )}
 

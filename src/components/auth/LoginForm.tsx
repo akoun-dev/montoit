@@ -40,9 +40,11 @@ const LoginForm = () => {
       <Input
         label="Mot de passe"
         type="password"
+        isPassword
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         placeholder="••••••••"
+        autoComplete="current-password"
         required
       />
       {error && <p className="text-sm text-red-600">{error}</p>}

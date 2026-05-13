@@ -131,8 +131,6 @@ export default function InviteAgencyDialog({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    console.log('InviteAgencyDialog - properties:', properties.length, properties);
-    console.log('InviteAgencyDialog - agencies:', agencies.length, agencies);
     if (selectedPropertyId) {
       setSelectedProperties([selectedPropertyId]);
       setMandateScope('single_property');

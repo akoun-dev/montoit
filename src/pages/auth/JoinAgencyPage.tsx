@@ -42,6 +42,7 @@ export default function JoinAgencyPage() {
 
   const [token, setToken] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [validating, setValidating] = useState(true);
   const [accepting, setAccepting] = useState(false);
   const [invitation, setInvitation] = useState<InvitationDetails | null>(null);
@@ -147,7 +148,7 @@ export default function JoinAgencyPage() {
         // Register
         const { error } = await signUp(email, password, {
           full_name: fullName,
-          user_type: 'agent',
+          user_type: 'agency',
         });
         if (error) throw error;
         toast.success('Compte créé avec succès !');

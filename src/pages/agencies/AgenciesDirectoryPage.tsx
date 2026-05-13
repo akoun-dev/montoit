@@ -88,7 +88,7 @@ export default function AgenciesDirectoryPage() {
 
       // Fetch stats for each agency
       const agenciesWithStats = await Promise.all(
-        (data || []).map(async (agency: any) => {
+        (data || []).map(async (agency: unknown) => {
           // Count active mandates
           const { count: mandatesCount } = await supabase
             .from('agency_mandates')

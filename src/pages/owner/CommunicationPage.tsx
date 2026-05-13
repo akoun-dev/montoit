@@ -3,41 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import {
   Mail,
   MessageSquare,
-  Clock,
   Check,
   Bell,
   Search,
-  Filter,
   Send,
   FileText,
-  Home,
-  Users,
   Calendar,
-  File,
-  Image as ImageIcon,
   X,
   ChevronDown,
   ChevronRight,
-  Star,
-  Phone,
-  Video,
-  MoreHorizontal,
-  Plus,
-  Eye,
-  EyeOff,
-  AlertCircle,
-  CheckCircle,
-  Info,
-  FolderOpen,
-  RefreshCw,
-  Sparkles,
-  CreditCard,
-  Wrench,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { callEdgeFunction } from '@/api/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { toast } from 'sonner';
 import OwnerDashboardLayout from '../../features/owner/components/OwnerDashboardLayout';
 
 interface Conversation {
@@ -47,7 +28,6 @@ interface Conversation {
   property_id: string | null;
   subject: string | null;
   updated_at: string;
-  messages: any[];
   other_participant?: {
     id: string;
     full_name: string;
@@ -65,6 +45,7 @@ interface Conversation {
     sender_id: string;
   };
   unread_count?: number;
+  messages: Message[];
 }
 
 interface Message {
@@ -105,7 +86,7 @@ interface EmailTemplate {
   updated_at: string;
 }
 
-interface Tenant {
+interface _Tenant {
   id: string;
   full_name: string;
   avatar_url: string | null;
@@ -115,7 +96,7 @@ interface Tenant {
   is_verified: boolean;
 }
 
-interface Property {
+interface _Property {
   id: string;
   title: string;
   city: string | null;
@@ -123,7 +104,7 @@ interface Property {
   status: string;
 }
 
-const COLORS = {
+const _COLORS = {
   chocolat: '#2C1810',
   sable: '#E8D4C5',
   orange: '#F16522',
@@ -136,7 +117,7 @@ type CommTab = 'messages' | 'templates' | 'notifications';
 
 export default function CommunicationPage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<CommTab>('messages');
 
   // Messages state
@@ -150,13 +131,14 @@ export default function CommunicationPage() {
 
   // Templates state
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
+  const [_selectedTemplate, _setSelectedTemplate] = useState<EmailTemplate | null>(null);
   const [editingTemplate, setEditingTemplate] = useState(false);
 
   // Notifications state
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'read'>('all');
 
+   
   useEffect(() => {
     if (user) {
       loadConversations();
@@ -180,8 +162,8 @@ export default function CommunicationPage() {
         .or('participant1_id.eq.' + user.id + ',participant2_id.eq.' + user.id)
         .order('updated_at', { ascending: false });
 
-      const conversationsWithMeta = (data || []).map((conv: any) => {
-        const otherParticipantId = conv.participant1_id === user.id
+      const conversationsWithMeta = (data || []).map((conv: Record<string, unknown>) => {
+        const _otherParticipantId = conv.participant1_id === user.id
           ? conv.participant2_id
           : conv.participant1_id;
 
@@ -272,7 +254,7 @@ export default function CommunicationPage() {
     try {
       setSendingMessage(true);
 
-      const otherParticipantId = selectedConversation.participant1_id === user?.id
+      const _otherParticipantId = selectedConversation.participant1_id === user?.id
         ? selectedConversation.participant2_id
         : selectedConversation.participant1_id;
 
@@ -327,14 +309,58 @@ export default function CommunicationPage() {
     }
   };
 
-  const handleSendTemplateEmail = async (template: EmailTemplate, recipientId: string) => {
-    try {
-      // TODO: Implement email sending functionality
-      alert(`Envoi de l'email "${template.name}" au destinataire ${recipientId}`);
-    } catch (error) {
-      console.error('Error sending template email:', error);
-    }
-  };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleSendTemplateEmail = useCallback(
+    async (template: EmailTemplate, recipientId: string) => {
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('full_name, email, phone')
+          .eq('id', recipientId)
+          .single();
+
+        if (profileError || !profile?.email) {
+          throw new Error('Profil introuvable ou email manquant');
+        }
+
+        const nameParts = profile.full_name?.split(' ') || [];
+        const templateVars = {
+          prenom: nameParts[0] || profile.full_name || 'Utilisateur',
+          nom: nameParts.length > 1 ? nameParts.slice(-1)[0] : profile.full_name || 'Utilisateur',
+          property: selectedConversation?.property?.title || '',
+          city: selectedConversation?.property?.city || '',
+          email: profile.email,
+          phone: profile.phone || '',
+          ...template.preview_data,
+        } as Record<string, unknown>;
+
+        const interpolate = (text: string) =>
+          text.replace(/{{\s*(\w+)\s*}}/g, (_, key) => String(templateVars[key] ?? ''));
+
+        const html = interpolate(template.body_html);
+        const text = interpolate(template.body_text);
+
+        const { error: emailError } = await callEdgeFunction('send-email', {
+          to: profile.email,
+          subject: template.subject,
+          html,
+          text,
+          data: templateVars,
+        });
+
+        if (emailError) {
+          throw emailError;
+        }
+
+        toast.success(`Email "${template.name}" envoyé à ${profile.full_name || profile.email}`);
+      } catch (err) {
+        console.error('Error sending template email:', err);
+        const message = err instanceof Error ? err.message : 'Erreur lors de l\'envoi de l\'email';
+        toast.error(message);
+      }
+    },
+    [selectedConversation]
+  );
 
   const getDefaultTemplates = (): EmailTemplate[] => [
     {
@@ -365,11 +391,11 @@ export default function CommunicationPage() {
     },
     {
       id: 'visit_confirmed',
-      name: 'Visite Confirmée',
+      name: 'VISITE CONFIRMÉE',
       slug: 'visite_confirmee',
       subject: 'Votre visite est confirmée',
       body_html: '<p>Bonjour {{prenom}},</p><p>Votre visite pour {{propriete}} le {{date_visite}} est confirmée.</p>',
-      body_text: 'Visite confirmée',
+      body_text: 'VISITE CONFIRMÉE',
       variables: ['prenom', 'propriete', 'date_visite', 'heure'],
       category: 'visit_confirmed',
       active: true,
@@ -933,7 +959,7 @@ export default function CommunicationPage() {
     <OwnerDashboardLayout title="Communication">
       <div className="space-y-6">
         {/* Header */}
-        <div className="bg-[#2C1810] rounded-[20px] p-6">
+        <div className="bg-[#2C1810] rounded-[20px] p-6 hidden lg:block">
           <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3 mb-2">
             <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center">
               <Mail className="h-6 w-6 text-white" />

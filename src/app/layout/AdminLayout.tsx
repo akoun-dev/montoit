@@ -23,6 +23,7 @@ import {
   ToggleLeft,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { useMenuCounters } from '@/hooks/useMenuCounters';
 
 const navigationItems = [
   {
@@ -64,7 +65,7 @@ const navigationItems = [
         color: 'text-orange-600',
       },
       {
-        name: 'Trust Agents',
+        name: 'Tiers de confiance',
         href: '/admin/trust-agents',
         icon: UserCheck,
         color: 'text-cyan-600',
@@ -158,6 +159,7 @@ export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const { counters } = useMenuCounters();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const handleLogout = async () => {
@@ -277,9 +279,17 @@ export default function AdminLayout() {
             </div>
             <div className="flex items-center space-x-4">
               {/* Notifications */}
-              <button className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors">
+              <button
+                onClick={() => navigate('/admin/notifications')}
+                className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Notifications"
+              >
                 <Bell className="w-5 h-5 text-gray-600" />
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
+                {counters.unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-xs rounded-full font-medium">
+                    {counters.unreadNotifications > 9 ? '9+' : counters.unreadNotifications}
+                  </span>
+                )}
               </button>
 
               {/* Quick Stats */}

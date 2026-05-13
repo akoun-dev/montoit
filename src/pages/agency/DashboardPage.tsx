@@ -34,6 +34,9 @@ interface Stats {
   unreadMessages: number;
   monthlyRevenue: number;
   totalCommissions: number;
+  occupancyRate: number;
+  conversionRate: number;
+  pendingMandates: number;
 }
 
 export default function AgencyDashboardPage() {
@@ -48,6 +51,9 @@ export default function AgencyDashboardPage() {
     unreadMessages: 0,
     monthlyRevenue: 0,
     totalCommissions: 0,
+    occupancyRate: 0,
+    conversionRate: 0,
+    pendingMandates: 0,
   });
 
   useEffect(() => {
@@ -56,7 +62,7 @@ export default function AgencyDashboardPage() {
       return;
     }
 
-    if (profile && profile.user_type !== 'agent' && profile.user_type !== 'agence') {
+    if (profile && profile.user_type !== 'agency') {
       navigate('/dashboard');
       return;
     }
@@ -83,7 +89,7 @@ export default function AgencyDashboardPage() {
         .from('lease_contracts')
         .select('id, monthly_rent')
         .eq('owner_id', user.id)
-        .eq('status', 'actif');
+        .eq('status', 'active');
 
       const activeLeases = leasesData || [];
       const monthlyRevenue = activeLeases.reduce(
@@ -94,13 +100,19 @@ export default function AgencyDashboardPage() {
       // Load pending applications
       const propertyIds = props.map((p) => p.id);
       let pendingApplications = 0;
+      let totalApplications = 0;
+      let acceptedApplications = 0;
+
       if (propertyIds.length > 0) {
         const { data: applicationsData } = await supabase
           .from('rental_applications')
-          .select('id')
-          .in('property_id', propertyIds)
-          .eq('status', 'en_attente');
-        pendingApplications = applicationsData?.length || 0;
+          .select('id, status')
+          .in('property_id', propertyIds);
+
+        const applications = applicationsData || [];
+        pendingApplications = applications.filter((app: any) => app.status === 'pending').length;
+        totalApplications = applications.length;
+        acceptedApplications = applications.filter((app: any) => app.status === 'accepted').length;
       }
 
       // Load unread messages
@@ -109,6 +121,24 @@ export default function AgencyDashboardPage() {
         .select('id')
         .eq('receiver_id', user.id)
         .eq('is_read', false);
+
+      // Load pending mandates
+      const { data: mandatesData } = await supabase
+        .from('agency_mandates')
+        .select('id, status')
+        .eq('agency_id', user.id)
+        .in('status', ['pending_signature', 'partially_signed']);
+
+      const pendingMandates = mandatesData?.length || 0;
+
+      // Calculate metrics
+      const occupancyRate = props.length > 0
+        ? Math.round((activeLeases.length / props.length) * 100)
+        : 0;
+
+      const conversionRate = totalApplications > 0
+        ? Math.round((acceptedApplications / totalApplications) * 100)
+        : 0;
 
       // Calculate commissions (5% of monthly revenue)
       const totalCommissions = Math.round(monthlyRevenue * 0.05);
@@ -120,6 +150,9 @@ export default function AgencyDashboardPage() {
         unreadMessages: messagesData?.length || 0,
         monthlyRevenue,
         totalCommissions,
+        occupancyRate,
+        conversionRate,
+        pendingMandates,
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -262,12 +295,26 @@ export default function AgencyDashboardPage() {
                           </span>
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                              property.status === 'active'
+                              property.status === 'available'
                                 ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-100 text-gray-700'
+                                : property.status === 'rented'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : property.status === 'pending'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : property.status === 'maintenance'
+                                      ? 'bg-orange-100 text-orange-700'
+                                      : 'bg-gray-100 text-gray-700'
                             }`}
                           >
-                            {property.status === 'active' ? 'Actif' : 'En attente'}
+                            {property.status === 'available'
+                              ? 'Disponible'
+                              : property.status === 'rented'
+                                ? 'Loué'
+                                : property.status === 'pending'
+                                  ? 'En attente'
+                                  : property.status === 'maintenance'
+                                    ? 'Maintenance'
+                                    : 'Indisponible'}
                           </span>
                         </div>
                       </div>
@@ -318,20 +365,28 @@ export default function AgencyDashboardPage() {
                       <Users className="h-5 w-5 text-[#F16522]" />
                     </div>
                     <div>
-                      <p className="font-semibold text-[#2C1810]">Nouvelles candidatures</p>
-                      <p className="text-sm text-[#6B5A4E]">5 en attente</p>
+                      <p className="font-semibold text-[#2C1810]">Candidatures en attente</p>
+                      <p className="text-sm text-[#6B5A4E]">{stats.pendingApplications} dossier{stats.pendingApplications > 1 ? 's' : ''}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <div className="flex -space-x-2">
-                      {[1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className="w-8 h-8 rounded-full bg-[#EFEBE9] border-2 border-white"
-                        />
-                      ))}
+                      {stats.pendingApplications > 0 ? (
+                        Array.from({ length: Math.min(stats.pendingApplications, 3) }).map((_, i) => (
+                          <div
+                            key={i}
+                            className="w-8 h-8 rounded-full bg-[#F16522] border-2 border-white flex items-center justify-center text-white text-xs font-semibold"
+                          >
+                            {String.fromCharCode(65 + i)}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-[#EFEBE9] border-2 border-white" />
+                      )}
                     </div>
-                    <span className="text-sm text-[#6B5A4E]">Nouveaux dossiers reçus</span>
+                    <span className="text-sm text-[#6B5A4E]">
+                      {stats.pendingApplications > 0 ? 'À traiter' : 'Aucune candidature'}
+                    </span>
                   </div>
                 </div>
 
@@ -341,18 +396,25 @@ export default function AgencyDashboardPage() {
                       <Handshake className="h-5 w-5 text-green-600" />
                     </div>
                     <div>
-                      <p className="font-semibold text-[#2C1810]">Nouveaux mandats</p>
-                      <p className="text-sm text-[#6B5A4E]">2 en signature</p>
+                      <p className="font-semibold text-[#2C1810]">Mandats en cours</p>
+                      <p className="text-sm text-[#6B5A4E]">{stats.pendingMandates} à signer</p>
                     </div>
                   </div>
                   <p className="text-sm text-[#6B5A4E]">
-                    Suivez les signatures et définissez les permissions par agence.
+                    {stats.pendingMandates > 0
+                      ? 'Suivez les signatures en cours'
+                      : 'Aucun mandat en attente de signature'}
                   </p>
                   <div className="flex items-center gap-2 mt-3">
                     <div className="h-2 flex-1 bg-[#EFEBE9] rounded-full overflow-hidden">
-                      <div className="h-full w-3/4 bg-[#F16522]" />
+                      <div
+                        className="h-full bg-[#F16522] transition-all duration-500"
+                        style={{ width: `${Math.min(stats.pendingMandates * 25, 100)}%` }}
+                      />
                     </div>
-                    <span className="text-sm font-semibold text-[#2C1810]">75%</span>
+                    <span className="text-sm font-semibold text-[#2C1810]">
+                      {stats.pendingMandates > 0 ? `${Math.min(stats.pendingMandates * 25, 100)}%` : '0%'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -402,28 +464,63 @@ export default function AgencyDashboardPage() {
                   <BarChart3 className="h-6 w-6 text-[#F16522]" />
                   <span>Performance</span>
                 </h2>
-                <span className="text-sm text-green-600 font-semibold">+12% vs dernier mois</span>
+                <span className="text-xs text-[#6B5A4E]">Basé sur vos données réelles</span>
               </div>
 
               <div className="space-y-4">
-                {[
-                  { label: 'Taux d occupation', value: 92, color: 'bg-green-500' },
-                  { label: 'Taux de conversion', value: 38, color: 'bg-blue-500' },
-                  { label: 'Temps de réponse', value: 1.4, color: 'bg-amber-500' },
-                ].map((metric) => (
-                  <div key={metric.label}>
-                    <div className="flex items-center justify-between text-sm text-[#6B5A4E] mb-2">
-                      <span>{metric.label}</span>
-                      <span className="font-semibold text-[#2C1810]">{metric.value}%</span>
-                    </div>
-                    <div className="h-2 bg-[#EFEBE9] rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${metric.color}`}
-                        style={{ width: `${Math.min(metric.value, 100)}%` }}
-                      />
-                    </div>
+                <div>
+                  <div className="flex items-center justify-between text-sm text-[#6B5A4E] mb-2">
+                    <span>Taux d'occupation</span>
+                    <span className="font-semibold text-[#2C1810]">{stats.occupancyRate}%</span>
                   </div>
-                ))}
+                  <div className="h-2 bg-[#EFEBE9] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-green-500 transition-all duration-500"
+                      style={{ width: `${stats.occupancyRate}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-[#6B5A4E] mt-1">
+                    {stats.activeLeases} bien{stats.activeLeases > 1 ? 's' : ''} occupé{stats.activeLeases > 1 ? 's' : ''} sur {stats.totalProperties}
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between text-sm text-[#6B5A4E] mb-2">
+                    <span>Taux de conversion</span>
+                    <span className="font-semibold text-[#2C1810]">{stats.conversionRate}%</span>
+                  </div>
+                  <div className="h-2 bg-[#EFEBE9] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 transition-all duration-500"
+                      style={{ width: `${stats.conversionRate}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-[#6B5A4E] mt-1">
+                    {stats.pendingApplications > 0
+                      ? `${stats.pendingApplications} candidature${stats.pendingApplications > 1 ? 's' : ''} en attente`
+                      : 'Aucune candidature en attente'}
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between text-sm text-[#6B5A4E] mb-2">
+                    <span>Revenus mensuels</span>
+                    <span className="font-semibold text-[#2C1810]">
+                      {stats.monthlyRevenue > 0 ? `${(stats.monthlyRevenue / 1000).toFixed(0)}K FCFA` : '0 FCFA'}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-[#EFEBE9] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[#F16522] transition-all duration-500"
+                      style={{ width: `${Math.min(stats.monthlyRevenue / 10000 * 100, 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-[#6B5A4E] mt-1">
+                    {stats.totalCommissions > 0
+                      ? `Commission: ${stats.totalCommissions.toLocaleString()} FCFA`
+                      : 'Pas encore de revenus'}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

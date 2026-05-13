@@ -73,8 +73,8 @@ serve(async (req) => {
       const results = verifyData.data?.results || [];
 
       // Traiter les résultats
-      const completedDocs = results.filter((r: any) => r.statusCode === 7000);
-      const failedDocs = results.filter((r: any) => r.statusCode !== 7000);
+      const completedDocs = results.filter((r: Record<string, unknown>) => r.statusCode === 7000);
+      const failedDocs = results.filter((r: Record<string, unknown>) => r.statusCode !== 7000);
 
       // Trouver le contrat par operationId
       const { data: contract } = await supabaseAdmin
@@ -127,7 +127,7 @@ serve(async (req) => {
         }
 
         // Mettre à jour le contrat
-        const updateData: any = {
+        const updateData: Record<string, unknown> = {
           cryptoneo_signature_status: 'completed',
           cryptoneo_callback_received_at: new Date().toISOString(),
         };

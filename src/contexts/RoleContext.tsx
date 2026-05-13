@@ -24,7 +24,6 @@ export interface AvailableRole {
   id: BusinessRole;
   label: string;
   icon: string;
-  frenchLabel: string;
 }
 
 // Configuration des rôles
@@ -33,19 +32,16 @@ const ROLE_CONFIG: Record<BusinessRole, AvailableRole> = {
     id: 'tenant',
     label: 'Locataire',
     icon: 'key',
-    frenchLabel: 'locataire',
   },
   owner: {
     id: 'owner',
     label: 'Propriétaire',
     icon: 'home',
-    frenchLabel: 'proprietaire',
   },
   agency: {
     id: 'agency',
     label: 'Agence',
     icon: 'building',
-    frenchLabel: 'agence',
   },
 };
 
@@ -71,6 +67,17 @@ interface RoleContextType {
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
+const normalizeUserType = (value?: string | null): BusinessRole | 'admin' | 'trust_agent' | null => {
+  if (!value) return null;
+  const userType = value.toLowerCase();
+  if (userType === 'tenant') return 'tenant';
+  if (userType === 'owner') return 'owner';
+  if (userType === 'agency') return 'agency';
+  if (userType === 'trust_agent') return 'trust_agent';
+  if (userType === 'admin') return 'admin';
+  return null;
+};
+
 export function RoleProvider({ children }: { children: ReactNode }) {
   const { user, profile, updateProfile } = useAuth();
 
@@ -90,15 +97,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       let roleFromUserType: BusinessRole | null = null;
 
       // 1. D'abord, vérifier le user_type du profil pour déterminer le rôle de base
-      if (profile?.user_type) {
-        const userType = profile.user_type.toLowerCase();
-        if (userType.includes('tenant') || userType.includes('locataire')) {
-          roleFromUserType = 'tenant';
-        } else if (userType.includes('owner') || userType.includes('proprietaire')) {
-          roleFromUserType = 'owner';
-        } else if (userType.includes('agency') || userType.includes('agence') || userType.includes('agent')) {
-          roleFromUserType = 'agency';
-        }
+      const normalized = normalizeUserType(profile?.user_type);
+      if (normalized === 'tenant' || normalized === 'owner' || normalized === 'agency') {
+        roleFromUserType = normalized;
       }
 
       // 2. Ajouter le rôle basé sur user_type si pas encore présent
@@ -123,7 +124,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         .from('lease_contracts')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', user.id)
-        .in('status', ['actif', 'en_attente_signature']);
+        .in('status', ['active', 'pending_signature']);
 
       if (!tenantLeasesError && tenantLeases && (tenantLeases as { count?: number }).count && (tenantLeases as { count: number }).count > 0) {
         if (!roles.includes('tenant')) {
@@ -154,21 +155,20 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     // 3. Si aucun rôle n'est détecté, utiliser le user_type comme fallback
     let rolesToUse = detectedRoles;
     if (detectedRoles.length === 0) {
-      const userType = profile.user_type?.toLowerCase() || '';
+      const normalized = normalizeUserType(profile.user_type);
 
-      // Cas spécial : admin_ansut et admin sont des rôles système, pas des business roles
-      // Ils ne passent pas par RoleContext
-      if (userType.includes('admin') || userType === 'admin_ansut' || userType === 'moderator') {
+      // Rôles système (admin / trust_agent) : pas de RoleContext
+      if (normalized === 'admin' || normalized === 'trust_agent') {
         logger.info('System role detected, skipping RoleContext', { userId: user?.id, user_type: profile.user_type });
         setLoadingRoles(false);
         return;
       }
 
-      if (userType.includes('tenant') || userType.includes('locataire')) {
+      if (normalized === 'tenant') {
         rolesToUse = ['tenant'];
-      } else if (userType.includes('owner') || userType.includes('proprietaire')) {
+      } else if (normalized === 'owner') {
         rolesToUse = ['owner'];
-      } else if (userType.includes('agency') || userType.includes('agence') || userType.includes('agent')) {
+      } else if (normalized === 'agency') {
         rolesToUse = ['agency'];
       } else {
         logger.warn('No roles detected and no valid user_type', { userId: user?.id, user_type: profile.user_type });
@@ -189,12 +189,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       roleToActivate = rolesToUse[0]!;
     } else {
       // Plusieurs rôles : utiliser le user_type du profil comme défaut
-      const userType = profile.user_type?.toLowerCase() || '';
-      if (userType.includes('tenant') || userType.includes('locataire')) {
+      const normalized = normalizeUserType(profile.user_type);
+      if (normalized === 'tenant') {
         roleToActivate = 'tenant';
-      } else if (userType.includes('owner') || userType.includes('proprietaire')) {
+      } else if (normalized === 'owner') {
         roleToActivate = 'owner';
-      } else if (userType.includes('agency') || userType.includes('agence') || userType.includes('agent')) {
+      } else if (normalized === 'agency') {
         roleToActivate = 'agency';
       } else {
         // Fallback : premier rôle détecté
@@ -225,8 +225,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
     try {
       // Mettre à jour le user_type dans le profil
-      const frenchLabel = ROLE_CONFIG[role].frenchLabel;
-      await updateProfile({ user_type: frenchLabel });
+      await updateProfile({ user_type: role });
 
       // Mettre à jour l'état local
       setActiveRole(role);
@@ -238,9 +237,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
       // Rediriger vers le dashboard approprié
       const dashboardRoutes: Record<BusinessRole, string> = {
-        tenant: '/dashboard/locataire',
-        owner: '/dashboard/proprietaire',
-        agency: '/dashboard/agence',
+        tenant: '/locataire/dashboard',
+        owner: '/proprietaire/dashboard',
+        agency: '/agences/dashboard',
       };
 
       window.location.href = dashboardRoutes[role];
@@ -273,7 +272,6 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   // Effet d'initialisation
   useEffect(() => {
-    console.log('[RoleContext] useEffect triggered:', { profile, user });
     if (profile && user) {
       initializeActiveRole();
     }
@@ -332,7 +330,7 @@ export function useContextualRoles() {
           .from('lease_contracts')
           .select('id', { count: 'exact', head: true })
           .eq('tenant_id', user.id)
-          .in('status', ['actif', 'en_attente_signature']);
+          .in('status', ['active', 'pending_signature']);
 
         const hasLeaseData = (leases as { count?: number })?.count !== undefined && (leases as { count: number }).count > 0;
         setHasLeases(hasLeaseData);
@@ -346,16 +344,14 @@ export function useContextualRoles() {
     detectContextualRoles();
   }, [user?.id]);
 
+  const normalizedUserType = normalizeUserType(profile?.user_type);
+
   return {
     hasProperties,
     hasLeases,
     loading,
-    isOwner: hasProperties || profile?.user_type?.toLowerCase().includes('owner') ||
-             profile?.user_type?.toLowerCase().includes('proprietaire'),
-    isTenant: hasLeases || profile?.user_type?.toLowerCase().includes('tenant') ||
-              profile?.user_type?.toLowerCase().includes('locataire'),
-    isAgency: profile?.user_type?.toLowerCase().includes('agency') ||
-              profile?.user_type?.toLowerCase().includes('agence') ||
-              profile?.user_type?.toLowerCase().includes('agent'),
+    isOwner: hasProperties || normalizedUserType === 'owner',
+    isTenant: hasLeases || normalizedUserType === 'tenant',
+    isAgency: normalizedUserType === 'agency',
   };
 }

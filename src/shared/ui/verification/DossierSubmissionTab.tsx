@@ -32,7 +32,6 @@ import {
 import verificationApplicationsService, {
   type DossierType,
   type VerificationApplication,
-  type DossierStatus,
 } from '@/features/verification/services/verificationApplications.service';
 
 // Configuration des documents par type de dossier
@@ -150,11 +149,27 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [creatingNew, setCreatingNew] = useState(false);
 
   const documentsConfig = DOCUMENTS_CONFIG[dossierType];
   const requiredDocs = documentsConfig.filter((doc) => doc.required);
   const uploadedDocs = Object.keys(documents).length;
+  const hasDocuments = uploadedDocs > 0;
   const completionPercentage = Math.round((uploadedDocs / documentsConfig.length) * 100);
+  const hasBeenSubmitted = application
+    ? application.status !== 'pending' ||
+      application.submitted_at !== application.created_at
+    : false;
+  const displayStatus = application
+    ? hasDocuments
+      ? hasBeenSubmitted
+        ? application.status
+        : 'draft'
+      : null
+    : null;
+
+  // Vérifier si l'application est terminée (approuvée ou rejetée)
+  const isApplicationFinalized = application?.status === 'approved' || application?.status === 'rejected';
 
   // Charger la demande existante
   useEffect(() => {
@@ -185,6 +200,9 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
           docsMap[doc.document_type] = doc.document_url;
         });
         setDocuments(docsMap);
+      } else {
+        setApplication(null);
+        setDocuments({});
       }
     } catch (error) {
       console.error('Error loading application:', error);
@@ -287,6 +305,11 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
   const handleSubmit = async () => {
     console.log('handleSubmit called', { application, documents, requiredDocs, dossierType });
 
+    if (!hasDocuments) {
+      toast.error('Ajoutez au moins un document avant de soumettre');
+      return;
+    }
+
     // Vérifier si tous les documents requis sont présents
     const missingRequired = requiredDocs.filter((doc) => !documents[doc.type]);
     console.log('Missing required docs:', missingRequired);
@@ -335,11 +358,38 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
     }
   };
 
+  const handleCreateNewApplication = async () => {
+    const confirmed = window.confirm(
+      'Voulez-vous vraiment créer un nouveau dossier ?\n\nLes documents de votre dossier actuel devront être réuploadés.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setCreatingNew(true);
+      // Créer une nouvelle demande
+      const newApp = await verificationApplicationsService.create(user.id, {
+        dossier_type: dossierType,
+      });
+      setApplication(newApp);
+      setDocuments({});
+      toast.success('Nouveau dossier créé avec succès !');
+    } catch (error) {
+      console.error('Error creating new application:', error);
+      toast.error('Erreur lors de la création du nouveau dossier');
+    } finally {
+      setCreatingNew(false);
+    }
+  };
+
   const allRequiredDocsPresent = requiredDocs.every((doc) => documents[doc.type]);
-  // On peut soumettre si: tous les docs requis sont presents ET (pas d'application OU brouillon OU infos demandees)
+  // On peut soumettre si: au moins un document + pas encore soumis ou besoin de resoumettre
   const canSubmit =
-    allRequiredDocsPresent &&
-    (!application || application.status === 'draft' || application.status === 'more_info_requested');
+    hasDocuments &&
+    (!application ||
+      !hasBeenSubmitted ||
+      application.status === 'more_info_requested' ||
+      application.status === 'rejected');
 
   const missingRequiredDocs = requiredDocs.filter((doc) => !documents[doc.type]);
 
@@ -355,19 +405,10 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
     <div className="space-y-6">
       {/* Header avec Statut Visible */}
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-xl font-semibold text-gray-900">Dossier de verification</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Complétez votre dossier pour obtenir la certification ANSUT
-            </p>
-          </div>
-          {application && <DossierStatusBadge status={application.status} />}
-        </div>
 
         {/* Statut du dossier - Section visible et prominente */}
         <div className="mb-6">
-          {!application ? (
+          {!displayStatus ? (
             /* Aucun dossier commence */
             <div className="p-5 bg-slate-50 border-2 border-slate-200 rounded-2xl">
               <div className="flex items-center gap-4">
@@ -386,7 +427,7 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
                 </span>
               </div>
             </div>
-          ) : application.status === 'draft' ? (
+          ) : displayStatus === 'draft' ? (
             <div className="p-5 bg-gray-50 border-2 border-gray-200 rounded-2xl">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-gray-100 rounded-xl flex-shrink-0">
@@ -398,10 +439,10 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
                     Uploadez vos documents et soumettez votre dossier pour verification
                   </p>
                 </div>
-                <DossierStatusBadge status={application.status} size="lg" />
+                <DossierStatusBadge status="draft" size="lg" />
               </div>
             </div>
-          ) : application.status === 'pending' ? (
+          ) : displayStatus === 'pending' ? (
             <div className="p-5 bg-amber-50 border-2 border-amber-200 rounded-2xl">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-amber-100 rounded-xl flex-shrink-0">
@@ -413,10 +454,10 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
                     Votre dossier a ete recu et sera examine par notre equipe sous peu
                   </p>
                 </div>
-                <DossierStatusBadge status={application.status} size="lg" />
+                <DossierStatusBadge status="pending" size="lg" />
               </div>
             </div>
-          ) : application.status === 'in_review' ? (
+          ) : displayStatus === 'in_review' ? (
             <div className="p-5 bg-blue-50 border-2 border-blue-200 rounded-2xl">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-blue-100 rounded-xl flex-shrink-0">
@@ -428,10 +469,10 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
                     Notre equipe est en train de verifier vos documents
                   </p>
                 </div>
-                <DossierStatusBadge status={application.status} size="lg" />
+                <DossierStatusBadge status="in_review" size="lg" />
               </div>
             </div>
-          ) : application.status === 'more_info_requested' ? (
+          ) : displayStatus === 'more_info_requested' ? (
             <div className="p-5 bg-purple-50 border-2 border-purple-200 rounded-2xl">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-purple-100 rounded-xl flex-shrink-0">
@@ -443,10 +484,10 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
                     Veuillez completer votre dossier avec les documents demandes
                   </p>
                 </div>
-                <DossierStatusBadge status={application.status} size="lg" />
+                <DossierStatusBadge status="more_info_requested" size="lg" />
               </div>
             </div>
-          ) : application.status === 'approved' ? (
+          ) : displayStatus === 'approved' ? (
             <div className="p-5 bg-green-50 border-2 border-green-200 rounded-2xl">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-green-100 rounded-xl flex-shrink-0">
@@ -458,10 +499,10 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
                     Felicitations ! Votre dossier a ete approuve et vous etes desormais certifie ANSUT
                   </p>
                 </div>
-                <DossierStatusBadge status={application.status} size="lg" />
+                <DossierStatusBadge status="approved" size="lg" />
               </div>
             </div>
-          ) : application.status === 'rejected' ? (
+          ) : displayStatus === 'rejected' ? (
             <div className="p-5 bg-red-50 border-2 border-red-200 rounded-2xl">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-red-100 rounded-xl flex-shrink-0">
@@ -473,14 +514,14 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
                     {application.rejection_reason || 'Votre dossier n\'a pas pu etre valide. Veuillez reessayer.'}
                   </p>
                 </div>
-                <DossierStatusBadge status={application.status} size="lg" />
+                <DossierStatusBadge status="rejected" size="lg" />
               </div>
             </div>
           ) : null}
         </div>
 
         {/* Progress Bar */}
-        {(!application || application.status !== 'approved' && application.status !== 'rejected') && (
+        {hasDocuments && displayStatus !== 'approved' && displayStatus !== 'rejected' && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">Progression des documents</span>
@@ -498,7 +539,7 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
         )}
 
         {/* Info Box */}
-        {application?.status !== 'approved' && application?.status !== 'rejected' && (
+        {displayStatus !== 'approved' && displayStatus !== 'rejected' && (
           <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl mb-6">
             <div className="flex gap-3">
               <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -547,10 +588,37 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
 
       {/* Submit Button Section */}
       <div className="flex justify-end pt-4 border-t border-gray-200">
-        {!application ? (
+        {isApplicationFinalized ? (
+          /* Application terminée (approuvée ou rejetée) - proposer de créer un nouveau dossier */
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-gray-600">
+              {application?.status === 'approved'
+                ? 'Votre dossier est valide. Vous pouvez créer un nouveau dossier pour mettre à jour vos documents.'
+                : 'Votre dossier a été rejeté. Vous pouvez créer un nouveau dossier.'}
+            </p>
+            <Button
+              onClick={handleCreateNewApplication}
+              disabled={creatingNew}
+              variant={application?.status === 'approved' ? 'outline' : 'default'}
+              className="flex items-center gap-2"
+            >
+              {creatingNew ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Création...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4" />
+                  Créer un nouveau dossier
+                </>
+              )}
+            </Button>
+          </div>
+        ) : !hasBeenSubmitted ? (
           /* Aucune application - afficher le bouton de soumission */
           <>
-            {!canSubmit && missingRequiredDocs.length > 0 && (
+            {hasDocuments && missingRequiredDocs.length > 0 && (
               <p className="text-sm text-amber-600 mr-4 flex items-center">
                 <AlertCircle className="w-4 h-4 mr-2" />
                 Documents manquants: {missingRequiredDocs.map((d) => d.label).join(', ')}
@@ -574,10 +642,12 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
               )}
             </Button>
           </>
-        ) : application.status === 'draft' || application.status === 'more_info_requested' ? (
+        ) : displayStatus === 'draft' ||
+          application?.status === 'more_info_requested' ||
+          application?.status === 'rejected' ? (
           /* Brouillon ou infos demandees - afficher le bouton */
           <>
-            {!canSubmit && missingRequiredDocs.length > 0 && (
+            {hasDocuments && missingRequiredDocs.length > 0 && (
               <p className="text-sm text-amber-600 mr-4 flex items-center">
                 <AlertCircle className="w-4 h-4 mr-2" />
                 Documents manquants: {missingRequiredDocs.map((d) => d.label).join(', ')}
@@ -596,28 +666,18 @@ function DossierSubmissionTab({ dossierType }: DossierSubmissionTabProps) {
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  {application.status === 'more_info_requested' ? 'Ressoumettre le dossier' : 'Soumettre le dossier'}
+                  {application?.status === 'more_info_requested' || application?.status === 'rejected'
+                    ? 'Ressoumettre le dossier'
+                    : 'Soumettre le dossier'}
                 </>
               )}
             </Button>
           </>
-        ) : application.status === 'pending' || application.status === 'in_review' ? (
+        ) : displayStatus === 'pending' || displayStatus === 'in_review' ? (
           /* En attente ou en cours - afficher message */
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <Clock className="w-4 h-4" />
             <span>Dossier en cours de verification</span>
-          </div>
-        ) : application.status === 'approved' ? (
-          /* Approuve */
-          <div className="flex items-center gap-2 text-sm text-green-600">
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Dossier valide</span>
-          </div>
-        ) : application.status === 'rejected' ? (
-          /* Refuse */
-          <div className="flex items-center gap-2 text-sm text-red-600">
-            <XCircle className="w-4 h-4" />
-            <span>Dossier refuse - Veuillez reessayer</span>
           </div>
         ) : null}
       </div>

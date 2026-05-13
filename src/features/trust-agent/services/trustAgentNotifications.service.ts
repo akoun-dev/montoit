@@ -1,5 +1,5 @@
 /**
- * Service de notifications pour l'agent de confiance (trust-agent)
+ * Service de notifications pour le tiers de confiance (trust-agent)
  *
  * Ce service gère les notifications des agents de confiance avec support temps réel via Supabase.
  */
@@ -7,6 +7,18 @@
 import { supabase } from '@/integrations/supabase/client';
 import { requireRole } from '@/shared/services/roleValidation.service';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+
+const isMissingNotificationsTable = (error: { code?: string; status?: number; message?: string } | null) => {
+  if (!error) return false;
+  if (error.code === 'PGRST204' || error.code === 'PGRST116' || error.code === 'PGRST404') {
+    return true;
+  }
+  if (error.status === 404) return true;
+  if (typeof error.message === 'string' && error.message.includes('trust_agent_notifications')) {
+    return true;
+  }
+  return false;
+};
 
 /**
  * Types de notifications pour les agents de confiance
@@ -106,7 +118,7 @@ export const NOTIFICATION_TYPE_CONFIG: Record<TrustAgentNotificationType, {
 };
 
 /**
- * Crée une nouvelle notification pour un agent de confiance
+ * Crée une nouvelle notification pour un tiers de confiance
  */
 export const createTrustAgentNotification = async (
   userId: string,
@@ -188,6 +200,10 @@ export const getTrustAgentNotifications = async (
     return [];
   }
 
+  if (isMissingNotificationsTable(error)) {
+    return [];
+  }
+
   if (error) throw error;
   return (data || []) as TrustAgentNotification[];
 };
@@ -203,9 +219,8 @@ export const markNotificationAsRead = async (notificationId: string): Promise<vo
     .update({ read_at: new Date().toISOString() })
     .eq('id', notificationId);
 
-  if (error?.code !== 'PGRST204' && error?.code !== 'PGRST116' && error) {
-    throw error;
-  }
+  if (isMissingNotificationsTable(error)) return;
+  if (error) throw error;
 };
 
 /**
@@ -225,9 +240,8 @@ export const markAllNotificationsAsRead = async (): Promise<void> => {
     .eq('user_id', user.id)
     .is('read_at', null);
 
-  if (error?.code !== 'PGRST204' && error?.code !== 'PGRST116' && error) {
-    throw error;
-  }
+  if (isMissingNotificationsTable(error)) return;
+  if (error) throw error;
 };
 
 /**
@@ -241,9 +255,8 @@ export const archiveNotification = async (notificationId: string): Promise<void>
     .delete()
     .eq('id', notificationId);
 
-  if (error?.code !== 'PGRST204' && error?.code !== 'PGRST116' && error) {
-    throw error;
-  }
+  if (isMissingNotificationsTable(error)) return;
+  if (error) throw error;
 };
 
 /**
@@ -263,9 +276,8 @@ export const archiveAllReadNotifications = async (): Promise<void> => {
     .eq('user_id', user.id)
     .not('read_at', 'is', null);
 
-  if (error?.code !== 'PGRST204' && error?.code !== 'PGRST116' && error) {
-    throw error;
-  }
+  if (isMissingNotificationsTable(error)) return;
+  if (error) throw error;
 };
 
 /**
@@ -285,10 +297,7 @@ export const getUnreadNotificationCount = async (): Promise<number> => {
     .eq('user_id', user.id)
     .is('read_at', null);
 
-  if (error?.code === 'PGRST204' || error?.code === 'PGRST116') {
-    return 0;
-  }
-
+  if (isMissingNotificationsTable(error)) return 0;
   if (error) throw error;
   return data || 0;
 };

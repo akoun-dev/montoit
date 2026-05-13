@@ -24,12 +24,10 @@ export function ProviderCard({
 
   const getProviderIcon = (name: string) => {
     switch (name.toLowerCase()) {
-      case 'brevo':
+      case 'resend':
         return '📧';
       case 'intouch':
         return '📱';
-      case 'resend':
-        return '✉️';
       case 'sinch':
         return '💬';
       default:

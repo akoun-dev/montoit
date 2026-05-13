@@ -60,12 +60,12 @@ export default function ContextualHelp({
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           <div
-            className={`absolute z-50 w-80 bg-white rounded-2xl shadow-2xl border-2 border-gray-100 ${getPositionClasses()}`}
+            className={`absolute z-50 w-[calc(100vw-2rem)] max-w-[320px] md:w-80 bg-white rounded-2xl shadow-2xl border-2 border-gray-100 ${getPositionClasses()}`}
           >
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-terracotta-50 to-coral-50">
+            <div className="p-3 md:p-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-terracotta-50 to-coral-50">
               <div className="flex items-center space-x-2">
-                <HelpCircle className="h-5 w-5 text-terracotta-600" />
-                <h3 className="font-bold text-gray-900">Aide</h3>
+                <HelpCircle className="h-4 w-4 md:h-5 md:w-5 text-terracotta-600" />
+                <h3 className="text-sm md:text-base font-bold text-gray-900">Aide</h3>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
@@ -75,7 +75,7 @@ export default function ContextualHelp({
               </button>
             </div>
 
-            <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+            <div className="p-3 md:p-4 space-y-3 max-h-64 md:max-h-96 overflow-y-auto">
               {tips.map((tip, index) => (
                 <div
                   key={index}

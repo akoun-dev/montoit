@@ -18,6 +18,7 @@ import {
   Loader2,
   FileSignature,
   Sparkles,
+  MapPin,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -52,12 +53,37 @@ interface Document {
 }
 
 const CATEGORIES = [
-  { value: 'contract', label: 'Contrats de location', icon: FileText, color: 'bg-blue-50 text-blue-600' },
-  { value: 'lease', label: 'Bail commercial', icon: FileSignature, color: 'bg-purple-50 text-purple-600' },
-  { value: 'insurance', label: 'Assurances', icon: CheckCircle, color: 'bg-green-50 text-green-600' },
-  { value: 'diagnostic', label: 'Diagnostics', icon: AlertCircle, color: 'bg-amber-50 text-amber-600' },
+  {
+    value: 'contract',
+    label: 'Contrats de location',
+    icon: FileText,
+    color: 'bg-blue-50 text-blue-600',
+  },
+  {
+    value: 'lease',
+    label: 'Bail commercial',
+    icon: FileSignature,
+    color: 'bg-purple-50 text-purple-600',
+  },
+  {
+    value: 'insurance',
+    label: 'Assurances',
+    icon: CheckCircle,
+    color: 'bg-green-50 text-green-600',
+  },
+  {
+    value: 'diagnostic',
+    label: 'Diagnostics',
+    icon: AlertCircle,
+    color: 'bg-amber-50 text-amber-600',
+  },
   { value: 'invoice', label: 'Factures', icon: File, color: 'bg-red-50 text-red-600' },
-  { value: 'receipt', label: 'Quittances de loyer', icon: Calendar, color: 'bg-orange-50 text-orange-600' },
+  {
+    value: 'receipt',
+    label: 'Quittances de loyer',
+    icon: Calendar,
+    color: 'bg-orange-50 text-orange-600',
+  },
   { value: 'other', label: 'Autres', icon: FileText, color: 'bg-gray-50 text-gray-600' },
 ];
 
@@ -67,7 +93,7 @@ const StatCard = ({
   value,
   color = 'gray',
 }: {
-  icon: any;
+  icon: unknown;
   label: string;
   value: string | number;
   color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple';
@@ -96,7 +122,12 @@ const StatCard = ({
 const DocumentStatusBadge = ({ status }: { status: string }) => {
   const config = {
     ready: { label: 'Pret', color: 'text-green-700', bg: 'bg-green-100', icon: CheckCircle },
-    processing: { label: 'OCR en cours', color: 'text-amber-700', bg: 'bg-amber-100', icon: Sparkles },
+    processing: {
+      label: 'OCR en cours',
+      color: 'text-amber-700',
+      bg: 'bg-amber-100',
+      icon: Sparkles,
+    },
     error: { label: 'Erreur', color: 'text-red-700', bg: 'bg-red-100', icon: AlertCircle },
   };
 
@@ -107,7 +138,9 @@ const DocumentStatusBadge = ({ status }: { status: string }) => {
   if (status === 'ready') return null;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${statusConfig.bg} ${statusConfig.color}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${statusConfig.bg} ${statusConfig.color}`}
+    >
       <Icon className="w-3.5 h-3.5" />
       {statusConfig.label}
     </span>
@@ -120,7 +153,9 @@ const CategoryBadge = ({ category }: { category: string }) => {
   const Icon = cat.icon;
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${cat.color}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${cat.color}`}
+    >
       <Icon className="w-3.5 h-3.5" />
       {cat.label}
     </span>
@@ -188,7 +223,6 @@ export default function DocumentsPage() {
         .order('created_at', { ascending: false });
 
       if (docsError) {
-        console.log('owner_documents table does not exist yet:', docsError.message);
         setDocuments([]);
         setStats({
           total: 0,
@@ -233,36 +267,27 @@ export default function DocumentsPage() {
 
     try {
       for (const file of Array.from(files)) {
-        console.log('🚀 [DocumentsPage] Début traitement fichier:', file.name);
-
         // Afficher la progression OCR
         const toastId = toast.loading(`OCR en cours: ${file.name}...`, {
           description: 'Initialisation de Tesseract...',
         });
-        console.log('🆔 [DocumentsPage] Toast ID:', toastId, 'Type:', typeof toastId);
 
         // S'abonner à la progression OCR
-        console.log('📡 [DocumentsPage] Abonnement progression...');
         setCurrentFileName(file.name);
         setOcrProgress(0);
 
         const unsubscribe = documentProcessorService.onProgress((progress) => {
-          console.log(`📨 [DocumentsPage] Callback reçu! Progress: ${progress}%`);
           setOcrProgress(progress);
           // Mettre à jour le toast aussi
           toast.loading(`OCR en cours: ${file.name} (${progress}%)`, {
             id: toastId,
           });
         });
-        console.log('✅ [DocumentsPage] Abonnement réussi');
 
         // Step 1: OCR local avant upload (évite les problèmes d'accès)
-        console.log('🔍 [DocumentsPage] Lancement OCR...');
         const ocrResult = await documentProcessorService.extractTextFromFile(file);
-        console.log('✅ [DocumentsPage] OCR terminé, résultat:', ocrResult.success);
 
         // Se désabonner de la progression
-        console.log('🔕 [DocumentsPage] Désabonnement...');
         unsubscribe();
 
         // Mettre à jour le toast après OCR
@@ -296,38 +321,37 @@ export default function DocumentsPage() {
 
         if (uploadError) {
           console.error('Storage upload error:', uploadError);
-          if (uploadError.message.includes('bucket not found') || uploadError.message.includes('The resource was not found')) {
-            toast.error('Bucket de stockage non configure. Contactez l\'administrateur.');
+          if (
+            uploadError.message.includes('bucket not found') ||
+            uploadError.message.includes('The resource was not found')
+          ) {
+            toast.error("Bucket de stockage non configure. Contactez l'administrateur.");
             return;
           }
           throw uploadError;
         }
 
-        const { data: urlData } = supabase.storage
-          .from('owner-documents')
-          .getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage.from('owner-documents').getPublicUrl(filePath);
 
         // Step 4: Insert avec les résultats OCR déjà disponibles
-        const { error: dbError } = await (supabase as any)
-          .from('owner_documents')
-          .insert({
-            owner_id: user!.id,
-            name: file.name,
-            type: fileExt || 'unknown',
-            category: suggestedCategory || uploadCategory,
-            property_id: uploadPropertyId || null,
-            file_url: urlData.publicUrl,
-            file_size: file.size,
-            status: 'ready',
-            tags: tags.length > 0 ? tags : [],
-            ocr_text: ocrResult.success ? ocrResult.text : null,
-            signed: false,
-          });
+        const { error: dbError } = await (supabase as any).from('owner_documents').insert({
+          owner_id: user!.id,
+          name: file.name,
+          type: fileExt || 'unknown',
+          category: suggestedCategory || uploadCategory,
+          property_id: uploadPropertyId || null,
+          file_url: urlData.publicUrl,
+          file_size: file.size,
+          status: 'ready',
+          tags: tags.length > 0 ? tags : [],
+          ocr_text: ocrResult.success ? ocrResult.text : null,
+          signed: false,
+        });
 
         if (dbError) {
           console.error('Database insert error:', dbError);
           if (dbError.message.includes('relation') || dbError.message.includes('does not exist')) {
-            toast.error('Table de documents non configuree. Contactez l\'administrateur.');
+            toast.error("Table de documents non configuree. Contactez l'administrateur.");
             return;
           }
           throw dbError;
@@ -335,7 +359,7 @@ export default function DocumentsPage() {
 
         // Notification si OCR réussi
         if (ocrResult.success) {
-          console.log(`OCR réussi pour ${file.name}: ${ocrResult.text.length} caractères extraits`);
+          // OCR success notification
         }
       }
 
@@ -346,7 +370,7 @@ export default function DocumentsPage() {
       setUploadPropertyId('');
       setOcrProgress(0);
       setCurrentFileName('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Upload error:', error);
       toast.error(error?.message || 'Erreur lors du telechargement');
     } finally {
@@ -356,14 +380,17 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      handleFileSelect(files);
-    }
-  }, [uploadCategory, uploadPropertyId]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFileSelect(files);
+      }
+    },
+    [uploadCategory, uploadPropertyId]
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -373,25 +400,24 @@ export default function DocumentsPage() {
     if (!confirm('Etes-vous sur de vouloir supprimer ce document ?')) return;
 
     try {
-      const { error } = await (supabase as any)
-        .from('owner_documents')
-        .delete()
-        .eq('id', docId);
+      const { error } = await (supabase as any).from('owner_documents').delete().eq('id', docId);
 
       if (error) throw error;
 
       toast.success('Document supprime');
       loadData();
-    } catch (error) {
+    } catch {
       toast.error('Erreur lors de la suppression');
     }
   };
 
-  const handleSign = async (_docId: string) => {
+  const handleSign = async (docId: string) => {
+    void docId; // Paramètre réservé pour implémentation future
     toast.info('Signature electronique - Fonctionnalite a venir');
   };
 
-  const handleShare = async (_docId: string) => {
+  const handleShare = async (docId: string) => {
+    void docId; // Paramètre réservé pour implémentation future
     toast.info('Partage securise - Fonctionnalite a venir');
   };
 
@@ -439,7 +465,7 @@ export default function DocumentsPage() {
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8 hidden lg:block">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -465,6 +491,19 @@ export default function DocumentsPage() {
           </div>
         </div>
       </div>
+      <div className="px-4 sm:px-6 mb-8 lg:hidden">
+        <button
+          onClick={() => {
+            setUploadCategory('other');
+            setUploadPropertyId('');
+            setShowUploadModal(true);
+          }}
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white bg-[#F16522] hover:bg-[#e55a1d] transition-colors"
+        >
+          <Upload className="w-5 h-5" />
+          Ajouter
+        </button>
+      </div>
 
       <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
         {/* Stats Grid */}
@@ -472,7 +511,12 @@ export default function DocumentsPage() {
           <StatCard icon={FileText} label="Total documents" value={stats.total} color="gray" />
           <StatCard icon={PenTool} label="Signes" value={stats.signed} color="green" />
           <StatCard icon={Tag} label="Taggés" value={stats.pending} color="blue" />
-          <StatCard icon={FolderOpen} label="Taille totale" value={formatFileSize(stats.totalSize)} color="purple" />
+          <StatCard
+            icon={FolderOpen}
+            label="Taille totale"
+            value={formatFileSize(stats.totalSize)}
+            color="purple"
+          />
         </div>
 
         {/* Search and Filters */}
@@ -540,7 +584,10 @@ export default function DocumentsPage() {
         ) : (
           <div className="space-y-6">
             {documentsByCategory.map((group) => (
-              <div key={group.value} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+              <div
+                key={group.value}
+                className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
+              >
                 <div className="flex items-center justify-between px-6 py-4 bg-gray-50 border-b border-gray-200">
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${group.color}`}>
@@ -572,17 +619,25 @@ export default function DocumentsPage() {
                                 Signe
                               </span>
                             )}
+                            {doc.property && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700">
+                                <Building2 className="w-3 h-3" />
+                                {doc.property.title}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-3 text-sm text-gray-500 flex-wrap">
                             <span>{formatFileSize(doc.file_size)}</span>
                             <span>-</span>
-                            <span>{format(new Date(doc.created_at), 'dd MMM yyyy', { locale: fr })}</span>
+                            <span>
+                              {format(new Date(doc.created_at), 'dd MMM yyyy', { locale: fr })}
+                            </span>
                             {doc.property && (
                               <>
                                 <span>-</span>
                                 <span className="flex items-center gap-1">
-                                  <Building2 className="w-3 h-3" />
-                                  {doc.property.title}
+                                  <MapPin className="w-3 h-3" />
+                                  {doc.property.city}
                                 </span>
                               </>
                             )}
@@ -742,9 +797,7 @@ export default function DocumentsPage() {
                         OCR en cours: {currentFileName}
                       </span>
                     </div>
-                    <span className="text-sm font-semibold text-orange-600">
-                      {ocrProgress}%
-                    </span>
+                    <span className="text-sm font-semibold text-orange-600">{ocrProgress}%</span>
                   </div>
                   <div className="w-full bg-orange-200 rounded-full h-2 overflow-hidden">
                     <div
@@ -753,15 +806,19 @@ export default function DocumentsPage() {
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-2 text-center">
-                    {ocrProgress < 20 ? 'Initialisation de Tesseract...' :
-                     ocrProgress < 80 ? 'Extraction du texte en cours...' :
-                     'Finalisation...'}
+                    {ocrProgress < 20
+                      ? 'Initialisation de Tesseract...'
+                      : ocrProgress < 80
+                        ? 'Extraction du texte en cours...'
+                        : 'Finalisation...'}
                   </p>
                 </div>
               )}
 
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Traitement automatique IA</h3>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                  Traitement automatique IA
+                </h3>
                 <div className="grid grid-cols-1 gap-3">
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100">
                     <div className="p-2 rounded-lg bg-white">
@@ -778,7 +835,9 @@ export default function DocumentsPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-800">Tagging intelligent</p>
-                      <p className="text-xs text-gray-500">Génération automatique de tags pertinents</p>
+                      <p className="text-xs text-gray-500">
+                        Génération automatique de tags pertinents
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100">
@@ -787,7 +846,9 @@ export default function DocumentsPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-800">Recherche full-text</p>
-                      <p className="text-xs text-gray-500">Recherche dans le contenu des documents</p>
+                      <p className="text-xs text-gray-500">
+                        Recherche dans le contenu des documents
+                      </p>
                     </div>
                   </div>
                 </div>

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { supabase, SUPABASE_API_URL } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PublicProfile {
   user_id: string;
@@ -95,7 +95,7 @@ export function useHomeMapProperties() {
         .select(
           'id, title, latitude, longitude, price, property_type, city, neighborhood, main_image, bedrooms, surface_area, status, owner_id'
         )
-        .eq('status', 'disponible')
+        .eq('status', 'available')
         .not('latitude', 'is', null)
         .not('longitude', 'is', null)
         .gte('latitude', bounds.south)
@@ -180,7 +180,7 @@ export function useHomeMapProperties() {
         .select(
           'id, title, latitude, longitude, price, property_type, city, neighborhood, main_image, bedrooms, surface_area, status, owner_id'
         )
-        .eq('status', 'disponible')
+        .eq('status', 'available')
         .not('latitude', 'is', null)
         .not('longitude', 'is', null)
         .limit(50);

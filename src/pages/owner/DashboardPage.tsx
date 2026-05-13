@@ -80,7 +80,7 @@ export default function OwnerDashboardPage() {
       return;
     }
 
-    if (profile && profile.user_type !== 'owner' && profile.user_type !== 'proprietaire') {
+    if (profile && profile.user_type !== 'owner' && profile.user_type !== 'owner') {
       navigate('/dashboard');
       return;
     }
@@ -110,7 +110,7 @@ export default function OwnerDashboardPage() {
         .from('lease_contracts')
         .select('id, monthly_rent, property_id')
         .eq('owner_id', user.id)
-        .eq('status', 'actif');
+        .eq('status', 'active');
 
       const activeLeases = leasesData || [];
       const monthlyRevenue = activeLeases.reduce(
@@ -133,7 +133,7 @@ export default function OwnerDashboardPage() {
           .from('rental_applications')
           .select('id, property_id, created_at, profiles(full_name)')
           .in('property_id', propertyIds)
-          .eq('status', 'en_attente')
+          .eq('status', 'pending')
           .order('created_at', { ascending: false })
           .limit(5);
 
@@ -160,7 +160,7 @@ export default function OwnerDashboardPage() {
           .from('maintenance_requests')
           .select('id, property_id, created_at, title, status')
           .in('property_id', propertyIds)
-          .in('status', ['ouverte', 'en_cours'])
+          .in('status', ['ouverte', 'in_progress'])
           .order('created_at', { ascending: false })
           .limit(3);
 
@@ -317,9 +317,9 @@ export default function OwnerDashboardPage() {
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8 hidden lg:block">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
                 <Building className="h-7 w-7 text-white" />
@@ -340,6 +340,15 @@ export default function OwnerDashboardPage() {
             </Link>
           </div>
         </div>
+      </div>
+      <div className="px-4 sm:px-6 mb-8 lg:hidden">
+        <Link
+          to="/proprietaire/ajouter-propriete"
+          className="inline-flex items-center gap-2 bg-[#F16522] hover:bg-[#d9571d] text-white px-6 py-3 rounded-xl font-medium transition-colors"
+        >
+          <Plus className="h-5 w-5" />
+          <span>Ajouter un bien</span>
+        </Link>
       </div>
 
       {/* Content */}
@@ -450,16 +459,16 @@ export default function OwnerDashboardPage() {
                         <h3 className="font-semibold text-gray-900 line-clamp-1">{property.title}</h3>
                         <span
                           className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ml-2 ${
-                            property.status === 'disponible'
+                            property.status === 'available'
                               ? 'bg-green-100 text-green-700'
-                              : property.status === 'loue'
+                              : property.status === 'rented'
                                 ? 'bg-blue-100 text-blue-700'
                                 : 'bg-gray-100 text-gray-700'
                           }`}
                         >
-                          {property.status === 'disponible'
+                          {property.status === 'available'
                             ? 'Disponible'
-                            : property.status === 'loue'
+                            : property.status === 'rented'
                               ? 'Loué'
                               : property.status}
                         </span>

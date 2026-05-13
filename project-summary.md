@@ -353,7 +353,7 @@ The following files and folders do not follow the standard naming convention:
 - /hooks/useAgencyMandates.ts
 - /hooks/useAppLifecycle.ts
 - /hooks/useAuth.ts
-- /hooks/useBrevoAuth.ts
+- /hooks/useOtpAuth.ts
 - /hooks/useHomeMapProperties.ts
 - /hooks/useNativeCamera.ts
 - /hooks/useNativeGeolocation.ts
@@ -418,7 +418,6 @@ The following files and folders do not follow the standard naming convention:
 - /pages/auth/HowItWorksPage.tsx
 - /pages/auth/JoinAgencyPage.tsx
 - /pages/auth/ModernAuthPage.tsx
-- /pages/auth/ModernAuthPageBrevo.tsx
 - /pages/auth/NeoFaceReturnPage.tsx
 - /pages/auth/PrivacyPolicyPage.tsx
 - /pages/auth/ProfileCompletionPage.tsx

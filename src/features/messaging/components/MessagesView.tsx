@@ -6,8 +6,7 @@ import { useMessages } from '@/hooks/messaging';
 import { ConversationList } from './ConversationList';
 import { MessageThread } from './MessageThread';
 import { EmptyConversation } from './EmptyConversation';
-import { Conversation } from '../services/messaging.service';
-import { messagingService } from '../services/messaging.service';
+import { Conversation, Attachment } from '../services/messaging.service';
 
 /**
  * Layout-agnostic messaging view component
@@ -15,7 +14,7 @@ import { messagingService } from '../services/messaging.service';
  */
 export function MessagesView() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, loading: authLoading, profile } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const {
     conversations,
@@ -79,7 +78,7 @@ export function MessagesView() {
   }, [messages, selectedConversation, refetchConversations]);
 
   const handleSendMessage = useCallback(
-    async (receiverId: string, content: string, attachment?: any) => {
+    async (receiverId: string, content: string, attachment?: Attachment | null) => {
       const result = await sendMessage(receiverId, content, attachment);
       if (result) {
         refetchConversations();
@@ -131,7 +130,7 @@ export function MessagesView() {
   }
 
   return (
-    <div className="min-h-[75vh] bg-[#FAF7F4] px-2 sm:px-4 pb-4 pt-6 lg:pt-2 flex gap-4 lg:gap-6">
+    <div className="min-h-[75vh] bg-[#FAF7F4] px-1 sm:px-4 pb-4 pt-2 lg:pt-2 flex gap-2 sm:gap-4 lg:gap-6">
       {/* Conversations List */}
       <div
         className={`w-full md:w-80 lg:w-96 bg-white rounded-[24px] border border-[#EFEBE9] shadow-sm flex flex-col overflow-hidden ${

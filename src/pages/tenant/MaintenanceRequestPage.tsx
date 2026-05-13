@@ -1,12 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/services/supabase/client';
 import { Wrench, Upload, AlertCircle, CheckCircle, Camera, X } from 'lucide-react';
 import { formatAddress } from '@/shared/utils/address';
 
+interface LeaseContract {
+  id: string;
+  property_id: string;
+  status: string;
+  properties: {
+    id: string;
+    title: string;
+    address: {
+      street?: string;
+      city?: string;
+      neighborhood?: string;
+    } | null;
+  } | null;
+}
+
 export default function MaintenanceRequest() {
   const { user } = useAuth();
-  const [activeLease, setActiveLease] = useState<any>(null);
+  const [activeLease, setActiveLease] = useState<LeaseContract | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -28,7 +43,7 @@ export default function MaintenanceRequest() {
     loadActiveLease();
   }, [user]);
 
-  const loadActiveLease = async () => {
+  const loadActiveLease = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -36,7 +51,7 @@ export default function MaintenanceRequest() {
         .from('lease_contracts')
         .select('*, properties(*)')
         .eq('tenant_id', user.id)
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .maybeSingle();
 
       if (error) throw error;
@@ -47,7 +62,12 @@ export default function MaintenanceRequest() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, setActiveLease, setLoading]);
+
+   
+  useEffect(() => {
+    loadActiveLease();
+  }, [loadActiveLease]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -108,6 +128,41 @@ export default function MaintenanceRequest() {
 
       if (error) throw error;
 
+      // Fetch owner_id from the property
+      const { data: propertyData } = await supabase
+        .from('properties')
+        .select('owner_id, title')
+        .eq('id', activeLease.property_id)
+        .single();
+
+      // Send notification to property owner
+      if (propertyData?.owner_id) {
+        try {
+          const issueTypeLabels: Record<string, string> = {
+            plumbing: 'Plomberie',
+            electrical: 'Électricité',
+            heating: 'Chauffage/Climatisation',
+            appliance: 'Électroménager',
+            structural: 'Structure/Bâtiment',
+            other: 'Autre',
+          };
+
+          await supabase.functions.invoke('maintenance-notifications', {
+            body: {
+              action: 'maintenance_requested',
+              recipient_id: propertyData.owner_id,
+              property_title: propertyData.title || 'Votre propriété',
+              request_type: issueTypeLabels[formData.issue_type] || formData.issue_type,
+              urgency: formData.urgency,
+              description: formData.description,
+            },
+          });
+        } catch (notifError) {
+          console.error('Failed to send maintenance notification:', notifError);
+          // Don't block the request if notification fails
+        }
+      }
+
       setSuccess(true);
       setFormData({ issue_type: 'plumbing', urgency: 'medium', description: '' });
       setImages([]);
@@ -116,9 +171,10 @@ export default function MaintenanceRequest() {
       setTimeout(() => {
         window.location.href = '/locataire/maintenance';
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error submitting request:', err);
-      alert(err.message || 'Erreur lors de la soumission');
+      const message = err instanceof Error ? err.message : 'Erreur lors de la soumission';
+      alert(message);
     } finally {
       setSubmitting(false);
     }

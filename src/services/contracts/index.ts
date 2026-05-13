@@ -58,6 +58,7 @@ export {
   deleteContract,
   sendSignatureReminder,
   terminateContract,
+  sendReviewRequests,
 } from './contractService';
 
 // Générateur de contrat PDF basé sur HTML

@@ -6,8 +6,6 @@ import {
   User,
   Phone,
   Mail,
-  Video,
-  Home,
   Check,
   X,
   ChevronDown,
@@ -55,7 +53,7 @@ interface VisitRow {
     id: string;
     title: string | null;
     city: string | null;
-    address: any;
+    address: unknown;
     main_image: string | null;
   } | null;
   tenant?: {
@@ -76,31 +74,56 @@ interface TenantProfile {
 // Status configuration
 const STATUS_CONFIG: Record<
   string,
-  { label: string; color: string; bg: string; icon: any }
+  { label: string; color: string; bg: string; icon: unknown }
 > = {
-  en_attente: {
+  pending: {
     label: 'En attente',
     color: 'text-amber-700',
     bg: 'bg-amber-100',
     icon: Clock,
   },
-  confirmee: {
+  confirmed: {
     label: 'Confirmée',
     color: 'text-green-700',
     bg: 'bg-green-100',
     icon: Check,
   },
-  annulee: {
+  cancelled: {
     label: 'Annulée',
     color: 'text-red-700',
     bg: 'bg-red-100',
     icon: X,
   },
-  terminee: {
+  completed: {
     label: 'Terminée',
     color: 'text-blue-700',
     bg: 'bg-blue-100',
     icon: Calendar,
+  },
+};
+
+// Visit type configuration
+const VISIT_TYPE_CONFIG: Record<
+  string,
+  { label: string; color: string; bg: string; icon: unknown }
+> = {
+  in_person: {
+    label: 'Sur place',
+    color: 'text-purple-700',
+    bg: 'bg-purple-50',
+    icon: MapPin,
+  },
+  video_call: {
+    label: 'Visio',
+    color: 'text-blue-700',
+    bg: 'bg-blue-50',
+    icon: VideoIcon,
+  },
+  virtual: {
+    label: 'Virtuelle',
+    color: 'text-cyan-700',
+    bg: 'bg-cyan-50',
+    icon: VideoIcon,
   },
 };
 
@@ -111,7 +134,7 @@ const StatCard = ({
   value,
   color = 'gray',
 }: {
-  icon: any;
+  icon: unknown;
   label: string;
   value: number;
   color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'amber';
@@ -140,10 +163,23 @@ const StatCard = ({
 };
 
 const StatusBadge = ({ status }: { status: string }) => {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.en_attente;
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   const Icon = config.icon;
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${config.bg} ${config.color}`}>
+      <Icon className="w-3.5 h-3.5" />
+      {config.label}
+    </span>
+  );
+};
+
+const VisitTypeBadge = ({ visitType }: { visitType: string | null }) => {
+  if (!visitType) return null;
+  const config = VISIT_TYPE_CONFIG[visitType];
+  if (!config) return null;
+  const Icon = config.icon;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border border-current ${config.bg} ${config.color}`}>
       <Icon className="w-3.5 h-3.5" />
       {config.label}
     </span>
@@ -166,41 +202,145 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
   useEffect(() => {
     if (!user) return;
     loadVisits();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadVisits = async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('visit_requests')
-        .select(
-          `
-          id,
-          confirmed_date,
-          visit_type,
-          status,
-          notes,
-          tenant_id,
-          property:properties (
+      let data, error;
+
+      if (mode === 'agency') {
+        // MODE AGENCE : Récupérer les visites des biens gérés via mandats actifs
+        // 1. Récupérer d'abord les IDs des propriétés gérées par l'agence
+        const { data: mandates } = await supabase
+          .from('agency_mandates')
+          .select('property_id, owner_id, mandate_scope')
+          .eq('agency_id', user.id)
+          .eq('status', 'active');
+
+        if (!mandates || mandates.length === 0) {
+          setVisits([]);
+          setLoading(false);
+          return;
+        }
+
+        // Récupérer les IDs des propriétés
+        const propertyIds = mandates
+          .map((m) => m.property_id)
+          .filter((id): id is string => id !== null);
+
+        // Pour les mandats "tous biens", récupérer tous les biens des propriétaires concernés
+        const allPropertiesOwnerIds = mandates
+          .filter((m) => m.mandate_scope === 'all_properties')
+          .map((m) => m.owner_id);
+
+        if (allPropertiesOwnerIds.length > 0) {
+          const { data: ownerProperties } = await supabase
+            .from('properties')
+            .select('id')
+            .in('owner_id', allPropertiesOwnerIds);
+
+          if (ownerProperties) {
+            ownerProperties.forEach((p) => {
+              if (!propertyIds.includes(p.id)) {
+                propertyIds.push(p.id);
+              }
+            });
+          }
+        }
+
+        if (propertyIds.length === 0) {
+          setVisits([]);
+          setLoading(false);
+          return;
+        }
+
+        // Récupérer les visites sur les biens gérés
+        const result = await supabase
+          .from('visit_requests')
+          .select(
+            `
             id,
-            title,
-            city,
-            address,
-            main_image
+            visit_date,
+            visit_time,
+            confirmed_date,
+            visit_type,
+            status,
+            notes,
+            tenant_id,
+            agency_id,
+            property:properties (
+              id,
+              title,
+              city,
+              address,
+              main_image
+            )
+          `
           )
-        `
-        )
-        .eq('owner_id', user.id)
-        .order('confirmed_date', { ascending: true });
+          .in('property_id', propertyIds)
+          .order('visit_date', { ascending: true, nullsFirst: false })
+          .order('visit_time', { ascending: true, nullsFirst: false });
+
+        data = result.data;
+        error = result.error;
+      } else {
+        // MODE PROPRIÉTAIRE : seulement les visites de ses propres biens
+        const result = await supabase
+          .from('visit_requests')
+          .select(
+            `
+            id,
+            visit_date,
+            visit_time,
+            confirmed_date,
+            visit_type,
+            status,
+            notes,
+            tenant_id,
+            agency_id,
+            property:properties (
+              id,
+              title,
+              city,
+              address,
+              main_image
+            )
+          `
+          )
+          .eq('owner_id', user.id)
+          .order('visit_date', { ascending: true, nullsFirst: false })
+          .order('visit_time', { ascending: true, nullsFirst: false });
+
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
 
       const rows = ((data as VisitRow[]) || []).map((row) => {
-        const confirmed = (row as any).confirmed_date || '';
-        const [d, t] = confirmed ? confirmed.split('T') : ['', ''];
-        const date = d || '';
-        const time = t ? t.replace('Z', '') : null;
+        // Use visit_date and visit_time directly, fallback to confirmed_date if needed
+        const visitDate = (row as any).visit_date;
+        const visitTime = (row as any).visit_time;
+        const confirmedDate = (row as any).confirmed_date;
+
+        // If visit_date is set, use it; otherwise try to extract from confirmed_date
+        let date = '';
+        let time = null;
+
+        if (visitDate) {
+          // visit_date is a date field, format it
+          date = visitDate;
+          time = visitTime;
+        } else if (confirmedDate) {
+          // Fallback to confirmed_date if visit_date is not set
+          const [d, t] = confirmedDate.split('T');
+          date = d || '';
+          time = t ? t.replace('Z', '') : null;
+        }
+
         return {
           ...row,
           visit_date: date,
@@ -247,10 +387,10 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
       if (filter === 'upcoming') {
         return (
           visitDate >= now &&
-          (visit.status === 'en_attente' || visit.status === 'confirmee' || !visit.status)
+          (visit.status === 'pending' || visit.status === 'confirmed' || !visit.status)
         );
       }
-      return visitDate < now || visit.status === 'terminee' || visit.status === 'annulee';
+      return visitDate < now || visit.status === 'completed' || visit.status === 'cancelled';
     });
   }, [filter, visits]);
 
@@ -299,12 +439,12 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
   const stats = useMemo(() => {
     const upcoming = visits.filter((v) => {
       const date = new Date(`${v.visit_date}T${v.visit_time || '12:00'}`);
-      return date >= new Date() && v.status !== 'annulee';
+      return date >= new Date() && v.status !== 'cancelled';
     }).length;
-    const pending = visits.filter((v) => v.status === 'en_attente').length;
-    const confirmed = visits.filter((v) => v.status === 'confirmee').length;
+    const pending = visits.filter((v) => v.status === 'pending').length;
+    const confirmed = visits.filter((v) => v.status === 'confirmed').length;
     const past = visits.length - upcoming;
-    const cancelled = visits.filter((v) => v.status === 'annulee').length;
+    const cancelled = visits.filter((v) => v.status === 'cancelled').length;
     return { total: visits.length, upcoming, pending, confirmed, past, cancelled };
   }, [visits]);
 
@@ -313,11 +453,39 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
     try {
       const { error } = await supabase
         .from('visit_requests')
-        .update({ status: 'confirmee' })
+        .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
         .eq('id', visitId)
         .eq('owner_id', user?.id);
 
       if (error) throw error;
+
+      // Envoyer une notification au locataire via l'Edge Function
+      const visit = visits.find((v) => v.id === visitId);
+      if (visit && visit.tenant_id) {
+        try {
+          const propertyAddress = visit.property?.address
+            ? formatAddress(visit.property.address, visit.property.city)
+            : visit.property?.city || 'Adresse non renseignée';
+
+          const { data: notifData, error: notifError } = await supabase.functions.invoke('create-visit-notification', {
+            body: {
+              action: 'confirmed',
+              tenant_id: visit.tenant_id,
+              property_title: visit.property?.title || 'Propriété',
+              visit_date: visit.visit_date,
+              visit_time: visit.visit_time || '',
+              property_address: propertyAddress,
+            },
+          });
+
+          if (notifError) {
+            console.error('Erreur lors de l\'envoi de la notification:', notifError);
+          }
+        } catch (notifError) {
+          console.error('Erreur lors de l\'envoi de la notification:', notifError);
+        }
+      }
+
       toast.success('Visite confirmée avec succès');
       await loadVisits();
     } catch (err) {
@@ -333,11 +501,34 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
     try {
       const { error } = await supabase
         .from('visit_requests')
-        .update({ status: 'annulee' })
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
         .eq('id', visitId)
         .eq('owner_id', user?.id);
 
       if (error) throw error;
+
+      // Envoyer une notification au locataire via l'Edge Function
+      const visit = visits.find((v) => v.id === visitId);
+      if (visit && visit.tenant_id) {
+        try {
+          const { data: notifData, error: notifError } = await supabase.functions.invoke('create-visit-notification', {
+            body: {
+              action: 'cancelled',
+              tenant_id: visit.tenant_id,
+              property_title: visit.property?.title || 'Propriété',
+              visit_date: visit.visit_date,
+              visit_time: visit.visit_time || '',
+            },
+          });
+
+          if (notifError) {
+            console.error('Erreur lors de l\'envoi de la notification:', notifError);
+          }
+        } catch (notifError) {
+          console.error('Erreur lors de l\'envoi de la notification:', notifError);
+        }
+      }
+
       toast.success('Visite annulée');
       await loadVisits();
     } catch (err) {
@@ -350,7 +541,7 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
 
   const isUpcoming = (visit: VisitRow) => {
     const visitDate = new Date(`${visit.visit_date}T${visit.visit_time || '12:00'}`);
-    return visitDate >= new Date() && visit.status !== 'annulee' && visit.status !== 'terminee';
+    return visitDate >= new Date() && visit.status !== 'cancelled' && visit.status !== 'completed';
   };
 
   const title = mode === 'agency' ? 'Visites programmées' : 'Mes visites';
@@ -370,7 +561,7 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8 hidden lg:block">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
@@ -550,7 +741,7 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
         ) : (
           <div className="space-y-4">
             {displayedVisits.map((visit) => {
-              const statusKey = visit.status || 'en_attente';
+              const statusKey = visit.status || 'pending';
               const upcoming = isUpcoming(visit);
               const isLoading = actionLoading === visit.id;
 
@@ -616,12 +807,7 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
 
                           <div className="flex items-center gap-2">
                             <StatusBadge status={statusKey} />
-                            {visit.visit_type === 'virtuelle' && (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                                <VideoIcon className="w-3.5 h-3.5" />
-                                Virtuelle
-                              </span>
-                            )}
+                            <VisitTypeBadge visitType={visit.visit_type} />
                           </div>
                         </div>
 
@@ -677,9 +863,9 @@ function VisitsPage({ mode }: { mode: VisitsMode }) {
                         </div>
 
                         {/* Actions */}
-                        {upcoming && visit.status !== 'annulee' && (
+                        {upcoming && visit.status !== 'cancelled' && (
                           <div className="flex gap-2">
-                            {visit.status === 'en_attente' && (
+                            {visit.status === 'pending' && (
                               <button
                                 onClick={() => handleConfirmVisit(visit.id)}
                                 disabled={isLoading}

@@ -7,7 +7,6 @@ import {
   Phone,
   Calendar,
   DollarSign,
-  TrendingUp,
   CheckCircle,
   XCircle,
   Clock,
@@ -84,7 +83,7 @@ const StatCard = ({
   value,
   color = 'gray',
 }: {
-  icon: any;
+  icon: unknown;
   label: string;
   value: string | number;
   color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'amber';
@@ -172,7 +171,7 @@ export default function MyTenantsPage() {
           )
         `)
         .eq('owner_id', user.id)
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .order('created_at', { ascending: false });
 
       if (contractsError) throw contractsError;
@@ -183,11 +182,11 @@ export default function MyTenantsPage() {
         profile_user_ids: tenantIds,
       });
 
-      const tenantsMap = new Map((tenantsData || []).map((t: any) => [t.user_id, t]));
+      const tenantsMap = new Map((tenantsData || []).map((t: unknown) => [t.user_id, t]));
 
       // Get payments for each contract
       const contractsWithDetails = await Promise.all(
-        (contractsData || []).map(async (contract: any) => {
+        (contractsData || []).map(async (contract: unknown) => {
           const { data: paymentsData } = await supabase
             .from('payments')
             .select('*')
@@ -280,7 +279,7 @@ export default function MyTenantsPage() {
   // Calculate stats
   const stats = {
     total: contracts.length,
-    active: contracts.filter((c) => c.status === 'actif').length,
+    active: contracts.filter((c) => c.status === 'active').length,
     totalRevenue: contracts.reduce((sum, c) => sum + c.monthly_rent, 0),
     onTimePayments: contracts.reduce((sum, c) => {
       const paid = c.payments.filter((p) => p.status === 'completed').length;
@@ -322,7 +321,7 @@ export default function MyTenantsPage() {
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8 hidden lg:block">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">

@@ -1,7 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { Database, Users, Home, CreditCard, FileText, Download, Play, AlertCircle } from 'lucide-react';
+import {
+  Database,
+  Users,
+  Home,
+  CreditCard,
+  FileText,
+  Download,
+  Play,
+  AlertCircle,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AdminPageHeader } from '@/shared/ui/admin/AdminPageHeader';
@@ -79,7 +88,7 @@ export default function TestDataGeneratorPage() {
     {
       id: 'logs',
       label: 'Journaux',
-      description: 'Génère des journaux système et d\'activité',
+      description: "Génère des journaux système et d'activité",
       icon: Database,
       defaultCount: 50,
       maxCount: 100000,
@@ -130,16 +139,16 @@ export default function TestDataGeneratorPage() {
 
   // Gestionnaires
   const handleCountChange = (optionId: string, count: number) => {
-    const option = generationOptions.find(o => o.id === optionId);
+    const option = generationOptions.find((o) => o.id === optionId);
     if (!option) return;
 
     const clampedCount = Math.max(1, Math.min(count, option.maxCount));
-    setSelectedOptions(prev => ({ ...prev, [optionId]: clampedCount }));
+    setSelectedOptions((prev) => ({ ...prev, [optionId]: clampedCount }));
   };
 
   const handleSelectAll = () => {
     const allOptions: Record<string, number> = {};
-    generationOptions.forEach(option => {
+    generationOptions.forEach((option) => {
       allOptions[option.id] = option.defaultCount;
     });
     setSelectedOptions(allOptions);
@@ -157,14 +166,16 @@ export default function TestDataGeneratorPage() {
     }
 
     if (clearExisting) {
-      if (!confirm('ATTENTION: Cette action va supprimer toutes les données existantes. Continuer ?')) {
+      if (
+        !confirm('ATTENTION: Cette action va supprimer toutes les données existantes. Continuer ?')
+      ) {
         return;
       }
     }
 
     const totalItems = Object.values(selectedOptions).reduce((sum, count) => sum + count, 0);
     if (totalItems > 10000) {
-      toast.error('Le nombre total d\'éléments ne peut pas dépasser 10 000');
+      toast.error("Le nombre total d'éléments ne peut pas dépasser 10 000");
       return;
     }
 
@@ -187,7 +198,10 @@ export default function TestDataGeneratorPage() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `test_data_config_${new Date().toISOString().split('T')[0]}.json`);
+    link.setAttribute(
+      'download',
+      `test_data_config_${new Date().toISOString().split('T')[0]}.json`
+    );
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -210,7 +224,9 @@ export default function TestDataGeneratorPage() {
   const stats = {
     selectedTypes: Object.keys(selectedOptions).length,
     totalItems: Object.values(selectedOptions).reduce((sum, count) => sum + count, 0),
-    estimatedTime: Math.ceil(Object.values(selectedOptions).reduce((sum, count) => sum + count, 0) / 100),
+    estimatedTime: Math.ceil(
+      Object.values(selectedOptions).reduce((sum, count) => sum + count, 0) / 100
+    ),
   };
 
   if (rolesLoading) {
@@ -261,15 +277,16 @@ export default function TestDataGeneratorPage() {
             <div>
               <h3 className="font-bold text-yellow-800">Attention</h3>
               <p className="text-yellow-700 text-sm mt-1">
-                Cette fonctionnalité est destinée aux environnements de développement et de test uniquement.
-                Les données générées sont fictives et ne doivent pas être utilisées en production.
+                Cette fonctionnalité est destinée aux environnements de développement et de test
+                uniquement. Les données générées sont fictives et ne doivent pas être utilisées en
+                production.
               </p>
             </div>
           </div>
         </div>
 
         {/* Options de génération */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 mx-auto max-w-4xl">
           {generationOptions.map((option) => {
             const Icon = option.icon;
             const count = selectedOptions[option.id] || 0;
@@ -282,8 +299,12 @@ export default function TestDataGeneratorPage() {
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-xl ${isSelected ? 'bg-[#FFF5F0]' : 'bg-[#FAF7F4]'}`}>
-                      <Icon className={`w-6 h-6 ${isSelected ? 'text-[#F16522]' : 'text-[#6B5A4E]'}`} />
+                    <div
+                      className={`p-3 rounded-xl ${isSelected ? 'bg-[#FFF5F0]' : 'bg-[#FAF7F4]'}`}
+                    >
+                      <Icon
+                        className={`w-6 h-6 ${isSelected ? 'text-[#F16522]' : 'text-[#6B5A4E]'}`}
+                      />
                     </div>
                     <div>
                       <h3 className="font-bold text-[#2C1810]">{option.label}</h3>
@@ -291,7 +312,9 @@ export default function TestDataGeneratorPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => handleCountChange(option.id, isSelected ? 0 : option.defaultCount)}
+                    onClick={() =>
+                      handleCountChange(option.id, isSelected ? 0 : option.defaultCount)
+                    }
                     className={`px-3 py-1 rounded-full text-xs font-medium ${isSelected ? 'bg-[#F16522] text-white' : 'bg-[#EFEBE9] text-[#6B5A4E]'}`}
                   >
                     {isSelected ? 'Sélectionné' : 'Sélectionner'}
@@ -318,7 +341,9 @@ export default function TestDataGeneratorPage() {
                         <Input
                           type="number"
                           value={count}
-                          onChange={(e) => handleCountChange(option.id, parseInt(e.target.value) || 0)}
+                          onChange={(e) =>
+                            handleCountChange(option.id, parseInt(e.target.value) || 0)
+                          }
                           min={1}
                           max={option.maxCount}
                           className="text-center"
@@ -407,7 +432,9 @@ export default function TestDataGeneratorPage() {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-[#6B5A4E]">Types sélectionnés:</span>
-                  <span className="font-medium">{stats.selectedTypes} / {generationOptions.length}</span>
+                  <span className="font-medium">
+                    {stats.selectedTypes} / {generationOptions.length}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#6B5A4E]">Total éléments:</span>

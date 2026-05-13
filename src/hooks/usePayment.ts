@@ -22,7 +22,8 @@ export const usePayment = () => {
     phoneNumber: string,
     operator: MobileMoneyOperator,
     description: string = 'Paiement de loyer',
-    leaseId?: string
+    leaseId?: string,
+    otp?: string
   ) => {
     // Valider et formater le numéro de téléphone
     const validation = intouchService.validatePhoneNumber(phoneNumber);
@@ -40,6 +41,7 @@ export const usePayment = () => {
         recipient_phone_number: formattedPhone,
         partner_transaction_id: txnId,
         operator,
+        otp,
       });
 
       // Enregistrer la transaction dans Supabase

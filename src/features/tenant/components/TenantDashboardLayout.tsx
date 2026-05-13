@@ -1,93 +1,86 @@
-import { useState, useEffect } from 'react';
-import { Menu, Home, Bell, MessageSquare } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Menu, Bell, MessageSquare } from 'lucide-react';
 import TenantSidebar from './TenantSidebar';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { Link } from 'react-router-dom';
+import { useMenuCounters } from '@/hooks/useMenuCounters';
+import OnboardingWrapper from '@/features/onboarding/OnboardingWrapper';
 
 interface TenantDashboardLayoutProps {
-  children: React.ReactNode;
+  children: ReactNode;
   title?: string;
+  icon?: ReactNode;
+  description?: string;
 }
 
-export default function TenantDashboardLayout({ children, title }: TenantDashboardLayoutProps) {
-  const { user } = useAuth();
+export default function TenantDashboardLayout({ children, title, icon, description }: TenantDashboardLayoutProps) {
+  const { user: _user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [unreadMessages, setUnreadMessages] = useState(0);
-
-  useEffect(() => {
-    if (user) {
-      loadUnreadMessages();
-    }
-  }, [user]);
-
-  const loadUnreadMessages = async () => {
-    if (!user) return;
-
-    try {
-      const { data } = await supabase
-        .from('messages')
-        .select('id')
-        .eq('receiver_id', user.id)
-        .eq('is_read', false);
-
-      setUnreadMessages(data?.length || 0);
-    } catch (error) {
-      console.error('Error loading unread messages:', error);
-    }
-  };
+  const { counters } = useMenuCounters();
 
   return (
-    <div className="flex h-screen bg-neutral-50 overflow-hidden">
+    <div className="flex h-dvh bg-neutral-50 overflow-hidden lg:h-screen">
       {/* Sidebar */}
       <TenantSidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        unreadMessages={unreadMessages}
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile Header */}
-        <header className="lg:hidden flex-shrink-0 bg-white border-b border-neutral-200 px-3 py-2 sm:px-4 sm:py-3 sticky top-0 z-20">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
+        {/* Mobile Header - fixed to prevent scroll issues on mobile */}
+        <header className="lg:hidden flex-shrink-0 bg-[#2C1810] px-3 py-2 sm:px-4 sm:py-3 shadow-lg shadow-black/10 z-20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors touch-manipulation"
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors touch-manipulation"
                 aria-label="Ouvrir le menu"
               >
-                <Menu className="h-5 w-5 sm:h-6 sm:w-6 text-neutral-700" />
+                <Menu className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               </button>
-              {title && <h1 className="text-base sm:text-lg font-semibold text-neutral-900 truncate">{title}</h1>}
+              {icon && <span className="flex-shrink-0 text-white">{icon}</span>}
+              <div className="min-w-0">
+                {title && <h1 className="text-base sm:text-lg font-semibold text-white truncate leading-tight">{title}</h1>}
+                {description && <p className="text-[11px] text-[#E8D4C5] truncate leading-tight">{description}</p>}
+              </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 ml-2">
               <Link
                 to="/locataire/messages"
-                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors relative touch-manipulation"
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors relative touch-manipulation"
                 aria-label="Messages"
               >
-                <MessageSquare className="h-5 w-5 text-neutral-700" />
-                {unreadMessages > 0 && (
+                <MessageSquare className="h-5 w-5 text-white" />
+                {counters.unreadMessages > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                    {unreadMessages > 9 ? '9+' : unreadMessages}
+                    {counters.unreadMessages > 9 ? '9+' : counters.unreadMessages}
                   </span>
                 )}
               </Link>
               <Link
                 to="/locataire/notifications"
-                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors touch-manipulation"
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors relative touch-manipulation"
                 aria-label="Notifications"
               >
-                <Bell className="h-5 w-5 text-neutral-700" />
+                <Bell className="h-5 w-5 text-white" />
+                {counters.unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                    {counters.unreadNotifications > 9 ? '9+' : counters.unreadNotifications}
+                  </span>
+                )}
               </Link>
             </div>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto" id="main-content">
-          <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6">{children}</div>
+        <main className="flex-1 overflow-y-auto" id="main-content">
+          <OnboardingWrapper>
+            <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-6 pb-10 sm:pb-12">
+              {children}
+            </div>
+          </OnboardingWrapper>
         </main>
       </div>
     </div>

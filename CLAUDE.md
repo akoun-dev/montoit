@@ -1,4 +1,4 @@
-# CLAUDE.md
+ CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -9,6 +9,7 @@ A comprehensive real estate platform for property rentals in France, connecting 
 ## Development Commands
 
 ### Core Commands
+
 - `npm run dev` - Start development server (runs on port 8080)
 - `npm run build` - Production build (uses optimized config)
 - `npm run build:analyze` - Build and open bundle analyzer
@@ -17,6 +18,7 @@ A comprehensive real estate platform for property rentals in France, connecting 
 - `npm run typecheck` - TypeScript type checking
 
 ### Testing
+
 - `npm run test` - Run unit tests (Vitest)
 - `npm run test:ui` - Run tests with UI
 - `npm run test:coverage` - Generate coverage report
@@ -25,6 +27,7 @@ A comprehensive real estate platform for property rentals in France, connecting 
 - `npm run memory-audit` - Memory leak checks
 
 ### Mobile (Capacitor)
+
 - `npx cap sync` - Sync web assets to native projects
 - `npx cap open ios` - Open iOS project
 - `npx cap open android` - Open Android project
@@ -32,7 +35,9 @@ A comprehensive real estate platform for property rentals in France, connecting 
 ## Architecture Overview
 
 ### Path Aliases
+
 The project uses these import aliases (configured in both Vite and TypeScript):
+
 - `@` → `src/`
 - `@config` → `src/config/`
 - `@components` → `src/components/`
@@ -45,6 +50,7 @@ The project uses these import aliases (configured in both Vite and TypeScript):
 - `@stores` → `src/stores/`
 
 ### Tech Stack
+
 - **Frontend**: React 18.3 + TypeScript, Vite 7.3
 - **Styling**: Tailwind CSS with custom design tokens
 - **State**: Zustand (global) + TanStack Query (server state)
@@ -90,6 +96,7 @@ src/
 ### Routing Architecture
 
 Routes are organized by domain with lazy loading:
+
 - `/` - Public routes (home, search, property details)
 - `/dashboard` - Smart redirect based on user role
 - `/locataire/*` - Tenant routes
@@ -100,6 +107,7 @@ Routes are organized by domain with lazy loading:
 - `/auth/callback` - OAuth callback
 
 Route definitions are modular in `src/app/routes/`:
+
 - `publicRoutes.tsx` - Public pages
 - `authRoutes.tsx` - Login/signup
 - `tenantRoutes.tsx`, `ownerRoutes.tsx`, `agencyRoutes.tsx` - Role-specific routes
@@ -109,11 +117,13 @@ Route definitions are modular in `src/app/routes/`:
 The platform supports 6 user types with different permissions:
 
 **Business Types** (stored in `profiles.user_type`):
+
 - `tenant`/`locataire` - Property seekers
 - `owner`/`proprietaire` - Property landlords
 - `agent`/`agence` - Real estate agencies
 
 **System Roles** (stored in `user_roles` table):
+
 - `admin` - Platform administrators
 - `moderator` - Content moderators
 - `trust_agent` - Verification specialists
@@ -130,6 +140,7 @@ Use `ProtectedRoute` component to guard routes by role. Constants are in `src/sh
 ### Authentication
 
 Auth is managed by `AuthProvider` in `src/app/providers/AuthProvider.tsx`:
+
 - Uses Supabase Auth
 - Session auto-refresh
 - Profile loading with retry logic (max 3 retries)
@@ -147,6 +158,7 @@ Database types are auto-generated in `src/integrations/supabase/types.ts` - use 
 ### Design System
 
 Custom design tokens with WCAG AA compliance:
+
 - Colors: `neutral-900`, `neutral-700`, `primary-500` (orange #ff6c2f)
 - Minimum card padding: 32px
 - Touch targets: 44px minimum
@@ -157,6 +169,7 @@ UI components in `src/shared/ui/` include Button, Input, Card with proper access
 ### Configuration
 
 Centralized configuration in `src/config/`:
+
 - `api-keys.config.ts` - External service API keys with validation
 - `app.config.ts` - App-wide settings
 - `env.config.ts` - Environment variable validation
@@ -167,12 +180,13 @@ Check if a service is configured before using it: `apiKeysConfig.azure.openai.is
 ### Environment Variables
 
 Required in `.env`:
+
 ```env
-VITE_SUPABASE_URL=https://xxx.supabase.co
-VITE_SUPABASE_ANON_KEY=xxx
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_ANON_KEY=xxx
 ```
 
-Optional services include Azure OpenAI, Mapbox, Google Maps, Brevo (SMS), etc.
+Optional services include Azure OpenAI, Mapbox, Google Maps, Azure SMS, Resend (Email), etc.
 
 ## Common Patterns
 
@@ -187,6 +201,7 @@ Optional services include Azure OpenAI, Mapbox, Google Maps, Brevo (SMS), etc.
 ### Lazy Loading
 
 Use the `lazyWithRetry` utility for lazy-loaded components:
+
 ```tsx
 const Page = lazyWithRetry(() => import('@/pages/...'));
 ```

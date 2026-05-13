@@ -48,12 +48,12 @@ interface RentalHistoryItem {
 }
 
 const PROPERTY_TYPES = [
-  { value: 'appartement', label: 'Appartement' },
-  { value: 'maison', label: 'Maison' },
+  { value: 'apartment', label: 'Appartement' },
+  { value: 'house', label: 'Maison' },
   { value: 'studio', label: 'Studio' },
   { value: 'villa', label: 'Villa' },
   { value: 'duplex', label: 'Duplex' },
-  { value: 'chambre', label: 'Chambre' },
+  { value: 'room', label: 'Chambre' },
 ];
 
 const CITIES = [
@@ -91,7 +91,7 @@ const RentalHistoryPage: React.FC = () => {
   const [formData, setFormData] = useState({
     property_address: '',
     city: 'Abidjan',
-    property_type: 'appartement',
+    property_type: 'apartment',
     monthly_rent: '',
     start_date: '',
     end_date: '',
@@ -133,7 +133,7 @@ const RentalHistoryPage: React.FC = () => {
     setFormData({
       property_address: '',
       city: 'Abidjan',
-      property_type: 'appartement',
+      property_type: 'apartment',
       monthly_rent: '',
       start_date: '',
       end_date: '',

@@ -11,7 +11,6 @@ import {
   Calendar,
   DollarSign,
   User,
-  Home,
   ArrowLeft,
   Loader,
   CheckCircle,
@@ -92,7 +91,7 @@ export default function CreateContractPage() {
   const [paymentDay, setPaymentDay] = useState('5');
   const [customClauses, setCustomClauses] = useState('');
 
-  const { validateField, getFieldState, touched, setFieldError, clearFieldError } =
+  const { validateField, getFieldState, setFieldError, clearFieldError } =
     useFormValidation<ContractFormData>();
 
   const validateStep1 = (): boolean => {
@@ -151,6 +150,7 @@ export default function CreateContractPage() {
 
   useEffect(() => {
     if (user) loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, applicationId]);
 
   useEffect(() => {
@@ -163,6 +163,7 @@ export default function CreateContractPage() {
         clearFieldError('depositAmount');
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProperty, properties]);
 
   useEffect(() => {
@@ -178,7 +179,7 @@ export default function CreateContractPage() {
           .from('rental_applications')
           .select('id, tenant_id, property_id, status')
           .eq('id', applicationId)
-          .eq('status', 'acceptee')
+          .eq('status', 'accepted')
           .single();
 
         if (appError) throw appError;
@@ -224,10 +225,10 @@ export default function CreateContractPage() {
           .from('properties')
           .select('id, title, address, city, price, property_type, surface_area, bedrooms')
           .eq('owner_id', user.id)
-          .eq('status', 'disponible');
+          .eq('status', 'available');
 
         if (propsError) throw propsError;
-        const normalized = (propsData || []).map((p: any) => ({
+        const normalized = (propsData || []).map((p: Property) => ({
           ...p,
           monthly_rent: p.price ?? 0,
         }));
@@ -247,7 +248,7 @@ export default function CreateContractPage() {
         .from('rental_applications')
         .select('id, tenant_id, property_id, status')
         .eq('property_id', propertyId)
-        .eq('status', 'acceptee');
+        .eq('status', 'accepted');
 
       if (error) throw error;
 
@@ -309,7 +310,7 @@ export default function CreateContractPage() {
         .select('id', { count: 'exact', head: true })
         .eq('property_id', selectedProperty)
         .eq('tenant_id', selectedTenant)
-        .in('status', ['brouillon', 'en_attente_signature', 'actif']);
+        .in('status', ['draft', 'pending_signature', 'active']);
 
       if (existingError) throw existingError;
 
@@ -337,7 +338,7 @@ export default function CreateContractPage() {
           end_date: endDate,
           payment_day: parseInt(paymentDay),
           custom_clauses: customClauses || null,
-          status: 'brouillon',
+          status: 'draft',
         })
         .select()
         .single();
@@ -350,7 +351,7 @@ export default function CreateContractPage() {
         console.error('Error generating PDF:', pdfError);
       }
 
-      await supabase.from('properties').update({ status: 'en_attente' }).eq('id', selectedProperty);
+      await supabase.from('properties').update({ status: 'pending' }).eq('id', selectedProperty);
 
       try {
         await notifyLeaseCreated(data.id);
@@ -726,15 +727,14 @@ export default function CreateContractPage() {
                                 {app.profiles?.full_name || 'Nom non renseigné'}
                               </h3>
                               {app.profiles?.trust_score !== undefined && app.profiles?.trust_score !== null && (
-                                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold"
-                                  className={cn(
-                                    app.profiles.trust_score >= 70
-                                      ? "bg-green-100 text-green-700"
-                                      : app.profiles.trust_score >= 50
-                                      ? "bg-amber-100 text-amber-700"
-                                      : "bg-red-100 text-red-700"
-                                  )}
-                                >
+                                <div className={cn(
+                                  "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold",
+                                  app.profiles.trust_score >= 70
+                                    ? "bg-green-100 text-green-700"
+                                    : app.profiles.trust_score >= 50
+                                    ? "bg-amber-100 text-amber-700"
+                                    : "bg-red-100 text-red-700"
+                                )}>
                                   <Star className="w-3 h-3" />
                                   {app.profiles.trust_score}/100
                                 </div>

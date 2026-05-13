@@ -10,7 +10,6 @@ interface MessageBubbleProps {
   isOwn: boolean;
   onEdit?: (messageId: string, newContent: string) => Promise<void>;
   onDelete?: (messageId: string) => Promise<void>;
-  currentUserId?: string;
 }
 
 const EDIT_TIME_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
@@ -25,7 +24,7 @@ const getFileExtension = (name: string): string => {
   return name.split('.').pop()?.toUpperCase() || 'FILE';
 };
 
-export function MessageBubble({ message, isOwn, onEdit, onDelete, currentUserId }: MessageBubbleProps) {
+export function MessageBubble({ message, isOwn, onEdit, onDelete }: MessageBubbleProps) {
   const [showLightbox, setShowLightbox] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content || '');

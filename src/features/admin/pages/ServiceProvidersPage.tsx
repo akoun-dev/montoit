@@ -1,4 +1,4 @@
-import { TrendingUp, ArrowLeft, MessageSquare, CreditCard, Map, Shield } from 'lucide-react';
+import { TrendingUp, MessageSquare, CreditCard, Map, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/shared/ui';
 
@@ -40,8 +40,13 @@ export default function ServiceProvidersPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <MessageSquare className="w-6 h-6 text-green-600 mx-auto mb-2" />
-            <p className="text-sm text-gray-600">SMS/WhatsApp</p>
-            <p className="text-xs text-gray-400 mt-1">Brevo, InTouch</p>
+            <p className="text-sm text-gray-600">Email</p>
+            <p className="text-xs text-gray-400 mt-1">Resend</p>
+          </div>
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+            <MessageSquare className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+            <p className="text-sm text-gray-600">SMS</p>
+            <p className="text-xs text-gray-400 mt-1">Azure, InTouch</p>
           </div>
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <CreditCard className="w-6 h-6 text-orange-600 mx-auto mb-2" />

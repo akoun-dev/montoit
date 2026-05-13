@@ -1,88 +1,90 @@
 import { useState, useEffect } from 'react';
 import { Star, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
+import { useTestimonials, type Testimonial } from '@/hooks/reviews/useTestimonials';
 
-interface Testimonial {
-  id: number;
-  name: string;
-  role: string;
-  city: string;
-  avatar: string;
-  rating: number;
-  content: string;
-}
-
-const testimonials: Testimonial[] = [
+// Default fallback testimonials in case no data is available
+const fallbackTestimonials: Testimonial[] = [
   {
-    id: 1,
-    name: 'Kouamé Yao',
-    role: 'Locataire',
-    city: 'Cocody',
-    avatar:
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
+    id: '1',
+    content: "J'ai trouvé mon appartement en moins d'une semaine grâce à Mon Toit. La vérification des propriétés m'a vraiment rassuré. Je recommande vivement !",
     rating: 5,
-    content:
-      "J'ai trouvé mon appartement en moins d'une semaine grâce à Mon Toit. La vérification des propriétés m'a vraiment rassuré. Je recommande vivement !",
+    reviewerName: 'Kouamé Yao',
+    reviewerAvatar: null,
+    reviewerCity: 'Cocody',
+    propertyTitle: null,
+    createdAt: new Date().toISOString(),
+    userRole: 'Locataire',
   },
   {
-    id: 2,
-    name: 'Aminata Diallo',
-    role: 'Propriétaire',
-    city: 'Plateau',
-    avatar:
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face',
+    id: '2',
+    content: 'En tant que propriétaire, je suis impressionnée par le sérieux de la plateforme. Les locataires sont vérifiés et les paiements sont sécurisés.',
     rating: 5,
-    content:
-      'En tant que propriétaire, je suis impressionnée par le sérieux de la plateforme. Les locataires sont vérifiés et les paiements sont sécurisés.',
+    reviewerName: 'Aminata Diallo',
+    reviewerAvatar: null,
+    reviewerCity: 'Plateau',
+    propertyTitle: null,
+    createdAt: new Date().toISOString(),
+    userRole: 'Propriétaire',
   },
   {
-    id: 3,
-    name: 'Jean-Baptiste Konan',
-    role: 'Locataire',
-    city: 'Marcory',
-    avatar:
-      'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
+    id: '3',
+    content: "La signature électronique du bail a été un vrai plus. Tout s'est fait rapidement et de manière transparente. Excellente expérience !",
     rating: 4,
-    content:
-      "La signature électronique du bail a été un vrai plus. Tout s'est fait rapidement et de manière transparente. Excellente expérience !",
+    reviewerName: 'Jean-Baptiste Konan',
+    reviewerAvatar: null,
+    reviewerCity: 'Marcory',
+    propertyTitle: null,
+    createdAt: new Date().toISOString(),
+    userRole: 'Locataire',
   },
   {
-    id: 4,
-    name: 'Marie-Claire Touré',
-    role: 'Propriétaire',
-    city: 'Riviera',
-    avatar:
-      'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face',
+    id: '4',
+    content: 'Le système de score de confiance est génial. Je sais exactement à qui je loue mon bien. Mon Toit a changé ma façon de gérer mes propriétés.',
     rating: 5,
-    content:
-      'Le système de score de confiance est génial. Je sais exactement à qui je loue mon bien. Mon Toit a changé ma façon de gérer mes propriétés.',
+    reviewerName: 'Marie-Claire Touré',
+    reviewerAvatar: null,
+    reviewerCity: 'Riviera',
+    propertyTitle: null,
+    createdAt: new Date().toISOString(),
+    userRole: 'Propriétaire',
   },
   {
-    id: 5,
-    name: 'Ousmane Koné',
-    role: 'Locataire',
-    city: 'Yopougon',
-    avatar:
-      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face',
+    id: '5',
+    content: 'Enfin une plateforme qui comprend les réalités ivoiriennes ! Le paiement via Mobile Money est super pratique. Merci Mon Toit !',
     rating: 5,
-    content:
-      'Enfin une plateforme qui comprend les réalités ivoiriennes ! Le paiement via Mobile Money est super pratique. Merci Mon Toit !',
+    reviewerName: 'Ousmane Koné',
+    reviewerAvatar: null,
+    reviewerCity: 'Yopougon',
+    propertyTitle: null,
+    createdAt: new Date().toISOString(),
+    userRole: 'Locataire',
   },
 ];
 
+function getAvatarUrl(avatarUrl: string | null, name: string): string {
+  if (avatarUrl) return avatarUrl;
+  // Generate avatar from initials using UI Avatars
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=FF6C2F&color=fff&size=100`;
+}
+
 export default function Testimonials() {
+  const { data: testimonials } = useTestimonials();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+
+  // Use fetched testimonials or fall back to defaults
+  const displayTestimonials = (testimonials && testimonials.length > 0 ? testimonials : fallbackTestimonials) as Testimonial[];
 
   useEffect(() => {
     if (!isAutoPlaying) return;
 
     const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % testimonials.length);
+      setActiveIndex((prev) => (prev + 1) % displayTestimonials.length);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [isAutoPlaying]);
+  }, [isAutoPlaying, displayTestimonials.length]);
 
   const goTo = (index: number) => {
     setActiveIndex(index);
@@ -90,10 +92,10 @@ export default function Testimonials() {
     setTimeout(() => setIsAutoPlaying(true), 10000);
   };
 
-  const goToNext = () => goTo((activeIndex + 1) % testimonials.length);
-  const goToPrev = () => goTo((activeIndex - 1 + testimonials.length) % testimonials.length);
+  const goToNext = () => goTo((activeIndex + 1) % displayTestimonials.length);
+  const goToPrev = () => goTo((activeIndex - 1 + displayTestimonials.length) % displayTestimonials.length);
 
-  const currentTestimonial = testimonials[activeIndex];
+  const currentTestimonial = displayTestimonials[activeIndex];
   if (!currentTestimonial) return null;
 
   return (
@@ -143,43 +145,58 @@ export default function Testimonials() {
               {/* Author */}
               <div className="flex items-center justify-center gap-4">
                 <img
-                  src={currentTestimonial.avatar}
-                  alt={currentTestimonial.name}
+                  src={getAvatarUrl(currentTestimonial.reviewerAvatar, currentTestimonial.reviewerName || 'U')}
+                  alt={currentTestimonial.reviewerName || 'Utilisateur'}
                   className="w-12 h-12 rounded-full object-cover border-2 border-[#FF6C2F]"
                 />
                 <div className="text-left">
-                  <p className="font-semibold text-foreground">{currentTestimonial.name}</p>
+                  <p className="font-semibold text-foreground">
+                    {currentTestimonial.reviewerName || 'Utilisateur anonyme'}
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    {currentTestimonial.role} • {currentTestimonial.city}
+                    {currentTestimonial.userRole && (
+                      <>
+                        {currentTestimonial.userRole}
+                        {currentTestimonial.reviewerCity && ' • '}
+                      </>
+                    )}
+                    {currentTestimonial.reviewerCity}
                   </p>
                 </div>
               </div>
+
+              {/* Property reference if available */}
+              {currentTestimonial.propertyTitle && (
+                <p className="text-xs text-muted-foreground mt-3 italic">
+                  A propos de : {currentTestimonial.propertyTitle}
+                </p>
+              )}
             </div>
 
             {/* Navigation arrows */}
-            <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2 md:-mx-4">
+            <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-1 sm:px-2 md:-mx-4">
               <Button
                 variant="outline"
                 size="small"
                 onClick={goToPrev}
-                className="rounded-full bg-background shadow-md p-2 min-h-0 min-w-0 w-9 h-9"
+                className="rounded-full bg-background shadow-md p-2 min-h-0 min-w-0 w-9 h-9 sm:w-10 sm:h-10"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
               <Button
                 variant="outline"
                 size="small"
                 onClick={goToNext}
-                className="rounded-full bg-background shadow-md p-2 min-h-0 min-w-0 w-9 h-9"
+                className="rounded-full bg-background shadow-md p-2 min-h-0 min-w-0 w-9 h-9 sm:w-10 sm:h-10"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             </div>
           </div>
 
           {/* Dots */}
           <div className="flex items-center justify-center gap-2 mt-6">
-            {testimonials.map((_, index) => (
+            {displayTestimonials.map((_, index) => (
               <button
                 key={index}
                 onClick={() => goTo(index)}

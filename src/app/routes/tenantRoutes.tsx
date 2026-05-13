@@ -1,12 +1,7 @@
 import { RouteObject, Navigate } from 'react-router-dom';
 import { lazyWithRetry } from '@/shared/utils/lazyLoad';
 import ProtectedRoute from '@/shared/ui/ProtectedRoute';
-import {
-  OWNER_ROLES,
-  AGENCY_ROLES,
-  TENANT_ROLES,
-  ALL_AUTHENTICATED,
-} from '@/shared/constants/roles';
+import { TENANT_ROLES } from '@/shared/constants/roles';
 
 // Tenant dashboard pages
 const TenantDashboard = lazyWithRetry(() => import('@/pages/tenant/DashboardPage'));
@@ -23,13 +18,13 @@ const UnifiedDashboard = lazyWithRetry(() => import('@/pages/dashboard/UnifiedDa
 
 // Profile page
 const ProfilePage = lazyWithRetry(() => import('@/pages/tenant/EnhancedProfilePage'));
-const ONECIVerificationPage = lazyWithRetry(() => import('@/pages/tenant/ONECIVerificationPage'));
 
 // Favorites & saved searches
 const Favorites = lazyWithRetry(() => import('@/pages/tenant/FavoritesPage'));
 const SavedSearches = lazyWithRetry(() => import('@/pages/tenant/SavedSearchesPage'));
 const Documents = lazyWithRetry(() => import('@/pages/tenant/DocumentsPage'));
 const Notifications = lazyWithRetry(() => import('@/pages/tenant/NotificationsPage'));
+const SupportTickets = lazyWithRetry(() => import('@/pages/tenant/SupportTicketsPage'));
 
 // Application & Visit pages
 const ApplicationForm = lazyWithRetry(() => import('@/pages/tenant/ApplicationFormPage'));
@@ -45,8 +40,17 @@ const SignLease = lazyWithRetry(() => import('@/pages/tenant/SignLeasePage'));
 const MakePayment = lazyWithRetry(() => import('@/pages/tenant/MakePaymentPage'));
 const PaymentHistory = lazyWithRetry(() => import('@/pages/tenant/PaymentHistoryPage'));
 
+// Verification pages
+const ONECIVerification = lazyWithRetry(() => import('@/pages/tenant/ONECIVerificationPage'));
+
 // Layout-agnostic messaging view
 const MessagesView = lazyWithRetry(() => import('@/features/messaging/components/MessagesView'));
+
+// Settings pages
+const TenantSettingsMenuPage = lazyWithRetry(() => import('@/pages/tenant/SettingsMenuPage'));
+const TenantNotificationPreferencesPage = lazyWithRetry(() => import('@/pages/tenant/NotificationPreferencesPage'));
+const TenantSecuritySettingsPage = lazyWithRetry(() => import('@/pages/tenant/SecuritySettingsPage'));
+const TenantSessionsPage = lazyWithRetry(() => import('@/pages/tenant/SessionsPage'));
 
 // TenantSidebarLayout is used for universal routes that need role-based layout switching
 const TenantSidebarLayout = lazyWithRetry(
@@ -54,15 +58,6 @@ const TenantSidebarLayout = lazyWithRetry(
 );
 
 export const tenantRoutes: RouteObject[] = [
-  // ONECI verification page - standalone (no sidebar)
-  {
-    path: 'verification-oneci',
-    element: (
-      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
-        <ONECIVerificationPage />
-      </ProtectedRoute>
-    ),
-  },
   { path: 'verification', element: <Navigate to="/locataire/profil?tab=verification" replace /> },
 
   // Dashboard - has its own layout (TenantDashboardLayout)
@@ -86,6 +81,7 @@ export const tenantRoutes: RouteObject[] = [
       // Profile & Notifications - simple pages without internal layout
       { path: 'profil', element: <ProfilePage /> },
       { path: 'notifications', element: <Notifications /> },
+      { path: 'support/tickets', element: <SupportTickets /> },
 
       // Saved searches
       { path: 'recherches-sauvegardees', element: <SavedSearches /> },
@@ -117,6 +113,12 @@ export const tenantRoutes: RouteObject[] = [
 
       // Messages - tenant-specific, wrapped in TenantSidebarLayout
       { path: 'messages', element: <MessagesView /> },
+
+      // Settings
+      { path: 'parametres', element: <TenantSettingsMenuPage /> },
+      { path: 'parametres/notifications', element: <TenantNotificationPreferencesPage /> },
+      { path: 'parametres/securite', element: <TenantSecuritySettingsPage /> },
+      { path: 'parametres/sessions', element: <TenantSessionsPage /> },
     ],
   },
 
@@ -176,6 +178,14 @@ export const tenantRoutes: RouteObject[] = [
     element: (
       <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
         <MyContracts />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: 'verification-oneci',
+    element: (
+      <ProtectedRoute allowedRoles={[...TENANT_ROLES]}>
+        <ONECIVerification />
       </ProtectedRoute>
     ),
   },

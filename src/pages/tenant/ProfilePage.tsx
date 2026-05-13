@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, useEffect, useCallback, ChangeEvent } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +7,7 @@ import { Button } from '@/shared/ui/Button';
 import Input from '@/shared/ui/Input';
 import { toast } from '@/hooks/shared/useSafeToast';
 import OwnerDashboardLayout from '@/features/owner/components/OwnerDashboardLayout';
+import TenantDashboardLayout from '@/features/tenant/components/TenantDashboardLayout';
 import ONECIFormTest from '@/features/verification/components/ONECIFormTest';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
@@ -30,7 +31,7 @@ interface Profile {
 }
 
 export default function ProfilePage() {
-  const { user, profile: authProfile, refetchProfile } = useAuth();
+  const { user, profile: authProfile, refreshProfile } = useAuth();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'infos');
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -43,20 +44,21 @@ export default function ProfilePage() {
     city: '',
     address: '',
     bio: '',
+    gender: '',
   });
 
   useEffect(() => {
     if (user) {
       loadProfile();
     }
-  }, [user]);
+  }, [user, loadProfile]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
     if (tab) setActiveTab(tab);
   }, [searchParams]);
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     if (!user) return;
     try {
       const { data, error } = await supabase
@@ -90,6 +92,9 @@ export default function ProfilePage() {
         }
       }
 
+      // Rafraîchir le profil dans le AuthProvider pour synchroniser la sidebar AVANT de définir l'état local
+      await refreshProfile();
+
       const formattedAddress = formatAddress(data.address as AddressValue, data.city || undefined);
       const profileData: Profile = {
         id: data.id,
@@ -121,16 +126,26 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, setProfile, setFormData, setLoading]);
 
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
     try {
-      // Mettre à jour les informations du profil
+      // Vérifier si le profil est complet
+      const isProfileComplete =
+        !!formData.full_name?.trim() &&
+        !!formData.phone?.trim() &&
+        !!formData.city?.trim() &&
+        !!formData.address?.trim();
+
+      // Mettre à jour les informations du profil avec profile_setup_completed
       const { error: updateError } = await supabase
         .from('profiles')
-        .update(formData)
+        .update({
+          ...formData,
+          profile_setup_completed: isProfileComplete,
+        })
         .eq('id', user.id);
       if (updateError) throw updateError;
 
@@ -152,12 +167,12 @@ export default function ProfilePage() {
         console.warn('Could not calculate score:', scoreErr);
       }
 
+      // Recharger le profil dans le contexte AuthProvider pour synchroniser la sidebar
+      await refreshProfile();
+
       toast.success('Profil mis à jour avec succès');
-      loadProfile();
-      // Recharger aussi le profil dans le contexte AuthProvider
-      if (refetchProfile) {
-        refetchProfile();
-      }
+      // Recharger le profil local après avoir rafraîchi le contexte
+      await loadProfile();
     } catch (err) {
       console.error('Error saving profile:', err);
       toast.error('Erreur lors de la sauvegarde');
@@ -192,15 +207,6 @@ export default function ProfilePage() {
     (profile as any)?.active_role ||
     (user as any)?.role ||
     '';
-
-  const roleLabel =
-    rawRole === 'locataire'
-      ? 'Locataire'
-      : rawRole === 'proprietaire' || rawRole === 'owner'
-        ? 'Propriétaire'
-        : rawRole === 'agence'
-          ? 'Agence'
-          : rawRole || 'Non renseigné';
 
   const tabs = [
     { id: 'infos', label: 'Informations', icon: User },
@@ -272,6 +278,9 @@ export default function ProfilePage() {
                         .eq('id', user.id);
                       if (updateError) throw updateError;
 
+                      // Recharger le profil dans le contexte AuthProvider pour synchroniser la sidebar
+                      await refreshProfile();
+                      // Recharger le profil local après avoir rafraîchi le contexte
                       await loadProfile();
                       toast.success('Photo de profil mise à jour');
                     } catch (err) {
@@ -455,6 +464,30 @@ export default function ProfilePage() {
                   {!profile?.oneci_verified && user && (
                     <div className="border border-border rounded-xl p-6">
                       <ONECIFormTest userId={user.id} onSuccess={loadProfile} />
+                    </div>
+                  )}
+
+                  {/* Bouton pour refaire la vérification ONECI si déjà vérifié */}
+                  {profile?.oneci_verified && user && (
+                    <div className="border border-border rounded-xl p-6 text-center">
+                      <div className="flex items-center justify-center mb-4">
+                        <CheckCircle className="w-12 h-12 text-green-600 mr-3" />
+                        <div>
+                          <h4 className="text-lg font-semibold text-foreground">
+                            Vérification ONECI réussie
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            Votre identité a été vérifiée avec succès
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => navigate('/locataire/verification-oneci?redo=true')}
+                        className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#F16522] hover:bg-[#d9571d] text-white rounded-xl font-medium transition-colors"
+                      >
+                        <Shield className="w-5 h-5" />
+                        Rétaliser une nouvelle vérification
+                      </button>
                     </div>
                   )}
 

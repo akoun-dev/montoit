@@ -14,6 +14,12 @@ const NeoFaceReturn = lazyWithRetry(() => import('@/pages/auth/NeoFaceReturnPage
 const JoinAgency = lazyWithRetry(() => import('@/pages/auth/JoinAgencyPage'));
 const EmailVerification = lazyWithRetry(() => import('@/pages/auth/EmailVerificationPage'));
 
+// Onboarding flow
+const OnboardingFlow = lazyWithRetry(() => import('@/features/onboarding/OnboardingFlow'));
+
+// Account settings
+const AccountSettings = lazyWithRetry(() => import('@/pages/account/AccountSettingsPage'));
+
 export const authRoutes: RouteObject[] = [
   { path: 'connexion', element: <ModernAuth /> },
   { path: 'inscription', element: <ModernAuth /> },
@@ -53,6 +59,22 @@ export const authRoutes: RouteObject[] = [
     element: (
       <ProtectedRoute>
         <NeoFaceReturn />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: 'onboarding',
+    element: (
+      <ProtectedRoute>
+        <OnboardingFlow />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: 'parametres',
+    element: (
+      <ProtectedRoute>
+        <AccountSettings />
       </ProtectedRoute>
     ),
   },

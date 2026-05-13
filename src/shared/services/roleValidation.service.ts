@@ -7,20 +7,16 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-export type UserRole = 'tenant' | 'owner' | 'agency' | 'admin' | 'trust_agent' | 'moderator';
+export type UserRole = 'tenant' | 'owner' | 'agency' | 'admin' | 'trust_agent';
 
 // Mapping des valeurs de la base de données vers l'enum UserRole
 const USER_TYPE_MAPPING: Record<string, UserRole> = {
-  'locataire': 'tenant',
-  'proprietaire': 'owner',
-  'agence': 'agency',
-  'admin': 'admin',
-  'admin_ansut': 'admin',
-  'trust_agent': 'trust_agent',
-  'moderator': 'moderator',
-  'tenant': 'tenant',
-  'owner': 'owner',
-  'agent': 'agency',
+  // Current values
+  tenant: 'tenant',
+  owner: 'owner',
+  agency: 'agency',
+  admin: 'admin',
+  trust_agent: 'trust_agent',
 };
 
 export interface RolePermissions {
@@ -94,18 +90,6 @@ const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canAccessAdminPanel: false,
     canVerifyUsers: true,
     canModerateContent: false,
-    canManageContracts: false,
-    canAccessAllContracts: true,
-  },
-  moderator: {
-    canCreateProperty: false,
-    canEditProperty: false,
-    canDeleteProperty: false,
-    canViewAllProperties: true,
-    canManageUsers: false,
-    canAccessAdminPanel: false,
-    canVerifyUsers: false,
-    canModerateContent: true,
     canManageContracts: false,
     canAccessAllContracts: true,
   },

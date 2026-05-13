@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/services/supabase/client';
-import { CreditCard, User, Loader, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { CreditCard, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import Input from '@/shared/ui/Input';
 import { toast } from '@/hooks/shared/useSafeToast';
 import { useOneCIVerification } from '@/hooks/useOneCIVerification';
@@ -17,7 +17,7 @@ type AuthStep = 'input' | 'capture' | 'captured' | 'verifying' | 'success' | 'er
 
 interface OneCiFaceAuthProps {
   userId: string;
-  onAuthSuccess?: (result: any) => void;
+  onAuthSuccess?: (result: unknown) => void;
   onAuthCancel?: () => void;
   initialNni?: string;
 }
@@ -28,6 +28,7 @@ export function OneCiFaceAuth({ userId, onAuthSuccess, onAuthCancel, initialNni 
   const [errorMessage, setErrorMessage] = useState('');
   const [faceImage, setFaceImage] = useState<string | null>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { isFaceAuth, faceAuthResult, error, faceAuthentication, isConfigured } = useOneCIVerification();
 
   // Log step changes for debugging

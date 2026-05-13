@@ -1,4 +1,4 @@
-// Trust Agent UI Components - Enhanced Design System
+// Tiers de confiance UI Components - Enhanced Design System
 export { KPICard } from './KPICard';
 export type { KPICardProps } from './KPICard';
 

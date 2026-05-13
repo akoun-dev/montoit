@@ -71,7 +71,7 @@ export const PROPERTY_TYPE_IMAGES = {
     'https://images.unsplash.com/photo-1600585152220-90363fe7e115?w=800',
   ],
 
-  appartement: [
+  apartment: [
     'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800',
     'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800',
     'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800',
@@ -90,7 +90,7 @@ export const PROPERTY_TYPE_IMAGES = {
     'https://images.unsplash.com/photo-1600607687644-aac4c3eac7f4?w=800',
   ],
 
-  maison: [
+  house: [
     'https://images.unsplash.com/photo-1600047509782-20d39509f26d?w=800',
     'https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=800',
     'https://images.unsplash.com/photo-1600047509358-9dc75507daeb?w=800',
@@ -208,18 +208,18 @@ export function getMainPropertyImage(propertyType: string): string {
 
   if (typeKey.includes('villa')) {
     return PROPERTY_TYPE_IMAGES.villa[0] || '';
-  } else if (typeKey.includes('appartement')) {
-    return PROPERTY_TYPE_IMAGES.appartement[0] || '';
+  } else if (typeKey.includes('apartment')) {
+    return PROPERTY_TYPE_IMAGES.apartment[0] || '';
   } else if (typeKey.includes('studio')) {
     return PROPERTY_TYPE_IMAGES.studio[0] || '';
   } else if (typeKey.includes('duplex')) {
     return PROPERTY_TYPE_IMAGES.duplex[0] || '';
-  } else if (typeKey.includes('maison')) {
-    return PROPERTY_TYPE_IMAGES.maison[0] || '';
+  } else if (typeKey.includes('house')) {
+    return PROPERTY_TYPE_IMAGES.house[0] || '';
   }
 
   // Par défaut, une image moderne
-  return PROPERTY_TYPE_IMAGES.appartement[0] || '';
+  return PROPERTY_TYPE_IMAGES.apartment[0] || '';
 }
 
 /**

@@ -36,7 +36,7 @@ export type UserRole =
   | 'tenant' // Locataire
   | 'owner' // Propriétaire
   | 'admin' // Administrateur
-  | 'trust_agent' // Agent de confiance
+  | 'trust_agent' // Tiers de confiance
   | 'agency'; // Agence
 
 // Types étendus pour l'application

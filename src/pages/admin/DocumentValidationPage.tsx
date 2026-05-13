@@ -32,7 +32,7 @@ import Button from '@/shared/ui/Button';
 import { FormatService } from '@/services/format/formatService';
 
 // Types
-type VerificationStatus = 'en_attente' | 'en_cours' | 'approuve' | 'rejete' | 'expire';
+type VerificationStatus = 'pending' | 'in_progress' | 'approved' | 'rejected' | 'expired';
 type DocumentType = 'piece_identite' | 'justificatif_domicile' | 'revenus' | 'caution' | 'autre';
 
 interface VerificationDocument {
@@ -98,7 +98,7 @@ export default function DocumentValidationPage() {
           *,
           applicant:profiles!inner(id, full_name, email, user_type)
         `)
-        .in('status', status === 'all' ? ['en_attente', 'en_cours'] : [status])
+        .in('status', status === 'all' ? ['pending', 'in_progress'] : [status])
         .order('submitted_at', { ascending: false });
 
       if (documentType !== 'all') {
@@ -133,21 +133,21 @@ export default function DocumentValidationPage() {
       const { count: pending } = await supabase
         .from('verification_documents')
         .select('*', { count: 'exact', head: true })
-        .in('status', ['en_attente', 'en_cours']);
+        .in('status', ['pending', 'in_progress']);
 
       // Approuvés aujourd'hui
       const today = new Date().toISOString().split('T')[0];
       const { count: approved_today } = await supabase
         .from('verification_documents')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'approuve')
+        .eq('status', 'approved')
         .gte('reviewed_at', today);
 
       // Rejetés aujourd'hui
       const { count: rejected_today } = await supabase
         .from('verification_documents')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'rejete')
+        .eq('status', 'rejected')
         .gte('reviewed_at', today);
 
       return {
@@ -168,7 +168,7 @@ export default function DocumentValidationPage() {
       const { error } = await supabase
         .from('verification_documents')
         .update({
-          status: 'approuve',
+          status: 'approved',
           reviewed_at: new Date().toISOString(),
           reviewed_by: currentUser?.id,
           notes,
@@ -196,7 +196,7 @@ export default function DocumentValidationPage() {
       const { error } = await supabase
         .from('verification_documents')
         .update({
-          status: 'rejete',
+          status: 'rejected',
           reviewed_at: new Date().toISOString(),
           reviewed_by: currentUser?.id,
           rejection_reason: reason,
@@ -218,15 +218,15 @@ export default function DocumentValidationPage() {
 
   const getStatusColor = (status: VerificationStatus) => {
     switch (status) {
-      case 'en_attente':
+      case 'pending':
         return 'bg-yellow-100 text-yellow-700';
-      case 'en_cours':
+      case 'in_progress':
         return 'bg-blue-100 text-blue-700';
-      case 'approuve':
+      case 'approved':
         return 'bg-green-100 text-green-700';
-      case 'rejete':
+      case 'rejected':
         return 'bg-red-100 text-red-700';
-      case 'expire':
+      case 'expired':
         return 'bg-gray-100 text-gray-700';
       default:
         return 'bg-gray-100 text-gray-700';
@@ -235,15 +235,15 @@ export default function DocumentValidationPage() {
 
   const getStatusLabel = (status: VerificationStatus) => {
     switch (status) {
-      case 'en_attente':
+      case 'pending':
         return 'En attente';
-      case 'en_cours':
+      case 'in_progress':
         return 'En cours';
-      case 'approuve':
+      case 'approved':
         return 'Approuvé';
-      case 'rejete':
+      case 'rejected':
         return 'Rejeté';
-      case 'expire':
+      case 'expired':
         return 'Expiré';
       default:
         return status;
@@ -359,10 +359,10 @@ export default function DocumentValidationPage() {
               className="px-3 py-2 border border-[#EFEBE9] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#F16522]"
             >
               <option value="all">Tous les statuts</option>
-              <option value="en_attente">En attente</option>
-              <option value="en_cours">En cours</option>
-              <option value="approuve">Approuvés</option>
-              <option value="rejete">Rejetés</option>
+              <option value="pending">En attente</option>
+              <option value="in_progress">En cours</option>
+              <option value="approved">Approuvés</option>
+              <option value="rejected">Rejetés</option>
             </select>
             <select
               value={documentType}
@@ -462,9 +462,9 @@ export default function DocumentValidationPage() {
                         <span className="text-[#6B5A4E]">({doc.applicant.email})</span>
                         <span className={cn(
                           'px-2 py-0.5 rounded-full text-xs font-medium',
-                          doc.applicant.user_type === 'locataire' ? 'bg-blue-100 text-blue-700' :
-                          doc.applicant.user_type === 'proprietaire' ? 'bg-green-100 text-green-700' :
-                          doc.applicant.user_type === 'agence' ? 'bg-purple-100 text-purple-700' :
+                          doc.applicant.user_type === 'tenant' ? 'bg-blue-100 text-blue-700' :
+                          doc.applicant.user_type === 'owner' ? 'bg-green-100 text-green-700' :
+                          doc.applicant.user_type === 'agency' ? 'bg-purple-100 text-purple-700' :
                           'bg-gray-100 text-gray-700'
                         )}>
                           {doc.applicant.user_type}

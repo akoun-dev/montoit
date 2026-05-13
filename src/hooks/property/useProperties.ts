@@ -5,7 +5,7 @@ import type { Database } from '@/shared/lib/database.types';
 type PropertyInsert = Database['public']['Tables']['properties']['Insert'];
 type PropertyUpdate = Database['public']['Tables']['properties']['Update'];
 
-export function useProperties(filters?: any) {
+export function useProperties(filters?: unknown) {
   return useQuery({
     queryKey: ['properties', filters],
     queryFn: () => propertyApi.getAll(filters),

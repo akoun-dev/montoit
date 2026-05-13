@@ -70,7 +70,7 @@ export default function OwnerDashboardContent() {
         .from('lease_contracts')
         .select('monthly_rent, status')
         .eq('owner_id', user.id)
-        .in('status', ['actif', 'en_cours', 'signé']);
+        .in('status', ['active']);
 
       if (!leasesError && leasesData) {
         const totalRevenue = leasesData.reduce((sum, lease) => sum + (lease.monthly_rent || 0), 0);
@@ -87,7 +87,7 @@ export default function OwnerDashboardContent() {
           .from('rental_applications')
           .select('id', { count: 'exact', head: true })
           .in('property_id', propertyIds)
-          .eq('status', 'en_attente');
+          .eq('status', 'pending');
 
         if (!appsError) {
           setApplicationStats({ pendingCount: count || 0 });
@@ -101,13 +101,16 @@ export default function OwnerDashboardContent() {
   };
 
   const getStatusBadge = (status: string | null) => {
+    const normalizedStatus = status ? status.toLowerCase() : 'available';
     const statusConfig: Record<string, { label: string; className: string }> = {
-      disponible: { label: 'Disponible', className: 'bg-green-100 text-green-700' },
-      loué: { label: 'Loué', className: 'bg-blue-100 text-blue-700' },
-      indisponible: { label: 'Indisponible', className: 'bg-gray-100 text-gray-700' },
-      en_attente: { label: 'En attente', className: 'bg-yellow-100 text-yellow-700' },
+      available: { label: 'Disponible', className: 'bg-green-100 text-green-700' },
+      rented: { label: 'Loué', className: 'bg-blue-100 text-blue-700' },
+      unavailable: { label: 'Indisponible', className: 'bg-gray-100 text-gray-700' },
+      pending: { label: 'En attente', className: 'bg-yellow-100 text-yellow-700' },
+      maintenance: { label: 'Maintenance', className: 'bg-red-100 text-red-700' },
+      inactive: { label: 'Inactif', className: 'bg-gray-100 text-gray-700' },
     };
-    const config = statusConfig[status || 'disponible'] || {
+    const config = statusConfig[normalizedStatus] || {
       label: status || 'Inconnu',
       className: 'bg-gray-100 text-gray-700',
     };

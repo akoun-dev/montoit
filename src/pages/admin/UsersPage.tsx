@@ -60,7 +60,7 @@ export default function AdminUsersPage() {
 
   // Vérification accès admin
   const userType = profile?.user_type?.toLowerCase();
-  const isAdmin = userType === 'admin_ansut' || userType === 'admin';
+  const isAdmin = userType === 'admin' || userType === 'admin';
 
   // Redirection si pas admin
   useEffect(() => {
@@ -245,9 +245,7 @@ export default function AdminUsersPage() {
               roles.map((role) => {
                 const roleConfig: Record<string, { label: string; color: string }> = {
                   admin: { label: 'Admin', color: 'bg-red-100 text-red-800' },
-                  moderator: { label: 'Modérateur', color: 'bg-blue-100 text-blue-800' },
-                  trust_agent: { label: 'Trust Agent', color: 'bg-purple-100 text-purple-800' },
-                  user: { label: 'User', color: 'bg-gray-100 text-gray-800' },
+                  trust_agent: { label: 'Tiers de confiance', color: 'bg-purple-100 text-purple-800' },
                 };
                 const config = roleConfig[role.role] || { label: role.role, color: 'bg-gray-100 text-gray-800' };
                 return (
@@ -514,10 +512,10 @@ export default function AdminUsersPage() {
             className="px-4 py-2 border border-[#EFEBE9] rounded-xl focus:ring-2 focus:ring-[#F16522] focus:border-[#F16522]"
           >
             <option value="">Tous les types</option>
-            <option value="locataire">Locataire</option>
-            <option value="proprietaire">Propriétaire</option>
-            <option value="agence">Agence</option>
-            <option value="trust_agent">Trust Agent</option>
+            <option value="tenant">Locataire</option>
+            <option value="owner">Propriétaire</option>
+            <option value="agency">Agence</option>
+            <option value="trust_agent">Tiers de confiance</option>
             <option value="admin">Admin</option>
           </select>
           <select
@@ -533,9 +531,11 @@ export default function AdminUsersPage() {
             className="px-4 py-2 border border-[#EFEBE9] rounded-xl focus:ring-2 focus:ring-[#F16522] focus:border-[#F16522]"
           >
             <option value="">Tous les statuts</option>
-            <option value="verified">Vérifié</option>
-            <option value="not_started">Non vérifié</option>
+            <option value="approved">Approuvé</option>
             <option value="pending">En attente</option>
+            <option value="in_progress">En cours</option>
+            <option value="rejected">Rejeté</option>
+            <option value="expired">Expiré</option>
           </select>
           <select
             value={filters.status || ''}

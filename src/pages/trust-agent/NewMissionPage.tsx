@@ -82,7 +82,7 @@ export default function NewMissionPage() {
       const { data, error } = await supabase
         .from('properties')
         .select('id, title, address, city, owner_id')
-        .eq('status', 'disponible')
+        .eq('status', 'available')
         .order('created_at', { ascending: false });
 
       if (error) throw error;

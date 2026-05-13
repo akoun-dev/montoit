@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { FileText, Eye, Edit, X, CheckCircle, Pen } from 'lucide-react';
+import { FileText, Eye, Edit, X, CheckCircle, Pen, Ban, Loader2 } from 'lucide-react';
 import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
+import TerminateLeaseModal from './TerminateLeaseModal';
 
 interface Contract {
   id: string;
@@ -45,6 +46,9 @@ export default function MyContracts() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'pending' | 'expired'>('all');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [terminateModalOpen, setTerminateModalOpen] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -52,7 +56,7 @@ export default function MyContracts() {
     }
   }, [user, filter]);
 
-  const loadContracts = async () => {
+  const loadContracts = useCallback(async () => {
     try {
       let query = supabase
         .from('lease_contracts')
@@ -79,18 +83,18 @@ export default function MyContracts() {
         .order('created_at', { ascending: false });
 
       if (filter === 'active') {
-        query = query.eq('status', 'actif');
+        query = query.eq('status', 'active');
       } else if (filter === 'pending') {
-        query = query.in('status', ['brouillon', 'en_attente_signature']);
+        query = query.in('status', ['draft', 'pending_signature']);
       } else if (filter === 'expired') {
-        query = query.in('status', ['expire', 'resilie', 'annule']);
+        query = query.in('status', ['expired', 'terminated', 'cancelled']);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      const formattedContracts = (data || []).map((contract: any) => ({
+      const formattedContracts = (data || []).map((contract: Contract) => ({
         id: contract.id,
         contract_number: contract.contract_number,
         property_id: contract.property_id,
@@ -114,25 +118,76 @@ export default function MyContracts() {
     } finally {
       setLoading(false);
     }
+  }, [user, filter, setLoading, setContracts]);
+
+  useEffect(() => {
+    if (user) {
+      loadContracts();
+    }
+  }, [user, loadContracts]);
+
+  const canCancelContract = (contract: Contract) => {
+    // Can cancel if contract is in draft, pending_signature, or even active (with conditions)
+    const cancellableStatuses = ['draft', 'pending_signature'];
+    return cancellableStatuses.includes(contract.status);
+  };
+
+  const canTerminateContract = (contract: Contract) => {
+    // Tenants can terminate active contracts
+    return contract.status === 'active' && contract.tenant_id === user?.id;
+  };
+
+  const handleTerminateContract = (contract: Contract) => {
+    setSelectedContract(contract);
+    setTerminateModalOpen(true);
+  };
+
+  const handleTerminationSuccess = () => {
+    loadContracts();
+  };
+
+  const handleCancelContract = async (contractId: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir annuler ce contrat ? Cette action est irréversible.')) {
+      return;
+    }
+
+    try {
+      setCancellingId(contractId);
+
+      const { error } = await supabase
+        .from('lease_contracts')
+        .update({ status: 'cancelled' })
+        .eq('id', contractId);
+
+      if (error) throw error;
+
+      // Reload contracts after cancellation
+      await loadContracts();
+    } catch (error) {
+      console.error('Error cancelling contract:', error);
+      alert('Erreur lors de l\'annulation du contrat');
+    } finally {
+      setCancellingId(null);
+    }
   };
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      brouillon: 'bg-gray-100 text-gray-800',
-      en_attente_signature: 'bg-yellow-100 text-yellow-800',
-      actif: 'bg-green-100 text-green-800',
-      expire: 'bg-red-100 text-red-800',
-      resilie: 'bg-red-100 text-red-800',
-      annule: 'bg-red-100 text-red-800',
+      draft: 'bg-gray-100 text-gray-800',
+      pending_signature: 'bg-yellow-100 text-yellow-800',
+      active: 'bg-green-100 text-green-800',
+      expired: 'bg-red-100 text-red-800',
+      terminated: 'bg-red-100 text-red-800',
+      cancelled: 'bg-red-100 text-red-800',
     };
 
     const labels = {
-      brouillon: 'Brouillon',
-      en_attente_signature: 'En attente',
-      actif: 'Actif',
-      expire: 'Expiré',
-      resilie: 'Résilié',
-      annule: 'Annulé',
+      draft: 'Brouillon',
+      pending_signature: 'En attente',
+      active: 'Actif',
+      expired: 'Expiré',
+      terminated: 'Résilié',
+      cancelled: 'Annulé',
     };
 
     return (
@@ -160,7 +215,7 @@ export default function MyContracts() {
 
   if (!user) {
     return (
-      <TenantDashboardLayout title="Mes Contrats">
+      <TenantDashboardLayout title="Mes Contrats" icon={<FileText className="h-5 w-5" />} description="Gérez vos contrats de bail">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <FileText className="w-16 h-16 text-neutral-400 mx-auto mb-4" />
@@ -173,12 +228,12 @@ export default function MyContracts() {
   }
 
   return (
-    <TenantDashboardLayout title="Mes Contrats">
+    <TenantDashboardLayout title="Mes Contrats" icon={<FileText className="h-5 w-5" />} description="Gérez vos contrats de bail">
       <div className="w-full">
         {/* Header Banner */}
-        <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
+        <div className="bg-[#2C1810] rounded-[20px] p-4 sm:p-6 mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div className="hidden lg:flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center flex-shrink-0">
                 <FileText className="h-6 w-6 text-white" />
               </div>
@@ -188,7 +243,7 @@ export default function MyContracts() {
               </div>
             </div>
 
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-1.5 sm:gap-2 flex-wrap">
               <button
                 onClick={() => setFilter('all')}
                 className={`px-4 py-2 rounded-xl font-semibold transition ${
@@ -246,16 +301,16 @@ export default function MyContracts() {
         ) : (
           <div className="space-y-6">
             {contracts.map((contract) => (
-              <div key={contract.id} className="bg-white rounded-lg shadow-lg overflow-hidden">
+              <div key={contract.id} className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
                 <div className="flex flex-col md:flex-row">
                   <div className="md:w-1/4">
                     <img
                       src={contract.property.main_image || 'https://via.placeholder.com/400x300'}
                       alt={contract.property.title}
-                      className="w-full h-48 md:h-full object-cover"
+                      className="w-full h-36 sm:h-48 md:h-full object-cover"
                     />
                   </div>
-                  <div className="flex-1 p-6">
+                  <div className="flex-1 p-4 sm:p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div>
                         <div className="flex items-center space-x-3 mb-2">
@@ -273,7 +328,7 @@ export default function MyContracts() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Type</p>
                         <p className="text-sm font-semibold text-gray-900">
@@ -339,14 +394,14 @@ export default function MyContracts() {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-3">
-                      <a
-                        href={`/locataire/contrat/${contract.id}`}
+                    <div className="flex flex-wrap gap-2 sm:gap-3">
+                      <button
+                        onClick={() => navigate(`/locataire/contrat/${contract.id}`)}
                         className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition flex items-center space-x-2"
                       >
                         <Eye className="w-4 h-4" />
                         <span>Voir le contrat</span>
-                      </a>
+                      </button>
 
                       {/* Bouton Signer le contrat si pas encore signé par l'utilisateur */}
                       {(() => {
@@ -354,22 +409,12 @@ export default function MyContracts() {
                           (isOwner(contract) && !contract.owner_signed_at) ||
                           (!isOwner(contract) && !contract.tenant_signed_at);
 
-                        // Afficher un badge de debug pour comprendre pourquoi le bouton ne s'affiche pas
-                        console.log('Contract debug:', {
-                          id: contract.id,
-                          userId: user?.id,
-                          isOwner: isOwner(contract),
-                          ownerSigned: !!contract.owner_signed_at,
-                          tenantSigned: !!contract.tenant_signed_at,
-                          needsToSign,
-                        });
-
                         return needsToSign ? (
                           <button
                             onClick={() => navigate(
                               isOwner(contract)
-                                ? `/proprietaire/signer-contrat/${contract.id}`
-                                : `/locataire/signer-bail/${contract.id}`
+                                ? `/proprietaire/contrats/${contract.id}`
+                                : `/locataire/contrat/${contract.id}`
                             )}
                             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2"
                           >
@@ -379,14 +424,44 @@ export default function MyContracts() {
                         ) : null;
                       })()}
 
-                      {contract.status === 'brouillon' && isOwner(contract) && (
-                        <a
-                          href={`/locataire/contrat/${contract.id}/editer`}
+                      {contract.status === 'draft' && isOwner(contract) && (
+                        <button
+                          onClick={() => navigate(`/locataire/contrat/${contract.id}/editer`)}
                           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center space-x-2"
                         >
                           <Edit className="w-4 h-4" />
                           <span>Modifier</span>
-                        </a>
+                        </button>
+                      )}
+
+                      {canCancelContract(contract) && (
+                        <button
+                          onClick={() => handleCancelContract(contract.id)}
+                          disabled={cancellingId === contract.id}
+                          className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {cancellingId === contract.id ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Annulation...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Ban className="w-4 h-4" />
+                              <span>Annuler</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                      {canTerminateContract(contract) && (
+                        <button
+                          onClick={() => handleTerminateContract(contract)}
+                          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition flex items-center space-x-2"
+                        >
+                          <Ban className="w-4 h-4" />
+                          <span>Résilier le bail</span>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -396,6 +471,23 @@ export default function MyContracts() {
           </div>
         )}
       </div>
+
+      {/* Terminate Lease Modal */}
+      {selectedContract && (
+        <TerminateLeaseModal
+          isOpen={terminateModalOpen}
+          onClose={() => {
+            setTerminateModalOpen(false);
+            setSelectedContract(null);
+          }}
+          onSubmit={handleTerminationSuccess}
+          contractId={selectedContract.id}
+          propertyTitle={selectedContract.property.title}
+          contractNumber={selectedContract.contract_number}
+          startDate={selectedContract.start_date}
+          endDate={selectedContract.end_at}
+        />
+      )}
     </TenantDashboardLayout>
   );
 }

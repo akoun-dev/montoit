@@ -26,7 +26,6 @@ import {
   Shield,
   Activity,
   Download,
-  Filter,
   RefreshCw,
   Ban,
   User,
@@ -40,7 +39,12 @@ import { LoadingSpinner } from '@/shared/ui/loading-spinner';
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export default function SecurityMonitoringPage() {
-  const [metrics, setMetrics] = useState<any>(null);
+  const [metrics, setMetrics] = useState<{
+    totalAttempts: number;
+    blockedAttempts: number;
+    failedLogins: number;
+    suspiciousActivity: number;
+  } | null>(null);
   const [loading, setIsLoading] = useState(true);
   const [timeRange, setTimeRange] = useState(24); // hours
 
@@ -48,13 +52,14 @@ export default function SecurityMonitoringPage() {
     loadMetrics();
     const interval = setInterval(loadMetrics, 60000); // Rafraîchir chaque minute
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeRange]);
 
   const loadMetrics = async () => {
     try {
       const data = await securityMonitoring.getSecurityMetrics(timeRange);
       setMetrics(data);
-    } catch (error: any) {
+    } catch {
       toast.error('Erreur lors du chargement des métriques');
     } finally {
       setIsLoading(false);
@@ -95,7 +100,7 @@ export default function SecurityMonitoringPage() {
       URL.revokeObjectURL(url);
 
       toast.success('Export réussi');
-    } catch (error: any) {
+    } catch {
       toast.error("Erreur lors de l'export");
     }
   };
@@ -286,7 +291,7 @@ export default function SecurityMonitoringPage() {
                     <XAxis type="number" />
                     <YAxis dataKey="name" type="category" />
                     <Tooltip />
-                    <Bar dataKey="value" fill={(entry: any) => entry.color} />
+                    <Bar dataKey="value" fill={(entry: { color: string }) => entry.color} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -359,7 +364,7 @@ export default function SecurityMonitoringPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {metrics.blockedIPs.map((block: any, index: number) => (
+                    {metrics.blockedIPs.map((block: { ip: string; blockedAt: string; reason: string }, index: number) => (
                       <TableRow key={index}>
                         <TableCell className="font-mono">{block.ip}</TableCell>
                         <TableCell>{formatDate(new Date(block.blockedAt))}</TableCell>
@@ -394,7 +399,7 @@ export default function SecurityMonitoringPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {metrics?.topOffenders?.map((offender: any, index: number) => (
+                  {metrics?.topOffenders?.map((offender: { ip?: string; userId?: string; count: number }, index: number) => (
                     <TableRow key={index}>
                       <TableCell>
                         {offender.ip ? (

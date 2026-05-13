@@ -120,7 +120,7 @@ export const queryKeys = {
   properties: {
     all: ['properties'] as const,
     lists: () => [...queryKeys.properties.all, 'list'] as const,
-    list: (filters?: any) => [...queryKeys.properties.lists(), { filters }] as const,
+    list: (filters?: unknown) => [...queryKeys.properties.lists(), { filters }] as const,
     details: () => [...queryKeys.properties.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.properties.details(), id] as const,
     featured: () => [...queryKeys.properties.all, 'featured'] as const,
@@ -128,7 +128,7 @@ export const queryKeys = {
   contracts: {
     all: ['contracts'] as const,
     lists: () => [...queryKeys.contracts.all, 'list'] as const,
-    list: (filters?: any) => [...queryKeys.contracts.lists(), { filters }] as const,
+    list: (filters?: unknown) => [...queryKeys.contracts.lists(), { filters }] as const,
     details: () => [...queryKeys.contracts.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.contracts.details(), id] as const,
   },
@@ -151,7 +151,7 @@ export const queryKeys = {
   payments: {
     all: ['payments'] as const,
     lists: () => [...queryKeys.payments.all, 'list'] as const,
-    list: (filters?: any) => [...queryKeys.payments.lists(), { filters }] as const,
+    list: (filters?: unknown) => [...queryKeys.payments.lists(), { filters }] as const,
     details: () => [...queryKeys.payments.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.payments.details(), id] as const,
     pending: () => [...queryKeys.payments.all, 'pending'] as const,

@@ -15,7 +15,7 @@ import {
 import { useAuth } from '@/app/providers/AuthProvider';
 
 interface QuickAction {
-  icon: any;
+  icon: unknown;
   label: string;
   href: string;
   color: string;
@@ -162,11 +162,11 @@ export default function ProfileQuickActions() {
 
   const getActions = () => {
     switch (profile?.user_type) {
-      case 'proprietaire':
+      case 'owner':
         return getOwnerActions();
-      case 'agence':
+      case 'agency':
         return getAgencyActions();
-      case 'locataire':
+      case 'tenant':
       default:
         return getTenantActions();
     }
@@ -223,7 +223,7 @@ export default function ProfileQuickActions() {
               <p className="text-gray-600 text-xs mb-3">
                 Vérifiez votre identité via ONECI pour débloquer toutes les fonctionnalités et
                 gagner la confiance des{' '}
-                {profile?.user_type === 'locataire' ? 'propriétaires' : 'locataires'}.
+                {profile?.user_type === 'tenant' ? 'propriétaires' : 'locataires'}.
               </p>
               <a
                 href="/verification"

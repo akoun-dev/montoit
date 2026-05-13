@@ -5,40 +5,28 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// ============= User Type Mapping Utilities =============
+// ============= User Type Utilities =============
 
-export const USER_TYPE_FR_TO_EN = {
-  locataire: 'tenant',
-  proprietaire: 'owner',
-  agence: 'agent',
-  tenant: 'tenant',
-  owner: 'owner',
-  agent: 'agent',
-} as const;
-
-export const USER_TYPE_EN_TO_FR = {
-  tenant: 'locataire',
-  owner: 'proprietaire',
-  agent: 'agence',
-} as const;
-
-export type UserTypeFr = 'locataire' | 'proprietaire' | 'agence';
-export type UserTypeEn = 'tenant' | 'owner' | 'agent';
-export type UserTypeAny = UserTypeFr | UserTypeEn;
+export type UserTypeEn = 'tenant' | 'owner' | 'agency' | 'trust_agent' | 'admin';
+export type UserTypeAny = UserTypeEn;
 
 export function normalizeUserType(userType: string | undefined | null): UserTypeEn {
   if (!userType) return 'tenant';
-  const normalized = USER_TYPE_FR_TO_EN[userType as keyof typeof USER_TYPE_FR_TO_EN];
-  return normalized || 'tenant';
+  const normalized = userType.toLowerCase();
+  if (
+    normalized === 'tenant' ||
+    normalized === 'owner' ||
+    normalized === 'agency' ||
+    normalized === 'trust_agent' ||
+    normalized === 'admin'
+  ) {
+    return normalized as UserTypeEn;
+  }
+  return 'tenant';
 }
 
-export function translateUserType(userType: string | undefined | null): UserTypeFr {
-  if (!userType) return 'locataire';
-  if (['locataire', 'proprietaire', 'agence'].includes(userType)) {
-    return userType as UserTypeFr;
-  }
-  const translated = USER_TYPE_EN_TO_FR[userType as keyof typeof USER_TYPE_EN_TO_FR];
-  return translated || 'locataire';
+export function translateUserType(userType: string | undefined | null): UserTypeEn {
+  return normalizeUserType(userType);
 }
 
 export function isUserType(userType: string | undefined | null, ...types: UserTypeAny[]): boolean {

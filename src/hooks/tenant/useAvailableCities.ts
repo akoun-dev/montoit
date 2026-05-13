@@ -29,7 +29,7 @@ export function useAvailableCities(): UseAvailableCitiesResult {
         const { data, error } = await supabase
           .from('properties')
           .select('city, property_type')
-          .eq('status', 'disponible');
+          .eq('status', 'available');
 
         if (error) throw error;
 

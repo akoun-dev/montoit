@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
-// New Trust Agent UI Components
+// New Tiers de confiance UI Components
 import { KPICard, EmptyState, TrustAgentPageHeader } from '@/shared/ui/trust-agent';
 import { Badge } from '@/shared/ui/badge';
 
@@ -48,10 +48,10 @@ type FilterType =
   | 'partial'
   | 'oneci'
   | 'facial'
-  | 'locataire'
-  | 'proprietaire'
-  | 'agence'
-  | 'admin_ansut'
+  | 'tenant'
+  | 'owner'
+  | 'agency'
+  | 'admin'
   | 'trust_agent';
 
 // Status configurations
@@ -81,28 +81,28 @@ const VERIFICATION_STATUS_CONFIG = {
 
 const USER_TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> =
   {
-    locataire: {
+    tenant: {
       label: 'Locataire',
       icon: HomeIcon,
       color: 'bg-blue-100 text-blue-700 border-blue-200',
     },
-    proprietaire: {
+    owner: {
       label: 'Propriétaire',
       icon: Building2,
       color: 'bg-purple-100 text-purple-700 border-purple-200',
     },
-    agence: {
+    agency: {
       label: 'Agence',
       icon: Briefcase,
       color: 'bg-orange-100 text-orange-700 border-orange-200',
     },
-    admin_ansut: {
-      label: 'Admin ANSUT',
+    admin: {
+      label: 'Admin',
       icon: Shield,
       color: 'bg-red-100 text-red-700 border-red-200',
     },
     trust_agent: {
-      label: 'Agent de confiance',
+      label: 'Tiers de confiance',
       icon: UserCheck,
       color: 'bg-green-100 text-green-700 border-green-200',
     },
@@ -160,10 +160,10 @@ export default function CertifiedUsersListPage() {
       case 'facial':
         filtered = users.filter((u) => u.facial_verification_status !== 'none');
         break;
-      case 'locataire':
-      case 'proprietaire':
-      case 'agence':
-      case 'admin_ansut':
+      case 'tenant':
+      case 'owner':
+      case 'agency':
+      case 'admin':
       case 'trust_agent':
         filtered = users.filter((u) => u.user_type === activeFilter);
         break;
@@ -317,20 +317,20 @@ export default function CertifiedUsersListPage() {
 
   const userTypeFilters = [
     {
-      id: 'locataire',
+      id: 'tenant',
       label: 'Locataires',
-      count: users.filter((u) => u.user_type === 'locataire').length,
+      count: users.filter((u) => u.user_type === 'tenant').length,
     },
     {
-      id: 'proprietaire',
+      id: 'owner',
       label: 'Propriétaires',
-      count: users.filter((u) => u.user_type === 'proprietaire').length,
+      count: users.filter((u) => u.user_type === 'owner').length,
     },
-    { id: 'agence', label: 'Agences', count: users.filter((u) => u.user_type === 'agence').length },
+    { id: 'agency', label: 'Agences', count: users.filter((u) => u.user_type === 'agency').length },
     {
-      id: 'admin_ansut',
+      id: 'admin',
       label: 'Admins',
-      count: users.filter((u) => u.user_type === 'admin_ansut').length,
+      count: users.filter((u) => u.user_type === 'admin').length,
     },
     {
       id: 'trust_agent',

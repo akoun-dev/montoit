@@ -68,7 +68,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
       (async () => {
-        console.log('Auth state changed:', _event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
@@ -85,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
       clearTimeout(loadingTimeout);
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadProfile = async (userId: string, retryCount = 0) => {
     const MAX_RETRIES = 3; // Reduced retries to avoid long loading times
@@ -118,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (healthError) {
           logger.warn(
             'Health check failed, continuing with profile load',
-            healthError instanceof Error ? healthError : undefined
+            healthError instanceof Error ? { error: healthError.message } : undefined
           );
         }
       }
@@ -245,16 +244,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return false;
 
+      const rawUserType = userData.user.user_metadata?.['user_type'];
+      const normalizedUserType = rawUserType ? translateUserType(rawUserType) : null;
+      const fullName = userData.user.user_metadata?.['full_name'] || null;
+      const phone = userData.user.phone || userData.user.user_metadata?.['phone'] || null;
+
       const { error } = await supabase.from('profiles').upsert(
         {
-          id: userId,
-          user_id: userId,
-          email: userData.user.email,
-          full_name: userData.user.user_metadata?.['full_name'] || '',
-          user_type: translateUserType(userData.user.user_metadata?.['user_type']),
-          phone: userData.user.user_metadata?.['phone'] || '',
+          full_name: fullName,
+          user_type: normalizedUserType,
+          phone,
         },
-        { onConflict: 'id' }
+        { onConflict: 'ignore' }
       );
 
       if (error) {
@@ -301,6 +302,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) return { error };
 
+      // Create profile immediately after successful signup using Edge Function
+      if (data.user) {
+        try {
+          const supabaseUrl = import.meta.env['VITE_SUPABASE_URL'] || import.meta.env['VITE_PUBLIC_SUPABASE_URL'];
+          const supabaseAnonKey = import.meta.env['VITE_SUPABASE_ANON_KEY'];
+
+          if (supabaseUrl && supabaseAnonKey) {
+            const profileResponse = await fetch(`${supabaseUrl}/functions/v1/create-user-profile`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${supabaseAnonKey}`,
+                apikey: supabaseAnonKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userId: data.user.id,
+                email: data.user.email,
+                full_name: userData.full_name,
+                user_type: normalizeUserType(userData.user_type) || 'tenant',
+                phone: userData.phone || null,
+              }),
+            });
+
+            if (profileResponse.ok) {
+              await profileResponse.json();
+            } else {
+              const errorData = await profileResponse.json();
+              console.error('[AuthProvider] Error creating profile via Edge Function:', errorData);
+            }
+          }
+        } catch (profileError) {
+          console.error('[AuthProvider] Exception calling create-user-profile:', profileError);
+        }
+      }
+
       // SECURITY FIX: If a session was auto-created (because enable_confirmations=false),
       // sign out the user immediately to prevent auto-login after registration.
       // Users should only be able to sign in after email confirmation.
@@ -309,19 +345,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Send OTP email for verification
         try {
-          const { data: { session: adminSession } } = await supabase.auth.admin.getSession();
-          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-otp`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${adminSession?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email,
-              purpose: 'email_verification',
-            }),
-          });
+          const supabaseUrl = import.meta.env['VITE_SUPABASE_URL'] || import.meta.env['VITE_PUBLIC_SUPABASE_URL'];
+          const supabaseAnonKey = import.meta.env['VITE_SUPABASE_ANON_KEY'];
+
+          if (supabaseUrl && supabaseAnonKey) {
+            await fetch(`${supabaseUrl}/functions/v1/send-verification-otp`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${supabaseAnonKey}`,
+                apikey: supabaseAnonKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                email,
+                purpose: 'email_verification',
+              }),
+            });
+          }
         } catch (emailError) {
           console.error('Failed to send verification email:', emailError);
           // Continue even if email fails - user can request another OTP
@@ -330,8 +370,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return {
           error: null,
           requiresConfirmation: true,
-          message: 'Compte créé avec succès. Un code de vérification a été envoyé à votre adresse email.',
-          email: email
+          message:
+            'Compte créé avec succès. Un code de vérification a été envoyé à votre adresse email.',
+          email: email,
         };
       }
 
@@ -339,19 +380,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data.user && !data.session) {
         // Send OTP email for verification
         try {
-          const { data: { session: adminSession } } = await supabase.auth.admin.getSession();
-          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verification-otp`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${adminSession?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email,
-              purpose: 'email_verification',
-            }),
-          });
+          const supabaseUrl = import.meta.env['VITE_SUPABASE_URL'] || import.meta.env['VITE_PUBLIC_SUPABASE_URL'];
+          const supabaseAnonKey = import.meta.env['VITE_SUPABASE_ANON_KEY'];
+
+          if (supabaseUrl && supabaseAnonKey) {
+            await fetch(`${supabaseUrl}/functions/v1/send-verification-otp`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${supabaseAnonKey}`,
+                apikey: supabaseAnonKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                email,
+                purpose: 'email_verification',
+              }),
+            });
+          }
         } catch (emailError) {
           console.error('Failed to send verification email:', emailError);
         }
@@ -359,8 +404,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return {
           error: null,
           requiresConfirmation: true,
-          message: 'Compte créé avec succès. Un code de vérification a été envoyé à votre adresse email.',
-          email: email
+          message:
+            'Compte créé avec succès. Un code de vérification a été envoyé à votre adresse email.',
+          email: email,
         };
       }
 
@@ -412,20 +458,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     try {
-      // Utiliser la méthode native de Supabase pour la réinitialisation du mot de passe
+      // Utiliser la méthode native Supabase pour éviter les problèmes CORS
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reinitialiser-mot-de-passe`,
       });
 
       if (error) {
-        logger.error('Error resetting password', error);
-        return {
-          error: {
-            message: error.message || "Erreur lors de l'envoi de l'email de réinitialisation",
-            status: error.status || 500,
-            name: 'AuthError',
-          } as AuthError,
-        };
+        logger.error('Password reset error', error);
+        return { error };
       }
 
       return { error: null };

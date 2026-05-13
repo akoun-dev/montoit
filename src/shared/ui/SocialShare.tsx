@@ -62,7 +62,7 @@ export default function SocialShare({
           url: fullUrl,
         });
         toast.success('Partagé avec succès!');
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error.name !== 'AbortError') {
           handleCopyLink();
         }
@@ -163,7 +163,7 @@ export function CompactSocialShare({ url, title }: { url: string; title: string 
     if (navigator.share) {
       try {
         await navigator.share({ title, url: fullUrl });
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (error.name !== 'AbortError') {
           await navigator.clipboard.writeText(fullUrl);
           toast.success('Lien copié!');

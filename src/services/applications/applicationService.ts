@@ -54,6 +54,79 @@ export interface ApplicationWithDetails {
   } | null;
 }
 
+type VerificationApplicationLite = {
+  user_id: string;
+  status: string | null;
+  dossier_type: string | null;
+  verification_status?: unknown;
+  submitted_at?: string | null;
+  created_at?: string | null;
+};
+
+const DOSSIER_TYPE_ALIASES = ['tenant', 'locataire'];
+
+const matchesDossierType = (value?: string | null) => {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return DOSSIER_TYPE_ALIASES.some((alias) => normalized.includes(alias));
+};
+
+const fetchApprovedTenantIds = async (tenantIds: string[]): Promise<Set<string>> => {
+  if (!tenantIds.length) return new Set();
+
+  const approvedTenantIds = new Set<string>();
+
+  const { data, error } = await supabase
+    .from('verification_applications')
+    .select('user_id, status, dossier_type, verification_status, submitted_at, created_at')
+    .in('user_id', tenantIds)
+    .order('submitted_at', { ascending: false });
+
+  if (error) {
+    console.warn('Failed to load verification dossiers for applications filter', error);
+  }
+
+  (data as VerificationApplicationLite[] | null)?.forEach((row) => {
+    if (!matchesDossierType(row.dossier_type)) {
+      return;
+    }
+
+    const status = row.status;
+    const verificationStatus =
+      typeof row.verification_status === 'string'
+        ? row.verification_status
+        : typeof row.verification_status === 'object' && row.verification_status
+          ? (row.verification_status as { status?: string })?.status
+          : null;
+
+    if (status === 'approved' || verificationStatus === 'approved') {
+      approvedTenantIds.add(row.user_id);
+    }
+  });
+
+  const remainingTenantIds = tenantIds.filter((id) => !approvedTenantIds.has(id));
+  if (remainingTenantIds.length > 0) {
+    const { data: legacyData, error: legacyError } = await supabase
+      .from('tenant_applications')
+      .select('user_id, verification_status')
+      .in('user_id', remainingTenantIds);
+
+    if (legacyError) {
+      console.warn('Failed to load legacy tenant applications for filter', legacyError);
+    } else {
+      (legacyData as { user_id: string; verification_status: string | null }[] | null)?.forEach(
+        (row) => {
+          if (row.verification_status === 'approved') {
+            approvedTenantIds.add(row.user_id);
+          }
+        }
+      );
+    }
+  }
+
+  return approvedTenantIds;
+};
+
 /**
  * Récupère toutes les candidatures des propriétés d'un propriétaire
  */
@@ -111,25 +184,59 @@ export async function getOwnerApplications(
     return [];
   }
 
+  const applicantIds = [...new Set(applications.map((a) => a.tenant_id))];
+  const approvedTenantIds = await fetchApprovedTenantIds(applicantIds);
+  const visibleApplications = applications.filter((app) => approvedTenantIds.has(app.tenant_id));
+
+  if (visibleApplications.length === 0) {
+    return [];
+  }
+
   // Récupérer les détails des propriétés
-  const uniquePropertyIds = [...new Set(applications.map((a) => a.property_id))];
-  const { data: propertiesData } = await supabase
+  const uniquePropertyIds = [...new Set(visibleApplications.map((a) => a.property_id))];
+  let propertiesData: Array<Record<string, unknown>> | null = null;
+  const { data: propertiesViewData, error: propertiesViewError } = await supabase
     .from('properties_with_monthly_rent')
     .select('id, title, city, neighborhood, monthly_rent, main_image')
     .in('id', uniquePropertyIds);
 
+  if (propertiesViewError) {
+    console.warn('properties_with_monthly_rent unavailable, fallback to properties', {
+      error: propertiesViewError,
+    });
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('properties')
+      .select('id, title, city, neighborhood, price, main_image')
+      .in('id', uniquePropertyIds);
+
+    if (fallbackError) {
+      console.error('Fallback properties query failed', fallbackError);
+    } else {
+      propertiesData = (fallbackData || []).map((p) => ({
+        ...p,
+        monthly_rent: p.monthly_rent ?? p.price ?? null,
+      }));
+    }
+  } else {
+    propertiesData = propertiesViewData || [];
+  }
+
   const propertiesMap = new Map(propertiesData?.map((p) => [p.id, p]) || []);
 
   // Récupérer les profils des candidats via RPC
-  const applicantIds = [...new Set(applications.map((a) => a.tenant_id))];
-  const { data: profilesData } = await supabase.rpc('get_public_profiles', {
+  const { data: profilesData, error: profilesError } = await supabase.rpc('get_public_profiles', {
     profile_user_ids: applicantIds,
   });
+  if (profilesError) {
+    console.warn('get_public_profiles failed, using profiles fallback', profilesError);
+  }
 
-  // Récupérer les emails depuis profiles
+  // Récupérer les profils complets (fallback si RPC incomplet)
   const { data: fullProfiles } = await supabase
     .from('profiles')
-    .select('user_id, email, phone')
+    .select(
+      'id, email, phone, full_name, avatar_url, trust_score, is_verified, oneci_verified, facial_verification_status'
+    )
     .in('id', applicantIds);
 
   const profilesMap = new Map(
@@ -145,33 +252,33 @@ export async function getOwnerApplications(
       }) => [p.user_id ?? p.id, p]
     )
   );
-  const emailsMap = new Map(
-    fullProfiles?.map((p) => [p.id, { email: p.email, phone: p.phone }]) || []
+  const fallbackProfilesMap = new Map(
+    (fullProfiles || []).map((p) => [p.id, p])
   );
 
   // Map pour suivre les contrats existants (par property_id + tenant_id)
   // Comme application_id n'existe pas, on cherche par combinaison property+tenant
   const existingContractIds = new Map<string, string>(); // key -> contract_id
-  if (applications && applications.length > 0) {
-    const uniquePropertyIds = [...new Set(applications.map((a) => a.property_id))];
+  if (visibleApplications && visibleApplications.length > 0) {
+    const uniquePropertyIds = [...new Set(visibleApplications.map((a) => a.property_id))];
 
     const { data: allContracts } = await supabase
       .from('lease_contracts')
       .select('id, property_id, tenant_id, status')
       .in('property_id', uniquePropertyIds);
 
-    allContracts?.forEach((contract: any) => {
+    allContracts?.forEach((contract: { id: string; property_id: string; tenant_id: string }) => {
       const key = `${contract.property_id}-${contract.tenant_id}`;
       existingContractIds.set(key, contract.id);
     });
   }
 
   // Combiner les données
-  let result: ApplicationWithDetails[] = applications
+  let result: ApplicationWithDetails[] = visibleApplications
     .filter((app) => app.status !== null) // Filter out null status
     .map((app) => {
-      const profile = profilesMap.get(app.tenant_id);
-      const emailData = emailsMap.get(app.tenant_id);
+      const profile = profilesMap.get(app.tenant_id) || fallbackProfilesMap.get(app.tenant_id);
+      const emailData = fallbackProfilesMap.get(app.tenant_id);
 
       // Vérifier si un contrat existe pour cette combinaison property+tenant
       const contractKey = `${app.property_id}-${app.tenant_id}`;
@@ -189,17 +296,29 @@ export async function getOwnerApplications(
         property: propertiesMap.get(app.property_id) || null,
         applicant: profile
           ? {
-              user_id: profile.user_id,
-              id: profile.id,
-              full_name: profile.full_name,
+              user_id: profile.user_id ?? app.tenant_id,
+              id: profile.id ?? app.tenant_id,
+              full_name: profile.full_name ?? emailData?.full_name ?? null,
               email: emailData?.email || null,
               phone: emailData?.phone || null,
-              avatar_url: profile.avatar_url,
-              trust_score: profile.trust_score,
-              is_verified: profile.is_verified,
-              oneci_verified: profile.oneci_verified,
+              avatar_url: profile.avatar_url ?? emailData?.avatar_url ?? null,
+              trust_score: profile.trust_score ?? emailData?.trust_score ?? null,
+              is_verified: profile.is_verified ?? emailData?.is_verified ?? null,
+              oneci_verified: profile.oneci_verified ?? emailData?.oneci_verified ?? null,
             }
-          : null,
+          : emailData
+            ? {
+                user_id: app.tenant_id,
+                id: app.tenant_id,
+                full_name: emailData.full_name ?? null,
+                email: emailData.email || null,
+                phone: emailData.phone || null,
+                avatar_url: emailData.avatar_url ?? null,
+                trust_score: emailData.trust_score ?? null,
+                is_verified: emailData.is_verified ?? null,
+                oneci_verified: emailData.oneci_verified ?? null,
+              }
+            : null,
       };
     });
 
@@ -234,19 +353,23 @@ export async function getApplicationStats(ownerId: string): Promise<ApplicationS
 
   const { data: applications } = await supabase
     .from('rental_applications')
-    .select('status')
+    .select('status, tenant_id')
     .in('property_id', propertyIds);
 
   if (!applications) {
     return { total: 0, pending: 0, inProgress: 0, accepted: 0, rejected: 0 };
   }
 
+  const applicantIds = [...new Set(applications.map((a) => a.tenant_id))];
+  const approvedTenantIds = await fetchApprovedTenantIds(applicantIds);
+  const visibleApplications = applications.filter((a) => approvedTenantIds.has(a.tenant_id));
+
   return {
-    total: applications.length,
-    pending: applications.filter((a) => a.status === 'en_attente').length,
-    inProgress: applications.filter((a) => a.status === 'en_cours').length,
-    accepted: applications.filter((a) => a.status === 'acceptee').length,
-    rejected: applications.filter((a) => a.status === 'refusee').length,
+    total: visibleApplications.length,
+    pending: visibleApplications.filter((a) => a.status === 'pending').length,
+    inProgress: visibleApplications.filter((a) => a.status === 'in_progress').length,
+    accepted: visibleApplications.filter((a) => a.status === 'accepted').length,
+    rejected: visibleApplications.filter((a) => a.status === 'rejected').length,
   };
 }
 
@@ -256,7 +379,7 @@ export async function getApplicationStats(ownerId: string): Promise<ApplicationS
 export async function acceptApplication(applicationId: string): Promise<void> {
   const { error } = await supabase
     .from('rental_applications')
-    .update({ status: 'acceptee', updated_at: new Date().toISOString() })
+    .update({ status: 'accepted', updated_at: new Date().toISOString() })
     .eq('id', applicationId);
 
   if (error) {
@@ -264,23 +387,23 @@ export async function acceptApplication(applicationId: string): Promise<void> {
     throw error;
   }
 
-  // Envoyer notification
-  await supabase.functions.invoke('send-lease-notifications', {
-    body: {
-      type: 'application_accepted',
-      applicationId,
-    },
-  });
+  // Envoyer notification via le service dédié aux candidatures
+  try {
+    const { notifyApplicationAccepted } = await import('@/services/notifications/applicationNotificationService');
+    await notifyApplicationAccepted(applicationId);
+  } catch (notifError) {
+    console.warn('[acceptApplication] Failed to send notification (non-critical):', notifError);
+  }
 }
 
 /**
  * Refuser une candidature
  */
-export async function rejectApplication(applicationId: string, _reason?: string): Promise<void> {
+export async function rejectApplication(applicationId: string): Promise<void> {
   const { error } = await supabase
     .from('rental_applications')
     .update({
-      status: 'refusee',
+      status: 'rejected',
       updated_at: new Date().toISOString(),
     })
     .eq('id', applicationId);
@@ -290,13 +413,13 @@ export async function rejectApplication(applicationId: string, _reason?: string)
     throw error;
   }
 
-  // Envoyer notification
-  await supabase.functions.invoke('send-lease-notifications', {
-    body: {
-      type: 'application_rejected',
-      applicationId,
-    },
-  });
+  // Envoyer notification via le service dédié aux candidatures
+  try {
+    const { notifyApplicationRejected } = await import('@/services/notifications/applicationNotificationService');
+    await notifyApplicationRejected(applicationId);
+  } catch (notifError) {
+    console.warn('[rejectApplication] Failed to send notification (non-critical):', notifError);
+  }
 }
 
 /**
@@ -305,7 +428,7 @@ export async function rejectApplication(applicationId: string, _reason?: string)
 export async function setApplicationInProgress(applicationId: string): Promise<void> {
   const { error } = await supabase
     .from('rental_applications')
-    .update({ status: 'en_cours', updated_at: new Date().toISOString() })
+    .update({ status: 'in_progress', updated_at: new Date().toISOString() })
     .eq('id', applicationId);
 
   if (error) {
@@ -320,7 +443,7 @@ export async function setApplicationInProgress(applicationId: string): Promise<v
 export async function reopenApplication(applicationId: string): Promise<void> {
   const { error } = await supabase
     .from('rental_applications')
-    .update({ status: 'en_attente', updated_at: new Date().toISOString() })
+    .update({ status: 'pending', updated_at: new Date().toISOString() })
     .eq('id', applicationId);
 
   if (error) {
@@ -337,10 +460,10 @@ export async function scheduleVisitFromApplication(
   visitData: {
     date: string;
     time: string;
-    type: 'physique' | 'virtuelle';
+    type: 'in_person' | 'virtual';
     notes?: string;
   }
-): Promise<void> {
+): Promise<string> {
   // Récupérer les détails de la candidature
   const { data: application, error: appError } = await supabase
     .from('rental_applications')
@@ -352,10 +475,10 @@ export async function scheduleVisitFromApplication(
     throw new Error('Candidature non trouvée');
   }
 
-  // Récupérer l'owner_id de la propriété
+  // Récupérer les détails complets de la propriété
   const { data: property, error: propError } = await supabase
     .from('properties')
-    .select('owner_id')
+    .select('owner_id, title, city, address')
     .eq('id', application.property_id)
     .single();
 
@@ -364,34 +487,48 @@ export async function scheduleVisitFromApplication(
   }
 
   // Créer la visite
-  const { error: visitError } = await supabase.from('visit_requests').insert({
-    property_id: application.property_id,
-    tenant_id: application.tenant_id,
-    owner_id: property.owner_id,
-    visit_date: visitData.date,
-    visit_time: visitData.time,
-    visit_type: visitData.type,
-    notes: visitData.notes,
-    status: 'confirmee',
-  });
+  const { data: visitDataResult, error: visitError } = await supabase
+    .from('visit_requests')
+    .insert({
+      property_id: application.property_id,
+      tenant_id: application.tenant_id,
+      owner_id: property.owner_id,
+      visit_date: visitData.date,
+      visit_time: visitData.time,
+      visit_type: visitData.type,
+      notes: visitData.notes,
+      status: 'confirmed',
+    })
+    .select('id')
+    .single();
 
   if (visitError) {
     console.error('Error creating visit:', visitError);
     throw visitError;
   }
 
+  const visitId = (visitDataResult as { id: string })?.id;
+
   // Mettre à jour le statut de la candidature
   await setApplicationInProgress(applicationId);
 
-  // Envoyer notification
-  await supabase.functions.invoke('send-lease-notifications', {
-    body: {
-      type: 'visit_scheduled',
-      applicationId,
-      visitDate: visitData.date,
-      visitTime: visitData.time,
-    },
-  });
+  // Envoyer notification de visite planifiée
+  try {
+    await supabase.functions.invoke('send-lease-notifications', {
+      body: {
+        visitId,
+        type: 'visit_scheduled',
+        visitDate: visitData.date,
+        visitTime: visitData.time,
+        propertyTitle: property.title,
+        propertyAddress: property.address || property.city,
+      },
+    });
+  } catch (notifError) {
+    console.warn('[scheduleVisit] Failed to send visit notification (non-critical):', notifError);
+  }
+
+  return visitId;
 }
 
 /**
@@ -445,6 +582,359 @@ export interface TenantApplicationWithDetails {
 }
 
 /**
+ * Récupère toutes les candidatures des biens gérés par une agence via mandats actifs
+ */
+export async function getAgencyApplications(
+  agencyId: string,
+  filters?: ApplicationFilters
+): Promise<ApplicationWithDetails[]> {
+  // D'abord, récupérer les IDs des propriétés gérées par l'agence via mandats actifs
+  const { data: mandates, error: mandatesError } = await supabase
+    .from('agency_mandates')
+    .select('property_id')
+    .eq('agency_id', agencyId)
+    .eq('status', 'active')
+    .eq('can_view_applications', true);
+
+  if (mandatesError) {
+    console.error('Error fetching agency mandates:', mandatesError);
+    throw mandatesError;
+  }
+
+  if (!mandates || mandates.length === 0) {
+    return [];
+  }
+
+  // Récupérer les biens gérés (soit via mandat avec property_id, soit via mandat tous_biens)
+  // Pour les mandats "tous_biens", on doit récupérer tous les biens du propriétaire
+  const propertyIds = mandates
+    .map((m) => m.property_id)
+    .filter((id): id is string => id !== null);
+
+  // Récupérer les propriétaires qui ont donné mandat "tous biens" à l'agence
+  const { data: allPropertiesMandates } = await supabase
+    .from('agency_mandates')
+    .select('owner_id')
+    .eq('agency_id', agencyId)
+    .eq('status', 'active')
+    .eq('mandate_scope', 'all_properties')
+    .eq('can_view_applications', true);
+
+  if (allPropertiesMandates && allPropertiesMandates.length > 0) {
+    const ownerIds = allPropertiesMandates.map((m) => m.owner_id);
+    const { data: ownerProperties } = await supabase
+      .from('properties')
+      .select('id')
+      .in('owner_id', ownerIds);
+
+    if (ownerProperties) {
+      ownerProperties.forEach((p) => {
+        if (!propertyIds.includes(p.id)) {
+          propertyIds.push(p.id);
+        }
+      });
+    }
+  }
+
+  if (propertyIds.length === 0) {
+    return [];
+  }
+
+  // Construire la requête de base
+  let query = supabase
+    .from('rental_applications')
+    .select(
+      `
+      id,
+      property_id,
+      tenant_id,
+      status,
+      application_message,
+      credit_score,
+      applied_at,
+      updated_at
+    `
+    )
+    .in('property_id', propertyIds)
+    .order('applied_at', { ascending: false });
+
+  // Appliquer les filtres
+  if (filters?.status && filters.status !== 'all') {
+    query = query.eq('status', filters.status);
+  }
+
+  if (filters?.propertyId && filters.propertyId !== 'all') {
+    query = query.eq('property_id', filters.propertyId);
+  }
+
+  const { data: applications, error } = await query;
+
+  if (error) {
+    console.error('Error fetching agency applications:', error);
+    throw error;
+  }
+
+  if (!applications || applications.length === 0) {
+    return [];
+  }
+
+  const applicantIds = [...new Set(applications.map((a) => a.tenant_id))];
+  const approvedTenantIds = await fetchApprovedTenantIds(applicantIds);
+  const visibleApplications = applications.filter((app) => approvedTenantIds.has(app.tenant_id));
+
+  if (visibleApplications.length === 0) {
+    return [];
+  }
+
+  // Récupérer les détails des propriétés
+  const uniquePropertyIds = [...new Set(visibleApplications.map((a) => a.property_id))];
+  let propertiesData: Array<Record<string, unknown>> | null = null;
+  const { data: propertiesViewData, error: propertiesViewError } = await supabase
+    .from('properties_with_monthly_rent')
+    .select('id, title, city, neighborhood, monthly_rent, main_image')
+    .in('id', uniquePropertyIds);
+
+  if (propertiesViewError) {
+    console.warn('properties_with_monthly_rent unavailable, fallback to properties', {
+      error: propertiesViewError,
+    });
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('properties')
+      .select('id, title, city, neighborhood, price, main_image')
+      .in('id', uniquePropertyIds);
+
+    if (fallbackError) {
+      console.error('Fallback properties query failed', fallbackError);
+    } else {
+      propertiesData = (fallbackData || []).map((p) => ({
+        ...p,
+        monthly_rent: p.monthly_rent ?? p.price ?? null,
+      }));
+    }
+  } else {
+    propertiesData = propertiesViewData || [];
+  }
+
+  const propertiesMap = new Map(propertiesData?.map((p) => [p.id, p]) || []);
+
+  // Récupérer les profils des candidats via RPC
+  const { data: profilesData, error: profilesError } = await supabase.rpc('get_public_profiles', {
+    profile_user_ids: applicantIds,
+  });
+  if (profilesError) {
+    console.warn('get_public_profiles failed, using profiles fallback', profilesError);
+  }
+
+  // Récupérer les profils complets (fallback si RPC incomplet)
+  const { data: fullProfiles } = await supabase
+    .from('profiles')
+    .select(
+      'id, email, phone, full_name, avatar_url, trust_score, is_verified, oneci_verified, facial_verification_status'
+    )
+    .in('id', applicantIds);
+
+  const profilesMap = new Map(
+    (profilesData || []).map(
+      (p: {
+        user_id: string;
+        id?: string;
+        full_name: string;
+        avatar_url: string;
+        trust_score: number;
+        is_verified: boolean;
+        oneci_verified: boolean;
+      }) => [p.user_id ?? p.id, p]
+    )
+  );
+  const fallbackProfilesMap = new Map(
+    (fullProfiles || []).map((p) => [p.id, p])
+  );
+
+  // Combiner les données
+  let result: ApplicationWithDetails[] = visibleApplications
+    .filter((app) => app.status !== null)
+    .map((app) => {
+      const profile = profilesMap.get(app.tenant_id) || fallbackProfilesMap.get(app.tenant_id);
+      const emailData = fallbackProfilesMap.get(app.tenant_id);
+
+      return {
+        ...app,
+        applicant_id: app.tenant_id,
+        status: app.status as string,
+        applied_at: app.applied_at,
+        created_at: app.applied_at,
+        contract_id: null,
+        contract_status: null,
+        property: propertiesMap.get(app.property_id) || null,
+        applicant: profile
+          ? {
+              user_id: profile.user_id ?? app.tenant_id,
+              id: profile.id ?? app.tenant_id,
+              full_name: profile.full_name ?? emailData?.full_name ?? null,
+              email: emailData?.email || null,
+              phone: emailData?.phone || null,
+              avatar_url: profile.avatar_url ?? emailData?.avatar_url ?? null,
+              trust_score: profile.trust_score ?? emailData?.trust_score ?? null,
+              is_verified: profile.is_verified ?? emailData?.is_verified ?? null,
+              oneci_verified: profile.oneci_verified ?? emailData?.oneci_verified ?? null,
+            }
+          : emailData
+            ? {
+                user_id: app.tenant_id,
+                id: app.tenant_id,
+                full_name: emailData.full_name ?? null,
+                email: emailData.email || null,
+                phone: emailData.phone || null,
+                avatar_url: emailData.avatar_url ?? null,
+                trust_score: emailData.trust_score ?? null,
+                is_verified: emailData.is_verified ?? null,
+                oneci_verified: emailData.oneci_verified ?? null,
+              }
+            : null,
+      };
+    });
+
+  // Filtrer par terme de recherche si présent
+  if (filters?.searchTerm) {
+    const term = filters.searchTerm.toLowerCase();
+    result = result.filter(
+      (app) =>
+        app.applicant?.full_name?.toLowerCase().includes(term) ||
+        app.applicant?.email?.toLowerCase().includes(term) ||
+        app.property?.title?.toLowerCase().includes(term)
+    );
+  }
+
+  return result;
+}
+
+/**
+ * Récupère les statistiques des candidatures d'une agence
+ */
+export async function getAgencyApplicationStats(agencyId: string): Promise<ApplicationStats> {
+  // Récupérer les IDs des propriétés gérées par l'agence
+  const { data: mandates } = await supabase
+    .from('agency_mandates')
+    .select('property_id')
+    .eq('agency_id', agencyId)
+    .eq('status', 'active')
+    .eq('can_view_applications', true);
+
+  if (!mandates || mandates.length === 0) {
+    return { total: 0, pending: 0, inProgress: 0, accepted: 0, rejected: 0 };
+  }
+
+  const propertyIds = mandates
+    .map((m) => m.property_id)
+    .filter((id): id is string => id !== null);
+
+  // Pour les mandats "tous biens"
+  const { data: allPropertiesMandates } = await supabase
+    .from('agency_mandates')
+    .select('owner_id')
+    .eq('agency_id', agencyId)
+    .eq('status', 'active')
+    .eq('mandate_scope', 'all_properties')
+    .eq('can_view_applications', true);
+
+  if (allPropertiesMandates && allPropertiesMandates.length > 0) {
+    const ownerIds = allPropertiesMandates.map((m) => m.owner_id);
+    const { data: ownerProperties } = await supabase
+      .from('properties')
+      .select('id')
+      .in('owner_id', ownerIds);
+
+    if (ownerProperties) {
+      ownerProperties.forEach((p) => {
+        if (!propertyIds.includes(p.id)) {
+          propertyIds.push(p.id);
+        }
+      });
+    }
+  }
+
+  if (propertyIds.length === 0) {
+    return { total: 0, pending: 0, inProgress: 0, accepted: 0, rejected: 0 };
+  }
+
+  const { data: applications } = await supabase
+    .from('rental_applications')
+    .select('status, tenant_id')
+    .in('property_id', propertyIds);
+
+  if (!applications) {
+    return { total: 0, pending: 0, inProgress: 0, accepted: 0, rejected: 0 };
+  }
+
+  const applicantIds = [...new Set(applications.map((a) => a.tenant_id))];
+  const approvedTenantIds = await fetchApprovedTenantIds(applicantIds);
+  const visibleApplications = applications.filter((a) => approvedTenantIds.has(a.tenant_id));
+
+  return {
+    total: visibleApplications.length,
+    pending: visibleApplications.filter((a) => a.status === 'pending').length,
+    inProgress: visibleApplications.filter((a) => a.status === 'in_progress').length,
+    accepted: visibleApplications.filter((a) => a.status === 'accepted').length,
+    rejected: visibleApplications.filter((a) => a.status === 'rejected').length,
+  };
+}
+
+/**
+ * Récupère les propriétés gérées par une agence (pour le filtre)
+ */
+export async function getAgencyProperties(
+  agencyId: string
+): Promise<{ id: string; title: string }[]> {
+  // Récupérer les biens via mandats actifs
+  const { data: mandates } = await supabase
+    .from('agency_mandates')
+    .select('property_id, owner_id, mandate_scope')
+    .eq('agency_id', agencyId)
+    .eq('status', 'active');
+
+  if (!mandates || mandates.length === 0) {
+    return [];
+  }
+
+  const propertyIds = mandates
+    .map((m) => m.property_id)
+    .filter((id): id is string => id !== null);
+
+  // Pour les mandats "tous biens", récupérer tous les biens des propriétaires concernés
+  const allPropertiesOwnerIds = mandates
+    .filter((m) => m.mandate_scope === 'all_properties')
+    .map((m) => m.owner_id);
+
+  if (allPropertiesOwnerIds.length > 0) {
+    const { data: ownerProperties } = await supabase
+      .from('properties')
+      .select('id, title')
+      .in('owner_id', allPropertiesOwnerIds);
+
+    if (ownerProperties) {
+      return ownerProperties || [];
+    }
+  }
+
+  if (propertyIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('properties')
+    .select('id, title')
+    .in('id', propertyIds)
+    .order('title');
+
+  if (error) {
+    console.error('Error fetching agency properties:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+/**
  * Récupère toutes les candidatures d'un locataire
  */
 export async function getTenantApplications(
@@ -488,10 +978,32 @@ export async function getTenantApplications(
 
   // Récupérer les détails des propriétés
   const uniquePropertyIds = [...new Set(applications.map((a) => a.property_id))];
-  const { data: propertiesData } = await supabase
+  let propertiesData: Array<Record<string, unknown>> | null = null;
+  const { data: propertiesViewData, error: propertiesViewError } = await supabase
     .from('properties_with_monthly_rent')
     .select('id, title, city, neighborhood, monthly_rent, main_image, owner_id')
     .in('id', uniquePropertyIds);
+
+  if (propertiesViewError) {
+    console.warn('properties_with_monthly_rent unavailable, fallback to properties', {
+      error: propertiesViewError,
+    });
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('properties')
+      .select('id, title, city, neighborhood, price, main_image, owner_id')
+      .in('id', uniquePropertyIds);
+
+    if (fallbackError) {
+      console.error('Fallback properties query failed', fallbackError);
+    } else {
+      propertiesData = (fallbackData || []).map((p) => ({
+        ...p,
+        monthly_rent: p.monthly_rent ?? p.price ?? null,
+      }));
+    }
+  } else {
+    propertiesData = propertiesViewData || [];
+  }
 
   const propertiesMap = new Map(propertiesData?.map((p) => [p.id, p]) || []);
 
@@ -572,10 +1084,10 @@ export async function getTenantApplicationStats(applicantId: string): Promise<Ap
 
   return {
     total: applications.length,
-    pending: applications.filter((a) => a.status === 'en_attente').length,
-    inProgress: applications.filter((a) => a.status === 'en_cours').length,
-    accepted: applications.filter((a) => a.status === 'acceptee').length,
-    rejected: applications.filter((a) => a.status === 'refusee').length,
+    pending: applications.filter((a) => a.status === 'pending').length,
+    inProgress: applications.filter((a) => a.status === 'in_progress').length,
+    accepted: applications.filter((a) => a.status === 'accepted').length,
+    rejected: applications.filter((a) => a.status === 'rejected').length,
   };
 }
 
@@ -585,7 +1097,7 @@ export async function getTenantApplicationStats(applicantId: string): Promise<Ap
 export async function cancelApplication(applicationId: string): Promise<void> {
   const { error } = await supabase
     .from('rental_applications')
-    .update({ status: 'annulee', updated_at: new Date().toISOString() })
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
     .eq('id', applicationId);
 
   if (error) {

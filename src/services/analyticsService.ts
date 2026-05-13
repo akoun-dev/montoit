@@ -150,7 +150,7 @@ export async function getUserStats(_period: AnalyticsPeriod = '30d'): Promise<Us
   const byType: ChartDataPoint[] = [
     { label: 'Locataires', value: 0, color: 'hsl(var(--primary))' },
     { label: 'Propriétaires', value: 0, color: 'hsl(var(--chart-2))' },
-    { label: 'Agents', value: 0, color: 'hsl(var(--chart-3))' },
+    { label: 'Agences', value: 0, color: 'hsl(var(--chart-3))' },
   ];
 
   let verifiedCount = 0;
@@ -162,7 +162,7 @@ export async function getUserStats(_period: AnalyticsPeriod = '30d'): Promise<Us
     const byType2 = byType[2];
     if (profile.user_type === 'tenant' && byType0) byType0.value++;
     else if (profile.user_type === 'owner' && byType1) byType1.value++;
-    else if (profile.user_type === 'agent' && byType2) byType2.value++;
+    else if (profile.user_type === 'agency' && byType2) byType2.value++;
 
     if (profile.is_verified) verifiedCount++;
 
@@ -227,12 +227,16 @@ export async function getPropertyStats(_period: AnalyticsPeriod = '30d'): Promis
     .map(([label, value]) => ({ label, value }));
 
   const typeLabels: Record<string, string> = {
-    appartement: 'Appartement',
-    maison: 'Maison',
-    villa: 'Villa',
+    apartment: 'Appartement',
+    house: 'Maison',
     studio: 'Studio',
+    villa: 'Villa',
     duplex: 'Duplex',
-    chambre: 'Chambre',
+    room: 'Chambre',
+    office: 'Bureau',
+    retail: 'Local commercial',
+    warehouse: 'Entrepôt',
+    land: 'Terrain',
   };
 
   const byType: ChartDataPoint[] = Object.entries(typeCount).map(([key, value]) => ({
@@ -241,9 +245,12 @@ export async function getPropertyStats(_period: AnalyticsPeriod = '30d'): Promis
   }));
 
   const statusLabels: Record<string, string> = {
-    disponible: 'Disponible',
-    loue: 'Loué',
-    reserve: 'Réservé',
+    available: 'Disponible',
+    rented: 'Loué',
+    pending: 'En attente',
+    unavailable: 'Indisponible',
+    maintenance: 'Maintenance',
+    inactive: 'Inactif',
   };
 
   const byStatus: ChartDataPoint[] = Object.entries(statusCount).map(([key, value]) => ({
@@ -266,7 +273,7 @@ export async function getPropertyStats(_period: AnalyticsPeriod = '30d'): Promis
   }
 
   const total = properties?.length ?? 0;
-  const rented = statusCount['loue'] ?? 0;
+  const rented = statusCount['rented'] ?? 0;
 
   return {
     byCity,
@@ -303,7 +310,7 @@ export async function getTransactionStats(
 
     if (payment.status) {
       statusCount[payment.status] = (statusCount[payment.status] ?? 0) + 1;
-      if (payment.status === 'en_attente') totalPending += payment.amount ?? 0;
+      if (payment.status === 'pending') totalPending += payment.amount ?? 0;
       if (payment.status === 'completed') totalCompleted += payment.amount ?? 0;
     }
   });
@@ -335,10 +342,13 @@ export async function getTransactionStats(
   }));
 
   const statusLabels: Record<string, string> = {
-    en_attente: 'En attente',
+    pending: 'En attente',
     completed: 'Complété',
     failed: 'Échoué',
     refunded: 'Remboursé',
+    overdue: 'En retard',
+    partial: 'Partiel',
+    cancelled: 'Annulé',
   };
 
   const byStatus: ChartDataPoint[] = Object.entries(statusCount).map(([key, value]) => ({

@@ -24,11 +24,15 @@ const AdminServiceConfiguration = lazyWithRetry(
 );
 const AdminDataGenerator = lazyWithRetry(() => import('@/pages/admin/TestDataGeneratorPage'));
 const AdminFeatureFlags = lazyWithRetry(() => import('@/pages/admin/FeatureFlagsPage'));
+const AdminNotifications = lazyWithRetry(() => import('@/pages/admin/NotificationsPage'));
+const AdminReviewModeration = lazyWithRetry(() => import('@/pages/admin/ReviewModerationPage'));
+const AdminDisputesManagement = lazyWithRetry(() => import('@/pages/admin/DisputesManagementPage'));
+const AdminReportsManagement = lazyWithRetry(() => import('@/pages/admin/ReportsManagementPage'));
 
 export const adminRoutes: RouteObject = {
   path: 'admin',
   element: (
-    <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.ADMIN_ANSUT]}>
+    <ProtectedRoute allowedRoles={[ROLES.ADMIN]}>
       <AdminLayout />
     </ProtectedRoute>
   ),
@@ -50,7 +54,11 @@ export const adminRoutes: RouteObject = {
     { path: 'logs', element: <AdminLogs /> },
     { path: 'service-providers', element: <AdminServiceProviders /> },
     { path: 'service-configuration', element: <AdminServiceConfiguration /> },
+    { path: 'notifications', element: <AdminNotifications /> },
     { path: 'test-data-generator', element: <AdminDataGenerator /> },
     { path: 'feature-flags', element: <AdminFeatureFlags /> },
+    { path: 'moderation-avis', element: <AdminReviewModeration /> },
+    { path: 'gestion-litiges', element: <AdminDisputesManagement /> },
+    { path: 'gestion-signalements', element: <AdminReportsManagement /> },
   ],
 };

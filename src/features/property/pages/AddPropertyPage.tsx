@@ -69,11 +69,11 @@ const AddPropertyPage: React.FC = () => {
                 <label className="block text-sm font-medium mb-1">Type de propriété *</label>
                 <select className="w-full p-3 border rounded-lg">
                   <option value="">Sélectionnez un type</option>
-                  <option value="appartement">Appartement</option>
-                  <option value="maison">Maison</option>
+                  <option value="apartment">Appartement</option>
+                  <option value="house">Maison</option>
                   <option value="villa">Villa</option>
-                  <option value="bureau">Bureau</option>
-                  <option value="commerce">Commerce</option>
+                  <option value="office">Bureau</option>
+                  <option value="retail">Commerce</option>
                 </select>
               </div>
               <div>

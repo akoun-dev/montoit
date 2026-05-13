@@ -14,7 +14,6 @@ import {
   AlertCircle,
   Clock,
   Loader2,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/shared/lib/utils';
@@ -39,7 +38,6 @@ export interface DocumentUploadCardProps {
 }
 
 export function DocumentUploadCard({
-  documentType,
   documentLabel,
   documentDescription,
   required = false,
@@ -72,13 +70,26 @@ export function DocumentUploadCard({
       return;
     }
 
+    // Validation du type MIME
+    const allowedTypes = accept.split(',').map((t) => t.trim());
+    const isTypeValid = allowedTypes.some((type) => {
+      if (type === 'image/*') return file.type.startsWith('image/');
+      if (type === 'application/pdf') return file.type === 'application/pdf';
+      return file.type === type;
+    });
+
+    if (!isTypeValid) {
+      toast.error('Type de fichier non autorisé');
+      return;
+    }
+
     try {
       setLocalUploading(true);
       await onUpload(file);
       toast.success('Document uploadé avec succès');
     } catch (error) {
       console.error('Error uploading document:', error);
-      toast.error('Erreur lors de l\'upload du document');
+      toast.error("Erreur lors de l'upload du document");
     } finally {
       setLocalUploading(false);
       if (e.target) e.target.value = '';
@@ -115,7 +126,7 @@ export function DocumentUploadCard({
 
   const getStatusConfig = () => {
     switch (status) {
-      case 'verified':
+      case 'approved':
         return {
           icon: CheckCircle,
           color: 'text-green-600',
@@ -178,20 +189,15 @@ export function DocumentUploadCard({
             {/* Content */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <h4 className="font-semibold text-gray-900">
-                  {documentLabel}
-                </h4>
-                {required && (
-                  <span className="text-red-500 text-xs">*</span>
-                )}
+                <h4 className="font-semibold text-gray-900">{documentLabel}</h4>
+                {required && <span className="text-red-500 text-xs">*</span>}
               </div>
               {documentDescription && (
-                <p className="text-sm text-gray-500 mt-1">
-                  {documentDescription}
-                </p>
+                <p className="text-sm text-gray-500 mt-1">{documentDescription}</p>
               )}
               <p className="text-xs text-gray-400 mt-2">
-                {accept.includes('pdf') ? 'PDF uniquement' : 'Image ou PDF'} - Max {maxSize / (1024 * 1024)}Mo
+                {accept.includes('pdf') ? 'PDF uniquement' : 'Image ou PDF'} - Max{' '}
+                {maxSize / (1024 * 1024)}Mo
               </p>
             </div>
 
@@ -210,11 +216,7 @@ export function DocumentUploadCard({
         <div className="flex items-center gap-4">
           {/* Status Icon */}
           <div
-            className={cn(
-              'p-3 rounded-xl flex-shrink-0',
-              statusConfig.bgColor,
-              statusConfig.color
-            )}
+            className={cn('p-3 rounded-xl flex-shrink-0', statusConfig.bgColor, statusConfig.color)}
           >
             <StatusIcon className="w-6 h-6" />
           </div>
@@ -222,18 +224,10 @@ export function DocumentUploadCard({
           {/* File Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h4 className="font-semibold text-gray-900 truncate">
-                {fileName || documentLabel}
-              </h4>
-              {required && (
-                <span className="text-red-500 text-xs">*</span>
-              )}
+              <h4 className="font-semibold text-gray-900 truncate">{fileName || documentLabel}</h4>
+              {required && <span className="text-red-500 text-xs">*</span>}
             </div>
-            {fileSize && (
-              <p className="text-sm text-gray-500">
-                {formatFileSize(fileSize)}
-              </p>
-            )}
+            {fileSize && <p className="text-sm text-gray-500">{formatFileSize(fileSize)}</p>}
           </div>
 
           {/* Actions */}

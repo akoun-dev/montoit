@@ -26,7 +26,7 @@ import { toast } from '@/hooks/shared/useSafeToast';
 import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { cn } from '@/shared/lib/utils';
 
-// New Trust Agent UI Components
+// New Tiers de confiance UI Components
 import {
   ProgressStepper,
   ActionCard,

@@ -77,47 +77,47 @@ interface Contract {
 
 interface Stats {
   total: number;
-  brouillon: number;
-  en_attente_signature: number;
-  actif: number;
-  expire: number;
-  resilie: number;
-  annule: number;
+  draft: number;
+  pending_signature: number;
+  active: number;
+  expired: number;
+  terminated: number;
+  cancelled: number;
 }
 
 // Status config
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any }> = {
-  brouillon: {
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: unknown }> = {
+  draft: {
     label: 'Brouillon',
     color: 'text-gray-700',
     bg: 'bg-gray-100',
     icon: FileText,
   },
-  en_attente_signature: {
+  pending_signature: {
     label: 'En attente',
     color: 'text-amber-700',
     bg: 'bg-amber-100',
     icon: Clock,
   },
-  actif: {
+  active: {
     label: 'Actif',
     color: 'text-green-700',
     bg: 'bg-green-100',
     icon: CheckCircle2,
   },
-  expire: {
+  expired: {
     label: 'Expiré',
     color: 'text-red-700',
     bg: 'bg-red-100',
     icon: XCircle,
   },
-  resilie: {
+  terminated: {
     label: 'Résilié',
     color: 'text-red-700',
     bg: 'bg-red-100',
     icon: XCircle,
   },
-  annule: {
+  cancelled: {
     label: 'Annulé',
     color: 'text-gray-700',
     bg: 'bg-gray-100',
@@ -127,15 +127,15 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
 
 const FILTER_OPTIONS = [
   { value: 'all', label: 'Tous' },
-  { value: 'brouillon', label: 'Brouillons' },
-  { value: 'en_attente_signature', label: 'En attente' },
-  { value: 'actif', label: 'Actifs' },
-  { value: 'expire', label: 'Expirés' },
+  { value: 'draft', label: 'Brouillons' },
+  { value: 'pending_signature', label: 'En attente' },
+  { value: 'active', label: 'Actifs' },
+  { value: 'expired', label: 'Expirés' },
 ];
 
 type TabValue = 'actifs' | 'resilies';
 
-const TAB_OPTIONS: { value: TabValue; label: string; icon: any }[] = [
+const TAB_OPTIONS: { value: TabValue; label: string; icon: unknown }[] = [
   { value: 'actifs', label: 'Contrats Actifs', icon: CheckCircle2 },
   { value: 'resilies', label: 'Résiliés', icon: Ban },
 ];
@@ -148,7 +148,7 @@ const StatCard = ({
   color = 'gray',
   onClick
 }: {
-  icon: any;
+  icon: unknown;
   label: string;
   value: string | number;
   color?: 'gray' | 'blue' | 'green' | 'orange' | 'purple' | 'red' | 'amber';
@@ -181,7 +181,8 @@ const StatCard = ({
 };
 
 const StatusBadge = ({ status }: { status: string }) => {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.brouillon;
+  const normalizedStatus = status;
+  const config = STATUS_CONFIG[normalizedStatus] || STATUS_CONFIG.draft;
   const Icon = config.icon;
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${config.bg} ${config.color}`}>
@@ -198,12 +199,12 @@ export default function OwnerContractsPage() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [stats, setStats] = useState<Stats>({
     total: 0,
-    brouillon: 0,
-    en_attente_signature: 0,
-    actif: 0,
-    expire: 0,
-    resilie: 0,
-    annule: 0,
+    draft: 0,
+    pending_signature: 0,
+    active: 0,
+    expired: 0,
+    terminated: 0,
+    cancelled: 0,
   });
   const [activeTab, setActiveTab] = useState<TabValue>('actifs');
   const [filter, setFilter] = useState('all');
@@ -263,9 +264,9 @@ export default function OwnerContractsPage() {
         profile_user_ids: tenantIds,
       });
 
-      const profilesMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+      const profilesMap = new Map((profiles || []).map((p: unknown) => [p.user_id, p]));
 
-      const contractsWithTenants = (data || []).map((contract: any) => ({
+      const contractsWithTenants = (data || []).map((contract: unknown) => ({
         ...contract,
         end_date: contract.end_at || contract.end_date,
         properties: contract.properties,
@@ -277,12 +278,12 @@ export default function OwnerContractsPage() {
       // Calculate stats
       const newStats: Stats = {
         total: contractsWithTenants.length,
-        brouillon: 0,
-        en_attente_signature: 0,
-        actif: 0,
-        expire: 0,
-        resilie: 0,
-        annule: 0,
+        draft: 0,
+        pending_signature: 0,
+        active: 0,
+        expired: 0,
+        terminated: 0,
+        cancelled: 0,
       };
       contractsWithTenants.forEach((c) => {
         const status = c.status as keyof Stats;
@@ -301,7 +302,8 @@ export default function OwnerContractsPage() {
 
   const filteredContracts = useMemo(() => {
     return contracts.filter((contract) => {
-      const matchesFilter = filter === 'all' || contract.status === filter;
+      const normalizedStatus = contract.status;
+      const matchesFilter = filter === 'all' || normalizedStatus === filter;
       const matchesSearch =
         searchQuery === '' ||
         contract.contract_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -328,7 +330,7 @@ export default function OwnerContractsPage() {
   };
 
   const handleDelete = async (contract: Contract) => {
-    if (contract.status !== 'brouillon') {
+    if (contract.status !== 'draft') {
       toast.error('Seuls les brouillons peuvent être supprimés');
       return;
     }
@@ -352,7 +354,7 @@ export default function OwnerContractsPage() {
     try {
       const { error } = await supabase
         .from('lease_contracts')
-        .update({ status: 'en_attente_signature' })
+        .update({ status: 'pending_signature' })
         .eq('id', contractId);
 
       if (error) throw error;
@@ -384,7 +386,7 @@ export default function OwnerContractsPage() {
       setSelectedContract(null);
       setReason('');
       loadContracts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error canceling contract:', error);
       toast.error(error.message || 'Erreur lors de l\'annulation');
     } finally {
@@ -409,7 +411,7 @@ export default function OwnerContractsPage() {
       setSelectedContract(null);
       setReason('');
       loadContracts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error terminating contract:', error);
       toast.error(error.message || 'Erreur lors de la résiliation');
     } finally {
@@ -453,7 +455,10 @@ export default function OwnerContractsPage() {
     });
   };
 
-  const getStatusConfig = (status: string) => STATUS_CONFIG[status] || STATUS_CONFIG.brouillon;
+  const getStatusConfig = (status: string) => {
+    const normalizedStatus = status;
+    return STATUS_CONFIG[normalizedStatus] || STATUS_CONFIG.draft;
+  };
 
   const getFileSignatureStatus = (contract: Contract) => {
     const bothSigned = contract.owner_signed_at && contract.tenant_signed_at;
@@ -500,16 +505,16 @@ export default function OwnerContractsPage() {
   }
 
   // Calculate financial stats
-  const activeContracts = contracts.filter((c) => c.status === 'actif');
+  const activeContracts = contracts.filter((c) => c.status === 'active');
   const totalRevenue = activeContracts.reduce((sum, c) => sum + c.monthly_rent, 0);
   const totalDeposits = activeContracts.reduce((sum, c) => sum + (c.deposit_amount || 0), 0);
 
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8">
+      <div className="bg-[#2C1810] rounded-2xl shadow-sm mb-8 hidden lg:block">
         <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-[#F16522] flex items-center justify-center">
                 <FileText className="h-7 w-7 text-white" />
@@ -529,6 +534,15 @@ export default function OwnerContractsPage() {
             </Link>
           </div>
         </div>
+      </div>
+      <div className="px-4 sm:px-6 mb-8 lg:hidden">
+        <Link
+          to={ROUTES.CONTRACTS.CREATE.split(':')[0]}
+          className="inline-flex items-center gap-2 bg-[#F16522] hover:bg-[#d9571d] text-white px-6 py-3 rounded-xl font-medium transition-colors"
+        >
+          <Plus className="h-5 w-5" />
+          <span>Nouveau contrat</span>
+        </Link>
       </div>
 
       <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-12">
@@ -551,12 +565,12 @@ export default function OwnerContractsPage() {
                 {tab.label}
                 {tab.value === 'actifs' && (
                   <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-full text-xs">
-                    {stats.actif}
+                    {stats.active}
                   </span>
                 )}
                 {tab.value === 'resilies' && (
                   <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-full text-xs">
-                    {stats.resilie + stats.annule}
+                    {stats.terminated + stats.cancelled}
                   </span>
                 )}
               </button>
@@ -578,31 +592,31 @@ export default function OwnerContractsPage() {
               <StatCard
                 icon={FileText}
                 label="Brouillons"
-                value={stats.brouillon}
+                value={stats.draft}
                 color="gray"
               />
               <StatCard
                 icon={Clock}
                 label="En attente"
-                value={stats.en_attente_signature}
+                value={stats.pending_signature}
                 color="amber"
               />
               <StatCard
                 icon={CheckCircle2}
                 label="Actifs"
-                value={stats.actif}
+                value={stats.active}
                 color="green"
               />
               <StatCard
                 icon={XCircle}
                 label="Expirés"
-                value={stats.expire}
+                value={stats.expired}
                 color="red"
               />
               <StatCard
                 icon={Ban}
                 label="Résiliés"
-                value={stats.resilie}
+                value={stats.terminated}
                 color="red"
               />
             </div>
@@ -826,7 +840,7 @@ export default function OwnerContractsPage() {
                                 </Button>
                               )}
 
-                              {contract.status === 'brouillon' && (
+                              {contract.status === 'draft' && (
                                 <>
                                   <Button
                                     variant="outline"
@@ -870,7 +884,7 @@ export default function OwnerContractsPage() {
                                 </>
                               )}
 
-                              {contract.status === 'en_attente_signature' && (
+                              {contract.status === 'pending_signature' && (
                                 <>
                                   <Button
                                     variant="outline"
@@ -903,7 +917,7 @@ export default function OwnerContractsPage() {
                                 </>
                               )}
 
-                              {contract.status === 'actif' && (
+                              {contract.status === 'active' && (
                                 <>
                                   <Button
                                     variant="outline"

@@ -8,7 +8,7 @@ export interface ContactSubmission {
   phone?: string | null;
   subject?: string | null;
   message: string;
-  status?: 'nouveau' | 'en_cours' | 'resolu' | 'ferme' | null;
+  status?: 'nouveau' | 'in_progress' | 'resolu' | 'ferme' | null;
   submitted_at?: string | null;
   resolved_at?: string | null;
 }
@@ -81,7 +81,7 @@ class ContactService {
 
   async updateContactStatus(
     id: string,
-    status: 'nouveau' | 'en_cours' | 'resolu' | 'ferme'
+    status: 'nouveau' | 'in_progress' | 'resolu' | 'ferme'
   ): Promise<ContactServiceResponse<ContactSubmission>> {
     try {
       const updateData: Record<string, unknown> = { status };

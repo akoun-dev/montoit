@@ -38,15 +38,14 @@ export default function QuickSearch({ onSearch }: QuickSearchProps) {
   const [city, setCity] = useState('');
   const [commune, setCommune] = useState('');
   const [propertyType, setPropertyType] = useState('');
-  const [propertyCategory, setPropertyCategory] = useState<'residentiel' | 'commercial' | ''>(
-    'residentiel'
+  const [propertyCategory, setPropertyCategory] = useState<'residential' | 'commercial' | ''>(
+    'residential'
   );
   const [maxBudget, setMaxBudget] = useState('');
   const [useGeolocation, setUseGeolocation] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [searchRadius, setSearchRadius] = useState<number>(GEOLOCATION_SETTINGS.DEFAULT_RADIUS);
-  const [_showAdvanced, _setShowAdvanced] = useState(false);
 
   const cities = ['Toutes les villes', ...CITIES];
 
@@ -223,7 +222,7 @@ export default function QuickSearch({ onSearch }: QuickSearchProps) {
             </div>
           </div>
 
-          {user && profile?.user_type === 'proprietaire' && (
+          {user && profile?.user_type === 'owner' && (
             <button
               onClick={handlePublish}
               className="hidden md:flex items-center space-x-2 px-6 py-3 bg-terracotta-600 text-white rounded-xl hover:bg-terracotta-700 transition-all hover:scale-105 shadow-lg font-medium"
@@ -339,9 +338,9 @@ export default function QuickSearch({ onSearch }: QuickSearchProps) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setPropertyCategory('residentiel')}
+                onClick={() => setPropertyCategory('residential')}
                 className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 ${
-                  propertyCategory === 'residentiel'
+                  propertyCategory === 'residential'
                     ? 'bg-terracotta-600 text-white shadow-md'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 }`}
@@ -444,7 +443,7 @@ export default function QuickSearch({ onSearch }: QuickSearchProps) {
           </div>
         </div>
 
-        {user && profile?.user_type === 'proprietaire' && (
+        {user && profile?.user_type === 'owner' && (
           <button
             onClick={handlePublish}
             className="md:hidden mt-4 w-full flex items-center justify-center space-x-2 px-6 py-3 border-2 border-terracotta-600 text-terracotta-600 rounded-xl hover:bg-terracotta-50 transition-all font-medium"

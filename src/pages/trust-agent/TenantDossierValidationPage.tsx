@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -20,6 +20,9 @@ import {
   MapPin,
   Badge,
   AlertTriangle,
+  PlusCircle,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/badge';
@@ -96,6 +99,12 @@ interface DocumentRequirement {
   notes: string | null;
 }
 
+interface AdditionalDocumentRequest {
+  type: string;
+  description: string;
+  required: boolean;
+}
+
 // Configuration
 const VERIFICATION_STEPS = [
   { id: 'identity', label: 'Identité', icon: User },
@@ -130,6 +139,11 @@ export default function TenantDossierValidationPage() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
+  const [showAdditionalDocsDialog, setShowAdditionalDocsDialog] = useState(false);
+  const [additionalDocs, setAdditionalDocs] = useState<AdditionalDocumentRequest[]>([]);
+  const [deadlineDays, setDeadlineDays] = useState(7);
+  const [additionalDocsNotes, setAdditionalDocsNotes] = useState('');
+  const [validityDuration, setValidityDuration] = useState(6); // Default 6 months
 
   // Document preview state
   const [previewDocument, setPreviewDocument] = useState<{ url: string; title: string } | null>(null);
@@ -138,9 +152,9 @@ export default function TenantDossierValidationPage() {
     if (id) {
       loadDossier(id);
     }
-  }, [id]);
+  }, [id, loadDossier]);
 
-  const loadDossier = async (dossierId: string) => {
+  const loadDossier = useCallback(async (dossierId: string) => {
     try {
       setLoading(true);
       // Fetch tenant dossier from tenant_applications table
@@ -175,7 +189,7 @@ export default function TenantDossierValidationPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, navigate, setDossier, setLoading]);
 
   const getDocumentRequirements = (): DocumentRequirement[] => {
     if (!dossier) return [];
@@ -239,7 +253,7 @@ export default function TenantDossierValidationPage() {
     ];
   };
 
-  const handleDocumentVerification = async (docId: string, verified: boolean, notes?: string) => {
+  const handleDocumentVerification = async (docId: string, verified: boolean, _notes?: string) => {
     if (!dossier) return;
 
     try {
@@ -292,8 +306,43 @@ export default function TenantDossierValidationPage() {
 
       if (error) throw error;
 
-      toast.success('Dossier approuvé avec succès');
+      // Envoyer la notification d'approbation
+      try {
+        const { notificationService } = await import('@/services/notification.service');
+
+        // Calculer le trust score
+        const { ScoringService } = await import('@/services/scoringService');
+        const scoreBreakdown = await ScoringService.calculateGlobalTrustScore(dossier.user_id);
+
+        await notificationService.sendVerificationDecisionNotification({
+          userId: dossier.user_id,
+          dossierType: 'tenant',
+          decision: 'approved',
+          dossierId: dossier.id,
+          trustScore: scoreBreakdown.globalScore,
+          validityDurationMonths: validityDuration,
+        });
+      } catch (notifError) {
+        console.warn('Notification non envoyée:', notifError);
+        // Ne pas bloquer si la notification échoue
+      }
+
+      // Créer la validité de certification avec la durée sélectionnée
+      try {
+        const { verificationValidityService } = await import('@/services/verificationValidity.service');
+        await verificationValidityService.createValidity({
+          userId: dossier.user_id,
+          verificationType: 'tenant_dossier',
+          verificationId: dossier.id,
+          customDurationMonths: validityDuration,
+        });
+      } catch (validityError) {
+        console.warn('Validité non créée:', validityError);
+      }
+
+      toast.success(`Dossier approuvé pour une durée de ${validityDuration} mois`);
       setShowApprovalDialog(false);
+      setValidityDuration(6); // Reset to default
       loadDossier(dossier.id);
     } catch (error) {
       console.error('Error approving dossier:', error);
@@ -317,6 +366,21 @@ export default function TenantDossierValidationPage() {
 
       if (error) throw error;
 
+      // Envoyer la notification de rejet
+      try {
+        const { notificationService } = await import('@/services/notification.service');
+        await notificationService.sendVerificationDecisionNotification({
+          userId: dossier.user_id,
+          dossierType: 'tenant',
+          decision: 'rejected',
+          dossierId: dossier.id,
+          reason: rejectionReason,
+        });
+      } catch (notifError) {
+        console.warn('Notification non envoyée:', notifError);
+        // Ne pas bloquer si la notification échoue
+      }
+
       toast.success('Dossier rejeté');
       setShowRejectDialog(false);
       setRejectionReason('');
@@ -325,6 +389,54 @@ export default function TenantDossierValidationPage() {
       console.error('Error rejecting dossier:', error);
       toast.error('Erreur lors du rejet');
     }
+  };
+
+  const handleRequestAdditionalDocs = async () => {
+    if (!dossier || !user?.id) return;
+
+    if (additionalDocs.length === 0) {
+      toast.error('Veuillez ajouter au moins un type de document');
+      return;
+    }
+
+    try {
+      const { additionalDocumentsService } = await import('@/services/additionalDocuments.service');
+
+      await additionalDocumentsService.createRequest({
+        applicationId: dossier.id,
+        requestedBy: user.id,
+        documents: additionalDocs,
+        deadlineDays,
+        notes: additionalDocsNotes,
+      });
+
+      toast.success('Demande de documents envoyée avec succès');
+      setShowAdditionalDocsDialog(false);
+      setAdditionalDocs([]);
+      setAdditionalDocsNotes('');
+      setDeadlineDays(7);
+      loadDossier(dossier.id);
+    } catch (error) {
+      console.error('Error requesting additional documents:', error);
+      toast.error('Erreur lors de la demande de documents');
+    }
+  };
+
+  const addDocumentRequest = () => {
+    setAdditionalDocs([
+      ...additionalDocs,
+      { type: '', description: '', required: true },
+    ]);
+  };
+
+  const removeDocumentRequest = (index: number) => {
+    setAdditionalDocs(additionalDocs.filter((_, i) => i !== index));
+  };
+
+  const updateDocumentRequest = (index: number, field: keyof AdditionalDocumentRequest, value: string | boolean) => {
+    const updated = [...additionalDocs];
+    updated[index] = { ...updated[index], [field]: value };
+    setAdditionalDocs(updated);
   };
 
   if (loading) {
@@ -385,6 +497,10 @@ export default function TenantDossierValidationPage() {
             <div className="flex items-center gap-2">
               {dossier.verification_status === 'pending' || dossier.verification_status === 'in_review' ? (
                 <>
+                  <Button variant="outline" onClick={() => setShowAdditionalDocsDialog(true)} className="text-amber-600 border-amber-200 hover:bg-amber-50">
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Demander documents
+                  </Button>
                   <Button variant="outline" onClick={() => setShowRejectDialog(true)} className="text-red-600 border-red-200 hover:bg-red-50">
                     <XCircle className="h-4 w-4 mr-2" />
                     Rejeter
@@ -781,7 +897,7 @@ export default function TenantDossierValidationPage() {
           <DialogHeader>
             <DialogTitle>Approuver ce dossier</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-4">
             <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg">
               <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
               <div>
@@ -794,13 +910,43 @@ export default function TenantDossierValidationPage() {
             </div>
 
             {progress < 100 && (
-              <div className="mt-4 p-4 bg-amber-50 rounded-lg">
+              <div className="p-4 bg-amber-50 rounded-lg">
                 <AlertTriangle className="h-5 w-5 text-amber-600 mb-2" />
                 <p className="text-sm text-amber-700">
                   Attention: Tous les documents ne sont pas vérifiés. Progression: {progress}%
                 </p>
               </div>
             )}
+
+            {/* Validity Duration Selector */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                Durée de validité du dossier
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {[3, 6, 12].map((months) => (
+                  <button
+                    key={months}
+                    type="button"
+                    onClick={() => setValidityDuration(months)}
+                    className={`
+                      p-3 rounded-lg border-2 transition-all
+                      ${validityDuration === months
+                        ? 'border-primary bg-primary/5 text-primary font-medium'
+                        : 'border-muted bg-background hover:border-primary/50'
+                      }
+                    `}
+                  >
+                    <div className="text-lg font-semibold">{months}</div>
+                    <div className="text-xs text-muted-foreground">mois</div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Le candidat sera notifié 30 jours avant l'expiration de son dossier.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowApprovalDialog(false)}>
@@ -808,7 +954,7 @@ export default function TenantDossierValidationPage() {
             </Button>
             <Button onClick={handleApprove} className="bg-green-600 hover:bg-green-700">
               <CheckCircle2 className="h-4 w-4 mr-2" />
-              Approuver le dossier
+              Approuver pour {validityDuration} mois
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -869,6 +1015,116 @@ export default function TenantDossierValidationPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Additional Documents Request Dialog */}
+      <Dialog open={showAdditionalDocsDialog} onOpenChange={setShowAdditionalDocsDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Demander des documents complémentaires
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Demandez des documents supplémentaires pour compléter le dossier de {dossier?.full_name}.
+            </p>
+
+            {/* Documents list */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Documents demandés</label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="small"
+                  onClick={addDocumentRequest}
+                >
+                  <PlusCircle className="h-4 w-4 mr-1" />
+                  Ajouter
+                </Button>
+              </div>
+
+              {additionalDocs.length === 0 ? (
+                <div className="text-center py-8 bg-muted rounded-lg">
+                  <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    Aucun document demandé. Cliquez sur "Ajouter" pour commencer.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {additionalDocs.map((doc, index) => (
+                    <div key={index} className="flex gap-2 items-start p-3 border rounded-lg">
+                      <div className="flex-1 space-y-2">
+                        <Input
+                          placeholder="Type de document (ex: justificatif_domicile)"
+                          value={doc.type}
+                          onChange={(e) => updateDocumentRequest(index, 'type', e.target.value)}
+                        />
+                        <Input
+                          placeholder="Description (ex: Facture d'électricité des 3 derniers mois)"
+                          value={doc.description}
+                          onChange={(e) => updateDocumentRequest(index, 'description', e.target.value)}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="small"
+                        className="mt-2 text-red-600 hover:text-red-700"
+                        onClick={() => removeDocumentRequest(index)}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Deadline */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">Délai de réponse</label>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={deadlineDays}
+                  onChange={(e) => setDeadlineDays(parseInt(e.target.value) || 7)}
+                  className="w-24"
+                />
+                <span className="text-sm text-muted-foreground">jours</span>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">Notes pour l'utilisateur (optionnel)</label>
+              <Textarea
+                placeholder="Expliquez pourquoi ces documents sont nécessaires..."
+                value={additionalDocsNotes}
+                onChange={(e) => setAdditionalDocsNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAdditionalDocsDialog(false)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handleRequestAdditionalDocs}
+              disabled={additionalDocs.length === 0}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Envoyer la demande
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

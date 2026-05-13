@@ -1,5 +1,6 @@
 // Export all service modules
 export * from './ai';
+export * from './auth';
 export * from './azure';
 export * from './mandates';
 export * from './validation';

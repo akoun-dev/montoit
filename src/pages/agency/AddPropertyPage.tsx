@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -16,11 +16,10 @@ import {
   Bed,
   Bath,
   Maximize,
-  Euro,
+  Banknote,
   User,
   Phone,
   Mail,
-  Image as ImageIcon,
   X,
   Upload,
 } from 'lucide-react';
@@ -48,7 +47,7 @@ interface Mandate {
   commission_rate: number;
   can_create_properties: boolean;
   owner?: OwnerInfo;
-  property?: any;
+  property?: unknown;
 }
 
 interface PropertyFormData {
@@ -70,21 +69,23 @@ interface PropertyFormData {
 }
 
 const propertyTypes = [
-  { value: 'appartement', label: 'Appartement', icon: '🏢' },
-  { value: 'maison', label: 'Maison', icon: '🏠' },
+  { value: 'apartment', label: 'Appartement', icon: '🏢' },
+  { value: 'house', label: 'Maison', icon: '🏠' },
   { value: 'studio', label: 'Studio', icon: '🏘️' },
   { value: 'duplex', label: 'Duplex', icon: '🏬' },
   { value: 'villa', label: 'Villa', icon: '🏡' },
-  { value: 'commerce', label: 'Local commercial', icon: '🏪' },
-  { value: 'bureau', label: 'Bureau', icon: '🏢' },
-  { value: 'chambre', label: 'Chambre', icon: '🛏️' },
-  { value: 'entrepot', label: 'Entrepôt', icon: '📦' },
-  { value: 'terrain', label: 'Terrain', icon: '🌳' },
+  { value: 'retail', label: 'Local commercial', icon: '🏪' },
+  { value: 'office', label: 'Bureau', icon: '🏢' },
+  { value: 'room', label: 'Chambre', icon: '🛏️' },
+  { value: 'warehouse', label: 'Entrepôt', icon: '📦' },
+  { value: 'land', label: 'Terrain', icon: '🌳' },
 ];
 
 export default function AgencyAddPropertyPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const mandateIdFromUrl = searchParams.get('mandateId');
   const [mandates, setMandates] = useState<Mandate[]>([]);
   const [selectedMandate, setSelectedMandate] = useState<Mandate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,7 +96,7 @@ export default function AgencyAddPropertyPage() {
   const [formData, setFormData] = useState<PropertyFormData>({
     mandate_id: '',
     title: '',
-    property_type: 'appartement',
+    property_type: 'apartment',
     address: '',
     city: '',
     neighborhood: '',
@@ -111,7 +112,6 @@ export default function AgencyAddPropertyPage() {
   });
 
   const {
-    position: geoPosition,
     isLoading: geoLoading,
     error: geoError,
     getCurrentPosition,
@@ -125,17 +125,33 @@ export default function AgencyAddPropertyPage() {
 
   const loadMandates = async () => {
     try {
-      const { data: agencyData } = await supabase
-        .from('agencies')
+      // Get agency_id from profiles table (agencies are stored in profiles)
+      const { data: profileData } = await supabase
+        .from('profiles')
         .select('id')
-        .eq('user_id', user?.id)
-        .single();
+        .eq('id', user?.id)
+        .eq('user_type', 'agency')
+        .maybeSingle();
 
-      if (!agencyData) {
+      if (!profileData) {
+        console.log('[AddPropertyPage] No agency profile found for user:', user?.id);
         setMandates([]);
         setLoading(false);
         return;
       }
+
+      console.log('[AddPropertyPage] Agency profile found:', profileData.id);
+
+      // First, let's see ALL mandates for this agency (any status)
+      const { data: allMandates, error: allError } = await supabase
+        .from('agency_mandates')
+        .select('id, status, owner_signed_at, agency_signed_at, cryptoneo_signature_status')
+        .eq('agency_id', profileData.id);
+
+      console.log('[AddPropertyPage] ALL mandates for agency (any status):', {
+        count: allMandates?.length || 0,
+        mandates: allMandates || []
+      });
 
       const { data, error } = await supabase
         .from('agency_mandates')
@@ -161,7 +177,7 @@ export default function AgencyAddPropertyPage() {
             images,
             status
           ),
-          owner:owner_id (
+          owner:profiles!agency_mandates_owner_id_fkey (
             id,
             full_name,
             email,
@@ -169,13 +185,27 @@ export default function AgencyAddPropertyPage() {
           )
         `
         )
-        .eq('agency_id', agencyData.id)
+        .eq('agency_id', profileData.id)
         .in('status', ['active', 'pending'])
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[AddPropertyPage] Error loading mandates:', error);
+        throw error;
+      }
 
-      const formattedMandates = (data || []).map((mandate: any) => ({
+      console.log('[AddPropertyPage] Loaded mandates:', {
+        count: data?.length || 0,
+        mandates: (data || []).map((m: any) => ({
+          id: m.id,
+          status: m.status,
+          owner_signed_at: m.owner_signed_at,
+          agency_signed_at: m.agency_signed_at,
+          cryptoneo_signature_status: m.cryptoneo_signature_status,
+        }))
+      });
+
+      const formattedMandates = (data || []).map((mandate: unknown) => ({
         id: mandate.id,
         property_id: mandate.property_id,
         property_title: mandate.properties?.title,
@@ -207,7 +237,7 @@ export default function AgencyAddPropertyPage() {
     const newFormData: PropertyFormData = {
       mandate_id: mandate.id,
       title: mandate.property_title || '',
-      property_type: 'appartement',
+      property_type: 'apartment',
       address: '',
       city: '',
       neighborhood: '',
@@ -226,7 +256,7 @@ export default function AgencyAddPropertyPage() {
     if (mandate.property_id && mandate.property) {
       const prop = mandate.property;
       newFormData.title = prop.title || '';
-      newFormData.property_type = prop.property_type || 'appartement';
+      newFormData.property_type = prop.property_type || 'apartment';
       newFormData.address = prop.address || '';
       newFormData.city = prop.city || '';
       newFormData.neighborhood = prop.neighborhood || '';
@@ -261,6 +291,17 @@ export default function AgencyAddPropertyPage() {
     setStep(2);
   };
 
+  // Auto-select mandate if mandateId is in URL
+   
+  useEffect(() => {
+    if (mandateIdFromUrl && mandates.length > 0 && !selectedMandate) {
+      const mandate = mandates.find(m => m.id === mandateIdFromUrl);
+      if (mandate) {
+        handleMandateSelect(mandate);
+      }
+    }
+  }, [mandateIdFromUrl, mandates, selectedMandate]);
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -272,7 +313,7 @@ export default function AgencyAddPropertyPage() {
         const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `${user?.id}/${fileName}`;
 
-        const { data, error } = await supabase.storage
+        const { error } = await supabase.storage
           .from('property-images')
           .upload(filePath, file);
 
@@ -336,20 +377,39 @@ export default function AgencyAddPropertyPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validateStep()) return;
+    console.log('[AddPropertyPage] handleSubmit called');
+
+    if (!validateStep()) {
+      console.log('[AddPropertyPage] Validation failed');
+      return;
+    }
+
+    console.log('[AddPropertyPage] Validation passed');
 
     setSubmitting(true);
     try {
-      const agencyId = (
-        await supabase
-          .from('agencies')
-          .select('id')
-          .eq('user_id', user?.id)
-          .single()
-      ).data?.id;
+      // Get agency ID from profiles table
+      const profileResult = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user?.id)
+        .eq('user_type', 'agency')
+        .maybeSingle();
+
+      const agencyId = profileResult.data?.id;
+
+      console.log('[AddPropertyPage] Agency ID retrieved:', {
+        userId: user?.id,
+        agencyId,
+        profileError: profileResult.error
+      });
+
+      if (!agencyId) {
+        throw new Error('Agency ID not found');
+      }
 
       // Prepare property data
-      const propertyData: any = {
+      const propertyData: unknown = {
         title: formData.title,
         property_type: formData.property_type,
         address: formData.address,
@@ -365,42 +425,65 @@ export default function AgencyAddPropertyPage() {
         managed_by_agency: agencyId,
         latitude: formData.latitude ?? null,
         longitude: formData.longitude ?? null,
-        status: 'disponible',
+        status: 'available',
         images: formData.images && formData.images.length > 0 ? formData.images : null,
         main_image: formData.images && formData.images.length > 0 ? formData.images[0] : null,
       };
 
+      console.log('[AddPropertyPage] Property data prepared:', propertyData);
+
       let propertyId = selectedMandate!.property_id;
+
+      console.log('[AddPropertyPage] Existing property_id from mandate:', propertyId);
 
       // If property already exists, update it
       if (propertyId) {
+        console.log('[AddPropertyPage] Updating existing property:', propertyId);
         const { error: updateError } = await supabase
           .from('properties')
           .update(propertyData)
           .eq('id', propertyId);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('[AddPropertyPage] Update error:', updateError);
+          throw updateError;
+        }
+        console.log('[AddPropertyPage] Property updated successfully');
       } else {
         // Create new property
+        console.log('[AddPropertyPage] Creating new property');
         const { data: newProperty, error: insertError } = await supabase
           .from('properties')
           .insert(propertyData)
           .select()
           .single();
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('[AddPropertyPage] Insert error:', insertError);
+          throw insertError;
+        }
+
+        console.log('[AddPropertyPage] Property created successfully:', newProperty);
         propertyId = newProperty.id;
 
         // Update mandate with property_id
-        await supabase
+        console.log('[AddPropertyPage] Updating mandate with property_id:', propertyId);
+        const { error: mandateUpdateError } = await supabase
           .from('agency_mandates')
           .update({ property_id: propertyId })
           .eq('id', selectedMandate!.id);
+
+        if (mandateUpdateError) {
+          console.error('[AddPropertyPage] Mandate update error:', mandateUpdateError);
+        } else {
+          console.log('[AddPropertyPage] Mandate updated successfully');
+        }
       }
 
+      console.log('[AddPropertyPage] Navigating to property:', propertyId);
       navigate(`/agences/biens/${propertyId}`);
     } catch (error) {
-      console.error('Error saving property:', error);
+      console.error('[AddPropertyPage] Error saving property:', error);
       alert('Erreur lors de la sauvegarde de la propriété');
     } finally {
       setSubmitting(false);
@@ -551,7 +634,7 @@ export default function AgencyAddPropertyPage() {
 
                         <div className="flex items-center gap-4 text-sm text-[#6B5A4E] mb-3">
                           <div className="flex items-center gap-1">
-                            <Euro className="w-4 h-4" />
+                            <Banknote className="w-4 h-4" />
                             <span>{mandate.commission_rate}%</span>
                           </div>
                         </div>
@@ -651,7 +734,7 @@ export default function AgencyAddPropertyPage() {
                           {selectedMandate.owner_name}
                         </p>
                         <p className="text-sm text-[#6B5A4E]">
-                          Mandat {selectedMandate.status === 'active' ? 'actif' : 'en attente'} • {selectedMandate.commission_rate}% commission
+                          Mandat {selectedMandate.status === 'active' ? 'active' : 'en attente'} • {selectedMandate.commission_rate}% commission
                         </p>
                       </div>
                     </div>
@@ -853,7 +936,7 @@ export default function AgencyAddPropertyPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-[#2C1810] mb-2">
-                        <Euro className="inline w-4 h-4 mr-1" />
+                        <Banknote className="inline w-4 h-4 mr-1" />
                         Loyer (FCFA) *
                       </label>
                       <input

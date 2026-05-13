@@ -17,10 +17,10 @@ const cities = [
 ];
 
 const propertyTypes = [
-  { value: 'appartement', label: 'Appartement' },
+  { value: 'apartment', label: 'Appartement' },
   { value: 'villa', label: 'Villa' },
   { value: 'studio', label: 'Studio' },
-  { value: 'maison', label: 'Maison' },
+  { value: 'house', label: 'Maison' },
   { value: 'duplex', label: 'Duplex' },
 ];
 

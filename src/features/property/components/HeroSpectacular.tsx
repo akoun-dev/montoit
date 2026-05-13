@@ -190,7 +190,7 @@ export default function HeroSpectacular({ onSearch }: HeroSpectacularProps) {
                   <option value="" className="bg-gray-900">
                     Tous
                   </option>
-                  <option value="appartement" className="bg-gray-900">
+                  <option value="apartment" className="bg-gray-900">
                     Appartement
                   </option>
                   <option value="villa" className="bg-gray-900">
@@ -199,7 +199,7 @@ export default function HeroSpectacular({ onSearch }: HeroSpectacularProps) {
                   <option value="studio" className="bg-gray-900">
                     Studio
                   </option>
-                  <option value="maison" className="bg-gray-900">
+                  <option value="house" className="bg-gray-900">
                     Maison
                   </option>
                 </select>

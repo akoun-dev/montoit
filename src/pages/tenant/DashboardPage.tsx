@@ -10,6 +10,9 @@ import {
   FileText,
   Wrench,
   Award,
+  Wifi,
+  WifiOff,
+  Bell,
 } from 'lucide-react';
 import { supabase } from '@/services/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
@@ -17,6 +20,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import TenantDashboardLayout from '../../features/tenant/components/TenantDashboardLayout';
 import { usePaymentAlerts } from '@/hooks/tenant/usePaymentAlerts';
 import PaymentAlertsBanner from '../../features/tenant/components/PaymentAlertsBanner';
+import { toast } from 'sonner';
 
 interface LeaseContract {
   id: string;
@@ -70,9 +74,11 @@ export default function TenantDashboard() {
     unreadMessages: 0,
     maintenanceRequests: 0,
     paymentStatus: 'up_to_date' as 'up_to_date' | 'late',
+    unreadNotifications: 0,
   });
   const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
   const [recentFavorites, setRecentFavorites] = useState<Favorite[]>([]);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
 
   // Payment alerts
   const { alerts: paymentAlerts, dismissAlert: dismissAlertHook } = usePaymentAlerts();
@@ -90,7 +96,7 @@ export default function TenantDashboard() {
         .from('lease_contracts')
         .select('*')
         .eq('tenant_id', user.id)
-        .eq('status', 'actif')
+        .eq('status', 'active')
         .maybeSingle();
 
       if (leaseData) {
@@ -159,9 +165,19 @@ export default function TenantDashboard() {
         .from('maintenance_requests')
         .select('id')
         .eq('tenant_id', user.id)
-        .in('status', ['ouverte', 'en_cours']);
+        .in('status', ['ouverte', 'in_progress']);
 
       setStats((prev) => ({ ...prev, maintenanceRequests: maintenanceData?.length || 0 }));
+
+      // Load unread notifications count
+      const { data: notificationsData } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false)
+        .eq('is_archived', false);
+
+      setStats((prev) => ({ ...prev, unreadNotifications: notificationsData?.count || 0 }));
 
       // Load favorites
       const { data: favoritesData } = await supabase
@@ -187,7 +203,7 @@ export default function TenantDashboard() {
       return;
     }
 
-    if (profile && profile.user_type !== 'locataire') {
+    if (profile && profile.user_type !== 'tenant') {
       navigate('/');
       return;
     }
@@ -195,9 +211,85 @@ export default function TenantDashboard() {
     loadDashboardData();
   }, [user, profile, navigate, loadDashboardData]);
 
+  // Realtime subscription for notifications
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('dashboard-notifications-tenant')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newNotification = payload.new as {
+              type: string;
+              title: string;
+              message: string;
+              data: Record<string, unknown>;
+            };
+
+            // Increment unread notifications counter
+            setStats((prev) => ({ ...prev, unreadNotifications: prev.unreadNotifications + 1 }));
+
+            // Show toast notification
+            toast.success(newNotification.title, {
+              description: newNotification.message?.substring(0, 100) || '',
+              action: {
+                label: 'Voir',
+                onClick: () => {
+                  if (newNotification.data?.action_url) {
+                    navigate(String(newNotification.data.action_url));
+                  } else {
+                    navigate('/locataire/notifications');
+                  }
+                },
+              },
+            });
+
+            // Play sound for new notification
+            try {
+              const audio = new Audio('/sounds/notification.mp3');
+              audio.play().catch(() => {}); // Ignore autoplay restrictions
+            } catch {
+              // Sound file might not exist, ignore error
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            // If notification was marked as read, decrement counter
+            const oldIsRead = payload.old?.is_read;
+            const newIsRead = payload.new?.is_read;
+            if (!oldIsRead && newIsRead) {
+              setStats((prev) => ({ ...prev, unreadNotifications: Math.max(0, prev.unreadNotifications - 1) }));
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setRealtimeConnected(true);
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          setRealtimeConnected(false);
+        }
+      });
+
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, navigate]);
+
   if (loading) {
     return (
-      <TenantDashboardLayout title="Tableau de bord">
+      <TenantDashboardLayout title="Tableau de bord" icon={<Home className="h-5 w-5" />} description="Vue d'ensemble de votre activité">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#F16522]"></div>
         </div>
@@ -206,19 +298,55 @@ export default function TenantDashboard() {
   }
 
   return (
-    <TenantDashboardLayout title="Tableau de bord">
+    <TenantDashboardLayout title="Tableau de bord" icon={<Home className="h-5 w-5" />} description="Vue d'ensemble de votre activité">
       <div>
         {/* Header */}
         <div className="bg-[#2C1810] rounded-[20px] p-6 mb-8 dashboard-header-animate">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center icon-pulse-premium">
-              <Home className="h-6 w-6 text-white" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="hidden lg:block">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-[#F16522] flex items-center justify-center icon-pulse-premium">
+                  <Home className="h-6 w-6 text-white" />
+                </div>
+                <span>Mon Tableau de Bord</span>
+              </h1>
+              <p className="text-[#E8D4C5] mt-2 text-lg ml-15">
+                Bienvenue, {profile?.full_name || 'Locataire'}
+              </p>
             </div>
-            <span>Mon Tableau de Bord</span>
-          </h1>
-          <p className="text-[#E8D4C5] mt-2 text-lg ml-15">
-            Bienvenue, {profile?.full_name || 'Locataire'}
-          </p>
+            <div className="flex items-center gap-3">
+              {/* Notification Bell */}
+              <Link
+                to="/locataire/notifications"
+                className="relative p-2 rounded-xl hover:bg-white/10 transition-colors group"
+              >
+                <Bell className="h-6 w-6 text-white" />
+                {stats.unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full group-hover:scale-110 transition-transform">
+                    {stats.unreadNotifications > 99 ? '99+' : stats.unreadNotifications}
+                  </span>
+                )}
+              </Link>
+              {/* Realtime connection indicator */}
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                realtimeConnected
+                  ? 'bg-green-500/20 text-green-300'
+                  : 'bg-red-500/20 text-red-300'
+              }`}>
+                {realtimeConnected ? (
+                  <>
+                    <Wifi className="w-3.5 h-3.5" />
+                    <span>En direct</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-3.5 h-3.5" />
+                    <span>Hors ligne</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Payment Alerts */}
@@ -380,7 +508,7 @@ export default function TenantDashboard() {
                       className="bg-[#FAF7F4] border border-[#EFEBE9] rounded-xl p-4 flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
-                        {payment.status === 'complete' ? (
+                        {payment.status === 'completed' ? (
                           <CheckCircle className="h-6 w-6 text-green-600" />
                         ) : (
                           <Clock className="h-6 w-6 text-amber-600" />
@@ -400,12 +528,12 @@ export default function TenantDashboard() {
                       </div>
                       <span
                         className={`text-xs px-3 py-1 rounded-full font-medium ${
-                          payment.status === 'complete'
+                          payment.status === 'completed'
                             ? 'bg-green-100 text-green-700'
                             : 'bg-amber-100 text-amber-700'
                         }`}
                       >
-                        {payment.status === 'complete' ? 'Payé' : 'En attente'}
+                        {payment.status === 'completed' ? 'Payé' : 'En attente'}
                       </span>
                     </div>
                   ))}

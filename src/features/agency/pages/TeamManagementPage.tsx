@@ -168,8 +168,6 @@ export default function TeamManagementPage() {
   };
 
   const handleAddAgent = async () => {
-    console.log('handleAddAgent called', { agencyId, email: newAgent.email });
-
     if (!agencyId) {
       toast.error('Agence non trouvée. Veuillez recharger la page.');
       return;
@@ -177,7 +175,7 @@ export default function TeamManagementPage() {
 
     // Validation
     if (!newAgent.full_name || !newAgent.full_name.trim()) {
-      toast.error('Veuillez entrer le nom complet de l\'agent');
+      toast.error("Veuillez entrer le nom complet de l'agent");
       return;
     }
 
@@ -191,7 +189,6 @@ export default function TeamManagementPage() {
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
 
-    console.log('Starting agent invitation...', { firstName, lastName, email: newAgent.email });
     try {
       // Create invitation using the service
       const result = await agentInvitationService.inviteAgent({
@@ -239,7 +236,21 @@ export default function TeamManagementPage() {
       toast.success('Invitation créée avec succès !');
     } catch (error) {
       console.error('Error adding agent:', error);
-      toast.error("Erreur lors de la création de l'invitation");
+      let errorMessage = "Erreur lors de la création de l'invitation";
+
+      if (error instanceof Error) {
+        if (error.message.includes('already exists')) {
+          errorMessage = 'Cet email est déjà utilisé par un agent';
+        } else if (error.message.includes('quota')) {
+          errorMessage = "Quota maximum d'agents atteint";
+        } else if (error.message.includes('invalid email')) {
+          errorMessage = "Format d'email invalide";
+        } else if (error.message.includes('permission')) {
+          errorMessage = "Vous n'avez pas les permissions nécessaires";
+        }
+      }
+
+      toast.error(errorMessage);
     }
   };
 
@@ -329,7 +340,6 @@ export default function TeamManagementPage() {
           </div>
           <Button
             onClick={() => {
-              console.log('Opening add agent modal');
               setShowAddModal(true);
             }}
             className="bg-[#F16522] hover:bg-[#D14E12]"
@@ -627,10 +637,7 @@ export default function TeamManagementPage() {
               <Button
                 onClick={handleAddAgent}
                 className="bg-[#F16522] hover:bg-[#D14E12]"
-                disabled={
-                  !newAgent.full_name?.trim() ||
-                  !newAgent.email?.includes('@')
-                }
+                disabled={!newAgent.full_name?.trim() || !newAgent.email?.includes('@')}
               >
                 Inviter l'agent
               </Button>
@@ -661,7 +668,8 @@ export default function TeamManagementPage() {
 
             <div className="space-y-4 py-4">
               <p className="text-center text-[#2C1810]/70">
-                L'agent a été invité à rejoindre votre agence. Partagez le lien d'invitation ci-dessous avec lui.
+                L'agent a été invité à rejoindre votre agence. Partagez le lien d'invitation
+                ci-dessous avec lui.
               </p>
 
               {/* Invitation Link */}
@@ -675,7 +683,7 @@ export default function TeamManagementPage() {
                     className="flex-1 bg-white border border-[#EFEBE9] rounded px-3 py-2 text-sm text-[#2C1810] truncate"
                   />
                   <Button
-                    size="sm"
+                    size="small"
                     variant="outline"
                     onClick={handleCopyLink}
                     className="shrink-0"
@@ -716,7 +724,8 @@ export default function TeamManagementPage() {
               </div>
 
               <p className="text-xs text-center text-[#2C1810]/50">
-                L'invitation expire dans 7 jours. Vous pouvez retrouver toutes les invitations dans l'onglet "Invitations".
+                L'invitation expire dans 7 jours. Vous pouvez retrouver toutes les invitations dans
+                l'onglet "Invitations".
               </p>
             </div>
           </DialogContent>

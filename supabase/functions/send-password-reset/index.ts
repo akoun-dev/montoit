@@ -71,8 +71,9 @@ Deno.serve(async (req: Request) => {
       throw new Error('Failed to save reset token: ' + insertError.message);
     }
 
-    const resetLink = `${Deno.env.get('SUPABASE_URL')?.replace('//', '//').split('/')[2].split('.')[0]}.supabase.co/reset-password?token=${token}`;
-    const frontendUrl = req.headers.get('origin') || Deno.env.get('FRONTEND_URL') || 'https://montoit.ansut.ci';
+    const origin = req.headers.get('origin');
+    const frontendEnv = Deno.env.get('FRONTEND_URL');
+    const frontendUrl = origin || frontendEnv || 'https://mon-toit.ansut.ci';
     const actualResetLink = `${frontendUrl}/reinitialiser-mot-de-passe?token=${token}`;
 
     const emailResponse = await fetch(
@@ -108,12 +109,12 @@ Deno.serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error sending password reset:', error);
 
     return new Response(
       JSON.stringify({
-        error: error.message || 'Erreur lors de l\'envoi de l\'email de réinitialisation'
+        error: error instanceof Error ? error.message : 'Erreur lors de l\'envoi de l\'email de réinitialisation'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

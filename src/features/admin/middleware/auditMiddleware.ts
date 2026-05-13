@@ -137,13 +137,13 @@ async function getCurrentAdminId(): Promise<string | null> {
     if (!profile) return null;
 
     // Vérifier que c'est un admin
-    const isAdmin = profile.user_type === 'admin' || profile.user_type === 'admin_ansut';
+    const isAdmin = profile.user_type === 'admin' || profile.user_type === 'admin';
     if (!isAdmin) {
       const { data: roles } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .in('role', ['admin', 'admin_ansut'])
+        .in('role', ['admin', 'admin'])
         .maybeSingle();
 
       if (!roles) return null;
@@ -262,7 +262,7 @@ export const AuditEntityTypes = {
   REFUND: 'refund',
   INVOICE: 'invoice',
 
-  // Trust Agents & CEV
+  // Tiers de confiance & CEV
   MISSION: 'mission',
   CEV_REPORT: 'cev_report',
   TRUST_AGENT: 'trust_agent',

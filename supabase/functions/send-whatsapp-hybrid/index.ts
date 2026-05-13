@@ -1,13 +1,10 @@
 import { ServiceManager, ServiceConfig } from '../_shared/serviceManager.ts';
-import { detectCloudflareBlock, formatCloudflareError } from '../_shared/cloudflareDetector.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
-
-const BREVO_WHATSAPP_ENDPOINT = 'https://api.brevo.com/v3/whatsapp/sendMessage';
 interface WhatsAppRequest {
   phoneNumber: string;
   message: string;
@@ -109,68 +106,11 @@ Deno.serve(async (req: Request) => {
           provider: 'intouch',
         };
       },
-
-      // Brevo - Fallback (priorité 2)
-      brevo: async (_config: ServiceConfig, params: { phoneNumber: string; message: string }) => {
-        const apiKey = Deno.env.get('BREVO_API_KEY');
-
-        if (!apiKey) {
-          throw new Error('Brevo API key not configured');
-        }
-
-        console.log(`[WHATSAPP-HYBRID] Calling Brevo: ${BREVO_WHATSAPP_ENDPOINT}`);
-
-        const response = await fetch(BREVO_WHATSAPP_ENDPOINT, {
-          method: 'POST',
-          headers: {
-            'api-key': apiKey,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({
-            senderNumber: Deno.env.get('BREVO_WHATSAPP_SENDER') || 'MonToit',
-            recipientNumber: params.phoneNumber,
-            text: params.message,
-          })
-        });
-
-        // Get response as text first for Cloudflare detection
-        const responseText = await response.text();
-        
-        // Detect Cloudflare block
-        const cfInfo = detectCloudflareBlock(response.status, responseText);
-        
-        if (cfInfo.isCloudflareBlock) {
-          console.error(formatCloudflareError(cfInfo, BREVO_WHATSAPP_ENDPOINT));
-          throw new Error(`Brevo blocked by Cloudflare. Ray ID: ${cfInfo.rayId || 'unknown'}`);
-        }
-
-        if (!response.ok) {
-          let errorMessage = response.statusText;
-          try {
-            const errorData = JSON.parse(responseText);
-            errorMessage = errorData.message || errorMessage;
-          } catch {
-            errorMessage = responseText.substring(0, 200);
-          }
-          console.error('Brevo WhatsApp error:', errorMessage);
-          throw new Error(`Brevo WhatsApp failed: ${errorMessage}`);
-        }
-
-        const result = JSON.parse(responseText);
-        console.log('✅ Brevo WhatsApp success:', result);
-
-        return {
-          success: true,
-          messageId: result.messageId || result.id,
-          provider: 'brevo',
-        };
-      },
     };
 
     // Exécuter avec fallback automatique
     // ServiceManager lit la config depuis service_configurations
-    // InTouch (priority 1) sera essayé d'abord, puis Brevo (priority 2) en fallback
+    // InTouch (priority 1) sera essayé d'abord
     const result = await serviceManager.executeWithFallback(
       'whatsapp',
       handlers,

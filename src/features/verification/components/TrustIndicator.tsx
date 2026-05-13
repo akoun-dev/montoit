@@ -2,7 +2,7 @@ import { Shield, CheckCircle, AlertCircle, Eye, Star } from 'lucide-react';
 
 interface TrustIndicatorProps {
   userId?: string;
-  userType?: 'locataire' | 'proprietaire' | 'agence';
+  userType?: 'tenant' | 'owner' | 'agency';
   verificationStatus?: {
     oneci_verified: boolean;
     cnam_verified: boolean;

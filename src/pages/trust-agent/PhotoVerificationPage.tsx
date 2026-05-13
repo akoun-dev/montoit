@@ -244,7 +244,7 @@ export default function PhotoVerificationPage() {
               </CardHeader>
               <CardContent>
                 {/* Photo Grid */}
-                <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
                   {category.photos.map((photo, index) => (
                     <div key={index} className="relative aspect-square group">
                       <img

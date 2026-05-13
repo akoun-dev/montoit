@@ -13,6 +13,8 @@ const OwnerApplications = lazyWithRetry(() => import('@/pages/owner/OwnerApplica
 const MyProperties = lazyWithRetry(() => import('@/pages/owner/MyPropertiesPage'));
 const OwnerProfilePage = lazyWithRetry(() => import('@/pages/owner/ProfilePage'));
 const OwnerVisitsPage = lazyWithRetry(() => import('@/pages/owner/VisitsPage'));
+const OwnerNotificationsPage = lazyWithRetry(() => import('@/pages/owner/NotificationsPage'));
+const VisitSlotsManagement = lazyWithRetry(() => import('@/pages/owner/VisitSlotsManagementPage'));
 const MyTenantsPage = lazyWithRetry(() => import('@/pages/owner/MyTenantsPage'));
 const PaymentsPage = lazyWithRetry(() => import('@/pages/owner/PaymentsPage'));
 const DocumentsPage = lazyWithRetry(() => import('@/pages/owner/DocumentsPage'));
@@ -25,12 +27,18 @@ const SignLease = lazyWithRetry(() => import('@/pages/tenant/SignLeasePage'));
 const ApplicationForm = lazyWithRetry(() => import('@/pages/tenant/ApplicationFormPage'));
 // MyMandatesPage can be used by both owners and agencies
 const MyMandatesPage = lazyWithRetry(() => import('@/pages/agency/MyMandatesPage'));
-// HandwrittenSignaturePage for signing mandates
-const HandwrittenSignaturePage = lazyWithRetry(() => import('@/pages/mandates/HandwrittenSignaturePage'));
+// HandwrittenSignaturePageSimple for signing mandates (simplified version)
+const HandwrittenSignaturePageSimple = lazyWithRetry(() => import('@/pages/mandates/HandwrittenSignaturePageSimple'));
 // MandateDetailPage for mandate details
 const MandateDetailPage = lazyWithRetry(() => import('@/components/mandates/MandateDetailPage'));
 // Layout-agnostic messaging view
 const MessagesView = lazyWithRetry(() => import('@/features/messaging/components/MessagesView'));
+
+// Settings pages
+const OwnerSettingsMenuPage = lazyWithRetry(() => import('@/pages/owner/SettingsMenuPage'));
+const OwnerNotificationPreferencesPage = lazyWithRetry(() => import('@/pages/owner/NotificationPreferencesPage'));
+const OwnerSecuritySettingsPage = lazyWithRetry(() => import('@/pages/owner/SecuritySettingsPage'));
+const OwnerSessionsPage = lazyWithRetry(() => import('@/pages/owner/SessionsPage'));
 
 export const ownerRoutes: RouteObject[] = [
   // Routes avec sidebar
@@ -140,7 +148,7 @@ export const ownerRoutes: RouteObject[] = [
       },
       {
         path: 'mes-mandats/signer/:id',
-        element: <HandwrittenSignaturePage />,
+        element: <HandwrittenSignaturePageSimple />,
       },
 
       // Messages (layout-agnostic view wrapped in OwnerDashboardLayout)
@@ -153,6 +161,16 @@ export const ownerRoutes: RouteObject[] = [
       {
         path: 'visites',
         element: <OwnerVisitsPage />,
+      },
+      {
+        path: 'visites/creneaux',
+        element: <VisitSlotsManagement />,
+      },
+
+      // Notifications (standalone page without layout for full management)
+      {
+        path: 'notifications',
+        element: <OwnerNotificationsPage />,
       },
 
       // Tenants
@@ -177,6 +195,24 @@ export const ownerRoutes: RouteObject[] = [
       {
         path: 'rappels',
         element: <RemindersPage />,
+      },
+
+      // Settings
+      {
+        path: 'parametres',
+        element: <OwnerSettingsMenuPage />,
+      },
+      {
+        path: 'parametres/notifications',
+        element: <OwnerNotificationPreferencesPage />,
+      },
+      {
+        path: 'parametres/securite',
+        element: <OwnerSecuritySettingsPage />,
+      },
+      {
+        path: 'parametres/sessions',
+        element: <OwnerSessionsPage />,
       },
     ],
   },

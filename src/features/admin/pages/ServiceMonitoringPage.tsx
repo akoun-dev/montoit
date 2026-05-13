@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, CheckCircle, AlertTriangle, XCircle, Clock } from 'lucide-react';
+import { Activity, CheckCircle, AlertTriangle, XCircle, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/shared/ui';
 
@@ -32,7 +32,7 @@ export default function ServiceMonitoringPage() {
           Module Monitoring en Développement
         </h2>
         <p className="text-gray-600 max-w-md mx-auto mb-8">
-          Cette page affichera l'état en temps réel des services : Brevo, InTouch, Mapbox, Supabase,
+          Cette page affichera l'état en temps réel des services : Resend (email), Azure (SMS), InTouch, Mapbox, Supabase,
           et autres intégrations.
         </p>
 

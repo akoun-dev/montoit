@@ -1,28 +1,20 @@
-import { useState, useEffect, useRef, ChangeEvent } from 'react';
+import { useState, useEffect, useRef, ChangeEvent, useCallback } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   User,
-  Phone,
-  MapPin,
   Shield,
   Camera,
-  Save,
   CheckCircle,
   AlertCircle,
   Building2,
   Home,
   FileText,
   TrendingUp,
-  Users,
   Mail,
-  Globe,
-  Upload,
   File,
-  Trash2,
-  Download,
-  Loader2,
+  Star,
   Clock,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
@@ -32,7 +24,10 @@ import { AddressValue, formatAddress } from '@/shared/utils/address';
 import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
 import RoleSwitcher from '@/components/role/RoleSwitcher';
 import { DossierSubmissionTab } from '@/shared/ui/verification/DossierSubmissionTab';
-import verificationApplicationsService, { type VerificationApplication } from '@/features/verification/services/verificationApplications.service';
+import verificationApplicationsService, {
+  type VerificationApplication,
+} from '@/features/verification/services/verificationApplications.service';
+import { ReviewsSection } from '@/shared/ui/reviews';
 
 interface AgencyProfile {
   id: string;
@@ -79,17 +74,23 @@ export default function AgencyProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [documents, setDocuments] = useState<VerificationDocument[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [uploadingDoc, setUploadingDoc] = useState(false);
-  const [dossierApplication, setDossierApplication] = useState<VerificationApplication | null>(null);
+  const [dossierApplication, setDossierApplication] = useState<VerificationApplication | null>(
+    null
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const DOCUMENT_TYPES = [
     {
       value: 'agrement_ministere',
-      label: 'Attestation d\'agrément',
+      label: "Attestation d'agrément",
       icon: CheckCircle,
-      description: 'Délivrée par le Ministère de la Construction, du Logement et de l\'Urbanisme',
+      description: "Délivrée par le Ministère de la Construction, du Logement et de l'Urbanisme",
       color: 'bg-blue-100 text-blue-600',
       required: true,
     },
@@ -105,15 +106,15 @@ export default function AgencyProfilePage() {
       value: 'cni_passeport',
       label: 'CNI ou Passeport',
       icon: User,
-      description: 'Copie de la Carte Nationale d\'Identité ou du Passeport',
+      description: "Copie de la Carte Nationale d'Identité ou du Passeport",
       color: 'bg-purple-100 text-purple-600',
       required: true,
     },
     {
       value: 'dfe',
-      label: 'Déclaration Fiscale d\'Existence',
+      label: "Déclaration Fiscale d'Existence",
       icon: FileText,
-      description: 'DFE de l\'entreprise',
+      description: "DFE de l'entreprise",
       color: 'bg-amber-100 text-amber-600',
       required: true,
     },
@@ -121,7 +122,7 @@ export default function AgencyProfilePage() {
       value: 'rccm',
       label: 'RCCM',
       icon: File,
-      description: 'Registre du Commerce et du Crédit Mobilier de l\'entreprise',
+      description: "Registre du Commerce et du Crédit Mobilier de l'entreprise",
       color: 'bg-orange-100 text-orange-600',
       required: true,
     },
@@ -140,32 +141,35 @@ export default function AgencyProfilePage() {
     agency_email: '',
   });
 
-  useEffect(() => {
-    if (user) {
-      loadProfile();
-      loadDocuments();
-      loadDossierApplication();
-    }
-  }, [user]);
-
-  const loadDossierApplication = async () => {
+  const loadDossierApplication = useCallback(async () => {
     if (!user) return;
 
     try {
-      const applications = await verificationApplicationsService.getUserApplications(user.id, 'agency');
-      const activeApp = applications.find(
-        (app) => app.status === 'pending' || app.status === 'in_review' || app.status === 'more_info_requested'
-      ) || applications[0] || null;
+      const applications = await verificationApplicationsService.getUserApplications(
+        user.id,
+        'agency'
+      );
+      // Prioriser les dossiers en cours, sinon prendre le plus récent
+      const activeApp =
+        applications.find(
+          (app) =>
+            app.status === 'pending' ||
+            app.status === 'in_review' ||
+            app.status === 'more_info_requested'
+        ) ||
+        applications[0] ||
+        null;
 
-      if (activeApp) {
-        setDossierApplication(activeApp);
-      }
+      // Mettre à jour l'état même si null (pour rafraîchir si aucun dossier)
+      setDossierApplication(activeApp);
     } catch (error) {
       console.error('Error loading dossier application:', error);
     }
-  };
+  }, [user.id]);
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
+    if (!user?.id) return;
+
     try {
       // First try to get profile with agency fields
       let { data: profileData } = await supabase
@@ -175,26 +179,31 @@ export default function AgencyProfilePage() {
         .single();
 
       // If profile doesn't have agency fields, try to get from agencies table
-      if (!profileData?.agency_name) {
-        const { data: agencyData } = await supabase
-          .from('agencies')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
+      if (profileData && !profileData.agency_name) {
+        try {
+          const { data: agencyData, error: agencyError } = await supabase
+            .from('agencies')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
 
-        if (agencyData) {
-          // Merge agency data into profile
-          profileData = {
-            ...profileData,
-            agency_name: agencyData.agency_name,
-            agency_logo: agencyData.logo_url,
-            agency_description: agencyData.description,
-            agency_website: agencyData.website,
-            agency_phone: agencyData.phone,
-            agency_email: agencyData.email,
-            is_verified: agencyData.is_verified,
-            trust_score: agencyData.verification_score,
-          };
+          // Only proceed if no error and we have data
+          if (!agencyError && agencyData) {
+            // Merge agency data into profile
+            profileData = {
+              ...profileData,
+              agency_name: agencyData.agency_name,
+              agency_logo: agencyData.logo_url,
+              agency_description: agencyData.description,
+              agency_website: agencyData.website,
+              agency_phone: agencyData.phone,
+              agency_email: agencyData.email,
+              is_verified: agencyData.is_verified,
+              trust_score: agencyData.verification_score,
+            };
+          }
+        } catch (err) {
+          // Silently ignore agencies table errors (406, missing table, etc.)
         }
       }
 
@@ -206,6 +215,7 @@ export default function AgencyProfilePage() {
           city: profileData.city || '',
           address: profileData.address ? formatAddress(profileData.address) : '',
           bio: profileData.bio || '',
+          gender: profileData.gender as 'Homme' | 'Femme' | 'Non spécifié' | '' || '',
           agency_name: profileData.agency_name || '',
           agency_description: profileData.agency_description || '',
           agency_website: profileData.agency_website || '',
@@ -217,13 +227,13 @@ export default function AgencyProfilePage() {
         try {
           const { ScoringService } = await import('@/services/scoringService');
           const scoreBreakdown = await ScoringService.calculateGlobalTrustScore(user.id);
-          const newScore = scoreBreakdown.globalScore;
+          const newScore = scoreBreakdown.global_score;
 
           if (profileData.trust_score !== newScore) {
             // Mettre à jour dans la table profiles
             await supabase.from('profiles').update({ trust_score: newScore }).eq('id', user.id);
             // Mettre à jour le profil local
-            setProfile({ ...profileData, trust_score: newScore });
+            setProfile((prev) => prev ? { ...prev, trust_score: newScore } : null);
           }
         } catch (scoreError) {
           console.error('Error recalculating agency score:', scoreError);
@@ -234,9 +244,9 @@ export default function AgencyProfilePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     try {
       // Load from profile.verification_documents JSON field
       const { data: profileData } = await supabase
@@ -245,7 +255,10 @@ export default function AgencyProfilePage() {
         .eq('id', user.id)
         .single();
 
-      if (profileData?.verification_documents && Array.isArray(profileData.verification_documents)) {
+      if (
+        profileData?.verification_documents &&
+        Array.isArray(profileData.verification_documents)
+      ) {
         const jsonDocs = profileData.verification_documents.map((doc: VerificationDocument) => ({
           id: doc.id,
           name: doc.name,
@@ -262,8 +275,24 @@ export default function AgencyProfilePage() {
     } catch (err) {
       console.error('Error loading documents:', err);
     }
-  };
+  }, [user.id, setDocuments]);
 
+  useEffect(() => {
+    if (user?.id) {
+      loadProfile();
+      loadDocuments();
+      loadDossierApplication();
+    }
+  }, [user?.id]);
+
+  // Rafraîchir le dossier quand l'onglet verification est activé
+  useEffect(() => {
+    if (activeTab === 'verification' && user?.id) {
+      loadDossierApplication();
+    }
+  }, [activeTab, user?.id]);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDocumentUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !e.target.files[0]) return;
     const file = e.target.files[0];
@@ -299,7 +328,9 @@ export default function AgencyProfilePage() {
       const base64Data = await base64Promise;
 
       // Store document metadata and base64 content in profile.verification_documents JSON field
-      const existingDocs = (profile as AgencyProfile & { verification_documents?: VerificationDocument[] })?.verification_documents || [];
+      const existingDocs =
+        (profile as AgencyProfile & { verification_documents?: VerificationDocument[] })
+          ?.verification_documents || [];
       const newDoc: VerificationDocument = {
         id: Date.now().toString(),
         name: file.name,
@@ -313,7 +344,7 @@ export default function AgencyProfilePage() {
       const { error } = await supabase
         .from('profiles')
         .update({
-          verification_documents: [...existingDocs, newDoc]
+          verification_documents: [...existingDocs, newDoc],
         })
         .eq('id', user.id);
 
@@ -324,20 +355,23 @@ export default function AgencyProfilePage() {
       loadDocuments();
     } catch (error) {
       console.error('Error uploading document:', error);
-      toast.error('Erreur lors de l\'upload du document');
+      toast.error("Erreur lors de l'upload du document");
     } finally {
       setUploadingDoc(false);
       if (e.target) e.target.value = '';
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDeleteDocument = async (docId: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) return;
 
     try {
       // Delete from profile.verification_documents JSON field
       if (profile?.verification_documents && Array.isArray(profile.verification_documents)) {
-        const updatedDocs = profile.verification_documents.filter((doc: any) => doc.id !== docId);
+        const updatedDocs = profile.verification_documents.filter(
+          (doc: VerificationDocument) => doc.id !== docId
+        );
         await supabase
           .from('profiles')
           .update({ verification_documents: updatedDocs })
@@ -356,6 +390,7 @@ export default function AgencyProfilePage() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Octets';
     const k = 1024;
@@ -381,7 +416,7 @@ export default function AgencyProfilePage() {
       return;
     }
     if (!formData.address?.trim()) {
-      toast.error('L\'adresse est obligatoire');
+      toast.error("L'adresse est obligatoire");
       return;
     }
     if (!formData.gender) {
@@ -488,10 +523,8 @@ export default function AgencyProfilePage() {
     (profile?.full_name && profile.full_name.trim()) ||
     'Utilisateur';
 
-  const isAgencyUser =
-    profile?.user_type === 'agence' ||
-    profile?.user_type === 'agent' ||
-    authProfile?.user_type === 'agence';
+   
+  const isAgencyUser = profile?.user_type === 'agency' || authProfile?.user_type === 'agency';
 
   const tabs = [
     { id: 'infos', label: 'Informations', icon: User },
@@ -499,6 +532,7 @@ export default function AgencyProfilePage() {
     { id: 'contact', label: 'Contact', icon: Mail },
     { id: 'verification', label: 'Vérifications', icon: Shield },
     { id: 'stats', label: 'Statistiques', icon: TrendingUp },
+    { id: 'reviews', label: 'Avis reçus', icon: Star },
   ];
 
   if (loading) {
@@ -659,7 +693,12 @@ export default function AgencyProfilePage() {
               </label>
               <select
                 value={formData.gender}
-                onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'Homme' | 'Femme' | 'Non spécifié' | '' })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    gender: e.target.value as 'Homme' | 'Femme' | 'Non spécifié' | '',
+                  })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 required
               >
@@ -827,24 +866,26 @@ export default function AgencyProfilePage() {
               <h3 className="text-lg font-semibold mb-4">Statut de vérification</h3>
               <div className="space-y-3">
                 <VerificationItem
-                  title="Email vérifié"
-                  description="Votre adresse email a été vérifiée"
-                  verified={true}
-                />
-                <VerificationItem
-                  title="Agrément ONECI"
-                  description="Agrément professionnel vérifié"
-                  verified={profile?.oneci_verified}
-                />
-                <VerificationItem
                   title="Dossier de certification agence"
-                  description="Documents verifies pour obtenir la certification ANSUT"
+                  description="Documents vérifiés pour obtenir la certification ANSUT"
                   verified={dossierApplication?.status === 'approved'}
-                  status={dossierApplication?.status === 'rejected' ? 'failed' : dossierApplication?.status === 'approved' ? 'verified' : dossierApplication?.status === 'pending' || dossierApplication?.status === 'in_review' ? 'in_review' : 'pending'}
+                  status={
+                    dossierApplication?.status === 'rejected'
+                      ? 'failed'
+                      : dossierApplication?.status === 'approved'
+                        ? 'verified'
+                        : dossierApplication?.status === 'pending' ||
+                            dossierApplication?.status === 'in_review'
+                          ? 'in_review'
+                          : 'pending'
+                  }
                   onVerify={() => setActiveTab('dossier')}
                   extraInfo={dossierApplication?.rejection_reason}
                   isDossier={true}
-                  allowRetry={dossierApplication?.status === 'rejected' || dossierApplication?.status === 'more_info_requested'}
+                  allowRetry={
+                    dossierApplication?.status === 'rejected' ||
+                    dossierApplication?.status === 'more_info_requested'
+                  }
                 />
               </div>
             </div>
@@ -901,6 +942,12 @@ export default function AgencyProfilePage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'reviews' && (
+          <div className="space-y-6">
+            <ReviewsSection revieweeId={user.id} revieweeType="agency" />
           </div>
         )}
       </div>
@@ -962,7 +1009,11 @@ function VerificationItem({
 
   const statusConfig = getStatusConfig();
   const StatusIcon = statusConfig.icon;
-  const shouldShowButton = onVerify && (!verified || allowRetry || (isDossier && (status === 'failed' || status === 'more_info_requested' || !verified)));
+  const shouldShowButton =
+    onVerify &&
+    (!verified ||
+      allowRetry ||
+      (isDossier && (status === 'failed' || status === 'more_info_requested' || !verified)));
 
   return (
     <div className="flex items-center justify-between p-4 border border-border rounded-lg">
@@ -971,11 +1022,7 @@ function VerificationItem({
         <div className="min-w-0 flex-1">
           <h3 className="font-medium text-foreground">{title}</h3>
           <p className="text-sm text-muted-foreground">{description}</p>
-          {extraInfo && (
-            <p className="text-xs text-red-600 mt-1">
-              {extraInfo}
-            </p>
-          )}
+          {extraInfo && <p className="text-xs text-red-600 mt-1">{extraInfo}</p>}
         </div>
       </div>
       <div className="flex items-center gap-3 ml-4 flex-shrink-0">
@@ -986,25 +1033,6 @@ function VerificationItem({
         >
           {statusConfig.label}
         </span>
-        {shouldShowButton && (
-          <Button
-            onClick={onVerify}
-            variant="outline"
-            size="small"
-            className="whitespace-nowrap px-5 py-2.5"
-          >
-            <span className="inline-flex items-center gap-2">
-              {isDossier
-                ? (status === 'failed' || status === 'more_info_requested'
-                    ? 'Compléter le dossier'
-                    : verified || status === 'verified'
-                      ? 'Voir le dossier'
-                      : 'Commencer le dossier')
-                : (status === 'failed' ? 'Réessayer' : 'Vérifier')
-              }
-            </span>
-          </Button>
-        )}
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/shared/useSafeToast';
 import { cn } from '@/shared/lib/utils';
 
-// New Trust Agent UI Components
+// New Tiers de confiance UI Components
 import {
   KPICard,
   EmptyState,

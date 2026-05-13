@@ -12,7 +12,6 @@ import {
   Maximize,
   Euro,
   Building2,
-  AlertCircle,
 } from 'lucide-react';
 import CitySelector from '@/features/property/components/CitySelector';
 
@@ -35,27 +34,28 @@ interface Property {
 }
 
 const propertyTypes = [
-  { value: 'appartement', label: 'Appartement', icon: '🏢' },
-  { value: 'maison', label: 'Maison', icon: '🏠' },
+  { value: 'apartment', label: 'Appartement', icon: '🏢' },
+  { value: 'house', label: 'Maison', icon: '🏠' },
   { value: 'studio', label: 'Studio', icon: '🏘️' },
   { value: 'duplex', label: 'Duplex', icon: '🏬' },
   { value: 'villa', label: 'Villa', icon: '🏡' },
-  { value: 'commerce', label: 'Local commercial', icon: '🏪' },
-  { value: 'bureau', label: 'Bureau', icon: '🏢' },
-  { value: 'chambre', label: 'Chambre', icon: '🛏️' },
-  { value: 'entrepot', label: 'Entrepôt', icon: '📦' },
-  { value: 'terrain', label: 'Terrain', icon: '🌳' },
+  { value: 'retail', label: 'Local commercial', icon: '🏪' },
+  { value: 'office', label: 'Bureau', icon: '🏢' },
+  { value: 'room', label: 'Chambre', icon: '🛏️' },
+  { value: 'warehouse', label: 'Entrepôt', icon: '📦' },
+  { value: 'land', label: 'Terrain', icon: '🌳' },
 ];
 
 const propertyStatuses = [
-  { value: 'disponible', label: 'Disponible', color: 'green' },
-  { value: 'loue', label: 'Loué', color: 'blue' },
-  { value: 'en_attente', label: 'En attente', color: 'orange' },
-  { value: 'retire', label: 'Retiré', color: 'gray' },
+  { value: 'available', label: 'Disponible', color: 'green' },
+  { value: 'rented', label: 'Loué', color: 'blue' },
+  { value: 'pending', label: 'En attente', color: 'orange' },
+  { value: 'inactive', label: 'Retiré', color: 'gray' },
   { value: 'maintenance', label: 'En maintenance', color: 'yellow' },
 ];
 
 export default function AgencyPropertyEditPage() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -65,7 +65,7 @@ export default function AgencyPropertyEditPage() {
   const [formData, setFormData] = useState<Property>({
     id: '',
     title: '',
-    property_type: 'appartement',
+    property_type: 'apartment',
     address: '',
     city: '',
     neighborhood: '',
@@ -75,7 +75,7 @@ export default function AgencyPropertyEditPage() {
     rooms: 0,
     bedrooms: 0,
     bathrooms: 0,
-    status: 'disponible',
+    status: 'available',
     latitude: null,
     longitude: null,
   });

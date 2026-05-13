@@ -31,14 +31,14 @@ export function useHomeStats(): HomeStats {
         const { count: propertiesCount } = await supabase
           .from('properties')
           .select('*', { count: 'exact', head: true })
-          .eq('status', 'disponible');
+          .eq('status', 'available');
 
         // Récupérer le nombre de locataires (profils avec user_type = tenant)
         const { count: tenantsCount } = await supabase
           .from('profiles')
           .select('*', { count: 'exact', head: true })
           // Enum user_type values are French; avoid invalid enums that cause 400
-          .eq('user_type', 'locataire');
+          .eq('user_type', 'tenant');
 
         setStats({
           propertiesCount: propertiesCount || 0,

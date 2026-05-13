@@ -13,7 +13,7 @@ interface MontoitDB extends DBSchema {
     key: string;
     value: {
       id: string;
-      propertyData: any;
+      propertyData: unknown;
       addedAt: number;
       syncStatus: 'synced' | 'pending' | 'error';
     };
@@ -24,7 +24,7 @@ interface MontoitDB extends DBSchema {
     value: {
       id: number;
       query: string;
-      filters: any;
+      filters: unknown;
       location?: { lat: number; lng: number };
       timestamp: number;
     };
@@ -35,7 +35,7 @@ interface MontoitDB extends DBSchema {
     value: {
       id: number;
       action: 'favorite_add' | 'favorite_remove' | 'property_view' | 'contact_submit';
-      data: any;
+      data: unknown;
       timestamp: number;
       retryCount: number;
       status: 'pending' | 'processing' | 'failed';
@@ -46,7 +46,7 @@ interface MontoitDB extends DBSchema {
     key: string;
     value: {
       id: string;
-      data: any;
+      data: unknown;
       cachedAt: number;
       expiresAt: number;
     };
@@ -97,7 +97,7 @@ class IndexedDBService {
 
   // === FAVORIS ===
 
-  async addFavorite(propertyId: string, propertyData: any): Promise<void> {
+  async addFavorite(propertyId: string, propertyData: unknown): Promise<void> {
     await this.init();
     if (!this.db) throw new Error('Database not initialized');
 
@@ -156,7 +156,7 @@ class IndexedDBService {
 
   async addSearchHistory(
     query: string,
-    filters: any,
+    filters: unknown,
     location?: { lat: number; lng: number }
   ): Promise<void> {
     await this.init();
@@ -198,7 +198,7 @@ class IndexedDBService {
 
   // === QUEUE SYNCHRONISATION ===
 
-  async addToSyncQueue(action: string, data: any): Promise<void> {
+  async addToSyncQueue(action: string, data: unknown): Promise<void> {
     await this.init();
     if (!this.db) throw new Error('Database not initialized');
 
@@ -253,7 +253,7 @@ class IndexedDBService {
 
   // === CACHE PROPRIÉTÉS ===
 
-  async cacheProperty(propertyId: string, data: any, ttlMinutes = 30): Promise<void> {
+  async cacheProperty(propertyId: string, data: unknown, ttlMinutes = 30): Promise<void> {
     await this.init();
     if (!this.db) throw new Error('Database not initialized');
 

@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileCheck, FileX, Check, X, AlertCircle, FileText } from 'lucide-react';
+import {
+  ArrowLeft,
+  FileCheck,
+  FileX,
+  Check,
+  X,
+  AlertCircle,
+  FileText,
+  Eye,
+  Download,
+  XCircle,
+} from 'lucide-react';
 import { Card, CardContent } from '@/shared/ui/Card';
 import { Button } from '@/shared/ui/Button';
 import { Badge } from '@/shared/ui/badge';
@@ -63,6 +74,8 @@ export default function DocumentValidationPage() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [missionId, setMissionId] = useState<string>('');
+  const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -140,6 +153,124 @@ export default function DocumentValidationPage() {
     }
   };
 
+  const getSignedDocumentUrl = async (documentUrl: string): Promise<string | null> => {
+    try {
+      if (!documentUrl) {
+        console.warn('[getSignedDocumentUrl] No document URL provided');
+        return null;
+      }
+
+      // Si ce n'est pas une URL Supabase Storage, retourner l'URL telle quelle
+      if (!documentUrl.includes('/storage/v1/object')) {
+        return documentUrl;
+      }
+
+      const url = new URL(documentUrl);
+      const pathParts = url.pathname.split('/').filter(Boolean);
+
+      // Format attendu: /storage/v1/object/public/bucket/path/to/file
+      // ou: /storage/v1/object/sign/bucket/path/to/file/token
+      const objectIndex = pathParts.indexOf('object');
+      if (objectIndex === -1) {
+        console.warn('[getSignedDocumentUrl] Not a valid Supabase Storage URL:', documentUrl);
+        return documentUrl;
+      }
+
+      const mode = pathParts[objectIndex + 1];
+      const bucketIndex = mode === 'public' || mode === 'sign' ? objectIndex + 2 : objectIndex + 1;
+      const bucket = pathParts[bucketIndex];
+
+      if (!bucket) {
+        console.warn('[getSignedDocumentUrl] Could not extract bucket from URL:', documentUrl);
+        return null;
+      }
+
+      // Extraire le chemin du fichier
+      const fileStart = mode === 'public' || mode === 'sign' ? objectIndex + 3 : objectIndex + 2;
+      const filePath = pathParts.slice(fileStart).join('/');
+
+      if (!filePath) {
+        console.warn('[getSignedDocumentUrl] Could not extract file path from URL:', documentUrl);
+        return null;
+      }
+
+      console.log('[getSignedDocumentUrl] Extracted bucket:', bucket, 'path:', filePath);
+
+      // Créer une URL signée valide pour 1 heure
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
+
+      if (error) {
+        console.error('[getSignedDocumentUrl] Error creating signed URL:', error);
+
+        if (error.message?.includes('not found') || error.message?.includes('Bucket not found')) {
+          const { data: buckets } = await supabase.storage.listBuckets();
+          const availableBuckets = buckets?.map((b) => b.name).join(', ') || 'aucun';
+          console.error('[getSignedDocumentUrl] Available buckets:', availableBuckets);
+          toast.error(`Le bucket "${bucket}" n'existe pas. Disponibles: ${availableBuckets}`);
+        }
+
+        return null;
+      }
+
+      return data.signedUrl;
+    } catch (error) {
+      console.error('[getSignedDocumentUrl] Exception:', error);
+      return null;
+    }
+  };
+
+  const handlePreviewDoc = async (doc: DocumentItem) => {
+    if (!doc.url) {
+      toast.error('Aucun fichier disponible pour ce document');
+      return;
+    }
+
+    const signedUrl = await getSignedDocumentUrl(doc.url);
+    if (signedUrl) {
+      setPreviewUrl(signedUrl);
+      setPreviewDoc(doc);
+    } else {
+      toast.error('Impossible de charger le document');
+    }
+  };
+
+  const handleDownloadDoc = async (doc: DocumentItem) => {
+    if (!doc.url) {
+      toast.error('Aucun fichier disponible pour ce document');
+      return;
+    }
+
+    const signedUrl = await getSignedDocumentUrl(doc.url);
+    if (signedUrl) {
+      const link = document.createElement('a');
+      link.href = signedUrl;
+      link.download = doc.name;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Téléchargement lancé');
+    } else {
+      toast.error('Erreur lors du téléchargement');
+    }
+  };
+
+  const closePreview = () => {
+    setPreviewDoc(null);
+    setPreviewUrl(null);
+  };
+
+  const isImageFile = (url: string) => {
+    if (!url) return false;
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+    return imageExtensions.some((ext) => url.toLowerCase().endsWith(ext));
+  };
+
+  const isPdfFile = (url: string) => {
+    if (!url) return false;
+    return url.toLowerCase().endsWith('.pdf');
+  };
+
   const stats = {
     total: documents.length,
     pending: documents.filter((d) => d.status === 'pending').length,
@@ -191,7 +322,7 @@ export default function DocumentValidationPage() {
 
       <main className="w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-8">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <Card>
             <CardContent className="pt-4 text-center">
               <p className="text-2xl font-bold text-amber-600">{stats.pending}</p>
@@ -282,6 +413,26 @@ export default function DocumentValidationPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    {doc.url ? (
+                      <>
+                        <Button
+                          size="small"
+                          variant="ghost"
+                          onClick={() => handlePreviewDoc(doc)}
+                          title="Voir le document"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="ghost"
+                          onClick={() => handleDownloadDoc(doc)}
+                          title="Télécharger"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : null}
                     {doc.status === 'pending' ? (
                       <>
                         <Button size="small" variant="outline" onClick={() => handleApprove(doc)}>
@@ -338,6 +489,69 @@ export default function DocumentValidationPage() {
             >
               Confirmer le rejet
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={!!previewDoc} onOpenChange={closePreview}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle>{previewDoc?.name}</DialogTitle>
+              <Button
+                variant="ghost"
+                size="small"
+                className="p-2 h-auto w-auto"
+                onClick={closePreview}
+              >
+                <XCircle className="h-5 w-5" />
+              </Button>
+            </div>
+          </DialogHeader>
+          <div className="py-4 flex items-center justify-center min-h-[400px]">
+            {previewUrl ? (
+              isImageFile(previewUrl) ? (
+                <img
+                  src={previewUrl}
+                  alt={previewDoc?.name}
+                  className="max-w-full max-h-[70vh] object-contain rounded"
+                />
+              ) : isPdfFile(previewUrl) ? (
+                <iframe
+                  src={previewUrl}
+                  title={previewDoc?.name}
+                  className="w-full h-[70vh] rounded"
+                />
+              ) : (
+                <div className="text-center">
+                  <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground mb-4">
+                    Aperçu non disponible pour ce type de fichier
+                  </p>
+                  <Button onClick={() => previewUrl && window.open(previewUrl, '_blank')}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Ouvrir dans un nouvel onglet
+                  </Button>
+                </div>
+              )
+            ) : (
+              <div className="text-center">
+                <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">Chargement du document...</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closePreview}>
+              Fermer
+            </Button>
+            {previewUrl && (
+              <Button onClick={() => window.open(previewUrl, '_blank')}>
+                <Download className="h-4 w-4 mr-2" />
+                Télécharger
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

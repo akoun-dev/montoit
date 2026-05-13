@@ -1,5 +1,5 @@
 /**
- * Page de notifications pour l'agent de confiance
+ * Page de notifications pour le tiers de confiance
  *
  * Affiche toutes les notifications avec filtres et actions rapides.
  */

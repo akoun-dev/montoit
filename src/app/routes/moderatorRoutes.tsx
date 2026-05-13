@@ -1,67 +1,25 @@
-import { RouteObject } from 'react-router-dom';
+import { RouteObject, Navigate } from 'react-router-dom';
 import { lazyWithRetry } from '@/shared/utils/lazyLoad';
 import ProtectedRoute from '@/shared/ui/ProtectedRoute';
+import AdminLayout from '@/app/layout/AdminLayout';
 import { ROLES } from '@/shared/constants/roles';
 
-// Lazy load moderator pages
-const ModeratorDashboard = lazyWithRetry(() => import('@/pages/moderator/DashboardPage'));
-const ContentModeration = lazyWithRetry(() => import('@/pages/moderator/ContentModerationPage'));
-const UserReports = lazyWithRetry(() => import('@/pages/moderator/UserReportsPage'));
-const ReviewQueue = lazyWithRetry(() => import('@/pages/moderator/ReviewQueuePage'));
-const ModerationHistory = lazyWithRetry(() => import('@/pages/moderator/ModerationHistoryPage'));
-const ModeratorSettings = lazyWithRetry(() => import('@/pages/moderator/SettingsPage'));
+// Moderator pages
+const ModeratorDashboard = lazyWithRetry(() => import('@/pages/moderator/ModeratorDashboardPage'));
+const AdminReportsManagement = lazyWithRetry(() => import('@/pages/admin/ReportsManagementPage'));
+const AdminReviewModeration = lazyWithRetry(() => import('@/pages/admin/ReviewModerationPage'));
 
-/**
- * Moderator routes - Content moderation and user management
- * Accessible only to users with moderator role
- */
-export const moderatorRoutes: RouteObject[] = [
-  {
-    path: 'moderator',
-    element: (
-      <ProtectedRoute allowedRoles={[ROLES.MODERATOR]}>
-        <ModeratorDashboard />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: 'moderator/content',
-    element: (
-      <ProtectedRoute allowedRoles={[ROLES.MODERATOR]}>
-        <ContentModeration />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: 'moderator/reports',
-    element: (
-      <ProtectedRoute allowedRoles={[ROLES.MODERATOR]}>
-        <UserReports />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: 'moderator/queue',
-    element: (
-      <ProtectedRoute allowedRoles={[ROLES.MODERATOR]}>
-        <ReviewQueue />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: 'moderator/history',
-    element: (
-      <ProtectedRoute allowedRoles={[ROLES.MODERATOR]}>
-        <ModerationHistory />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: 'moderator/settings',
-    element: (
-      <ProtectedRoute allowedRoles={[ROLES.MODERATOR]}>
-        <ModeratorSettings />
-      </ProtectedRoute>
-    ),
-  },
-];
+export const moderatorRoutes: RouteObject = {
+  path: 'moderator',
+  element: (
+    <ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MODERATOR, ROLES.TRUST_AGENT]}>
+      <AdminLayout />
+    </ProtectedRoute>
+  ),
+  children: [
+    { index: true, element: <Navigate to="/moderator/tableau-de-bord" replace /> },
+    { path: 'tableau-de-bord', element: <ModeratorDashboard /> },
+    { path: 'gestion-signalements', element: <AdminReportsManagement /> },
+    { path: 'moderation-avis', element: <AdminReviewModeration /> },
+  ],
+};

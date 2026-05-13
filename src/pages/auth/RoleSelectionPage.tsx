@@ -11,15 +11,14 @@ import {
   Home,
   Star,
   Shield,
-  ArrowRight,
   CheckCircle,
   Loader2,
 } from 'lucide-react';
-import { useBrevoAuth } from '@/hooks/useBrevoAuth';
+import { useOtpAuth } from '@/hooks/useOtpAuth';
 
 const roles = [
   {
-    value: 'locataire',
+    value: 'tenant',
     label: 'Locataire',
     icon: Home,
     color: 'blue',
@@ -33,7 +32,7 @@ const roles = [
     gradient: 'from-blue-500 to-blue-600',
   },
   {
-    value: 'proprietaire',
+    value: 'owner',
     label: 'Propriétaire',
     icon: Star,
     color: 'orange',
@@ -47,7 +46,7 @@ const roles = [
     gradient: 'from-orange-500 to-orange-600',
   },
   {
-    value: 'agence',
+    value: 'agency',
     label: 'Agence',
     icon: Shield,
     color: 'purple',
@@ -63,13 +62,14 @@ const roles = [
 ] as const;
 
 export default function RoleSelectionPage() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigate = useNavigate();
-  const { loading, selectRole } = useBrevoAuth();
+  const { loading, selectRole } = useOtpAuth();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
   const handleRoleSelect = async (roleValue: string) => {
     setSelectedRole(roleValue);
-    await selectRole(roleValue as 'locataire' | 'proprietaire' | 'agence');
+    await selectRole(roleValue as 'tenant' | 'owner' | 'agency');
   };
 
   return (

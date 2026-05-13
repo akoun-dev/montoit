@@ -31,10 +31,16 @@ export default function SaveSearchDialog({
     if (currentFilters.city) parts.push(currentFilters.city);
     if (currentFilters.propertyType) {
       const types: Record<string, string> = {
-        appartement: 'Appartement',
-        maison: 'Maison',
+        apartment: 'Appartement',
+        house: 'Maison',
         studio: 'Studio',
         villa: 'Villa',
+        duplex: 'Duplex',
+        room: 'Chambre',
+        office: 'Bureau',
+        retail: 'Commerce',
+        warehouse: 'Entrepôt',
+        land: 'Terrain',
       };
       parts.push(types[currentFilters.propertyType] || currentFilters.propertyType);
     }

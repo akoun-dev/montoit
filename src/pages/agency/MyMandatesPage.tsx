@@ -67,6 +67,7 @@ export default function MyMandatesPage() {
     suspendMandate,
     reactivateMandate,
     updateMandatePermissions,
+    deleteMandate,
   } = useAgencyMandates();
 
   // Detect if user is an agency (but don't auto-switch, let user choose)
@@ -90,7 +91,6 @@ export default function MyMandatesPage() {
         .select('id, title, city, price')
         .eq('owner_id', user.id);
 
-      console.log('MyMandatesPage - Loaded properties:', { count: data?.length || 0, data, error });
       setMyProperties((data || []) as Property[]);
     };
 
@@ -155,8 +155,11 @@ export default function MyMandatesPage() {
   };
 
   const handleSign = (mandate: AgencyMandate) => {
-    // Both owners and agencies go through the choice page
-    navigate(`/mandat/signer/${mandate.id}`);
+    // Redirect directly to the simplified signature page
+    const path = viewMode === 'owner'
+      ? `/proprietaire/mes-mandats/signer/${mandate.id}`
+      : `/agences/mandats/signer/${mandate.id}`;
+    navigate(path);
   };
 
   const handleSavePermissions = async (
@@ -215,6 +218,7 @@ export default function MyMandatesPage() {
     });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('fr-CI', { style: 'currency', currency: 'XOF' }).format(amount);
 
@@ -703,6 +707,7 @@ export default function MyMandatesPage() {
                 onReactivate={reactivateMandate}
                 onManagePermissions={handleManagePermissions}
                 onSign={handleSign}
+                onDelete={deleteMandate}
               />
             ))}
           </div>

@@ -36,7 +36,7 @@ export default function AuthModal({ isOpen, onClose, message }: AuthModalProps) 
 
         <div className="space-y-3">
           <a
-            href="/auth"
+            href="/connexion"
             className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-terracotta-600 to-coral-600 text-white rounded-xl hover:from-terracotta-700 hover:to-coral-700 transition-all hover:scale-105 shadow-lg font-bold"
           >
             <LogIn className="h-5 w-5" />
@@ -44,7 +44,7 @@ export default function AuthModal({ isOpen, onClose, message }: AuthModalProps) 
           </a>
 
           <a
-            href="/auth"
+            href="/inscription"
             className="w-full flex items-center justify-center space-x-2 px-6 py-3 border-2 border-terracotta-600 text-terracotta-600 rounded-xl hover:bg-terracotta-50 transition-all font-bold"
           >
             <UserPlus className="h-5 w-5" />

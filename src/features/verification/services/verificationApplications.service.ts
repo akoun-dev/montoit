@@ -5,11 +5,12 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { STORAGE_BUCKETS } from '@/services/upload/uploadService';
 
 // Types pour les demandes de verification
 export type DossierType = 'tenant' | 'owner' | 'agency';
 export type DossierStatus = 'pending' | 'in_review' | 'approved' | 'rejected' | 'more_info_requested';
-export type DocumentVerificationStatus = 'pending' | 'verified' | 'rejected';
+export type DocumentVerificationStatus = 'pending' | 'approved' | 'rejected';
 
 export interface VerificationApplication {
   id: string;
@@ -134,7 +135,7 @@ export async function getUserVerificationApplications(
 }
 
 /**
- * Récupérer toutes les demandes (pour trust agents)
+ * Récupérer toutes les demandes (pour tiers de confiance)
  */
 export async function getVerificationApplications(
   filters?: DossierFilters
@@ -362,7 +363,7 @@ export async function updateDocumentVerificationStatus(
     .update({
       verification_status: status,
       verification_notes: notes,
-      verified_at: status === 'verified' ? new Date().toISOString() : null,
+      verified_at: status === 'approved' ? new Date().toISOString() : null,
     })
     .eq('id', documentId)
     .select()
@@ -394,24 +395,53 @@ export async function uploadDocumentFile(
   documentType: string
 ): Promise<string> {
   // Déterminer le bucket selon le type de dossier
-  const bucketMap: Record<DossierType, string> = {
+  const envBucketMap: Record<DossierType, string | undefined> = {
+    tenant: import.meta.env.VITE_SUPABASE_TENANT_DOSSIER_BUCKET,
+    owner: import.meta.env.VITE_SUPABASE_OWNER_DOSSIER_BUCKET,
+    agency: import.meta.env.VITE_SUPABASE_AGENCY_DOSSIER_BUCKET,
+  };
+  const legacyBucketMap: Record<DossierType, string> = {
     tenant: 'dossiers-locataires',
     owner: 'dossiers-proprietaires',
     agency: 'dossiers-agences',
   };
 
-  const bucket = bucketMap[dossierType];
+  const bucketCandidates = [
+    envBucketMap[dossierType],
+    legacyBucketMap[dossierType],
+    STORAGE_BUCKETS.DOCUMENTS,
+    STORAGE_BUCKETS.VERIFICATIONS,
+  ].filter(Boolean) as string[];
+
   const fileExt = file.name.split('.').pop();
   const fileName = `${userId}/${documentType}/${Date.now()}.${fileExt}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(bucket)
-    .upload(fileName, file, { upsert: true });
+  let lastError: unknown = null;
+  let usedBucket: string | null = null;
 
-  if (uploadError) throw uploadError;
+  for (const candidate of bucketCandidates) {
+    const { error: uploadError } = await supabase.storage
+      .from(candidate)
+      .upload(fileName, file, { upsert: true });
+
+    if (!uploadError) {
+      usedBucket = candidate;
+      break;
+    }
+
+    lastError = uploadError;
+    // If bucket doesn't exist, try next candidate
+    if (!uploadError.message?.toLowerCase().includes('bucket') && !uploadError.message?.toLowerCase().includes('not found')) {
+      break;
+    }
+  }
+
+  if (!usedBucket) {
+    throw lastError;
+  }
 
   const { data: publicUrlData } = supabase.storage
-    .from(bucket)
+    .from(usedBucket)
     .getPublicUrl(fileName);
 
   return publicUrlData.publicUrl;
@@ -424,21 +454,32 @@ export async function deleteDocumentFile(
   dossierType: DossierType,
   fileUrl: string
 ): Promise<void> {
-  const bucketMap: Record<DossierType, string> = {
+  const legacyBucketMap: Record<DossierType, string> = {
     tenant: 'dossiers-locataires',
     owner: 'dossiers-proprietaires',
     agency: 'dossiers-agences',
   };
 
-  const bucket = bucketMap[dossierType];
-  // Extraire le chemin du fichier de l'URL
   const url = new URL(fileUrl);
-  const pathParts = url.pathname.split('/');
-  const fileName = pathParts.slice(pathParts.indexOf(bucket) + 1).join('/');
+  const pathParts = url.pathname.split('/').filter(Boolean);
+  const objectIndex = pathParts.indexOf('object');
+  let bucket = legacyBucketMap[dossierType];
+  let fileName = '';
 
-  const { error } = await supabase.storage
-    .from(bucket)
-    .remove([fileName]);
+  if (objectIndex !== -1) {
+    const mode = pathParts[objectIndex + 1];
+    const bucketIndex = mode === 'public' || mode === 'sign' ? objectIndex + 2 : objectIndex + 1;
+    bucket = pathParts[bucketIndex] || bucket;
+    const fileStart = mode === 'public' || mode === 'sign' ? objectIndex + 3 : objectIndex + 2;
+    fileName = pathParts.slice(fileStart).join('/');
+  } else {
+    const bucketIndex = pathParts.indexOf(bucket);
+    fileName = bucketIndex !== -1 ? pathParts.slice(bucketIndex + 1).join('/') : '';
+  }
+
+  if (!fileName) return;
+
+  const { error } = await supabase.storage.from(bucket).remove([fileName]);
 
   if (error) throw error;
 }

@@ -51,7 +51,7 @@ export default function ForgotPassword() {
       }
 
       setSuccess(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Password reset error:', err);
       setError('Une erreur est survenue. Veuillez réessayer ou contacter le support.');
     } finally {

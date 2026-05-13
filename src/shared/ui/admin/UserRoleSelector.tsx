@@ -2,7 +2,7 @@
  * UserRoleSelector - Sélecteur de rôles utilisateur
  */
 
-import { Check, Shield, Users, Home, Building, Eye } from 'lucide-react';
+import { Check, Shield, Users, Home, Building } from 'lucide-react';
 import { UserRole } from '@/types/admin';
 
 export interface RoleOption {
@@ -10,7 +10,7 @@ export interface RoleOption {
   label: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
-  category: 'system' | 'business' | 'moderation';
+  category: 'system' | 'business';
 }
 
 export interface UserRoleSelectorProps {
@@ -30,42 +30,28 @@ const roleOptions: RoleOption[] = [
     category: 'system',
   },
   {
-    value: 'admin_ansut',
-    label: 'Admin ANSUT',
-    description: 'Administrateur certifié ANSUT',
+    value: 'trust_agent',
+    label: 'Tiers de confiance',
+    description: 'Agent de vérification certifié',
     icon: Shield,
     category: 'system',
   },
   {
-    value: 'moderator',
-    label: 'Modérateur',
-    description: 'Gestion du contenu et des signalements',
-    icon: Eye,
-    category: 'moderation',
-  },
-  {
-    value: 'trust_agent',
-    label: 'Trust Agent',
-    description: 'Agent de vérification certifié',
-    icon: Shield,
-    category: 'moderation',
-  },
-  {
-    value: 'locataire',
+    value: 'tenant',
     label: 'Locataire',
     description: 'Recherche de logement',
     icon: Users,
     category: 'business',
   },
   {
-    value: 'proprietaire',
+    value: 'owner',
     label: 'Propriétaire',
     description: 'Mise en location de biens',
     icon: Home,
     category: 'business',
   },
   {
-    value: 'agence',
+    value: 'agency',
     label: 'Agence Immobilière',
     description: 'Gestion de biens pour compte',
     icon: Building,
@@ -76,7 +62,6 @@ const roleOptions: RoleOption[] = [
 const categoryLabels = {
   system: 'Rôles Système',
   business: 'Rôles Métier',
-  moderation: 'Modération',
 };
 
 export function UserRoleSelector({
