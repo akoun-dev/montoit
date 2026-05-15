@@ -97,8 +97,6 @@ export default function Home() {
       <HowItWorks />
       <Roles />
       <Trust />
-      <About />
-      <Contact />
     </PageShell>
   )
 }

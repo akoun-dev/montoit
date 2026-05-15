@@ -33,7 +33,7 @@ Task: Fix all mobile responsiveness issues in property-detail-view.tsx
 Work Log:
 - Added `scrollbar-hide` CSS utility class to `src/app/globals.css` under `@layer utilities` for hiding scrollbars on tab bar and other overflow containers
 - Fixed Mobile CTA Bar:
-  - Added iOS safe area padding: `pb-[max(0.5rem,env(safe-area-inset-bottom))]`
+  - Added iOS safe area padding: `pb-ax(0.5rem,env(safe-area-inset-bottom))]`
   - Made "Visiter" button more prominent with `h-11 min-w-[5.5rem] shadow-sm`
   - Price text made responsive: `text-base sm:text-lg` with smaller unit text on mobile
   - Added "Appeler" and "Candidature" text labels on sm+ screens, icons-only on mobile for compact layout
@@ -56,7 +56,7 @@ Work Log:
   - Rating summary changed from `flex items-center gap-6` to `flex flex-col sm:flex-row items-center gap-4 sm:gap-6`
   - Rating bars container given `w-full sm:w-auto` for proper width in column layout
 - Fixed ApplyDialog:
-  - Added `pb-[max(1.5rem,env(safe-area-inset-bottom))]` for safe area padding on mobile
+  - Added `pb-ax(1.5rem,env(safe-area-inset-bottom))]` for safe area padding on mobile
 
 Stage Summary:
 - All 12 mobile responsiveness issues addressed in property-detail-view.tsx and globals.css
@@ -117,3 +117,24 @@ Stage Summary:
 - Filter sheet width responsive to narrow phones
 - Lint passes clean with no errors
 - Dev server running correctly
+
+---
+Task ID: 4
+Agent: Main
+Task: Make homepage property cards clickable + remove sections after "Nos Valeurs"
+
+Work Log:
+- Made homepage PropertyCard clickable by adding onClick handler that sets selectedPropertyId and navigates to property-detail view
+- Added auth check for favorite button on homepage cards (redirects to login if not authenticated)
+- Made favorite button visible on mobile (always visible, hover-only on desktop)
+- Added `previousView` field to auth store to track navigation history, enabling property detail back button to return to correct view (home or nos-biens)
+- Updated property detail view back button to use previousView instead of hardcoding 'nos-biens'
+- Removed About and Contact sections from homepage (sections after "Nos Valeurs" / Trust section)
+- Fixed duplicate import in properties.tsx
+- All changes lint clean, dev server running correctly
+
+Stage Summary:
+- Homepage property cards now navigate to dedicated property detail view on click
+- Favorite button auth-gated and mobile-visible on homepage cards
+- Property detail back button intelligently returns to previous view (home or nos-biens)
+- Homepage now ends at Trust section ("Nos Valeurs") — About and Contact removed

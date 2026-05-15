@@ -416,7 +416,7 @@ function MiniMap({ lat, lng, location }: { lat: number; lng: number; location: s
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export function PropertyDetailView({ propertyId }: { propertyId: number }) {
-  const { setView, isAuthenticated, user } = useAuthStore()
+  const { setView, isAuthenticated, user, previousView } = useAuthStore()
   const [isFavorite, setIsFavorite] = useState(false)
   const [currentImage, setCurrentImage] = useState(0)
   const [activeTab, setActiveTab] = useState<TabKey>('details')
@@ -502,11 +502,11 @@ export function PropertyDetailView({ propertyId }: { propertyId: number }) {
       <div className="bg-white border-b border-neutral-200 sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
           <button
-            onClick={() => setView('nos-biens')}
+            onClick={() => setView(previousView === 'property-detail' ? 'home' : previousView)}
             className="flex items-center gap-2 text-sm text-neutral-600 hover:text-brand-500 transition-colors"
           >
             <ArrowLeft className="size-4" />
-            <span className="hidden sm:inline">Retour aux résultats</span>
+            <span className="hidden sm:inline">Retour</span>
             <span className="sm:hidden">Retour</span>
           </button>
           <div className="flex items-center gap-2">

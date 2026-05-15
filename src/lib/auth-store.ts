@@ -20,6 +20,7 @@ interface AuthState {
   user: AuthUser | null
   isAuthenticated: boolean
   currentView: AppView
+  previousView: AppView
   isLoading: boolean
   // SMS flow state
   pendingPhone: string
@@ -45,6 +46,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   currentView: 'home',
+  previousView: 'home',
   isLoading: false,
   pendingPhone: '',
   authMethod: 'email',
@@ -182,7 +184,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  setView: (view) => set({ currentView: view }),
+  setView: (view) => set((state) => ({ previousView: state.currentView, currentView: view })),
   setAuthMethod: (method) => set({ authMethod: method }),
   setDashboardSection: (section) => set({ dashboardSection: section }),
   setSelectedPropertyId: (id) => set({ selectedPropertyId: id }),

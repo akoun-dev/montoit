@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { useAuthStore } from '@/lib/auth-store'
 import {
   Select,
   SelectContent,
@@ -187,12 +188,19 @@ const cardVariants = {
 
 function PropertyCard({ property }: { property: Property }) {
   const [isFavorite, setIsFavorite] = useState(false)
+  const { setView, setSelectedPropertyId, isAuthenticated } = useAuthStore()
+
+  const handleClick = () => {
+    setSelectedPropertyId(property.id)
+    setView('property-detail')
+  }
 
   return (
     <motion.div
       variants={cardVariants}
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
-      className="group bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+      className="group bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      onClick={handleClick}
     >
       {/* Image */}
       <div className="relative h-48 sm:h-52 overflow-hidden">
@@ -222,9 +230,10 @@ function PropertyCard({ property }: { property: Property }) {
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
+            if (!isAuthenticated) { setView('login'); return }
             setIsFavorite(!isFavorite)
           }}
-          className="absolute top-3 right-3 size-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white shadow-sm"
+          className="absolute top-3 right-3 size-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-white shadow-sm"
           aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
         >
           <Heart
