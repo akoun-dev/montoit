@@ -1,0 +1,916 @@
+'use client'
+
+import { useState, useMemo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import Image from 'next/image'
+import {
+  Search,
+  MapPin,
+  BedDouble,
+  Maximize,
+  Heart,
+  SlidersHorizontal,
+  RotateCcw,
+  ChevronDown,
+  LayoutGrid,
+  List,
+  Map,
+  Eye,
+  BadgeCheck,
+  X,
+  ArrowRight,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetClose,
+  SheetFooter,
+} from '@/components/ui/sheet'
+
+// ── Types ───────────────────────────────────────────────────────────────────
+
+type PropertyType = 'Appartement' | 'Villa' | 'Studio' | 'Duplex' | 'Penthouse' | 'Chambre'
+
+type PropertyStatus = 'disponible' | 'loue' | 'reserve'
+
+interface Property {
+  id: number
+  title: string
+  price: number
+  location: string
+  city: string
+  commune: string
+  bedrooms: number | null
+  area: number
+  image: string
+  type: PropertyType
+  meuble: boolean
+  status: PropertyStatus
+  isVerified: boolean
+  views: number
+}
+
+// ── Data ────────────────────────────────────────────────────────────────────
+
+const properties: Property[] = [
+  {
+    id: 1,
+    title: 'Appartement F3 moderne - Cocody',
+    price: 750000,
+    location: 'Cocody Riviera 2, Abidjan',
+    city: 'Abidjan',
+    commune: 'Cocody',
+    bedrooms: 3,
+    area: 85,
+    image: '/images/apt-cocody.png',
+    type: 'Appartement',
+    meuble: true,
+    status: 'disponible',
+    isVerified: true,
+    views: 287,
+  },
+  {
+    id: 2,
+    title: 'Studio Meublé - Plateau',
+    price: 75000,
+    location: 'Plateau Dokui, Abidjan',
+    city: 'Abidjan',
+    commune: 'Plateau',
+    bedrooms: null,
+    area: 35,
+    image: '/images/studio-plateau.png',
+    type: 'Studio',
+    meuble: true,
+    status: 'disponible',
+    isVerified: true,
+    views: 142,
+  },
+  {
+    id: 3,
+    title: 'Villa 4 Chambres - Marcory',
+    price: 350000,
+    location: 'Marcory Résidentiel, Abidjan',
+    city: 'Abidjan',
+    commune: 'Marcory',
+    bedrooms: 4,
+    area: 200,
+    image: '/images/villa-marcory.png',
+    type: 'Villa',
+    meuble: false,
+    status: 'disponible',
+    isVerified: true,
+    views: 431,
+  },
+  {
+    id: 4,
+    title: 'Appartement F2 - Yopougon',
+    price: 90000,
+    location: 'Yopougon Sipimap, Abidjan',
+    city: 'Abidjan',
+    commune: 'Yopougon',
+    bedrooms: 2,
+    area: 55,
+    image: '/images/apt-yopougon.png',
+    type: 'Appartement',
+    meuble: false,
+    status: 'loue',
+    isVerified: true,
+    views: 95,
+  },
+  {
+    id: 5,
+    title: 'Duplex Meublé - Abobo',
+    price: 180000,
+    location: 'Abobo Avocatier, Abidjan',
+    city: 'Abidjan',
+    commune: 'Abobo',
+    bedrooms: 3,
+    area: 120,
+    image: '/images/duplex-abobo.png',
+    type: 'Duplex',
+    meuble: true,
+    status: 'disponible',
+    isVerified: false,
+    views: 203,
+  },
+  {
+    id: 6,
+    title: 'Penthouse Riviera Palmeraie',
+    price: 500000,
+    location: 'Riviera Palmeraie, Abidjan',
+    city: 'Abidjan',
+    commune: 'Riviera',
+    bedrooms: 4,
+    area: 180,
+    image: '/images/penthouse-riviera.png',
+    type: 'Penthouse',
+    meuble: true,
+    status: 'disponible',
+    isVerified: true,
+    views: 567,
+  },
+  {
+    id: 7,
+    title: 'Appartement F4 - Deux Plateaux',
+    price: 220000,
+    location: 'Deux Plateaux, Cocody',
+    city: 'Abidjan',
+    commune: 'Cocody',
+    bedrooms: 4,
+    area: 110,
+    image: '/images/apt-cocody.png',
+    type: 'Appartement',
+    meuble: false,
+    status: 'disponible',
+    isVerified: true,
+    views: 178,
+  },
+  {
+    id: 8,
+    title: 'Studio Climatisé - Treichville',
+    price: 65000,
+    location: 'Treichville, Abidjan',
+    city: 'Abidjan',
+    commune: 'Treichville',
+    bedrooms: null,
+    area: 28,
+    image: '/images/studio-plateau.png',
+    type: 'Studio',
+    meuble: true,
+    status: 'disponible',
+    isVerified: false,
+    views: 89,
+  },
+]
+
+const propertyTypes: PropertyType[] = ['Appartement', 'Villa', 'Studio', 'Duplex', 'Penthouse', 'Chambre']
+const communes = ['Cocody', 'Plateau', 'Marcory', 'Yopougon', 'Abobo', 'Riviera', 'Treichville']
+const roomOptions = [1, 2, 3, 4, 5]
+const sortOptions = [
+  { label: 'Plus récent', value: 'recent' },
+  { label: 'Prix croissant', value: 'price-asc' },
+  { label: 'Prix décroissant', value: 'price-desc' },
+  { label: 'Plus populaire', value: 'popular' },
+]
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatPrice(price: number): string {
+  return price.toLocaleString('fr-FR')
+}
+
+// ── Filter Sidebar ──────────────────────────────────────────────────────────
+
+interface FilterSidebarProps {
+  typeFilter: string
+  setTypeFilter: (v: string) => void
+  communeFilter: string
+  setCommuneFilter: (v: string) => void
+  priceMin: string
+  setPriceMin: (v: string) => void
+  priceMax: string
+  setPriceMax: (v: string) => void
+  roomsMin: string
+  setRoomsMin: (v: string) => void
+  meubleOnly: boolean
+  setMeubleOnly: (v: boolean) => void
+  resultCount: number
+  hasActiveFilters: boolean
+  resetFilters: () => void
+}
+
+function FilterSidebar({
+  typeFilter,
+  setTypeFilter,
+  communeFilter,
+  setCommuneFilter,
+  priceMin,
+  setPriceMin,
+  priceMax,
+  setPriceMax,
+  roomsMin,
+  setRoomsMin,
+  meubleOnly,
+  setMeubleOnly,
+  resultCount,
+  hasActiveFilters,
+  resetFilters,
+}: FilterSidebarProps) {
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="size-4 text-brand-500" />
+          <span className="text-sm font-semibold text-neutral-900">Filtres</span>
+          <Badge className="bg-brand-500 text-white border-0 text-xs px-2 py-0.5 hover:bg-brand-500">
+            {resultCount} résultat{resultCount !== 1 ? 's' : ''}
+          </Badge>
+        </div>
+        {hasActiveFilters && (
+          <button
+            onClick={resetFilters}
+            className="text-xs text-brand-500 hover:text-brand-600 transition-colors flex items-center gap-1"
+          >
+            <RotateCcw className="size-3" />
+            Réinitialiser
+          </button>
+        )}
+      </div>
+
+      {/* Type de bien */}
+      <div className="space-y-2.5">
+        <Label className="text-xs font-medium text-neutral-700 uppercase tracking-wider">Type de bien</Label>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setTypeFilter('Tous')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              typeFilter === 'Tous'
+                ? 'bg-brand-500 text-white'
+                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+            }`}
+          >
+            Tous
+          </button>
+          {propertyTypes.map((type) => (
+            <button
+              key={type}
+              onClick={() => setTypeFilter(type)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                typeFilter === type
+                  ? 'bg-brand-500 text-white'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+              }`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Ville ou commune */}
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-neutral-700 uppercase tracking-wider">Ville ou commune</Label>
+        <Select value={communeFilter} onValueChange={setCommuneFilter}>
+          <SelectTrigger className="h-10 bg-white border-neutral-200 text-sm rounded-lg">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Toutes">Toutes</SelectItem>
+            {communes.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Loyer */}
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-neutral-700 uppercase tracking-wider">Loyer (FCFA/Mois)</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            placeholder="Min"
+            value={priceMin}
+            onChange={(e) => setPriceMin(e.target.value)}
+            className="h-10 bg-white border-neutral-200 text-sm rounded-lg"
+          />
+          <span className="text-neutral-400 text-sm">—</span>
+          <Input
+            type="number"
+            placeholder="Max"
+            value={priceMax}
+            onChange={(e) => setPriceMax(e.target.value)}
+            className="h-10 bg-white border-neutral-200 text-sm rounded-lg"
+          />
+        </div>
+      </div>
+
+      {/* Nombre de pièces min. */}
+      <div className="space-y-2.5">
+        <Label className="text-xs font-medium text-neutral-700 uppercase tracking-wider">Nombre de pièces min.</Label>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setRoomsMin('0')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              roomsMin === '0'
+                ? 'bg-brand-500 text-white'
+                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+            }`}
+          >
+            Tous
+          </button>
+          {roomOptions.map((n) => (
+            <button
+              key={n}
+              onClick={() => setRoomsMin(String(n))}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                roomsMin === String(n)
+                  ? 'bg-brand-500 text-white'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+              }`}
+            >
+              {n}{n === 5 ? '+' : ''}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Meublé uniquement */}
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-medium text-neutral-700">Meublé uniquement</Label>
+        <Switch
+          checked={meubleOnly}
+          onCheckedChange={setMeubleOnly}
+          className="data-[state=checked]:bg-brand-500"
+        />
+      </div>
+
+      {/* Reset button */}
+      {hasActiveFilters && (
+        <Button
+          variant="outline"
+          onClick={resetFilters}
+          className="w-full text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600"
+        >
+          <RotateCcw className="size-3.5 mr-2" />
+          Réinitialiser les filtres
+        </Button>
+      )}
+    </div>
+  )
+}
+
+// ── Property Card ───────────────────────────────────────────────────────────
+
+function PropertyCard({ property }: { property: Property }) {
+  const [isFavorite, setIsFavorite] = useState(false)
+
+  const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
+    disponible: { label: 'Disponible', className: 'bg-emerald-500 text-white' },
+    loue: { label: 'Loué', className: 'bg-red-500 text-white' },
+    reserve: { label: 'Réservé', className: 'bg-amber-500 text-white' },
+  }
+
+  return (
+    <motion.div
+      whileHover={{ y: -4, transition: { duration: 0.2 } }}
+      className="group bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
+    >
+      {/* Image */}
+      <div className="relative h-52 overflow-hidden">
+        <Image
+          src={property.image}
+          alt={property.title}
+          fill
+          className="object-cover group-hover:scale-105 transition-transform duration-500"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+        />
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+
+        {/* Status badge */}
+        <Badge className={`absolute top-3 left-3 border-0 text-xs font-semibold px-2.5 py-1 ${statusConfig[property.status].className}`}>
+          {statusConfig[property.status].label}
+        </Badge>
+
+        {/* Meublé badge */}
+        {property.meuble && (
+          <Badge className="absolute top-3 left-[auto] border-0 text-xs font-medium px-2 py-1 bg-sky-500 text-white" style={{ left: property.status === 'disponible' ? 'auto' : 'auto', right: property.isVerified ? '2.75rem' : '2.75rem' }}>
+            Meublé
+          </Badge>
+        )}
+
+        {/* Verified badge */}
+        {property.isVerified && (
+          <div className="absolute top-3 right-12 flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-full px-2 py-1">
+            <BadgeCheck className="size-3.5 text-brand-500" />
+            <span className="text-xs font-medium text-neutral-700">Vérifié</span>
+          </div>
+        )}
+
+        {/* Favorite button */}
+        <button
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setIsFavorite(!isFavorite)
+          }}
+          className="absolute top-3 right-3 size-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white shadow-sm transition-all"
+          aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+        >
+          <Heart
+            className={`size-4 transition-colors ${
+              isFavorite ? 'fill-red-500 text-red-500' : 'text-neutral-500'
+            }`}
+          />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="p-4">
+        <h3 className="font-semibold text-neutral-900 text-sm mb-1 line-clamp-1">
+          {property.title}
+        </h3>
+        <div className="flex items-center gap-1 text-neutral-500 text-xs mb-3">
+          <MapPin className="size-3 shrink-0" />
+          <span className="line-clamp-1">{property.location}</span>
+        </div>
+
+        {/* Features */}
+        <div className="flex items-center gap-3 text-xs text-neutral-600 mb-3">
+          {property.bedrooms !== null && (
+            <div className="flex items-center gap-1">
+              <BedDouble className="size-3.5 text-neutral-400" />
+              <span>{property.bedrooms} pièce{property.bedrooms > 1 ? 's' : ''}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1">
+            <Maximize className="size-3.5 text-neutral-400" />
+            <span>{property.area} m²</span>
+          </div>
+        </div>
+
+        {/* Price & Views */}
+        <div className="flex items-center justify-between pt-3 border-t border-neutral-100">
+          <p className="text-base font-bold text-brand-500">
+            {formatPrice(property.price)} <span className="text-xs font-normal text-neutral-400">F CFA/mois</span>
+          </p>
+          <div className="flex items-center gap-1 text-neutral-400">
+            <Eye className="size-3.5" />
+            <span className="text-xs">{property.views} vues</span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+// ── Property List Item ──────────────────────────────────────────────────────
+
+function PropertyListItem({ property }: { property: Property }) {
+  const [isFavorite, setIsFavorite] = useState(false)
+
+  const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
+    disponible: { label: 'Disponible', className: 'bg-emerald-500 text-white' },
+    loue: { label: 'Loué', className: 'bg-red-500 text-white' },
+    reserve: { label: 'Réservé', className: 'bg-amber-500 text-white' },
+  }
+
+  return (
+    <motion.div
+      whileHover={{ y: -2, transition: { duration: 0.15 } }}
+      className="group bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex"
+    >
+      {/* Image */}
+      <div className="relative w-48 sm:w-56 shrink-0 overflow-hidden">
+        <Image
+          src={property.image}
+          alt={property.title}
+          fill
+          className="object-cover group-hover:scale-105 transition-transform duration-500"
+          sizes="224px"
+        />
+        <Badge className={`absolute top-2 left-2 border-0 text-xs font-semibold px-2 py-0.5 ${statusConfig[property.status].className}`}>
+          {statusConfig[property.status].label}
+        </Badge>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 p-4 flex flex-col justify-between">
+        <div>
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h3 className="font-semibold text-neutral-900 text-sm line-clamp-1">{property.title}</h3>
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsFavorite(!isFavorite) }}
+              className="shrink-0 size-8 rounded-full bg-neutral-50 flex items-center justify-center hover:bg-neutral-100 transition-colors"
+              aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            >
+              <Heart className={`size-4 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-neutral-400'}`} />
+            </button>
+          </div>
+          <div className="flex items-center gap-1 text-neutral-500 text-xs mb-2">
+            <MapPin className="size-3 shrink-0" />
+            <span>{property.location}</span>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-neutral-600 mb-2">
+            {property.bedrooms !== null && (
+              <div className="flex items-center gap-1">
+                <BedDouble className="size-3.5 text-neutral-400" />
+                <span>{property.bedrooms} pièce{property.bedrooms > 1 ? 's' : ''}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1">
+              <Maximize className="size-3.5 text-neutral-400" />
+              <span>{property.area} m²</span>
+            </div>
+            {property.meuble && (
+              <Badge variant="outline" className="text-xs text-sky-600 border-sky-200 bg-sky-50 px-1.5 py-0">
+                Meublé
+              </Badge>
+            )}
+            {property.isVerified && (
+              <div className="flex items-center gap-0.5 text-brand-500">
+                <BadgeCheck className="size-3.5" />
+                <span className="text-xs font-medium">Vérifié</span>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <p className="text-base font-bold text-brand-500">
+            {formatPrice(property.price)} <span className="text-xs font-normal text-neutral-400">F CFA/mois</span>
+          </p>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 text-neutral-400">
+              <Eye className="size-3.5" />
+              <span className="text-xs">{property.views} vues</span>
+            </div>
+            <Button variant="outline" size="sm" className="text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600 text-xs h-8">
+              Voir <ArrowRight className="size-3 ml-1" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+// ── Main Component ──────────────────────────────────────────────────────────
+
+export function NosBiensView() {
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState<string>('Tous')
+  const [communeFilter, setCommuneFilter] = useState<string>('Toutes')
+  const [priceMin, setPriceMin] = useState('')
+  const [priceMax, setPriceMax] = useState('')
+  const [roomsMin, setRoomsMin] = useState('0')
+  const [meubleOnly, setMeubleOnly] = useState(false)
+
+  // View state
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [sortBy, setSortBy] = useState('recent')
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+
+  // Filter logic
+  const filteredProperties = useMemo(() => {
+    let result = properties.filter((p) => {
+      // Search
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase()
+        const match =
+          p.title.toLowerCase().includes(q) ||
+          p.location.toLowerCase().includes(q) ||
+          p.commune.toLowerCase().includes(q) ||
+          p.type.toLowerCase().includes(q)
+        if (!match) return false
+      }
+      // Type
+      if (typeFilter !== 'Tous' && p.type !== typeFilter) return false
+      // Commune
+      if (communeFilter !== 'Toutes' && p.commune !== communeFilter) return false
+      // Price range
+      if (priceMin && p.price < Number(priceMin)) return false
+      if (priceMax && p.price > Number(priceMax)) return false
+      // Rooms
+      if (roomsMin !== '0' && p.bedrooms !== null && p.bedrooms < Number(roomsMin)) return false
+      // Meuble
+      if (meubleOnly && !p.meuble) return false
+      return true
+    })
+
+    // Sort
+    switch (sortBy) {
+      case 'price-asc':
+        result = [...result].sort((a, b) => a.price - b.price)
+        break
+      case 'price-desc':
+        result = [...result].sort((a, b) => b.price - a.price)
+        break
+      case 'popular':
+        result = [...result].sort((a, b) => b.views - a.views)
+        break
+      default:
+        // recent — default order
+        break
+    }
+
+    return result
+  }, [searchQuery, typeFilter, communeFilter, priceMin, priceMax, roomsMin, meubleOnly, sortBy])
+
+  const hasActiveFilters =
+    typeFilter !== 'Tous' ||
+    communeFilter !== 'Toutes' ||
+    priceMin !== '' ||
+    priceMax !== '' ||
+    roomsMin !== '0' ||
+    meubleOnly
+
+  const resetFilters = () => {
+    setTypeFilter('Tous')
+    setCommuneFilter('Toutes')
+    setPriceMin('')
+    setPriceMax('')
+    setRoomsMin('0')
+    setMeubleOnly(false)
+    setSearchQuery('')
+  }
+
+  const filterSidebarProps = {
+    typeFilter,
+    setTypeFilter,
+    communeFilter,
+    setCommuneFilter,
+    priceMin,
+    setPriceMin,
+    priceMax,
+    setPriceMax,
+    roomsMin,
+    setRoomsMin,
+    meubleOnly,
+    setMeubleOnly,
+    resultCount: filteredProperties.length,
+    hasActiveFilters,
+    resetFilters,
+  }
+
+  return (
+    <section className="bg-neutral-50 min-h-screen">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* ── Search Bar ─────────────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="mb-6"
+        >
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-neutral-400" />
+            <input
+              type="text"
+              placeholder="Rechercher un bien, quartier, ville..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-12 pl-12 pr-12 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-4 top-1/2 -translate-y-1/2 size-5 rounded-full bg-neutral-200 flex items-center justify-center hover:bg-neutral-300 transition-colors"
+              >
+                <X className="size-3 text-neutral-600" />
+              </button>
+            )}
+          </div>
+        </motion.div>
+
+        {/* ── Toolbar ────────────────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="flex items-center justify-between gap-3 mb-6 flex-wrap"
+        >
+          {/* Left: Results count */}
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-bold text-neutral-900">
+              {filteredProperties.length} bien{filteredProperties.length !== 1 ? 's' : ''} trouvé{filteredProperties.length !== 1 ? 's' : ''}
+            </h1>
+            {hasActiveFilters && (
+              <button
+                onClick={resetFilters}
+                className="text-xs text-brand-500 hover:text-brand-600 transition-colors flex items-center gap-1"
+              >
+                <RotateCcw className="size-3" />
+                Voir tout
+              </button>
+            )}
+          </div>
+
+          {/* Right: Sort & View */}
+          <div className="flex items-center gap-2">
+            {/* Sort */}
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="h-9 w-[160px] bg-white border-neutral-200 text-xs rounded-lg">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* View toggle */}
+            <div className="hidden sm:flex items-center bg-white border border-neutral-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                aria-label="Vue grille"
+              >
+                <LayoutGrid className="size-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                aria-label="Vue liste"
+              >
+                <List className="size-4" />
+              </button>
+            </div>
+
+            {/* Map button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden sm:flex text-neutral-600 border-neutral-200 hover:bg-neutral-50 h-9 text-xs"
+            >
+              <Map className="size-3.5 mr-1.5" />
+              Carte
+            </Button>
+
+            {/* Mobile filter button */}
+            <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="lg:hidden text-neutral-600 border-neutral-200 hover:bg-neutral-50 h-9 text-xs"
+                >
+                  <SlidersHorizontal className="size-3.5 mr-1.5" />
+                  Filtres
+                  {hasActiveFilters && (
+                    <span className="ml-1.5 size-4 rounded-full bg-brand-500 text-white text-[10px] flex items-center justify-center">!</span>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-80">
+                <SheetHeader>
+                  <SheetTitle className="flex items-center gap-2">
+                    <SlidersHorizontal className="size-4 text-brand-500" />
+                    Filtres
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="px-4 py-6 overflow-y-auto max-h-[calc(100vh-120px)]">
+                  <FilterSidebar {...filterSidebarProps} />
+                </div>
+                <SheetFooter className="px-4 pb-4">
+                  <SheetClose asChild>
+                    <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white">
+                      Voir {filteredProperties.length} résultat{filteredProperties.length !== 1 ? 's' : ''}
+                    </Button>
+                  </SheetClose>
+                </SheetFooter>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </motion.div>
+
+        {/* ── Main Layout ────────────────────────────────────────────── */}
+        <div className="flex gap-6">
+          {/* Desktop Sidebar */}
+          <motion.aside
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4, delay: 0.15 }}
+            className="hidden lg:block w-72 shrink-0"
+          >
+            <div className="bg-white rounded-xl border border-neutral-200 p-5 sticky top-24">
+              <FilterSidebar {...filterSidebarProps} />
+            </div>
+          </motion.aside>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            {filteredProperties.length > 0 ? (
+              viewMode === 'grid' ? (
+                /* Grid view */
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
+                >
+                  {filteredProperties.map((property, i) => (
+                    <motion.div
+                      key={property.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: i * 0.05 }}
+                    >
+                      <PropertyCard property={property} />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              ) : (
+                /* List view */
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-4"
+                >
+                  {filteredProperties.map((property, i) => (
+                    <motion.div
+                      key={property.id}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: i * 0.04 }}
+                    >
+                      <PropertyListItem property={property} />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )
+            ) : (
+              /* Empty state */
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-20"
+              >
+                <div className="size-20 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-5">
+                  <Search className="size-8 text-neutral-300" />
+                </div>
+                <h3 className="text-lg font-semibold text-neutral-900 mb-2">
+                  Aucun bien ne correspond à vos critères
+                </h3>
+                <p className="text-neutral-500 text-sm mb-6 max-w-md mx-auto">
+                  Essayez de modifier vos filtres ou votre recherche pour découvrir plus de biens disponibles.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={resetFilters}
+                  className="text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600"
+                >
+                  <RotateCcw className="size-4 mr-2" />
+                  Réinitialiser les filtres
+                </Button>
+              </motion.div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}

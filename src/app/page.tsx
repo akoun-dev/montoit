@@ -5,6 +5,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { Header } from '@/components/home/header'
 import { Hero } from '@/components/home/hero'
 import { NosBiens } from '@/components/home/properties'
+import { NosBiensView } from '@/components/home/nos-biens-view'
 import { HowItWorks } from '@/components/home/how-it-works'
 import { Roles } from '@/components/home/roles'
 import { Trust } from '@/components/home/trust'
@@ -51,11 +52,11 @@ export default function Home() {
     return <RegisterForm />
   }
 
-  // Nos Biens — full page view
+  // Nos Biens — full page view with sidebar layout
   if (currentView === 'nos-biens') {
     return (
       <PageShell>
-        <NosBiens />
+        <NosBiensView />
       </PageShell>
     )
   }
