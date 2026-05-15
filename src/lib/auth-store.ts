@@ -26,7 +26,7 @@ interface AuthState {
   pendingPhone: string
   authMethod: AuthMethod
   dashboardSection: string
-  selectedPropertyId: number
+  selectedPropertyId: string
 
   loginWithEmail: (email: string, password: string) => Promise<void>
   loginWithSms: (phone: string) => Promise<void>
@@ -37,7 +37,7 @@ interface AuthState {
   setView: (view: AppView) => void
   setAuthMethod: (method: AuthMethod) => void
   setDashboardSection: (section: string) => void
-  setSelectedPropertyId: (id: number) => void
+  setSelectedPropertyId: (id: string) => void
   checkAuth: () => Promise<void>
   seedData: () => Promise<void>
 }
@@ -51,7 +51,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   pendingPhone: '',
   authMethod: 'email',
   dashboardSection: 'overview',
-  selectedPropertyId: 0,
+  selectedPropertyId: '',
 
   loginWithEmail: async (email: string, password: string) => {
     set({ isLoading: true })
@@ -179,7 +179,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         pendingPhone: '',
         authMethod: 'email',
         dashboardSection: 'overview',
-        selectedPropertyId: 0,
+        selectedPropertyId: '',
       })
     }
   },

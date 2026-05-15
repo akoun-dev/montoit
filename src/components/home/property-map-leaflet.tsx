@@ -12,26 +12,35 @@ import { Button } from '@/components/ui/button'
 type PropertyStatus = 'disponible' | 'loue' | 'reserve'
 
 interface MapProperty {
-  id: number
+  id: string
   title: string
   price: number
-  location: string
-  commune: string
+  address: string
+  commune: string | null
   bedrooms: number | null
   area: number
-  image: string
+  image: string | null
   type: string
-  meuble: boolean
-  status: PropertyStatus
+  isFurnished: boolean
+  rentalStatus: PropertyStatus
   isVerified: boolean
-  views: number
-  lat: number
-  lng: number
+  viewsCount: number
+  latitude: number | null
+  longitude: number | null
 }
 
 interface PropertyMapLeafletProps {
   properties: MapProperty[]
   onPropertyClick?: (property: MapProperty) => void
+}
+
+// ── Helper ──────────────────────────────────────────────────────────────────
+
+function getMapPropertyLocation(property: MapProperty): string {
+  if (property.commune) {
+    return `${property.address}, ${property.commune}`
+  }
+  return property.address
 }
 
 // ── Popup Card ──────────────────────────────────────────────────────────────
@@ -43,23 +52,31 @@ function LeafletPopupCard({ property, onVoirClick }: { property: MapProperty; on
     reserve: { label: 'Réservé', className: 'bg-amber-500 text-white' },
   }
 
+  const location = getMapPropertyLocation(property)
+
   return (
     <div className="w-64 font-sans">
       <div className="relative h-32 overflow-hidden rounded-t-lg">
-        <Image
-          src={property.image}
-          alt={property.title}
-          fill
-          className="object-cover"
-          sizes="256px"
-          unoptimized
-        />
+        {property.image ? (
+          <Image
+            src={property.image}
+            alt={property.title}
+            fill
+            className="object-cover"
+            sizes="256px"
+            unoptimized
+          />
+        ) : (
+          <div className="w-full h-full bg-neutral-200 flex items-center justify-center">
+            <MapPin className="size-6 text-neutral-400" />
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
         <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
-          <Badge className={`border-0 text-[9px] font-semibold px-1.5 py-0 ${statusConfig[property.status].className}`}>
-            {statusConfig[property.status].label}
+          <Badge className={`border-0 text-[9px] font-semibold px-1.5 py-0 ${statusConfig[property.rentalStatus].className}`}>
+            {statusConfig[property.rentalStatus].label}
           </Badge>
-          {property.meuble && (
+          {property.isFurnished && (
             <Badge className="border-0 text-[9px] font-medium px-1.5 py-0 bg-sky-500 text-white">
               Meublé
             </Badge>
@@ -70,7 +87,7 @@ function LeafletPopupCard({ property, onVoirClick }: { property: MapProperty; on
         <h3 className="font-semibold text-neutral-900 text-[11px] mb-0.5 line-clamp-1">{property.title}</h3>
         <div className="flex items-center gap-1 text-neutral-500 text-[10px] mb-1.5">
           <MapPin className="size-2.5 shrink-0" />
-          <span className="line-clamp-1">{property.location}</span>
+          <span className="line-clamp-1">{location}</span>
         </div>
         <div className="flex items-center gap-2 text-[10px] text-neutral-600 mb-2">
           {property.bedrooms !== null && (
@@ -122,8 +139,9 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick }: Prop
   const communeGroups = useCallback(() => {
     const groups: Record<string, MapProperty[]> = {}
     properties.forEach((p) => {
-      if (!groups[p.commune]) groups[p.commune] = []
-      groups[p.commune].push(p)
+      const communeKey = p.commune ?? 'Autre'
+      if (!groups[communeKey]) groups[communeKey] = []
+      groups[communeKey].push(p)
     })
     return groups
   }, [properties])
@@ -277,16 +295,19 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick }: Prop
           // Show cluster markers by commune
           const groups = communeGroups()
           Object.entries(groups).forEach(([commune, props]) => {
-            // Calculate centroid of commune's properties
-            const avgLat = props.reduce((s, p) => s + p.lat, 0) / props.length
-            const avgLng = props.reduce((s, p) => s + p.lng, 0) / props.length
+            // Calculate centroid of commune's properties (filter out null coords)
+            const validProps = props.filter((p) => p.latitude !== null && p.longitude !== null)
+            if (validProps.length === 0) return
+
+            const avgLat = validProps.reduce((s, p) => s + (p.latitude ?? 0), 0) / validProps.length
+            const avgLng = validProps.reduce((s, p) => s + (p.longitude ?? 0), 0) / validProps.length
 
             const clusterIcon = createClusterIcon(props.length, commune)
             const marker = L.marker([avgLat, avgLng], { icon: clusterIcon })
 
             marker.on('click', () => {
               // Zoom into this commune
-              const bounds = L.latLngBounds(props.map((p) => L.latLng(p.lat, p.lng)))
+              const bounds = L.latLngBounds(validProps.map((p) => L.latLng(p.latitude ?? 0, p.longitude ?? 0)))
               map.fitBounds(bounds.pad(0.3), { animate: true, duration: 0.5 })
             })
 
@@ -295,8 +316,9 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick }: Prop
         } else {
           // Show individual property markers
           properties.forEach((property) => {
-            const icon = createPropertyIcon(property.price, property.status)
-            const marker = L.marker([property.lat, property.lng], { icon })
+            if (property.latitude === null || property.longitude === null) return
+            const icon = createPropertyIcon(property.price, property.rentalStatus)
+            const marker = L.marker([property.latitude, property.longitude], { icon })
 
             marker.on('click', () => {
               setSelectedProperty(property)
@@ -317,9 +339,13 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick }: Prop
 
       // Fit bounds to all properties
       if (properties.length > 0) {
-        const allCoords = properties.map((p) => L.latLng(p.lat, p.lng))
-        const bounds = L.latLngBounds(allCoords)
-        map.fitBounds(bounds.pad(0.15))
+        const allCoords = properties
+          .filter((p) => p.latitude !== null && p.longitude !== null)
+          .map((p) => L.latLng(p.latitude!, p.longitude!))
+        if (allCoords.length > 0) {
+          const bounds = L.latLngBounds(allCoords)
+          map.fitBounds(bounds.pad(0.15))
+        }
       }
 
       mapInstanceRef.current = map

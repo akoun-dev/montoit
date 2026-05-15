@@ -38,6 +38,13 @@ enum PropertyStatus {
   ACTIVE
   SUSPENDED
   CLOSED
+  RENTED
+}
+
+enum RentalStatus {
+  disponible
+  loue
+  reserve
 }
 
 enum RentalFileStatus {
@@ -200,28 +207,34 @@ model OTPCode {
 // ─── Property (Annonce) ───────────────────────────────────────────────────────
 
 model Property {
-  id          String         @id @default(cuid())
-  title       String
-  description String
-  type        PropertyType
-  status      PropertyStatus @default(ACTIVE)
-  price       Float
-  currency    String         @default("FCFA")
-  area        Float          // m²
-  bedrooms    Int?
-  bathrooms   Int?
-  address     String
-  city        String
-  commune     String?
-  latitude    Float?
-  longitude   Float?
-  isFurnished Boolean        @default(false)
-  hasParking  Boolean        @default(false)
-  hasGarden   Boolean        @default(false)
-  hasPool     Boolean        @default(false)
-  viewsCount  Int            @default(0)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id              String         @id @default(cuid())
+  title           String
+  description     String
+  type            PropertyType
+  status          PropertyStatus @default(ACTIVE)
+  rentalStatus    RentalStatus   @default(disponible)
+  price           Float
+  currency        String         @default("FCFA")
+  area            Float          // m²
+  bedrooms        Int?
+  bathrooms       Int?
+  address         String
+  city            String
+  commune         String?
+  latitude        Float?
+  longitude       Float?
+  isFurnished     Boolean        @default(false)
+  isVerified      Boolean        @default(false)
+  hasParking      Boolean        @default(false)
+  hasGarden       Boolean        @default(false)
+  hasPool         Boolean        @default(false)
+  hasGuardian     Boolean        @default(false)
+  hasClimate      Boolean        @default(false)
+  amenities       String         @default("[]")  // JSON array of amenity keys
+  rentalTerms     String         @default("{}")  // JSON object with rental conditions
+  viewsCount      Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)

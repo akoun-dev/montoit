@@ -8,21 +8,21 @@ import { MapPin } from 'lucide-react'
 type PropertyStatus = 'disponible' | 'loue' | 'reserve'
 
 interface MapProperty {
-  id: number
+  id: string
   title: string
   price: number
-  location: string
-  commune: string
+  address: string
+  commune: string | null
   bedrooms: number | null
   area: number
-  image: string
+  image: string | null
   type: string
-  meuble: boolean
-  status: PropertyStatus
+  isFurnished: boolean
+  rentalStatus: PropertyStatus
   isVerified: boolean
-  views: number
-  lat: number
-  lng: number
+  viewsCount: number
+  latitude: number | null
+  longitude: number | null
 }
 
 interface PropertyMapProps {

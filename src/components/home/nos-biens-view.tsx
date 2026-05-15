@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import {
@@ -18,6 +18,7 @@ import {
   BadgeCheck,
   X,
   ArrowRight,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -45,179 +46,39 @@ import {
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-type PropertyType = 'Appartement' | 'Villa' | 'Studio' | 'Duplex' | 'Penthouse' | 'Chambre'
-
 type PropertyStatus = 'disponible' | 'loue' | 'reserve'
 
 interface Property {
-  id: number
+  id: string
   title: string
+  description: string
+  type: string
+  rentalStatus: PropertyStatus
   price: number
-  location: string
-  city: string
-  commune: string
-  bedrooms: number | null
+  currency: string
   area: number
-  image: string
-  type: PropertyType
-  meuble: boolean
-  status: PropertyStatus
+  bedrooms: number | null
+  bathrooms: number | null
+  address: string
+  city: string
+  commune: string | null
+  latitude: number | null
+  longitude: number | null
+  isFurnished: boolean
   isVerified: boolean
-  views: number
-  lat: number
-  lng: number
+  viewsCount: number
+  image: string | null
+  ownerId: string
+  owner: {
+    id: string
+    firstName: string
+    lastName: string
+  }
 }
 
-// ── Data ────────────────────────────────────────────────────────────────────
+// ── Constants ───────────────────────────────────────────────────────────────
 
-const properties: Property[] = [
-  {
-    id: 1,
-    title: 'Appartement F3 moderne - Cocody',
-    price: 750000,
-    location: 'Cocody Riviera 2, Abidjan',
-    city: 'Abidjan',
-    commune: 'Cocody',
-    bedrooms: 3,
-    area: 85,
-    image: '/images/apt-cocody.png',
-    type: 'Appartement',
-    meuble: true,
-    status: 'disponible',
-    isVerified: true,
-    views: 287,
-    lat: 5.3580,
-    lng: -3.9750,
-  },
-  {
-    id: 2,
-    title: 'Studio Meublé - Plateau',
-    price: 75000,
-    location: 'Plateau Dokui, Abidjan',
-    city: 'Abidjan',
-    commune: 'Plateau',
-    bedrooms: null,
-    area: 35,
-    image: '/images/studio-plateau.png',
-    type: 'Studio',
-    meuble: true,
-    status: 'disponible',
-    isVerified: true,
-    views: 142,
-    lat: 5.3190,
-    lng: -4.0150,
-  },
-  {
-    id: 3,
-    title: 'Villa 4 Chambres - Marcory',
-    price: 350000,
-    location: 'Marcory Résidentiel, Abidjan',
-    city: 'Abidjan',
-    commune: 'Marcory',
-    bedrooms: 4,
-    area: 200,
-    image: '/images/villa-marcory.png',
-    type: 'Villa',
-    meuble: false,
-    status: 'disponible',
-    isVerified: true,
-    views: 431,
-    lat: 5.2950,
-    lng: -3.9850,
-  },
-  {
-    id: 4,
-    title: 'Appartement F2 - Yopougon',
-    price: 90000,
-    location: 'Yopougon Sipimap, Abidjan',
-    city: 'Abidjan',
-    commune: 'Yopougon',
-    bedrooms: 2,
-    area: 55,
-    image: '/images/apt-yopougon.png',
-    type: 'Appartement',
-    meuble: false,
-    status: 'loue',
-    isVerified: true,
-    views: 95,
-    lat: 5.3400,
-    lng: -4.0900,
-  },
-  {
-    id: 5,
-    title: 'Duplex Meublé - Abobo',
-    price: 180000,
-    location: 'Abobo Avocatier, Abidjan',
-    city: 'Abidjan',
-    commune: 'Abobo',
-    bedrooms: 3,
-    area: 120,
-    image: '/images/duplex-abobo.png',
-    type: 'Duplex',
-    meuble: true,
-    status: 'disponible',
-    isVerified: false,
-    views: 203,
-    lat: 5.3800,
-    lng: -4.0400,
-  },
-  {
-    id: 6,
-    title: 'Penthouse Riviera Palmeraie',
-    price: 500000,
-    location: 'Riviera Palmeraie, Abidjan',
-    city: 'Abidjan',
-    commune: 'Riviera',
-    bedrooms: 4,
-    area: 180,
-    image: '/images/penthouse-riviera.png',
-    type: 'Penthouse',
-    meuble: true,
-    status: 'disponible',
-    isVerified: true,
-    views: 567,
-    lat: 5.3700,
-    lng: -3.9500,
-  },
-  {
-    id: 7,
-    title: 'Appartement F4 - Deux Plateaux',
-    price: 220000,
-    location: 'Deux Plateaux, Cocody',
-    city: 'Abidjan',
-    commune: 'Cocody',
-    bedrooms: 4,
-    area: 110,
-    image: '/images/apt-cocody.png',
-    type: 'Appartement',
-    meuble: false,
-    status: 'disponible',
-    isVerified: true,
-    views: 178,
-    lat: 5.3450,
-    lng: -3.9600,
-  },
-  {
-    id: 8,
-    title: 'Studio Climatisé - Treichville',
-    price: 65000,
-    location: 'Treichville, Abidjan',
-    city: 'Abidjan',
-    commune: 'Treichville',
-    bedrooms: null,
-    area: 28,
-    image: '/images/studio-plateau.png',
-    type: 'Studio',
-    meuble: true,
-    status: 'disponible',
-    isVerified: false,
-    views: 89,
-    lat: 5.2980,
-    lng: -4.0300,
-  },
-]
-
-const propertyTypes: PropertyType[] = ['Appartement', 'Villa', 'Studio', 'Duplex', 'Penthouse', 'Chambre']
+const propertyTypes = ['APPARTEMENT', 'VILLA', 'STUDIO', 'DUPLEX', 'PENTHOUSE', 'MAISON'] as const
 const communes = ['Cocody', 'Plateau', 'Marcory', 'Yopougon', 'Abobo', 'Riviera', 'Treichville']
 const roomOptions = [1, 2, 3, 4, 5]
 const sortOptions = [
@@ -231,6 +92,54 @@ const sortOptions = [
 
 function formatPrice(price: number): string {
   return price.toLocaleString('fr-FR')
+}
+
+function formatPropertyType(type: string): string {
+  return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()
+}
+
+function getPropertyLocation(property: Property): string {
+  if (property.commune) {
+    return `${property.address}, ${property.commune}`
+  }
+  return property.address
+}
+
+// ── Skeleton ────────────────────────────────────────────────────────────────
+
+function PropertyCardSkeleton() {
+  return (
+    <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm animate-pulse">
+      <div className="h-52 bg-neutral-200" />
+      <div className="p-4 space-y-3">
+        <div className="h-4 bg-neutral-200 rounded w-3/4" />
+        <div className="h-3 bg-neutral-200 rounded w-1/2" />
+        <div className="flex gap-3">
+          <div className="h-3 bg-neutral-200 rounded w-16" />
+          <div className="h-3 bg-neutral-200 rounded w-16" />
+        </div>
+        <div className="h-px bg-neutral-100" />
+        <div className="flex justify-between">
+          <div className="h-4 bg-neutral-200 rounded w-24" />
+          <div className="h-3 bg-neutral-200 rounded w-16" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PropertyListItemSkeleton() {
+  return (
+    <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm flex animate-pulse">
+      <div className="w-36 sm:w-48 h-36 bg-neutral-200 shrink-0" />
+      <div className="flex-1 p-4 space-y-3">
+        <div className="h-4 bg-neutral-200 rounded w-3/4" />
+        <div className="h-3 bg-neutral-200 rounded w-1/2" />
+        <div className="h-3 bg-neutral-200 rounded w-1/3" />
+        <div className="h-4 bg-neutral-200 rounded w-24" />
+      </div>
+    </div>
+  )
 }
 
 // ── Filter Sidebar ──────────────────────────────────────────────────────────
@@ -318,7 +227,7 @@ function FilterSidebar({
                   : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100 border border-neutral-200'
               }`}
             >
-              {type}
+              {formatPropertyType(type)}
             </button>
           ))}
         </div>
@@ -443,6 +352,8 @@ function PropertyCard({ property, onClick }: { property: Property; onClick: () =
     reserve: { label: 'Réservé', className: 'bg-amber-500 text-white' },
   }
 
+  const location = getPropertyLocation(property)
+
   return (
     <motion.div
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
@@ -451,22 +362,28 @@ function PropertyCard({ property, onClick }: { property: Property; onClick: () =
     >
       {/* Image */}
       <div className="relative h-52 overflow-hidden">
-        <Image
-          src={property.image}
-          alt={property.title}
-          fill
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-        />
+        {property.image ? (
+          <Image
+            src={property.image}
+            alt={property.title}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          />
+        ) : (
+          <div className="w-full h-full bg-neutral-200 flex items-center justify-center">
+            <MapPin className="size-8 text-neutral-400" />
+          </div>
+        )}
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
 
         {/* Badges row */}
         <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
-          <Badge className={`border-0 text-[11px] font-semibold px-2 py-0.5 ${statusConfig[property.status].className}`}>
-            {statusConfig[property.status].label}
+          <Badge className={`border-0 text-[11px] font-semibold px-2 py-0.5 ${statusConfig[property.rentalStatus].className}`}>
+            {statusConfig[property.rentalStatus].label}
           </Badge>
-          {property.meuble && (
+          {property.isFurnished && (
             <Badge className="border-0 text-[11px] font-medium px-2 py-0.5 bg-sky-500 text-white">
               Meublé
             </Badge>
@@ -507,7 +424,7 @@ function PropertyCard({ property, onClick }: { property: Property; onClick: () =
         </h3>
         <div className="flex items-center gap-1 text-neutral-500 text-xs mb-3">
           <MapPin className="size-3 shrink-0" />
-          <span className="line-clamp-1">{property.location}</span>
+          <span className="line-clamp-1">{location}</span>
         </div>
 
         {/* Features */}
@@ -531,7 +448,7 @@ function PropertyCard({ property, onClick }: { property: Property; onClick: () =
           </p>
           <div className="flex items-center gap-1 text-neutral-400">
             <Eye className="size-3.5" />
-            <span className="text-xs">{property.views} vues</span>
+            <span className="text-xs">{property.viewsCount} vues</span>
           </div>
         </div>
       </div>
@@ -551,6 +468,8 @@ function PropertyListItem({ property, onClick }: { property: Property; onClick: 
     reserve: { label: 'Réservé', className: 'bg-amber-500 text-white' },
   }
 
+  const location = getPropertyLocation(property)
+
   return (
     <motion.div
       whileHover={{ y: -2, transition: { duration: 0.15 } }}
@@ -559,15 +478,21 @@ function PropertyListItem({ property, onClick }: { property: Property; onClick: 
     >
       {/* Image */}
       <div className="relative w-36 sm:w-48 shrink-0 overflow-hidden">
-        <Image
-          src={property.image}
-          alt={property.title}
-          fill
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
-          sizes="224px"
-        />
-        <Badge className={`absolute top-2 left-2 border-0 text-xs font-semibold px-2 py-0.5 ${statusConfig[property.status].className}`}>
-          {statusConfig[property.status].label}
+        {property.image ? (
+          <Image
+            src={property.image}
+            alt={property.title}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            sizes="224px"
+          />
+        ) : (
+          <div className="w-full h-full bg-neutral-200 flex items-center justify-center">
+            <MapPin className="size-6 text-neutral-400" />
+          </div>
+        )}
+        <Badge className={`absolute top-2 left-2 border-0 text-xs font-semibold px-2 py-0.5 ${statusConfig[property.rentalStatus].className}`}>
+          {statusConfig[property.rentalStatus].label}
         </Badge>
       </div>
 
@@ -586,7 +511,7 @@ function PropertyListItem({ property, onClick }: { property: Property; onClick: 
           </div>
           <div className="flex items-center gap-1 text-neutral-500 text-xs mb-2">
             <MapPin className="size-3 shrink-0" />
-            <span className="line-clamp-1">{property.location}</span>
+            <span className="line-clamp-1">{location}</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 text-xs text-neutral-600 mb-2 flex-wrap">
             {property.bedrooms !== null && (
@@ -599,7 +524,7 @@ function PropertyListItem({ property, onClick }: { property: Property; onClick: 
               <Maximize className="size-3.5 text-neutral-400" />
               <span>{property.area}m²</span>
             </div>
-            {property.meuble && (
+            {property.isFurnished && (
               <Badge variant="outline" className="text-xs text-sky-600 border-sky-200 bg-sky-50 px-1.5 py-0">
                 Meublé
               </Badge>
@@ -619,7 +544,7 @@ function PropertyListItem({ property, onClick }: { property: Property; onClick: 
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="hidden sm:flex items-center gap-1 text-neutral-400">
               <Eye className="size-3.5" />
-              <span className="text-xs">{property.views} vues</span>
+              <span className="text-xs">{property.viewsCount} vues</span>
             </div>
             <Button variant="outline" size="sm" className="text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600 text-xs h-7 sm:h-8">
               Voir <ArrowRight className="size-3 ml-1" />
@@ -643,6 +568,8 @@ function MapListItem({ property, onClick }: { property: Property; onClick: () =>
     reserve: { label: 'Réservé', className: 'bg-amber-500 text-white' },
   }
 
+  const location = getPropertyLocation(property)
+
   return (
     <div
       className="group bg-white rounded-lg border border-neutral-200 overflow-hidden shadow-sm hover:shadow-md hover:border-brand-200 transition-all cursor-pointer"
@@ -651,15 +578,21 @@ function MapListItem({ property, onClick }: { property: Property; onClick: () =>
       <div className="flex gap-3 p-2.5">
         {/* Image */}
         <div className="relative w-20 h-20 shrink-0 rounded-md overflow-hidden">
-          <Image
-            src={property.image}
-            alt={property.title}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
-            sizes="80px"
-          />
-          <Badge className={`absolute top-1 left-1 border-0 text-[8px] font-semibold px-1 py-0 ${statusConfig[property.status].className}`}>
-            {statusConfig[property.status].label}
+          {property.image ? (
+            <Image
+              src={property.image}
+              alt={property.title}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              sizes="80px"
+            />
+          ) : (
+            <div className="w-full h-full bg-neutral-200 flex items-center justify-center rounded-md">
+              <MapPin className="size-4 text-neutral-400" />
+            </div>
+          )}
+          <Badge className={`absolute top-1 left-1 border-0 text-[8px] font-semibold px-1 py-0 ${statusConfig[property.rentalStatus].className}`}>
+            {statusConfig[property.rentalStatus].label}
           </Badge>
         </div>
 
@@ -669,7 +602,7 @@ function MapListItem({ property, onClick }: { property: Property; onClick: () =>
             <h3 className="font-semibold text-neutral-900 text-xs line-clamp-1 mb-0.5">{property.title}</h3>
             <div className="flex items-center gap-1 text-neutral-500 text-[10px] mb-1">
               <MapPin className="size-2.5 shrink-0" />
-              <span className="line-clamp-1">{property.location}</span>
+              <span className="line-clamp-1">{location}</span>
             </div>
             <div className="flex items-center gap-2 text-[10px] text-neutral-600">
               {property.bedrooms !== null && (
@@ -682,7 +615,7 @@ function MapListItem({ property, onClick }: { property: Property; onClick: () =>
                 <Maximize className="size-2.5 text-neutral-400" />
                 <span>{property.area}m²</span>
               </div>
-              {property.meuble && (
+              {property.isFurnished && (
                 <span className="text-sky-500 font-medium">Meublé</span>
               )}
             </div>
@@ -710,6 +643,11 @@ function MapListItem({ property, onClick }: { property: Property; onClick: () =>
 export function NosBiensView() {
   const { setView, setSelectedPropertyId } = useAuthStore()
 
+  // Data state
+  const [properties, setProperties] = useState<Property[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
   // Filter state
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('Tous')
@@ -724,7 +662,25 @@ export function NosBiensView() {
   const [sortBy, setSortBy] = useState('recent')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
-  const openDetail = (propertyId: number) => {
+  // Fetch properties from API
+  useEffect(() => {
+    async function fetchProperties() {
+      try {
+        setIsLoading(true)
+        const res = await fetch('/api/properties?all=true')
+        if (!res.ok) throw new Error('Erreur lors du chargement')
+        const data = await res.json()
+        setProperties(data.properties || [])
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchProperties()
+  }, [])
+
+  const openDetail = (propertyId: string) => {
     setSelectedPropertyId(propertyId)
     setView('property-detail')
   }
@@ -735,11 +691,13 @@ export function NosBiensView() {
       // Search
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
+        const location = getPropertyLocation(p)
         const match =
           p.title.toLowerCase().includes(q) ||
-          p.location.toLowerCase().includes(q) ||
-          p.commune.toLowerCase().includes(q) ||
-          p.type.toLowerCase().includes(q)
+          location.toLowerCase().includes(q) ||
+          (p.commune ?? '').toLowerCase().includes(q) ||
+          p.type.toLowerCase().includes(q) ||
+          p.address.toLowerCase().includes(q)
         if (!match) return false
       }
       // Type
@@ -752,7 +710,7 @@ export function NosBiensView() {
       // Rooms
       if (roomsMin !== '0' && p.bedrooms !== null && p.bedrooms < Number(roomsMin)) return false
       // Meuble
-      if (meubleOnly && !p.meuble) return false
+      if (meubleOnly && !p.isFurnished) return false
       return true
     })
 
@@ -765,7 +723,7 @@ export function NosBiensView() {
         result = [...result].sort((a, b) => b.price - a.price)
         break
       case 'popular':
-        result = [...result].sort((a, b) => b.views - a.views)
+        result = [...result].sort((a, b) => b.viewsCount - a.viewsCount)
         break
       default:
         // recent — default order
@@ -773,7 +731,12 @@ export function NosBiensView() {
     }
 
     return result
-  }, [searchQuery, typeFilter, communeFilter, priceMin, priceMax, roomsMin, meubleOnly, sortBy])
+  }, [properties, searchQuery, typeFilter, communeFilter, priceMin, priceMax, roomsMin, meubleOnly, sortBy])
+
+  // Map-compatible properties (only those with coordinates)
+  const mappableProperties = useMemo(() => (
+    filteredProperties.filter((p) => p.latitude !== null && p.longitude !== null)
+  ), [filteredProperties])
 
   const hasActiveFilters =
     typeFilter !== 'Tous' ||
@@ -809,6 +772,67 @@ export function NosBiensView() {
     resultCount: filteredProperties.length,
     hasActiveFilters,
     resetFilters,
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <section className="bg-neutral-50 min-h-screen">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          {/* Search bar skeleton */}
+          <div className="space-y-3 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-11 bg-neutral-200 rounded-xl animate-pulse" />
+              <div className="hidden sm:block h-11 w-[150px] bg-neutral-200 rounded-xl animate-pulse" />
+              <div className="hidden sm:flex items-center bg-neutral-200 rounded-xl h-11 w-[120px] animate-pulse" />
+            </div>
+          </div>
+          {/* Results count skeleton */}
+          <div className="h-4 bg-neutral-200 rounded w-32 mb-5 animate-pulse" />
+          {/* Content skeleton */}
+          <div className="flex gap-6">
+            <div className="hidden lg:block w-72 shrink-0">
+              <div className="bg-white rounded-xl border border-neutral-200 p-5 h-96 animate-pulse" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <PropertyCardSkeleton key={i} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <section className="bg-neutral-50 min-h-screen">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="text-center py-20">
+            <div className="size-20 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-5">
+              <Search className="size-8 text-red-300" />
+            </div>
+            <h3 className="text-lg font-semibold text-neutral-900 mb-2">
+              Erreur de chargement
+            </h3>
+            <p className="text-neutral-500 text-sm mb-6 max-w-md mx-auto">
+              {error}
+            </p>
+            <Button
+              onClick={() => window.location.reload()}
+              className="bg-brand-500 hover:bg-brand-600 text-white"
+            >
+              <RotateCcw className="size-4 mr-2" />
+              Réessayer
+            </Button>
+          </div>
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -1005,9 +1029,9 @@ export function NosBiensView() {
             {/* Map area */}
             <div className="flex-1 min-w-0">
               <div className="h-[50vh] sm:h-[60vh] lg:h-[calc(100vh-10rem)] lg:sticky lg:top-24">
-                {filteredProperties.length > 0 ? (
+                {mappableProperties.length > 0 ? (
                   <PropertyMapLeaflet
-                    properties={filteredProperties}
+                    properties={mappableProperties}
                     onPropertyClick={(p) => openDetail(p.id)}
                   />
                 ) : (

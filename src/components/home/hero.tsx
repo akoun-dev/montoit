@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Search, MapPin, Home, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,12 +14,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-const stats = [
-  { value: '1 204', label: 'Biens disponibles' },
-  { value: '4 872', label: 'Visiteurs mensuels' },
-  { value: '257', label: 'Nouveaux aujourd\'hui' },
-  { value: '98%', label: 'Taux de satisfaction' },
-]
+interface Stats {
+  totalProperties: number
+  monthlyVisitors: number
+  newToday: number
+  satisfactionRate: number
+}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -29,8 +30,37 @@ const fadeUp = {
   }),
 }
 
+function formatNumber(n: number): string {
+  return n.toLocaleString('fr-FR')
+}
+
 export function Hero() {
   const { setView } = useAuthStore()
+  const [stats, setStats] = useState<Stats | null>(null)
+
+  useEffect(() => {
+    fetch('/api/stats')
+      .then((res) => res.json())
+      .then((data) => setStats(data))
+      .catch(() => {
+        // Fallback stats if API fails
+        setStats({ totalProperties: 0, monthlyVisitors: 0, newToday: 0, satisfactionRate: 98 })
+      })
+  }, [])
+
+  const statItems = stats
+    ? [
+        { value: formatNumber(stats.totalProperties), label: 'Biens disponibles' },
+        { value: formatNumber(stats.monthlyVisitors), label: 'Visiteurs mensuels' },
+        { value: formatNumber(stats.newToday), label: "Nouveaux aujourd'hui" },
+        { value: `${stats.satisfactionRate}%`, label: 'Taux de satisfaction' },
+      ]
+    : [
+        { value: '—', label: 'Biens disponibles' },
+        { value: '—', label: 'Visiteurs mensuels' },
+        { value: '—', label: "Nouveaux aujourd'hui" },
+        { value: '—', label: 'Taux de satisfaction' },
+      ]
 
   return (
     <section className="relative min-h-[600px] flex items-center justify-center overflow-hidden">
@@ -119,7 +149,7 @@ export function Hero() {
           animate="visible"
           className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-10 max-w-3xl mx-auto"
         >
-          {stats.map((stat, i) => (
+          {statItems.map((stat, i) => (
             <motion.div
               key={stat.label}
               custom={i}
