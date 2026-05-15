@@ -1,173 +1,26 @@
-# Mon Toit - Worklog
-
 ---
 Task ID: 1
-Agent: frontend-styling-expert
-Task: Set up MonToit brand theme (colors, fonts, Tailwind config)
+Agent: Main
+Task: Add Modalités, Commodités, Localisation sections and auth-gated actions to property detail view
 
 Work Log:
-- Updated globals.css with complete brand orange palette (brand-50 through brand-900)
-- Added neutral palette (90% of UI) with neutral-50 through neutral-900
-- Added semantic colors (success, error, warning, info)
-- Mapped all shadcn/ui CSS variables to brand colors using oklch
-- Set up dark mode with lighter brand orange for AA contrast
-- Added custom focus ring utility with orange brand color
-- Added custom scrollbar styling for WebKit and Firefox
-- Added orange-tinted selection highlight
-- Updated layout.tsx with Inter font and MonToit metadata
-- Changed HTML lang to "fr"
+- Read and analyzed existing property-detail-view.tsx (~900 lines) with tabs: Détails, Contacter, Visiter, Avis
+- Read nos-biens-view.tsx, auth-store.ts, prisma schema, page.tsx for context
+- Completely rewrote property-detail-view.tsx with 6 tabs: Détails, Commodités, Modalités, Contacter, Visiter, Avis
+- Added Commodités tab with categorized amenities (Confort, Cuisine, Technologie, Espaces extérieurs, Stationnement, Rangements, Divers)
+- Added Modalités tab with financial conditions (loyer, caution, charges incluses/non incluses, modes paiement), bail duration, conditions d'entrée, état des lieux
+- Enhanced Localisation section in Détails tab with embedded Leaflet mini-map showing property marker + Google Maps directions link
+- Added auth-gated actions: favorites (heart button), visit scheduling (Visiter tab), candidature submission (Soumettre ma candidature button)
+- Created AuthGateDialog component for prompting login when auth-required actions are attempted
+- Created ApplyDialog component for property application with employment type, income, and motivation letter
+- Added MiniMap component with Leaflet integration for location display
+- Updated nos-biens-view.tsx to add auth checks on favorite buttons (PropertyCard, PropertyListItem, MapListItem)
+- All auth-gated actions redirect to login page or show auth dialog
 
 Stage Summary:
-- Brand theme fully configured with WCAG AAA compliant colors
-- Primary color: #FF6C2F (brand orange) mapped to --primary
-- Inter font configured via next/font/google
-- Dark mode support with brand-400 as primary
-
----
-Task ID: 2
-Agent: full-stack-developer
-Task: Build the homepage with hero, features, roles, CTA sections
-
-Work Log:
-- Generated hero background image and 6 property images using AI
-- Created 7 homepage section components in src/components/home/
-- Built Header with sticky nav, mobile Sheet menu, brand logo
-- Built Hero section with search bar, location/type selectors, stats
-- Built Properties section with 6 mock property cards
-- Built HowItWorks section with 3-step process and dashed connecting lines
-- Built Roles section with 4 role cards (Locataire, Propriétaire, TC, Admin)
-- Built Trust section with 4 feature cards on brand-50 background
-- Built Footer with 4-column dark layout
-- Updated page.tsx to assemble all sections with sticky footer pattern
-- All animations use framer-motion with scroll-triggered fade-ins
-
-Stage Summary:
-- Complete homepage with 7 sections matching reference design
-- All text in French, responsive mobile-first design
-- AI-generated images: hero-bg.png, property-1.png through property-6.png
-- Lint passes cleanly, dev server compiles successfully
-
----
-Task ID: 3
-Agent: full-stack-developer
-Task: Set up Prisma schema for users, roles, properties, leases, etc.
-
-Work Log:
-- Created 16 Prisma models covering all platform entities
-- Created 12 enums (Role, OTPType, PropertyType, PropertyStatus, etc.)
-- Set up User model with 4 roles and named relations for all 7 ambiguous User references
-- Applied onDelete: Cascade for dependent records, SetNull for reviewer fields
-- Added strategic indexes on role, status, city, price, and composite lookups
-- Ran bun run db:push to sync database
-
-Stage Summary:
-- Complete database schema supporting all 4 roles and their features
-- Models: User, OTPCode, Property, PropertyImage, RentalFile, RentalFileDocument, OwnershipDocument, VisitRequest, Lease, Conversation, Message, Rating, Dispute, AuditLog, PlatformSetting, ValidationSLA
-- Database synced successfully with SQLite
-
----
-Task ID: 4
-Agent: full-stack-developer
-Task: Build authentication system with OTP SMS + role-based dashboards
-
-Work Log:
-- Created Zustand auth store with login, verifyOtp, register, logout, seedData
-- Created 5 auth API routes (send-otp, verify-otp, register, me, logout)
-- Created 4 dashboard API routes (locataire, proprietaire, tc, admin)
-- Created seed API route with 7 demo users and sample data
-- Built 3 auth form components (login, OTP verify, register)
-- Built dashboard layout with collapsible sidebar and header
-- Built 5 Locataire dashboard sections (overview, rental file, visits, leases, messages)
-- Built 7 Proprietaire dashboard sections (overview, properties, add property, visits, rental files, leases, messages)
-- Built 5 TC dashboard sections (overview, rental files queue, owner validations, agency validations, SLA monitoring)
-- Built 7 Admin dashboard sections (overview, users, properties moderation, TC management, disputes, reports, settings)
-- Updated page.tsx with state-based view switching
-- Demo OTP code is always "123456"
-
-Stage Summary:
-- Complete auth system with cookie-based sessions
-- 4 role-based dashboards with 24 total sections
-- 7 demo accounts for testing all roles
-- All dashboards fetch real data from API routes
-- Lint passes cleanly, dev server compiles and serves correctly
-
----
-Task ID: 1-5
-Agent: full-stack-developer
-Task: Replace navigation menu, develop full views/sections for each nav item with smooth-scroll
-
-Work Log:
-- Updated header.tsx with new nav links: Accueil (#accueil), Nos Biens (#nos-biens), À Propos (#a-propos), Nous Contacter (#nous-contacter)
-- Added active section tracking via scroll position using IntersectionObserver-style scroll listener
-- Nav links now smooth-scroll to sections; buttons instead of anchor tags for better control
-- Mobile menu also uses smooth-scroll buttons with SheetClose
-- Added scroll-smooth class to <html> in layout.tsx
-- Major upgrade to properties.tsx → NosBiens section
-- Created about.tsx (À Propos section)
-- Created contact.tsx (Nous Contacter section)
-- Updated page.tsx: added About and Contact imports
-- Updated footer.tsx: Plateforme links now match new nav
-
-Stage Summary:
-- Navigation replaced with 4 smooth-scrolling menu items
-- 3 new/updated sections: Nos Biens (with filters), À Propos, Nous Contacter
-- Homepage now has complete section coverage with scroll navigation
-- Lint passes cleanly, dev server compiles successfully
-
----
-Task ID: 6
-Agent: main
-Task: Implement clickable property cards and improved map view with cluster markers
-
-Work Log:
-- Created PropertyDetailDialog component with full property details (image gallery, features grid, description, owner contact, CTA button)
-- Made PropertyCard, PropertyListItem, and MapListItem clickable to open detail dialog
-- Rewrote Leaflet map with cluster markers showing property count per commune
-- Cluster markers: orange circles with property count and commune label, clicking zooms into the commune
-- Individual markers: price bubbles with status-based colors, clicking shows overlay card with "Voir" button
-- Zoom-based rendering: clusters at zoom < 14, individual markers at zoom >= 14
-- Updated property-map.tsx wrapper to pass onPropertyClick callback
-- Updated nos-biens-view.tsx with selectedProperty state and detail dialog integration
-- Added zoom hint overlay on map
-- Fixed lint errors (missing motion import, unused eslint directive)
-
-Stage Summary:
-- Property cards (grid, list, map sidebar) are all clickable and open a rich detail dialog
-- Map view has professional cluster markers grouped by commune with property counts
-- Clicking cluster zooms in to show individual price markers
-- Clicking individual marker shows popup card with "Voir" button opening full detail
-- PropertyDetailDialog includes: image carousel, badges, features grid (6 items), description, owner info, contact buttons, CTA
-- Lint passes cleanly, dev server compiles successfully
-
----
-Task ID: 7
-Agent: main
-Task: Replace modal detail view with dedicated full-page PropertyDetailView
-
-Work Log:
-- Created PropertyDetailView component as a dedicated full-page view with 4 tabbed sections
-- Added 'property-detail' to AppView type and selectedPropertyId state in auth store
-- Added setSelectedPropertyId method to auth store for navigation
-- Updated page.tsx to handle 'property-detail' view with PropertyDetailView component
-- Updated nos-biens-view.tsx to navigate to dedicated view using setView/setSelectedPropertyId instead of modal
-- Removed old PropertyDetailDialog component (replaced by PropertyDetailView)
-- PropertyDetailView features:
-  - Sticky top bar with back button, favorite/share actions
-  - Image gallery with carousel navigation
-  - 4 tabs: Détails, Contacter, Visiter, Avis
-  - Details tab: features grid, description, location info
-  - Contact tab: owner card with response stats, message form
-  - Visit tab: Physical vs Virtual visit selection, date/time picker, confirmation
-  - Reviews tab: rating summary with bar chart, individual reviews, write review CTA
-  - Right sidebar (desktop): price card, owner info, safety tips
-  - Mobile CTA bar: fixed bottom with price, visit & contact buttons
-- Lint passes cleanly, dev server compiles successfully
-
-Stage Summary:
-- Property detail is now a dedicated full-page view instead of a modal
-- 4 interactive tabs: Details, Contacter, Visiter (Physique/Virtuelle), Avis & Notations
-- Owner contact section with response rate/time stats and message form
-- Visit scheduling with physical vs virtual selection, date/time slots
-- Reviews & ratings with average score, bar chart distribution, individual reviews
-- Responsive layout: sidebar on desktop, bottom CTA bar on mobile
-- Navigation uses auth store (selectedPropertyId + setView('property-detail'))
+- property-detail-view.tsx fully rewritten with all new sections
+- 6 tabs: Détails (features + description + map), Commodités (amenities), Modalités (rental terms), Contacter (owner contact), Visiter (physical/virtual visit), Avis (reviews)
+- Auth-gated: favorites, visit scheduling, candidature submission
+- Mini-map with Leaflet showing property location + directions link
+- nos-biens-view.tsx updated with auth checks on favorite buttons
+- Lint passes clean, dev server running correctly

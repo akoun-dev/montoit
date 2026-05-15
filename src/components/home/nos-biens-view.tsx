@@ -435,6 +435,7 @@ function FilterSidebar({
 
 function PropertyCard({ property, onClick }: { property: Property; onClick: () => void }) {
   const [isFavorite, setIsFavorite] = useState(false)
+  const { isAuthenticated, setView } = useAuthStore()
 
   const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
     disponible: { label: 'Disponible', className: 'bg-emerald-500 text-white' },
@@ -485,6 +486,7 @@ function PropertyCard({ property, onClick }: { property: Property; onClick: () =
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
+            if (!isAuthenticated) { setView('login'); return }
             setIsFavorite(!isFavorite)
           }}
           className="absolute top-3 right-3 size-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white shadow-sm transition-all"
@@ -541,6 +543,7 @@ function PropertyCard({ property, onClick }: { property: Property; onClick: () =
 
 function PropertyListItem({ property, onClick }: { property: Property; onClick: () => void }) {
   const [isFavorite, setIsFavorite] = useState(false)
+  const { isAuthenticated, setView } = useAuthStore()
 
   const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
     disponible: { label: 'Disponible', className: 'bg-emerald-500 text-white' },
@@ -574,7 +577,7 @@ function PropertyListItem({ property, onClick }: { property: Property; onClick: 
           <div className="flex items-start justify-between gap-2 mb-1">
             <h3 className="font-semibold text-neutral-900 text-sm line-clamp-1">{property.title}</h3>
             <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsFavorite(!isFavorite) }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!isAuthenticated) { setView('login'); return } setIsFavorite(!isFavorite) }}
               className="shrink-0 size-8 rounded-full bg-neutral-50 flex items-center justify-center hover:bg-neutral-100 transition-colors"
               aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
             >
@@ -632,6 +635,7 @@ function PropertyListItem({ property, onClick }: { property: Property; onClick: 
 
 function MapListItem({ property, onClick }: { property: Property; onClick: () => void }) {
   const [isFavorite, setIsFavorite] = useState(false)
+  const { isAuthenticated, setView } = useAuthStore()
 
   const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
     disponible: { label: 'Disponible', className: 'bg-emerald-500 text-white' },
@@ -688,7 +692,7 @@ function MapListItem({ property, onClick }: { property: Property; onClick: () =>
               {formatPrice(property.price)} <span className="text-[9px] font-normal text-neutral-400">F CFA</span>
             </p>
             <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsFavorite(!isFavorite) }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!isAuthenticated) { setView('login'); return } setIsFavorite(!isFavorite) }}
               className="size-5 rounded-full flex items-center justify-center hover:bg-neutral-100 transition-colors"
               aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
             >
