@@ -102,34 +102,39 @@ Work Log:
 - Nav links now smooth-scroll to sections; buttons instead of anchor tags for better control
 - Mobile menu also uses smooth-scroll buttons with SheetClose
 - Added scroll-smooth class to <html> in layout.tsx
-- Major upgrade to properties.tsx → NosBiens section:
-  - Section ID: nos-biens
-  - Filters bar: Type (7 options), Ville (8 options), Budget (5 ranges), Meublé checkbox
-  - 8 mock properties (added: Appartement F4 Deux Plateaux, Studio Climatisé Treichville)
-  - Enhanced PropertyCard: type badge, "Nouveau" badge for recent properties, heart/favorite button on hover, "Meublé" badge
-  - Results count: "X biens trouvés"
-  - Empty state with icon, message, and reset button
-  - useMemo-based filtering logic
-- Created about.tsx (À Propos section) with:
-  - Hero heading: "À Propos de Mon Toit"
-  - Mission & Vision 2-column card layout with Target/Eye icons
-  - 4 Values cards (Confiance, Transparence, Efficacité, Accessibilité) with Shield, Scale, Clock, Heart icons
-  - Key Figures stat cards (1 204+ Biens, 4 872+ Utilisateurs, 98% Satisfaction, 48h Validation)
-  - ANSUT subsection with Building2 icon
-- Created contact.tsx (Nous Contacter section) with:
-  - 2-column layout (form left, info right)
-  - Contact form with 5 fields (Nom, Email, Téléphone, Sujet select, Message textarea)
-  - Submit with loading spinner, toast notification on success
-  - Contact info card with MapPin, Mail, Phone, Clock
-  - Social media links row (Facebook, Twitter, Instagram, LinkedIn)
-  - Mini FAQ accordion with 3 questions using shadcn/ui Accordion
-- Updated page.tsx: added About and Contact imports, wrapped sections in div#id for scroll targets
-- Updated footer.tsx: Plateforme links now match new nav (Accueil, Nos Biens, À Propos, Nous Contacter)
-- All sections use framer-motion scroll-triggered animations
-- All text in French, responsive mobile-first design
+- Major upgrade to properties.tsx → NosBiens section
+- Created about.tsx (À Propos section)
+- Created contact.tsx (Nous Contacter section)
+- Updated page.tsx: added About and Contact imports
+- Updated footer.tsx: Plateforme links now match new nav
 
 Stage Summary:
 - Navigation replaced with 4 smooth-scrolling menu items
 - 3 new/updated sections: Nos Biens (with filters), À Propos, Nous Contacter
 - Homepage now has complete section coverage with scroll navigation
+- Lint passes cleanly, dev server compiles successfully
+
+---
+Task ID: 6
+Agent: main
+Task: Implement clickable property cards and improved map view with cluster markers
+
+Work Log:
+- Created PropertyDetailDialog component with full property details (image gallery, features grid, description, owner contact, CTA button)
+- Made PropertyCard, PropertyListItem, and MapListItem clickable to open detail dialog
+- Rewrote Leaflet map with cluster markers showing property count per commune
+- Cluster markers: orange circles with property count and commune label, clicking zooms into the commune
+- Individual markers: price bubbles with status-based colors, clicking shows overlay card with "Voir" button
+- Zoom-based rendering: clusters at zoom < 14, individual markers at zoom >= 14
+- Updated property-map.tsx wrapper to pass onPropertyClick callback
+- Updated nos-biens-view.tsx with selectedProperty state and detail dialog integration
+- Added zoom hint overlay on map
+- Fixed lint errors (missing motion import, unused eslint directive)
+
+Stage Summary:
+- Property cards (grid, list, map sidebar) are all clickable and open a rich detail dialog
+- Map view has professional cluster markers grouped by commune with property counts
+- Clicking cluster zooms in to show individual price markers
+- Clicking individual marker shows popup card with "Voir" button opening full detail
+- PropertyDetailDialog includes: image carousel, badges, features grid (6 items), description, owner info, contact buttons, CTA
 - Lint passes cleanly, dev server compiles successfully

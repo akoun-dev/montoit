@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { PropertyMapLeaflet } from '@/components/home/property-map'
+import { PropertyDetailDialog, type PropertyDetail } from '@/components/home/property-detail-dialog'
 import {
   Select,
   SelectContent,
@@ -232,6 +233,27 @@ function formatPrice(price: number): string {
   return price.toLocaleString('fr-FR')
 }
 
+function toPropertyDetail(p: Property): PropertyDetail {
+  return {
+    id: p.id,
+    title: p.title,
+    price: p.price,
+    location: p.location,
+    city: p.city,
+    commune: p.commune,
+    bedrooms: p.bedrooms,
+    area: p.area,
+    image: p.image,
+    type: p.type,
+    meuble: p.meuble,
+    status: p.status,
+    isVerified: p.isVerified,
+    views: p.views,
+    lat: p.lat,
+    lng: p.lng,
+  }
+}
+
 // ── Filter Sidebar ──────────────────────────────────────────────────────────
 
 interface FilterSidebarProps {
@@ -432,7 +454,7 @@ function FilterSidebar({
 
 // ── Property Card ───────────────────────────────────────────────────────────
 
-function PropertyCard({ property }: { property: Property }) {
+function PropertyCard({ property, onClick }: { property: Property; onClick: () => void }) {
   const [isFavorite, setIsFavorite] = useState(false)
 
   const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
@@ -444,7 +466,8 @@ function PropertyCard({ property }: { property: Property }) {
   return (
     <motion.div
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
-      className="group bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
+      className="group bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
+      onClick={onClick}
     >
       {/* Image */}
       <div className="relative h-52 overflow-hidden">
@@ -537,7 +560,7 @@ function PropertyCard({ property }: { property: Property }) {
 
 // ── Property List Item ──────────────────────────────────────────────────────
 
-function PropertyListItem({ property }: { property: Property }) {
+function PropertyListItem({ property, onClick }: { property: Property; onClick: () => void }) {
   const [isFavorite, setIsFavorite] = useState(false)
 
   const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
@@ -549,7 +572,8 @@ function PropertyListItem({ property }: { property: Property }) {
   return (
     <motion.div
       whileHover={{ y: -2, transition: { duration: 0.15 } }}
-      className="group bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex"
+      className="group bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex cursor-pointer"
+      onClick={onClick}
     >
       {/* Image */}
       <div className="relative w-48 sm:w-56 shrink-0 overflow-hidden">
@@ -627,7 +651,7 @@ function PropertyListItem({ property }: { property: Property }) {
 
 // ── Map List Item (compact card for map sidebar) ────────────────────────────
 
-function MapListItem({ property }: { property: Property }) {
+function MapListItem({ property, onClick }: { property: Property; onClick: () => void }) {
   const [isFavorite, setIsFavorite] = useState(false)
 
   const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
@@ -637,7 +661,10 @@ function MapListItem({ property }: { property: Property }) {
   }
 
   return (
-    <div className="group bg-white rounded-lg border border-neutral-200 overflow-hidden shadow-sm hover:shadow-md transition-all">
+    <div
+      className="group bg-white rounded-lg border border-neutral-200 overflow-hidden shadow-sm hover:shadow-md hover:border-brand-200 transition-all cursor-pointer"
+      onClick={onClick}
+    >
       <div className="flex gap-3 p-2.5">
         {/* Image */}
         <div className="relative w-20 h-20 shrink-0 rounded-md overflow-hidden">
@@ -711,6 +738,15 @@ export function NosBiensView() {
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid')
   const [sortBy, setSortBy] = useState('recent')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+
+  // Detail dialog state
+  const [selectedProperty, setSelectedProperty] = useState<PropertyDetail | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+
+  const openDetail = (property: Property | PropertyDetail) => {
+    setSelectedProperty(toPropertyDetail(property as Property))
+    setDetailOpen(true)
+  }
 
   // Filter logic
   const filteredProperties = useMemo(() => {
@@ -929,7 +965,11 @@ export function NosBiensView() {
               <div className="space-y-3 max-h-[calc(100vh-10rem)] overflow-y-auto pr-1 sticky top-24">
                 {filteredProperties.length > 0 ? (
                   filteredProperties.map((property) => (
-                    <MapListItem key={property.id} property={property} />
+                    <MapListItem
+                      key={property.id}
+                      property={property}
+                      onClick={() => openDetail(property)}
+                    />
                   ))
                 ) : (
                   <div className="text-center py-12">
@@ -943,7 +983,10 @@ export function NosBiensView() {
             <div className="flex-1 min-w-0">
               <div className="h-[calc(100vh-10rem)] sticky top-24">
                 {filteredProperties.length > 0 ? (
-                  <PropertyMapLeaflet properties={filteredProperties} />
+                  <PropertyMapLeaflet
+                    properties={filteredProperties.map(toPropertyDetail)}
+                    onPropertyClick={(p) => openDetail(p as Property)}
+                  />
                 ) : (
                   <div className="w-full h-full bg-neutral-100 rounded-xl flex items-center justify-center">
                     <p className="text-sm text-neutral-400">Aucun bien à afficher sur la carte</p>
@@ -985,7 +1028,10 @@ export function NosBiensView() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: i * 0.05 }}
                       >
-                        <PropertyCard property={property} />
+                        <PropertyCard
+                          property={property}
+                          onClick={() => openDetail(property)}
+                        />
                       </motion.div>
                     ))}
                   </motion.div>
@@ -1004,7 +1050,10 @@ export function NosBiensView() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: i * 0.04 }}
                       >
-                        <PropertyListItem property={property} />
+                        <PropertyListItem
+                          property={property}
+                          onClick={() => openDetail(property)}
+                        />
                       </motion.div>
                     ))}
                   </motion.div>
@@ -1039,6 +1088,13 @@ export function NosBiensView() {
           </div>
         )}
       </div>
+
+      {/* ── Property Detail Dialog ──────────────────────────────────── */}
+      <PropertyDetailDialog
+        property={selectedProperty}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
     </section>
   )
 }

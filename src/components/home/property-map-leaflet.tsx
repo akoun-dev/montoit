@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Image from 'next/image'
+import { motion } from 'framer-motion'
 import { MapPin, BedDouble, Maximize, BadgeCheck, ArrowRight, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -30,11 +31,12 @@ interface MapProperty {
 
 interface PropertyMapLeafletProps {
   properties: MapProperty[]
+  onPropertyClick?: (property: MapProperty) => void
 }
 
 // ── Popup Card ──────────────────────────────────────────────────────────────
 
-function LeafletPopupCard({ property }: { property: MapProperty }) {
+function LeafletPopupCard({ property, onVoirClick }: { property: MapProperty; onVoirClick: () => void }) {
   const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
     disponible: { label: 'Disponible', className: 'bg-emerald-500 text-white' },
     loue: { label: 'Loué', className: 'bg-red-500 text-white' },
@@ -91,7 +93,15 @@ function LeafletPopupCard({ property }: { property: MapProperty }) {
           <p className="text-xs font-bold text-brand-500">
             {property.price.toLocaleString('fr-FR')} <span className="text-[9px] font-normal text-neutral-400">F CFA/mois</span>
           </p>
-          <Button variant="outline" size="sm" className="text-brand-500 border-brand-200 hover:bg-brand-50 text-[9px] h-6 px-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-brand-500 border-brand-200 hover:bg-brand-50 text-[9px] h-6 px-2"
+            onClick={(e) => {
+              e.stopPropagation()
+              onVoirClick()
+            }}
+          >
             Voir <ArrowRight className="size-2.5 ml-0.5" />
           </Button>
         </div>
@@ -102,10 +112,21 @@ function LeafletPopupCard({ property }: { property: MapProperty }) {
 
 // ── Main Leaflet Map Component ──────────────────────────────────────────────
 
-export default function PropertyMapLeaflet({ properties }: PropertyMapLeafletProps) {
+export default function PropertyMapLeaflet({ properties, onPropertyClick }: PropertyMapLeafletProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
   const [selectedProperty, setSelectedProperty] = useState<MapProperty | null>(null)
+  const [mapZoomLevel, setMapZoomLevel] = useState(12)
+
+  // Group properties by commune
+  const communeGroups = useCallback(() => {
+    const groups: Record<string, MapProperty[]> = {}
+    properties.forEach((p) => {
+      if (!groups[p.commune]) groups[p.commune] = []
+      groups[p.commune].push(p)
+    })
+    return groups
+  }, [properties])
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return
@@ -114,18 +135,10 @@ export default function PropertyMapLeaflet({ properties }: PropertyMapLeafletPro
     import('leaflet').then((L) => {
       if (!mapRef.current || mapInstanceRef.current) return
 
-      // Fix default marker icons
-      delete (L.Icon.Default.prototype as Record<string, unknown>)._getIconUrl
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-      })
-
       // Create map centered on Abidjan
       const map = L.map(mapRef.current, {
         center: [5.3600, -4.0083],
-        zoom: 13,
+        zoom: 12,
         zoomControl: false,
         scrollWheelZoom: true,
       })
@@ -139,8 +152,70 @@ export default function PropertyMapLeaflet({ properties }: PropertyMapLeafletPro
       // Add zoom control to bottom-right
       L.control.zoom({ position: 'bottomright' }).addTo(map)
 
-      // Custom price marker icon
-      const createPriceIcon = (price: number, status: PropertyStatus) => {
+      // ── Marker creation functions ───────────────────────────────────────
+
+      // Cluster marker: shows count of properties in a commune
+      const createClusterIcon = (count: number, commune: string) => {
+        const size = count > 5 ? 48 : count > 3 ? 42 : 36
+        const bgColor = count > 5 ? '#FF6C2F' : count > 3 ? '#FF8C5A' : '#FFAA80'
+
+        return L.divIcon({
+          className: 'custom-cluster-marker',
+          html: `
+            <div style="
+              position: relative;
+              width: ${size}px;
+              height: ${size}px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              cursor: pointer;
+            ">
+              <div style="
+                width: ${size}px;
+                height: ${size}px;
+                border-radius: 50%;
+                background: ${bgColor};
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                border: 3px solid white;
+                box-shadow: 0 3px 12px rgba(255,108,47,0.4), 0 0 0 1px rgba(255,108,47,0.2);
+                transition: transform 0.2s, box-shadow 0.2s;
+                font-family: Inter, sans-serif;
+              "
+              onmouseover="this.style.transform='scale(1.12)'; this.style.boxShadow='0 5px 20px rgba(255,108,47,0.5), 0 0 0 2px rgba(255,108,47,0.3)'"
+              onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 3px 12px rgba(255,108,47,0.4), 0 0 0 1px rgba(255,108,47,0.2)'"
+              >
+                <span style="color: white; font-size: ${count > 9 ? 13 : 15}px; font-weight: 800; line-height: 1;">${count}</span>
+                <span style="color: rgba(255,255,255,0.85); font-size: 7px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-top: -1px;">biens</span>
+              </div>
+              <div style="
+                position: absolute;
+                bottom: -6px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: ${bgColor};
+                color: white;
+                font-size: 8px;
+                font-weight: 700;
+                padding: 1px 6px;
+                border-radius: 8px;
+                white-space: nowrap;
+                border: 1.5px solid white;
+                font-family: Inter, sans-serif;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+              ">${commune}</div>
+            </div>
+          `,
+          iconSize: [size, size + 16],
+          iconAnchor: [size / 2, size + 8],
+        })
+      }
+
+      // Individual property marker: shows price
+      const createPropertyIcon = (price: number, status: PropertyStatus) => {
         const color: Record<PropertyStatus, string> = {
           disponible: '#FF6C2F',
           loue: '#EF4444',
@@ -151,49 +226,105 @@ export default function PropertyMapLeaflet({ properties }: PropertyMapLeafletPro
 
         return L.divIcon({
           className: 'custom-price-marker',
-          html: `<div style="
-            background: ${bgColor};
-            color: white;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 3px 8px;
-            border-radius: 20px;
-            white-space: nowrap;
-            border: 2px solid white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            cursor: pointer;
-            transition: transform 0.15s;
-            font-family: Inter, sans-serif;
-          " onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">${label} F</div>`,
+          html: `
+            <div style="
+              background: ${bgColor};
+              color: white;
+              font-size: 11px;
+              font-weight: 700;
+              padding: 4px 10px;
+              border-radius: 20px;
+              white-space: nowrap;
+              border: 2px solid white;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+              cursor: pointer;
+              transition: transform 0.15s, box-shadow 0.15s;
+              font-family: Inter, sans-serif;
+              position: relative;
+            "
+            onmouseover="this.style.transform='scale(1.12)'; this.style.boxShadow='0 4px 16px rgba(0,0,0,0.35)'"
+            onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 10px rgba(0,0,0,0.25)'"
+            >
+              ${label} F
+              <div style="
+                position: absolute;
+                bottom: -5px;
+                left: 50%;
+                transform: translateX(-50%) rotate(45deg);
+                width: 8px;
+                height: 8px;
+                background: ${bgColor};
+                border-right: 2px solid white;
+                border-bottom: 2px solid white;
+              "></div>
+            </div>
+          `,
           iconSize: [0, 0],
-          iconAnchor: [30, 30],
+          iconAnchor: [28, 34],
         })
       }
 
-      // Add markers for each property
-      const markers: L.Marker[] = []
-      properties.forEach((property) => {
-        const icon = createPriceIcon(property.price, property.status)
+      // ── Render markers based on zoom level ──────────────────────────────
 
-        const marker = L.marker([property.lat, property.lng], { icon })
-          .addTo(map)
+      const markersLayer = L.layerGroup().addTo(map)
 
-        marker.on('click', () => {
-          setSelectedProperty(property)
-        })
+      function renderMarkers() {
+        markersLayer.clearLayers()
+        const zoom = map.getZoom()
+        setMapZoomLevel(zoom)
 
-        markers.push(marker)
+        if (zoom < 14) {
+          // Show cluster markers by commune
+          const groups = communeGroups()
+          Object.entries(groups).forEach(([commune, props]) => {
+            // Calculate centroid of commune's properties
+            const avgLat = props.reduce((s, p) => s + p.lat, 0) / props.length
+            const avgLng = props.reduce((s, p) => s + p.lng, 0) / props.length
+
+            const clusterIcon = createClusterIcon(props.length, commune)
+            const marker = L.marker([avgLat, avgLng], { icon: clusterIcon })
+
+            marker.on('click', () => {
+              // Zoom into this commune
+              const bounds = L.latLngBounds(props.map((p) => L.latLng(p.lat, p.lng)))
+              map.fitBounds(bounds.pad(0.3), { animate: true, duration: 0.5 })
+            })
+
+            marker.addTo(markersLayer)
+          })
+        } else {
+          // Show individual property markers
+          properties.forEach((property) => {
+            const icon = createPropertyIcon(property.price, property.status)
+            const marker = L.marker([property.lat, property.lng], { icon })
+
+            marker.on('click', () => {
+              setSelectedProperty(property)
+            })
+
+            marker.addTo(markersLayer)
+          })
+        }
+      }
+
+      // Initial render
+      renderMarkers()
+
+      // Re-render on zoom change
+      map.on('zoomend', () => {
+        renderMarkers()
       })
 
-      // Fit bounds to markers if there are any
+      // Fit bounds to all properties
       if (properties.length > 0) {
-        const group = L.featureGroup(markers)
-        map.fitBounds(group.getBounds().pad(0.1))
+        const allCoords = properties.map((p) => L.latLng(p.lat, p.lng))
+        const bounds = L.latLngBounds(allCoords)
+        map.fitBounds(bounds.pad(0.15))
       }
 
       mapInstanceRef.current = map
 
-      // Invalidate size after a short delay to ensure proper rendering
+      // Invalidate size after a short delay
       setTimeout(() => {
         map.invalidateSize()
       }, 200)
@@ -205,7 +336,16 @@ export default function PropertyMapLeaflet({ properties }: PropertyMapLeafletPro
         mapInstanceRef.current = null
       }
     }
-  }, [])
+  }, [properties, communeGroups])
+
+  // Update markers when properties change
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map) return
+
+    // Re-render by triggering zoomend event
+    map.fire('zoomend')
+  }, [properties])
 
   return (
     <div className="relative w-full h-full">
@@ -234,7 +374,8 @@ export default function PropertyMapLeaflet({ properties }: PropertyMapLeafletPro
         .leaflet-popup-close-button {
           display: none !important;
         }
-        .custom-price-marker {
+        .custom-price-marker,
+        .custom-cluster-marker {
           background: none !important;
           border: none !important;
         }
@@ -242,20 +383,40 @@ export default function PropertyMapLeaflet({ properties }: PropertyMapLeafletPro
 
       {/* Selected property card overlay */}
       {selectedProperty && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] sm:left-4 sm:translate-x-0">
-          <div className="bg-white rounded-xl shadow-2xl border border-neutral-200 overflow-hidden w-72 animate-in slide-in-from-bottom-4 duration-300">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] sm:left-4 sm:translate-x-0"
+        >
+          <div className="bg-white rounded-xl shadow-2xl border border-neutral-200 overflow-hidden w-72">
             {/* Close button */}
             <button
-              onClick={() => { setSelectedProperty(null) }}
+              onClick={() => setSelectedProperty(null)}
               className="absolute top-2 right-2 z-10 size-6 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white shadow-sm"
               aria-label="Fermer"
             >
               <X className="size-3 text-neutral-500" />
             </button>
-            <LeafletPopupCard property={selectedProperty} />
+            <LeafletPopupCard
+              property={selectedProperty}
+              onVoirClick={() => {
+                if (onPropertyClick) onPropertyClick(selectedProperty)
+              }}
+            />
           </div>
-        </div>
+        </motion.div>
       )}
+
+      {/* Zoom hint */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 backdrop-blur-sm rounded-full px-4 py-2 shadow-md border border-neutral-200">
+        <p className="text-[11px] text-neutral-600 font-medium flex items-center gap-1.5">
+          <MapPin className="size-3 text-brand-500" />
+          {mapZoomLevel < 14
+            ? 'Cliquez sur un marqueur pour zoomer et voir les détails'
+            : 'Cliquez sur un bien pour plus d\'informations'}
+        </p>
+      </div>
 
       {/* Legend */}
       <div className="absolute bottom-4 right-4 z-[1000] sm:right-14 bg-white/95 backdrop-blur-sm rounded-lg shadow-md border border-neutral-200 px-3 py-2">
