@@ -15,8 +15,13 @@ export function RegisterForm() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [role, setRole] = useState('LOCATAIRE')
-  const { register, phone, isLoading, setView } = useAuthStore()
+  const { register, phone: storedPhone, email: storedEmail, authMethod, isLoading, setView } = useAuthStore()
+
+  // Pre-fill based on auth method
+  const initialPhone = storedPhone || ''
+  const initialEmail = storedEmail || ''
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,10 +31,10 @@ export function RegisterForm() {
     }
     try {
       await register({
-        phone,
+        phone: phone.trim() || initialPhone || undefined,
+        email: email.trim() || initialEmail || undefined,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        email: email.trim() || undefined,
         role,
       })
       toast.success('Inscription réussie ! Bienvenue sur Mon Toit.')
@@ -82,24 +87,28 @@ export function RegisterForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email (optionnel)</Label>
+                <Label htmlFor="reg-email">Email {authMethod === 'email' ? '*' : '(optionnel)'}</Label>
                 <Input
-                  id="email"
+                  id="reg-email"
                   type="email"
                   placeholder="votre@email.ci"
-                  value={email}
+                  value={email || initialEmail}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isLoading || !!initialEmail}
+                  className={initialEmail ? 'bg-neutral-50' : ''}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone-display">Téléphone</Label>
+                <Label htmlFor="reg-phone">Téléphone {authMethod === 'sms' ? '*' : '(optionnel)'}</Label>
                 <Input
-                  id="phone-display"
-                  value={phone}
-                  disabled
-                  className="bg-neutral-50"
+                  id="reg-phone"
+                  type="tel"
+                  placeholder="+225 XX XX XX XX XX"
+                  value={phone || initialPhone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  disabled={isLoading || !!initialPhone}
+                  className={initialPhone ? 'bg-neutral-50' : ''}
                 />
               </div>
 
@@ -112,7 +121,6 @@ export function RegisterForm() {
                   <SelectContent>
                     <SelectItem value="LOCATAIRE">Locataire</SelectItem>
                     <SelectItem value="PROPRIETAIRE">Propriétaire</SelectItem>
-                    <SelectItem value="TIERS_CONFIANCE">Tiers de Confiance</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

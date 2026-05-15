@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ShieldCheck, ArrowLeft, RotateCcw } from 'lucide-react'
+import { ShieldCheck, ArrowLeft, RotateCcw, Phone, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,7 +11,10 @@ import { motion } from 'framer-motion'
 
 export function OtpVerifyForm() {
   const [code, setCode] = useState('')
-  const { verifyOtp, phone, isLoading, setView } = useAuthStore()
+  const { verifyOtp, phone, email, authMethod, isLoading, setView } = useAuthStore()
+
+  const identifier = authMethod === 'sms' ? phone : email
+  const displayIdentifier = authMethod === 'sms' ? phone : email
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,9 +23,9 @@ export function OtpVerifyForm() {
       return
     }
     try {
-      const result = await verifyOtp(phone, code.trim())
+      const result = await verifyOtp(identifier, code.trim(), authMethod)
       if (result.needsRegistration) {
-        toast.info('Numéro non enregistré. Veuillez compléter votre inscription.')
+        toast.info('Identifiant non enregistré. Veuillez compléter votre inscription.')
       } else {
         toast.success('Connexion réussie !')
       }
@@ -33,8 +36,8 @@ export function OtpVerifyForm() {
 
   const handleResend = async () => {
     try {
-      await useAuthStore.getState().login(phone)
-      toast.success('Nouveau code OTP envoyé !')
+      await useAuthStore.getState().login(identifier, authMethod)
+      toast.success(authMethod === 'sms' ? 'Nouveau code OTP envoyé par SMS !' : 'Nouveau code OTP envoyé par email !')
     } catch (error) {
       toast.error('Erreur lors du renvoi')
     }
@@ -55,8 +58,29 @@ export function OtpVerifyForm() {
             </div>
             <CardTitle className="text-2xl font-bold text-neutral-900">Vérification OTP</CardTitle>
             <CardDescription className="text-neutral-500">
-              Entrez le code envoyé au <span className="font-semibold text-neutral-700">{phone}</span>
+              {authMethod === 'sms' ? (
+                <>
+                  Entrez le code envoyé par SMS au{' '}
+                  <span className="font-semibold text-neutral-700">{displayIdentifier}</span>
+                </>
+              ) : (
+                <>
+                  Entrez le code envoyé par email à{' '}
+                  <span className="font-semibold text-neutral-700">{displayIdentifier}</span>
+                </>
+              )}
             </CardDescription>
+            {/* Method indicator */}
+            <div className="flex items-center justify-center gap-1.5 mt-2">
+              {authMethod === 'sms' ? (
+                <Phone className="size-3.5 text-brand-500" />
+              ) : (
+                <Mail className="size-3.5 text-brand-500" />
+              )}
+              <span className="text-xs text-brand-500 font-medium">
+                {authMethod === 'sms' ? 'Envoyé par SMS' : 'Envoyé par Email'}
+              </span>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -111,7 +135,7 @@ export function OtpVerifyForm() {
               className="w-full flex items-center justify-center gap-1 text-sm text-neutral-500 hover:text-neutral-700"
             >
               <ArrowLeft className="size-3.5" />
-              Modifier le numéro
+              {authMethod === 'sms' ? 'Modifier le numéro' : 'Modifier l\'email'}
             </button>
           </CardContent>
         </Card>

@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 
+export type AuthMethod = 'sms' | 'email'
+
 export type AppView = 'home' | 'nos-biens' | 'a-propos' | 'nous-contacter' | 'login' | 'register' | 'otp-verify' | 'dashboard'
 
 export interface AuthUser {
@@ -19,17 +21,21 @@ interface AuthState {
   isAuthenticated: boolean
   currentView: AppView
   phone: string
+  email: string
+  authMethod: AuthMethod
   isLoading: boolean
   needsRegistration: boolean
   tempUserId: string | null
   dashboardSection: string
 
-  login: (phone: string) => Promise<{ exists: boolean }>
-  verifyOtp: (phone: string, code: string) => Promise<{ needsRegistration: boolean; user?: AuthUser }>
-  register: (data: { phone: string; firstName: string; lastName: string; email?: string; role?: string }) => Promise<AuthUser>
+  login: (identifier: string, method: AuthMethod) => Promise<{ exists: boolean }>
+  verifyOtp: (identifier: string, code: string, method: AuthMethod) => Promise<{ needsRegistration: boolean; user?: AuthUser }>
+  register: (data: { phone?: string; email?: string; firstName: string; lastName: string; role?: string }) => Promise<AuthUser>
   logout: () => Promise<void>
   setView: (view: AppView) => void
   setPhone: (phone: string) => void
+  setEmail: (email: string) => void
+  setAuthMethod: (method: AuthMethod) => void
   setDashboardSection: (section: string) => void
   checkAuth: () => Promise<void>
   seedData: () => Promise<void>
@@ -40,18 +46,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   currentView: 'home',
   phone: '',
+  email: '',
+  authMethod: 'sms',
   isLoading: false,
   needsRegistration: false,
   tempUserId: null,
   dashboardSection: 'overview',
 
-  login: async (phone: string) => {
-    set({ isLoading: true, phone })
+  login: async (identifier: string, method: AuthMethod) => {
+    set({ isLoading: true, [method === 'sms' ? 'phone' : 'email']: identifier, authMethod: method })
     try {
       const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify(method === 'sms' ? { phone: identifier } : { email: identifier }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
@@ -63,13 +71,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  verifyOtp: async (phone: string, code: string) => {
+  verifyOtp: async (identifier: string, code: string, method: AuthMethod) => {
     set({ isLoading: true })
     try {
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify(method === 'sms' ? { phone: identifier, code } : { email: identifier, code }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Code invalide')
@@ -132,6 +140,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: false,
         currentView: 'home',
         phone: '',
+        email: '',
+        authMethod: 'sms',
         needsRegistration: false,
         tempUserId: null,
         dashboardSection: 'overview',
@@ -141,6 +151,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setView: (view) => set({ currentView: view }),
   setPhone: (phone) => set({ phone }),
+  setEmail: (email) => set({ email }),
+  setAuthMethod: (method) => set({ authMethod: method }),
   setDashboardSection: (section) => set({ dashboardSection: section }),
 
   checkAuth: async () => {

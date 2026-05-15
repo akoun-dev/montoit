@@ -3,23 +3,42 @@ import { db } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone, code } = await req.json()
+    const body = await req.json()
+    const { phone, email, code } = body
 
-    if (!phone || !code) {
-      return NextResponse.json({ error: 'Numéro et code requis' }, { status: 400 })
+    // Must provide either phone or email plus code
+    if ((!phone && !email) || !code) {
+      return NextResponse.json(
+        { error: 'Identifiant et code requis' },
+        { status: 400 }
+      )
     }
 
-    // Find valid OTP
-    const otp = await db.oTPCode.findFirst({
-      where: {
-        phone,
-        code,
-        type: 'LOGIN',
-        isUsed: false,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    // Find valid OTP by phone or email
+    let otp
+    if (phone) {
+      otp = await db.oTPCode.findFirst({
+        where: {
+          phone,
+          code,
+          type: 'LOGIN',
+          isUsed: false,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+    } else if (email) {
+      otp = await db.oTPCode.findFirst({
+        where: {
+          email,
+          code,
+          type: 'LOGIN',
+          isUsed: false,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+    }
 
     if (!otp) {
       return NextResponse.json({ error: 'Code invalide ou expiré' }, { status: 400 })
@@ -28,26 +47,47 @@ export async function POST(req: NextRequest) {
     // Mark OTP as used
     await db.oTPCode.update({ where: { id: otp.id }, data: { isUsed: true } })
 
-    // Check if real user exists with this phone (not the temp one)
-    const user = await db.user.findUnique({
-      where: { phone },
-      include: {
-        properties: { select: { id: true } },
-        rentalFiles: { select: { id: true, status: true } },
-      },
-    })
+    // Find the user by phone or email
+    let user = null
+    if (phone) {
+      user = await db.user.findUnique({
+        where: { phone },
+        include: {
+          properties: { select: { id: true } },
+          rentalFiles: { select: { id: true, status: true } },
+        },
+      })
+    } else if (email) {
+      user = await db.user.findUnique({
+        where: { email },
+        include: {
+          properties: { select: { id: true } },
+          rentalFiles: { select: { id: true, status: true } },
+        },
+      })
+    }
 
-    // If the user was created as a temp placeholder (firstName = 'Temp', lastName = 'User', isPhoneVerified = false)
-    // and they're trying to verify, they need registration
+    // If the user was created as a temp placeholder, they need registration
     if (user && user.firstName === 'Temp' && user.lastName === 'User' && !user.isPhoneVerified) {
       return NextResponse.json({
         needsRegistration: true,
         tempUserId: user.id,
-        phone,
+        phone: user.phone,
+        email: user.email,
       })
     }
 
-    if (user && user.isPhoneVerified) {
+    // For email login: also check if email is verified
+    if (user && (user.isPhoneVerified || (email && user.email))) {
+      // Update email verification status if logging in by email
+      if (email && !user.isEmailVerified) {
+        await db.user.update({
+          where: { id: user.id },
+          data: { isEmailVerified: true },
+        })
+        user.isEmailVerified = true
+      }
+
       // Set auth cookie
       const response = NextResponse.json({
         user: {
@@ -73,7 +113,11 @@ export async function POST(req: NextRequest) {
     }
 
     // No verified user found
-    return NextResponse.json({ needsRegistration: true, phone })
+    return NextResponse.json({
+      needsRegistration: true,
+      phone: phone || undefined,
+      email: email || undefined,
+    })
   } catch (error) {
     console.error('Verify OTP error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

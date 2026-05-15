@@ -179,7 +179,8 @@ model User {
 
 model OTPCode {
   id        String   @id @default(cuid())
-  phone     String
+  phone     String?
+  email     String?
   code      String
   type      OTPType
   expiresAt DateTime
@@ -190,7 +191,9 @@ model OTPCode {
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([phone, type])
+  @@index([email, type])
   @@index([code, phone])
+  @@index([code, email])
 }
 
 // ─── Property (Annonce) ───────────────────────────────────────────────────────

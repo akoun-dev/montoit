@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Phone, ArrowRight, Info } from 'lucide-react'
+import { Phone, Mail, ArrowRight, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuthStore } from '@/lib/auth-store'
+import { useAuthStore, type AuthMethod } from '@/lib/auth-store'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 
@@ -20,28 +20,33 @@ const demoPhones = [
 ]
 
 export function LoginForm() {
+  const [authMethod, setAuthMethod] = useState<AuthMethod>('sms')
   const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const { login, isLoading, setView, seedData } = useAuthStore()
+
+  const identifier = authMethod === 'sms' ? phone : email
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!phone.trim()) {
-      toast.error('Veuillez entrer votre numéro de téléphone')
+    if (!identifier.trim()) {
+      toast.error(authMethod === 'sms' ? 'Veuillez entrer votre numéro de téléphone' : 'Veuillez entrer votre adresse email')
       return
     }
     try {
-      await login(phone.trim())
-      toast.success('Code OTP envoyé ! (Code démo : 123456)')
+      await login(identifier.trim(), authMethod)
+      toast.success(authMethod === 'sms' ? 'Code OTP envoyé par SMS ! (Code démo : 123456)' : 'Code OTP envoyé par email ! (Code démo : 123456)')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'envoi')
     }
   }
 
   const handleDemoLogin = async (demoPhone: string) => {
+    setAuthMethod('sms')
     setPhone(demoPhone)
     try {
-      await login(demoPhone)
-      toast.success('Code OTP envoyé ! (Code démo : 123456)')
+      await login(demoPhone, 'sms')
+      toast.success('Code OTP envoyé par SMS ! (Code démo : 123456)')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erreur')
     }
@@ -67,29 +72,80 @@ export function LoginForm() {
         <Card className="border-neutral-200 shadow-base">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-brand-50">
-              <Phone className="size-6 text-brand-500" />
+              {authMethod === 'sms' ? (
+                <Phone className="size-6 text-brand-500" />
+              ) : (
+                <Mail className="size-6 text-brand-500" />
+              )}
             </div>
             <CardTitle className="text-2xl font-bold text-neutral-900">Connexion</CardTitle>
             <CardDescription className="text-neutral-500">
-              Entrez votre numéro de téléphone pour recevoir un code OTP
+              {authMethod === 'sms'
+                ? 'Entrez votre numéro de téléphone pour recevoir un code OTP'
+                : 'Entrez votre adresse email pour recevoir un code OTP'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Auth Method Toggle */}
+            <div className="flex rounded-lg border border-neutral-200 p-1 bg-neutral-50">
+              <button
+                type="button"
+                onClick={() => setAuthMethod('sms')}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
+                  authMethod === 'sms'
+                    ? 'bg-white text-brand-500 shadow-sm'
+                    : 'text-neutral-500 hover:text-neutral-700'
+                }`}
+              >
+                <Phone className="size-4" />
+                SMS
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMethod('email')}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
+                  authMethod === 'email'
+                    ? 'bg-white text-brand-500 shadow-sm'
+                    : 'text-neutral-500 hover:text-neutral-700'
+                }`}
+              >
+                <Mail className="size-4" />
+                Email
+              </button>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="phone" className="text-sm font-medium text-neutral-700">
-                  Numéro de téléphone
-                </label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+225 XX XX XX XX XX"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="h-12 text-lg"
-                  disabled={isLoading}
-                />
-              </div>
+              {authMethod === 'sms' ? (
+                <div className="space-y-2">
+                  <label htmlFor="phone" className="text-sm font-medium text-neutral-700">
+                    Numéro de téléphone
+                  </label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="+225 XX XX XX XX XX"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="h-12 text-lg"
+                    disabled={isLoading}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium text-neutral-700">
+                    Adresse email
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="votre@email.ci"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-12 text-lg"
+                    disabled={isLoading}
+                  />
+                </div>
+              )}
               <Button
                 type="submit"
                 className="w-full h-12 bg-brand-500 hover:bg-brand-600 text-white text-base font-semibold"

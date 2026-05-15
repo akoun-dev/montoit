@@ -3,20 +3,35 @@ import { db } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone, firstName, lastName, email, role } = await req.json()
+    const { phone, email, firstName, lastName, role } = await req.json()
 
-    if (!phone || !firstName || !lastName) {
+    if (!firstName || !lastName) {
       return NextResponse.json(
-        { error: 'Téléphone, prénom et nom sont requis' },
+        { error: 'Prénom et nom sont requis' },
         { status: 400 }
       )
     }
 
-    // Check if user already exists and is verified
-    const existingUser = await db.user.findUnique({ where: { phone } })
+    if (!phone && !email) {
+      return NextResponse.json(
+        { error: 'Numéro de téléphone ou adresse email requis' },
+        { status: 400 }
+      )
+    }
+
+    // Check if user already exists with this phone
+    let existingUser = null
+    if (phone) {
+      existingUser = await db.user.findUnique({ where: { phone } })
+    }
+
+    // Also check by email if provided
+    if (!existingUser && email) {
+      existingUser = await db.user.findUnique({ where: { email } })
+    }
 
     if (existingUser && existingUser.isPhoneVerified) {
-      return NextResponse.json({ error: 'Un compte existe déjà avec ce numéro' }, { status: 400 })
+      return NextResponse.json({ error: 'Un compte existe déjà avec cet identifiant' }, { status: 400 })
     }
 
     let user
@@ -28,22 +43,28 @@ export async function POST(req: NextRequest) {
         data: {
           firstName,
           lastName,
-          email: email || null,
+          email: email || existingUser.email || null,
+          phone: phone || existingUser.phone,
           role: role || 'LOCATAIRE',
-          isPhoneVerified: true,
+          isPhoneVerified: !!phone,
+          isEmailVerified: !!email,
           isActive: true,
         },
       })
     } else {
       // Create new user
+      // For email-only signup, generate a placeholder phone
+      const userPhone = phone || `email-${Date.now()}`
+
       user = await db.user.create({
         data: {
-          phone,
+          phone: userPhone,
+          email: email || null,
           firstName,
           lastName,
-          email: email || null,
           role: role || 'LOCATAIRE',
-          isPhoneVerified: true,
+          isPhoneVerified: !!phone,
+          isEmailVerified: !!email,
           isActive: true,
         },
       })
