@@ -113,7 +113,7 @@ export async function sendSms(params: SendSmsParams): Promise<MessagingResult> {
   }
 
   try {
-    const response = await fetch(`${ANSUT_BASE_URL}/api/SendSMS`, {
+    const response = await fetch(`${ANSUT_BASE_URL}/SendSMS`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -163,7 +163,7 @@ export async function sendEmail(params: SendEmailParams): Promise<MessagingResul
   if (bcc) body.bcc = bcc
 
   try {
-    const response = await fetch(`${ANSUT_BASE_URL}/api/message/send`, {
+    const response = await fetch(`${ANSUT_BASE_URL}/message/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
