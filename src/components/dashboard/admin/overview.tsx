@@ -1,0 +1,187 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { Users, Building2, FileSignature, AlertTriangle, TrendingUp, DollarSign } from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { useAuthStore } from '@/lib/auth-store'
+import { motion } from 'framer-motion'
+
+interface AdminData {
+  stats: {
+    totalUsers: number
+    totalProperties: number
+    totalLeases: number
+    totalDisputes: number
+    totalRevenue: number
+    usersByRole: Record<string, number>
+  }
+  recentUsers: Array<{
+    id: string; firstName: string; lastName: string; phone: string; role: string; isActive: boolean; createdAt: string
+  }>
+  disputes: Array<{
+    id: string; type: string; description: string; status: string; createdAt: string
+    reportedBy: { firstName: string; lastName: string }
+    lease: { property: { title: string } }
+  }>
+}
+
+const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }
+const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
+
+function RoleBadge({ role }: { role: string }) {
+  const config: Record<string, { label: string; className: string }> = {
+    LOCATAIRE: { label: 'Locataire', className: 'bg-blue-100 text-blue-700' },
+    PROPRIETAIRE: { label: 'Propriétaire', className: 'bg-green-100 text-green-700' },
+    TIERS_CONFIANCE: { label: 'TC', className: 'bg-amber-100 text-amber-700' },
+    ADMIN: { label: 'Admin', className: 'bg-purple-100 text-purple-700' },
+  }
+  const c = config[role] || { label: role, className: 'bg-neutral-100 text-neutral-700' }
+  return <Badge className={c.className}>{c.label}</Badge>
+}
+
+export function AdminOverview() {
+  const { user } = useAuthStore()
+  const [data, setData] = useState<AdminData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/dashboard/admin')
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
+  if (!data) return <p className="text-neutral-500">Erreur de chargement</p>
+
+  const stats = [
+    { label: 'Utilisateurs', value: data.stats.totalUsers, icon: Users, color: 'text-blue-600 bg-blue-50' },
+    { label: 'Biens immobiliers', value: data.stats.totalProperties, icon: Building2, color: 'text-green-600 bg-green-50' },
+    { label: 'Baux', value: data.stats.totalLeases, icon: FileSignature, color: 'text-brand-600 bg-brand-50' },
+    { label: 'Litiges ouverts', value: data.stats.totalDisputes, icon: AlertTriangle, color: 'text-red-600 bg-red-50' },
+  ]
+
+  const roleLabels: Record<string, string> = {
+    LOCATAIRE: 'Locataires',
+    PROPRIETAIRE: 'Propriétaires',
+    TIERS_CONFIANCE: 'Tiers de Confiance',
+    ADMIN: 'Administrateurs',
+  }
+
+  return (
+    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
+      <motion.div variants={itemVariants}>
+        <h1 className="text-2xl font-bold text-neutral-900">Tableau de bord Admin</h1>
+        <p className="text-neutral-500 mt-1">Vue d&apos;ensemble de la plateforme Mon Toit</p>
+      </motion.div>
+
+      {/* KPIs */}
+      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat) => {
+          const Icon = stat.icon
+          return (
+            <Card key={stat.label} className="border-neutral-200">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className={`flex size-10 items-center justify-center rounded-lg ${stat.color}`}>
+                    <Icon className="size-5" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-neutral-900">{stat.value}</p>
+                    <p className="text-xs text-neutral-500">{stat.label}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </motion.div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Users by Role */}
+        <motion.div variants={itemVariants}>
+          <Card className="border-neutral-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">Répartition des utilisateurs</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {Object.entries(data.stats.usersByRole).map(([role, count]) => (
+                <div key={role} className="flex items-center justify-between p-3 rounded-lg border border-neutral-100">
+                  <div className="flex items-center gap-3">
+                    <RoleBadge role={role} />
+                    <span className="text-sm text-neutral-700">{roleLabels[role] || role}</span>
+                  </div>
+                  <span className="text-lg font-bold text-neutral-900">{count}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Revenue */}
+        <motion.div variants={itemVariants}>
+          <Card className="border-neutral-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">Revenus mensuels</CardTitle>
+              <CardDescription>Somme des loyers actifs</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex size-12 items-center justify-center rounded-lg bg-brand-50">
+                  <DollarSign className="size-6 text-brand-600" />
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-neutral-900">
+                    {data.stats.totalRevenue.toLocaleString('fr-FR')}
+                  </p>
+                  <p className="text-sm text-neutral-500">FCFA / mois</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* Recent Users */}
+      <motion.div variants={itemVariants}>
+        <Card className="border-neutral-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold">Utilisateurs récents</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-200">
+                    <th className="text-left py-2 px-3 text-neutral-500 font-medium">Nom</th>
+                    <th className="text-left py-2 px-3 text-neutral-500 font-medium">Téléphone</th>
+                    <th className="text-left py-2 px-3 text-neutral-500 font-medium">Rôle</th>
+                    <th className="text-left py-2 px-3 text-neutral-500 font-medium">Statut</th>
+                    <th className="text-left py-2 px-3 text-neutral-500 font-medium">Inscrit le</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.recentUsers.map((u) => (
+                    <tr key={u.id} className="border-b border-neutral-100 hover:bg-neutral-50">
+                      <td className="py-2 px-3 font-medium text-neutral-900">{u.firstName} {u.lastName}</td>
+                      <td className="py-2 px-3 text-neutral-600">{u.phone}</td>
+                      <td className="py-2 px-3"><RoleBadge role={u.role} /></td>
+                      <td className="py-2 px-3">
+                        <Badge className={u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                          {u.isActive ? 'Actif' : 'Inactif'}
+                        </Badge>
+                      </td>
+                      <td className="py-2 px-3 text-neutral-500">{new Date(u.createdAt).toLocaleDateString('fr-FR')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </motion.div>
+  )
+}

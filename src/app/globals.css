@@ -1,0 +1,297 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ──────────────────────────────────────────────
+   MonToit Brand Theme — Tailwind v4 + shadcn/ui
+   ────────────────────────────────────────────── */
+
+@theme inline {
+  /* Font families */
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+
+  /* ── Brand Orange Palette ── */
+  --color-brand-50: #FFF5F0;
+  --color-brand-100: #FFE5D6;
+  --color-brand-200: #FFCBB0;
+  --color-brand-300: #FFA878;
+  --color-brand-400: #FF8A50;
+  --color-brand-500: #FF6C2F;
+  --color-brand-600: #E05519;
+  --color-brand-700: #C04010;
+  --color-brand-800: #A03008;
+  --color-brand-900: #B84512;
+
+  /* ── Neutral Palette (90% of UI) ── */
+  --color-neutral-50: #FAFAFA;
+  --color-neutral-100: #F5F5F5;
+  --color-neutral-200: #E5E5E5;
+  --color-neutral-300: #D4D4D4;
+  --color-neutral-400: #A3A3A3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+
+  /* ── Semantic Colors (WCAG AA) ── */
+  --color-success: #059669;
+  --color-error: #DC2626;
+  --color-warning: #D97706;
+  --color-info: #2563EB;
+
+  /* ── shadcn/ui Mapped Tokens ── */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Border radius */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* ── Custom Shadows ── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-base: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+  --shadow-focus: 0 0 0 3px rgba(255, 108, 47, 0.15);
+}
+
+/* ──────────────────────────────────────────────
+   Light Mode (Default)
+   ────────────────────────────────────────────── */
+:root {
+  --radius: 0.625rem;
+
+  /* Core backgrounds */
+  --background: oklch(1 0 0);                    /* #FFFFFF — Page */
+  --foreground: oklch(0.205 0 0);                /* #171717 — Body text */
+
+  /* Card */
+  --card: oklch(1 0 0);                          /* #FFFFFF — Elevated */
+  --card-foreground: oklch(0.205 0 0);
+
+  /* Popover */
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.205 0 0);
+
+  /* Primary = Brand Orange */
+  --primary: oklch(0.7054 0.1931 40.73);         /* #FF6C2F */
+  --primary-foreground: oklch(1 0 0);            /* White on orange */
+
+  /* Secondary */
+  --secondary: oklch(0.970 0 0);                 /* #F5F5F5 */
+  --secondary-foreground: oklch(0.205 0 0);      /* #171717 */
+
+  /* Muted */
+  --muted: oklch(0.970 0 0);                     /* #F5F5F5 */
+  --muted-foreground: oklch(0.556 0 0);          /* #737373 */
+
+  /* Accent = Brand accent surface */
+  --accent: oklch(0.9766 0.0126 48.31);          /* #FFF5F0 */
+  --accent-foreground: oklch(0.205 0 0);         /* #171717 */
+
+  /* Destructive = Error */
+  --destructive: oklch(0.5771 0.2151 27.32);     /* #DC2626 */
+
+  /* Borders */
+  --border: oklch(0.922 0 0);                    /* #E5E5E5 */
+  --input: oklch(0.922 0 0);                     /* #E5E5E5 */
+
+  /* Ring = Brand orange focus */
+  --ring: oklch(0.7054 0.1931 40.73);            /* #FF6C2F */
+
+  /* Chart colors (brand-centric) */
+  --chart-1: oklch(0.7054 0.1931 40.73);         /* #FF6C2F */
+  --chart-2: oklch(0.8071 0.1207 49.28);         /* #FFA878 */
+  --chart-3: oklch(0.5491 0.1722 37.80);         /* #C04010 */
+  --chart-4: oklch(0.5461 0.2153 262.89);        /* #2563EB — Info */
+  --chart-5: oklch(0.5960 0.1274 163.26);        /* #059669 — Success */
+
+  /* Sidebar */
+  --sidebar: oklch(0.985 0 0);                   /* #FAFAFA — Surface */
+  --sidebar-foreground: oklch(0.205 0 0);
+  --sidebar-primary: oklch(0.7054 0.1931 40.73); /* Brand orange */
+  --sidebar-primary-foreground: oklch(1 0 0);    /* White */
+  --sidebar-accent: oklch(0.9766 0.0126 48.31);  /* #FFF5F0 */
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);            /* #E5E5E5 */
+  --sidebar-ring: oklch(0.7054 0.1931 40.73);    /* Brand orange */
+}
+
+/* ──────────────────────────────────────────────
+   Dark Mode
+   ────────────────────────────────────────────── */
+.dark {
+  --background: oklch(0.147 0 0);                /* #171717 */
+  --foreground: oklch(0.970 0 0);                /* #F5F5F5 */
+
+  --card: oklch(0.205 0 0);                      /* #262626 */
+  --card-foreground: oklch(0.970 0 0);
+
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.970 0 0);
+
+  /* Primary = Lighter brand orange for dark bg contrast */
+  --primary: oklch(0.7519 0.1593 45.58);         /* #FF8A50 — brand-400 */
+  --primary-foreground: oklch(0.147 0 0);        /* Dark on orange */
+
+  --secondary: oklch(0.269 0 0);                 /* #404040 */
+  --secondary-foreground: oklch(0.970 0 0);
+
+  --muted: oklch(0.269 0 0);                     /* #404040 */
+  --muted-foreground: oklch(0.716 0 0);          /* #A3A3A3 */
+
+  --accent: oklch(0.269 0.006 48.31);            /* Dark warm tint */
+  --accent-foreground: oklch(0.970 0 0);
+
+  --destructive: oklch(0.704 0.191 22.216);      /* Lighter red for dark bg */
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+
+  --ring: oklch(0.7519 0.1593 45.58);            /* Brand-400 for focus */
+
+  --chart-1: oklch(0.7519 0.1593 45.58);         /* #FF8A50 */
+  --chart-2: oklch(0.8811 0.0695 48.79);         /* #FFCBB0 */
+  --chart-3: oklch(0.6270 0.1854 40.02);         /* #E05519 */
+  --chart-4: oklch(0.5461 0.2153 262.89);        /* Info blue */
+  --chart-5: oklch(0.5960 0.1274 163.26);        /* Success green */
+
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.970 0 0);
+  --sidebar-primary: oklch(0.7519 0.1593 45.58); /* Brand-400 */
+  --sidebar-primary-foreground: oklch(0.147 0 0);
+  --sidebar-accent: oklch(0.269 0.006 48.31);
+  --sidebar-accent-foreground: oklch(0.970 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.7519 0.1593 45.58);
+}
+
+/* ──────────────────────────────────────────────
+   Base Layer
+   ────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01", "ss03";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ──────────────────────────────────────────────
+   Custom Focus Ring (Brand Orange)
+   ────────────────────────────────────────────── */
+@layer utilities {
+  .focus-ring {
+    outline: none;
+  }
+  .focus-ring:focus-visible {
+    outline: 2px solid #FF6C2F;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(255, 108, 47, 0.15);
+  }
+
+  .focus-ring-dark:focus-visible {
+    outline: 2px solid #FF8A50;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(255, 138, 80, 0.2);
+  }
+}
+
+/* ──────────────────────────────────────────────
+   Custom Scrollbar
+   ────────────────────────────────────────────── */
+@layer base {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #FAFAFA;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #D4D4D4;
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #A3A3A3;
+  }
+
+  .dark ::-webkit-scrollbar-track {
+    background: #262626;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: #525252;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #737373;
+  }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #D4D4D4 #FAFAFA;
+  }
+
+  .dark * {
+    scrollbar-color: #525252 #262626;
+  }
+}
+
+/* ──────────────────────────────────────────────
+   Selection Highlight (Brand Orange)
+   ────────────────────────────────────────────── */
+@layer base {
+  ::selection {
+    background-color: rgba(255, 108, 47, 0.2);
+    color: #171717;
+  }
+
+  .dark ::selection {
+    background-color: rgba(255, 138, 80, 0.3);
+    color: #F5F5F5;
+  }
+}

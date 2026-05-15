@@ -1,0 +1,517 @@
+// Mon Toit — Prisma Schema
+// Rental property platform for ANSUT
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  LOCATAIRE
+  PROPRIETAIRE
+  ADMIN
+  TIERS_CONFIANCE
+}
+
+enum OTPType {
+  LOGIN
+  EMAIL_VERIFY
+  BAIL_SIGNATURE
+}
+
+enum PropertyType {
+  APPARTEMENT
+  MAISON
+  STUDIO
+  DUPLEX
+  PENTHOUSE
+  VILLA
+}
+
+enum PropertyStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum RentalFileStatus {
+  DRAFT
+  SUBMITTED
+  TC_REVIEW
+  VALIDATED
+  REJECTED
+  EXPIRED
+}
+
+enum EmploymentType {
+  CDI
+  CDD
+  FREELANCE
+  RETIRED
+  OTHER
+}
+
+enum DocumentType {
+  ID_CARD
+  PASSPORT
+  PAY_SLIP
+  EMPLOYMENT_CONTRACT
+  BANK_STATEMENT
+  GUARANTOR_ID
+  PROOF_OF_ADDRESS
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  VALIDATED
+  REJECTED
+}
+
+enum OwnershipDocType {
+  TITRE_FONCIER
+  ACTE_NOTARIE
+  ATTESTATION_PROPRIETE
+  RCCM
+  AGREMENT
+}
+
+enum VisitRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COUNTER_PROPOSED
+  COMPLETED
+  CANCELLED
+}
+
+enum LeaseStatus {
+  DRAFT
+  PENDING_SIGNATURE
+  ACTIVE
+  TERMINATED
+  EXPIRED
+}
+
+enum DisputeType {
+  UNPAID_RENT
+  PROPERTY_DAMAGE
+  HARASSMENT
+  FRAUD
+  OTHER
+}
+
+enum DisputeStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum ValidationSLAEntityType {
+  RENTAL_FILE
+  OWNER_PROFILE
+  AGENCY
+}
+
+// ─── User & Authentication ────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(cuid())
+  phone           String    @unique
+  email           String?   @unique
+  firstName       String
+  lastName        String
+  role            Role      @default(LOCATAIRE)
+  avatarUrl       String?
+  isActive        Boolean   @default(true)
+  isEmailVerified Boolean   @default(false)
+  isPhoneVerified Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations — owned properties
+  properties           Property[]
+  // Relations — rental files (as tenant)
+  rentalFiles          RentalFile[]
+  // Relations — rental file reviews (as TC reviewer)
+  reviewedRentalFiles  RentalFile[]       @relation("RentalFileReviewer")
+  // Relations — ownership documents
+  ownershipDocuments   OwnershipDocument[]
+  // Relations — ownership doc reviews (as TC reviewer)
+  reviewedOwnershipDocs OwnershipDocument[] @relation("OwnershipDocReviewer")
+  // Relations — visit requests (as tenant)
+  visitRequests        VisitRequest[]
+  // Relations — leases (as tenant)
+  leasesAsTenant       Lease[]            @relation("LeaseTenant")
+  // Relations — leases (as owner)
+  leasesAsOwner        Lease[]            @relation("LeaseOwner")
+  // Relations — conversations
+  conversations1       Conversation[]     @relation("ConversationParticipant1")
+  conversations2       Conversation[]     @relation("ConversationParticipant2")
+  // Relations — messages
+  sentMessages         Message[]
+  // Relations — ratings given
+  ratingsGiven         Rating[]           @relation("RatingFrom")
+  // Relations — ratings received
+  ratingsReceived      Rating[]           @relation("RatingTo")
+  // Relations — disputes reported
+  disputesReported     Dispute[]
+  // Relations — disputes resolved (as admin)
+  disputesResolved     Dispute[]          @relation("DisputeResolver")
+  // Relations — audit logs
+  auditLogs            AuditLog[]
+  // Relations — OTP codes
+  otpCodes             OTPCode[]
+  // Relations — validation SLA reviews
+  validationSLAs       ValidationSLA[]
+
+  @@index([role])
+  @@index([phone])
+  @@index([email])
+}
+
+model OTPCode {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  type      OTPType
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([phone, type])
+  @@index([code, phone])
+}
+
+// ─── Property (Annonce) ───────────────────────────────────────────────────────
+
+model Property {
+  id          String         @id @default(cuid())
+  title       String
+  description String
+  type        PropertyType
+  status      PropertyStatus @default(ACTIVE)
+  price       Float
+  currency    String         @default("FCFA")
+  area        Float          // m²
+  bedrooms    Int?
+  bathrooms   Int?
+  address     String
+  city        String
+  commune     String?
+  latitude    Float?
+  longitude   Float?
+  isFurnished Boolean        @default(false)
+  hasParking  Boolean        @default(false)
+  hasGarden   Boolean        @default(false)
+  hasPool     Boolean        @default(false)
+  viewsCount  Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  images         PropertyImage[]
+  visitRequests  VisitRequest[]
+  conversations  Conversation[]
+  leases         Lease[]
+
+  @@index([status])
+  @@index([city])
+  @@index([type])
+  @@index([price])
+  @@index([ownerId])
+}
+
+model PropertyImage {
+  id         String   @id @default(cuid())
+  url        String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+// ─── Rental File (Dossier Locatif) ────────────────────────────────────────────
+
+model RentalFile {
+  id              String           @id @default(cuid())
+  status          RentalFileStatus @default(DRAFT)
+  monthlyIncome   Float?
+  employer        String?
+  employmentType  EmploymentType?
+  guarantorName   String?
+  guarantorPhone  String?
+  guarantorRelation String?
+  validUntil      DateTime?
+  rejectionReason String?
+  tcComment       String?
+  reviewedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  tenantId  String
+  tenant    User   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  reviewedById String?
+  reviewedBy   User?  @relation("RentalFileReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  documents RentalFileDocument[]
+  leases    Lease[]
+
+  @@index([status])
+  @@index([tenantId])
+}
+
+model RentalFileDocument {
+  id         String         @id @default(cuid())
+  type       DocumentType
+  url        String
+  name       String
+  status     DocumentStatus @default(PENDING)
+  tcComment  String?
+  createdAt  DateTime       @default(now())
+
+  rentalFileId String
+  rentalFile   RentalFile   @relation(fields: [rentalFileId], references: [id], onDelete: Cascade)
+
+  @@index([rentalFileId])
+  @@index([status])
+}
+
+// ─── Property Ownership Validation ────────────────────────────────────────────
+
+model OwnershipDocument {
+  id         String            @id @default(cuid())
+  type       OwnershipDocType
+  url        String
+  name       String
+  status     DocumentStatus    @default(PENDING)
+  tcComment  String?
+  createdAt  DateTime          @default(now())
+
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  reviewedById String?
+  reviewedBy   User?  @relation("OwnershipDocReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
+  @@index([status])
+}
+
+// ─── Visit Requests ───────────────────────────────────────────────────────────
+
+model VisitRequest {
+  id              String              @id @default(cuid())
+  requestedDate   DateTime
+  timeSlot        String
+  status          VisitRequestStatus  @default(PENDING)
+  counterDate     DateTime?
+  counterTimeSlot String?
+  ownerComment    String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  tenantId String
+  tenant   User     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+// ─── Lease / Contract ─────────────────────────────────────────────────────────
+
+model Lease {
+  id                String      @id @default(cuid())
+  status            LeaseStatus @default(DRAFT)
+  startDate         DateTime
+  endDate           DateTime
+  monthlyRent       Float
+  charges           Float       @default(0)
+  deposit           Float       @default(0)
+  specialConditions String?
+  ownerSignedAt     DateTime?
+  ownerSignOtp      String?
+  tenantSignedAt    DateTime?
+  tenantSignOtp     String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  propertyId   String
+  property     Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  tenantId     String
+  tenant       User       @relation("LeaseTenant", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  ownerId      String
+  owner        User       @relation("LeaseOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  rentalFileId String
+  rentalFile   RentalFile @relation(fields: [rentalFileId], references: [id], onDelete: Cascade)
+
+  ratings   Rating[]
+  disputes  Dispute[]
+
+  @@index([propertyId])
+  @@index([tenantId])
+  @@index([ownerId])
+  @@index([status])
+}
+
+// ─── Messaging ────────────────────────────────────────────────────────────────
+
+model Conversation {
+  id             String    @id @default(cuid())
+  lastMessageAt  DateTime?
+  createdAt      DateTime  @default(now())
+
+  propertyId     String?
+  property       Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  participant1Id String
+  participant1   User      @relation("ConversationParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
+
+  participant2Id String
+  participant2   User      @relation("ConversationParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  @@index([participant1Id, participant2Id])
+  @@index([propertyId])
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([isRead])
+}
+
+// ─── Rating / Review ──────────────────────────────────────────────────────────
+
+model Rating {
+  id        String   @id @default(cuid())
+  score     Int      // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  leaseId   String
+  lease     Lease    @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  fromUserId String
+  fromUser   User     @relation("RatingFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+
+  toUserId   String
+  toUser     User     @relation("RatingTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([leaseId])
+  @@index([toUserId])
+  @@index([fromUserId])
+}
+
+// ─── Dispute ──────────────────────────────────────────────────────────────────
+
+model Dispute {
+  id          String        @id @default(cuid())
+  type        DisputeType
+  description String
+  status      DisputeStatus @default(OPEN)
+  resolution  String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  leaseId String
+  lease   Lease  @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  reportedById String
+  reportedBy   User    @relation(fields: [reportedById], references: [id], onDelete: Cascade)
+
+  resolvedById String?
+  resolvedBy   User?    @relation("DisputeResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([leaseId])
+  @@index([status])
+  @@index([reportedById])
+}
+
+// ─── Audit Log ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ─── Platform Settings ────────────────────────────────────────────────────────
+
+model PlatformSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+}
+
+// ─── TC Validation SLA ────────────────────────────────────────────────────────
+
+model ValidationSLA {
+  id           String                  @id @default(cuid())
+  entityType   ValidationSLAEntityType
+  entityId     String
+  submittedAt  DateTime
+  deadlineAt   DateTime
+  completedAt  DateTime?
+  isOverdue    Boolean                 @default(false)
+  createdAt    DateTime                @default(now())
+
+  reviewerId String?
+  reviewer   User?     @relation(fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([isOverdue])
+  @@index([deadlineAt])
+  @@index([reviewerId])
+}
