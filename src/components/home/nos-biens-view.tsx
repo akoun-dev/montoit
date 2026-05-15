@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import Image from 'next/image'
 import {
   Search,
@@ -11,7 +11,6 @@ import {
   Heart,
   SlidersHorizontal,
   RotateCcw,
-  ChevronDown,
   LayoutGrid,
   List,
   Map,
@@ -252,20 +251,20 @@ function FilterSidebar({
   resetFilters,
 }: FilterSidebarProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="size-4 text-brand-500" />
           <span className="text-sm font-semibold text-neutral-900">Filtres</span>
-          <Badge className="bg-brand-500 text-white border-0 text-xs px-2 py-0.5 hover:bg-brand-500">
-            {resultCount} résultat{resultCount !== 1 ? 's' : ''}
+          <Badge className="bg-brand-500 text-white border-0 text-[11px] px-2 py-0.5 hover:bg-brand-500 leading-tight">
+            {resultCount}
           </Badge>
         </div>
         {hasActiveFilters && (
           <button
             onClick={resetFilters}
-            className="text-xs text-brand-500 hover:text-brand-600 transition-colors flex items-center gap-1"
+            className="text-[11px] text-brand-500 hover:text-brand-600 transition-colors flex items-center gap-1"
           >
             <RotateCcw className="size-3" />
             Réinitialiser
@@ -273,16 +272,18 @@ function FilterSidebar({
         )}
       </div>
 
+      <div className="h-px bg-neutral-100" />
+
       {/* Type de bien */}
-      <div className="space-y-2.5">
-        <Label className="text-xs font-medium text-neutral-700 uppercase tracking-wider">Type de bien</Label>
-        <div className="flex flex-wrap gap-2">
+      <div className="space-y-2">
+        <Label className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">Type de bien</Label>
+        <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setTypeFilter('Tous')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
               typeFilter === 'Tous'
-                ? 'bg-brand-500 text-white'
-                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                ? 'bg-brand-500 text-white shadow-sm'
+                : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100 border border-neutral-200'
             }`}
           >
             Tous
@@ -291,10 +292,10 @@ function FilterSidebar({
             <button
               key={type}
               onClick={() => setTypeFilter(type)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
                 typeFilter === type
-                  ? 'bg-brand-500 text-white'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  ? 'bg-brand-500 text-white shadow-sm'
+                  : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100 border border-neutral-200'
               }`}
             >
               {type}
@@ -304,10 +305,10 @@ function FilterSidebar({
       </div>
 
       {/* Ville ou commune */}
-      <div className="space-y-2">
-        <Label className="text-xs font-medium text-neutral-700 uppercase tracking-wider">Ville ou commune</Label>
+      <div className="space-y-1.5">
+        <Label className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">Ville ou commune</Label>
         <Select value={communeFilter} onValueChange={setCommuneFilter}>
-          <SelectTrigger className="h-10 bg-white border-neutral-200 text-sm rounded-lg">
+          <SelectTrigger className="h-9 bg-white border-neutral-200 text-xs rounded-md">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -322,37 +323,43 @@ function FilterSidebar({
       </div>
 
       {/* Loyer */}
-      <div className="space-y-2">
-        <Label className="text-xs font-medium text-neutral-700 uppercase tracking-wider">Loyer (FCFA/Mois)</Label>
+      <div className="space-y-1.5">
+        <Label className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">Loyer (FCFA/Mois)</Label>
         <div className="flex items-center gap-2">
-          <Input
-            type="number"
-            placeholder="Min"
-            value={priceMin}
-            onChange={(e) => setPriceMin(e.target.value)}
-            className="h-10 bg-white border-neutral-200 text-sm rounded-lg"
-          />
-          <span className="text-neutral-400 text-sm">—</span>
-          <Input
-            type="number"
-            placeholder="Max"
-            value={priceMax}
-            onChange={(e) => setPriceMax(e.target.value)}
-            className="h-10 bg-white border-neutral-200 text-sm rounded-lg"
-          />
+          <div className="relative flex-1">
+            <Input
+              type="number"
+              placeholder="Min"
+              value={priceMin}
+              onChange={(e) => setPriceMin(e.target.value)}
+              className="h-9 bg-white border-neutral-200 text-xs rounded-md pr-8"
+            />
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-neutral-400">Min</span>
+          </div>
+          <span className="text-neutral-300 text-xs">—</span>
+          <div className="relative flex-1">
+            <Input
+              type="number"
+              placeholder="Max"
+              value={priceMax}
+              onChange={(e) => setPriceMax(e.target.value)}
+              className="h-9 bg-white border-neutral-200 text-xs rounded-md pr-8"
+            />
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-neutral-400">Max</span>
+          </div>
         </div>
       </div>
 
       {/* Nombre de pièces min. */}
-      <div className="space-y-2.5">
-        <Label className="text-xs font-medium text-neutral-700 uppercase tracking-wider">Nombre de pièces min.</Label>
-        <div className="flex flex-wrap gap-2">
+      <div className="space-y-2">
+        <Label className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">Nombre de pièces min.</Label>
+        <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setRoomsMin('0')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
               roomsMin === '0'
-                ? 'bg-brand-500 text-white'
-                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                ? 'bg-brand-500 text-white shadow-sm'
+                : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100 border border-neutral-200'
             }`}
           >
             Tous
@@ -361,10 +368,10 @@ function FilterSidebar({
             <button
               key={n}
               onClick={() => setRoomsMin(String(n))}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
                 roomsMin === String(n)
-                  ? 'bg-brand-500 text-white'
-                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  ? 'bg-brand-500 text-white shadow-sm'
+                  : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100 border border-neutral-200'
               }`}
             >
               {n}{n === 5 ? '+' : ''}
@@ -374,8 +381,8 @@ function FilterSidebar({
       </div>
 
       {/* Meublé uniquement */}
-      <div className="flex items-center justify-between">
-        <Label className="text-xs font-medium text-neutral-700">Meublé uniquement</Label>
+      <div className="flex items-center justify-between py-1">
+        <Label className="text-xs font-medium text-neutral-700 cursor-pointer">Meublé uniquement</Label>
         <Switch
           checked={meubleOnly}
           onCheckedChange={setMeubleOnly}
@@ -383,16 +390,22 @@ function FilterSidebar({
         />
       </div>
 
+      <div className="h-px bg-neutral-100" />
+
       {/* Reset button */}
-      {hasActiveFilters && (
+      {hasActiveFilters ? (
         <Button
           variant="outline"
           onClick={resetFilters}
-          className="w-full text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600"
+          className="w-full text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600 text-xs h-9"
         >
-          <RotateCcw className="size-3.5 mr-2" />
+          <RotateCcw className="size-3 mr-1.5" />
           Réinitialiser les filtres
         </Button>
+      ) : (
+        <p className="text-[11px] text-neutral-400 text-center">
+          Ajustez les filtres pour affiner votre recherche
+        </p>
       )}
     </div>
   )
@@ -424,25 +437,25 @@ function PropertyCard({ property }: { property: Property }) {
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
 
-        {/* Status badge */}
-        <Badge className={`absolute top-3 left-3 border-0 text-xs font-semibold px-2.5 py-1 ${statusConfig[property.status].className}`}>
-          {statusConfig[property.status].label}
-        </Badge>
-
-        {/* Meublé badge */}
-        {property.meuble && (
-          <Badge className="absolute top-3 left-[auto] border-0 text-xs font-medium px-2 py-1 bg-sky-500 text-white" style={{ left: property.status === 'disponible' ? 'auto' : 'auto', right: property.isVerified ? '2.75rem' : '2.75rem' }}>
-            Meublé
+        {/* Badges row */}
+        <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
+          <Badge className={`border-0 text-[11px] font-semibold px-2 py-0.5 ${statusConfig[property.status].className}`}>
+            {statusConfig[property.status].label}
           </Badge>
-        )}
+          {property.meuble && (
+            <Badge className="border-0 text-[11px] font-medium px-2 py-0.5 bg-sky-500 text-white">
+              Meublé
+            </Badge>
+          )}
+        </div>
 
         {/* Verified badge */}
         {property.isVerified && (
-          <div className="absolute top-3 right-12 flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-full px-2 py-1">
-            <BadgeCheck className="size-3.5 text-brand-500" />
-            <span className="text-xs font-medium text-neutral-700">Vérifié</span>
+          <div className="absolute top-3 right-12 flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-full px-2 py-0.5">
+            <BadgeCheck className="size-3 text-brand-500" />
+            <span className="text-[11px] font-medium text-neutral-700">Vérifié</span>
           </div>
         )}
 
@@ -695,135 +708,130 @@ export function NosBiensView() {
   return (
     <section className="bg-neutral-50 min-h-screen">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* ── Search Bar ─────────────────────────────────────────────── */}
+        {/* ── Search Bar + Controls ─────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="mb-6"
+          className="flex items-center gap-3 mb-6"
         >
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-neutral-400" />
+          {/* Search input */}
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4.5 text-neutral-400" />
             <input
               type="text"
               placeholder="Rechercher un bien, quartier, ville..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-12 pl-12 pr-12 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm"
+              className="w-full h-11 pl-11 pr-10 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 size-5 rounded-full bg-neutral-200 flex items-center justify-center hover:bg-neutral-300 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 size-5 rounded-full bg-neutral-200 flex items-center justify-center hover:bg-neutral-300 transition-colors"
               >
                 <X className="size-3 text-neutral-600" />
               </button>
             )}
           </div>
+
+          {/* Sort */}
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="hidden sm:flex h-11 w-[150px] bg-white border-neutral-200 text-xs rounded-xl shadow-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {sortOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* View toggle */}
+          <div className="hidden sm:flex items-center bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm h-11">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`h-full px-3 transition-colors ${viewMode === 'grid' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+              aria-label="Vue grille"
+            >
+              <LayoutGrid className="size-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`h-full px-3 transition-colors ${viewMode === 'list' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+              aria-label="Vue liste"
+            >
+              <List className="size-4" />
+            </button>
+          </div>
+
+          {/* Map button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="hidden sm:flex text-neutral-600 border-neutral-200 hover:bg-neutral-50 h-11 rounded-xl text-xs shadow-sm"
+          >
+            <Map className="size-3.5 mr-1.5" />
+            Carte
+          </Button>
+
+          {/* Mobile filter button */}
+          <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="lg:hidden text-neutral-600 border-neutral-200 hover:bg-neutral-50 h-11 rounded-xl text-xs shadow-sm"
+              >
+                <SlidersHorizontal className="size-3.5 mr-1.5" />
+                Filtres
+                {hasActiveFilters && (
+                  <span className="ml-1.5 size-4 rounded-full bg-brand-500 text-white text-[10px] flex items-center justify-center">!</span>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-80">
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <SlidersHorizontal className="size-4 text-brand-500" />
+                  Filtres
+                </SheetTitle>
+              </SheetHeader>
+              <div className="px-4 py-6 overflow-y-auto max-h-[calc(100vh-120px)]">
+                <FilterSidebar {...filterSidebarProps} />
+              </div>
+              <SheetFooter className="px-4 pb-4">
+                <SheetClose asChild>
+                  <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white">
+                    Voir {filteredProperties.length} résultat{filteredProperties.length !== 1 ? 's' : ''}
+                  </Button>
+                </SheetClose>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
         </motion.div>
 
-        {/* ── Toolbar ────────────────────────────────────────────────── */}
+        {/* ── Results count ──────────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: -5 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="flex items-center justify-between gap-3 mb-6 flex-wrap"
+          className="flex items-center gap-3 mb-5"
         >
-          {/* Left: Results count */}
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold text-neutral-900">
-              {filteredProperties.length} bien{filteredProperties.length !== 1 ? 's' : ''} trouvé{filteredProperties.length !== 1 ? 's' : ''}
-            </h1>
-            {hasActiveFilters && (
-              <button
-                onClick={resetFilters}
-                className="text-xs text-brand-500 hover:text-brand-600 transition-colors flex items-center gap-1"
-              >
-                <RotateCcw className="size-3" />
-                Voir tout
-              </button>
-            )}
-          </div>
-
-          {/* Right: Sort & View */}
-          <div className="flex items-center gap-2">
-            {/* Sort */}
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="h-9 w-[160px] bg-white border-neutral-200 text-xs rounded-lg">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sortOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* View toggle */}
-            <div className="hidden sm:flex items-center bg-white border border-neutral-200 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
-                aria-label="Vue grille"
-              >
-                <LayoutGrid className="size-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
-                aria-label="Vue liste"
-              >
-                <List className="size-4" />
-              </button>
-            </div>
-
-            {/* Map button */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="hidden sm:flex text-neutral-600 border-neutral-200 hover:bg-neutral-50 h-9 text-xs"
+          <h1 className="text-sm font-semibold text-neutral-900">
+            {filteredProperties.length} bien{filteredProperties.length !== 1 ? 's' : ''} trouvé{filteredProperties.length !== 1 ? 's' : ''}
+          </h1>
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="text-xs text-brand-500 hover:text-brand-600 transition-colors flex items-center gap-1"
             >
-              <Map className="size-3.5 mr-1.5" />
-              Carte
-            </Button>
-
-            {/* Mobile filter button */}
-            <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="lg:hidden text-neutral-600 border-neutral-200 hover:bg-neutral-50 h-9 text-xs"
-                >
-                  <SlidersHorizontal className="size-3.5 mr-1.5" />
-                  Filtres
-                  {hasActiveFilters && (
-                    <span className="ml-1.5 size-4 rounded-full bg-brand-500 text-white text-[10px] flex items-center justify-center">!</span>
-                  )}
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-80">
-                <SheetHeader>
-                  <SheetTitle className="flex items-center gap-2">
-                    <SlidersHorizontal className="size-4 text-brand-500" />
-                    Filtres
-                  </SheetTitle>
-                </SheetHeader>
-                <div className="px-4 py-6 overflow-y-auto max-h-[calc(100vh-120px)]">
-                  <FilterSidebar {...filterSidebarProps} />
-                </div>
-                <SheetFooter className="px-4 pb-4">
-                  <SheetClose asChild>
-                    <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white">
-                      Voir {filteredProperties.length} résultat{filteredProperties.length !== 1 ? 's' : ''}
-                    </Button>
-                  </SheetClose>
-                </SheetFooter>
-              </SheetContent>
-            </Sheet>
-          </div>
+              <RotateCcw className="size-3" />
+              Voir tout
+            </button>
+          )}
         </motion.div>
 
         {/* ── Main Layout ────────────────────────────────────────────── */}
