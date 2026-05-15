@@ -138,3 +138,36 @@ Stage Summary:
 - Clicking individual marker shows popup card with "Voir" button opening full detail
 - PropertyDetailDialog includes: image carousel, badges, features grid (6 items), description, owner info, contact buttons, CTA
 - Lint passes cleanly, dev server compiles successfully
+
+---
+Task ID: 7
+Agent: main
+Task: Replace modal detail view with dedicated full-page PropertyDetailView
+
+Work Log:
+- Created PropertyDetailView component as a dedicated full-page view with 4 tabbed sections
+- Added 'property-detail' to AppView type and selectedPropertyId state in auth store
+- Added setSelectedPropertyId method to auth store for navigation
+- Updated page.tsx to handle 'property-detail' view with PropertyDetailView component
+- Updated nos-biens-view.tsx to navigate to dedicated view using setView/setSelectedPropertyId instead of modal
+- Removed old PropertyDetailDialog component (replaced by PropertyDetailView)
+- PropertyDetailView features:
+  - Sticky top bar with back button, favorite/share actions
+  - Image gallery with carousel navigation
+  - 4 tabs: Détails, Contacter, Visiter, Avis
+  - Details tab: features grid, description, location info
+  - Contact tab: owner card with response stats, message form
+  - Visit tab: Physical vs Virtual visit selection, date/time picker, confirmation
+  - Reviews tab: rating summary with bar chart, individual reviews, write review CTA
+  - Right sidebar (desktop): price card, owner info, safety tips
+  - Mobile CTA bar: fixed bottom with price, visit & contact buttons
+- Lint passes cleanly, dev server compiles successfully
+
+Stage Summary:
+- Property detail is now a dedicated full-page view instead of a modal
+- 4 interactive tabs: Details, Contacter, Visiter (Physique/Virtuelle), Avis & Notations
+- Owner contact section with response rate/time stats and message form
+- Visit scheduling with physical vs virtual selection, date/time slots
+- Reviews & ratings with average score, bar chart distribution, individual reviews
+- Responsive layout: sidebar on desktop, bottom CTA bar on mobile
+- Navigation uses auth store (selectedPropertyId + setView('property-detail'))

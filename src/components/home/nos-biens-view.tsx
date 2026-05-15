@@ -24,8 +24,8 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { useAuthStore } from '@/lib/auth-store'
 import { PropertyMapLeaflet } from '@/components/home/property-map'
-import { PropertyDetailDialog, type PropertyDetail } from '@/components/home/property-detail-dialog'
 import {
   Select,
   SelectContent,
@@ -231,27 +231,6 @@ const sortOptions = [
 
 function formatPrice(price: number): string {
   return price.toLocaleString('fr-FR')
-}
-
-function toPropertyDetail(p: Property): PropertyDetail {
-  return {
-    id: p.id,
-    title: p.title,
-    price: p.price,
-    location: p.location,
-    city: p.city,
-    commune: p.commune,
-    bedrooms: p.bedrooms,
-    area: p.area,
-    image: p.image,
-    type: p.type,
-    meuble: p.meuble,
-    status: p.status,
-    isVerified: p.isVerified,
-    views: p.views,
-    lat: p.lat,
-    lng: p.lng,
-  }
 }
 
 // ── Filter Sidebar ──────────────────────────────────────────────────────────
@@ -725,6 +704,8 @@ function MapListItem({ property, onClick }: { property: Property; onClick: () =>
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export function NosBiensView() {
+  const { setView, setSelectedPropertyId } = useAuthStore()
+
   // Filter state
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('Tous')
@@ -739,13 +720,9 @@ export function NosBiensView() {
   const [sortBy, setSortBy] = useState('recent')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
-  // Detail dialog state
-  const [selectedProperty, setSelectedProperty] = useState<PropertyDetail | null>(null)
-  const [detailOpen, setDetailOpen] = useState(false)
-
-  const openDetail = (property: Property | PropertyDetail) => {
-    setSelectedProperty(toPropertyDetail(property as Property))
-    setDetailOpen(true)
+  const openDetail = (propertyId: number) => {
+    setSelectedPropertyId(propertyId)
+    setView('property-detail')
   }
 
   // Filter logic
@@ -968,7 +945,7 @@ export function NosBiensView() {
                     <MapListItem
                       key={property.id}
                       property={property}
-                      onClick={() => openDetail(property)}
+                      onClick={() => openDetail(property.id)}
                     />
                   ))
                 ) : (
@@ -984,8 +961,8 @@ export function NosBiensView() {
               <div className="h-[calc(100vh-10rem)] sticky top-24">
                 {filteredProperties.length > 0 ? (
                   <PropertyMapLeaflet
-                    properties={filteredProperties.map(toPropertyDetail)}
-                    onPropertyClick={(p) => openDetail(p as Property)}
+                    properties={filteredProperties}
+                    onPropertyClick={(p) => openDetail(p.id)}
                   />
                 ) : (
                   <div className="w-full h-full bg-neutral-100 rounded-xl flex items-center justify-center">
@@ -1030,7 +1007,7 @@ export function NosBiensView() {
                       >
                         <PropertyCard
                           property={property}
-                          onClick={() => openDetail(property)}
+                          onClick={() => openDetail(property.id)}
                         />
                       </motion.div>
                     ))}
@@ -1052,7 +1029,7 @@ export function NosBiensView() {
                       >
                         <PropertyListItem
                           property={property}
-                          onClick={() => openDetail(property)}
+                          onClick={() => openDetail(property.id)}
                         />
                       </motion.div>
                     ))}
@@ -1088,13 +1065,6 @@ export function NosBiensView() {
           </div>
         )}
       </div>
-
-      {/* ── Property Detail Dialog ──────────────────────────────────── */}
-      <PropertyDetailDialog
-        property={selectedProperty}
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-      />
     </section>
   )
 }

@@ -16,6 +16,7 @@ import { LoginForm } from '@/components/auth/login-form'
 import { OtpVerifyForm } from '@/components/auth/otp-verify-form'
 import { RegisterForm } from '@/components/auth/register-form'
 import { Dashboard } from '@/components/dashboard'
+import { PropertyDetailView } from '@/components/home/property-detail-view'
 
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
@@ -28,7 +29,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
 }
 
 export default function Home() {
-  const { currentView, checkAuth } = useAuthStore()
+  const { currentView, checkAuth, selectedPropertyId } = useAuthStore()
 
   useEffect(() => {
     checkAuth()
@@ -57,6 +58,15 @@ export default function Home() {
     return (
       <PageShell>
         <NosBiensView />
+      </PageShell>
+    )
+  }
+
+  // Property Detail — dedicated full-page view
+  if (currentView === 'property-detail') {
+    return (
+      <PageShell>
+        <PropertyDetailView propertyId={selectedPropertyId} />
       </PageShell>
     )
   }
