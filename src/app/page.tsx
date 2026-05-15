@@ -30,12 +30,29 @@ function PageShell({ children }: { children: React.ReactNode }) {
   )
 }
 
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-neutral-200 border-t-brand-500" />
+        <p className="text-sm text-neutral-500">Chargement...</p>
+      </div>
+    </div>
+  )
+}
+
 export default function Home() {
-  const { currentView, checkAuth, selectedPropertyId } = useAuthStore()
+  const { currentView, checkAuth, isInitialized, selectedPropertyId } = useAuthStore()
 
   useEffect(() => {
     checkAuth()
   }, [checkAuth])
+
+  // Wait for first auth check to complete before rendering anything
+  // This prevents flash of wrong view (home page → dashboard) on refresh
+  if (!isInitialized) {
+    return <LoadingScreen />
+  }
 
   // Dashboard view — full screen, no homepage chrome
   if (currentView === 'dashboard') {
