@@ -53,8 +53,8 @@ export function Hero() {
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: "url('/images/hero-bg.png')" }}
       />
-      {/* Blue gradient overlay — dark navy at top to teal at bottom */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0a1628]/85 via-[#0d2847]/80 to-[#0f3460]/75" />
+      {/* Orange/warm gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-brand-900/90 via-brand-800/80 to-neutral-900/85" />
 
       {/* Content */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 pb-6 text-center">
@@ -172,7 +172,7 @@ export function Hero() {
         className="relative z-10 w-full"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-8 sm:pb-10">
-          <div className="bg-[#0d2847]/80 backdrop-blur-md rounded-xl sm:rounded-2xl border border-white/10 px-4 sm:px-8 py-5 sm:py-6">
+          <div className="bg-brand-500/15 backdrop-blur-md rounded-xl sm:rounded-2xl border border-brand-400/20 px-4 sm:px-8 py-5 sm:py-6">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8">
               {stats.map((stat, i) => {
                 const Icon = stat.icon
