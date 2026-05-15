@@ -1,74 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import bcrypt from 'bcryptjs'
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone, email, firstName, lastName, role } = await req.json()
+    const { email, password, firstName, lastName, phone, role } = await req.json()
 
-    if (!firstName || !lastName) {
+    if (!email || !password || !firstName || !lastName) {
       return NextResponse.json(
-        { error: 'Prénom et nom sont requis' },
+        { error: 'Email, mot de passe, prénom et nom sont requis' },
         { status: 400 }
       )
     }
 
-    if (!phone && !email) {
+    // Validate password strength
+    if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
       return NextResponse.json(
-        { error: 'Numéro de téléphone ou adresse email requis' },
+        { error: 'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre' },
         { status: 400 }
       )
     }
 
-    // Check if user already exists with this phone
-    let existingUser = null
+    // Check if user already exists
+    const existingUser = await db.user.findUnique({ where: { email } })
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'Un compte existe déjà avec cet email' },
+        { status: 400 }
+      )
+    }
+
+    // Check phone uniqueness if provided
     if (phone) {
-      existingUser = await db.user.findUnique({ where: { phone } })
+      const existingPhone = await db.user.findUnique({ where: { phone } })
+      if (existingPhone) {
+        return NextResponse.json(
+          { error: 'Un compte existe déjà avec ce numéro de téléphone' },
+          { status: 400 }
+        )
+      }
     }
 
-    // Also check by email if provided
-    if (!existingUser && email) {
-      existingUser = await db.user.findUnique({ where: { email } })
-    }
+    const passwordHash = await bcrypt.hash(password, 12)
 
-    if (existingUser && existingUser.isPhoneVerified) {
-      return NextResponse.json({ error: 'Un compte existe déjà avec cet identifiant' }, { status: 400 })
-    }
-
-    let user
-
-    if (existingUser && !existingUser.isPhoneVerified) {
-      // Update the temp user
-      user = await db.user.update({
-        where: { id: existingUser.id },
-        data: {
-          firstName,
-          lastName,
-          email: email || existingUser.email || null,
-          phone: phone || existingUser.phone,
-          role: role || 'LOCATAIRE',
-          isPhoneVerified: !!phone,
-          isEmailVerified: !!email,
-          isActive: true,
-        },
-      })
-    } else {
-      // Create new user
-      // For email-only signup, generate a placeholder phone
-      const userPhone = phone || `email-${Date.now()}`
-
-      user = await db.user.create({
-        data: {
-          phone: userPhone,
-          email: email || null,
-          firstName,
-          lastName,
-          role: role || 'LOCATAIRE',
-          isPhoneVerified: !!phone,
-          isEmailVerified: !!email,
-          isActive: true,
-        },
-      })
-    }
+    const user = await db.user.create({
+      data: {
+        email,
+        passwordHash,
+        firstName,
+        lastName,
+        phone: phone || null,
+        role: role || 'LOCATAIRE',
+        isEmailVerified: true, // Auto-verify for now
+        isActive: true,
+      },
+    })
 
     const response = NextResponse.json({
       user: {
@@ -80,7 +66,7 @@ export async function POST(req: NextRequest) {
         role: user.role,
         avatarUrl: user.avatarUrl,
         isActive: user.isActive,
-        isPhoneVerified: user.isPhoneVerified,
+        isEmailVerified: user.isEmailVerified,
       },
     })
 

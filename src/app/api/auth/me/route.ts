@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
         role: true,
         avatarUrl: true,
         isActive: true,
-        isPhoneVerified: true,
+        isEmailVerified: true,
       },
     })
 

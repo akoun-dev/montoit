@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import bcrypt from 'bcryptjs'
+
+const DEMO_PASSWORD = 'demo1234'
 
 export async function POST() {
   try {
+    const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12)
+
     // Clean up existing data
     await db.validationSLA.deleteMany()
     await db.dispute.deleteMany()
@@ -27,7 +32,9 @@ export async function POST() {
         firstName: 'Admin',
         lastName: 'Toit',
         email: 'admin@montoit.ci',
+        passwordHash,
         role: 'ADMIN',
+        isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
       },
@@ -39,7 +46,9 @@ export async function POST() {
         firstName: 'Tiers',
         lastName: 'Confiance',
         email: 'tc@montoit.ci',
+        passwordHash,
         role: 'TIERS_CONFIANCE',
+        isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
       },
@@ -51,8 +60,10 @@ export async function POST() {
         phone: '+22503030303',
         firstName: 'Kouadio',
         lastName: 'Yao',
-        email: 'kouadio@email.ci',
+        email: 'proprietaire@montoit.ci',
+        passwordHash,
         role: 'PROPRIETAIRE',
+        isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
       },
@@ -64,7 +75,9 @@ export async function POST() {
         firstName: 'Awa',
         lastName: 'Diallo',
         email: 'awa.diallo@email.ci',
+        passwordHash,
         role: 'PROPRIETAIRE',
+        isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
       },
@@ -76,8 +89,10 @@ export async function POST() {
         phone: '+22505050505',
         firstName: 'Moussa',
         lastName: 'Koné',
-        email: 'moussa.k@email.ci',
+        email: 'locataire@montoit.ci',
+        passwordHash,
         role: 'LOCATAIRE',
+        isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
       },
@@ -89,7 +104,9 @@ export async function POST() {
         firstName: 'Fatou',
         lastName: 'Bamba',
         email: 'fatou.b@email.ci',
+        passwordHash,
         role: 'LOCATAIRE',
+        isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
       },
@@ -101,7 +118,9 @@ export async function POST() {
         firstName: 'Jean',
         lastName: 'Coulibaly',
         email: 'jean.c@email.ci',
+        passwordHash,
         role: 'LOCATAIRE',
+        isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
       },
@@ -303,7 +322,7 @@ export async function POST() {
     })
 
     // ─── Create Leases ──────────────────────────────────────────────────
-    const lease1 = await db.lease.create({
+    await db.lease.create({
       data: {
         propertyId: createdProperties[0].id,
         tenantId: tenant1.id,
@@ -453,6 +472,7 @@ export async function POST() {
 
     return NextResponse.json({
       message: 'Données de démonstration créées avec succès',
+      demoPassword: DEMO_PASSWORD,
       users: { admin: admin.id, tc: tc.id, owner1: owner1.id, owner2: owner2.id, tenant1: tenant1.id, tenant2: tenant2.id, tenant3: tenant3.id },
     })
   } catch (error) {

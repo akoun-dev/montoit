@@ -12,7 +12,6 @@ import { About } from '@/components/home/about'
 import { Contact } from '@/components/home/contact'
 import { Footer } from '@/components/home/footer'
 import { LoginForm } from '@/components/auth/login-form'
-import { OtpVerifyForm } from '@/components/auth/otp-verify-form'
 import { RegisterForm } from '@/components/auth/register-form'
 import { Dashboard } from '@/components/dashboard'
 
@@ -41,10 +40,6 @@ export default function Home() {
   // Auth views — centered card layouts
   if (currentView === 'login') {
     return <LoginForm />
-  }
-
-  if (currentView === 'otp-verify') {
-    return <OtpVerifyForm />
   }
 
   if (currentView === 'register') {

@@ -1,25 +1,38 @@
 'use client'
 
 import { useState } from 'react'
-import { UserPlus, ArrowLeft, Phone, Mail } from 'lucide-react'
+import { UserPlus, ArrowLeft, Mail, Lock, Eye, EyeOff, Phone, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useAuthStore, type AuthMethod } from '@/lib/auth-store'
+import { useAuthStore } from '@/lib/auth-store'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 
-export function RegisterForm() {
-  const { register, phone: storedPhone, email: storedEmail, authMethod: initialMethod, isLoading, setView } = useAuthStore()
+const passwordRules = [
+  { label: 'Au moins 8 caractères', test: (p: string) => p.length >= 8 },
+  { label: 'Une majuscule', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'Une minuscule', test: (p: string) => /[a-z]/.test(p) },
+  { label: 'Un chiffre', test: (p: string) => /[0-9]/.test(p) },
+]
 
+export function RegisterForm() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [regMethod, setRegMethod] = useState<AuthMethod>(initialMethod)
-  const [phone, setPhone] = useState(storedPhone || '')
-  const [email, setEmail] = useState(storedEmail || '')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [role, setRole] = useState('LOCATAIRE')
+  const [acceptTerms, setAcceptTerms] = useState(false)
+  const { register, isLoading, setView } = useAuthStore()
+
+  const passwordStrength = passwordRules.filter((r) => r.test(password)).length
+  const passwordsMatch = password && confirmPassword && password === confirmPassword
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,20 +40,29 @@ export function RegisterForm() {
       toast.error('Veuillez remplir le prénom et le nom')
       return
     }
-    if (regMethod === 'sms' && !phone.trim()) {
-      toast.error('Veuillez entrer votre numéro de téléphone')
+    if (!email.trim()) {
+      toast.error('Veuillez entrer votre adresse email')
       return
     }
-    if (regMethod === 'email' && !email.trim()) {
-      toast.error('Veuillez entrer votre adresse email')
+    if (passwordStrength < 4) {
+      toast.error('Le mot de passe ne respecte pas les critères requis')
+      return
+    }
+    if (!passwordsMatch) {
+      toast.error('Les mots de passe ne correspondent pas')
+      return
+    }
+    if (!acceptTerms) {
+      toast.error('Veuillez accepter les conditions d\'utilisation')
       return
     }
     try {
       await register({
-        phone: phone.trim() || undefined,
-        email: email.trim() || undefined,
+        email: email.trim(),
+        password,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
+        phone: phone.trim() || undefined,
         role,
       })
       toast.success('Inscription réussie ! Bienvenue sur Mon Toit.')
@@ -50,7 +72,7 @@ export function RegisterForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 py-8 sm:py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -64,113 +86,177 @@ export function RegisterForm() {
             </div>
             <CardTitle className="text-2xl font-bold text-neutral-900">Inscription</CardTitle>
             <CardDescription className="text-neutral-500">
-              Complétez votre profil pour rejoindre Mon Toit
+              Créez votre compte pour rejoindre Mon Toit
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Name fields */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">Prénom *</Label>
+                  <Label htmlFor="reg-firstName">Prénom *</Label>
                   <Input
-                    id="firstName"
+                    id="reg-firstName"
                     placeholder="Prénom"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     disabled={isLoading}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Nom *</Label>
+                  <Label htmlFor="reg-lastName">Nom *</Label>
                   <Input
-                    id="lastName"
+                    id="reg-lastName"
                     placeholder="Nom"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     disabled={isLoading}
+                    required
                   />
                 </div>
               </div>
 
-              {/* Auth Method Toggle — same style as login */}
+              {/* Email */}
               <div className="space-y-2">
-                <Label>Méthode de vérification *</Label>
-                <div className="flex rounded-lg border border-neutral-200 p-1 bg-neutral-50">
-                  <button
-                    type="button"
-                    onClick={() => setRegMethod('sms')}
-                    className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
-                      regMethod === 'sms'
-                        ? 'bg-white text-brand-500 shadow-sm'
-                        : 'text-neutral-500 hover:text-neutral-700'
-                    }`}
-                  >
-                    <Phone className="size-4" />
-                    SMS
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRegMethod('email')}
-                    className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
-                      regMethod === 'email'
-                        ? 'bg-white text-brand-500 shadow-sm'
-                        : 'text-neutral-500 hover:text-neutral-700'
-                    }`}
-                  >
-                    <Mail className="size-4" />
-                    Email
-                  </button>
-                </div>
-              </div>
-
-              {/* Phone field — shown when SMS is selected */}
-              {regMethod === 'sms' && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-2"
-                >
-                  <Label htmlFor="reg-phone">Numéro de téléphone *</Label>
-                  <Input
-                    id="reg-phone"
-                    type="tel"
-                    placeholder="+225 XX XX XX XX XX"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    disabled={isLoading || !!storedPhone}
-                    className={storedPhone ? 'bg-neutral-50' : ''}
-                  />
-                </motion.div>
-              )}
-
-              {/* Email field — shown when Email is selected */}
-              {regMethod === 'email' && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-2"
-                >
-                  <Label htmlFor="reg-email">Adresse email *</Label>
+                <Label htmlFor="reg-email">Adresse email *</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
                   <Input
                     id="reg-email"
                     type="email"
                     placeholder="votre@email.ci"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    disabled={isLoading || !!storedEmail}
-                    className={storedEmail ? 'bg-neutral-50' : ''}
+                    className="h-11 pl-9"
+                    disabled={isLoading}
+                    required
                   />
-                </motion.div>
-              )}
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-2">
+                <Label htmlFor="reg-phone">Téléphone (optionnel)</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+                  <Input
+                    id="reg-phone"
+                    type="tel"
+                    placeholder="+225 XX XX XX XX XX"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="h-11 pl-9"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div className="space-y-2">
+                <Label htmlFor="reg-password">Mot de passe *</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+                  <Input
+                    id="reg-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-11 pl-9 pr-10"
+                    disabled={isLoading}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                    aria-label={showPassword ? 'Masquer' : 'Afficher'}
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+                {/* Password strength indicator */}
+                {password && (
+                  <div className="space-y-1.5">
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4].map((level) => (
+                        <div
+                          key={level}
+                          className={`h-1 flex-1 rounded-full transition-colors ${
+                            passwordStrength >= level
+                              ? passwordStrength <= 1
+                                ? 'bg-red-400'
+                                : passwordStrength <= 2
+                                  ? 'bg-amber-400'
+                                  : passwordStrength <= 3
+                                    ? 'bg-yellow-400'
+                                    : 'bg-emerald-500'
+                              : 'bg-neutral-200'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <ul className="space-y-0.5">
+                      {passwordRules.map((rule) => (
+                        <li
+                          key={rule.label}
+                          className={`flex items-center gap-1.5 text-xs transition-colors ${
+                            rule.test(password) ? 'text-emerald-600' : 'text-neutral-400'
+                          }`}
+                        >
+                          <Check className={`size-3 ${rule.test(password) ? 'opacity-100' : 'opacity-0'}`} />
+                          {rule.label}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Confirm password */}
+              <div className="space-y-2">
+                <Label htmlFor="reg-confirm">Confirmer le mot de passe *</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+                  <Input
+                    id="reg-confirm"
+                    type={showConfirm ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={`h-11 pl-9 pr-10 ${
+                      confirmPassword && !passwordsMatch
+                        ? 'border-red-300 focus-visible:border-red-500 focus-visible:ring-red-500/30'
+                        : confirmPassword && passwordsMatch
+                          ? 'border-emerald-300 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30'
+                          : ''
+                    }`}
+                    disabled={isLoading}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                    aria-label={showConfirm ? 'Masquer' : 'Afficher'}
+                  >
+                    {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+                {confirmPassword && !passwordsMatch && (
+                  <p className="text-xs text-red-500">Les mots de passe ne correspondent pas</p>
+                )}
+                {confirmPassword && passwordsMatch && (
+                  <p className="text-xs text-emerald-600">Les mots de passe correspondent</p>
+                )}
+              </div>
 
               {/* Role */}
               <div className="space-y-2">
-                <Label htmlFor="role">Rôle</Label>
+                <Label htmlFor="reg-role">Rôle</Label>
                 <Select value={role} onValueChange={setRole}>
-                  <SelectTrigger>
+                  <SelectTrigger id="reg-role" className="h-11">
                     <SelectValue placeholder="Choisir un rôle" />
                   </SelectTrigger>
                   <SelectContent>
@@ -180,9 +266,27 @@ export function RegisterForm() {
                 </Select>
               </div>
 
+              {/* Terms */}
+              <div className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  id="accept-terms"
+                  checked={acceptTerms}
+                  onChange={(e) => setAcceptTerms(e.target.checked)}
+                  className="mt-1 size-4 rounded border-neutral-300 text-brand-500 focus:ring-brand-500"
+                />
+                <Label htmlFor="accept-terms" className="text-sm text-neutral-600 font-normal leading-snug cursor-pointer">
+                  J&apos;accepte les{' '}
+                  <span className="text-brand-500 hover:underline cursor-pointer">conditions d&apos;utilisation</span>{' '}
+                  et la{' '}
+                  <span className="text-brand-500 hover:underline cursor-pointer">politique de confidentialité</span>
+                </Label>
+              </div>
+
+              {/* Submit */}
               <Button
                 type="submit"
-                className="w-full h-12 bg-brand-500 hover:bg-brand-600 text-white text-base font-semibold"
+                className="w-full h-11 bg-brand-500 hover:bg-brand-600 text-white text-base font-semibold"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -196,6 +300,7 @@ export function RegisterForm() {
               </Button>
             </form>
 
+            {/* Back to login */}
             <button
               onClick={() => setView('login')}
               className="w-full flex items-center justify-center gap-1 text-sm text-neutral-500 hover:text-neutral-700"
