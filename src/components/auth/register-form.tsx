@@ -1,15 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { UserPlus, ArrowLeft, Mail, Lock, Eye, EyeOff, Phone, Check, MessageSquare } from 'lucide-react'
+import { UserPlus, ArrowLeft, ArrowRight, Mail, Lock, Eye, EyeOff, Phone, Check, MessageSquare, Home, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuthStore, type AuthMethod } from '@/lib/auth-store'
 import { toast } from 'sonner'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 
 const passwordRules = [
   { label: 'Au moins 8 caractères', test: (p: string) => p.length >= 8 },
@@ -18,9 +17,41 @@ const passwordRules = [
   { label: 'Un chiffre', test: (p: string) => /[0-9]/.test(p) },
 ]
 
+const roles = [
+  {
+    value: 'LOCATAIRE',
+    label: 'Locataire',
+    description: 'Je cherche un logement à louer',
+    icon: Home,
+  },
+  {
+    value: 'PROPRIETAIRE',
+    label: 'Propriétaire',
+    description: 'Je souhaite publier mes biens en location',
+    icon: Building2,
+  },
+] as const
+
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 60 : -60,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction: number) => ({
+    x: direction > 0 ? -60 : 60,
+    opacity: 0,
+  }),
+}
+
 export function RegisterForm() {
   const { registerWithEmail, registerWithSms, pendingPhone, authMethod: storeMethod, isLoading, setView, setAuthMethod } = useAuthStore()
 
+  const [step, setStep] = useState<1 | 2>(1)
+  const [direction, setDirection] = useState(1)
   const [method, setMethod] = useState<AuthMethod>(storeMethod)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -30,7 +61,7 @@ export function RegisterForm() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [role, setRole] = useState('LOCATAIRE')
+  const [role, setRole] = useState('')
   const [acceptTerms, setAcceptTerms] = useState(false)
 
   const passwordStrength = passwordRules.filter((r) => r.test(password)).length
@@ -41,66 +72,85 @@ export function RegisterForm() {
     setAuthMethod(m)
   }
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!firstName.trim() || !lastName.trim()) {
-      toast.error('Veuillez remplir le prénom et le nom')
-      return
+  // ─── Step 1 validation ─────────────────────────────────────────────────
+  const canGoToStep2 = () => {
+    if (!firstName.trim() || !lastName.trim()) return false
+    if (method === 'email') {
+      if (!email.trim()) return false
+      if (passwordStrength < 4) return false
+      if (!passwordsMatch) return false
+    } else {
+      if (!phone.trim()) return false
     }
-    if (!email.trim()) {
-      toast.error('Veuillez entrer votre adresse email')
-      return
-    }
-    if (passwordStrength < 4) {
-      toast.error('Le mot de passe ne respecte pas les critères requis')
-      return
-    }
-    if (!passwordsMatch) {
-      toast.error('Les mots de passe ne correspondent pas')
-      return
-    }
-    if (!acceptTerms) {
-      toast.error('Veuillez accepter les conditions d\'utilisation')
-      return
-    }
-    try {
-      await registerWithEmail({
-        email: email.trim(),
-        password,
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        phone: phone.trim() || undefined,
-        role,
-      })
-      toast.success('Inscription réussie ! Bienvenue sur Mon Toit.')
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'inscription')
-    }
+    return true
   }
 
-  const handleSmsSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleGoToStep2 = () => {
     if (!firstName.trim() || !lastName.trim()) {
       toast.error('Veuillez remplir le prénom et le nom')
       return
     }
-    if (!phone.trim()) {
-      toast.error('Veuillez entrer votre numéro de téléphone')
+    if (method === 'email') {
+      if (!email.trim()) {
+        toast.error('Veuillez entrer votre adresse email')
+        return
+      }
+      if (passwordStrength < 4) {
+        toast.error('Le mot de passe ne respecte pas les critères requis')
+        return
+      }
+      if (!passwordsMatch) {
+        toast.error('Les mots de passe ne correspondent pas')
+        return
+      }
+    } else {
+      if (!phone.trim()) {
+        toast.error('Veuillez entrer votre numéro de téléphone')
+        return
+      }
+    }
+    setDirection(1)
+    setStep(2)
+  }
+
+  const handleBackToStep1 = () => {
+    setDirection(-1)
+    setStep(1)
+  }
+
+  // ─── Step 2: Submit ────────────────────────────────────────────────────
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!role) {
+      toast.error('Veuillez choisir votre profil')
       return
     }
     if (!acceptTerms) {
       toast.error('Veuillez accepter les conditions d\'utilisation')
       return
     }
+
     try {
-      await registerWithSms({
-        phone: phone.trim(),
-        email: email.trim() || undefined,
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        role,
-      })
-      toast.success('Inscription réussie ! Bienvenue sur Mon Toit.')
+      if (method === 'email') {
+        await registerWithEmail({
+          email: email.trim(),
+          password,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: phone.trim() || undefined,
+          role,
+        })
+        toast.success('Inscription réussie ! Bienvenue sur Mon Toit.')
+      } else {
+        await registerWithSms({
+          phone: phone.trim(),
+          email: email.trim() || undefined,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          role,
+        })
+        toast.success('Inscription réussie ! Bienvenue sur Mon Toit.')
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'inscription')
     }
@@ -123,365 +173,420 @@ export function RegisterForm() {
             <CardDescription className="text-neutral-500">
               Créez votre compte pour rejoindre Mon Toit
             </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Method toggle */}
-            <div className="flex rounded-lg border border-neutral-200 p-1 bg-neutral-50">
-              <button
-                type="button"
-                onClick={() => handleMethodChange('email')}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
-                  method === 'email'
-                    ? 'bg-white text-brand-500 shadow-sm'
-                    : 'text-neutral-500 hover:text-neutral-700'
-                }`}
-              >
-                <Mail className="size-4" />
-                Email
-              </button>
-              <button
-                type="button"
-                onClick={() => handleMethodChange('sms')}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
-                  method === 'sms'
-                    ? 'bg-white text-brand-500 shadow-sm'
-                    : 'text-neutral-500 hover:text-neutral-700'
-                }`}
-              >
-                <MessageSquare className="size-4" />
-                SMS
-              </button>
+
+            {/* Step indicator */}
+            <div className="flex items-center justify-center gap-3 mt-4">
+              <div className="flex items-center gap-2">
+                <div className={`flex items-center justify-center size-7 rounded-full text-xs font-bold transition-colors ${
+                  step === 1 ? 'bg-brand-500 text-white' : 'bg-emerald-500 text-white'
+                }`}>
+                  {step > 1 ? <Check className="size-4" /> : '1'}
+                </div>
+                <span className={`text-xs font-medium ${step === 1 ? 'text-brand-500' : 'text-emerald-500'}`}>
+                  Informations
+                </span>
+              </div>
+              <div className={`h-0.5 w-8 rounded-full transition-colors ${step > 1 ? 'bg-emerald-500' : 'bg-neutral-200'}`} />
+              <div className="flex items-center gap-2">
+                <div className={`flex items-center justify-center size-7 rounded-full text-xs font-bold transition-colors ${
+                  step === 2 ? 'bg-brand-500 text-white' : 'bg-neutral-200 text-neutral-400'
+                }`}>
+                  2
+                </div>
+                <span className={`text-xs font-medium ${step === 2 ? 'text-brand-500' : 'text-neutral-400'}`}>
+                  Profil
+                </span>
+              </div>
             </div>
+          </CardHeader>
 
-            {/* ────── Email registration form ────── */}
-            {method === 'email' && (
-              <form onSubmit={handleEmailSubmit} className="space-y-4">
-                {/* Name fields */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="reg-firstName">Prénom *</Label>
-                    <Input
-                      id="reg-firstName"
-                      placeholder="Prénom"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      disabled={isLoading}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="reg-lastName">Nom *</Label>
-                    <Input
-                      id="reg-lastName"
-                      placeholder="Nom"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      disabled={isLoading}
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Email */}
-                <div className="space-y-2">
-                  <Label htmlFor="reg-email">Adresse email *</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
-                    <Input
-                      id="reg-email"
-                      type="email"
-                      placeholder="votre@email.ci"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="h-11 pl-9"
-                      disabled={isLoading}
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Phone (optional) */}
-                <div className="space-y-2">
-                  <Label htmlFor="reg-phone">Téléphone (optionnel)</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
-                    <Input
-                      id="reg-phone"
-                      type="tel"
-                      placeholder="+225 XX XX XX XX XX"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="h-11 pl-9"
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
-
-                {/* Password */}
-                <div className="space-y-2">
-                  <Label htmlFor="reg-password">Mot de passe *</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
-                    <Input
-                      id="reg-password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="h-11 pl-9 pr-10"
-                      disabled={isLoading}
-                      required
-                    />
+          <CardContent>
+            <AnimatePresence mode="wait" custom={direction}>
+              {step === 1 ? (
+                <motion.div
+                  key="step1"
+                  custom={direction}
+                  variants={slideVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.25, ease: 'easeInOut' }}
+                  className="space-y-4"
+                >
+                  {/* Method toggle */}
+                  <div className="flex rounded-lg border border-neutral-200 p-1 bg-neutral-50">
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-                      aria-label={showPassword ? 'Masquer' : 'Afficher'}
+                      onClick={() => handleMethodChange('email')}
+                      className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
+                        method === 'email'
+                          ? 'bg-white text-brand-500 shadow-sm'
+                          : 'text-neutral-500 hover:text-neutral-700'
+                      }`}
                     >
-                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      <Mail className="size-4" />
+                      Email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMethodChange('sms')}
+                      className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
+                        method === 'sms'
+                          ? 'bg-white text-brand-500 shadow-sm'
+                          : 'text-neutral-500 hover:text-neutral-700'
+                      }`}
+                    >
+                      <MessageSquare className="size-4" />
+                      SMS
                     </button>
                   </div>
-                  {password && (
-                    <div className="space-y-1.5">
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4].map((level) => (
-                          <div
-                            key={level}
-                            className={`h-1 flex-1 rounded-full transition-colors ${
-                              passwordStrength >= level
-                                ? passwordStrength <= 1 ? 'bg-red-400'
-                                  : passwordStrength <= 2 ? 'bg-amber-400'
-                                  : passwordStrength <= 3 ? 'bg-yellow-400'
-                                  : 'bg-emerald-500'
-                                : 'bg-neutral-200'
-                            }`}
+
+                  {/* ────── Email: Step 1 fields ────── */}
+                  {method === 'email' && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="reg-firstName">Prénom *</Label>
+                          <Input
+                            id="reg-firstName"
+                            placeholder="Prénom"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            disabled={isLoading}
                           />
-                        ))}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="reg-lastName">Nom *</Label>
+                          <Input
+                            id="reg-lastName"
+                            placeholder="Nom"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            disabled={isLoading}
+                          />
+                        </div>
                       </div>
-                      <ul className="space-y-0.5">
-                        {passwordRules.map((rule) => (
-                          <li
-                            key={rule.label}
-                            className={`flex items-center gap-1.5 text-xs transition-colors ${
-                              rule.test(password) ? 'text-emerald-600' : 'text-neutral-400'
-                            }`}
+
+                      <div className="space-y-2">
+                        <Label htmlFor="reg-email">Adresse email *</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+                          <Input
+                            id="reg-email"
+                            type="email"
+                            placeholder="votre@email.ci"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="h-11 pl-9"
+                            disabled={isLoading}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="reg-phone">Téléphone (optionnel)</Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+                          <Input
+                            id="reg-phone"
+                            type="tel"
+                            placeholder="+225 XX XX XX XX XX"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            className="h-11 pl-9"
+                            disabled={isLoading}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="reg-password">Mot de passe *</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+                          <Input
+                            id="reg-password"
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="••••••••"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="h-11 pl-9 pr-10"
+                            disabled={isLoading}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                            aria-label={showPassword ? 'Masquer' : 'Afficher'}
                           >
-                            <Check className={`size-3 ${rule.test(password) ? 'opacity-100' : 'opacity-0'}`} />
-                            {rule.label}
-                          </li>
-                        ))}
-                      </ul>
+                            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                          </button>
+                        </div>
+                        {password && (
+                          <div className="space-y-1.5">
+                            <div className="flex gap-1">
+                              {[1, 2, 3, 4].map((level) => (
+                                <div
+                                  key={level}
+                                  className={`h-1 flex-1 rounded-full transition-colors ${
+                                    passwordStrength >= level
+                                      ? passwordStrength <= 1 ? 'bg-red-400'
+                                        : passwordStrength <= 2 ? 'bg-amber-400'
+                                        : passwordStrength <= 3 ? 'bg-yellow-400'
+                                        : 'bg-emerald-500'
+                                      : 'bg-neutral-200'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <ul className="space-y-0.5">
+                              {passwordRules.map((rule) => (
+                                <li
+                                  key={rule.label}
+                                  className={`flex items-center gap-1.5 text-xs transition-colors ${
+                                    rule.test(password) ? 'text-emerald-600' : 'text-neutral-400'
+                                  }`}
+                                >
+                                  <Check className={`size-3 ${rule.test(password) ? 'opacity-100' : 'opacity-0'}`} />
+                                  {rule.label}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="reg-confirm">Confirmer le mot de passe *</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+                          <Input
+                            id="reg-confirm"
+                            type={showConfirm ? 'text' : 'password'}
+                            placeholder="••••••••"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className={`h-11 pl-9 pr-10 ${
+                              confirmPassword && !passwordsMatch
+                                ? 'border-red-300 focus-visible:border-red-500 focus-visible:ring-red-500/30'
+                                : confirmPassword && passwordsMatch
+                                  ? 'border-emerald-300 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30'
+                                  : ''
+                            }`}
+                            disabled={isLoading}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirm(!showConfirm)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                            aria-label={showConfirm ? 'Masquer' : 'Afficher'}
+                          >
+                            {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                          </button>
+                        </div>
+                        {confirmPassword && !passwordsMatch && (
+                          <p className="text-xs text-red-500">Les mots de passe ne correspondent pas</p>
+                        )}
+                        {confirmPassword && passwordsMatch && (
+                          <p className="text-xs text-emerald-600">Les mots de passe correspondent</p>
+                        )}
+                      </div>
                     </div>
                   )}
-                </div>
 
-                {/* Confirm password */}
-                <div className="space-y-2">
-                  <Label htmlFor="reg-confirm">Confirmer le mot de passe *</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
-                    <Input
-                      id="reg-confirm"
-                      type={showConfirm ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className={`h-11 pl-9 pr-10 ${
-                        confirmPassword && !passwordsMatch
-                          ? 'border-red-300 focus-visible:border-red-500 focus-visible:ring-red-500/30'
-                          : confirmPassword && passwordsMatch
-                            ? 'border-emerald-300 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/30'
-                            : ''
-                      }`}
-                      disabled={isLoading}
-                      required
-                    />
+                  {/* ────── SMS: Step 1 fields ────── */}
+                  {method === 'sms' && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="sms-firstName">Prénom *</Label>
+                          <Input
+                            id="sms-firstName"
+                            placeholder="Prénom"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            disabled={isLoading}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sms-lastName">Nom *</Label>
+                          <Input
+                            id="sms-lastName"
+                            placeholder="Nom"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            disabled={isLoading}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="sms-phone">Numéro de téléphone *</Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+                          <Input
+                            id="sms-phone"
+                            type="tel"
+                            placeholder="+225 XX XX XX XX XX"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            className="h-11 pl-9"
+                            disabled={isLoading || !!pendingPhone}
+                          />
+                        </div>
+                        <p className="text-xs text-neutral-400">Un code OTP sera envoyé pour vérifier ce numéro</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="sms-email">Email (optionnel)</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+                          <Input
+                            id="sms-email"
+                            type="email"
+                            placeholder="votre@email.ci"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="h-11 pl-9"
+                            disabled={isLoading}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Continue button */}
+                  <Button
+                    type="button"
+                    onClick={handleGoToStep2}
+                    className="w-full h-11 bg-brand-500 hover:bg-brand-600 text-white text-base font-semibold"
+                    disabled={!canGoToStep2()}
+                  >
+                    <span className="flex items-center gap-2">
+                      Continuer
+                      <ArrowRight className="size-4" />
+                    </span>
+                  </Button>
+                </motion.div>
+              ) : (
+                /* ────── Step 2: Role selection ────── */
+                <motion.div
+                  key="step2"
+                  custom={direction}
+                  variants={slideVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.25, ease: 'easeInOut' }}
+                >
+                  <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Summary of step 1 */}
+                    <div className="rounded-lg bg-brand-50 border border-brand-100 p-3">
+                      <p className="text-xs font-medium text-brand-600 mb-1.5">Vos informations</p>
+                      <p className="text-sm text-neutral-700 font-medium">{firstName} {lastName}</p>
+                      <p className="text-xs text-neutral-500">
+                        {method === 'email' ? email : phone}
+                      </p>
+                    </div>
+
+                    {/* Role selection cards */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-neutral-700">Choisissez votre profil *</Label>
+                      <div className="grid grid-cols-1 gap-3">
+                        {roles.map((r) => {
+                          const Icon = r.icon
+                          const isSelected = role === r.value
+                          return (
+                            <button
+                              key={r.value}
+                              type="button"
+                              onClick={() => setRole(r.value)}
+                              className={`w-full flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all ${
+                                isSelected
+                                  ? 'border-brand-500 bg-brand-50 shadow-sm'
+                                  : 'border-neutral-200 bg-white hover:border-brand-200 hover:bg-brand-50/50'
+                              }`}
+                            >
+                              <div className={`flex items-center justify-center size-12 rounded-lg transition-colors ${
+                                isSelected ? 'bg-brand-500' : 'bg-neutral-100'
+                              }`}>
+                                <Icon className={`size-6 ${isSelected ? 'text-white' : 'text-neutral-400'}`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-semibold ${isSelected ? 'text-brand-600' : 'text-neutral-800'}`}>
+                                  {r.label}
+                                </p>
+                                <p className="text-xs text-neutral-500 mt-0.5">{r.description}</p>
+                              </div>
+                              <div className={`flex items-center justify-center size-6 rounded-full border-2 transition-colors ${
+                                isSelected
+                                  ? 'border-brand-500 bg-brand-500'
+                                  : 'border-neutral-300'
+                              }`}>
+                                {isSelected && <Check className="size-3.5 text-white" />}
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Terms */}
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        id="accept-terms"
+                        checked={acceptTerms}
+                        onChange={(e) => setAcceptTerms(e.target.checked)}
+                        className="mt-1 size-4 rounded border-neutral-300 text-brand-500 focus:ring-brand-500"
+                      />
+                      <Label htmlFor="accept-terms" className="text-sm text-neutral-600 font-normal leading-snug cursor-pointer">
+                        J&apos;accepte les{' '}
+                        <span className="text-brand-500 hover:underline cursor-pointer">conditions d&apos;utilisation</span>{' '}
+                        et la{' '}
+                        <span className="text-brand-500 hover:underline cursor-pointer">politique de confidentialité</span>
+                      </Label>
+                    </div>
+
+                    {/* Submit */}
+                    <Button
+                      type="submit"
+                      className="w-full h-11 bg-brand-500 hover:bg-brand-600 text-white text-base font-semibold"
+                      disabled={isLoading || !role || !acceptTerms}
+                    >
+                      {isLoading ? (
+                        <span className="flex items-center gap-2">
+                          <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          Inscription...
+                        </span>
+                      ) : (
+                        'Créer mon compte'
+                      )}
+                    </Button>
+
+                    {/* Back to step 1 */}
                     <button
                       type="button"
-                      onClick={() => setShowConfirm(!showConfirm)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-                      aria-label={showConfirm ? 'Masquer' : 'Afficher'}
+                      onClick={handleBackToStep1}
+                      className="w-full flex items-center justify-center gap-1 text-sm text-neutral-500 hover:text-neutral-700"
                     >
-                      {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      <ArrowLeft className="size-3.5" />
+                      Retour aux informations
                     </button>
-                  </div>
-                  {confirmPassword && !passwordsMatch && (
-                    <p className="text-xs text-red-500">Les mots de passe ne correspondent pas</p>
-                  )}
-                  {confirmPassword && passwordsMatch && (
-                    <p className="text-xs text-emerald-600">Les mots de passe correspondent</p>
-                  )}
-                </div>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-                {/* Role */}
-                <div className="space-y-2">
-                  <Label htmlFor="reg-role">Rôle</Label>
-                  <Select value={role} onValueChange={setRole}>
-                    <SelectTrigger id="reg-role" className="h-11">
-                      <SelectValue placeholder="Choisir un rôle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="LOCATAIRE">Locataire</SelectItem>
-                      <SelectItem value="PROPRIETAIRE">Propriétaire</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Terms */}
-                <div className="flex items-start gap-2">
-                  <input
-                    type="checkbox"
-                    id="accept-terms"
-                    checked={acceptTerms}
-                    onChange={(e) => setAcceptTerms(e.target.checked)}
-                    className="mt-1 size-4 rounded border-neutral-300 text-brand-500 focus:ring-brand-500"
-                  />
-                  <Label htmlFor="accept-terms" className="text-sm text-neutral-600 font-normal leading-snug cursor-pointer">
-                    J&apos;accepte les{' '}
-                    <span className="text-brand-500 hover:underline cursor-pointer">conditions d&apos;utilisation</span>{' '}
-                    et la{' '}
-                    <span className="text-brand-500 hover:underline cursor-pointer">politique de confidentialité</span>
-                  </Label>
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full h-11 bg-brand-500 hover:bg-brand-600 text-white text-base font-semibold"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">
-                      <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Inscription...
-                    </span>
-                  ) : (
-                    'Créer mon compte'
-                  )}
-                </Button>
-              </form>
+            {/* Back to login — always visible */}
+            {step === 1 && (
+              <button
+                onClick={() => setView('login')}
+                className="w-full flex items-center justify-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 mt-4"
+              >
+                <ArrowLeft className="size-3.5" />
+                Retour à la connexion
+              </button>
             )}
-
-            {/* ────── SMS registration form ────── */}
-            {method === 'sms' && (
-              <form onSubmit={handleSmsSubmit} className="space-y-4">
-                {/* Name fields */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="sms-firstName">Prénom *</Label>
-                    <Input
-                      id="sms-firstName"
-                      placeholder="Prénom"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      disabled={isLoading}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sms-lastName">Nom *</Label>
-                    <Input
-                      id="sms-lastName"
-                      placeholder="Nom"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      disabled={isLoading}
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Phone (required for SMS) */}
-                <div className="space-y-2">
-                  <Label htmlFor="sms-phone">Numéro de téléphone *</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
-                    <Input
-                      id="sms-phone"
-                      type="tel"
-                      placeholder="+225 XX XX XX XX XX"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="h-11 pl-9"
-                      disabled={isLoading || !!pendingPhone}
-                      required
-                    />
-                  </div>
-                  <p className="text-xs text-neutral-400">Un code OTP sera envoyé pour vérifier ce numéro</p>
-                </div>
-
-                {/* Email (optional for SMS) */}
-                <div className="space-y-2">
-                  <Label htmlFor="sms-email">Email (optionnel)</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
-                    <Input
-                      id="sms-email"
-                      type="email"
-                      placeholder="votre@email.ci"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="h-11 pl-9"
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
-
-                {/* Role */}
-                <div className="space-y-2">
-                  <Label htmlFor="sms-role">Rôle</Label>
-                  <Select value={role} onValueChange={setRole}>
-                    <SelectTrigger id="sms-role" className="h-11">
-                      <SelectValue placeholder="Choisir un rôle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="LOCATAIRE">Locataire</SelectItem>
-                      <SelectItem value="PROPRIETAIRE">Propriétaire</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Terms */}
-                <div className="flex items-start gap-2">
-                  <input
-                    type="checkbox"
-                    id="sms-accept-terms"
-                    checked={acceptTerms}
-                    onChange={(e) => setAcceptTerms(e.target.checked)}
-                    className="mt-1 size-4 rounded border-neutral-300 text-brand-500 focus:ring-brand-500"
-                  />
-                  <Label htmlFor="sms-accept-terms" className="text-sm text-neutral-600 font-normal leading-snug cursor-pointer">
-                    J&apos;accepte les{' '}
-                    <span className="text-brand-500 hover:underline cursor-pointer">conditions d&apos;utilisation</span>{' '}
-                    et la{' '}
-                    <span className="text-brand-500 hover:underline cursor-pointer">politique de confidentialité</span>
-                  </Label>
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full h-11 bg-brand-500 hover:bg-brand-600 text-white text-base font-semibold"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">
-                      <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Inscription...
-                    </span>
-                  ) : (
-                    'Créer mon compte'
-                  )}
-                </Button>
-              </form>
-            )}
-
-            {/* Back to login */}
-            <button
-              onClick={() => setView('login')}
-              className="w-full flex items-center justify-center gap-1 text-sm text-neutral-500 hover:text-neutral-700"
-            >
-              <ArrowLeft className="size-3.5" />
-              Retour à la connexion
-            </button>
           </CardContent>
         </Card>
       </motion.div>
