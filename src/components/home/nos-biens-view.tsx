@@ -558,7 +558,7 @@ function PropertyListItem({ property, onClick }: { property: Property; onClick: 
       onClick={onClick}
     >
       {/* Image */}
-      <div className="relative w-48 sm:w-56 shrink-0 overflow-hidden">
+      <div className="relative w-36 sm:w-48 shrink-0 overflow-hidden">
         <Image
           src={property.image}
           alt={property.title}
@@ -572,32 +572,32 @@ function PropertyListItem({ property, onClick }: { property: Property; onClick: 
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-4 flex flex-col justify-between">
+      <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between min-w-0">
         <div>
           <div className="flex items-start justify-between gap-2 mb-1">
             <h3 className="font-semibold text-neutral-900 text-sm line-clamp-1">{property.title}</h3>
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!isAuthenticated) { setView('login'); return } setIsFavorite(!isFavorite) }}
-              className="shrink-0 size-8 rounded-full bg-neutral-50 flex items-center justify-center hover:bg-neutral-100 transition-colors"
+              className="shrink-0 size-7 sm:size-8 rounded-full bg-neutral-50 flex items-center justify-center hover:bg-neutral-100 transition-colors"
               aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
             >
-              <Heart className={`size-4 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-neutral-400'}`} />
+              <Heart className={`size-3.5 sm:size-4 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-neutral-400'}`} />
             </button>
           </div>
           <div className="flex items-center gap-1 text-neutral-500 text-xs mb-2">
             <MapPin className="size-3 shrink-0" />
-            <span>{property.location}</span>
+            <span className="line-clamp-1">{property.location}</span>
           </div>
-          <div className="flex items-center gap-3 text-xs text-neutral-600 mb-2">
+          <div className="flex items-center gap-2 sm:gap-3 text-xs text-neutral-600 mb-2 flex-wrap">
             {property.bedrooms !== null && (
               <div className="flex items-center gap-1">
                 <BedDouble className="size-3.5 text-neutral-400" />
-                <span>{property.bedrooms} pièce{property.bedrooms > 1 ? 's' : ''}</span>
+                <span>{property.bedrooms}p</span>
               </div>
             )}
             <div className="flex items-center gap-1">
               <Maximize className="size-3.5 text-neutral-400" />
-              <span>{property.area} m²</span>
+              <span>{property.area}m²</span>
             </div>
             {property.meuble && (
               <Badge variant="outline" className="text-xs text-sky-600 border-sky-200 bg-sky-50 px-1.5 py-0">
@@ -605,23 +605,23 @@ function PropertyListItem({ property, onClick }: { property: Property; onClick: 
               </Badge>
             )}
             {property.isVerified && (
-              <div className="flex items-center gap-0.5 text-brand-500">
+              <div className="hidden sm:flex items-center gap-0.5 text-brand-500">
                 <BadgeCheck className="size-3.5" />
                 <span className="text-xs font-medium">Vérifié</span>
               </div>
             )}
           </div>
         </div>
-        <div className="flex items-center justify-between">
-          <p className="text-base font-bold text-brand-500">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm sm:text-base font-bold text-brand-500 whitespace-nowrap">
             {formatPrice(property.price)} <span className="text-xs font-normal text-neutral-400">F CFA/mois</span>
           </p>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 text-neutral-400">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex items-center gap-1 text-neutral-400">
               <Eye className="size-3.5" />
               <span className="text-xs">{property.views} vues</span>
             </div>
-            <Button variant="outline" size="sm" className="text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600 text-xs h-8">
+            <Button variant="outline" size="sm" className="text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600 text-xs h-7 sm:h-8">
               Voir <ArrowRight className="size-3 ml-1" />
             </Button>
           </div>
@@ -819,101 +819,143 @@ export function NosBiensView() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="flex items-center gap-3 mb-6"
+          className="space-y-3 mb-6"
         >
-          {/* Search input */}
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4.5 text-neutral-400" />
-            <input
-              type="text"
-              placeholder="Rechercher un bien, quartier, ville..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-11 pr-10 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm"
-            />
-            {searchQuery && (
+          {/* Search row */}
+          <div className="flex items-center gap-3">
+            {/* Search input */}
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4.5 text-neutral-400" />
+              <input
+                type="text"
+                placeholder="Rechercher un bien, quartier, ville..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-11 pl-11 pr-10 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 size-5 rounded-full bg-neutral-200 flex items-center justify-center hover:bg-neutral-300 transition-colors"
+                >
+                  <X className="size-3 text-neutral-600" />
+                </button>
+              )}
+            </div>
+
+            {/* Sort - desktop/tablet */}
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="hidden sm:flex h-11 w-[150px] bg-white border-neutral-200 text-xs rounded-xl shadow-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* View toggle - desktop/tablet */}
+            <div className="hidden sm:flex items-center bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm h-11">
               <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 size-5 rounded-full bg-neutral-200 flex items-center justify-center hover:bg-neutral-300 transition-colors"
+                onClick={() => setViewMode('grid')}
+                className={`h-full px-3 transition-colors ${viewMode === 'grid' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                aria-label="Vue grille"
               >
-                <X className="size-3 text-neutral-600" />
+                <LayoutGrid className="size-4" />
               </button>
-            )}
-          </div>
-
-          {/* Sort */}
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="hidden sm:flex h-11 w-[150px] bg-white border-neutral-200 text-xs rounded-xl shadow-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* View toggle (grid / list / map) */}
-          <div className="hidden sm:flex items-center bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm h-11">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`h-full px-3 transition-colors ${viewMode === 'grid' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
-              aria-label="Vue grille"
-            >
-              <LayoutGrid className="size-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`h-full px-3 transition-colors ${viewMode === 'list' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
-              aria-label="Vue liste"
-            >
-              <List className="size-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('map')}
-              className={`h-full px-3 transition-colors flex items-center gap-1.5 ${viewMode === 'map' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
-              aria-label="Vue carte"
-            >
-              <Map className="size-4" />
-            </button>
-          </div>
-
-          {/* Mobile filter button */}
-          <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-            <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="lg:hidden text-neutral-600 border-neutral-200 hover:bg-neutral-50 h-11 rounded-xl text-xs shadow-sm"
+              <button
+                onClick={() => setViewMode('list')}
+                className={`h-full px-3 transition-colors ${viewMode === 'list' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                aria-label="Vue liste"
               >
-                <SlidersHorizontal className="size-3.5 mr-1.5" />
-                Filtres
-                {hasActiveFilters && (
-                  <span className="ml-1.5 size-4 rounded-full bg-brand-500 text-white text-[10px] flex items-center justify-center">!</span>
-                )}
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-80">
-              <SheetHeader>
-                <SheetTitle className="flex items-center gap-2">
-                  <SlidersHorizontal className="size-4 text-brand-500" />
+                <List className="size-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('map')}
+                className={`h-full px-3 transition-colors flex items-center gap-1.5 ${viewMode === 'map' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                aria-label="Vue carte"
+              >
+                <Map className="size-4" />
+              </button>
+            </div>
+
+            {/* Mobile filter button */}
+            <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="lg:hidden text-neutral-600 border-neutral-200 hover:bg-neutral-50 h-11 rounded-xl text-xs shadow-sm"
+                >
+                  <SlidersHorizontal className="size-3.5 mr-1.5" />
                   Filtres
-                </SheetTitle>
-              </SheetHeader>
-              <div className="px-4 py-6 overflow-y-auto max-h-[calc(100vh-120px)]">
-                <FilterSidebar {...filterSidebarProps} />
-              </div>
-              <SheetFooter className="px-4 pb-4">
-                <SheetClose asChild>
-                  <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white">
-                    Voir {filteredProperties.length} résultat{filteredProperties.length !== 1 ? 's' : ''}
-                  </Button>
-                </SheetClose>
-              </SheetFooter>
-            </SheetContent>
-          </Sheet>
+                  {hasActiveFilters && (
+                    <span className="ml-1.5 size-4 rounded-full bg-brand-500 text-white text-[10px] flex items-center justify-center">!</span>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[85vw] max-w-80">
+                <SheetHeader>
+                  <SheetTitle className="flex items-center gap-2">
+                    <SlidersHorizontal className="size-4 text-brand-500" />
+                    Filtres
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="px-4 py-6 overflow-y-auto max-h-[calc(100vh-120px)]">
+                  <FilterSidebar {...filterSidebarProps} />
+                </div>
+                <SheetFooter className="px-4 pb-4">
+                  <SheetClose asChild>
+                    <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white">
+                      Voir {filteredProperties.length} résultat{filteredProperties.length !== 1 ? 's' : ''}
+                    </Button>
+                  </SheetClose>
+                </SheetFooter>
+              </SheetContent>
+            </Sheet>
+          </div>
+
+          {/* Mobile-only: Sort + View toggle row */}
+          <div className="flex sm:hidden items-center gap-3">
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="h-9 flex-1 bg-white border-neutral-200 text-xs rounded-xl shadow-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm h-9">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`h-full px-2.5 transition-colors ${viewMode === 'grid' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                aria-label="Vue grille"
+              >
+                <LayoutGrid className="size-3.5" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`h-full px-2.5 transition-colors ${viewMode === 'list' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                aria-label="Vue liste"
+              >
+                <List className="size-3.5" />
+              </button>
+              <button
+                onClick={() => setViewMode('map')}
+                className={`h-full px-2.5 transition-colors ${viewMode === 'map' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                aria-label="Vue carte"
+              >
+                <Map className="size-3.5" />
+              </button>
+            </div>
+          </div>
         </motion.div>
 
         {/* ── Results count ──────────────────────────────────────────── */}
@@ -940,8 +982,8 @@ export function NosBiensView() {
         {/* ── Main Layout ────────────────────────────────────────────── */}
         {viewMode === 'map' ? (
           /* ── Map View (full width split: list + map) ──────────────── */
-          <div className="flex gap-4 lg:gap-5">
-            {/* Left: property list (scrollable) */}
+          <div className="flex flex-col lg:flex-row gap-4 lg:gap-5">
+            {/* Desktop: Left property list (scrollable) */}
             <div className="hidden lg:block w-80 shrink-0">
               <div className="space-y-3 max-h-[calc(100vh-10rem)] overflow-y-auto pr-1 sticky top-24">
                 {filteredProperties.length > 0 ? (
@@ -960,9 +1002,9 @@ export function NosBiensView() {
               </div>
             </div>
 
-            {/* Right: Map */}
+            {/* Map area */}
             <div className="flex-1 min-w-0">
-              <div className="h-[calc(100vh-10rem)] sticky top-24">
+              <div className="h-[50vh] sm:h-[60vh] lg:h-[calc(100vh-10rem)] lg:sticky lg:top-24">
                 {filteredProperties.length > 0 ? (
                   <PropertyMapLeaflet
                     properties={filteredProperties}
@@ -974,6 +1016,26 @@ export function NosBiensView() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Mobile-only: horizontal scroll of property cards below map */}
+            <div className="lg:hidden">
+              {filteredProperties.length > 0 ? (
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
+                  {filteredProperties.map((property) => (
+                    <div key={property.id} className="shrink-0 w-60 snap-start">
+                      <MapListItem
+                        property={property}
+                        onClick={() => openDetail(property.id)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-sm text-neutral-500">Aucun bien trouvé</p>
+                </div>
+              )}
             </div>
           </div>
         ) : (

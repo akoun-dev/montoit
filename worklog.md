@@ -24,3 +24,96 @@ Stage Summary:
 - Mini-map with Leaflet showing property location + directions link
 - nos-biens-view.tsx updated with auth checks on favorite buttons
 - Lint passes clean, dev server running correctly
+
+---
+Task ID: 2
+Agent: Mobile Responsiveness Fixer
+Task: Fix all mobile responsiveness issues in property-detail-view.tsx
+
+Work Log:
+- Added `scrollbar-hide` CSS utility class to `src/app/globals.css` under `@layer utilities` for hiding scrollbars on tab bar and other overflow containers
+- Fixed Mobile CTA Bar:
+  - Added iOS safe area padding: `pb-[max(0.5rem,env(safe-area-inset-bottom))]`
+  - Made "Visiter" button more prominent with `h-11 min-w-[5.5rem] shadow-sm`
+  - Price text made responsive: `text-base sm:text-lg` with smaller unit text on mobile
+  - Added "Appeler" and "Candidature" text labels on sm+ screens, icons-only on mobile for compact layout
+- Fixed Top Bar: Added `pt-[env(safe-area-inset-top)]` for iOS safe area at top
+- Fixed Tab Bar: Added `-mx-4 sm:mx-0` on container and `px-4 sm:px-0` on scroll wrapper to extend tabs to screen edge on mobile
+- Fixed DetailsTab:
+  - Features grid changed from `grid-cols-3 sm:grid-cols-6` to `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6`
+  - MiniMap height changed from `h-64` to `h-48 sm:h-64` with matching minHeight style
+- Fixed ModalitesTab:
+  - Financial summary items changed from `flex items-center justify-between` to `flex flex-col sm:flex-row sm:items-center` for proper stacking on small screens
+  - Added `gap-1` / `gap-2` for spacing in stacked layout
+  - Reduced padding on mobile: `p-4 sm:p-5`
+- Fixed ContactTab:
+  - Phone/Email button text changed to `text-xs sm:text-sm`
+  - Email button shows "Email" on mobile, "Envoyer un email" on sm+
+- Fixed VisitTab:
+  - Time slots grid changed from `grid-cols-4` to `grid-cols-2 sm:grid-cols-4` for better touch targets
+  - Visit type selection cards changed from `grid-cols-2` to `grid-cols-1 sm:grid-cols-2` to prevent cramping
+- Fixed ReviewsTab:
+  - Rating summary changed from `flex items-center gap-6` to `flex flex-col sm:flex-row items-center gap-4 sm:gap-6`
+  - Rating bars container given `w-full sm:w-auto` for proper width in column layout
+- Fixed ApplyDialog:
+  - Added `pb-[max(1.5rem,env(safe-area-inset-bottom))]` for safe area padding on mobile
+
+Stage Summary:
+- All 12 mobile responsiveness issues addressed in property-detail-view.tsx and globals.css
+- Lint passes clean with no errors
+- Dev server running correctly
+
+---
+Task ID: 3
+Agent: Mobile Responsiveness Fixer
+Task: Fix all mobile responsiveness issues in nos-biens-view.tsx
+
+Work Log:
+- Fixed Map View Layout (biggest issue):
+  - On mobile (< lg), the map sidebar was completely hidden (`hidden lg:block`), leaving users with only the map and NO property list
+  - Added `flex-col lg:flex-row` layout so map and property list stack vertically on mobile
+  - Map height changed from `h-[calc(100vh-10rem)]` to `h-[50vh] sm:h-[60vh] lg:h-[calc(100vh-10rem)]` for mobile-appropriate sizing
+  - Map sticky positioning scoped to lg: `lg:sticky lg:top-24`
+  - Added mobile-only horizontal scrollable carousel of MapListItems below the map (`lg:hidden`)
+  - Carousel uses `overflow-x-auto scrollbar-hide snap-x snap-mandatory` for smooth scrolling with snap points
+  - Each card is `shrink-0 w-60 snap-start` for consistent sizing
+- Fixed Mobile View Toggle:
+  - View toggle (grid/list/map buttons) was `hidden sm:flex` — completely invisible on mobile
+  - Added mobile-only second row with sort + view toggle (`flex sm:hidden`)
+  - Mobile toggle uses smaller buttons: `h-9` with `px-2.5` and `size-3.5` icons
+  - Desktop toggle remains unchanged at `h-11` with `px-3` and `size-4` icons
+- Fixed Sort Select:
+  - Sort dropdown was `hidden sm:flex` — invisible on mobile
+  - Added mobile-only sort select on the second controls row with `h-9 flex-1` sizing
+  - Desktop sort remains unchanged
+- Fixed Controls Layout:
+  - Changed outer container from `flex items-center gap-3 mb-6` to `space-y-3 mb-6` to support two-row layout
+  - First row: search input + desktop sort + desktop view toggle + mobile filter button
+  - Second row (mobile only): mobile sort + mobile view toggle
+- Fixed PropertyListItem for small screens:
+  - Image width changed from `w-48 sm:w-56` to `w-36 sm:w-48`
+  - Content padding reduced on mobile: `p-3 sm:p-4`
+  - Added `min-w-0` to content area to prevent overflow
+  - Favorite button smaller on mobile: `size-7 sm:size-8` with `size-3.5 sm:size-4` heart icon
+  - Location text now uses `line-clamp-1` to prevent overflow
+  - Features gap reduced on mobile: `gap-2 sm:gap-3` with `flex-wrap`
+  - Bedroom text abbreviated on mobile: `{n}p` instead of `{n} pièces`
+  - Area text abbreviated: `{n}m²` instead of `{n} m²`
+  - Verified badge hidden on mobile: `hidden sm:flex`
+  - Price text smaller on mobile: `text-sm sm:text-base` with `whitespace-nowrap`
+  - Views count hidden on mobile: `hidden sm:flex`
+  - "Voir" button slightly smaller on mobile: `h-7 sm:h-8`
+- Fixed Mobile Filters Sheet width:
+  - Changed from `w-80` (320px fixed) to `w-[85vw] max-w-80` for better fit on narrow phones
+- Grid view responsiveness confirmed OK: `grid-cols-1 sm:grid-cols-2 xl:grid-cols-3` already appropriate
+- Search bar confirmed OK: `flex-1` with proper padding works on all screens
+- Filter sidebar confirmed OK: `hidden lg:block` properly hides on mobile, mobile sheet provides alternative
+
+Stage Summary:
+- All 8 mobile responsiveness issues addressed in nos-biens-view.tsx
+- Map view now shows property list on mobile via horizontal scrollable carousel
+- Sort and view toggle now accessible on mobile via dedicated controls row
+- PropertyListItem properly adapted for small screens with abbreviated text and hidden secondary info
+- Filter sheet width responsive to narrow phones
+- Lint passes clean with no errors
+- Dev server running correctly

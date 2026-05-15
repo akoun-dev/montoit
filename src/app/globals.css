@@ -295,3 +295,16 @@
     color: #F5F5F5;
   }
 }
+
+/* ──────────────────────────────────────────────
+   Scrollbar Hide Utility
+   ────────────────────────────────────────────── */
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

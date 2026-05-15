@@ -393,8 +393,8 @@ function MiniMap({ lat, lng, location }: { lat: number; lng: number; location: s
   }, [lat, lng, location])
 
   return (
-    <div className="relative w-full h-64 rounded-xl overflow-hidden border border-neutral-200">
-      <div ref={mapRef} className="w-full h-full" style={{ minHeight: '256px' }} />
+    <div className="relative w-full h-48 sm:h-64 rounded-xl overflow-hidden border border-neutral-200">
+      <div ref={mapRef} className="w-full h-full" style={{ minHeight: '192px' }} />
       <style jsx global>{`
         .custom-detail-marker { background: none !important; border: none !important; }
         .leaflet-control-attribution { display: none !important; }
@@ -499,7 +499,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: number }) {
       />
 
       {/* ── Top Bar ─────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-neutral-200 sticky top-0 z-30">
+      <div className="bg-white border-b border-neutral-200 sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
           <button
             onClick={() => setView('nos-biens')}
@@ -635,9 +635,9 @@ export function PropertyDetailView({ propertyId }: { propertyId: number }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3, delay: 0.2 }}
-              className="border-b border-neutral-200 mb-6"
+              className="border-b border-neutral-200 mb-6 -mx-4 sm:mx-0"
             >
-              <div className="flex gap-0 -mb-px overflow-x-auto scrollbar-hide">
+              <div className="flex gap-0 -mb-px overflow-x-auto scrollbar-hide px-4 sm:px-0">
                 {tabs.map((tab) => (
                   <button
                     key={tab.key}
@@ -754,15 +754,15 @@ export function PropertyDetailView({ propertyId }: { propertyId: number }) {
         </div>
 
         {/* Mobile CTA bar */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 p-3 z-30 lg:hidden">
-          <div className="flex items-center gap-3 max-w-7xl mx-auto">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] z-30 lg:hidden">
+          <div className="flex items-center gap-2 sm:gap-3 max-w-7xl mx-auto">
             <div className="flex-1 min-w-0">
-              <p className="text-lg font-bold text-brand-500">
-                {property.price.toLocaleString('fr-FR')} <span className="text-xs font-normal text-neutral-400">F CFA/mois</span>
+              <p className="text-base sm:text-lg font-bold text-brand-500">
+                {property.price.toLocaleString('fr-FR')} <span className="text-[10px] sm:text-xs font-normal text-neutral-400">F CFA/mois</span>
               </p>
             </div>
             <Button
-              className="bg-brand-500 hover:bg-brand-600 text-white h-10 text-sm font-semibold"
+              className="bg-brand-500 hover:bg-brand-600 text-white h-11 min-w-[5.5rem] text-sm font-semibold shadow-sm"
               onClick={() => requireAuth('planifier une visite', () => setActiveTab('visit'))}
             >
               <Calendar className="size-4 mr-1.5" />
@@ -770,17 +770,19 @@ export function PropertyDetailView({ propertyId }: { propertyId: number }) {
             </Button>
             <Button
               variant="outline"
-              className="text-brand-500 border-brand-200 hover:bg-brand-50 h-10 text-sm"
+              className="text-brand-500 border-brand-200 hover:bg-brand-50 h-11 px-3 text-sm"
               onClick={() => setActiveTab('contact')}
             >
-              <Phone className="size-4" />
+              <Phone className="size-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Appeler</span>
             </Button>
             <Button
               variant="outline"
-              className="border-emerald-200 text-emerald-600 hover:bg-emerald-50 h-10 text-sm"
+              className="border-emerald-200 text-emerald-600 hover:bg-emerald-50 h-11 px-3 text-sm"
               onClick={handleApply}
             >
-              <FileText className="size-4" />
+              <FileText className="size-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Candidature</span>
             </Button>
           </div>
         </div>
@@ -805,7 +807,7 @@ function DetailsTab({
       {/* Features grid */}
       <div>
         <h3 className="text-sm font-semibold text-neutral-900 mb-3">Caractéristiques</h3>
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {features.map((feat) => (
             <div key={feat.label} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-white border border-neutral-100 shadow-sm">
               <feat.icon className="size-5 text-brand-500" />
@@ -946,26 +948,26 @@ function ModalitesTab({
   return (
     <div className="space-y-6 pb-24 lg:pb-6">
       {/* Financial summary */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
+      <div className="bg-white rounded-xl border border-neutral-200 p-4 sm:p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
           <Wallet className="size-4 text-brand-500" />
           Conditions financières
         </h3>
         <div className="space-y-3">
-          <div className="flex items-center justify-between py-2.5 border-b border-neutral-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 border-b border-neutral-100 gap-1">
             <span className="text-sm text-neutral-600">Loyer mensuel</span>
             <span className="text-sm font-bold text-brand-500">{price.toLocaleString('fr-FR')} F CFA</span>
           </div>
-          <div className="flex items-center justify-between py-2.5 border-b border-neutral-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 border-b border-neutral-100 gap-1">
             <span className="text-sm text-neutral-600">Caution / Dépôt de garantie</span>
             <span className="text-sm font-bold text-neutral-800">{m.caution.toLocaleString('fr-FR')} F CFA</span>
           </div>
-          <div className="flex items-center justify-between py-2.5 border-b border-neutral-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 border-b border-neutral-100 gap-2">
             <div className="flex items-center gap-2">
               <CreditCard className="size-4 text-neutral-400" />
               <span className="text-sm text-neutral-600">Mode de paiement</span>
             </div>
-            <div className="flex flex-wrap gap-1 justify-end">
+            <div className="flex flex-wrap gap-1 sm:justify-end">
               {m.modePaiement.map((mode) => (
                 <Badge key={mode} variant="outline" className="text-[10px] px-1.5 py-0 border-neutral-200 text-neutral-600">
                   {mode}
@@ -1105,7 +1107,7 @@ function ContactTab({
         </div>
         <div className="grid grid-cols-2 gap-3 mb-4">
           <Button
-            className="bg-brand-500 hover:bg-brand-600 text-white h-11 text-sm font-semibold"
+            className="bg-brand-500 hover:bg-brand-600 text-white h-11 text-xs sm:text-sm font-semibold"
             onClick={() => { if (!isAuthenticated) { setView('login'); return; } }}
           >
             <Phone className="size-4 mr-1.5" />
@@ -1113,11 +1115,12 @@ function ContactTab({
           </Button>
           <Button
             variant="outline"
-            className="text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600 h-11 text-sm"
+            className="text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600 h-11 text-xs sm:text-sm"
             onClick={() => { if (!isAuthenticated) { setView('login'); return; } }}
           >
             <Mail className="size-4 mr-1.5" />
-            Envoyer un email
+            <span className="hidden sm:inline">Envoyer un email</span>
+            <span className="sm:hidden">Email</span>
           </Button>
         </div>
         {!isAuthenticated && (
@@ -1260,7 +1263,7 @@ function VisitTab({
           <Calendar className="size-4 text-brand-500" />
           Type de visite
         </h3>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             onClick={() => setVisitType('physique')}
             className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
@@ -1330,7 +1333,7 @@ function VisitTab({
           </div>
           <div>
             <Label className="text-xs text-neutral-600 mb-1.5">Créneau horaire</Label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {timeSlots.map((slot) => (
                 <button
                   key={slot}
@@ -1394,7 +1397,7 @@ function ReviewsTab({ avgRating }: { avgRating: string }) {
     <div className="space-y-6 pb-24 lg:pb-6">
       {/* Rating summary */}
       <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
-        <div className="flex items-center gap-6">
+        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
           <div className="text-center">
             <p className="text-4xl font-bold text-neutral-900">{avgRating}</p>
             <div className="flex items-center gap-0.5 mt-1">
@@ -1407,7 +1410,7 @@ function ReviewsTab({ avgRating }: { avgRating: string }) {
             </div>
             <p className="text-xs text-neutral-500 mt-1">{mockReviews.length} avis</p>
           </div>
-          <div className="flex-1 space-y-1.5">
+          <div className="flex-1 w-full sm:w-auto space-y-1.5">
             {[5, 4, 3, 2, 1].map((stars) => {
               const count = mockReviews.filter((r) => r.rating === stars).length
               const pct = mockReviews.length > 0 ? (count / mockReviews.length) * 100 : 0
@@ -1518,7 +1521,7 @@ function ApplyDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="size-5 text-brand-500" />
