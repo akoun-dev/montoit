@@ -31,6 +31,13 @@ interface ProprietaireData {
   }>
 }
 
+const defaultData: ProprietaireData = {
+  stats: { totalProperties: 0, activeProperties: 0, pendingVisits: 0, activeLeases: 0, totalRevenue: 0 },
+  properties: [],
+  visitRequests: [],
+  activeLeases: [],
+}
+
 const containerVariants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.1 } },
@@ -42,19 +49,46 @@ const itemVariants = {
 
 export function ProprietaireOverview() {
   const { user } = useAuthStore()
-  const [data, setData] = useState<ProprietaireData | null>(null)
+  const [data, setData] = useState<ProprietaireData>(defaultData)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/dashboard/proprietaire')
-      .then((r) => r.json())
-      .then((d) => setData(d))
-      .catch(console.error)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Erreur ${r.status}`)
+        return r.json()
+      })
+      .then((d) => {
+        setData({
+          stats: d.stats ?? defaultData.stats,
+          properties: d.properties ?? [],
+          visitRequests: d.visitRequests ?? [],
+          activeLeases: d.activeLeases ?? [],
+        })
+      })
+      .catch((err) => {
+        console.error('Proprietaire dashboard error:', err)
+        setError(err.message)
+        setData(defaultData)
+      })
       .finally(() => setLoading(false))
   }, [])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
-  if (!data) return <p className="text-neutral-500">Erreur de chargement</p>
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-neutral-900">Bonjour, {user?.firstName} 👋</h1>
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-4">
+            <p className="text-sm text-amber-700">Impossible de charger vos données. Veuillez réessayer.</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const stats = [
     { label: 'Biens totaux', value: data.stats.totalProperties, icon: Building2, color: 'text-blue-600 bg-blue-50' },
@@ -99,26 +133,30 @@ export function ProprietaireOverview() {
               <CardTitle className="text-base font-semibold">Mes biens récents</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 max-h-64 overflow-y-auto">
-              {data.properties.slice(0, 5).map((p) => (
-                <div key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-neutral-100 hover:bg-neutral-50">
-                  <div className="flex items-center gap-3">
-                    {p.images?.[0] ? (
-                      <img src={p.images[0].url} alt="" className="size-10 rounded-lg object-cover" />
-                    ) : (
-                      <div className="size-10 rounded-lg bg-neutral-100 flex items-center justify-center">
-                        <Building2 className="size-4 text-neutral-400" />
+              {data.properties.length === 0 ? (
+                <p className="text-sm text-neutral-400 py-4 text-center">Aucun bien pour le moment</p>
+              ) : (
+                data.properties.slice(0, 5).map((p) => (
+                  <div key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-neutral-100 hover:bg-neutral-50">
+                    <div className="flex items-center gap-3">
+                      {p.images?.[0] ? (
+                        <img src={p.images[0].url} alt="" className="size-10 rounded-lg object-cover" />
+                      ) : (
+                        <div className="size-10 rounded-lg bg-neutral-100 flex items-center justify-center">
+                          <Building2 className="size-4 text-neutral-400" />
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-neutral-900">{p.title}</p>
+                        <p className="text-xs text-neutral-500">{p.city} · {p.price.toLocaleString('fr-FR')} FCFA</p>
                       </div>
-                    )}
-                    <div>
-                      <p className="text-sm font-medium text-neutral-900">{p.title}</p>
-                      <p className="text-xs text-neutral-500">{p.city} · {p.price.toLocaleString('fr-FR')} FCFA</p>
                     </div>
+                    <Badge className={p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-600'}>
+                      {p.status === 'ACTIVE' ? 'Actif' : p.status}
+                    </Badge>
                   </div>
-                  <Badge className={p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-600'}>
-                    {p.status === 'ACTIVE' ? 'Actif' : p.status}
-                  </Badge>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </motion.div>

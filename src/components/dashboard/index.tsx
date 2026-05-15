@@ -76,10 +76,12 @@ export function Dashboard() {
 
   if (!user) return null
 
+  // AGENCE role uses the Propriétaire dashboard (same features: manage properties, visits, leases)
+  // The sidebar already handles AGENCE with its own items
   return (
     <DashboardLayout>
       {user.role === 'LOCATAIRE' && <LocataireDashboard section={dashboardSection} />}
-      {user.role === 'PROPRIETAIRE' && <ProprietaireDashboard section={dashboardSection} />}
+      {(user.role === 'PROPRIETAIRE' || user.role === 'AGENCE') && <ProprietaireDashboard section={dashboardSection} />}
       {user.role === 'TIERS_CONFIANCE' && <TcDashboard section={dashboardSection} />}
       {user.role === 'ADMIN' && <AdminDashboard section={dashboardSection} />}
     </DashboardLayout>

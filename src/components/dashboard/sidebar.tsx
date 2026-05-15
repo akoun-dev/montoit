@@ -46,6 +46,16 @@ function getSidebarItems(role: AuthUser['role']): SidebarItem[] {
         { id: 'agency-validations', label: 'Validations agences', icon: Building2 },
         { id: 'sla-monitoring', label: 'Suivi SLA', icon: Clock },
       ]
+    case 'AGENCE':
+      return [
+        { id: 'overview', label: 'Tableau de bord', icon: LayoutDashboard },
+        { id: 'my-properties', label: 'Nos biens', icon: Building2 },
+        { id: 'add-property', label: 'Ajouter un bien', icon: PlusCircle },
+        { id: 'visit-requests', label: 'Demandes de visite', icon: Eye },
+        { id: 'rental-files', label: 'Dossiers locatifs', icon: ClipboardCheck },
+        { id: 'my-leases', label: 'Nos baux', icon: FileSignature },
+        { id: 'messages', label: 'Messages', icon: MessageSquare },
+      ]
     case 'ADMIN':
       return [
         { id: 'overview', label: 'Tableau de bord', icon: LayoutDashboard },
@@ -65,8 +75,10 @@ function getRoleLabel(role: AuthUser['role']): string {
   switch (role) {
     case 'LOCATAIRE': return 'Locataire'
     case 'PROPRIETAIRE': return 'Propriétaire'
+    case 'AGENCE': return 'Agence'
     case 'TIERS_CONFIANCE': return 'Tiers de Confiance'
     case 'ADMIN': return 'Administration'
+    default: return role
   }
 }
 
@@ -74,8 +86,10 @@ function getRoleColor(role: AuthUser['role']): string {
   switch (role) {
     case 'LOCATAIRE': return 'bg-blue-100 text-blue-700'
     case 'PROPRIETAIRE': return 'bg-green-100 text-green-700'
+    case 'AGENCE': return 'bg-teal-100 text-teal-700'
     case 'TIERS_CONFIANCE': return 'bg-amber-100 text-amber-700'
     case 'ADMIN': return 'bg-purple-100 text-purple-700'
+    default: return 'bg-neutral-100 text-neutral-700'
   }
 }
 

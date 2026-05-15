@@ -26,6 +26,12 @@ interface AdminData {
   }>
 }
 
+const defaultData: AdminData = {
+  stats: { totalUsers: 0, totalProperties: 0, totalLeases: 0, totalDisputes: 0, totalRevenue: 0, usersByRole: {} },
+  recentUsers: [],
+  disputes: [],
+}
+
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
@@ -35,6 +41,7 @@ function RoleBadge({ role }: { role: string }) {
     PROPRIETAIRE: { label: 'Propriétaire', className: 'bg-green-100 text-green-700' },
     TIERS_CONFIANCE: { label: 'TC', className: 'bg-amber-100 text-amber-700' },
     ADMIN: { label: 'Admin', className: 'bg-purple-100 text-purple-700' },
+    AGENCE: { label: 'Agence', className: 'bg-teal-100 text-teal-700' },
   }
   const c = config[role] || { label: role, className: 'bg-neutral-100 text-neutral-700' }
   return <Badge className={c.className}>{c.label}</Badge>
@@ -42,19 +49,45 @@ function RoleBadge({ role }: { role: string }) {
 
 export function AdminOverview() {
   const { user } = useAuthStore()
-  const [data, setData] = useState<AdminData | null>(null)
+  const [data, setData] = useState<AdminData>(defaultData)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/dashboard/admin')
-      .then((r) => r.json())
-      .then((d) => setData(d))
-      .catch(console.error)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Erreur ${r.status}`)
+        return r.json()
+      })
+      .then((d) => {
+        setData({
+          stats: d.stats ?? defaultData.stats,
+          recentUsers: d.recentUsers ?? [],
+          disputes: d.disputes ?? [],
+        })
+      })
+      .catch((err) => {
+        console.error('Admin dashboard error:', err)
+        setError(err.message)
+        setData(defaultData)
+      })
       .finally(() => setLoading(false))
   }, [])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
-  if (!data) return <p className="text-neutral-500">Erreur de chargement</p>
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-neutral-900">Tableau de bord Admin</h1>
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-4">
+            <p className="text-sm text-amber-700">Impossible de charger les données. Veuillez réessayer.</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const stats = [
     { label: 'Utilisateurs', value: data.stats.totalUsers, icon: Users, color: 'text-blue-600 bg-blue-50' },
@@ -68,6 +101,7 @@ export function AdminOverview() {
     PROPRIETAIRE: 'Propriétaires',
     TIERS_CONFIANCE: 'Tiers de Confiance',
     ADMIN: 'Administrateurs',
+    AGENCE: 'Agences',
   }
 
   return (
@@ -107,15 +141,19 @@ export function AdminOverview() {
               <CardTitle className="text-base font-semibold">Répartition des utilisateurs</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {Object.entries(data.stats.usersByRole).map(([role, count]) => (
-                <div key={role} className="flex items-center justify-between p-3 rounded-lg border border-neutral-100">
-                  <div className="flex items-center gap-3">
-                    <RoleBadge role={role} />
-                    <span className="text-sm text-neutral-700">{roleLabels[role] || role}</span>
+              {Object.entries(data.stats.usersByRole).length === 0 ? (
+                <p className="text-sm text-neutral-400 py-4 text-center">Aucune donnée</p>
+              ) : (
+                Object.entries(data.stats.usersByRole).map(([role, count]) => (
+                  <div key={role} className="flex items-center justify-between p-3 rounded-lg border border-neutral-100">
+                    <div className="flex items-center gap-3">
+                      <RoleBadge role={role} />
+                      <span className="text-sm text-neutral-700">{roleLabels[role] || role}</span>
+                    </div>
+                    <span className="text-lg font-bold text-neutral-900">{count}</span>
                   </div>
-                  <span className="text-lg font-bold text-neutral-900">{count}</span>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -151,34 +189,38 @@ export function AdminOverview() {
             <CardTitle className="text-base font-semibold">Utilisateurs récents</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-neutral-200">
-                    <th className="text-left py-2 px-3 text-neutral-500 font-medium">Nom</th>
-                    <th className="text-left py-2 px-3 text-neutral-500 font-medium">Téléphone</th>
-                    <th className="text-left py-2 px-3 text-neutral-500 font-medium">Rôle</th>
-                    <th className="text-left py-2 px-3 text-neutral-500 font-medium">Statut</th>
-                    <th className="text-left py-2 px-3 text-neutral-500 font-medium">Inscrit le</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.recentUsers.map((u) => (
-                    <tr key={u.id} className="border-b border-neutral-100 hover:bg-neutral-50">
-                      <td className="py-2 px-3 font-medium text-neutral-900">{u.firstName} {u.lastName}</td>
-                      <td className="py-2 px-3 text-neutral-600">{u.phone}</td>
-                      <td className="py-2 px-3"><RoleBadge role={u.role} /></td>
-                      <td className="py-2 px-3">
-                        <Badge className={u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
-                          {u.isActive ? 'Actif' : 'Inactif'}
-                        </Badge>
-                      </td>
-                      <td className="py-2 px-3 text-neutral-500">{new Date(u.createdAt).toLocaleDateString('fr-FR')}</td>
+            {data.recentUsers.length === 0 ? (
+              <p className="text-sm text-neutral-400 py-4 text-center">Aucun utilisateur récent</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-neutral-200">
+                      <th className="text-left py-2 px-3 text-neutral-500 font-medium">Nom</th>
+                      <th className="text-left py-2 px-3 text-neutral-500 font-medium">Téléphone</th>
+                      <th className="text-left py-2 px-3 text-neutral-500 font-medium">Rôle</th>
+                      <th className="text-left py-2 px-3 text-neutral-500 font-medium">Statut</th>
+                      <th className="text-left py-2 px-3 text-neutral-500 font-medium">Inscrit le</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {data.recentUsers.map((u) => (
+                      <tr key={u.id} className="border-b border-neutral-100 hover:bg-neutral-50">
+                        <td className="py-2 px-3 font-medium text-neutral-900">{u.firstName} {u.lastName}</td>
+                        <td className="py-2 px-3 text-neutral-600">{u.phone}</td>
+                        <td className="py-2 px-3"><RoleBadge role={u.role} /></td>
+                        <td className="py-2 px-3">
+                          <Badge className={u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                            {u.isActive ? 'Actif' : 'Inactif'}
+                          </Badge>
+                        </td>
+                        <td className="py-2 px-3 text-neutral-500">{new Date(u.createdAt).toLocaleDateString('fr-FR')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>

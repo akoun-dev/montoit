@@ -38,6 +38,13 @@ interface DashboardData {
   }>
 }
 
+const defaultData: DashboardData = {
+  stats: { totalRentalFiles: 0, activeLeases: 0, pendingVisits: 0, unreadMessages: 0 },
+  rentalFiles: [],
+  visitRequests: [],
+  activeLeases: [],
+}
+
 const containerVariants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.1 } },
@@ -66,14 +73,30 @@ function StatusBadge({ status }: { status: string }) {
 
 export function LocataireOverview() {
   const { user } = useAuthStore()
-  const [data, setData] = useState<DashboardData | null>(null)
+  const [data, setData] = useState<DashboardData>(defaultData)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/dashboard/locataire')
-      .then((r) => r.json())
-      .then((d) => setData(d))
-      .catch(console.error)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Erreur ${r.status}`)
+        return r.json()
+      })
+      .then((d) => {
+        // Ensure stats exists with defaults
+        setData({
+          stats: d.stats ?? defaultData.stats,
+          rentalFiles: d.rentalFiles ?? [],
+          visitRequests: d.visitRequests ?? [],
+          activeLeases: d.activeLeases ?? [],
+        })
+      })
+      .catch((err) => {
+        console.error('Locataire dashboard error:', err)
+        setError(err.message)
+        setData(defaultData)
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -87,7 +110,18 @@ export function LocataireOverview() {
     )
   }
 
-  if (!data) return <p className="text-neutral-500">Erreur de chargement</p>
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-neutral-900">Bonjour, {user?.firstName} 👋</h1>
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-4">
+            <p className="text-sm text-amber-700">Impossible de charger vos données. Veuillez réessayer.</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const stats = [
     { label: 'Dossiers locatifs', value: data.stats.totalRentalFiles, icon: FileText, color: 'text-blue-600 bg-blue-50' },

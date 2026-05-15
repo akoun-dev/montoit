@@ -26,24 +26,56 @@ interface TcData {
   }>
 }
 
+const defaultData: TcData = {
+  stats: { pendingRentalFiles: 0, pendingOwnershipDocs: 0, totalReviewed: 0, overdueSlas: 0, slaCompliance: 100 },
+  pendingRentalFiles: [],
+  pendingOwnershipDocs: [],
+}
+
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
 export function TcOverview() {
   const { user } = useAuthStore()
-  const [data, setData] = useState<TcData | null>(null)
+  const [data, setData] = useState<TcData>(defaultData)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/dashboard/tc')
-      .then((r) => r.json())
-      .then((d) => setData(d))
-      .catch(console.error)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Erreur ${r.status}`)
+        return r.json()
+      })
+      .then((d) => {
+        setData({
+          stats: d.stats ?? defaultData.stats,
+          pendingRentalFiles: d.pendingRentalFiles ?? [],
+          pendingOwnershipDocs: d.pendingOwnershipDocs ?? [],
+        })
+      })
+      .catch((err) => {
+        console.error('TC dashboard error:', err)
+        setError(err.message)
+        setData(defaultData)
+      })
       .finally(() => setLoading(false))
   }, [])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
-  if (!data) return <p className="text-neutral-500">Erreur de chargement</p>
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-neutral-900">Bonjour, {user?.firstName} 👋</h1>
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-4">
+            <p className="text-sm text-amber-700">Impossible de charger vos données. Veuillez réessayer.</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const stats = [
     { label: 'Dossiers en attente', value: data.stats.pendingRentalFiles, icon: ClipboardCheck, color: 'text-amber-600 bg-amber-50' },
