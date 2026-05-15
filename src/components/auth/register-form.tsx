@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useAuthStore, type AuthMethod } from '@/lib/auth-store'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -537,20 +538,21 @@ export function RegisterForm() {
                     </div>
 
                     {/* Terms */}
-                    <div className="flex items-start gap-2">
-                      <input
-                        type="checkbox"
-                        id="accept-terms"
-                        checked={acceptTerms}
-                        onChange={(e) => setAcceptTerms(e.target.checked)}
-                        className="mt-1 size-4 rounded border-neutral-300 text-brand-500 focus:ring-brand-500"
-                      />
-                      <Label htmlFor="accept-terms" className="text-sm text-neutral-600 font-normal leading-snug cursor-pointer">
-                        J&apos;accepte les{' '}
-                        <span className="text-brand-500 hover:underline cursor-pointer">conditions d&apos;utilisation</span>{' '}
-                        et la{' '}
-                        <span className="text-brand-500 hover:underline cursor-pointer">politique de confidentialité</span>
-                      </Label>
+                    <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id="accept-terms"
+                          checked={acceptTerms}
+                          onCheckedChange={(checked) => setAcceptTerms(checked === true)}
+                          className="mt-0.5 data-[state=checked]:bg-brand-500 data-[state=checked]:border-brand-500"
+                        />
+                        <Label htmlFor="accept-terms" className="text-sm text-neutral-600 font-normal leading-snug cursor-pointer">
+                          J&apos;accepte les{' '}
+                          <span className="text-brand-500 hover:underline cursor-pointer font-medium">conditions d&apos;utilisation</span>{' '}
+                          et la{' '}
+                          <span className="text-brand-500 hover:underline cursor-pointer font-medium">politique de confidentialité</span>
+                        </Label>
+                      </div>
                     </div>
 
                     {/* Submit */}

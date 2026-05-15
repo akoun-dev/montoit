@@ -36,10 +36,69 @@ export async function POST(req: NextRequest) {
       // Check if user already exists with this email
       const existingEmail = await db.user.findUnique({ where: { email } })
       if (existingEmail) {
-        return NextResponse.json(
-          { error: 'Un compte existe déjà avec cet email' },
-          { status: 400 }
-        )
+        // Allow re-registration if the account is NOT verified yet
+        if (existingEmail.isEmailVerified) {
+          return NextResponse.json(
+            { error: 'Un compte vérifié existe déjà avec cet email. Essayez de vous connecter.' },
+            { status: 400 }
+          )
+        }
+
+        // Unverified account → update their info and re-send OTP
+        const passwordHash = await bcrypt.hash(password, 12)
+
+        const user = await db.user.update({
+          where: { id: existingEmail.id },
+          data: {
+            passwordHash,
+            firstName,
+            lastName,
+            phone: phone || existingEmail.phone,
+            role: role || existingEmail.role,
+          },
+        })
+
+        // Invalidate existing unused OTP codes for this email
+        await db.oTPCode.updateMany({
+          where: { email, isUsed: false, type: 'EMAIL_VERIFY' },
+          data: { isUsed: true },
+        })
+
+        // Generate and store new email verification OTP
+        const otpCode = generateOtpCode(6)
+        await db.oTPCode.create({
+          data: {
+            email,
+            code: otpCode,
+            type: 'EMAIL_VERIFY',
+            expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
+            userId: user.id,
+          },
+        })
+
+        // Send verification email via ANSUT
+        const emailResult = await sendOtpEmail(email, otpCode, firstName, 'email_verify')
+        if (!emailResult.success) {
+          console.warn(`[Register] Email send failed for ${email}, but OTP stored. Code: ${otpCode}`)
+        }
+
+        const isDev = process.env.NODE_ENV !== 'production'
+        return NextResponse.json({
+          user: {
+            id: user.id,
+            phone: user.phone,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role,
+            avatarUrl: user.avatarUrl,
+            isActive: user.isActive,
+            isEmailVerified: false,
+          },
+          needsVerification: true,
+          verificationMethod: 'email',
+          ...(isDev && { devCode: otpCode }),
+        })
       }
 
       // Check phone uniqueness if provided
@@ -123,10 +182,13 @@ export async function POST(req: NextRequest) {
       if (email) {
         const existingEmail = await db.user.findUnique({ where: { email } })
         if (existingEmail && existingEmail.phone !== phone) {
-          return NextResponse.json(
-            { error: 'Un compte existe déjà avec cet email' },
-            { status: 400 }
-          )
+          // Allow if the other account is not verified
+          if (existingEmail.isEmailVerified) {
+            return NextResponse.json(
+              { error: 'Un compte vérifié existe déjà avec cet email' },
+              { status: 400 }
+            )
+          }
         }
       }
 
@@ -143,13 +205,24 @@ export async function POST(req: NextRequest) {
             role: role || 'LOCATAIRE',
             isPhoneVerified: false,  // Must verify via OTP
             isActive: true,
-            // Generate a random password hash for SMS users (they login via OTP)
             passwordHash: await bcrypt.hash(`sms-${Date.now()}-${Math.random()}`, 12),
+          },
+        })
+      } else if (existingUser && !existingUser.isPhoneVerified) {
+        // Unverified account → update their info and re-send OTP
+        user = await db.user.update({
+          where: { id: existingUser.id },
+          data: {
+            firstName,
+            lastName,
+            email: email || existingUser.email,
+            role: role || existingUser.role,
+            isActive: true,
           },
         })
       } else if (existingUser) {
         return NextResponse.json(
-          { error: 'Un compte existe déjà avec ce numéro' },
+          { error: 'Un compte vérifié existe déjà avec ce numéro. Essayez de vous connecter.' },
           { status: 400 }
         )
       } else {
