@@ -3,10 +3,10 @@
 import { Home, Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from 'lucide-react'
 
 const platformLinks = [
-  { label: 'Annonces', href: '#' },
-  { label: 'Locataires', href: '#' },
-  { label: 'Propriétaires', href: '#' },
-  { label: 'Tiers de Confiance', href: '#' },
+  { label: 'Accueil', href: '#accueil' },
+  { label: 'Nos Biens', href: '#nos-biens' },
+  { label: 'À Propos', href: '#a-propos' },
+  { label: 'Nous Contacter', href: '#nous-contacter' },
 ]
 
 const resourceLinks = [
@@ -30,7 +30,7 @@ export function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
           {/* Column 1: Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <a href="/" className="flex items-center gap-2 mb-4">
+            <a href="#accueil" className="flex items-center gap-2 mb-4">
               <Home className="size-5 text-brand-500" />
               <span className="text-lg font-bold text-white">MON TOIT</span>
             </a>
@@ -102,7 +102,7 @@ export function Footer() {
               <li className="flex items-start gap-2.5">
                 <MapPin className="size-4 text-brand-400 mt-0.5 shrink-0" />
                 <span className="text-sm text-neutral-400">
-                  Abidjan, Côte d&apos;Ivoire
+                  Riviera Palmeraie, Abidjan, Côte d&apos;Ivoire
                 </span>
               </li>
               <li className="flex items-center gap-2.5">

@@ -4,10 +4,12 @@ import { useEffect } from 'react'
 import { useAuthStore } from '@/lib/auth-store'
 import { Header } from '@/components/home/header'
 import { Hero } from '@/components/home/hero'
-import { Properties } from '@/components/home/properties'
+import { NosBiens } from '@/components/home/properties'
 import { HowItWorks } from '@/components/home/how-it-works'
 import { Roles } from '@/components/home/roles'
 import { Trust } from '@/components/home/trust'
+import { About } from '@/components/home/about'
+import { Contact } from '@/components/home/contact'
 import { Footer } from '@/components/home/footer'
 import { LoginForm } from '@/components/auth/login-form'
 import { OtpVerifyForm } from '@/components/auth/otp-verify-form'
@@ -44,11 +46,21 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1">
-        <Hero />
-        <Properties />
+        <div id="accueil">
+          <Hero />
+        </div>
+        <div id="nos-biens">
+          <NosBiens />
+        </div>
         <HowItWorks />
         <Roles />
         <Trust />
+        <div id="a-propos">
+          <About />
+        </div>
+        <div id="nous-contacter">
+          <Contact />
+        </div>
       </main>
       <Footer />
     </div>

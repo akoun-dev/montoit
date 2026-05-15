@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Home, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,22 +14,47 @@ import {
 import { useAuthStore } from '@/lib/auth-store'
 
 const navLinks = [
-  { label: 'Annonces', href: '#' },
-  { label: 'Locataires', href: '#' },
-  { label: 'Propriétaires', href: '#' },
-  { label: 'Tiers de Confiance', href: '#' },
+  { label: 'Accueil', href: '#accueil' },
+  { label: 'Nos Biens', href: '#nos-biens' },
+  { label: 'À Propos', href: '#a-propos' },
+  { label: 'Nous Contacter', href: '#nous-contacter' },
 ]
 
 export function Header() {
   const [open, setOpen] = useState(false)
+  const [activeSection, setActiveSection] = useState('accueil')
   const { setView, isAuthenticated, user, logout } = useAuthStore()
 
-  // Don't show header in dashboard/auth views — handled by page.tsx
-  // But we keep the Header component for the home view only
-  const handleLogin = () => setView('login')
-  const handleRegister = () => {
-    setView('login')
+  // Track active section on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      const sections = navLinks.map((link) => link.href.replace('#', ''))
+      const scrollPos = window.scrollY + 100
+
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const el = document.getElementById(sections[i])
+        if (el && el.offsetTop <= scrollPos) {
+          setActiveSection(sections[i])
+          return
+        }
+      }
+      setActiveSection('accueil')
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  const handleNavClick = (href: string) => {
+    setOpen(false)
+    const id = href.replace('#', '')
+    const el = document.getElementById(id)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' })
+    }
   }
+
+  const handleLogin = () => setView('login')
   const handleLogout = async () => {
     await logout()
   }
@@ -39,7 +64,10 @@ export function Header() {
       <div className="mx-auto max-w-7xl flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
         {/* Logo */}
         <button
-          onClick={() => setView('home')}
+          onClick={() => {
+            setView('home')
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
           className="flex items-center gap-2 shrink-0"
         >
           <Home className="size-6 text-brand-500" />
@@ -50,15 +78,23 @@ export function Header() {
 
         {/* Desktop Nav */}
         <nav className="hidden lg:flex items-center gap-1">
-          {navLinks.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              className="px-3 py-2 text-sm font-medium text-neutral-700 hover:text-brand-500 transition-colors rounded-md hover:bg-brand-50"
-            >
-              {link.label}
-            </a>
-          ))}
+          {navLinks.map((link) => {
+            const sectionId = link.href.replace('#', '')
+            const isActive = activeSection === sectionId
+            return (
+              <button
+                key={link.label}
+                onClick={() => handleNavClick(link.href)}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                  isActive
+                    ? 'text-brand-500 bg-brand-50'
+                    : 'text-neutral-700 hover:text-brand-500 hover:bg-brand-50'
+                }`}
+              >
+                {link.label}
+              </button>
+            )
+          })}
         </nav>
 
         {/* Desktop CTA */}
@@ -111,16 +147,24 @@ export function Header() {
               </SheetTitle>
             </SheetHeader>
             <nav className="flex flex-col gap-1 px-4">
-              {navLinks.map((link) => (
-                <SheetClose asChild key={link.label}>
-                  <a
-                    href={link.href}
-                    className="px-3 py-2.5 text-sm font-medium text-neutral-700 hover:text-brand-500 hover:bg-brand-50 rounded-md transition-colors"
-                  >
-                    {link.label}
-                  </a>
-                </SheetClose>
-              ))}
+              {navLinks.map((link) => {
+                const sectionId = link.href.replace('#', '')
+                const isActive = activeSection === sectionId
+                return (
+                  <SheetClose asChild key={link.label}>
+                    <button
+                      onClick={() => handleNavClick(link.href)}
+                      className={`px-3 py-2.5 text-sm font-medium rounded-md transition-colors text-left ${
+                        isActive
+                          ? 'text-brand-500 bg-brand-50'
+                          : 'text-neutral-700 hover:text-brand-500 hover:bg-brand-50'
+                      }`}
+                    >
+                      {link.label}
+                    </button>
+                  </SheetClose>
+                )
+              })}
             </nav>
             <div className="flex flex-col gap-2 px-4 mt-4 pt-4 border-t border-neutral-200">
               {isAuthenticated && user ? (
