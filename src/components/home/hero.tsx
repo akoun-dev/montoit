@@ -19,6 +19,8 @@ interface Stats {
   monthlyVisitors: number
   newToday: number
   satisfactionRate: number
+  communes: string[]
+  propertyTypes: string[]
 }
 
 const fadeUp = {
@@ -44,7 +46,7 @@ export function Hero() {
       .then((data) => setStats(data))
       .catch(() => {
         // Fallback stats if API fails
-        setStats({ totalProperties: 0, monthlyVisitors: 0, newToday: 0, satisfactionRate: 98 })
+        setStats({ totalProperties: 0, monthlyVisitors: 0, newToday: 0, satisfactionRate: 0, communes: [], propertyTypes: [] })
       })
   }, [])
 
@@ -111,12 +113,9 @@ export function Hero() {
                 <SelectValue placeholder="Ville, Commune" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="abidjan">Abidjan</SelectItem>
-                <SelectItem value="cocody">Cocody</SelectItem>
-                <SelectItem value="plateau">Plateau</SelectItem>
-                <SelectItem value="marcory">Marcory</SelectItem>
-                <SelectItem value="yopougon">Yopougon</SelectItem>
-                <SelectItem value="abobo">Abobo</SelectItem>
+                {(stats?.communes ?? []).map((commune) => (
+                  <SelectItem key={commune} value={commune.toLowerCase()}>{commune}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select>
@@ -125,11 +124,9 @@ export function Hero() {
                 <SelectValue placeholder="Type de bien" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="appartement">Appartement</SelectItem>
-                <SelectItem value="maison">Maison</SelectItem>
-                <SelectItem value="studio">Studio</SelectItem>
-                <SelectItem value="duplex">Duplex</SelectItem>
-                <SelectItem value="penthouse">Penthouse</SelectItem>
+                {(stats?.propertyTypes ?? []).map((type) => (
+                  <SelectItem key={type} value={type.toLowerCase()}>{type.charAt(0) + type.slice(1).toLowerCase()}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Button

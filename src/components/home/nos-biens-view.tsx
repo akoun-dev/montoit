@@ -78,8 +78,6 @@ interface Property {
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const propertyTypes = ['APPARTEMENT', 'VILLA', 'STUDIO', 'DUPLEX', 'PENTHOUSE', 'MAISON'] as const
-const communes = ['Cocody', 'Plateau', 'Marcory', 'Yopougon', 'Abobo', 'Riviera', 'Treichville']
 const roomOptions = [1, 2, 3, 4, 5]
 const sortOptions = [
   { label: 'Plus récent', value: 'recent' },
@@ -160,6 +158,8 @@ interface FilterSidebarProps {
   resultCount: number
   hasActiveFilters: boolean
   resetFilters: () => void
+  propertyTypes: string[]
+  communes: string[]
 }
 
 function FilterSidebar({
@@ -178,6 +178,8 @@ function FilterSidebar({
   resultCount,
   hasActiveFilters,
   resetFilters,
+  propertyTypes,
+  communes,
 }: FilterSidebarProps) {
   return (
     <div className="space-y-5">
@@ -648,6 +650,10 @@ export function NosBiensView() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Dynamic filter options from DB
+  const [propertyTypes, setPropertyTypes] = useState<string[]>([])
+  const [communes, setCommunes] = useState<string[]>([])
+
   // Filter state
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('Tous')
@@ -662,22 +668,30 @@ export function NosBiensView() {
   const [sortBy, setSortBy] = useState('recent')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
-  // Fetch properties from API
+  // Fetch properties and filter options from API
   useEffect(() => {
-    async function fetchProperties() {
+    async function fetchData() {
       try {
         setIsLoading(true)
-        const res = await fetch('/api/properties?all=true')
-        if (!res.ok) throw new Error('Erreur lors du chargement')
-        const data = await res.json()
-        setProperties(data.properties || [])
+        const [propertiesRes, statsRes] = await Promise.all([
+          fetch('/api/properties?all=true'),
+          fetch('/api/stats'),
+        ])
+        if (!propertiesRes.ok) throw new Error('Erreur lors du chargement')
+        const propertiesData = await propertiesRes.json()
+        setProperties(propertiesData.properties || [])
+        if (statsRes.ok) {
+          const statsData = await statsRes.json()
+          setPropertyTypes(statsData.propertyTypes || [])
+          setCommunes(statsData.communes || [])
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erreur inconnue')
       } finally {
         setIsLoading(false)
       }
     }
-    fetchProperties()
+    fetchData()
   }, [])
 
   const openDetail = (propertyId: string) => {
@@ -772,6 +786,8 @@ export function NosBiensView() {
     resultCount: filteredProperties.length,
     hasActiveFilters,
     resetFilters,
+    propertyTypes,
+    communes,
   }
 
   // Loading state

@@ -26,14 +26,40 @@ export async function GET() {
       },
     })
 
-    // satisfactionRate: fixed at 98 (no real review data yet)
-    const satisfactionRate = 98
+    // satisfactionRate: computed from Rating table (average of all scores, as percentage)
+    const ratingsAggregate = await db.rating.aggregate({
+      _avg: { score: true },
+      _count: { score: true },
+    })
+    // If we have ratings, convert 1-5 scale to percentage; otherwise show 0
+    const satisfactionRate = ratingsAggregate._count.score > 0
+      ? Math.round((ratingsAggregate._avg.score! / 5) * 100)
+      : 0
+
+    // communes & types: distinct values from DB for filter dropdowns
+    const communesRaw = await db.property.findMany({
+      where: { status: 'ACTIVE', commune: { not: null } },
+      select: { commune: true },
+      distinct: ['commune'],
+      orderBy: { commune: 'asc' },
+    })
+    const communes = communesRaw.map((r) => r.commune!).filter(Boolean)
+
+    const typesRaw = await db.property.findMany({
+      where: { status: 'ACTIVE' },
+      select: { type: true },
+      distinct: ['type'],
+      orderBy: { type: 'asc' },
+    })
+    const propertyTypes = typesRaw.map((r) => r.type)
 
     return NextResponse.json({
       totalProperties,
       monthlyVisitors,
       newToday,
       satisfactionRate,
+      communes,
+      propertyTypes,
     })
   } catch (error) {
     console.error('Stats error:', error)

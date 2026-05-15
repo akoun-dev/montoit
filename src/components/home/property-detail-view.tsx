@@ -142,14 +142,17 @@ interface ParsedExtras {
   }
 }
 
-// ── Mock reviews (kept until Review API is built) ──────────────────────────
+// ── Review type ────────────────────────────────────────────────────────────
 
-const mockReviews = [
-  { id: 1, name: 'Kouamé Jean', avatar: 'KJ', rating: 5, date: '15 Fév 2025', comment: 'Excellent appartement, très bien entretenu. Le propriétaire est réactif et professionnel. Je recommande vivement !', verified: true },
-  { id: 2, name: 'Bamba Awa', avatar: 'BA', rating: 4, date: '28 Jan 2025', comment: 'Bel appartement dans un quartier calme. Petit bémol sur la pression d\'eau en période de pointe, mais dans l\'ensemble très satisfait.', verified: true },
-  { id: 3, name: 'Ouattara Moussa', avatar: 'OM', rating: 5, date: '10 Déc 2024', comment: 'Parfait ! La description correspond parfaitement au logement. Visite virtuelle très pratique avant le déplacement.', verified: false },
-  { id: 4, name: 'Diabaté Mariam', avatar: 'DM', rating: 3, date: '5 Nov 2024', comment: 'Logement correct mais quelques travaux à prévoir. Le rapport qualité-prix reste acceptable pour le quartier.', verified: true },
-]
+interface Review {
+  id: string
+  name: string
+  avatar: string
+  rating: number
+  date: string
+  comment: string
+  verified: boolean
+}
 
 // ── Amenity config ─────────────────────────────────────────────────────────
 
@@ -431,6 +434,11 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Reviews data state
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [avgRating, setAvgRating] = useState<number>(0)
+  const [totalReviews, setTotalReviews] = useState<number>(0)
+
   // Fetch property from API
   useEffect(() => {
     if (!propertyId) return
@@ -455,6 +463,27 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
         }
       })
     return () => { cancelled = true }
+  }, [propertyId])
+
+  // Fetch reviews from API
+  useEffect(() => {
+    if (!propertyId) return
+    fetch(`/api/properties/reviews?propertyId=${propertyId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Erreur')
+        return res.json()
+      })
+      .then((data) => {
+        setReviews(data.reviews ?? [])
+        setAvgRating(data.avgRating ?? 0)
+        setTotalReviews(data.totalReviews ?? 0)
+      })
+      .catch(() => {
+        // Silently fail — reviews are not critical
+        setReviews([])
+        setAvgRating(0)
+        setTotalReviews(0)
+      })
   }, [propertyId])
 
   // Loading state
@@ -491,7 +520,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
     { icon: Shield, label: 'Gardien', value: property.hasGuardian ? 'Oui' : 'Non' },
   ]
 
-  const avgRating = (mockReviews.reduce((s, r) => s + r.rating, 0) / mockReviews.length).toFixed(1)
+  // avgRating is now fetched from API (state variable)
 
   const images = extras.images
   const commune = property.commune || property.city
@@ -522,7 +551,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
     { key: 'modalites', label: 'Modalités', icon: FileText },
     { key: 'contact', label: 'Contacter', icon: Phone },
     { key: 'visit', label: 'Visiter', icon: Calendar },
-    { key: 'reviews', label: `Avis (${mockReviews.length})`, icon: Star },
+    { key: 'reviews', label: `Avis (${totalReviews})`, icon: Star },
   ]
 
   return (
@@ -717,7 +746,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                 {activeTab === 'modalites' && <ModalitesTab extras={extras} price={property.price} />}
                 {activeTab === 'contact' && <ContactTab property={property} extras={extras} />}
                 {activeTab === 'visit' && <VisitTab property={property} requireAuth={requireAuth} />}
-                {activeTab === 'reviews' && <ReviewsTab avgRating={avgRating} />}
+                {activeTab === 'reviews' && <ReviewsTab avgRating={avgRating} reviews={reviews} totalReviews={totalReviews} />}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -1419,14 +1448,26 @@ function VisitTab({
 
 // ── Reviews Tab ─────────────────────────────────────────────────────────────
 
-function ReviewsTab({ avgRating }: { avgRating: string }) {
+function ReviewsTab({ avgRating, reviews, totalReviews }: { avgRating: number; reviews: Review[]; totalReviews: number }) {
   const ratingDistribution = [5, 4, 3, 2, 1].map((star) => ({
     star,
-    count: mockReviews.filter((r) => r.rating === star).length,
-    percentage: mockReviews.length > 0
-      ? (mockReviews.filter((r) => r.rating === star).length / mockReviews.length) * 100
+    count: reviews.filter((r) => r.rating === star).length,
+    percentage: reviews.length > 0
+      ? (reviews.filter((r) => r.rating === star).length / reviews.length) * 100
       : 0,
   }))
+
+  // Empty state when no reviews
+  if (reviews.length === 0) {
+    return (
+      <div className="pb-24 lg:pb-6">
+        <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center shadow-sm">
+          <MessageSquare className="size-10 text-neutral-300 mx-auto mb-3" />
+          <p className="text-sm text-neutral-500">Aucun avis pour le moment. Soyez le premier à laisser un avis !</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 pb-24 lg:pb-6">
@@ -1434,16 +1475,16 @@ function ReviewsTab({ avgRating }: { avgRating: string }) {
       <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
         <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
           <div className="text-center">
-            <p className="text-4xl font-bold text-neutral-900">{avgRating}</p>
+            <p className="text-4xl font-bold text-neutral-900">{avgRating.toFixed(1)}</p>
             <div className="flex items-center gap-0.5 mt-1">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Star
                   key={i}
-                  className={`size-4 ${i < Math.round(Number(avgRating)) ? 'fill-amber-400 text-amber-400' : 'text-neutral-200'}`}
+                  className={`size-4 ${i < Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-neutral-200'}`}
                 />
               ))}
             </div>
-            <p className="text-xs text-neutral-500 mt-1">{mockReviews.length} avis</p>
+            <p className="text-xs text-neutral-500 mt-1">{totalReviews} avis</p>
           </div>
           <div className="w-full sm:w-auto flex-1 max-w-xs space-y-1.5">
             {ratingDistribution.map((d) => (
@@ -1464,7 +1505,7 @@ function ReviewsTab({ avgRating }: { avgRating: string }) {
       </div>
 
       {/* Individual reviews */}
-      {mockReviews.map((review) => (
+      {reviews.map((review) => (
         <div key={review.id} className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
           <div className="flex items-start gap-3">
             <div className="size-10 rounded-full bg-brand-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
