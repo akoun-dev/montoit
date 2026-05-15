@@ -1,11 +1,13 @@
 import { create } from 'zustand'
 
-export type AppView = 'home' | 'nos-biens' | 'a-propos' | 'nous-contacter' | 'login' | 'register' | 'dashboard'
+export type AuthMethod = 'email' | 'sms'
+
+export type AppView = 'home' | 'nos-biens' | 'a-propos' | 'nous-contacter' | 'login' | 'register' | 'otp-verify' | 'dashboard'
 
 export interface AuthUser {
   id: string
   phone: string | null
-  email: string
+  email: string | null
   firstName: string
   lastName: string
   role: 'LOCATAIRE' | 'PROPRIETAIRE' | 'ADMIN' | 'TIERS_CONFIANCE'
@@ -19,12 +21,19 @@ interface AuthState {
   isAuthenticated: boolean
   currentView: AppView
   isLoading: boolean
+  // SMS flow state
+  pendingPhone: string
+  authMethod: AuthMethod
   dashboardSection: string
 
-  login: (email: string, password: string) => Promise<void>
-  register: (data: { email: string; password: string; firstName: string; lastName: string; phone?: string; role?: string }) => Promise<void>
+  loginWithEmail: (email: string, password: string) => Promise<void>
+  loginWithSms: (phone: string) => Promise<void>
+  verifySmsOtp: (phone: string, code: string) => Promise<void>
+  registerWithEmail: (data: { email: string; password: string; firstName: string; lastName: string; phone?: string; role?: string }) => Promise<void>
+  registerWithSms: (data: { phone: string; firstName: string; lastName: string; email?: string; role?: string }) => Promise<void>
   logout: () => Promise<void>
   setView: (view: AppView) => void
+  setAuthMethod: (method: AuthMethod) => void
   setDashboardSection: (section: string) => void
   checkAuth: () => Promise<void>
   seedData: () => Promise<void>
@@ -35,9 +44,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   currentView: 'home',
   isLoading: false,
+  pendingPhone: '',
+  authMethod: 'email',
   dashboardSection: 'overview',
 
-  login: async (email: string, password: string) => {
+  loginWithEmail: async (email: string, password: string) => {
     set({ isLoading: true })
     try {
       const res = await fetch('/api/auth/login', {
@@ -60,13 +71,82 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  register: async (data) => {
+  loginWithSms: async (phone: string) => {
+    set({ isLoading: true, pendingPhone: phone })
+    try {
+      const res = await fetch('/api/auth/send-sms-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+
+      set({ isLoading: false, currentView: 'otp-verify' })
+    } catch (error) {
+      set({ isLoading: false })
+      throw error
+    }
+  },
+
+  verifySmsOtp: async (phone: string, code: string) => {
+    set({ isLoading: true })
+    try {
+      const res = await fetch('/api/auth/verify-sms-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, code }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Code invalide')
+
+      if (data.needsRegistration) {
+        set({ isLoading: false, currentView: 'register', authMethod: 'sms' })
+        return
+      }
+
+      set({
+        user: data.user,
+        isAuthenticated: true,
+        isLoading: false,
+        currentView: 'dashboard',
+      })
+    } catch (error) {
+      set({ isLoading: false })
+      throw error
+    }
+  },
+
+  registerWithEmail: async (data) => {
     set({ isLoading: true })
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, method: 'email' }),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Erreur')
+
+      set({
+        user: result.user,
+        isAuthenticated: true,
+        isLoading: false,
+        currentView: 'dashboard',
+      })
+    } catch (error) {
+      set({ isLoading: false })
+      throw error
+    }
+  },
+
+  registerWithSms: async (data) => {
+    set({ isLoading: true })
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, method: 'sms' }),
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || 'Erreur')
@@ -91,12 +171,15 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: null,
         isAuthenticated: false,
         currentView: 'home',
+        pendingPhone: '',
+        authMethod: 'email',
         dashboardSection: 'overview',
       })
     }
   },
 
   setView: (view) => set({ currentView: view }),
+  setAuthMethod: (method) => set({ authMethod: method }),
   setDashboardSection: (section) => set({ dashboardSection: section }),
 
   checkAuth: async () => {
