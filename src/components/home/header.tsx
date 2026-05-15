@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Home, Menu } from 'lucide-react'
+import { Menu } from 'lucide-react'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -43,7 +44,14 @@ export function Header() {
           onClick={() => handleNavClick('home')}
           className="flex items-center gap-2 shrink-0"
         >
-          <Home className="size-6 text-brand-500" />
+          <Image
+            src="/favicon-96x96.png"
+            alt="Mon Toit"
+            width={32}
+            height={32}
+            className="shrink-0"
+            priority
+          />
           <span className="text-xl font-bold tracking-tight text-brand-500">
             MON TOIT
           </span>
@@ -114,7 +122,13 @@ export function Header() {
           <SheetContent side="right" className="w-72">
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
-                <Home className="size-5 text-brand-500" />
+                <Image
+                  src="/favicon-96x96.png"
+                  alt="Mon Toit"
+                  width={24}
+                  height={24}
+                  className="shrink-0"
+                />
                 <span className="text-brand-500 font-bold">MON TOIT</span>
               </SheetTitle>
             </SheetHeader>

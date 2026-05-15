@@ -1,6 +1,7 @@
 'use client'
 
-import { Home, Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from 'lucide-react'
+import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from 'lucide-react'
+import Image from 'next/image'
 import { useAuthStore, type AppView } from '@/lib/auth-store'
 
 const platformLinks: { label: string; view: AppView }[] = [
@@ -42,7 +43,13 @@ export function Footer() {
               onClick={() => handleNavClick('home')}
               className="flex items-center gap-2 mb-4"
             >
-              <Home className="size-5 text-brand-500" />
+              <Image
+                src="/favicon-96x96.png"
+                alt="Mon Toit"
+                width={28}
+                height={28}
+                className="shrink-0"
+              />
               <span className="text-lg font-bold text-white">MON TOIT</span>
             </button>
             <p className="text-sm text-neutral-400 leading-relaxed mb-5 max-w-xs">

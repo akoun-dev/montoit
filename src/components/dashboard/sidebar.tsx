@@ -1,11 +1,12 @@
 'use client'
 
 import { 
-  Home, FileText, Eye, FileSignature, MessageSquare, 
+  FileText, Eye, FileSignature, MessageSquare, 
   Building2, PlusCircle, ClipboardCheck, Users, Shield, 
   BarChart3, Settings, AlertTriangle, Clock, BadgeCheck,
   LayoutDashboard, ChevronLeft, ChevronRight
 } from 'lucide-react'
+import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -95,7 +96,13 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="flex items-center gap-2 px-4 h-16 border-b border-neutral-200 shrink-0">
-        <Home className="size-6 text-brand-500 shrink-0" />
+        <Image
+          src="/favicon-96x96.png"
+          alt="Mon Toit"
+          width={24}
+          height={24}
+          className="shrink-0"
+        />
         {!collapsed && (
           <span className="text-lg font-bold text-brand-500 truncate">MON TOIT</span>
         )}
