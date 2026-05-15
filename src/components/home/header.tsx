@@ -13,31 +13,33 @@ import {
   Building2,
   PlusCircle,
   ClipboardCheck,
-  CreditCard,
   Bell,
-  Star,
   Settings,
   Users,
   Shield,
   AlertTriangle,
   BarChart3,
-  Search,
-  UserCheck,
-  Wrench,
-  History,
   BadgeCheck,
   Clock,
+  Home,
+  Search,
+  CreditCard,
+  Star,
+  Wrench,
+  History,
+  UserCheck,
+  ChevronRight,
 } from 'lucide-react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -52,11 +54,11 @@ import {
 import { useAuthStore, type AppView, type AuthUser } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 
-const navLinks: { label: string; view: AppView }[] = [
-  { label: 'Accueil', view: 'home' },
-  { label: 'Nos Biens', view: 'nos-biens' },
-  { label: 'À Propos', view: 'a-propos' },
-  { label: 'Nous Contacter', view: 'nous-contacter' },
+const navLinks: { label: string; view: AppView; icon: React.ElementType }[] = [
+  { label: 'Accueil', view: 'home', icon: Home },
+  { label: 'Nos Biens', view: 'nos-biens', icon: Search },
+  { label: 'À Propos', view: 'a-propos', icon: Building2 },
+  { label: 'Nous Contacter', view: 'nous-contacter', icon: MessageSquare },
 ]
 
 // ─── Role label & color helpers ──────────────────────────────────────────────
@@ -90,58 +92,69 @@ interface UserMenuItem {
   label: string
   icon: React.ElementType
   section: string
+  group?: string
 }
 
 function getUserMenuItems(role: AuthUser['role']): UserMenuItem[] {
   switch (role) {
     case 'LOCATAIRE':
       return [
-        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview' },
-        { id: 'favorites', label: 'Mes favoris', icon: Heart, section: 'favorites' },
-        { id: 'visits', label: 'Mes visites', icon: Eye, section: 'my-visits' },
-        { id: 'leases', label: 'Mes contrats', icon: FileSignature, section: 'my-leases' },
-        { id: 'messages', label: 'Messages', icon: MessageSquare, section: 'messages' },
-        { id: 'profile', label: 'Mon profil', icon: UserCircle, section: 'settings' },
+        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
+        { id: 'favorites', label: 'Mes favoris', icon: Heart, section: 'favorites', group: 'LOCATION' },
+        { id: 'applications', label: 'Mes candidatures', icon: UserCheck, section: 'applications', group: 'LOCATION' },
+        { id: 'visits', label: 'Mes visites', icon: Eye, section: 'my-visits', group: 'LOCATION' },
+        { id: 'leases', label: 'Mes contrats', icon: FileSignature, section: 'my-leases', group: 'LOCATION' },
+        { id: 'payments', label: 'Mes paiements', icon: CreditCard, section: 'payments', group: 'LOCATION' },
+        { id: 'messages', label: 'Messages', icon: MessageSquare, section: 'messages', group: 'MESSAGES' },
+        { id: 'notifications', label: 'Notifications', icon: Bell, section: 'notifications', group: 'MESSAGES' },
+        { id: 'profile', label: 'Mon profil', icon: UserCircle, section: 'settings', group: 'COMPTE' },
       ]
     case 'PROPRIETAIRE':
       return [
-        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview' },
-        { id: 'properties', label: 'Mes biens', icon: Building2, section: 'my-properties' },
-        { id: 'add-property', label: 'Ajouter un bien', icon: PlusCircle, section: 'add-property' },
-        { id: 'visits', label: 'Demandes de visite', icon: Eye, section: 'visit-requests' },
-        { id: 'rental-files', label: 'Dossiers locatifs', icon: ClipboardCheck, section: 'rental-files' },
-        { id: 'leases', label: 'Mes baux', icon: FileSignature, section: 'my-leases' },
-        { id: 'messages', label: 'Messages', icon: MessageSquare, section: 'messages' },
-        { id: 'profile', label: 'Mon profil', icon: UserCircle, section: 'settings' },
+        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
+        { id: 'properties', label: 'Mes biens', icon: Building2, section: 'my-properties', group: 'MES BIENS' },
+        { id: 'add-property', label: 'Ajouter un bien', icon: PlusCircle, section: 'add-property', group: 'MES BIENS' },
+        { id: 'visits', label: 'Demandes de visite', icon: Eye, section: 'visit-requests', group: 'LOCATION' },
+        { id: 'rental-files', label: 'Dossiers locatifs', icon: ClipboardCheck, section: 'rental-files', group: 'LOCATION' },
+        { id: 'leases', label: 'Mes baux', icon: FileSignature, section: 'my-leases', group: 'LOCATION' },
+        { id: 'payments', label: 'Paiements', icon: CreditCard, section: 'payments', group: 'LOCATION' },
+        { id: 'messages', label: 'Messages', icon: MessageSquare, section: 'messages', group: 'MESSAGES' },
+        { id: 'notifications', label: 'Notifications', icon: Bell, section: 'notifications', group: 'MESSAGES' },
+        { id: 'profile', label: 'Mon profil', icon: UserCircle, section: 'settings', group: 'COMPTE' },
       ]
     case 'AGENCE':
       return [
-        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview' },
-        { id: 'properties', label: 'Nos biens', icon: Building2, section: 'my-properties' },
-        { id: 'add-property', label: 'Ajouter un bien', icon: PlusCircle, section: 'add-property' },
-        { id: 'visits', label: 'Demandes de visite', icon: Eye, section: 'visit-requests' },
-        { id: 'rental-files', label: 'Dossiers locatifs', icon: ClipboardCheck, section: 'rental-files' },
-        { id: 'leases', label: 'Nos baux', icon: FileSignature, section: 'my-leases' },
-        { id: 'messages', label: 'Messages', icon: MessageSquare, section: 'messages' },
-        { id: 'profile', label: 'Profil agence', icon: UserCircle, section: 'settings' },
+        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
+        { id: 'properties', label: 'Nos biens', icon: Building2, section: 'my-properties', group: 'NOS BIENS' },
+        { id: 'add-property', label: 'Ajouter un bien', icon: PlusCircle, section: 'add-property', group: 'NOS BIENS' },
+        { id: 'visits', label: 'Demandes de visite', icon: Eye, section: 'visit-requests', group: 'LOCATION' },
+        { id: 'rental-files', label: 'Dossiers locatifs', icon: ClipboardCheck, section: 'rental-files', group: 'LOCATION' },
+        { id: 'leases', label: 'Nos baux', icon: FileSignature, section: 'my-leases', group: 'LOCATION' },
+        { id: 'payments', label: 'Paiements', icon: CreditCard, section: 'payments', group: 'LOCATION' },
+        { id: 'messages', label: 'Messages', icon: MessageSquare, section: 'messages', group: 'MESSAGES' },
+        { id: 'notifications', label: 'Notifications', icon: Bell, section: 'notifications', group: 'MESSAGES' },
+        { id: 'profile', label: 'Profil agence', icon: UserCircle, section: 'settings', group: 'COMPTE' },
       ]
     case 'TIERS_CONFIANCE':
       return [
-        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview' },
-        { id: 'rental-files', label: 'Dossiers à valider', icon: ClipboardCheck, section: 'rental-files-queue' },
-        { id: 'validations', label: 'Validations', icon: BadgeCheck, section: 'owner-validations' },
-        { id: 'sla', label: 'Suivi SLA', icon: Clock, section: 'sla-monitoring' },
-        { id: 'profile', label: 'Mon profil', icon: UserCircle, section: 'settings' },
+        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
+        { id: 'rental-files', label: 'Dossiers à valider', icon: ClipboardCheck, section: 'rental-files-queue', group: 'VALIDATION' },
+        { id: 'validations', label: 'Validations propriétaires', icon: BadgeCheck, section: 'owner-validations', group: 'VALIDATION' },
+        { id: 'agency-validations', label: 'Validations agences', icon: Building2, section: 'agency-validations', group: 'VALIDATION' },
+        { id: 'sla', label: 'Suivi SLA', icon: Clock, section: 'sla-monitoring', group: 'SUIVI' },
+        { id: 'notifications', label: 'Notifications', icon: Bell, section: 'notifications', group: 'SUIVI' },
+        { id: 'profile', label: 'Mon profil', icon: UserCircle, section: 'settings', group: 'COMPTE' },
       ]
     case 'ADMIN':
       return [
-        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview' },
-        { id: 'users', label: 'Utilisateurs', icon: Users, section: 'users' },
-        { id: 'properties', label: 'Modération biens', icon: Building2, section: 'properties-moderation' },
-        { id: 'tc', label: 'Gestion TC', icon: Shield, section: 'tc-management' },
-        { id: 'disputes', label: 'Litiges', icon: AlertTriangle, section: 'disputes' },
-        { id: 'reports', label: 'Rapports', icon: BarChart3, section: 'reports' },
-        { id: 'profile', label: 'Paramètres', icon: Settings, section: 'settings' },
+        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
+        { id: 'users', label: 'Utilisateurs', icon: Users, section: 'users', group: 'GESTION' },
+        { id: 'properties', label: 'Modération biens', icon: Building2, section: 'properties-moderation', group: 'GESTION' },
+        { id: 'tc', label: 'Gestion TC', icon: Shield, section: 'tc-management', group: 'GESTION' },
+        { id: 'disputes', label: 'Litiges', icon: AlertTriangle, section: 'disputes', group: 'SUPERVISION' },
+        { id: 'reports', label: 'Rapports', icon: BarChart3, section: 'reports', group: 'SUPERVISION' },
+        { id: 'notifications', label: 'Notifications', icon: Bell, section: 'notifications', group: 'SUPERVISION' },
+        { id: 'profile', label: 'Paramètres', icon: Settings, section: 'settings', group: 'COMPTE' },
       ]
     default:
       return []
@@ -158,13 +171,8 @@ function UserDropdown() {
   const menuItems = getUserMenuItems(user.role)
 
   const handleMenuItem = (item: UserMenuItem) => {
-    if (item.id === 'dashboard' || item.section === 'overview') {
-      setDashboardSection('overview')
-      setView('dashboard')
-    } else {
-      setDashboardSection(item.section)
-      setView('dashboard')
-    }
+    setDashboardSection(item.section)
+    setView('dashboard')
   }
 
   const handleLogout = async () => {
@@ -248,13 +256,33 @@ export function Header() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleLogin = () => setView('login')
+  const handleLogin = () => {
+    setOpen(false)
+    setView('login')
+  }
 
-  // Mobile: navigate to dashboard section
+  // Navigate to a dashboard section from mobile menu
   const handleMobileDashboardItem = (section: string) => {
     setOpen(false)
     setDashboardSection(section)
     setView('dashboard')
+  }
+
+  const handleLogout = async () => {
+    setOpen(false)
+    await logout()
+  }
+
+  // Group menu items by their group label for the mobile menu
+  const menuItems = user ? getUserMenuItems(user.role) : []
+  const groupedItems: { group: string; items: UserMenuItem[] }[] = []
+  for (const item of menuItems) {
+    const last = groupedItems[groupedItems.length - 1]
+    if (last && last.group === (item.group || '')) {
+      last.items.push(item)
+    } else {
+      groupedItems.push({ group: item.group || '', items: [item] })
+    }
   }
 
   return (
@@ -314,65 +342,42 @@ export function Header() {
           )}
         </div>
 
-        {/* Mobile Menu */}
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild className="lg:hidden">
-            <Button variant="ghost" size="icon" aria-label="Menu">
-              <Menu className="size-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-72 p-0">
-            <SheetHeader className="px-4 pt-4">
-              <SheetTitle className="flex items-center gap-2">
-                <Image
-                  src="/favicon-96x96.png"
-                  alt="Mon Toit"
-                  width={24}
-                  height={24}
-                  className="shrink-0"
-                />
-                <span className="text-brand-500 font-bold">MON TOIT</span>
-              </SheetTitle>
-            </SheetHeader>
+        {/* ─── Mobile Hamburger ─────────────────────────────────────────── */}
+        <div className="lg:hidden">
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Menu">
+                <Menu className="size-5" />
+              </Button>
+            </SheetTrigger>
 
-            {/* Navigation links */}
-            <nav className="flex flex-col gap-1 px-4 pt-2">
-              {navLinks.map((link) => {
-                const isActive = currentView === link.view
-                return (
-                  <SheetClose asChild key={link.label}>
-                    <button
-                      onClick={() => handleNavClick(link.view)}
-                      className={`px-3 py-2.5 text-sm font-medium rounded-md transition-colors text-left ${
-                        isActive
-                          ? 'text-brand-500 bg-brand-50'
-                          : 'text-neutral-700 hover:text-brand-500 hover:bg-brand-50'
-                      }`}
-                    >
-                      {link.label}
-                    </button>
-                  </SheetClose>
-                )
-              })}
-            </nav>
-
-            {/* User section in mobile menu */}
-            <div className="px-4 mt-4">
+            <SheetContent side="right" className="w-80 p-0 flex flex-col">
               {isAuthenticated && user ? (
+                /* ── AUTHENTICATED: profile card + role menu ── */
                 <>
-                  <Separator className="mb-3" />
-                  {/* Profile info */}
-                  <div className="px-3 py-2 mb-2">
-                    <p className="text-sm font-semibold text-neutral-900">
-                      {user.firstName} {user.lastName}
-                    </p>
-                    <p className="text-xs text-neutral-500 truncate">
-                      {user.email || user.phone}
-                    </p>
+                  {/* Profile header */}
+                  <div className="px-5 pt-5 pb-4 bg-gradient-to-br from-brand-50 to-white border-b border-neutral-100">
+                    <SheetHeader className="p-0 mb-3">
+                      <SheetTitle className="flex items-center gap-2.5">
+                        <Avatar className="h-11 w-11 border-2 border-brand-300">
+                          <AvatarFallback className="bg-brand-500 text-white text-base font-bold">
+                            {`${user.firstName[0]}${user.lastName[0]}`.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="text-sm font-bold text-neutral-900 truncate">
+                            {user.firstName} {user.lastName}
+                          </p>
+                          <p className="text-xs text-neutral-500 truncate">
+                            {user.email || user.phone}
+                          </p>
+                        </div>
+                      </SheetTitle>
+                    </SheetHeader>
                     <Badge
                       variant="outline"
                       className={cn(
-                        'mt-1.5 text-[10px] font-medium px-2 py-0 h-5 border',
+                        'text-[11px] font-semibold px-2.5 py-0.5 h-6 border',
                         getRoleBadgeStyle(user.role)
                       )}
                     >
@@ -380,56 +385,141 @@ export function Header() {
                     </Badge>
                   </div>
 
-                  {/* Quick menu items */}
-                  <div className="space-y-0.5">
-                    {getUserMenuItems(user.role).slice(0, 5).map((item) => {
-                      const Icon = item.icon
+                  {/* Scrollable menu sections */}
+                  <ScrollArea className="flex-1">
+                    <div className="py-2">
+                      {groupedItems.map((group, gIdx) => (
+                        <div key={gIdx} className={gIdx > 0 ? 'mt-1' : ''}>
+                          {/* Group label */}
+                          {group.group && (
+                            <p className="px-5 pt-3 pb-1 text-[10px] font-bold tracking-widest text-neutral-400 uppercase">
+                              {group.group}
+                            </p>
+                          )}
+                          {/* Group items */}
+                          <ul className="px-3 space-y-0.5">
+                            {group.items.map((item) => {
+                              const Icon = item.icon
+                              return (
+                                <li key={item.id}>
+                                  <SheetClose asChild>
+                                    <button
+                                      onClick={() => handleMobileDashboardItem(item.section)}
+                                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-neutral-700 rounded-lg hover:bg-brand-50 hover:text-brand-700 transition-colors text-left group"
+                                    >
+                                      <Icon className="size-[18px] text-neutral-400 group-hover:text-brand-500 shrink-0 transition-colors" />
+                                      <span className="flex-1">{item.label}</span>
+                                      <ChevronRight className="size-3.5 text-neutral-300 group-hover:text-brand-400 shrink-0 transition-colors" />
+                                    </button>
+                                  </SheetClose>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+
+                  {/* Bottom: public nav + logout */}
+                  <div className="border-t border-neutral-100 bg-neutral-50/80">
+                    {/* Quick public nav */}
+                    <div className="px-3 py-2 flex gap-1">
+                      {navLinks.map((link) => {
+                        const Icon = link.icon
+                        const isActive = currentView === link.view
+                        return (
+                          <SheetClose asChild key={link.label}>
+                            <button
+                              onClick={() => handleNavClick(link.view)}
+                              className={cn(
+                                'flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-medium transition-colors',
+                                isActive
+                                  ? 'text-brand-600 bg-brand-50'
+                                  : 'text-neutral-500 hover:text-brand-600 hover:bg-brand-50'
+                              )}
+                            >
+                              <Icon className="size-4" />
+                              {link.label}
+                            </button>
+                          </SheetClose>
+                        )
+                      })}
+                    </div>
+
+                    <Separator />
+
+                    {/* Logout */}
+                    <div className="px-3 py-2">
+                      <SheetClose asChild>
+                        <button
+                          onClick={handleLogout}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 rounded-lg hover:bg-red-50 transition-colors text-left"
+                        >
+                          <LogOut className="size-[18px] shrink-0" />
+                          <span>Déconnexion</span>
+                        </button>
+                      </SheetClose>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* ── NOT AUTHENTICATED: classic nav + login ── */
+                <>
+                  <SheetHeader className="px-4 pt-4">
+                    <SheetTitle className="flex items-center gap-2">
+                      <Image
+                        src="/favicon-96x96.png"
+                        alt="Mon Toit"
+                        width={24}
+                        height={24}
+                        className="shrink-0"
+                      />
+                      <span className="text-brand-500 font-bold">MON TOIT</span>
+                    </SheetTitle>
+                  </SheetHeader>
+
+                  <nav className="flex flex-col gap-1 px-4 pt-2">
+                    {navLinks.map((link) => {
+                      const Icon = link.icon
+                      const isActive = currentView === link.view
                       return (
-                        <SheetClose asChild key={item.id}>
+                        <SheetClose asChild key={link.label}>
                           <button
-                            onClick={() => handleMobileDashboardItem(item.section)}
-                            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-neutral-700 rounded-md hover:bg-brand-50 hover:text-brand-700 transition-colors text-left"
+                            onClick={() => handleNavClick(link.view)}
+                            className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-colors text-left ${
+                              isActive
+                                ? 'text-brand-500 bg-brand-50'
+                                : 'text-neutral-700 hover:text-brand-500 hover:bg-brand-50'
+                            }`}
                           >
-                            <Icon className="size-4 text-neutral-400 shrink-0" />
-                            <span>{item.label}</span>
+                            <Icon className="size-4" />
+                            {link.label}
                           </button>
                         </SheetClose>
                       )
                     })}
-                  </div>
+                  </nav>
 
-                  <Separator className="my-2" />
-
-                  <SheetClose asChild>
-                    <button
-                      onClick={async () => { setOpen(false); await logout() }}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 rounded-md hover:bg-red-50 transition-colors text-left"
-                    >
-                      <LogOut className="size-4 shrink-0" />
-                      <span>Déconnexion</span>
-                    </button>
-                  </SheetClose>
-                </>
-              ) : (
-                <>
-                  <Separator className="mb-3" />
-                  <div className="flex flex-col gap-2">
-                    <SheetClose asChild>
-                      <Button variant="outline" className="w-full" onClick={handleLogin}>
-                        Se connecter
-                      </Button>
-                    </SheetClose>
-                    <SheetClose asChild>
-                      <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white" onClick={handleLogin}>
-                        S&apos;inscrire
-                      </Button>
-                    </SheetClose>
+                  <div className="px-4 mt-4 pt-4 border-t border-neutral-200">
+                    <div className="flex flex-col gap-2">
+                      <SheetClose asChild>
+                        <Button variant="outline" className="w-full" onClick={handleLogin}>
+                          Se connecter
+                        </Button>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white" onClick={handleLogin}>
+                          S&apos;inscrire
+                        </Button>
+                      </SheetClose>
+                    </div>
                   </div>
                 </>
               )}
-            </div>
-          </SheetContent>
-        </Sheet>
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
     </header>
   )
