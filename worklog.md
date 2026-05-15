@@ -80,3 +80,41 @@ Stage Summary:
 - Dropdown includes profile info, role badge, and role-specific navigation items
 - Mobile menu also updated with profile info and quick-access items
 - All 5 roles have tailored menu items matching the dashboard sidebar
+
+---
+Task ID: 4
+Agent: main
+Task: Fix 401 Unauthorized error on /api/dashboard/locataire and all dashboard API calls
+
+Work Log:
+- Analyzed the root cause: dashboard overview components made fetch() calls without `credentials: 'include'`, and handled 401 by calling logout() but still logged errors to console
+- Created shared `authFetch` utility (`/src/lib/auth-fetch.ts`) that:
+  - Always includes `credentials: 'include'` to ensure cookies are sent
+  - On 401, attempts to re-validate session via `checkAuth()` before logging out
+  - If re-auth succeeds, retries the original request once
+  - If still 401 after retry, calls `logout()` gracefully and throws `AuthError`
+  - Handles 403 (access denied) and other errors with `AuthError` class
+- Updated all 4 dashboard overview components:
+  - `locataire/overview.tsx` - Added `isAuthenticated` guard, uses `authFetch`, silent 401 handling
+  - `proprietaire/overview.tsx` - Same pattern
+  - `tc/overview.tsx` - Same pattern
+  - `admin/overview.tsx` - Same pattern
+- Updated all 13 remaining dashboard sub-components:
+  - proprietaire/: messages, my-leases, my-properties, rental-files, visit-requests
+  - tc/: rental-files-queue, sla-monitoring, owner-validations
+  - admin/: users, disputes
+  - locataire/: my-visits, my-leases, messages
+- Pattern used in all components:
+  - `useCallback` for `fetchData` function depending on `[isAuthenticated]`
+  - `isAuthenticated` guard before making API calls
+  - `authFetch<T>()` instead of raw `fetch()`
+  - Silent 401 handling: just set default data, no console.error
+  - Other errors: show error state in UI
+  - Also fixed pre-existing type bug in 3 files where arrays were double-nested
+- Lint: 0 errors, 0 warnings
+
+Stage Summary:
+- Created `authFetch` utility with automatic credential handling and 401 retry logic
+- Updated all 17 dashboard components to use `authFetch` with `isAuthenticated` guards
+- 401 errors no longer appear in console (handled gracefully)
+- Components don't make API calls when not authenticated (prevents unnecessary 401s)

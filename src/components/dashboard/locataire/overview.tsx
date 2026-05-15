@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { FileText, Eye, FileSignature, MessageSquare, TrendingUp, Clock } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 
 interface DashboardData {
@@ -36,6 +37,13 @@ interface DashboardData {
     property: { title: string; images: Array<{ url: string }> }
     owner: { firstName: string; lastName: string }
   }>
+}
+
+interface ApiDashboardResponse {
+  stats?: Partial<DashboardData['stats']>
+  rentalFiles?: DashboardData['rentalFiles']
+  visitRequests?: DashboardData['visitRequests']
+  activeLeases?: DashboardData['activeLeases']
 }
 
 const defaultData: DashboardData = {
@@ -72,38 +80,41 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function LocataireOverview() {
-  const { user, logout } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [data, setData] = useState<DashboardData>(defaultData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetch('/api/dashboard/locataire')
-      .then((r) => {
-        if (r.status === 401) {
-          // Session expired — redirect to login
-          logout()
-          return null
-        }
-        if (!r.ok) throw new Error(`Erreur ${r.status}`)
-        return r.json()
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const d = await authFetch<ApiDashboardResponse>('/api/dashboard/locataire')
+      setData({
+        stats: { ...defaultData.stats, ...d.stats },
+        rentalFiles: d.rentalFiles ?? [],
+        visitRequests: d.visitRequests ?? [],
+        activeLeases: d.activeLeases ?? [],
       })
-      .then((d) => {
-        if (!d) return
-        setData({
-          stats: d.stats ?? defaultData.stats,
-          rentalFiles: d.rentalFiles ?? [],
-          visitRequests: d.visitRequests ?? [],
-          activeLeases: d.activeLeases ?? [],
-        })
-      })
-      .catch((err) => {
-        console.error('Locataire dashboard error:', err)
-        setError(err.message)
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        // authFetch already handled logout — just show default data silently
         setData(defaultData)
-      })
-      .finally(() => setLoading(false))
-  }, [logout])
+        return
+      }
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      setData(defaultData)
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   if (loading) {
     return (

@@ -1,16 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ClipboardCheck, FileText, Clock, AlertTriangle, Eye, Check, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
 export function RentalFilesQueue() {
+  const { isAuthenticated } = useAuthStore()
   const [files, setFiles] = useState<Array<{
     id: string; status: string; monthlyIncome: number | null; employer: string | null; createdAt: string
     tenant: { firstName: string; lastName: string; phone: string }
@@ -19,13 +22,34 @@ export function RentalFilesQueue() {
   const [loading, setLoading] = useState(true)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
 
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const d = await authFetch<{ pendingRentalFiles?: Array<{
+        id: string; status: string; monthlyIncome: number | null; employer: string | null; createdAt: string
+        tenant: { firstName: string; lastName: string; phone: string }
+        documents: Array<{ type: string; status: string; name: string }>
+      }> }>('/api/dashboard/tc')
+      setFiles(d.pendingRentalFiles || [])
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        // authFetch already handled logout — just show default data
+        setFiles([])
+        return
+      }
+      setFiles([])
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
   useEffect(() => {
-    fetch('/api/dashboard/tc')
-      .then((r) => r.json())
-      .then((d) => setFiles(d.pendingRentalFiles || []))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+    fetchData()
+  }, [fetchData])
 
   const handleValidate = (id: string) => { toast.success('Dossier validé avec succès !') }
   const handleReject = (id: string) => { toast.error('Dossier rejeté') }

@@ -1,30 +1,55 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Eye, Check, X, Clock, MapPin, Calendar, User, Phone } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
 export function VisitRequests() {
+  const { isAuthenticated } = useAuthStore()
   const [data, setData] = useState<Array<{
     id: string; status: string; requestedDate: string; timeSlot: string
     counterDate: string | null; counterTimeSlot: string | null; ownerComment: string | null
     tenant: { firstName: string; lastName: string; phone: string }
     property: { title: string; city: string }
-  }>[]>([])
+  }>>([])
   const [loading, setLoading] = useState(true)
 
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const d = await authFetch<{ visitRequests?: Array<{
+        id: string; status: string; requestedDate: string; timeSlot: string
+        counterDate: string | null; counterTimeSlot: string | null; ownerComment: string | null
+        tenant: { firstName: string; lastName: string; phone: string }
+        property: { title: string; city: string }
+      }> }>('/api/dashboard/proprietaire')
+      setData(d.visitRequests || [])
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        // authFetch already handled logout — just show default data
+        setData([])
+        return
+      }
+      setData([])
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
   useEffect(() => {
-    fetch('/api/dashboard/proprietaire')
-      .then((r) => r.json())
-      .then((d) => setData(d.visitRequests || []))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+    fetchData()
+  }, [fetchData])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
 

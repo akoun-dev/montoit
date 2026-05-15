@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Users, Building2, FileSignature, AlertTriangle, TrendingUp, DollarSign } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 
 interface AdminData {
@@ -20,6 +21,25 @@ interface AdminData {
     id: string; firstName: string; lastName: string; phone: string; role: string; isActive: boolean; createdAt: string
   }>
   disputes: Array<{
+    id: string; type: string; description: string; status: string; createdAt: string
+    reportedBy: { firstName: string; lastName: string }
+    lease: { property: { title: string } }
+  }>
+}
+
+interface ApiAdminResponse {
+  stats?: {
+    totalUsers?: number
+    totalProperties?: number
+    totalLeases?: number
+    totalDisputes?: number
+    totalRevenue?: number
+    usersByRole?: Record<string, number>
+  }
+  recentUsers?: Array<{
+    id: string; firstName: string; lastName: string; phone: string; role: string; isActive: boolean; createdAt: string
+  }>
+  disputes?: Array<{
     id: string; type: string; description: string; status: string; createdAt: string
     reportedBy: { firstName: string; lastName: string }
     lease: { property: { title: string } }
@@ -48,36 +68,39 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 export function AdminOverview() {
-  const { user, logout } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [data, setData] = useState<AdminData>(defaultData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetch('/api/dashboard/admin')
-      .then((r) => {
-        if (r.status === 401) {
-          logout()
-          return null
-        }
-        if (!r.ok) throw new Error(`Erreur ${r.status}`)
-        return r.json()
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const d = await authFetch<ApiAdminResponse>('/api/dashboard/admin')
+      setData({
+        stats: { ...defaultData.stats, ...d.stats },
+        recentUsers: d.recentUsers ?? [],
+        disputes: d.disputes ?? [],
       })
-      .then((d) => {
-        if (!d) return
-        setData({
-          stats: d.stats ?? defaultData.stats,
-          recentUsers: d.recentUsers ?? [],
-          disputes: d.disputes ?? [],
-        })
-      })
-      .catch((err) => {
-        console.error('Admin dashboard error:', err)
-        setError(err.message)
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
         setData(defaultData)
-      })
-      .finally(() => setLoading(false))
-  }, [logout])
+        return
+      }
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      setData(defaultData)
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
 

@@ -1,26 +1,50 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { FileSignature, Building2, User } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 
 export function ProprietaireLeases() {
+  const { isAuthenticated } = useAuthStore()
   const [data, setData] = useState<Array<{
     id: string; status: string; monthlyRent: number; charges: number; startDate: string; endDate: string
     tenant: { firstName: string; lastName: string }
     property: { title: string }
-  }>[]>([])
+  }>>([])
   const [loading, setLoading] = useState(true)
 
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const d = await authFetch<{ activeLeases?: Array<{
+        id: string; status: string; monthlyRent: number; charges: number; startDate: string; endDate: string
+        tenant: { firstName: string; lastName: string }
+        property: { title: string }
+      }> }>('/api/dashboard/proprietaire')
+      setData(d.activeLeases || [])
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        // authFetch already handled logout — just show default data
+        setData([])
+        return
+      }
+      setData([])
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
   useEffect(() => {
-    fetch('/api/dashboard/proprietaire')
-      .then((r) => r.json())
-      .then((d) => setData(d.activeLeases || []))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+    fetchData()
+  }, [fetchData])
 
   if (loading) return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
 

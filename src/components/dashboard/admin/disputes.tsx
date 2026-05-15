@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Eye, Check, MessageSquare } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -24,16 +26,34 @@ const typeLabels: Record<string, string> = {
 }
 
 export function Disputes() {
+  const { isAuthenticated } = useAuthStore()
   const [disputes, setDisputes] = useState<Dispute[]>([])
   const [loading, setLoading] = useState(true)
 
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const d = await authFetch<{ disputes?: Dispute[] }>('/api/dashboard/admin')
+      setDisputes(d.disputes || [])
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        // authFetch already handled logout — just show default data
+        setDisputes([])
+        return
+      }
+      setDisputes([])
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
   useEffect(() => {
-    fetch('/api/dashboard/admin')
-      .then((r) => r.json())
-      .then((d) => setDisputes(d.disputes || []))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+    fetchData()
+  }, [fetchData])
 
   if (loading) return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
 

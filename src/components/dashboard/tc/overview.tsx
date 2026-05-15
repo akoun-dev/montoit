@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { ClipboardCheck, BadgeCheck, Clock, AlertTriangle, FileText } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 
 interface TcData {
@@ -26,6 +27,25 @@ interface TcData {
   }>
 }
 
+interface ApiTcResponse {
+  stats?: {
+    pendingRentalFiles?: number
+    pendingOwnershipDocs?: number
+    totalReviewed?: number
+    overdueSlas?: number
+    slaCompliance?: number
+  }
+  pendingRentalFiles?: Array<{
+    id: string; status: string; monthlyIncome: number | null; createdAt: string
+    tenant: { firstName: string; lastName: string; phone: string }
+    documents: Array<{ type: string; status: string; name: string }>
+  }>
+  pendingOwnershipDocs?: Array<{
+    id: string; type: string; name: string; status: string; createdAt: string
+    owner: { firstName: string; lastName: string; phone: string }
+  }>
+}
+
 const defaultData: TcData = {
   stats: { pendingRentalFiles: 0, pendingOwnershipDocs: 0, totalReviewed: 0, overdueSlas: 0, slaCompliance: 100 },
   pendingRentalFiles: [],
@@ -36,36 +56,39 @@ const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transiti
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
 export function TcOverview() {
-  const { user, logout } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [data, setData] = useState<TcData>(defaultData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetch('/api/dashboard/tc')
-      .then((r) => {
-        if (r.status === 401) {
-          logout()
-          return null
-        }
-        if (!r.ok) throw new Error(`Erreur ${r.status}`)
-        return r.json()
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const d = await authFetch<ApiTcResponse>('/api/dashboard/tc')
+      setData({
+        stats: { ...defaultData.stats, ...d.stats },
+        pendingRentalFiles: d.pendingRentalFiles ?? [],
+        pendingOwnershipDocs: d.pendingOwnershipDocs ?? [],
       })
-      .then((d) => {
-        if (!d) return
-        setData({
-          stats: d.stats ?? defaultData.stats,
-          pendingRentalFiles: d.pendingRentalFiles ?? [],
-          pendingOwnershipDocs: d.pendingOwnershipDocs ?? [],
-        })
-      })
-      .catch((err) => {
-        console.error('TC dashboard error:', err)
-        setError(err.message)
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
         setData(defaultData)
-      })
-      .finally(() => setLoading(false))
-  }, [logout])
+        return
+      }
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      setData(defaultData)
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
 

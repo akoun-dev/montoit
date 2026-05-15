@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Building2, Eye, FileSignature, TrendingUp, FileText, ClipboardCheck } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 
 interface ProprietaireData {
@@ -31,6 +32,30 @@ interface ProprietaireData {
   }>
 }
 
+interface ApiProprietaireResponse {
+  stats?: {
+    totalProperties?: number
+    activeProperties?: number
+    pendingVisits?: number
+    activeLeases?: number
+    totalRevenue?: number
+  }
+  properties?: Array<{
+    id: string; title: string; type: string; price: number; city: string; status: string; bedrooms: number | null; area: number
+    images: Array<{ url: string }>
+  }>
+  visitRequests?: Array<{
+    id: string; status: string; createdAt: string; requestedDate: string; timeSlot: string
+    tenant: { firstName: string; lastName: string; phone: string }
+    property: { title: string; city: string }
+  }>
+  activeLeases?: Array<{
+    id: string; status: string; monthlyRent: number; startDate: string; endDate: string
+    tenant: { firstName: string; lastName: string }
+    property: { title: string }
+  }>
+}
+
 const defaultData: ProprietaireData = {
   stats: { totalProperties: 0, activeProperties: 0, pendingVisits: 0, activeLeases: 0, totalRevenue: 0 },
   properties: [],
@@ -48,37 +73,40 @@ const itemVariants = {
 }
 
 export function ProprietaireOverview() {
-  const { user, logout } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [data, setData] = useState<ProprietaireData>(defaultData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetch('/api/dashboard/proprietaire')
-      .then((r) => {
-        if (r.status === 401) {
-          logout()
-          return null
-        }
-        if (!r.ok) throw new Error(`Erreur ${r.status}`)
-        return r.json()
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const d = await authFetch<ApiProprietaireResponse>('/api/dashboard/proprietaire')
+      setData({
+        stats: { ...defaultData.stats, ...d.stats },
+        properties: d.properties ?? [],
+        visitRequests: d.visitRequests ?? [],
+        activeLeases: d.activeLeases ?? [],
       })
-      .then((d) => {
-        if (!d) return
-        setData({
-          stats: d.stats ?? defaultData.stats,
-          properties: d.properties ?? [],
-          visitRequests: d.visitRequests ?? [],
-          activeLeases: d.activeLeases ?? [],
-        })
-      })
-      .catch((err) => {
-        console.error('Proprietaire dashboard error:', err)
-        setError(err.message)
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
         setData(defaultData)
-      })
-      .finally(() => setLoading(false))
-  }, [logout])
+        return
+      }
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      setData(defaultData)
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
 

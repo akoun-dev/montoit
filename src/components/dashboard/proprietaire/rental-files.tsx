@@ -1,26 +1,50 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ClipboardCheck, FileText } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 
 export function ProprietaireRentalFiles() {
+  const { isAuthenticated } = useAuthStore()
   const [data, setData] = useState<Array<{
     id: string; status: string; monthlyIncome: number | null; employer: string | null
     tenant: { firstName: string; lastName: string; phone: string }
     documents: Array<{ type: string; status: string; name: string }>
-  }>[]>([])
+  }>>([])
   const [loading, setLoading] = useState(true)
 
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const d = await authFetch<{ rentalFiles?: Array<{
+        id: string; status: string; monthlyIncome: number | null; employer: string | null
+        tenant: { firstName: string; lastName: string; phone: string }
+        documents: Array<{ type: string; status: string; name: string }>
+      }> }>('/api/dashboard/proprietaire')
+      setData(d.rentalFiles || [])
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        // authFetch already handled logout — just show default data
+        setData([])
+        return
+      }
+      setData([])
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
   useEffect(() => {
-    fetch('/api/dashboard/proprietaire')
-      .then((r) => r.json())
-      .then((d) => setData(d.rentalFiles || []))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+    fetchData()
+  }, [fetchData])
 
   if (loading) return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
 

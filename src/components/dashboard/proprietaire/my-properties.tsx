@@ -1,13 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Building2, Edit, Eye, Power } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 
 export function MyProperties() {
+  const { isAuthenticated } = useAuthStore()
   const [properties, setProperties] = useState<Array<{
     id: string; title: string; type: string; price: number; city: string; commune: string | null; status: string
     bedrooms: number | null; bathrooms: number | null; area: number; isFurnished: boolean; hasParking: boolean; hasGarden: boolean; hasPool: boolean
@@ -15,13 +18,34 @@ export function MyProperties() {
   }>>([])
   const [loading, setLoading] = useState(true)
 
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const d = await authFetch<{ properties?: Array<{
+        id: string; title: string; type: string; price: number; city: string; commune: string | null; status: string
+        bedrooms: number | null; bathrooms: number | null; area: number; isFurnished: boolean; hasParking: boolean; hasGarden: boolean; hasPool: boolean
+        images: Array<{ url: string; order: number }>
+      }> }>('/api/dashboard/proprietaire')
+      setProperties(d.properties || [])
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        // authFetch already handled logout — just show default data
+        setProperties([])
+        return
+      }
+      setProperties([])
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
   useEffect(() => {
-    fetch('/api/dashboard/proprietaire')
-      .then((r) => r.json())
-      .then((d) => setProperties(d.properties || []))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+    fetchData()
+  }, [fetchData])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-48 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
 

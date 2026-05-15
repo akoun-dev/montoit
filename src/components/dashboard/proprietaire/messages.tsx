@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { MessageSquare, Send, ArrowLeft } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 
 interface Conversation {
@@ -18,20 +19,35 @@ interface Conversation {
 }
 
 export function ProprietaireMessages() {
-  const { user } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      await authFetch('/api/dashboard/proprietaire')
+      // The proprietaire API doesn't return conversations yet, so we'll show a placeholder
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        // authFetch already handled logout — just show default data
+        setConversations([])
+        return
+      }
+      setConversations([])
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
   useEffect(() => {
-    // Reuse the locataire data structure for messages; in production would be specific
-    fetch('/api/dashboard/proprietaire')
-      .then(() => {
-        // The proprietaire API doesn't return conversations yet, so we'll show a placeholder
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+    fetchData()
+  }, [fetchData])
 
   const selected = conversations.find((c) => c.id === selectedId)
 

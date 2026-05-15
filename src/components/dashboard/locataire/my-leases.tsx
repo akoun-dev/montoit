@@ -1,12 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { FileSignature, Building2, Calendar, User } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 
 export function MyLeases() {
+  const { isAuthenticated } = useAuthStore()
   const [data, setData] = useState<{ activeLeases: Array<{
     id: string; status: string; monthlyRent: number; charges: number; deposit: number; startDate: string; endDate: string
     property: { title: string; images: Array<{ url: string }> }
@@ -14,13 +17,34 @@ export function MyLeases() {
   }> } | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const d = await authFetch<{ activeLeases: Array<{
+        id: string; status: string; monthlyRent: number; charges: number; deposit: number; startDate: string; endDate: string
+        property: { title: string; images: Array<{ url: string }> }
+        owner: { firstName: string; lastName: string }
+      }> }>('/api/dashboard/locataire')
+      setData(d)
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        // authFetch already handled logout — just show default data
+        setData(null)
+        return
+      }
+      setData(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
   useEffect(() => {
-    fetch('/api/dashboard/locataire')
-      .then((r) => r.json())
-      .then((d) => setData(d))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+    fetchData()
+  }, [fetchData])
 
   if (loading) {
     return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>

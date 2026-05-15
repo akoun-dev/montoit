@@ -1,27 +1,50 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { BadgeCheck, FileText, Check, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
 export function OwnerValidations() {
+  const { isAuthenticated } = useAuthStore()
   const [docs, setDocs] = useState<Array<{
     id: string; type: string; name: string; status: string; createdAt: string
     owner: { firstName: string; lastName: string; phone: string }
   }>>([])
   const [loading, setLoading] = useState(true)
 
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const d = await authFetch<{ pendingOwnershipDocs?: Array<{
+        id: string; type: string; name: string; status: string; createdAt: string
+        owner: { firstName: string; lastName: string; phone: string }
+      }> }>('/api/dashboard/tc')
+      setDocs(d.pendingOwnershipDocs || [])
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        // authFetch already handled logout — just show default data
+        setDocs([])
+        return
+      }
+      setDocs([])
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
   useEffect(() => {
-    fetch('/api/dashboard/tc')
-      .then((r) => r.json())
-      .then((d) => setDocs(d.pendingOwnershipDocs || []))
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
+    fetchData()
+  }, [fetchData])
 
   if (loading) return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
 
