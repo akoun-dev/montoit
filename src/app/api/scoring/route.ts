@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
 
     // ── 4. Dossier locataire (50%) ──────────────────────────────────────────
     const approvedRentalFile = await db.rentalFile.findFirst({
-      where: { tenantId: userId, status: 'APPROVED' },
+      where: { tenantId: userId, status: 'VALIDATED' },
       select: { id: true, status: true },
     })
     const hasApprovedRentalFile = !!approvedRentalFile
