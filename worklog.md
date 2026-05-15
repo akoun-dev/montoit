@@ -47,3 +47,36 @@ Stage Summary:
 - Session now persists across page refreshes using localStorage + server cookie
 - No more flash of wrong view on refresh (loading spinner shown during auth check)
 - Server-validated session ensures persisted state stays in sync
+
+---
+Task ID: 3
+Agent: main
+Task: Redesign header user dropdown with avatar icon + role-specific menu
+
+Work Log:
+- Analyzed user's screenshot showing a mobile-style profile dropdown with user info, role badge, and menu items
+- Completely redesigned `src/components/home/header.tsx` for logged-in users on public views
+- Desktop: Replaced text name + "Tableau de bord" + "Déconnexion" buttons with a single avatar icon dropdown
+  - Avatar button shows user initials with brand-100 background and border
+  - Dropdown opens on click with rich content:
+    - Profile header: name, email/phone, role badge (color-coded per role)
+    - Role-specific menu items with icons (e.g., "Mes favoris", "Mes visites" for locataire)
+    - Déconnexion item in red at the bottom
+  - Each menu item navigates to the corresponding dashboard section
+- Mobile (Sheet menu): Updated with same profile info and role badge at top
+  - Shows first 5 menu items as quick-access buttons
+  - Déconnexion in red at bottom
+- Added `getUserMenuItems()` function returning role-specific items:
+  - LOCATAIRE: Mon Espace, Mes favoris, Mes visites, Mes contrats, Messages, Mon profil
+  - PROPRIETAIRE: Mon Espace, Mes biens, Ajouter un bien, Demandes de visite, Dossiers locatifs, Mes baux, Messages, Mon profil
+  - AGENCE: Mon Espace, Nos biens, Ajouter un bien, Demandes de visite, Dossiers locatifs, Nos baux, Messages, Profil agence
+  - TIERS_CONFIANCE: Mon Espace, Dossiers à valider, Validations, Suivi SLA, Mon profil
+  - ADMIN: Mon Espace, Utilisateurs, Modération biens, Gestion TC, Litiges, Rapports, Paramètres
+- Added `getRoleBadgeStyle()` with role-specific color coding (amber, emerald, teal, orange, rose)
+- Lint clean, no errors
+
+Stage Summary:
+- Header now shows user avatar icon that opens a rich dropdown menu
+- Dropdown includes profile info, role badge, and role-specific navigation items
+- Mobile menu also updated with profile info and quick-access items
+- All 5 roles have tailored menu items matching the dashboard sidebar
