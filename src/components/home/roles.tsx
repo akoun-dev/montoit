@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Home, Building2, ShieldCheck, Settings, ArrowRight } from 'lucide-react'
+import { Home, Building2, Landmark, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface Role {
@@ -27,18 +27,11 @@ const roles: Role[] = [
     cta: 'Je publie une annonce',
   },
   {
-    title: 'Tiers de Confiance',
+    title: 'Agence',
     description:
-      'Validez les identités, dossiers et titres de propriété pour garantir la confiance',
-    icon: ShieldCheck,
-    cta: 'Devenir validateur',
-  },
-  {
-    title: 'Administration',
-    description:
-      'Supervisez la plateforme, modérez les contenus et accédez aux rapports',
-    icon: Settings,
-    cta: 'Accès administration',
+      'Gérez les biens de vos clients, publiez des annonces et suivez les dossiers locatifs',
+    icon: Landmark,
+    cta: 'Espace agence',
   },
 ]
 
@@ -113,7 +106,7 @@ export function Roles() {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-50px' }}
-          className="grid grid-cols-1 sm:grid-cols-2 gap-6"
+          className="grid grid-cols-1 sm:grid-cols-3 gap-6"
         >
           {roles.map((role) => (
             <RoleCard key={role.title} role={role} />
