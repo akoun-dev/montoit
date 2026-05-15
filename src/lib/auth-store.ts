@@ -29,6 +29,8 @@ interface AuthState {
   // Email OTP flow state
   pendingEmail: string
   authMethod: AuthMethod
+  // Dev code for testing
+  devCode: string
   // OTP purpose tracking
   otpPurpose: OtpPurpose
   dashboardSection: string
@@ -62,6 +64,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   pendingPhone: '',
   pendingEmail: '',
   authMethod: 'email',
+  devCode: '',
   otpPurpose: 'login',
   dashboardSection: 'overview',
   selectedPropertyId: '',
@@ -224,6 +227,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         pendingEmail: data.email,
         otpPurpose: 'email_verify',
         currentView: 'email-verify',
+        devCode: result.devCode || '',
       })
     } catch (error) {
       set({ isLoading: false })
@@ -250,6 +254,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         pendingPhone: data.phone,
         otpPurpose: 'login',
         currentView: 'otp-verify',
+        devCode: result.devCode || '',
       })
     } catch (error) {
       set({ isLoading: false })
@@ -319,6 +324,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         pendingEmail: '',
         authMethod: 'email',
         otpPurpose: 'login',
+        devCode: '',
         dashboardSection: 'overview',
         selectedPropertyId: '',
       })

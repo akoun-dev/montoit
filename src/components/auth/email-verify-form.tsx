@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { MailCheck, ArrowLeft, RotateCcw, Mail } from 'lucide-react'
+import { MailCheck, ArrowLeft, RotateCcw, Mail, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,12 +16,14 @@ export function EmailVerifyForm() {
   const [code, setCode] = useState('')
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN)
   const [isResending, setIsResending] = useState(false)
+  const [copied, setCopied] = useState(false)
   const {
     verifyEmailOtp,
     sendEmailOtp,
     pendingEmail,
     otpPurpose,
     isLoading,
+    devCode,
     setView,
   } = useAuthStore()
 
@@ -36,6 +38,12 @@ export function EmailVerifyForm() {
     const timer = setTimeout(() => setCooldown((c) => c - 1), 1000)
     return () => clearTimeout(timer)
   }, [cooldown])
+
+  const handleCopyDevCode = () => {
+    navigator.clipboard.writeText(devCode)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -127,6 +135,25 @@ export function EmailVerifyForm() {
                   autoFocus
                 />
               </div>
+
+              {/* Dev mode: show dev code */}
+              {devCode && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-xs font-medium text-amber-700 mb-1.5">🔧 Mode développement</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-mono font-bold text-amber-900 tracking-wider">{devCode}</span>
+                    <button
+                      type="button"
+                      onClick={handleCopyDevCode}
+                      className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 transition-colors"
+                    >
+                      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                      {copied ? 'Copié' : 'Copier'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <Button
                 type="submit"
                 className="w-full h-11 bg-brand-500 hover:bg-brand-600 text-white text-base font-semibold"

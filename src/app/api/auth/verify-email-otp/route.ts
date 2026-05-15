@@ -9,13 +9,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email et code requis' }, { status: 400 })
     }
 
+    // Normalize email to lowercase for consistent lookups
+    const normalizedEmail = email.toLowerCase().trim()
+    const trimmedCode = code.trim()
+
     const otpType = purpose === 'password_reset' ? 'PASSWORD_RESET' : 'EMAIL_VERIFY'
 
-    // Find valid OTP
-    const otp = await db.oTPCode.findFirst({
+    // Find valid OTP — try with normalized email
+    let otp = await db.oTPCode.findFirst({
       where: {
-        email,
-        code,
+        email: normalizedEmail,
+        code: trimmedCode,
         type: otpType,
         isUsed: false,
         expiresAt: { gt: new Date() },
@@ -23,22 +27,50 @@ export async function POST(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
+    // If not found, try with the original email (in case of casing differences)
+    if (!otp && normalizedEmail !== email) {
+      otp = await db.oTPCode.findFirst({
+        where: {
+          email,
+          code: trimmedCode,
+          type: otpType,
+          isUsed: false,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+    }
+
     if (!otp) {
-      return NextResponse.json({ error: 'Code invalide ou expiré' }, { status: 400 })
+      // Log for debugging
+      const allOtps = await db.oTPCode.findMany({
+        where: {
+          email: normalizedEmail,
+          type: otpType,
+          isUsed: false,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+        select: { code: true, expiresAt: true, isUsed: true, createdAt: true },
+      })
+      console.warn(`[Verify-Email-OTP] No matching OTP found for email=${normalizedEmail}, code=${trimmedCode}, type=${otpType}. Active OTPs:`, JSON.stringify(allOtps))
+
+      return NextResponse.json({ error: 'Code invalide ou expiré. Veuillez vérifier le code ou demander un nouveau.' }, { status: 400 })
     }
 
     // Mark OTP as used
     await db.oTPCode.update({ where: { id: otp.id }, data: { isUsed: true } })
 
     // Find the user by email
-    const user = await db.user.findUnique({ where: { email } })
+    const user = await db.user.findUnique({ where: { email: normalizedEmail } })
+      || await db.user.findUnique({ where: { email } })
 
     if (otpType === 'EMAIL_VERIFY') {
       // If temp user (email verification during registration)
       if (user && user.firstName === 'Temp' && user.lastName === 'User' && !user.isEmailVerified) {
         return NextResponse.json({
           needsRegistration: true,
-          email,
+          email: normalizedEmail,
         })
       }
 
@@ -75,14 +107,14 @@ export async function POST(req: NextRequest) {
         return response
       }
 
-      return NextResponse.json({ needsRegistration: true, email })
+      return NextResponse.json({ needsRegistration: true, email: normalizedEmail })
     }
 
     // For PASSWORD_RESET type, just confirm the code is valid
     if (otpType === 'PASSWORD_RESET') {
       return NextResponse.json({
         valid: true,
-        email,
+        email: normalizedEmail,
       })
     }
 
