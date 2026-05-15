@@ -5,7 +5,7 @@ import {
   Building2, PlusCircle, ClipboardCheck, Users, Shield, 
   BarChart3, Settings, AlertTriangle, Clock, BadgeCheck,
   LayoutDashboard, ChevronLeft, ChevronRight,
-  Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History
+  Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck
 } from 'lucide-react'
 import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
@@ -55,6 +55,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
         {
           title: 'COMPTE',
           items: [
+            { id: 'trust-score', label: 'Trust Score', icon: ShieldCheck },
             { id: 'reviews', label: 'Mes avis', icon: Star },
             { id: 'maintenance', label: 'Maintenance', icon: Wrench },
             { id: 'history', label: 'Historique', icon: History },

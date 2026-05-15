@@ -151,3 +151,46 @@ Stage Summary:
 - Single shared `useFavorites` instance per view (instead of N instances per N cards)
 - Optimistic updates properly revert on server error
 - All lint checks pass
+
+---
+Task ID: 6
+Agent: main
+Task: Add Trust Score / Scoring system to locataire profile
+
+Work Log:
+- Analyzed user's screenshots showing the Trust Score UI with scoring rules
+- Scoring rules identified:
+  - Profil complet (5%): Required fields = Nom complet, Téléphone, Ville, Adresse, Genre
+  - NEOFACE (20%): Biometric verification
+  - ONECI (25%): National ID card verification (CNI authentifiée)
+  - Dossier locataire (50%): Rental file approved by TC
+  - Status thresholds: 70+ = Approuvé, 50-69 = Sous conditions, <50 = Non recommandé
+- Updated Prisma schema (`prisma/schema.prisma`):
+  - Added `gender`, `city`, `address` fields to User model
+  - Added `neofaceVerified` (Boolean, default false) and `oneciVerified` (Boolean, default false)
+  - Ran `bun run db:push` successfully
+- Created API route (`/api/scoring/route.ts`):
+  - Computes Trust Score based on 4 components with weighted percentages
+  - Profile completeness: calculates based on 5 required fields (fullName, phone, city, address, gender)
+  - NEOFACE: 20 points if verified
+  - ONECI: 25 points if verified
+  - Rental file: 50 points if any APPROVED rental file exists
+  - Returns score, status, breakdown, and recommendations
+- Created Trust Score UI component (`src/components/dashboard/locataire/trust-score.tsx`):
+  - Animated circular score display (SVG with progress animation)
+  - Status badge (Approuvé/Sous conditions/Non recommandé) with color coding
+  - Score bars for each category with animated progress
+  - Recommendations section with action buttons
+  - Expandable detail sections: profile fields, verification status, how it works explanation
+  - Matches the design from user's screenshots
+- Added "Trust Score" sidebar entry for LOCATAIRE role
+- Updated Settings page to show mini Trust Score badge and clickable card
+- Wired up in dashboard index (case 'trust-score': return <TrustScore />)
+- All lint checks pass (0 errors, 0 warnings)
+
+Stage Summary:
+- Trust Score system fully implemented with same rules as screenshots
+- API computes score from profile completeness + NEOFACE + ONECI + rental file status
+- Beautiful UI with animated score circle, progress bars, and recommendations
+- Accessible from sidebar (Trust Score) and Settings page (mini badge + card)
+- Status thresholds: 70+ Approuvé, 50-69 Sous conditions, <50 Non recommandé

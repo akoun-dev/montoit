@@ -16,6 +16,7 @@ import { Reviews } from './locataire/reviews'
 import { Maintenance } from './locataire/maintenance'
 import { ActivityHistory } from './locataire/history'
 import { SettingsSection } from './locataire/settings'
+import { TrustScore } from './locataire/trust-score'
 import { ProprietaireOverview } from './proprietaire/overview'
 import { MyProperties } from './proprietaire/my-properties'
 import { AddProperty } from './proprietaire/add-property'
@@ -51,6 +52,7 @@ function LocataireDashboard({ section }: { section: string }) {
     case 'reviews': return <Reviews />
     case 'maintenance': return <Maintenance />
     case 'history': return <ActivityHistory />
+    case 'trust-score': return <TrustScore />
     case 'settings': return <SettingsSection />
     default: return <LocataireOverview />
   }

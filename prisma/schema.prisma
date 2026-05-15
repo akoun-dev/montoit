@@ -143,6 +143,12 @@ model User {
   isActive        Boolean   @default(true)
   isEmailVerified Boolean   @default(false)
   isPhoneVerified Boolean   @default(false)
+  // Trust Score verification fields
+  gender          String?           // Genre (M/F)
+  city            String?           // Ville
+  address         String?           // Adresse
+  neofaceVerified Boolean   @default(false) // Vérification biométrique NEOFACE
+  oneciVerified   Boolean   @default(false) // Vérification CNI ONECI
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
