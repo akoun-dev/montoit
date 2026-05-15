@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { MapPin, Heart, Eye, ShieldCheck, ArrowRight } from 'lucide-react'
@@ -58,8 +58,7 @@ function formatPrice(price: number): string {
   return price.toLocaleString('fr-FR')
 }
 
-function PropertyCard({ property }: { property: Property }) {
-  const { isFavorite, toggleFavorite } = useFavorites([property.id])
+function PropertyCard({ property, isFavorite, onToggleFavorite }: { property: Property; isFavorite: boolean; onToggleFavorite: (id: string) => Promise<boolean> }) {
   const { setView, setSelectedPropertyId, isAuthenticated } = useAuthStore()
 
   const handleClick = () => {
@@ -124,14 +123,14 @@ function PropertyCard({ property }: { property: Property }) {
             e.preventDefault()
             e.stopPropagation()
             if (!isAuthenticated) { setView('login'); return }
-            toggleFavorite(property.id)
+            onToggleFavorite(property.id)
           }}
           className="absolute top-3 right-3 size-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center transition-opacity hover:bg-white shadow-sm"
-          aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
         >
           <Heart
             className={`size-4 transition-colors ${
-              isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-neutral-500'
+              isFavorite ? 'fill-red-500 text-red-500' : 'text-neutral-500'
             }`}
           />
         </button>
@@ -181,6 +180,10 @@ export function NosBiens() {
   const { setView } = useAuthStore()
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Single shared favorites hook for all property cards
+  const propertyIds = useMemo(() => properties.map(p => p.id), [properties])
+  const { isFavorite: checkIsFavorite, toggleFavorite } = useFavorites(propertyIds)
 
   useEffect(() => {
     fetch('/api/properties?limit=6')
@@ -244,7 +247,12 @@ export function NosBiens() {
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
           >
             {properties.map((property) => (
-              <PropertyCard key={property.id} property={property} />
+              <PropertyCard
+                key={property.id}
+                property={property}
+                isFavorite={checkIsFavorite(property.id)}
+                onToggleFavorite={toggleFavorite}
+              />
             ))}
           </motion.div>
         ) : (

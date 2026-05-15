@@ -648,8 +648,8 @@ export function NosBiensView() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Favorites
-  const propertyIds = properties.map(p => p.id)
+  // Favorites — useMemo to stabilize the array reference
+  const propertyIds = useMemo(() => properties.map(p => p.id), [properties])
   const { isFavorite, toggleFavorite } = useFavorites(propertyIds)
 
   // Dynamic filter options from DB

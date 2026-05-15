@@ -118,3 +118,36 @@ Stage Summary:
 - Updated all 17 dashboard components to use `authFetch` with `isAuthenticated` guards
 - 401 errors no longer appear in console (handled gracefully)
 - Components don't make API calls when not authenticated (prevents unnecessary 401s)
+
+---
+Task ID: 5
+Agent: main
+Task: Fix favorites system - "le systeme de favories ne fonctionne pas"
+
+Work Log:
+- Investigated the favorites system: API routes, Prisma schema, useFavorites hook, and UI components
+- Identified 4 critical bugs in the `useFavorites` hook:
+  1. **Infinite re-render loop**: `useEffect` depended on `propertyIds` array, which creates new reference every render → triggers effect → sets state → re-render → loop
+  2. **`toggleFavorite` had `favoritesMap` as dependency**: caused callback to recreate on every state change, leading to stale closures and re-renders
+  3. **Each PropertyCard in `properties.tsx` created its own `useFavorites([property.id])` instance**: isolated state per card, N API calls instead of 1, toggling didn't sync across cards
+  4. **No error revert on server failure in toggleFavorite**: if the API returned an error, the optimistic update wasn't reverted
+- Fixed `src/lib/use-favorites.ts`:
+  - Used `JSON.stringify(propertyIds)` as stable key for useEffect dependency instead of the array reference
+  - Used `propertyIdsRef` to pass latest IDs to effect without adding them as dependency
+  - Used `favoritesMapRef` in `toggleFavorite` to access current state without adding it as dependency
+  - Added server error revert in `toggleFavorite` (previously only reverted on catch)
+  - Lint clean (0 errors, 0 warnings)
+- Fixed `src/components/home/properties.tsx`:
+  - Changed `PropertyCard` to receive `isFavorite` and `onToggleFavorite` as props instead of creating its own `useFavorites` instance
+  - Moved `useFavorites` to parent `NosBiens` component with `useMemo` for stable propertyIds
+  - Single shared hook = single API call, consistent state across all cards
+  - Added `useMemo` import
+- Fixed `src/components/home/nos-biens-view.tsx`:
+  - Changed `propertyIds = properties.map(p => p.id)` to `useMemo(() => properties.map(p => p.id), [properties])`
+  - Prevents new array reference on every render
+
+Stage Summary:
+- Favorites system now works without infinite re-render loops
+- Single shared `useFavorites` instance per view (instead of N instances per N cards)
+- Optimistic updates properly revert on server error
+- All lint checks pass
