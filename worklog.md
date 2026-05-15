@@ -138,3 +138,28 @@ Stage Summary:
 - Favorite button auth-gated and mobile-visible on homepage cards
 - Property detail back button intelligently returns to previous view (home or nos-biens)
 - Homepage now ends at Trust section ("Nos Valeurs") — About and Contact removed
+
+---
+Task ID: 5
+Agent: Main
+Task: Redesign homepage properties section to match reference image, remove filters
+
+Work Log:
+- Analyzed reference image using VLM to identify layout: "Annonces récents" header with subtitle, "Voir tout →" link, 3-column grid, no filters
+- Card design: status badges (Disponible/Loué) + Meublé badge on image, heart icon, title, location with MapPin, features (pièces • m²), bold price, views count with Eye icon, Vérifié badge with ShieldCheck
+- Removed all filter controls (type, city, budget, meublé filter, reset buttons)
+- Removed unused imports (Select, Checkbox, Label, SlidersHorizontal, RotateCcw, Button)
+- Changed section header from centered "Nos Biens" to left-aligned "Annonces récents" with subtitle and "Voir tout →" link on right
+- Updated Property interface with status, views, verified fields
+- Updated property data with new titles (e.g. "Appartement F3 moderne – Cocody"), location format, view counts, verified status
+- Redesigned PropertyCard: status badge (green Disponible / red Loué), Meublé badge in brand orange, removed price/type badges from image, removed "Voir le bien" button, added views count, added Vérifié badge
+- Kept card click navigation to property-detail view and auth-gated favorite button
+- Used orange brand colors (brand-500/600) for Meublé and Vérifié badges instead of blue from reference
+- Lint passes clean, dev server running correctly
+
+Stage Summary:
+- Homepage properties section completely redesigned to match reference image
+- All filters removed as requested
+- Section now titled "Annonces récents" with "Voir tout" link to nos-biens view
+- Cards show: Disponible/Loué status, Meublé badge, price, views, Vérifié badge
+- Orange brand colors maintained throughout
