@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { PropertyMapLeaflet } from '@/components/home/property-map'
 import {
   Select,
   SelectContent,
@@ -62,6 +63,8 @@ interface Property {
   status: PropertyStatus
   isVerified: boolean
   views: number
+  lat: number
+  lng: number
 }
 
 // ── Data ────────────────────────────────────────────────────────────────────
@@ -82,6 +85,8 @@ const properties: Property[] = [
     status: 'disponible',
     isVerified: true,
     views: 287,
+    lat: 5.3580,
+    lng: -3.9750,
   },
   {
     id: 2,
@@ -98,6 +103,8 @@ const properties: Property[] = [
     status: 'disponible',
     isVerified: true,
     views: 142,
+    lat: 5.3190,
+    lng: -4.0150,
   },
   {
     id: 3,
@@ -114,6 +121,8 @@ const properties: Property[] = [
     status: 'disponible',
     isVerified: true,
     views: 431,
+    lat: 5.2950,
+    lng: -3.9850,
   },
   {
     id: 4,
@@ -130,6 +139,8 @@ const properties: Property[] = [
     status: 'loue',
     isVerified: true,
     views: 95,
+    lat: 5.3400,
+    lng: -4.0900,
   },
   {
     id: 5,
@@ -146,6 +157,8 @@ const properties: Property[] = [
     status: 'disponible',
     isVerified: false,
     views: 203,
+    lat: 5.3800,
+    lng: -4.0400,
   },
   {
     id: 6,
@@ -162,6 +175,8 @@ const properties: Property[] = [
     status: 'disponible',
     isVerified: true,
     views: 567,
+    lat: 5.3700,
+    lng: -3.9500,
   },
   {
     id: 7,
@@ -178,6 +193,8 @@ const properties: Property[] = [
     status: 'disponible',
     isVerified: true,
     views: 178,
+    lat: 5.3450,
+    lng: -3.9600,
   },
   {
     id: 8,
@@ -194,6 +211,8 @@ const properties: Property[] = [
     status: 'disponible',
     isVerified: false,
     views: 89,
+    lat: 5.2980,
+    lng: -4.0300,
   },
 ]
 
@@ -606,6 +625,76 @@ function PropertyListItem({ property }: { property: Property }) {
   )
 }
 
+// ── Map List Item (compact card for map sidebar) ────────────────────────────
+
+function MapListItem({ property }: { property: Property }) {
+  const [isFavorite, setIsFavorite] = useState(false)
+
+  const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
+    disponible: { label: 'Disponible', className: 'bg-emerald-500 text-white' },
+    loue: { label: 'Loué', className: 'bg-red-500 text-white' },
+    reserve: { label: 'Réservé', className: 'bg-amber-500 text-white' },
+  }
+
+  return (
+    <div className="group bg-white rounded-lg border border-neutral-200 overflow-hidden shadow-sm hover:shadow-md transition-all">
+      <div className="flex gap-3 p-2.5">
+        {/* Image */}
+        <div className="relative w-20 h-20 shrink-0 rounded-md overflow-hidden">
+          <Image
+            src={property.image}
+            alt={property.title}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="80px"
+          />
+          <Badge className={`absolute top-1 left-1 border-0 text-[8px] font-semibold px-1 py-0 ${statusConfig[property.status].className}`}>
+            {statusConfig[property.status].label}
+          </Badge>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0 flex flex-col justify-between">
+          <div>
+            <h3 className="font-semibold text-neutral-900 text-xs line-clamp-1 mb-0.5">{property.title}</h3>
+            <div className="flex items-center gap-1 text-neutral-500 text-[10px] mb-1">
+              <MapPin className="size-2.5 shrink-0" />
+              <span className="line-clamp-1">{property.location}</span>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-neutral-600">
+              {property.bedrooms !== null && (
+                <div className="flex items-center gap-0.5">
+                  <BedDouble className="size-2.5 text-neutral-400" />
+                  <span>{property.bedrooms}p</span>
+                </div>
+              )}
+              <div className="flex items-center gap-0.5">
+                <Maximize className="size-2.5 text-neutral-400" />
+                <span>{property.area}m²</span>
+              </div>
+              {property.meuble && (
+                <span className="text-sky-500 font-medium">Meublé</span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-brand-500">
+              {formatPrice(property.price)} <span className="text-[9px] font-normal text-neutral-400">F CFA</span>
+            </p>
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsFavorite(!isFavorite) }}
+              className="size-5 rounded-full flex items-center justify-center hover:bg-neutral-100 transition-colors"
+              aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            >
+              <Heart className={`size-3 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-neutral-300'}`} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export function NosBiensView() {
@@ -619,7 +708,7 @@ export function NosBiensView() {
   const [meubleOnly, setMeubleOnly] = useState(false)
 
   // View state
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid')
   const [sortBy, setSortBy] = useState('recent')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
@@ -749,7 +838,7 @@ export function NosBiensView() {
             </SelectContent>
           </Select>
 
-          {/* View toggle */}
+          {/* View toggle (grid / list / map) */}
           <div className="hidden sm:flex items-center bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm h-11">
             <button
               onClick={() => setViewMode('grid')}
@@ -765,17 +854,14 @@ export function NosBiensView() {
             >
               <List className="size-4" />
             </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`h-full px-3 transition-colors flex items-center gap-1.5 ${viewMode === 'map' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+              aria-label="Vue carte"
+            >
+              <Map className="size-4" />
+            </button>
           </div>
-
-          {/* Map button */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="hidden sm:flex text-neutral-600 border-neutral-200 hover:bg-neutral-50 h-11 rounded-xl text-xs shadow-sm"
-          >
-            <Map className="size-3.5 mr-1.5" />
-            Carte
-          </Button>
 
           {/* Mobile filter button */}
           <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
@@ -835,89 +921,123 @@ export function NosBiensView() {
         </motion.div>
 
         {/* ── Main Layout ────────────────────────────────────────────── */}
-        <div className="flex gap-6">
-          {/* Desktop Sidebar */}
-          <motion.aside
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.15 }}
-            className="hidden lg:block w-72 shrink-0"
-          >
-            <div className="bg-white rounded-xl border border-neutral-200 p-5 sticky top-24">
-              <FilterSidebar {...filterSidebarProps} />
+        {viewMode === 'map' ? (
+          /* ── Map View (full width split: list + map) ──────────────── */
+          <div className="flex gap-4 lg:gap-5">
+            {/* Left: property list (scrollable) */}
+            <div className="hidden lg:block w-80 shrink-0">
+              <div className="space-y-3 max-h-[calc(100vh-10rem)] overflow-y-auto pr-1 sticky top-24">
+                {filteredProperties.length > 0 ? (
+                  filteredProperties.map((property) => (
+                    <MapListItem key={property.id} property={property} />
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-sm text-neutral-500">Aucun bien trouvé</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </motion.aside>
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            {filteredProperties.length > 0 ? (
-              viewMode === 'grid' ? (
-                /* Grid view */
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
-                >
-                  {filteredProperties.map((property, i) => (
-                    <motion.div
-                      key={property.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.4, delay: i * 0.05 }}
-                    >
-                      <PropertyCard property={property} />
-                    </motion.div>
-                  ))}
-                </motion.div>
-              ) : (
-                /* List view */
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-4"
-                >
-                  {filteredProperties.map((property, i) => (
-                    <motion.div
-                      key={property.id}
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: i * 0.04 }}
-                    >
-                      <PropertyListItem property={property} />
-                    </motion.div>
-                  ))}
-                </motion.div>
-              )
-            ) : (
-              /* Empty state */
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-20"
-              >
-                <div className="size-20 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-5">
-                  <Search className="size-8 text-neutral-300" />
-                </div>
-                <h3 className="text-lg font-semibold text-neutral-900 mb-2">
-                  Aucun bien ne correspond à vos critères
-                </h3>
-                <p className="text-neutral-500 text-sm mb-6 max-w-md mx-auto">
-                  Essayez de modifier vos filtres ou votre recherche pour découvrir plus de biens disponibles.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={resetFilters}
-                  className="text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600"
-                >
-                  <RotateCcw className="size-4 mr-2" />
-                  Réinitialiser les filtres
-                </Button>
-              </motion.div>
-            )}
+            {/* Right: Map */}
+            <div className="flex-1 min-w-0">
+              <div className="h-[calc(100vh-10rem)] sticky top-24">
+                {filteredProperties.length > 0 ? (
+                  <PropertyMapLeaflet properties={filteredProperties} />
+                ) : (
+                  <div className="w-full h-full bg-neutral-100 rounded-xl flex items-center justify-center">
+                    <p className="text-sm text-neutral-400">Aucun bien à afficher sur la carte</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* ── Grid / List View ──────────────────────────────────────── */
+          <div className="flex gap-6">
+            {/* Desktop Sidebar */}
+            <motion.aside
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.15 }}
+              className="hidden lg:block w-72 shrink-0"
+            >
+              <div className="bg-white rounded-xl border border-neutral-200 p-5 sticky top-24">
+                <FilterSidebar {...filterSidebarProps} />
+              </div>
+            </motion.aside>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              {filteredProperties.length > 0 ? (
+                viewMode === 'grid' ? (
+                  /* Grid view */
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                    className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
+                  >
+                    {filteredProperties.map((property, i) => (
+                      <motion.div
+                        key={property.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: i * 0.05 }}
+                      >
+                        <PropertyCard property={property} />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                ) : (
+                  /* List view */
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                    className="space-y-4"
+                  >
+                    {filteredProperties.map((property, i) => (
+                      <motion.div
+                        key={property.id}
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: i * 0.04 }}
+                      >
+                        <PropertyListItem property={property} />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                )
+              ) : (
+                /* Empty state */
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center py-20"
+                >
+                  <div className="size-20 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-5">
+                    <Search className="size-8 text-neutral-300" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-neutral-900 mb-2">
+                    Aucun bien ne correspond à vos critères
+                  </h3>
+                  <p className="text-neutral-500 text-sm mb-6 max-w-md mx-auto">
+                    Essayez de modifier vos filtres ou votre recherche pour découvrir plus de biens disponibles.
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={resetFilters}
+                    className="text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600"
+                  >
+                    <RotateCcw className="size-4 mr-2" />
+                    Réinitialiser les filtres
+                  </Button>
+                </motion.div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   )
