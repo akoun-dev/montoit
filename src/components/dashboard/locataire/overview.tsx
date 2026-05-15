@@ -72,7 +72,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function LocataireOverview() {
-  const { user } = useAuthStore()
+  const { user, logout } = useAuthStore()
   const [data, setData] = useState<DashboardData>(defaultData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -80,11 +80,16 @@ export function LocataireOverview() {
   useEffect(() => {
     fetch('/api/dashboard/locataire')
       .then((r) => {
+        if (r.status === 401) {
+          // Session expired — redirect to login
+          logout()
+          return null
+        }
         if (!r.ok) throw new Error(`Erreur ${r.status}`)
         return r.json()
       })
       .then((d) => {
-        // Ensure stats exists with defaults
+        if (!d) return
         setData({
           stats: d.stats ?? defaultData.stats,
           rentalFiles: d.rentalFiles ?? [],
@@ -98,7 +103,7 @@ export function LocataireOverview() {
         setData(defaultData)
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [logout])
 
   if (loading) {
     return (

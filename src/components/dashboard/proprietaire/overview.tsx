@@ -48,7 +48,7 @@ const itemVariants = {
 }
 
 export function ProprietaireOverview() {
-  const { user } = useAuthStore()
+  const { user, logout } = useAuthStore()
   const [data, setData] = useState<ProprietaireData>(defaultData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -56,10 +56,15 @@ export function ProprietaireOverview() {
   useEffect(() => {
     fetch('/api/dashboard/proprietaire')
       .then((r) => {
+        if (r.status === 401) {
+          logout()
+          return null
+        }
         if (!r.ok) throw new Error(`Erreur ${r.status}`)
         return r.json()
       })
       .then((d) => {
+        if (!d) return
         setData({
           stats: d.stats ?? defaultData.stats,
           properties: d.properties ?? [],
@@ -73,7 +78,7 @@ export function ProprietaireOverview() {
         setData(defaultData)
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [logout])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
 

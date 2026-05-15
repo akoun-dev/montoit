@@ -36,7 +36,7 @@ const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transiti
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
 export function TcOverview() {
-  const { user } = useAuthStore()
+  const { user, logout } = useAuthStore()
   const [data, setData] = useState<TcData>(defaultData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -44,10 +44,15 @@ export function TcOverview() {
   useEffect(() => {
     fetch('/api/dashboard/tc')
       .then((r) => {
+        if (r.status === 401) {
+          logout()
+          return null
+        }
         if (!r.ok) throw new Error(`Erreur ${r.status}`)
         return r.json()
       })
       .then((d) => {
+        if (!d) return
         setData({
           stats: d.stats ?? defaultData.stats,
           pendingRentalFiles: d.pendingRentalFiles ?? [],
@@ -60,7 +65,7 @@ export function TcOverview() {
         setData(defaultData)
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [logout])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
 
