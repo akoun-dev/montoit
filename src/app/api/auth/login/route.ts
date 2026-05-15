@@ -55,8 +55,14 @@ export async function POST(req: NextRequest) {
           console.warn(`[Login] Email send failed for ${email}, but OTP stored. Code: ${otpCode}`)
         }
 
+        const isDev = process.env.NODE_ENV !== 'production'
         return NextResponse.json(
-          { error: 'Votre email n\'est pas encore vérifié. Un code de vérification vient d\'être envoyé.', needsVerification: true, email },
+          {
+            error: 'Votre email n\'est pas encore vérifié. Un code de vérification vient d\'être envoyé.',
+            needsVerification: true,
+            email,
+            ...(isDev && { devCode: otpCode }),
+          },
           { status: 403 }
         )
       }

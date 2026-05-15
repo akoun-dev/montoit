@@ -3,18 +3,21 @@ import { db } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
   try {
-    const { phone, code } = await req.json()
+    const { phone, code, purpose } = await req.json()
 
     if (!phone || !code) {
       return NextResponse.json({ error: 'Numéro et code requis' }, { status: 400 })
     }
+
+    // Determine OTP type based on purpose
+    const otpType = purpose === 'password_reset' ? 'PASSWORD_RESET' : 'LOGIN'
 
     // Find valid OTP
     const otp = await db.oTPCode.findFirst({
       where: {
         phone,
         code,
-        type: 'LOGIN',
+        type: otpType,
         isUsed: false,
         expiresAt: { gt: new Date() },
       },
@@ -28,6 +31,15 @@ export async function POST(req: NextRequest) {
     // Mark OTP as used
     await db.oTPCode.update({ where: { id: otp.id }, data: { isUsed: true } })
 
+    // ─── PASSWORD_RESET: just confirm the code is valid ──────────────────
+    if (otpType === 'PASSWORD_RESET') {
+      return NextResponse.json({
+        valid: true,
+        phone,
+      })
+    }
+
+    // ─── LOGIN flow ──────────────────────────────────────────────────────
     // Find the user by phone
     const user = await db.user.findUnique({
       where: { phone },

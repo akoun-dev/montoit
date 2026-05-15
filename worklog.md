@@ -82,3 +82,42 @@ Stage Summary:
 - Login route blocks unverified users and auto-sends verification code
 - AGENCE role added to DB schema, auth types, and registration form
 - Lint passes, dev server compiles successfully
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix 400 Bad Request on registration + fix forgot-password flow + update verify-sms-otp for password reset
+
+Work Log:
+- Diagnosed the root cause of the 400/500 error: Prisma Client was caching an old version that didn't recognize the `AGENCE` Role enum value
+- Regenerated Prisma Client with `bunx prisma generate` and cleared `.next` cache
+- Confirmed AGENCE registration works after regenerating the client
+- Updated `src/app/api/auth/login/route.ts`:
+  - Added `devCode` to the 403 response for development testing (same as register route)
+- Fixed `src/components/auth/forgot-password-form.tsx`:
+  - Rewrote to call API directly instead of using the store's `forgotPassword()` method (which was changing the view and replacing the form)
+  - Added animated step transitions (slideVariants with AnimatePresence)
+  - Added step indicator with 3 steps: Identification → Vérification → Nouveau mot de passe
+  - Step 2 (verify) now properly verifies the OTP code via the API before advancing
+  - Added resend cooldown timer (60s)
+  - Step 3 (reset) calls `/api/auth/reset-password` with verified code
+  - Supports both email and SMS methods for password reset
+- Updated `src/app/api/auth/verify-sms-otp/route.ts`:
+  - Added support for `PASSWORD_RESET` OTP type (previously only handled `LOGIN`)
+  - Added `purpose` parameter to the request body
+  - Returns `{ valid: true, phone }` for password reset verification
+  - Maintains backward compatibility with existing LOGIN flow
+- Cleaned up test users from database
+- Verified end-to-end flow:
+  - AGENCE registration → 200 with `needsVerification: true`
+  - Login without verification → 403 with `needsVerification: true`
+  - OTP verification → 200 with `isEmailVerified: true`
+  - Login after verification → 200 with user data
+- Lint passes cleanly
+
+Stage Summary:
+- Fixed the AGENCE role 400/500 error (was Prisma Client cache issue)
+- Forgot-password form now works as a self-contained 3-step flow without view changes
+- SMS OTP verification now supports PASSWORD_RESET type
+- Login 403 response now includes devCode for development testing
+- Full auth flow verified end-to-end: register → block login → verify OTP → login succeeds
