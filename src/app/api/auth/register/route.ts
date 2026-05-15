@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
+import { generateOtpCode, sendOtpEmail, sendOtpSms } from '@/lib/ansut-messaging'
+
+const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10)
 
 export async function POST(req: NextRequest) {
   try {
@@ -52,6 +55,7 @@ export async function POST(req: NextRequest) {
 
       const passwordHash = await bcrypt.hash(password, 12)
 
+      // Create user — NOT verified, NOT authenticated
       const user = await db.user.create({
         data: {
           email,
@@ -60,13 +64,33 @@ export async function POST(req: NextRequest) {
           lastName,
           phone: phone || null,
           role: role || 'LOCATAIRE',
-          isEmailVerified: true,
-          isPhoneVerified: !!phone,
+          isEmailVerified: false,  // Must verify via OTP
+          isPhoneVerified: false,
           isActive: true,
         },
       })
 
-      const response = NextResponse.json({
+      // Generate and store email verification OTP
+      const otpCode = generateOtpCode(6)
+      await db.oTPCode.create({
+        data: {
+          email,
+          code: otpCode,
+          type: 'EMAIL_VERIFY',
+          expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
+          userId: user.id,
+        },
+      })
+
+      // Send verification email via ANSUT
+      const emailResult = await sendOtpEmail(email, otpCode, firstName, 'email_verify')
+      if (!emailResult.success) {
+        console.warn(`[Register] Email send failed for ${email}, but OTP stored. Code: ${otpCode}`)
+      }
+
+      // Return user data WITHOUT cookie — user must verify OTP first
+      const isDev = process.env.NODE_ENV !== 'production'
+      return NextResponse.json({
         user: {
           id: user.id,
           phone: user.phone,
@@ -76,19 +100,13 @@ export async function POST(req: NextRequest) {
           role: user.role,
           avatarUrl: user.avatarUrl,
           isActive: user.isActive,
-          isEmailVerified: user.isEmailVerified,
+          isEmailVerified: false,
         },
+        needsVerification: true,
+        verificationMethod: 'email',
+        ...(isDev && { devCode: otpCode }),
       })
 
-      response.cookies.set('montoit-user-id', user.id, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/',
-      })
-
-      return response
     } else if (method === 'sms') {
       // ─── SMS registration (no password) ─────────────────────
       if (!phone) {
@@ -123,7 +141,7 @@ export async function POST(req: NextRequest) {
             lastName,
             email: email || existingUser.email,
             role: role || 'LOCATAIRE',
-            isPhoneVerified: true,
+            isPhoneVerified: false,  // Must verify via OTP
             isActive: true,
             // Generate a random password hash for SMS users (they login via OTP)
             passwordHash: await bcrypt.hash(`sms-${Date.now()}-${Math.random()}`, 12),
@@ -135,7 +153,7 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         )
       } else {
-        // Create new user
+        // Create new user — NOT verified, NOT authenticated
         user = await db.user.create({
           data: {
             phone,
@@ -144,13 +162,41 @@ export async function POST(req: NextRequest) {
             firstName,
             lastName,
             role: role || 'LOCATAIRE',
-            isPhoneVerified: true,
+            isPhoneVerified: false,  // Must verify via OTP
             isActive: true,
           },
         })
       }
 
-      const response = NextResponse.json({
+      // Invalidate existing unused LOGIN OTP codes for this phone
+      const existingOtps = await db.oTPCode.findMany({
+        where: { phone, isUsed: false, type: 'LOGIN' },
+      })
+      for (const otp of existingOtps) {
+        await db.oTPCode.update({ where: { id: otp.id }, data: { isUsed: true } })
+      }
+
+      // Generate and store SMS verification OTP
+      const otpCode = generateOtpCode(6)
+      await db.oTPCode.create({
+        data: {
+          phone,
+          code: otpCode,
+          type: 'LOGIN',
+          expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
+          userId: user.id,
+        },
+      })
+
+      // Send verification SMS via ANSUT
+      const smsResult = await sendOtpSms(phone, otpCode, 'login')
+      if (!smsResult.success) {
+        console.warn(`[Register] SMS send failed for ${phone}, but OTP stored. Code: ${otpCode}`)
+      }
+
+      // Return user data WITHOUT cookie — user must verify OTP first
+      const isDev = process.env.NODE_ENV !== 'production'
+      return NextResponse.json({
         user: {
           id: user.id,
           phone: user.phone,
@@ -162,17 +208,10 @@ export async function POST(req: NextRequest) {
           isActive: user.isActive,
           isEmailVerified: user.isEmailVerified,
         },
+        needsVerification: true,
+        verificationMethod: 'sms',
+        ...(isDev && { devCode: otpCode }),
       })
-
-      response.cookies.set('montoit-user-id', user.id, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/',
-      })
-
-      return response
     }
 
     return NextResponse.json({ error: 'Méthode d\'inscription non valide' }, { status: 400 })

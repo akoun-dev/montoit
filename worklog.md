@@ -52,3 +52,33 @@ Stage Summary:
 - New auth flows: Email verification, Password reset
 - All environment variables configured in .env
 - Lint passes, dev server compiles successfully
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Require OTP verification before login after registration + add Agence role
+
+Work Log:
+- Added `AGENCE` to Role enum in Prisma schema, pushed to DB
+- Rewrote `src/app/api/auth/register/route.ts`:
+  - Removed cookie setting (no auto-login)
+  - Sets `isEmailVerified: false` for email method, `isPhoneVerified: false` for SMS
+  - Creates and sends OTP directly in the register route
+  - Returns `needsVerification: true` with `verificationMethod`
+- Updated `src/lib/auth-store.ts`:
+  - `registerWithEmail()` → sets `pendingEmail`, `otpPurpose: 'email_verify'`, `currentView: 'email-verify'` (NOT dashboard, NOT authenticated)
+  - `registerWithSms()` → sets `pendingPhone`, `otpPurpose: 'login'`, `currentView: 'otp-verify'` (NOT dashboard, NOT authenticated)
+  - Added `AGENCE` to AuthUser role type
+  - `loginWithEmail()` now handles 403 `needsVerification` → redirects to email-verify
+- Rewrote `src/app/api/auth/login/route.ts`:
+  - Blocks login if `isEmailVerified: false`
+  - Auto-sends verification email and returns 403 with `needsVerification: true`
+- Updated `src/components/auth/register-form.tsx`:
+  - Added AGENCE role card with Landmark icon
+  - Updated toast messages: "Compte créé ! Vérifiez votre email/SMS pour continuer"
+
+Stage Summary:
+- Registration now requires OTP verification before any login is possible
+- Login route blocks unverified users and auto-sends verification code
+- AGENCE role added to DB schema, auth types, and registration form
+- Lint passes, dev server compiles successfully

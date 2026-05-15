@@ -12,7 +12,7 @@ export interface AuthUser {
   email: string | null
   firstName: string
   lastName: string
-  role: 'LOCATAIRE' | 'PROPRIETAIRE' | 'ADMIN' | 'TIERS_CONFIANCE'
+  role: 'LOCATAIRE' | 'PROPRIETAIRE' | 'AGENCE' | 'ADMIN' | 'TIERS_CONFIANCE'
   avatarUrl: string | null
   isActive: boolean
   isEmailVerified: boolean
@@ -75,6 +75,18 @@ export const useAuthStore = create<AuthState>((set) => ({
         body: JSON.stringify({ email, password }),
       })
       const data = await res.json()
+
+      // Handle unverified email — redirect to email verification
+      if (res.status === 403 && data.needsVerification) {
+        set({
+          isLoading: false,
+          pendingEmail: data.email || email,
+          otpPurpose: 'email_verify',
+          currentView: 'email-verify',
+        })
+        throw new Error(data.error)
+      }
+
       if (!res.ok) throw new Error(data.error || 'Identifiants incorrects')
 
       set({
@@ -123,6 +135,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         return
       }
 
+      // SMS OTP verified → user is now authenticated
       set({
         user: data.user,
         isAuthenticated: true,
@@ -174,6 +187,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         return data
       }
 
+      // Email OTP verified → user is now authenticated
       if (data.user) {
         set({
           user: data.user,
@@ -190,6 +204,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
+  // ─── Registration: NO auto-login → must verify OTP first ──────────────
   registerWithEmail: async (data) => {
     set({ isLoading: true })
     try {
@@ -201,26 +216,15 @@ export const useAuthStore = create<AuthState>((set) => ({
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || 'Erreur')
 
-      // After email registration, send verification email
+      // Do NOT set isAuthenticated — user must verify email OTP first
+      // The register API already created and sent the OTP
       set({
         user: result.user,
         isLoading: false,
         pendingEmail: data.email,
         otpPurpose: 'email_verify',
+        currentView: 'email-verify',
       })
-
-      // Send email verification OTP
-      try {
-        await fetch('/api/auth/send-email-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: data.email, purpose: 'email_verify' }),
-        })
-        set({ currentView: 'email-verify' })
-      } catch {
-        // If email sending fails, still log the user in
-        set({ isAuthenticated: true, currentView: 'dashboard' })
-      }
     } catch (error) {
       set({ isLoading: false })
       throw error
@@ -238,11 +242,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || 'Erreur')
 
+      // Do NOT set isAuthenticated — user must verify SMS OTP first
+      // The register API already created and sent the OTP
       set({
         user: result.user,
-        isAuthenticated: true,
         isLoading: false,
-        currentView: 'dashboard',
+        pendingPhone: data.phone,
+        otpPurpose: 'login',
+        currentView: 'otp-verify',
       })
     } catch (error) {
       set({ isLoading: false })
@@ -261,7 +268,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
 
-      // Set the appropriate pending state and redirect to OTP verification
       if (method === 'email') {
         set({
           isLoading: false,

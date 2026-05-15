@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { UserPlus, ArrowLeft, ArrowRight, Mail, Lock, Eye, EyeOff, Phone, Check, MessageSquare, Home, Building2 } from 'lucide-react'
+import { UserPlus, ArrowLeft, ArrowRight, Mail, Lock, Eye, EyeOff, Phone, Check, MessageSquare, Home, Building2, Landmark } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,6 +29,12 @@ const roles = [
     label: 'Propriétaire',
     description: 'Je souhaite publier mes biens en location',
     icon: Building2,
+  },
+  {
+    value: 'AGENCE',
+    label: 'Agence',
+    description: 'Je gère les biens de mes clients et publie des annonces',
+    icon: Landmark,
   },
 ] as const
 
@@ -140,7 +146,7 @@ export function RegisterForm() {
           phone: phone.trim() || undefined,
           role,
         })
-        toast.success('Inscription réussie ! Bienvenue sur Mon Toit.')
+        toast.success('Compte créé ! Vérifiez votre email pour continuer.')
       } else {
         await registerWithSms({
           phone: phone.trim(),
@@ -149,7 +155,7 @@ export function RegisterForm() {
           lastName: lastName.trim(),
           role,
         })
-        toast.success('Inscription réussie ! Bienvenue sur Mon Toit.')
+        toast.success('Compte créé ! Vérifiez votre numéro par SMS pour continuer.')
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'inscription')
