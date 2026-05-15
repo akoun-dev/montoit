@@ -15,6 +15,8 @@ import { Footer } from '@/components/home/footer'
 import { LoginForm } from '@/components/auth/login-form'
 import { OtpVerifyForm } from '@/components/auth/otp-verify-form'
 import { RegisterForm } from '@/components/auth/register-form'
+import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
+import { EmailVerifyForm } from '@/components/auth/email-verify-form'
 import { Dashboard } from '@/components/dashboard'
 import { PropertyDetailView } from '@/components/home/property-detail-view'
 
@@ -51,6 +53,14 @@ export default function Home() {
 
   if (currentView === 'register') {
     return <RegisterForm />
+  }
+
+  if (currentView === 'forgot-password') {
+    return <ForgotPasswordForm />
+  }
+
+  if (currentView === 'email-verify') {
+    return <EmailVerifyForm />
   }
 
   // Nos Biens — full page view with sidebar layout

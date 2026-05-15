@@ -53,7 +53,7 @@ export function LoginForm() {
     try {
       setAuthMethod('sms')
       await loginWithSms(phone.trim())
-      toast.success('Code OTP envoyé par SMS ! (Code démo : 123456)')
+      toast.success('Code OTP envoyé par SMS !')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'envoi')
     }
@@ -77,7 +77,7 @@ export function LoginForm() {
     try {
       setAuthMethod('sms')
       await loginWithSms(demoPhone)
-      toast.success('Code OTP envoyé par SMS ! (Code démo : 123456)')
+      toast.success('Code OTP envoyé par SMS !')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Erreur')
     }
@@ -90,6 +90,10 @@ export function LoginForm() {
     } catch {
       toast.error('Erreur lors de la création des données')
     }
+  }
+
+  const handleForgotPassword = () => {
+    setView('forgot-password')
   }
 
   return (
@@ -170,6 +174,7 @@ export function LoginForm() {
                     <Label htmlFor="login-password">Mot de passe</Label>
                     <button
                       type="button"
+                      onClick={handleForgotPassword}
                       className="text-xs text-brand-500 hover:text-brand-600 font-medium"
                     >
                       Mot de passe oublié ?
@@ -316,7 +321,7 @@ export function LoginForm() {
               </div>
 
               {/* SMS demo */}
-              <p className="text-xs font-medium text-neutral-500 mb-1.5">Par SMS (code OTP : 123456)</p>
+              <p className="text-xs font-medium text-neutral-500 mb-1.5">Par SMS (code OTP envoyé par SMS)</p>
               <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                 {demoAccounts.map((demo) => (
                   <button

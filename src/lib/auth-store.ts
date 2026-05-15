@@ -2,7 +2,9 @@ import { create } from 'zustand'
 
 export type AuthMethod = 'email' | 'sms'
 
-export type AppView = 'home' | 'nos-biens' | 'a-propos' | 'nous-contacter' | 'login' | 'register' | 'otp-verify' | 'dashboard' | 'property-detail'
+export type AppView = 'home' | 'nos-biens' | 'a-propos' | 'nous-contacter' | 'login' | 'register' | 'otp-verify' | 'email-verify' | 'forgot-password' | 'dashboard' | 'property-detail'
+
+export type OtpPurpose = 'login' | 'email_verify' | 'password_reset'
 
 export interface AuthUser {
   id: string
@@ -24,18 +26,27 @@ interface AuthState {
   isLoading: boolean
   // SMS flow state
   pendingPhone: string
+  // Email OTP flow state
+  pendingEmail: string
   authMethod: AuthMethod
+  // OTP purpose tracking
+  otpPurpose: OtpPurpose
   dashboardSection: string
   selectedPropertyId: string
 
   loginWithEmail: (email: string, password: string) => Promise<void>
   loginWithSms: (phone: string) => Promise<void>
   verifySmsOtp: (phone: string, code: string) => Promise<void>
+  sendEmailOtp: (email: string, purpose: OtpPurpose) => Promise<void>
+  verifyEmailOtp: (email: string, code: string, purpose: OtpPurpose) => Promise<void>
   registerWithEmail: (data: { email: string; password: string; firstName: string; lastName: string; phone?: string; role?: string }) => Promise<void>
   registerWithSms: (data: { phone: string; firstName: string; lastName: string; email?: string; role?: string }) => Promise<void>
+  forgotPassword: (identifier: string, method: 'email' | 'sms') => Promise<void>
+  resetPassword: (data: { email?: string; phone?: string; code: string; newPassword: string }) => Promise<void>
   logout: () => Promise<void>
   setView: (view: AppView) => void
   setAuthMethod: (method: AuthMethod) => void
+  setOtpPurpose: (purpose: OtpPurpose) => void
   setDashboardSection: (section: string) => void
   setSelectedPropertyId: (id: string) => void
   checkAuth: () => Promise<void>
@@ -49,7 +60,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   previousView: 'home',
   isLoading: false,
   pendingPhone: '',
+  pendingEmail: '',
   authMethod: 'email',
+  otpPurpose: 'login',
   dashboardSection: 'overview',
   selectedPropertyId: '',
 
@@ -77,12 +90,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   loginWithSms: async (phone: string) => {
-    set({ isLoading: true, pendingPhone: phone })
+    set({ isLoading: true, pendingPhone: phone, otpPurpose: 'login' })
     try {
       const res = await fetch('/api/auth/send-sms-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone, purpose: 'login' }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
@@ -122,6 +135,61 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
+  sendEmailOtp: async (email: string, purpose: OtpPurpose) => {
+    set({ isLoading: true, pendingEmail: email, otpPurpose: purpose })
+    try {
+      const res = await fetch('/api/auth/send-email-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, purpose }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+
+      set({ isLoading: false, currentView: 'email-verify' })
+    } catch (error) {
+      set({ isLoading: false })
+      throw error
+    }
+  },
+
+  verifyEmailOtp: async (email: string, code: string, purpose: OtpPurpose) => {
+    set({ isLoading: true })
+    try {
+      const res = await fetch('/api/auth/verify-email-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code, purpose }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Code invalide')
+
+      if (purpose === 'password_reset' && data.valid) {
+        set({ isLoading: false })
+        return data
+      }
+
+      if (data.needsRegistration) {
+        set({ isLoading: false, currentView: 'register', authMethod: 'email' })
+        return data
+      }
+
+      if (data.user) {
+        set({
+          user: data.user,
+          isAuthenticated: true,
+          isLoading: false,
+          currentView: 'dashboard',
+        })
+      }
+
+      return data
+    } catch (error) {
+      set({ isLoading: false })
+      throw error
+    }
+  },
+
   registerWithEmail: async (data) => {
     set({ isLoading: true })
     try {
@@ -133,12 +201,26 @@ export const useAuthStore = create<AuthState>((set) => ({
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || 'Erreur')
 
+      // After email registration, send verification email
       set({
         user: result.user,
-        isAuthenticated: true,
         isLoading: false,
-        currentView: 'dashboard',
+        pendingEmail: data.email,
+        otpPurpose: 'email_verify',
       })
+
+      // Send email verification OTP
+      try {
+        await fetch('/api/auth/send-email-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: data.email, purpose: 'email_verify' }),
+        })
+        set({ currentView: 'email-verify' })
+      } catch {
+        // If email sending fails, still log the user in
+        set({ isAuthenticated: true, currentView: 'dashboard' })
+      }
     } catch (error) {
       set({ isLoading: false })
       throw error
@@ -168,6 +250,57 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
+  forgotPassword: async (identifier: string, method: 'email' | 'sms') => {
+    set({ isLoading: true })
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, method }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+
+      // Set the appropriate pending state and redirect to OTP verification
+      if (method === 'email') {
+        set({
+          isLoading: false,
+          pendingEmail: identifier,
+          otpPurpose: 'password_reset',
+          currentView: 'email-verify',
+        })
+      } else {
+        set({
+          isLoading: false,
+          pendingPhone: identifier,
+          otpPurpose: 'password_reset',
+          currentView: 'otp-verify',
+        })
+      }
+    } catch (error) {
+      set({ isLoading: false })
+      throw error
+    }
+  },
+
+  resetPassword: async (data: { email?: string; phone?: string; code: string; newPassword: string }) => {
+    set({ isLoading: true })
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Erreur')
+
+      set({ isLoading: false, currentView: 'login' })
+    } catch (error) {
+      set({ isLoading: false })
+      throw error
+    }
+  },
+
   logout: async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
@@ -177,7 +310,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: false,
         currentView: 'home',
         pendingPhone: '',
+        pendingEmail: '',
         authMethod: 'email',
+        otpPurpose: 'login',
         dashboardSection: 'overview',
         selectedPropertyId: '',
       })
@@ -186,6 +321,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setView: (view) => set((state) => ({ previousView: state.currentView, currentView: view })),
   setAuthMethod: (method) => set({ authMethod: method }),
+  setOtpPurpose: (purpose) => set({ otpPurpose: purpose }),
   setDashboardSection: (section) => set({ dashboardSection: section }),
   setSelectedPropertyId: (id) => set({ selectedPropertyId: id }),
 

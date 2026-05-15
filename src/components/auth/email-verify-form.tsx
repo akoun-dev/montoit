@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { ShieldCheck, ArrowLeft, RotateCcw, Phone, Mail, KeyRound } from 'lucide-react'
+import { MailCheck, ArrowLeft, RotateCcw, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,36 +10,27 @@ import { useAuthStore, type OtpPurpose } from '@/lib/auth-store'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 
-const RESEND_COOLDOWN = 60 // seconds
+const RESEND_COOLDOWN = 60
 
-export function OtpVerifyForm() {
+export function EmailVerifyForm() {
   const [code, setCode] = useState('')
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN)
   const [isResending, setIsResending] = useState(false)
   const {
-    verifySmsOtp,
-    sendEmailOtp,
     verifyEmailOtp,
-    pendingPhone,
+    sendEmailOtp,
     pendingEmail,
     otpPurpose,
     isLoading,
     setView,
-    loginWithSms,
-    authMethod,
   } = useAuthStore()
-
-  // Determine the channel (SMS vs Email) based on context
-  const isEmailOtp = otpPurpose === 'email_verify' || otpPurpose === 'password_reset'
-  const targetLabel = isEmailOtp ? pendingEmail : pendingPhone
 
   const purposeLabels: Record<OtpPurpose, string> = {
     login: 'connexion',
-    email_verify: 'vérification d\'email',
+    email_verify: 'vérification',
     password_reset: 'réinitialisation',
   }
 
-  // Cooldown timer
   useEffect(() => {
     if (cooldown <= 0) return
     const timer = setTimeout(() => setCooldown((c) => c - 1), 1000)
@@ -53,26 +44,20 @@ export function OtpVerifyForm() {
       return
     }
     try {
-      if (isEmailOtp) {
-        const result = await verifyEmailOtp(pendingEmail, code.trim(), otpPurpose)
+      const result = await verifyEmailOtp(pendingEmail, code.trim(), otpPurpose)
 
-        if (otpPurpose === 'password_reset' && result?.valid) {
-          // Password reset verified — show reset form
-          toast.success('Code vérifié ! Vous pouvez maintenant réinitialiser votre mot de passe.')
-          // We'll handle showing the reset form via a new view state
-          return
-        }
-
-        if (result?.needsRegistration) {
-          toast.success('Email vérifié ! Complétez votre inscription.')
-          return
-        }
-
-        toast.success('Email vérifié avec succès !')
-      } else {
-        await verifySmsOtp(pendingPhone, code.trim())
-        toast.success('Connexion réussie !')
+      if (otpPurpose === 'password_reset' && result?.valid) {
+        toast.success('Code vérifié ! Vous pouvez réinitialiser votre mot de passe.')
+        setView('forgot-password')
+        return
       }
+
+      if (result?.needsRegistration) {
+        toast.success('Email vérifié ! Complétez votre inscription.')
+        return
+      }
+
+      toast.success('Email vérifié avec succès !')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Code invalide')
     }
@@ -82,45 +67,20 @@ export function OtpVerifyForm() {
     if (cooldown > 0 || isResending) return
     setIsResending(true)
     try {
-      if (isEmailOtp) {
-        await sendEmailOtp(pendingEmail, otpPurpose)
-        toast.success('Nouveau code envoyé par email !')
-      } else {
-        await loginWithSms(pendingPhone)
-        toast.success('Nouveau code OTP envoyé par SMS !')
-      }
+      await sendEmailOtp(pendingEmail, otpPurpose)
+      toast.success('Nouveau code envoyé par email !')
       setCooldown(RESEND_COOLDOWN)
     } catch (error) {
       toast.error('Erreur lors du renvoi')
     } finally {
       setIsResending(false)
     }
-  }, [cooldown, isResending, isEmailOtp, pendingEmail, otpPurpose, sendEmailOtp, pendingPhone, loginWithSms])
+  }, [cooldown, isResending, pendingEmail, otpPurpose, sendEmailOtp])
 
   const formatCooldown = (seconds: number) => {
     const m = Math.floor(seconds / 60)
     const s = seconds % 60
     return `${m}:${s.toString().padStart(2, '0')}`
-  }
-
-  const channelIcon = isEmailOtp ? (
-    <Mail className="size-3.5 text-brand-500" />
-  ) : (
-    <Phone className="size-3.5 text-brand-500" />
-  )
-
-  const channelLabel = isEmailOtp ? 'Envoyé par email' : 'Envoyé par SMS'
-
-  const headerIcon = otpPurpose === 'password_reset' ? (
-    <KeyRound className="size-6 text-brand-500" />
-  ) : (
-    <ShieldCheck className="size-6 text-brand-500" />
-  )
-
-  const titleMap: Record<OtpPurpose, string> = {
-    login: 'Vérification SMS',
-    email_verify: 'Vérification Email',
-    password_reset: 'Réinitialisation',
   }
 
   return (
@@ -134,24 +94,26 @@ export function OtpVerifyForm() {
         <Card className="border-neutral-200 shadow-base">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-brand-50">
-              {headerIcon}
+              <MailCheck className="size-6 text-brand-500" />
             </div>
-            <CardTitle className="text-2xl font-bold text-neutral-900">{titleMap[otpPurpose]}</CardTitle>
+            <CardTitle className="text-2xl font-bold text-neutral-900">
+              {otpPurpose === 'password_reset' ? 'Réinitialisation' : 'Vérification Email'}
+            </CardTitle>
             <CardDescription className="text-neutral-500">
               Entrez le code de {purposeLabels[otpPurpose]} envoyé à{' '}
-              <span className="font-semibold text-neutral-700">{targetLabel}</span>
+              <span className="font-semibold text-neutral-700">{pendingEmail}</span>
             </CardDescription>
             <div className="flex items-center justify-center gap-1.5 mt-2">
-              {channelIcon}
-              <span className="text-xs text-brand-500 font-medium">{channelLabel}</span>
+              <Mail className="size-3.5 text-brand-500" />
+              <span className="text-xs text-brand-500 font-medium">Envoyé par email</span>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="otp-code">Code de vérification</Label>
+                <Label htmlFor="email-otp-code">Code de vérification</Label>
                 <Input
-                  id="otp-code"
+                  id="email-otp-code"
                   type="text"
                   placeholder="000000"
                   value={code}
@@ -212,7 +174,7 @@ export function OtpVerifyForm() {
               className="w-full flex items-center justify-center gap-1 text-sm text-neutral-500 hover:text-neutral-700"
             >
               <ArrowLeft className="size-3.5" />
-              {isEmailOtp ? 'Changer l\'email' : 'Modifier le numéro'}
+              Changer l&apos;email
             </button>
           </CardContent>
         </Card>

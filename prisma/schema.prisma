@@ -22,6 +22,7 @@ enum Role {
 enum OTPType {
   LOGIN
   EMAIL_VERIFY
+  PASSWORD_RESET
   BAIL_SIGNATURE
 }
 
