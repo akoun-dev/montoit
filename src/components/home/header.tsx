@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Home, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,47 +11,23 @@ import {
   SheetTrigger,
   SheetClose,
 } from '@/components/ui/sheet'
-import { useAuthStore } from '@/lib/auth-store'
+import { useAuthStore, type AppView } from '@/lib/auth-store'
 
-const navLinks = [
-  { label: 'Accueil', href: '#accueil' },
-  { label: 'Nos Biens', href: '#nos-biens' },
-  { label: 'À Propos', href: '#a-propos' },
-  { label: 'Nous Contacter', href: '#nous-contacter' },
+const navLinks: { label: string; view: AppView }[] = [
+  { label: 'Accueil', view: 'home' },
+  { label: 'Nos Biens', view: 'nos-biens' },
+  { label: 'À Propos', view: 'a-propos' },
+  { label: 'Nous Contacter', view: 'nous-contacter' },
 ]
 
 export function Header() {
   const [open, setOpen] = useState(false)
-  const [activeSection, setActiveSection] = useState('accueil')
-  const { setView, isAuthenticated, user, logout } = useAuthStore()
+  const { currentView, setView, isAuthenticated, user, logout } = useAuthStore()
 
-  // Track active section on scroll
-  useEffect(() => {
-    const handleScroll = () => {
-      const sections = navLinks.map((link) => link.href.replace('#', ''))
-      const scrollPos = window.scrollY + 100
-
-      for (let i = sections.length - 1; i >= 0; i--) {
-        const el = document.getElementById(sections[i])
-        if (el && el.offsetTop <= scrollPos) {
-          setActiveSection(sections[i])
-          return
-        }
-      }
-      setActiveSection('accueil')
-    }
-
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
-
-  const handleNavClick = (href: string) => {
+  const handleNavClick = (view: AppView) => {
     setOpen(false)
-    const id = href.replace('#', '')
-    const el = document.getElementById(id)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' })
-    }
+    setView(view)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleLogin = () => setView('login')
@@ -64,10 +40,7 @@ export function Header() {
       <div className="mx-auto max-w-7xl flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
         {/* Logo */}
         <button
-          onClick={() => {
-            setView('home')
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-          }}
+          onClick={() => handleNavClick('home')}
           className="flex items-center gap-2 shrink-0"
         >
           <Home className="size-6 text-brand-500" />
@@ -79,12 +52,11 @@ export function Header() {
         {/* Desktop Nav */}
         <nav className="hidden lg:flex items-center gap-1">
           {navLinks.map((link) => {
-            const sectionId = link.href.replace('#', '')
-            const isActive = activeSection === sectionId
+            const isActive = currentView === link.view
             return (
               <button
                 key={link.label}
-                onClick={() => handleNavClick(link.href)}
+                onClick={() => handleNavClick(link.view)}
                 className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   isActive
                     ? 'text-brand-500 bg-brand-50'
@@ -148,12 +120,11 @@ export function Header() {
             </SheetHeader>
             <nav className="flex flex-col gap-1 px-4">
               {navLinks.map((link) => {
-                const sectionId = link.href.replace('#', '')
-                const isActive = activeSection === sectionId
+                const isActive = currentView === link.view
                 return (
                   <SheetClose asChild key={link.label}>
                     <button
-                      onClick={() => handleNavClick(link.href)}
+                      onClick={() => handleNavClick(link.view)}
                       className={`px-3 py-2.5 text-sm font-medium rounded-md transition-colors text-left ${
                         isActive
                           ? 'text-brand-500 bg-brand-50'
@@ -171,7 +142,7 @@ export function Header() {
                 <>
                   <p className="text-sm text-neutral-600 px-3">{user.firstName} {user.lastName}</p>
                   <SheetClose asChild>
-                    <Button variant="outline" className="w-full" onClick={() => setView('dashboard')}>
+                    <Button variant="outline" className="w-full" onClick={() => { setOpen(false); setView('dashboard') }}>
                       Tableau de bord
                     </Button>
                   </SheetClose>

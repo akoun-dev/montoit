@@ -16,6 +16,16 @@ import { OtpVerifyForm } from '@/components/auth/otp-verify-form'
 import { RegisterForm } from '@/components/auth/register-form'
 import { Dashboard } from '@/components/dashboard'
 
+function PageShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-1">{children}</main>
+      <Footer />
+    </div>
+  )
+}
+
 export default function Home() {
   const { currentView, checkAuth } = useAuthStore()
 
@@ -41,28 +51,43 @@ export default function Home() {
     return <RegisterForm />
   }
 
-  // Home view — default landing page
+  // Nos Biens — full page view
+  if (currentView === 'nos-biens') {
+    return (
+      <PageShell>
+        <NosBiens />
+      </PageShell>
+    )
+  }
+
+  // À Propos — full page view
+  if (currentView === 'a-propos') {
+    return (
+      <PageShell>
+        <About />
+      </PageShell>
+    )
+  }
+
+  // Nous Contacter — full page view
+  if (currentView === 'nous-contacter') {
+    return (
+      <PageShell>
+        <Contact />
+      </PageShell>
+    )
+  }
+
+  // Home view — default landing page with all sections
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <main className="flex-1">
-        <div id="accueil">
-          <Hero />
-        </div>
-        <div id="nos-biens">
-          <NosBiens />
-        </div>
-        <HowItWorks />
-        <Roles />
-        <Trust />
-        <div id="a-propos">
-          <About />
-        </div>
-        <div id="nous-contacter">
-          <Contact />
-        </div>
-      </main>
-      <Footer />
-    </div>
+    <PageShell>
+      <Hero />
+      <NosBiens />
+      <HowItWorks />
+      <Roles />
+      <Trust />
+      <About />
+      <Contact />
+    </PageShell>
   )
 }

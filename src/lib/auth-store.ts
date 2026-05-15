@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type AppView = 'home' | 'login' | 'register' | 'otp-verify' | 'dashboard'
+export type AppView = 'home' | 'nos-biens' | 'a-propos' | 'nous-contacter' | 'login' | 'register' | 'otp-verify' | 'dashboard'
 
 export interface AuthUser {
   id: string

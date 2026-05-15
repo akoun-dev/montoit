@@ -1,12 +1,13 @@
 'use client'
 
 import { Home, Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin } from 'lucide-react'
+import { useAuthStore, type AppView } from '@/lib/auth-store'
 
-const platformLinks = [
-  { label: 'Accueil', href: '#accueil' },
-  { label: 'Nos Biens', href: '#nos-biens' },
-  { label: 'À Propos', href: '#a-propos' },
-  { label: 'Nous Contacter', href: '#nous-contacter' },
+const platformLinks: { label: string; view: AppView }[] = [
+  { label: 'Accueil', view: 'home' },
+  { label: 'Nos Biens', view: 'nos-biens' },
+  { label: 'À Propos', view: 'a-propos' },
+  { label: 'Nous Contacter', view: 'nous-contacter' },
 ]
 
 const resourceLinks = [
@@ -24,16 +25,26 @@ const socialLinks = [
 ]
 
 export function Footer() {
+  const { setView } = useAuthStore()
+
+  const handleNavClick = (view: AppView) => {
+    setView(view)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   return (
-    <footer className="bg-neutral-900 text-neutral-300">
+    <footer className="bg-neutral-900 text-neutral-300 mt-auto">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
           {/* Column 1: Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <a href="#accueil" className="flex items-center gap-2 mb-4">
+            <button
+              onClick={() => handleNavClick('home')}
+              className="flex items-center gap-2 mb-4"
+            >
               <Home className="size-5 text-brand-500" />
               <span className="text-lg font-bold text-white">MON TOIT</span>
-            </a>
+            </button>
             <p className="text-sm text-neutral-400 leading-relaxed mb-5 max-w-xs">
               La plateforme de confiance pour la location immobilière. Trouvez votre logement
               ou publiez votre annonce en toute sécurité.
@@ -63,12 +74,12 @@ export function Footer() {
             <ul className="space-y-2.5">
               {platformLinks.map((link) => (
                 <li key={link.label}>
-                  <a
-                    href={link.href}
+                  <button
+                    onClick={() => handleNavClick(link.view)}
                     className="text-sm text-neutral-400 hover:text-brand-400 transition-colors"
                   >
                     {link.label}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
