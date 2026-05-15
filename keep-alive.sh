@@ -1,17 +1,11 @@
 #!/bin/bash
+# Keep-alive: restart the Next.js server automatically when it dies
 cd /home/z/my-project
 while true; do
-  # Check if server is running
-  if ! curl -s -o /dev/null -w "" http://127.0.0.1:3000/ 2>/dev/null; then
-    echo "[$(date)] Server down, restarting..." >> /home/z/my-project/keep-alive.log
-    # Kill any leftover processes
-    pkill -f "next dev" 2>/dev/null
-    sleep 2
-    # Start server
-    npx next dev --port 3000 > /home/z/my-project/dev.log 2>&1 &
-    disown
-    sleep 8
-    echo "[$(date)] Server restarted" >> /home/z/my-project/keep-alive.log
+  if ! lsof -ti:3000 >/dev/null 2>&1; then
+    echo "[$(date)] Server dead, restarting..." >> /home/z/my-project/dev.log
+    node_modules/.bin/next dev --port 3000 >> /home/z/my-project/dev.log 2>&1 &
+    sleep 5
   fi
-  sleep 10
+  sleep 3
 done
