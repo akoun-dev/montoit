@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/lib/auth-store'
+import { useFavorites } from '@/lib/use-favorites'
 import {
   MapPin,
   BedDouble,
@@ -421,7 +422,7 @@ function PropertyDetailSkeleton() {
 
 export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   const { setView, isAuthenticated, user, previousView } = useAuthStore()
-  const [isFavorite, setIsFavorite] = useState(false)
+  const { isFavorite: checkIsFavorite, toggleFavorite: apiToggleFavorite, checkSingle } = useFavorites([propertyId])
   const [currentImage, setCurrentImage] = useState(0)
   const [activeTab, setActiveTab] = useState<TabKey>('details')
   const [authGateOpen, setAuthGateOpen] = useState(false)
@@ -464,6 +465,13 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
       })
     return () => { cancelled = true }
   }, [propertyId])
+
+  // Check favorite status on mount
+  useEffect(() => {
+    if (propertyId && isAuthenticated) {
+      checkSingle(propertyId)
+    }
+  }, [propertyId, isAuthenticated, checkSingle])
 
   // Fetch reviews from API
   useEffect(() => {
@@ -537,7 +545,9 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
 
   // Favorite toggle with auth gate
   const toggleFavorite = () => {
-    requireAuth('ajouter aux favoris', () => setIsFavorite(!isFavorite))
+    requireAuth('ajouter aux favoris', async () => {
+      await apiToggleFavorite(propertyId)
+    })
   }
 
   // Apply for property
@@ -584,9 +594,9 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
             <button
               onClick={toggleFavorite}
               className="size-9 rounded-full bg-neutral-50 border border-neutral-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-all"
-              aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              aria-label={checkIsFavorite(propertyId) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
             >
-              <Heart className={`size-4 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-neutral-500'}`} />
+              <Heart className={`size-4 ${checkIsFavorite(propertyId) ? 'fill-red-500 text-red-500' : 'text-neutral-500'}`} />
             </button>
             <button
               className="size-9 rounded-full bg-neutral-50 border border-neutral-200 flex items-center justify-center hover:bg-brand-50 hover:border-brand-200 transition-all"

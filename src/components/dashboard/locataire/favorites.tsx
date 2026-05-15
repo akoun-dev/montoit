@@ -1,13 +1,44 @@
 'use client'
 
-import { Heart } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useEffect, useState, useCallback } from 'react'
+import { Heart, MapPin, Building2, Eye, ArrowRight } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+
+interface FavoriteProperty {
+  id: string
+  createdAt: string
+  property: {
+    id: string
+    title: string
+    type: string
+    price: number
+    currency: string
+    area: number
+    bedrooms: number | null
+    city: string
+    commune: string | null
+    address: string
+    rentalStatus: string
+    isFurnished: boolean
+    isVerified: boolean
+    viewsCount: number
+    images: Array<{ url: string }>
+    owner: { id: string; firstName: string; lastName: string }
+  }
+}
+
+interface FavoritesResponse {
+  favorites?: FavoriteProperty[]
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } },
+  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
 }
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -15,53 +46,213 @@ const itemVariants = {
 }
 
 export function Favorites() {
-  const { user } = useAuthStore()
+  const { user, isAuthenticated, setView, setSelectedPropertyId } = useAuthStore()
+  const [favorites, setFavorites] = useState<FavoriteProperty[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchFavorites = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const d = await authFetch<FavoritesResponse>('/api/favorites')
+      setFavorites(d.favorites ?? [])
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        setFavorites([])
+        return
+      }
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      setFavorites([])
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    fetchFavorites()
+  }, [fetchFavorites])
+
+  const handleRemoveFavorite = async (propertyId: string) => {
+    try {
+      await authFetch('/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyId }),
+      })
+      // Remove from local state immediately
+      setFavorites((prev) => prev.filter((f) => f.property.id !== propertyId))
+    } catch {
+      // Silently fail — user can retry
+    }
+  }
+
+  const handleViewProperty = (propertyId: string) => {
+    setSelectedPropertyId(propertyId)
+    setView('property-detail')
+  }
+
+  const handleBrowseProperties = () => {
+    setView('nos-biens')
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-neutral-900">Mes favoris</h1>
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-4">
+            <p className="text-sm text-amber-700">Impossible de charger vos favoris. Veuillez réessayer.</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
         <h1 className="text-2xl font-bold text-neutral-900">Mes favoris</h1>
-        <p className="text-neutral-500 mt-1">Les biens que vous avez sauvegardés</p>
+        <p className="text-neutral-500 mt-1">
+          {favorites.length > 0
+            ? `${favorites.length} bien${favorites.length > 1 ? 's' : ''} sauvegardé${favorites.length > 1 ? 's' : ''}`
+            : 'Les biens que vous avez sauvegardés'}
+        </p>
       </motion.div>
 
-      {/* Empty State */}
-      <motion.div variants={itemVariants}>
-        <Card className="border-dashed border-neutral-300 bg-neutral-50/50">
-          <CardContent className="py-12 flex flex-col items-center text-center">
-            <div className="flex size-16 items-center justify-center rounded-full bg-red-50 mb-4">
-              <Heart className="size-7 text-red-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-neutral-900 mb-1">
-              Vous n&apos;avez pas encore de favoris
-            </h3>
-            <p className="text-sm text-neutral-500 mb-2 max-w-sm">
-              {user?.firstName}, commencez à sauvegarder les biens qui vous plaisent.
-            </p>
-            <p className="text-xs text-neutral-400 flex items-center gap-1.5 mt-2">
-              <Heart className="size-3" />
-              Cliquez sur le cœur d&apos;un bien pour l&apos;ajouter
-            </p>
-          </CardContent>
-        </Card>
-      </motion.div>
+      {favorites.length === 0 ? (
+        /* Empty State */
+        <motion.div variants={itemVariants}>
+          <Card className="border-dashed border-neutral-300 bg-neutral-50/50">
+            <CardContent className="py-12 flex flex-col items-center text-center">
+              <div className="flex size-16 items-center justify-center rounded-full bg-red-50 mb-4">
+                <Heart className="size-7 text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+                Vous n&apos;avez pas encore de favoris
+              </h3>
+              <p className="text-sm text-neutral-500 mb-4 max-w-sm">
+                {user?.firstName}, commencez à sauvegarder les biens qui vous plaisent en cliquant sur le cœur.
+              </p>
+              <Button
+                onClick={handleBrowseProperties}
+                className="bg-brand-500 hover:bg-brand-600 text-white"
+              >
+                Explorer les biens
+                <ArrowRight className="size-4 ml-2" />
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ) : (
+        /* Favorites Grid */
+        <motion.div variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {favorites.map((fav) => {
+            const p = fav.property
+            const image = p.images?.[0]?.url
+            const bedroomsLabel = p.bedrooms
+              ? p.bedrooms === 1
+                ? '1 pièce'
+                : `${p.bedrooms} pièces`
+              : 'Studio'
 
-      {/* Hint Card */}
-      <motion.div variants={itemVariants}>
-        <Card className="border-brand-200 bg-brand-50/40">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-brand-600 flex items-center gap-2">
-              <Heart className="size-4" />
-              Astuce
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-neutral-600">
-              Retrouvez facilement les logements qui vous intéressent en les ajoutant à vos favoris. Ils seront accessibles à tout moment depuis cette section.
-            </p>
-          </CardContent>
-        </Card>
-      </motion.div>
+            return (
+              <motion.div key={fav.id} variants={itemVariants}>
+                <Card className="border-neutral-200 overflow-hidden hover:shadow-md transition-shadow group">
+                  {/* Image */}
+                  <div
+                    className="relative h-40 overflow-hidden cursor-pointer"
+                    onClick={() => handleViewProperty(p.id)}
+                  >
+                    {image ? (
+                      <img
+                        src={image}
+                        alt={p.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-neutral-100 flex items-center justify-center">
+                        <Building2 className="size-8 text-neutral-300" />
+                      </div>
+                    )}
+                    {/* Status badge */}
+                    <Badge
+                      className={`absolute top-3 left-3 border-0 text-xs font-semibold px-2 py-0.5 ${
+                        p.rentalStatus === 'disponible'
+                          ? 'bg-emerald-500 text-white'
+                          : p.rentalStatus === 'loue'
+                            ? 'bg-red-500 text-white'
+                            : 'bg-amber-500 text-white'
+                      }`}
+                    >
+                      {p.rentalStatus === 'disponible'
+                        ? 'Disponible'
+                        : p.rentalStatus === 'loue'
+                          ? 'Loué'
+                          : 'Réservé'}
+                    </Badge>
+                    {/* Remove button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRemoveFavorite(p.id)
+                      }}
+                      className="absolute top-3 right-3 size-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white transition-colors"
+                      aria-label="Retirer des favoris"
+                    >
+                      <Heart className="size-4 fill-red-500 text-red-500" />
+                    </button>
+                  </div>
+
+                  {/* Content */}
+                  <CardContent className="p-4">
+                    <button
+                      onClick={() => handleViewProperty(p.id)}
+                      className="text-left w-full"
+                    >
+                      <h3 className="font-semibold text-neutral-900 text-sm line-clamp-1 mb-1 hover:text-brand-600 transition-colors">
+                        {p.title}
+                      </h3>
+                    </button>
+                    <div className="flex items-center gap-1 text-neutral-500 text-xs mb-2">
+                      <MapPin className="size-3 shrink-0" />
+                      <span className="line-clamp-1">{p.city}{p.commune ? `, ${p.commune}` : ''}</span>
+                    </div>
+                    <p className="text-neutral-600 text-xs mb-2">
+                      {bedroomsLabel} &bull; {p.area} m²
+                      {p.isFurnished && ' &bull; Meublé'}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="font-bold text-neutral-900 text-sm">
+                        {p.price.toLocaleString('fr-FR')} <span className="text-xs font-normal text-neutral-400">{p.currency}/mois</span>
+                      </p>
+                      {p.isVerified && (
+                        <Badge className="bg-brand-50 text-brand-600 border-brand-200 text-[10px] px-1.5 py-0 border">
+                          Vérifié
+                        </Badge>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )
+          })}
+        </motion.div>
+      )}
     </motion.div>
   )
 }

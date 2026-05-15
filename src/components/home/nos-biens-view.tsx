@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/lib/auth-store'
+import { useFavorites } from '@/lib/use-favorites'
 import { PropertyMapLeaflet } from '@/components/home/property-map'
 import {
   Select,
@@ -344,8 +345,7 @@ function FilterSidebar({
 
 // ── Property Card ───────────────────────────────────────────────────────────
 
-function PropertyCard({ property, onClick }: { property: Property; onClick: () => void }) {
-  const [isFavorite, setIsFavorite] = useState(false)
+function PropertyCard({ property, onClick, isFavorite, toggleFavorite }: { property: Property; onClick: () => void; isFavorite: (id: string) => boolean; toggleFavorite: (id: string) => Promise<boolean> }) {
   const { isAuthenticated, setView } = useAuthStore()
 
   const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
@@ -402,18 +402,18 @@ function PropertyCard({ property, onClick }: { property: Property; onClick: () =
 
         {/* Favorite button */}
         <button
-          onClick={(e) => {
+          onClick={async (e) => {
             e.preventDefault()
             e.stopPropagation()
             if (!isAuthenticated) { setView('login'); return }
-            setIsFavorite(!isFavorite)
+            toggleFavorite(property.id)
           }}
           className="absolute top-3 right-3 size-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white shadow-sm transition-all"
-          aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
         >
           <Heart
             className={`size-4 transition-colors ${
-              isFavorite ? 'fill-red-500 text-red-500' : 'text-neutral-500'
+              isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-neutral-500'
             }`}
           />
         </button>
@@ -460,8 +460,7 @@ function PropertyCard({ property, onClick }: { property: Property; onClick: () =
 
 // ── Property List Item ──────────────────────────────────────────────────────
 
-function PropertyListItem({ property, onClick }: { property: Property; onClick: () => void }) {
-  const [isFavorite, setIsFavorite] = useState(false)
+function PropertyListItem({ property, onClick, isFavorite, toggleFavorite }: { property: Property; onClick: () => void; isFavorite: (id: string) => boolean; toggleFavorite: (id: string) => Promise<boolean> }) {
   const { isAuthenticated, setView } = useAuthStore()
 
   const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
@@ -504,11 +503,11 @@ function PropertyListItem({ property, onClick }: { property: Property; onClick: 
           <div className="flex items-start justify-between gap-2 mb-1">
             <h3 className="font-semibold text-neutral-900 text-sm line-clamp-1">{property.title}</h3>
             <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!isAuthenticated) { setView('login'); return } setIsFavorite(!isFavorite) }}
+              onClick={async (e) => { e.preventDefault(); e.stopPropagation(); if (!isAuthenticated) { setView('login'); return } toggleFavorite(property.id) }}
               className="shrink-0 size-7 sm:size-8 rounded-full bg-neutral-50 flex items-center justify-center hover:bg-neutral-100 transition-colors"
-              aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
             >
-              <Heart className={`size-3.5 sm:size-4 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-neutral-400'}`} />
+              <Heart className={`size-3.5 sm:size-4 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-neutral-400'}`} />
             </button>
           </div>
           <div className="flex items-center gap-1 text-neutral-500 text-xs mb-2">
@@ -560,8 +559,7 @@ function PropertyListItem({ property, onClick }: { property: Property; onClick: 
 
 // ── Map List Item (compact card for map sidebar) ────────────────────────────
 
-function MapListItem({ property, onClick }: { property: Property; onClick: () => void }) {
-  const [isFavorite, setIsFavorite] = useState(false)
+function MapListItem({ property, onClick, isFavorite, toggleFavorite }: { property: Property; onClick: () => void; isFavorite: (id: string) => boolean; toggleFavorite: (id: string) => Promise<boolean> }) {
   const { isAuthenticated, setView } = useAuthStore()
 
   const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
@@ -627,11 +625,11 @@ function MapListItem({ property, onClick }: { property: Property; onClick: () =>
               {formatPrice(property.price)} <span className="text-[9px] font-normal text-neutral-400">F CFA</span>
             </p>
             <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!isAuthenticated) { setView('login'); return } setIsFavorite(!isFavorite) }}
+              onClick={async (e) => { e.preventDefault(); e.stopPropagation(); if (!isAuthenticated) { setView('login'); return } toggleFavorite(property.id) }}
               className="size-5 rounded-full flex items-center justify-center hover:bg-neutral-100 transition-colors"
-              aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
             >
-              <Heart className={`size-3 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-neutral-300'}`} />
+              <Heart className={`size-3 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-neutral-300'}`} />
             </button>
           </div>
         </div>
@@ -649,6 +647,10 @@ export function NosBiensView() {
   const [properties, setProperties] = useState<Property[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Favorites
+  const propertyIds = properties.map(p => p.id)
+  const { isFavorite, toggleFavorite } = useFavorites(propertyIds)
 
   // Dynamic filter options from DB
   const [propertyTypes, setPropertyTypes] = useState<string[]>([])
@@ -1032,6 +1034,8 @@ export function NosBiensView() {
                       key={property.id}
                       property={property}
                       onClick={() => openDetail(property.id)}
+                      isFavorite={isFavorite}
+                      toggleFavorite={toggleFavorite}
                     />
                   ))
                 ) : (
@@ -1067,6 +1071,8 @@ export function NosBiensView() {
                       <MapListItem
                         property={property}
                         onClick={() => openDetail(property.id)}
+                        isFavorite={isFavorite}
+                        toggleFavorite={toggleFavorite}
                       />
                     </div>
                   ))}
@@ -1114,6 +1120,8 @@ export function NosBiensView() {
                         <PropertyCard
                           property={property}
                           onClick={() => openDetail(property.id)}
+                          isFavorite={isFavorite}
+                          toggleFavorite={toggleFavorite}
                         />
                       </motion.div>
                     ))}
@@ -1136,6 +1144,8 @@ export function NosBiensView() {
                         <PropertyListItem
                           property={property}
                           onClick={() => openDetail(property.id)}
+                          isFavorite={isFavorite}
+                          toggleFavorite={toggleFavorite}
                         />
                       </motion.div>
                     ))}

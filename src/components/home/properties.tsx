@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { MapPin, Heart, Eye, ShieldCheck, ArrowRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/lib/auth-store'
+import { useFavorites } from '@/lib/use-favorites'
 
 interface Property {
   id: string
@@ -58,7 +59,7 @@ function formatPrice(price: number): string {
 }
 
 function PropertyCard({ property }: { property: Property }) {
-  const [isFavorite, setIsFavorite] = useState(false)
+  const { isFavorite, toggleFavorite } = useFavorites([property.id])
   const { setView, setSelectedPropertyId, isAuthenticated } = useAuthStore()
 
   const handleClick = () => {
@@ -119,18 +120,18 @@ function PropertyCard({ property }: { property: Property }) {
         </div>
         {/* Favorite button */}
         <button
-          onClick={(e) => {
+          onClick={async (e) => {
             e.preventDefault()
             e.stopPropagation()
             if (!isAuthenticated) { setView('login'); return }
-            setIsFavorite(!isFavorite)
+            toggleFavorite(property.id)
           }}
           className="absolute top-3 right-3 size-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center transition-opacity hover:bg-white shadow-sm"
-          aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
         >
           <Heart
             className={`size-4 transition-colors ${
-              isFavorite ? 'fill-red-500 text-red-500' : 'text-neutral-500'
+              isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-neutral-500'
             }`}
           />
         </button>
