@@ -265,3 +265,48 @@ Stage Summary:
 - Settings page has complete ONECI verification UI with NNI + birthDate fields
 - Empty ONECI response = verified, non-empty = specific field mismatches shown
 - Environment variable for secret key properly quoted to handle `#` character
+
+---
+Task ID: 9
+Agent: full-stack-developer
+Task: Implement NEOFACE face authentication
+
+Work Log:
+- Added `neofaceVerifiedAt DateTime?` to Prisma User schema (right after `neofaceVerified`)
+- Ran `bun run db:push` to update database schema
+- Created `/api/oneci/face-auth/route.ts` that:
+  1. Gets user session from `montoit-user-id` cookie
+  2. Validates user has `nni` and `oneciVerified` (must be ONECI-verified first)
+  3. Gets bearer token from ONECI authenticate endpoint (same as verify)
+  4. Calls face-auth endpoint with NNI + base64 face image as FormData
+  5. If successful → updates `neofaceVerified = true`, `neofaceVerifiedAt = now()`
+  6. Handles multiple success response formats (empty body, success field, matched field)
+- Updated `/api/profile` GET/PUT to include `neofaceVerifiedAt` in select
+- Updated `/api/auth/me` to include `neofaceVerifiedAt` in returned user object
+- Updated Settings component (`settings.tsx`):
+  - Added `neofaceVerifiedAt` to ProfileData type
+  - Added `useRef` import and refs for video, canvas, stream, and section scrolling
+  - Added Camera and RefreshCw icons from lucide-react
+  - Added camera state: cameraActive, capturedImage, neofaceVerifying, neofaceResult
+  - Added camera handlers: startCamera, stopCamera, capturePhoto, handleNeofaceVerify, scrollToNeoface
+  - Added camera stream cleanup on unmount
+  - Added NEOFACE Face Verification section after ONECI in profile tab:
+    - Shows "Vérifié" badge with date when already verified (green)
+    - Shows disabled state with message when ONECI not yet verified
+    - Camera preview with oval face overlay and mirror selfie view
+    - "Prendre une photo" and "Vérifier mon visage" buttons
+    - Loading state during verification
+    - Success: green checkmark + "Vérification biométrique réussie"
+    - Failure: red X + error message + retry button
+  - Updated NEOFACE ScoreComponentCard in scoring tab with "Vérifier mon visage" action button
+  - Added neoface action handler in recommendations section
+- Updated Trust Score component (`trust-score.tsx`): neoface action now navigates to settings
+- Lint: 0 errors, 0 warnings
+
+Stage Summary:
+- NEOFACE face authentication fully implemented
+- Users must be ONECI-verified before face auth
+- Camera capture with selfie preview works (getUserMedia + canvas toDataURL)
+- Trust Score integrates NEOFACE verification (20% weight)
+- Scoring tab NEOFACE card links to face verification section
+- All APIs include neofaceVerifiedAt field

@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
         birthDate: true,
         nni: true,
         neofaceVerified: true,
+        neofaceVerifiedAt: true,
         oneciVerified: true,
         oneciVerifiedAt: true,
       },

@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Settings, User, Shield, Bell, Sliders, Mail, Phone, ShieldCheck,
   ChevronRight, CheckCircle2, XCircle, ScanFace, CreditCard, FileCheck,
   Save, Loader2, MapPin, Users, ArrowRight, Lightbulb, AlertTriangle,
-  Info,
+  Info, Camera, RefreshCw,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +34,7 @@ interface ProfileData {
   birthDate: string | null
   nni: string | null
   neofaceVerified: boolean
+  neofaceVerifiedAt: string | null
   oneciVerified: boolean
   oneciVerifiedAt: string | null
   isEmailVerified: boolean
@@ -262,6 +263,16 @@ export function SettingsSection() {
   const [oneciVerifying, setOneciVerifying] = useState(false)
   const [oneciResult, setOneciResult] = useState<{ verified: boolean; message: string; details?: string } | null>(null)
 
+  // NEOFACE face verification state
+  const [cameraActive, setCameraActive] = useState(false)
+  const [capturedImage, setCapturedImage] = useState<string | null>(null)
+  const [neofaceVerifying, setNeofaceVerifying] = useState(false)
+  const [neofaceResult, setNeofaceResult] = useState<{ verified: boolean; message: string } | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const neofaceSectionRef = useRef<HTMLDivElement>(null)
+
   // Fetch profile & scoring data
   const fetchProfileAndScoring = useCallback(async () => {
     if (!user) return
@@ -308,6 +319,124 @@ export function SettingsSection() {
       return () => clearTimeout(timer)
     }
   }, [success])
+
+  // Cleanup camera stream on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop())
+      }
+    }
+  }, [])
+
+  // Start camera
+  const startCamera = useCallback(async () => {
+    setCapturedImage(null)
+    setNeofaceResult(null)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      })
+      streamRef.current = stream
+      setCameraActive(true)
+      // Set video source after state update
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+        }
+      }, 100)
+    } catch {
+      setNeofaceResult({
+        verified: false,
+        message: 'Impossible d\'accéder à la caméra. Vérifiez les permissions de votre navigateur.',
+      })
+    }
+  }, [])
+
+  // Stop camera
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+    setCameraActive(false)
+  }, [])
+
+  // Capture photo from camera
+  const capturePhoto = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return
+
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    // Mirror the image for selfie view
+    ctx.translate(canvas.width, 0)
+    ctx.scale(-1, 1)
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
+    setCapturedImage(dataUrl)
+    stopCamera()
+  }, [stopCamera])
+
+  // NEOFACE face verification handler
+  const handleNeofaceVerify = useCallback(async () => {
+    if (!capturedImage) return
+    setNeofaceVerifying(true)
+    setNeofaceResult(null)
+
+    // Strip data URL prefix to get raw base64
+    const base64Data = capturedImage.replace(/^data:image\/jpeg;base64,/, '')
+
+    try {
+      const result = await authFetch<{ verified: boolean; message?: string; error?: string }>('/api/oneci/face-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ faceImage: base64Data }),
+      })
+
+      setNeofaceResult({
+        verified: result.verified,
+        message: result.verified
+          ? result.message || 'Vérification biométrique réussie !'
+          : result.error || result.message || 'La vérification a échoué.',
+      })
+
+      // If verified, refresh profile and scoring
+      if (result.verified) {
+        const [profileResult, scoringResult] = await Promise.allSettled([
+          authFetch<{ user: ProfileData }>('/api/profile'),
+          authFetch<ScoringData>('/api/scoring'),
+        ])
+        if (profileResult.status === 'fulfilled') {
+          setProfile(profileResult.value.user)
+        }
+        if (scoringResult.status === 'fulfilled') {
+          setScoring(scoringResult.value)
+        }
+      }
+    } catch (err) {
+      setNeofaceResult({
+        verified: false,
+        message: err instanceof Error ? err.message : 'Erreur lors de la vérification biométrique',
+      })
+    } finally {
+      setNeofaceVerifying(false)
+    }
+  }, [capturedImage])
+
+  // Scroll to NEOFACE section
+  const scrollToNeoface = useCallback(() => {
+    setActiveTab('profil')
+    setTimeout(() => {
+      neofaceSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 300)
+  }, [])
 
   // Save profile
   const handleSave = async () => {
@@ -769,6 +898,185 @@ export function SettingsSection() {
                   )}
                 </div>
 
+                {/* ── NEOFACE Face Verification Section ─────────────────────── */}
+                <div ref={neofaceSectionRef} className="pt-2">
+                  <Separator className="mb-4" />
+                  <div className="flex items-center gap-2 mb-3">
+                    <ScanFace className="size-4 text-brand-500" />
+                    <span className="text-sm font-semibold text-neutral-900">Vérification biométrique NEOFACE</span>
+                    {profile?.neofaceVerified ? (
+                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0 border font-semibold">
+                        <CheckCircle2 className="size-3 mr-0.5" /> Vérifié
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] px-1.5 py-0 border font-semibold">
+                        +20% Trust Score
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-500 mb-4">
+                    Prenez un selfie pour vérifier votre identité par reconnaissance faciale. Votre visage sera comparé à la photo de votre CNI.
+                  </p>
+
+                  {/* Already verified */}
+                  {profile?.neofaceVerified ? (
+                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shrink-0">
+                          <CheckCircle2 className="size-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-emerald-700">Vérification biométrique réussie</p>
+                          {profile.neofaceVerifiedAt && (
+                            <p className="text-[10px] text-emerald-600 mt-0.5 flex items-center gap-1">
+                              <CheckCircle2 className="size-3" />
+                              Vérifié le {new Date(profile.neofaceVerifiedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : !profile?.oneciVerified ? (
+                    /* Not ONECI verified — disabled */
+                    <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-200">
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-400 shrink-0">
+                          <ScanFace className="size-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-neutral-600">Vérification biométrique non disponible</p>
+                          <p className="text-xs text-neutral-500 mt-0.5">
+                            Vérifiez d&apos;abord votre CNI via ONECI pour activer la vérification biométrique.
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="mt-3 w-full text-xs h-8 border-neutral-200 text-neutral-500"
+                        disabled
+                      >
+                        <ScanFace className="size-3.5 mr-1.5" />
+                        Vérification biométrique indisponible
+                      </Button>
+                    </div>
+                  ) : (
+                    /* ONECI verified — show face capture UI */
+                    <div className="space-y-4">
+                      {/* Camera preview / captured image */}
+                      <div className="relative rounded-xl overflow-hidden bg-neutral-900 aspect-[4/3] max-w-sm mx-auto">
+                        {cameraActive ? (
+                          <>
+                            <video
+                              ref={videoRef}
+                              autoPlay
+                              playsInline
+                              muted
+                              className="size-full object-cover -scale-x-1"
+                            />
+                            {/* Face overlay oval */}
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <div className="w-48 h-60 sm:w-56 sm:h-72 rounded-[50%] border-2 border-white/40" />
+                            </div>
+                            {/* Camera controls */}
+                            <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-3">
+                              <Button
+                                onClick={capturePhoto}
+                                className="bg-brand-500 hover:bg-brand-600 text-white rounded-full size-12 p-0"
+                              >
+                                <Camera className="size-5" />
+                              </Button>
+                              <Button
+                                onClick={stopCamera}
+                                variant="outline"
+                                className="bg-white/90 hover:bg-white text-neutral-700 rounded-full size-12 p-0 border-neutral-200"
+                              >
+                                <XCircle className="size-5" />
+                              </Button>
+                            </div>
+                          </>
+                        ) : capturedImage ? (
+                          <img
+                            src={capturedImage}
+                            alt="Selfie capturé"
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <div className="size-full flex flex-col items-center justify-center text-neutral-400">
+                            <ScanFace className="size-12 mb-2 opacity-50" />
+                            <p className="text-xs">Aucune image capturée</p>
+                          </div>
+                        )}
+                        {/* Hidden canvas for image capture */}
+                        <canvas ref={canvasRef} className="hidden" />
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex flex-col sm:flex-row gap-2 max-w-sm mx-auto">
+                        {!cameraActive && (
+                          <Button
+                            onClick={startCamera}
+                            disabled={neofaceVerifying}
+                            variant="outline"
+                            className="flex-1 border-brand-200 text-brand-600 hover:bg-brand-50"
+                          >
+                            <Camera className="size-4 mr-2" />
+                            {capturedImage ? 'Reprendre une photo' : 'Prendre une photo'}
+                          </Button>
+                        )}
+                        {capturedImage && !cameraActive && (
+                          <Button
+                            onClick={handleNeofaceVerify}
+                            disabled={neofaceVerifying}
+                            className="flex-1 bg-brand-500 hover:bg-brand-600 text-white"
+                          >
+                            {neofaceVerifying ? (
+                              <><Loader2 className="size-4 mr-2 animate-spin" /> Vérification...</>
+                            ) : (
+                              <><ScanFace className="size-4 mr-2" /> Vérifier mon visage</>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* NEOFACE verification result */}
+                      {neofaceResult && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`p-3 rounded-lg border ${
+                            neofaceResult.verified
+                              ? 'bg-emerald-50 border-emerald-200'
+                              : 'bg-red-50 border-red-200'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            {neofaceResult.verified ? (
+                              <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                            ) : (
+                              <XCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
+                            )}
+                            <div>
+                              <p className={`text-xs font-medium ${neofaceResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
+                                {neofaceResult.message}
+                              </p>
+                              {!neofaceResult.verified && (
+                                <Button
+                                  variant="link"
+                                  className="text-[11px] text-brand-500 p-0 h-auto mt-1"
+                                  onClick={startCamera}
+                                >
+                                  <RefreshCw className="size-3 mr-1" />
+                                  Réessayer avec une nouvelle photo
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Email (read-only) */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-neutral-700 flex items-center gap-1.5">
@@ -875,6 +1183,8 @@ export function SettingsSection() {
                 max={scoring.breakdown.neoface.max}
                 statusColor={scoring.statusColor}
                 details="Vérification biométrique obligatoire"
+                actionLabel="Vérifier mon visage"
+                onAction={scrollToNeoface}
               />
               <ScoreComponentCard
                 icon={CreditCard}
@@ -994,6 +1304,7 @@ export function SettingsSection() {
                           if (rec.action === 'settings') setActiveTab('profil')
                           else if (rec.action === 'rental-file') setDashboardSection('rental-file')
                           else if (rec.action === 'oneci') setActiveTab('profil')
+                          else if (rec.action === 'neoface') scrollToNeoface()
                         }}
                       >
                         {rec.actionLabel}
