@@ -420,6 +420,25 @@ export async function POST() {
       },
     })
 
+    // ─── Create Second Active Lease for tenant1 (with owner2) ─────────
+    const lease6 = await db.lease.create({
+      data: {
+        propertyId: createdProperties[5].id, // Penthouse Zone 4 (owner2)
+        tenantId: tenant1.id,
+        ownerId: owner2.id,
+        rentalFileId: rentalFile1.id,
+        status: 'ACTIVE',
+        startDate: new Date('2025-06-01'),
+        endDate: new Date('2027-05-31'),
+        monthlyRent: 850000,
+        charges: 100000,
+        deposit: 1700000,
+        ownerSignedAt: new Date('2025-06-01'),
+        tenantSignedAt: new Date('2025-06-03'),
+        specialConditions: 'Utilisation exclusive de la terrasse panoramique. Pas d\'animaux.',
+      },
+    })
+
     // ─── Create Additional Payments ─────────────────────────────────────
     // Payments for lease2 (tenant2 - Fatou Bamba, Villa Marcory)
     await db.payment.createMany({
@@ -544,6 +563,82 @@ export async function POST() {
           status: 'PENDING',
           dueDate: new Date('2025-11-01'),
           reference: 'PMT-2025-032',
+        },
+      ],
+    })
+
+    // Payments for lease6 (tenant1 - Moussa Koné, Penthouse Zone 4 with owner2)
+    await db.payment.createMany({
+      data: [
+        {
+          leaseId: lease6.id,
+          tenantId: tenant1.id,
+          amount: 850000,
+          status: 'PAID',
+          dueDate: new Date('2025-06-01'),
+          paidAt: new Date('2025-06-02'),
+          reference: 'PMT-2025-040',
+        },
+        {
+          leaseId: lease6.id,
+          tenantId: tenant1.id,
+          amount: 850000,
+          status: 'PAID',
+          dueDate: new Date('2025-07-01'),
+          paidAt: new Date('2025-07-01'),
+          reference: 'PMT-2025-041',
+        },
+        {
+          leaseId: lease6.id,
+          tenantId: tenant1.id,
+          amount: 850000,
+          status: 'PAID',
+          dueDate: new Date('2025-08-01'),
+          paidAt: new Date('2025-08-03'),
+          reference: 'PMT-2025-042',
+        },
+        {
+          leaseId: lease6.id,
+          tenantId: tenant1.id,
+          amount: 850000,
+          status: 'PAID',
+          dueDate: new Date('2025-09-01'),
+          paidAt: new Date('2025-09-01'),
+          reference: 'PMT-2025-043',
+        },
+        {
+          leaseId: lease6.id,
+          tenantId: tenant1.id,
+          amount: 850000,
+          status: 'PAID',
+          dueDate: new Date('2025-10-01'),
+          paidAt: new Date('2025-10-02'),
+          reference: 'PMT-2025-044',
+        },
+        {
+          leaseId: lease6.id,
+          tenantId: tenant1.id,
+          amount: 850000,
+          status: 'PAID',
+          dueDate: new Date('2025-11-01'),
+          paidAt: new Date('2025-11-01'),
+          reference: 'PMT-2025-045',
+        },
+        {
+          leaseId: lease6.id,
+          tenantId: tenant1.id,
+          amount: 850000,
+          status: 'LATE',
+          dueDate: new Date('2025-05-01'),
+          reference: 'PMT-2025-039',
+        },
+        {
+          leaseId: lease6.id,
+          tenantId: tenant1.id,
+          amount: 850000,
+          status: 'PENDING',
+          dueDate: new Date('2025-12-01'),
+          reference: 'PMT-2025-046',
         },
       ],
     })
@@ -681,6 +776,41 @@ export async function POST() {
       data: { isRead: true },
     })
 
+    // Conversation between tenant1 and owner2 (Penthouse Zone 4)
+    const conv3 = await db.conversation.create({
+      data: {
+        participant1Id: tenant1.id,
+        participant2Id: owner2.id,
+        propertyId: createdProperties[5].id,
+        lastMessageAt: new Date(),
+        messages: {
+          create: [
+            {
+              senderId: tenant1.id,
+              content: 'Bonjour Madame Diallo, le penthouse Zone 4 est-il toujours disponible ?',
+            },
+            {
+              senderId: owner2.id,
+              content: 'Bonjour Moussa ! Oui, il est disponible. La vue sur la lagune est magnifique.',
+            },
+            {
+              senderId: tenant1.id,
+              content: 'Super ! Est-ce que la terrasse est accessible en toute saison ?',
+            },
+            {
+              senderId: owner2.id,
+              content: 'Oui, la terrasse est couverte. Vous pouvez en profiter toute l\'année. N\'hésitez pas à visiter !',
+            },
+          ],
+        },
+      },
+    })
+
+    await db.message.updateMany({
+      where: { conversationId: conv3.id, senderId: owner2.id, isRead: false },
+      data: { isRead: true },
+    })
+
     // ─── Create Validation SLAs ─────────────────────────────────────────
     await db.validationSLA.createMany({
       data: [
@@ -799,6 +929,46 @@ export async function POST() {
           message: 'Offre spéciale : premiers mois réduits',
           isRead: false,
         },
+        // Additional notifications for tenant1
+        {
+          userId: tenant1.id,
+          type: 'MESSAGE',
+          title: 'Nouveau message',
+          message: 'Nouveau message de Awa Diallo',
+          isRead: false,
+          actionUrl: '/dashboard?section=messages',
+        },
+        {
+          userId: tenant1.id,
+          type: 'PAYMENT_ALERT',
+          title: 'Rappel de paiement',
+          message: 'Paiement en attente - Penthouse Zone 4, décembre 2025',
+          isRead: false,
+          actionUrl: '/dashboard?section=my-leases',
+        },
+        {
+          userId: tenant1.id,
+          type: 'PAYMENT_ALERT',
+          title: 'Paiement en retard',
+          message: 'Paiement en retard - Penthouse Zone 4, mai 2025',
+          isRead: false,
+          actionUrl: '/dashboard?section=my-leases',
+        },
+        {
+          userId: tenant1.id,
+          type: 'DOSSIER_UPDATE',
+          title: 'Baux actifs',
+          message: 'Vous avez 2 baux actifs : Appartement F3 Cocody et Penthouse Zone 4',
+          isRead: true,
+          actionUrl: '/dashboard?section=my-leases',
+        },
+        {
+          userId: tenant1.id,
+          type: 'SYSTEM',
+          title: 'Profil partagé',
+          message: 'Votre profil locataire a été partagé avec succès',
+          isRead: true,
+        },
       ],
     })
 
@@ -829,6 +999,15 @@ export async function POST() {
           description: 'La porte d\'entrée nécessite un effort important pour se fermer correctement. La serrure semble légèrement décalée.',
           status: 'PENDING',
           priority: 'LOW',
+        },
+        // Maintenance request for tenant1's second lease (Penthouse Zone 4)
+        {
+          leaseId: lease6.id,
+          tenantId: tenant1.id,
+          title: 'Fuite terrasse panoramique',
+          description: 'La terrasse panoramique présente une infiltration d\'eau au niveau du joint d\'étanchéité lors des pluies torrentielles.',
+          status: 'PENDING',
+          priority: 'HIGH',
         },
       ],
     })

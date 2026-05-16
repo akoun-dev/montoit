@@ -6,7 +6,7 @@ import {
   ChevronRight, CheckCircle2, XCircle, ScanFace, CreditCard, FileCheck,
   Save, Loader2, MapPin, Users, ArrowRight, Lightbulb, AlertTriangle,
   Info, RefreshCw, Eye, EyeOff, Monitor, Smartphone, Trash2, LogOut,
-  Camera, Pencil, ArrowLeftRight, Building2,
+  Camera, Pencil, ArrowLeftRight, Building2, Share, Copy,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -726,6 +726,14 @@ export function SettingsSection() {
   const [avatarUploading, setAvatarUploading] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
+  // Profile sharing state
+  const [shareEmail, setShareEmail] = useState('')
+  const [shareLoading, setShareLoading] = useState(false)
+  const [shareSuccess, setShareSuccess] = useState<string | null>(null)
+  const [shareError, setShareError] = useState<string | null>(null)
+  const [shareableLink, setShareableLink] = useState<string | null>(null)
+  const [copiedLink, setCopiedLink] = useState(false)
+
   // Fetch profile & scoring data
   const fetchProfileAndScoring = useCallback(async () => {
     if (!user) return
@@ -961,6 +969,44 @@ export function SettingsSection() {
       setAvatarUploading(false)
     }
   }, [updateUser])
+
+  // ── Profile share handler ────────────────────────────────────────────────
+  const handleProfileShare = useCallback(async () => {
+    if (!shareEmail.trim()) return
+
+    setShareLoading(true)
+    setShareError(null)
+    setShareSuccess(null)
+
+    try {
+      const result = await authFetch<{ success: boolean; shareableLink: string; message: string }>('/api/profile/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: shareEmail.trim() }),
+      })
+
+      setShareableLink(result.shareableLink)
+      setShareSuccess(`Lien de partage envoyé à ${shareEmail.trim()}`)
+      setShareEmail('')
+    } catch (err) {
+      setShareError(err instanceof Error ? err.message : 'Erreur lors du partage du profil')
+    } finally {
+      setShareLoading(false)
+    }
+  }, [shareEmail])
+
+  // ── Copy shareable link handler ──────────────────────────────────────────
+  const handleCopyLink = useCallback(async () => {
+    if (!shareableLink) return
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${shareableLink}`)
+      setCopiedLink(true)
+      setTimeout(() => setCopiedLink(false), 2000)
+    } catch {
+      // Fallback: select text approach
+      setCopiedLink(false)
+    }
+  }, [shareableLink])
 
   // Save profile
   const handleSave = async () => {
@@ -1687,6 +1733,110 @@ export function SettingsSection() {
                     )}
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* ── Partager mon profil ──────────────────────────────────────────── */}
+            <Card className="border-border">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Share className="size-4 text-brand-500" />
+                  Partager mon profil
+                </CardTitle>
+                <CardDescription>
+                  Partagez votre profil {user?.activeRole === 'PROPRIETAIRE' ? 'propriétaire' : 'locataire'} avec quelqu&apos;un en entrant son adresse email
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      type="email"
+                      placeholder="email@exemple.ci"
+                      value={shareEmail}
+                      onChange={(e) => {
+                        setShareEmail(e.target.value)
+                        setShareError(null)
+                      }}
+                      className="h-9 text-sm"
+                      disabled={shareLoading}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleProfileShare()
+                      }}
+                    />
+                  </div>
+                  <Button
+                    onClick={handleProfileShare}
+                    disabled={shareLoading || !shareEmail.trim()}
+                    className="bg-brand-500 hover:bg-brand-600 text-white h-9"
+                  >
+                    {shareLoading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Mail className="size-4 mr-1.5" />
+                        Envoyer
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Share success message */}
+                {shareSuccess && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-3 rounded-lg bg-emerald-50 border border-emerald-200"
+                  >
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-emerald-700">{shareSuccess}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Share error message */}
+                {shareError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-3 rounded-lg bg-red-50 border border-red-200"
+                  >
+                    <div className="flex items-start gap-2">
+                      <XCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
+                      <p className="text-xs text-red-700">{shareError}</p>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Shareable link display */}
+                {shareableLink && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-3 rounded-lg bg-muted border border-border"
+                  >
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-muted-foreground flex-1 truncate">
+                        Lien : <span className="font-mono text-foreground">{shareableLink}</span>
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 shrink-0"
+                        onClick={handleCopyLink}
+                      >
+                        {copiedLink ? (
+                          <CheckCircle2 className="size-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="size-3.5 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
               </CardContent>
             </Card>
           </motion.div>

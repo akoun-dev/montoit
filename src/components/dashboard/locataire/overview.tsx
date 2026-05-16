@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { FileText, Eye, FileSignature, MessageSquare, ShieldCheck, ArrowRight } from 'lucide-react'
+import { FileText, Eye, FileSignature, MessageSquare, ShieldCheck, ArrowRight, Home, MapPin, User, CreditCard, Calendar, Clock, CheckCircle2, AlertTriangle, Hourglass, ChevronRight } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,12 +10,23 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 
+interface NextPayment {
+  id: string
+  amount: number
+  dueDate: string
+  status: string
+  leaseId?: string
+}
+
 interface DashboardData {
   stats: {
     totalRentalFiles: number
     activeLeases: number
     pendingVisits: number
     unreadMessages: number
+    latePaymentsCount: number
+    totalPaid: number
+    nextPayment: NextPayment | null
   }
   rentalFiles: Array<{
     id: string
@@ -34,15 +45,41 @@ interface DashboardData {
   activeLeases: Array<{
     id: string
     monthlyRent: number
+    charges: number
     startDate: string
     endDate: string
-    property: { title: string; images: Array<{ url: string }> }
-    owner: { firstName: string; lastName: string }
+    property: {
+      title: string
+      address?: string
+      city: string
+      images: Array<{ url: string }>
+    }
+    owner: { id: string; firstName: string; lastName: string; avatarUrl?: string }
+    paymentStatus: 'up_to_date' | 'late' | 'pending'
+    nextPayment: {
+      id: string
+      amount: number
+      dueDate: string
+      status: string
+    } | null
+    latePaymentsCount: number
+    totalPaid: number
+    payments: Array<{
+      id: string
+      amount: number
+      status: string
+      dueDate: string
+      paidAt: string | null
+    }>
   }>
 }
 
 interface ApiDashboardResponse {
-  stats?: Partial<DashboardData['stats']>
+  stats?: Partial<DashboardData['stats']> & {
+    latePaymentsCount?: number
+    totalPaid?: number
+    nextPayment?: NextPayment | null
+  }
   rentalFiles?: DashboardData['rentalFiles']
   visitRequests?: DashboardData['visitRequests']
   activeLeases?: DashboardData['activeLeases']
@@ -62,7 +99,7 @@ interface ScoringSummary {
 }
 
 const defaultData: DashboardData = {
-  stats: { totalRentalFiles: 0, activeLeases: 0, pendingVisits: 0, unreadMessages: 0 },
+  stats: { totalRentalFiles: 0, activeLeases: 0, pendingVisits: 0, unreadMessages: 0, latePaymentsCount: 0, totalPaid: 0, nextPayment: null },
   rentalFiles: [],
   visitRequests: [],
   activeLeases: [],
@@ -94,8 +131,33 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge className={c.className}>{c.label}</Badge>
 }
 
+function PaymentStatusIndicator({ status }: { status: 'up_to_date' | 'late' | 'pending' }) {
+  if (status === 'up_to_date') {
+    return (
+      <div className="flex items-center gap-1.5">
+        <CheckCircle2 className="size-4 text-emerald-500" />
+        <span className="text-xs font-medium text-emerald-600">À jour</span>
+      </div>
+    )
+  }
+  if (status === 'late') {
+    return (
+      <div className="flex items-center gap-1.5">
+        <AlertTriangle className="size-4 text-red-500" />
+        <span className="text-xs font-medium text-red-600">En retard</span>
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <Hourglass className="size-4 text-amber-500" />
+      <span className="text-xs font-medium text-amber-600">En attente</span>
+    </div>
+  )
+}
+
 export function LocataireOverview() {
-  const { user, isAuthenticated, setDashboardSection } = useAuthStore()
+  const { user, isAuthenticated, setDashboardSection, setSelectedItemId } = useAuthStore()
   const [data, setData] = useState<DashboardData>(defaultData)
   const [scoring, setScoring] = useState<ScoringSummary | null>(null)
   const [loading, setLoading] = useState(true)
@@ -190,6 +252,9 @@ export function LocataireOverview() {
       ? 'bg-amber-50 text-amber-700 border-amber-200'
       : 'bg-red-50 text-red-600 border-red-200'
 
+  // The primary active lease for the "Ma location en cours" card
+  const primaryLease = data.activeLeases[0] || null
+
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Welcome */}
@@ -259,6 +324,131 @@ export function LocataireOverview() {
                 </div>
                 <ArrowRight className="size-5 text-neutral-300 group-hover:text-brand-400 transition-colors shrink-0" />
               </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* ─── Ma location en cours ──────────────────────────────────────────────── */}
+      {primaryLease && (
+        <motion.div variants={itemVariants}>
+          <Card className="border-border overflow-hidden">
+            <div className="bg-gradient-to-r from-brand-500 to-brand-600 p-4 sm:p-5">
+              <div className="flex items-center gap-2 mb-1">
+                <Home className="size-5 text-white" />
+                <h2 className="text-base font-semibold text-white">Ma location en cours</h2>
+              </div>
+              <p className="text-sm text-white/80">Votre bail actif</p>
+            </div>
+            <CardContent className="p-4 sm:p-5 space-y-4">
+              {/* Property + Owner info */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Property image */}
+                <div className="size-20 sm:size-24 rounded-xl bg-muted overflow-hidden shrink-0">
+                  {primaryLease.property.images?.[0]?.url ? (
+                    <img
+                      src={primaryLease.property.images[0].url}
+                      alt={primaryLease.property.title}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <div className="size-full flex items-center justify-center bg-brand-50">
+                      <Home className="size-8 text-brand-400" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-foreground text-base truncate">{primaryLease.property.title}</h3>
+                  {(primaryLease.property.address || primaryLease.property.city) && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <MapPin className="size-3 shrink-0" />
+                      <span className="truncate">{primaryLease.property.address || primaryLease.property.city}</span>
+                    </p>
+                  )}
+                  {/* Owner + Contact */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="flex size-7 items-center justify-center rounded-full bg-muted shrink-0">
+                      <User className="size-3.5 text-muted-foreground" />
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {primaryLease.owner.firstName} {primaryLease.owner.lastName}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1 ml-auto"
+                      onClick={() => setDashboardSection('messages')}
+                    >
+                      <MessageSquare className="size-3" />
+                      Contacter
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lease details grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 rounded-lg bg-muted">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <CreditCard className="size-3.5 text-brand-500" />
+                    <span className="text-[10px] text-muted-foreground font-medium">Loyer mensuel</span>
+                  </div>
+                  <p className="text-sm font-bold text-foreground">{primaryLease.monthlyRent.toLocaleString('fr-FR')} FCFA</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Calendar className="size-3.5 text-brand-500" />
+                    <span className="text-[10px] text-muted-foreground font-medium">Période</span>
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {new Date(primaryLease.startDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    → {new Date(primaryLease.endDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Clock className="size-3.5 text-brand-500" />
+                    <span className="text-[10px] text-muted-foreground font-medium">Prochain paiement</span>
+                  </div>
+                  {primaryLease.nextPayment ? (
+                    <>
+                      <p className="text-sm font-bold text-foreground">{primaryLease.nextPayment.amount.toLocaleString('fr-FR')} FCFA</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {new Date(primaryLease.nextPayment.dueDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">—</p>
+                  )}
+                </div>
+                <div className="p-3 rounded-lg bg-muted">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    {primaryLease.paymentStatus === 'up_to_date' ? (
+                      <CheckCircle2 className="size-3.5 text-emerald-500" />
+                    ) : primaryLease.paymentStatus === 'late' ? (
+                      <AlertTriangle className="size-3.5 text-red-500" />
+                    ) : (
+                      <Hourglass className="size-3.5 text-amber-500" />
+                    )}
+                    <span className="text-[10px] text-muted-foreground font-medium">Statut paiement</span>
+                  </div>
+                  <PaymentStatusIndicator status={primaryLease.paymentStatus} />
+                </div>
+              </div>
+
+              {/* View details button */}
+              <Button
+                className="w-full bg-brand-500 hover:bg-brand-600 text-white gap-2"
+                onClick={() => {
+                  setSelectedItemId(primaryLease.id)
+                  setDashboardSection('my-leases')
+                }}
+              >
+                Voir les détails du bail
+                <ChevronRight className="size-4" />
+              </Button>
             </CardContent>
           </Card>
         </motion.div>
@@ -351,16 +541,23 @@ export function LocataireOverview() {
         </motion.div>
       </div>
 
-      {/* Active Leases */}
-      {data.activeLeases.length > 0 && (
+      {/* Active Leases list (for multiple leases) */}
+      {data.activeLeases.length > 1 && (
         <motion.div variants={itemVariants}>
           <Card className="border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Baux actifs</CardTitle>
+              <CardTitle className="text-base font-semibold">Autres baux actifs</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {data.activeLeases.map((lease) => (
-                <div key={lease.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent">
+              {data.activeLeases.slice(1).map((lease) => (
+                <div
+                  key={lease.id}
+                  className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors"
+                  onClick={() => {
+                    setSelectedItemId(lease.id)
+                    setDashboardSection('my-leases')
+                  }}
+                >
                   <div className="flex items-center gap-4">
                     <div className="flex size-10 items-center justify-center rounded-lg bg-green-50">
                       <FileSignature className="size-5 text-green-600" />

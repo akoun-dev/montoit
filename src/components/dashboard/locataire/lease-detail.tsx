@@ -1,14 +1,23 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, FileSignature, Building2, User, MapPin, FileText, CreditCard, Wrench } from 'lucide-react'
+import { ArrowLeft, FileSignature, Building2, User, MapPin, FileText, CreditCard, Wrench, AlertTriangle, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { toast } from 'sonner'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface LeaseItem {
@@ -112,6 +121,8 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
   const [lease, setLease] = useState<LeaseItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [terminating, setTerminating] = useState(false)
+  const [showTerminateDialog, setShowTerminateDialog] = useState(false)
 
   const fetchLease = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -135,6 +146,29 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
   }, [isAuthenticated, leaseId])
 
   useEffect(() => { fetchLease() }, [fetchLease])
+
+  const handleTerminate = async () => {
+    if (!lease) return
+    setTerminating(true)
+    try {
+      await authFetch(`/api/leases/${lease.id}/terminate`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      toast.success('Bail résilié avec succès')
+      setShowTerminateDialog(false)
+      // Navigate back after a brief delay
+      setTimeout(() => onBack(), 800)
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message || 'Erreur lors de la résiliation')
+      } else {
+        toast.error('Erreur lors de la résiliation du bail')
+      }
+    } finally {
+      setTerminating(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -396,6 +430,68 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* ─── Terminate Lease Button ──────────────────────────────────────────── */}
+      {lease.status === 'ACTIVE' && (
+        <div className="pt-2">
+          <Button
+            variant="outline"
+            className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300 gap-2"
+            onClick={() => setShowTerminateDialog(true)}
+          >
+            <AlertTriangle className="size-4" />
+            Résilier le bail
+          </Button>
+        </div>
+      )}
+
+      {/* ─── Termination Confirmation Dialog ──────────────────────────────────── */}
+      <Dialog open={showTerminateDialog} onOpenChange={setShowTerminateDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-red-500" />
+              Résilier le bail
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Êtes-vous sûr de vouloir résilier ce bail ? Cette action est irréversible. Le bail pour
+              <span className="font-semibold text-foreground"> {property?.title}</span> sera immédiatement clôturé.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-3 rounded-lg bg-red-50 border border-red-100 my-2">
+            <p className="text-xs text-red-700">
+              En résiliant ce bail, vous mettez fin à votre contrat de location. Les paiements en attente restent dus selon les conditions du bail.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowTerminateDialog(false)}
+              disabled={terminating}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleTerminate}
+              disabled={terminating}
+              className="gap-2"
+            >
+              {terminating ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Résiliation...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="size-4" />
+                  Confirmer la résiliation
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

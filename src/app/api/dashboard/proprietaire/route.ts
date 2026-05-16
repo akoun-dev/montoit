@@ -43,26 +43,99 @@ export async function GET(req: NextRequest) {
       db.lease.findMany({
         where: { ownerId: userId },
         include: {
-          tenant: { select: { firstName: true, lastName: true } },
-          property: { select: { title: true } },
+          tenant: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+              phone: true,
+            },
+          },
+          property: {
+            select: {
+              title: true,
+              city: true,
+              address: true,
+              images: { orderBy: { order: 'asc' }, take: 1 },
+            },
+          },
+          payments: {
+            select: {
+              id: true,
+              amount: true,
+              status: true,
+              dueDate: true,
+              paidAt: true,
+            },
+            orderBy: { dueDate: 'asc' },
+          },
         },
         orderBy: { createdAt: 'desc' },
       }),
     ])
 
+    // ─── Enhance active leases with payment info ─────────────────────────────
+    const activeLeasesEnhanced = activeLeases.map((lease) => {
+      const leasePayments = lease.payments || []
+      const latePayments = leasePayments.filter((p) => p.status === 'LATE')
+      const pendingPayments = leasePayments.filter((p) => p.status === 'PENDING')
+      const paidPayments = leasePayments.filter((p) => p.status === 'PAID')
+
+      const hasLate = latePayments.length > 0
+      const hasPending = pendingPayments.length > 0
+
+      let paymentStatus: 'up_to_date' | 'late' | 'pending' = 'up_to_date'
+      if (hasLate) paymentStatus = 'late'
+      else if (hasPending) paymentStatus = 'pending'
+
+      const nextPayment = pendingPayments.length > 0
+        ? pendingPayments[0]
+        : latePayments.length > 0
+          ? latePayments[0]
+          : null
+
+      return {
+        ...lease,
+        paymentStatus,
+        latePaymentsCount: latePayments.length,
+        totalPaid: paidPayments.reduce((sum, p) => sum + p.amount, 0),
+        nextPayment: nextPayment ? {
+          id: nextPayment.id,
+          amount: nextPayment.amount,
+          dueDate: nextPayment.dueDate,
+          status: nextPayment.status,
+        } : null,
+      }
+    })
+
+    // ─── Revenue calculations ────────────────────────────────────────────────
+    const activeLeaseList = activeLeasesEnhanced.filter((l) => l.status === 'ACTIVE')
+    const totalRevenue = activeLeaseList.reduce((sum, l) => sum + l.monthlyRent, 0)
+    const totalRevenueFromPayments = activeLeaseList.reduce(
+      (sum, l) => sum + (l as { totalPaid: number }).totalPaid,
+      0
+    )
+
+    // Overall late payments count across all active leases
+    const overallLatePayments = activeLeaseList.reduce(
+      (sum, l) => sum + (l as { latePaymentsCount: number }).latePaymentsCount,
+      0
+    )
+
     return NextResponse.json({
       properties,
       visitRequests,
       rentalFiles,
-      activeLeases,
+      activeLeases: activeLeasesEnhanced,
       stats: {
         totalProperties: properties.length,
         activeProperties: properties.filter((p) => p.status === 'ACTIVE').length,
         pendingVisits: visitRequests.filter((v) => v.status === 'PENDING').length,
-        activeLeases: activeLeases.filter((l) => l.status === 'ACTIVE').length,
-        totalRevenue: activeLeases
-          .filter((l) => l.status === 'ACTIVE')
-          .reduce((sum, l) => sum + l.monthlyRent, 0),
+        activeLeases: activeLeaseList.length,
+        totalRevenue,
+        totalRevenueFromPayments,
+        latePaymentsCount: overallLatePayments,
       },
     })
   } catch (error) {

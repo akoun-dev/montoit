@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Building2, Eye, FileSignature, TrendingUp, FileText, ClipboardCheck } from 'lucide-react'
+import { Building2, Eye, FileSignature, TrendingUp, FileText, ClipboardCheck, Home, User, CheckCircle2, AlertTriangle, Hourglass, CreditCard, Calendar, ChevronRight, Users } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
@@ -15,6 +16,8 @@ interface ProprietaireData {
     pendingVisits: number
     activeLeases: number
     totalRevenue: number
+    totalRevenueFromPayments: number
+    latePaymentsCount: number
   }
   properties: Array<{
     id: string; title: string; type: string; price: number; city: string; status: string; bedrooms: number | null; area: number
@@ -26,9 +29,25 @@ interface ProprietaireData {
     property: { title: string; city: string }
   }>
   activeLeases: Array<{
-    id: string; status: string; monthlyRent: number; startDate: string; endDate: string
-    tenant: { firstName: string; lastName: string }
-    property: { title: string }
+    id: string; status: string; monthlyRent: number; charges: number; startDate: string; endDate: string
+    tenant: { id: string; firstName: string; lastName: string; avatarUrl: string | null; phone: string }
+    property: { title: string; city: string; address: string; images: Array<{ url: string }> }
+    paymentStatus: 'up_to_date' | 'late' | 'pending'
+    latePaymentsCount: number
+    totalPaid: number
+    nextPayment: {
+      id: string
+      amount: number
+      dueDate: string
+      status: string
+    } | null
+    payments: Array<{
+      id: string
+      amount: number
+      status: string
+      dueDate: string
+      paidAt: string | null
+    }>
   }>
 }
 
@@ -39,6 +58,8 @@ interface ApiProprietaireResponse {
     pendingVisits?: number
     activeLeases?: number
     totalRevenue?: number
+    totalRevenueFromPayments?: number
+    latePaymentsCount?: number
   }
   properties?: Array<{
     id: string; title: string; type: string; price: number; city: string; status: string; bedrooms: number | null; area: number
@@ -50,14 +71,30 @@ interface ApiProprietaireResponse {
     property: { title: string; city: string }
   }>
   activeLeases?: Array<{
-    id: string; status: string; monthlyRent: number; startDate: string; endDate: string
-    tenant: { firstName: string; lastName: string }
-    property: { title: string }
+    id: string; status: string; monthlyRent: number; charges: number; startDate: string; endDate: string
+    tenant: { id: string; firstName: string; lastName: string; avatarUrl: string | null; phone: string }
+    property: { title: string; city: string; address: string; images: Array<{ url: string }> }
+    paymentStatus: 'up_to_date' | 'late' | 'pending'
+    latePaymentsCount: number
+    totalPaid: number
+    nextPayment: {
+      id: string
+      amount: number
+      dueDate: string
+      status: string
+    } | null
+    payments: Array<{
+      id: string
+      amount: number
+      status: string
+      dueDate: string
+      paidAt: string | null
+    }>
   }>
 }
 
 const defaultData: ProprietaireData = {
-  stats: { totalProperties: 0, activeProperties: 0, pendingVisits: 0, activeLeases: 0, totalRevenue: 0 },
+  stats: { totalProperties: 0, activeProperties: 0, pendingVisits: 0, activeLeases: 0, totalRevenue: 0, totalRevenueFromPayments: 0, latePaymentsCount: 0 },
   properties: [],
   visitRequests: [],
   activeLeases: [],
@@ -72,8 +109,33 @@ const itemVariants = {
   show: { opacity: 1, y: 0 },
 }
 
+function PaymentStatusIndicator({ status }: { status: 'up_to_date' | 'late' | 'pending' }) {
+  if (status === 'up_to_date') {
+    return (
+      <div className="flex items-center gap-1.5">
+        <CheckCircle2 className="size-4 text-emerald-500" />
+        <span className="text-xs font-medium text-emerald-600">À jour</span>
+      </div>
+    )
+  }
+  if (status === 'late') {
+    return (
+      <div className="flex items-center gap-1.5">
+        <AlertTriangle className="size-4 text-red-500" />
+        <span className="text-xs font-medium text-red-600">En retard</span>
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <Hourglass className="size-4 text-amber-500" />
+      <span className="text-xs font-medium text-amber-600">En attente</span>
+    </div>
+  )
+}
+
 export function ProprietaireOverview() {
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const [data, setData] = useState<ProprietaireData>(defaultData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -130,6 +192,9 @@ export function ProprietaireOverview() {
     { label: 'Revenus mensuels', value: `${(data.stats.totalRevenue / 1000).toFixed(0)}k`, icon: FileSignature, color: 'text-brand-600 bg-brand-50' },
   ]
 
+  // Filter only ACTIVE leases for the "Mes locations en cours" section
+  const activeLeasesOnly = data.activeLeases.filter((l) => l.status === 'ACTIVE')
+
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
@@ -157,6 +222,108 @@ export function ProprietaireOverview() {
           )
         })}
       </motion.div>
+
+      {/* ─── Mes locations en cours ──────────────────────────────────────────── */}
+      {activeLeasesOnly.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card className="border-border overflow-hidden">
+            <div className="bg-gradient-to-r from-brand-500 to-brand-600 p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Home className="size-5 text-white" />
+                    <h2 className="text-base font-semibold text-white">Mes locations en cours</h2>
+                  </div>
+                  <p className="text-sm text-white/80">
+                    {activeLeasesOnly.length} bail{activeLeasesOnly.length > 1 ? 'x' : ''} actif{activeLeasesOnly.length > 1 ? 's' : ''}
+                  </p>
+                </div>
+                <Badge className="bg-white/20 text-white border-0 text-sm px-3 py-1">
+                  {data.stats.totalRevenue.toLocaleString('fr-FR')} FCFA/mois
+                </Badge>
+              </div>
+            </div>
+            <CardContent className="p-4 sm:p-5 space-y-4">
+              {activeLeasesOnly.map((lease) => (
+                <div key={lease.id} className="flex flex-col sm:flex-row gap-4 p-4 rounded-xl border border-border hover:bg-accent/50 transition-colors">
+                  {/* Tenant info + Property image */}
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    {/* Tenant avatar */}
+                    <div className="shrink-0">
+                      {lease.tenant.avatarUrl ? (
+                        <img
+                          src={lease.tenant.avatarUrl}
+                          alt={`${lease.tenant.firstName} ${lease.tenant.lastName}`}
+                          className="size-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="size-10 rounded-full bg-brand-50 flex items-center justify-center">
+                          <User className="size-5 text-brand-500" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {lease.tenant.firstName} {lease.tenant.lastName}
+                      </p>
+                      {/* Property image + title */}
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="size-8 rounded bg-muted overflow-hidden shrink-0">
+                          {lease.property.images?.[0]?.url ? (
+                            <img src={lease.property.images[0].url} alt="" className="size-full object-cover" />
+                          ) : (
+                            <div className="size-full flex items-center justify-center">
+                              <Building2 className="size-3 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground truncate">{lease.property.title}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Lease details */}
+                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4">
+                    <div className="flex items-center gap-1.5">
+                      <CreditCard className="size-3.5 text-brand-500 shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Loyer</p>
+                        <p className="text-sm font-semibold text-foreground">{lease.monthlyRent.toLocaleString('fr-FR')} FCFA</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="size-3.5 text-muted-foreground shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Période</p>
+                        <p className="text-xs font-medium text-foreground">
+                          {new Date(lease.startDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })} → {new Date(lease.endDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <PaymentStatusIndicator status={lease.paymentStatus} />
+                      {lease.latePaymentsCount > 0 && (
+                        <Badge className="bg-red-50 text-red-600 text-[10px] px-1.5 py-0">
+                          {lease.latePaymentsCount} retard{lease.latePaymentsCount > 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs gap-1 text-brand-600 hover:text-brand-700 hover:bg-brand-50"
+                      onClick={() => setDashboardSection('my-tenants')}
+                    >
+                      <Users className="size-3" />
+                      Voir le locataire
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Recent Properties */}

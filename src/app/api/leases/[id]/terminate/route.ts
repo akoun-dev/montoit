@@ -2,89 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdFromRequest } from '@/lib/session'
 
-// GET /api/leases/[id] — Get a single lease detail (accessible by both tenant and owner)
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const userId = await getUserIdFromRequest(req)
-    if (!userId) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
-
-    const { id } = await params
-
-    // Find the lease where user is either tenant or owner
-    const lease = await db.lease.findFirst({
-      where: {
-        id,
-        OR: [{ tenantId: userId }, { ownerId: userId }],
-      },
-      include: {
-        property: {
-          select: {
-            id: true,
-            title: true,
-            address: true,
-            city: true,
-            type: true,
-            price: true,
-            currency: true,
-            area: true,
-            bedrooms: true,
-            bathrooms: true,
-            images: {
-              orderBy: { order: 'asc' },
-              take: 3,
-              select: { url: true },
-            },
-          },
-        },
-        owner: {
-          select: { id: true, firstName: true, lastName: true, phone: true, email: true, avatarUrl: true },
-        },
-        tenant: {
-          select: { id: true, firstName: true, lastName: true, phone: true, email: true, avatarUrl: true },
-        },
-        payments: {
-          select: {
-            id: true,
-            amount: true,
-            status: true,
-            dueDate: true,
-            paidAt: true,
-            reference: true,
-          },
-          orderBy: { dueDate: 'desc' },
-          take: 6,
-        },
-        maintenanceRequests: {
-          select: {
-            id: true,
-            title: true,
-            status: true,
-            priority: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        },
-      },
-    })
-
-    if (!lease) {
-      return NextResponse.json({ error: 'Bail introuvable' }, { status: 404 })
-    }
-
-    return NextResponse.json({ data: lease })
-  } catch (error) {
-    console.error('Lease detail GET error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
-  }
-}
-
-// PATCH /api/leases/[id] — Terminate a lease
+// PATCH /api/leases/[id]/terminate — Terminate a lease
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -96,11 +14,6 @@ export async function PATCH(
     }
 
     const { id } = await params
-    const body = await req.json()
-
-    if (body.action !== 'terminate') {
-      return NextResponse.json({ error: 'Action non reconnue' }, { status: 400 })
-    }
 
     // Find the lease and verify ownership/tenancy
     const lease = await db.lease.findUnique({
@@ -184,7 +97,7 @@ export async function PATCH(
 
     return NextResponse.json({ data: updatedLease, terminatedAt: new Date().toISOString() })
   } catch (error) {
-    console.error('Lease PATCH error:', error)
+    console.error('Lease terminate error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
