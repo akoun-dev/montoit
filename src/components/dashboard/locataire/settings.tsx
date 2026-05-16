@@ -685,7 +685,6 @@ export function SettingsSection() {
     phone: '',
     gender: '',
     city: '',
-    address: '',
     birthDate: '',
     nni: '',
   })
@@ -734,7 +733,6 @@ export function SettingsSection() {
           phone: p.phone || '',
           gender: p.gender || '',
           city: p.city || '',
-          address: p.address || '',
           birthDate: p.birthDate ? new Date(p.birthDate).toISOString().split('T')[0] : '',
           nni: p.nni || '',
         })
@@ -1204,19 +1202,6 @@ export function SettingsSection() {
                       className="h-9 text-sm"
                     />
                   </div>
-                  {/* Address */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="address" className="text-xs font-medium text-neutral-700">
-                      Adresse
-                    </Label>
-                    <Input
-                      id="address"
-                      value={formState.address}
-                      onChange={(e) => setFormState((prev) => ({ ...prev, address: e.target.value }))}
-                      placeholder="Ex: Cocody Riviera 3"
-                      className="h-9 text-sm"
-                    />
-                  </div>
                 </div>
 
                 {/* ── ONECI Identity Verification Section ──────────────────────── */}
@@ -1490,11 +1475,9 @@ export function SettingsSection() {
                             ? formState.phone
                             : field.key === 'city'
                               ? formState.city
-                              : field.key === 'address'
-                                ? formState.address
-                                : field.key === 'gender'
-                                  ? formState.gender === 'M' ? 'Masculin' : formState.gender === 'F' ? 'Féminin' : formState.gender === 'AUTRE' ? 'Autre' : null
-                                  : null
+                              : field.key === 'gender'
+                                ? formState.gender === 'M' ? 'Masculin' : formState.gender === 'F' ? 'Féminin' : formState.gender === 'AUTRE' ? 'Autre' : null
+                                : null
                       }
                       isFilled={field.filled}
                       fieldName={field.key}

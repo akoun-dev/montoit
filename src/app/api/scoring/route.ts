@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
         email: true,
         gender: true,
         city: true,
-        address: true,
+
         neofaceVerified: true,
         oneciVerified: true,
       },
@@ -48,7 +48,6 @@ export async function GET(req: NextRequest) {
       { key: 'fullName', label: 'Nom complet', filled: !!(user.firstName && user.lastName) },
       { key: 'phone', label: 'Téléphone', filled: !!user.phone },
       { key: 'city', label: 'Ville', filled: !!user.city },
-      { key: 'address', label: 'Adresse', filled: !!user.address },
       { key: 'gender', label: 'Genre', filled: !!user.gender },
     ]
     const profileFilledCount = profileFields.filter((f) => f.filled).length
