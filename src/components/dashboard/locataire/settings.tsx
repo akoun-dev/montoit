@@ -668,7 +668,7 @@ function KycVerificationModal({
 // ── Main Settings Component ─────────────────────────────────────────────────
 
 export function SettingsSection() {
-  const { user, setDashboardSection, updateUser } = useAuthStore()
+  const { user, setDashboardSection, updateUser, switchRole } = useAuthStore()
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [scoring, setScoring] = useState<ScoringData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -679,6 +679,11 @@ export function SettingsSection() {
 
   // KYC modal state
   const [kycModalOpen, setKycModalOpen] = useState(false)
+
+  // Role switch confirmation modal state
+  const [roleSwitchModalOpen, setRoleSwitchModalOpen] = useState(false)
+  const [pendingRole, setPendingRole] = useState<'LOCATAIRE' | 'PROPRIETAIRE' | null>(null)
+  const [roleSwitching, setRoleSwitching] = useState(false)
 
   // Form state
   const [formState, setFormState] = useState({
@@ -1255,13 +1260,10 @@ export function SettingsSection() {
                   <CardContent>
                     <div className="flex gap-2">
                       <button
-                        onClick={async () => {
-                          try {
-                            await useAuthStore.getState().switchRole('LOCATAIRE')
-                            setSuccess('Mode Locataire activé')
-                          } catch (err) {
-                            setError(err instanceof Error ? err.message : 'Erreur')
-                          }
+                        onClick={() => {
+                          if (effectiveRole === 'LOCATAIRE') return
+                          setPendingRole('LOCATAIRE')
+                          setRoleSwitchModalOpen(true)
                         }}
                         className={cn(
                           'flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all',
@@ -1277,13 +1279,10 @@ export function SettingsSection() {
                         )}
                       </button>
                       <button
-                        onClick={async () => {
-                          try {
-                            await useAuthStore.getState().switchRole('PROPRIETAIRE')
-                            setSuccess('Mode Propriétaire activé')
-                          } catch (err) {
-                            setError(err instanceof Error ? err.message : 'Erreur')
-                          }
+                        onClick={() => {
+                          if (effectiveRole === 'PROPRIETAIRE') return
+                          setPendingRole('PROPRIETAIRE')
+                          setRoleSwitchModalOpen(true)
                         }}
                         className={cn(
                           'flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all',
@@ -1303,6 +1302,164 @@ export function SettingsSection() {
                 </Card>
               )
             })()}
+
+            {/* Role Switch Confirmation Modal */}
+            <Dialog open={roleSwitchModalOpen} onOpenChange={setRoleSwitchModalOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <ArrowLeftRight className="size-5 text-brand-500" />
+                    Confirmer le changement de rôle
+                  </DialogTitle>
+                  <DialogDescription>
+                    Vous allez basculer vers le mode {pendingRole === 'LOCATAIRE' ? 'Locataire' : 'Propriétaire'}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="py-4">
+                  <div className="flex items-center justify-center gap-4 mb-6">
+                    {/* Current role */}
+                    <div className={cn(
+                      'flex flex-col items-center gap-2 px-4 py-3 rounded-xl border-2 min-w-[100px]',
+                      'opacity-50'
+                    )}>
+                      {(() => {
+                        const currentRole = user?.activeRole || user?.role
+                        if (currentRole === 'LOCATAIRE') {
+                          return <User className="size-8 text-amber-500" />
+                        }
+                        return <Building2 className="size-8 text-emerald-500" />
+                      })()}
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {(() => {
+                          const currentRole = user?.activeRole || user?.role
+                          return currentRole === 'LOCATAIRE' ? 'Locataire' : 'Propriétaire'
+                        })()}
+                      </span>
+                    </div>
+                    {/* Arrow */}
+                    <div className="flex items-center">
+                      <ArrowRight className="size-6 text-brand-500" />
+                    </div>
+                    {/* Target role */}
+                    <div className={cn(
+                      'flex flex-col items-center gap-2 px-4 py-3 rounded-xl border-2 min-w-[100px]',
+                      pendingRole === 'LOCATAIRE'
+                        ? 'border-amber-300 bg-amber-50'
+                        : 'border-emerald-300 bg-emerald-50'
+                    )}>
+                      {pendingRole === 'LOCATAIRE' ? (
+                        <User className="size-8 text-amber-500" />
+                      ) : (
+                        <Building2 className="size-8 text-emerald-500" />
+                      )}
+                      <span className={cn(
+                        'text-xs font-semibold',
+                        pendingRole === 'LOCATAIRE' ? 'text-amber-700' : 'text-emerald-700'
+                      )}>
+                        {pendingRole === 'LOCATAIRE' ? 'Locataire' : 'Propriétaire'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={cn(
+                    'p-3 rounded-lg border',
+                    pendingRole === 'LOCATAIRE'
+                      ? 'bg-amber-50 border-amber-200'
+                      : 'bg-emerald-50 border-emerald-200'
+                  )}>
+                    <div className="flex items-start gap-2">
+                      <Info className={cn(
+                        'size-4 shrink-0 mt-0.5',
+                        pendingRole === 'LOCATAIRE' ? 'text-amber-500' : 'text-emerald-500'
+                      )} />
+                      <div>
+                        <p className={cn(
+                          'text-xs font-medium',
+                          pendingRole === 'LOCATAIRE' ? 'text-amber-700' : 'text-emerald-700'
+                        )}>
+                          {pendingRole === 'LOCATAIRE'
+                            ? 'En mode Locataire, vous pourrez :'
+                            : 'En mode Propriétaire, vous pourrez :'}
+                        </p>
+                        <ul className={cn(
+                          'text-[11px] mt-1 space-y-0.5 list-disc list-inside',
+                          pendingRole === 'LOCATAIRE' ? 'text-amber-600' : 'text-emerald-600'
+                        )}>
+                          {pendingRole === 'LOCATAIRE' ? (
+                            <>
+                              <li>Chercher et sauvegarder des biens</li>
+                              <li>Soumettre des candidatures de location</li>
+                              <li>Planifier des visites</li>
+                              <li>Gérer vos paiements et baux</li>
+                            </>
+                          ) : (
+                            <>
+                              <li>Publier et gérer vos biens</li>
+                              <li>Traiter les demandes de visite</li>
+                              <li>Gérer les dossiers locatifs</li>
+                              <li>Suivre vos baux et paiements</li>
+                            </>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground text-center mt-3">
+                    Vous pouvez revenir à votre rôle actuel à tout moment depuis les paramètres.
+                  </p>
+                </div>
+
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setRoleSwitchModalOpen(false)
+                      setPendingRole(null)
+                    }}
+                    disabled={roleSwitching}
+                    className="border-border"
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      if (!pendingRole) return
+                      setRoleSwitching(true)
+                      try {
+                        await switchRole(pendingRole)
+                        setSuccess(`Mode ${pendingRole === 'LOCATAIRE' ? 'Locataire' : 'Propriétaire'} activé`)
+                        setRoleSwitchModalOpen(false)
+                        setPendingRole(null)
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : 'Erreur lors du changement de rôle')
+                      } finally {
+                        setRoleSwitching(false)
+                      }
+                    }}
+                    disabled={roleSwitching}
+                    className={cn(
+                      pendingRole === 'LOCATAIRE'
+                        ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                        : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                    )}
+                  >
+                    {roleSwitching ? (
+                      <>
+                        <Loader2 className="size-4 mr-1.5 animate-spin" />
+                        Changement...
+                      </>
+                    ) : (
+                      <>
+                        <ArrowLeftRight className="size-4 mr-1.5" />
+                        Confirmer
+                      </>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* Profile Form */}
             <Card className="border-border">

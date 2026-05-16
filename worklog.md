@@ -327,3 +327,43 @@ Stage Summary:
 - activeRole persists in database and localStorage across sessions
 - Dashboard, sidebar, and API routes all respect the active role
 - ADMIN and TIERS_CONFIANCE cannot switch roles (restricted)
+
+---
+Task ID: 9
+Agent: Main
+Task: Add confirmation modal for role switching (Locataire ↔ Propriétaire)
+
+Work Log:
+- Analyzed current role switching flow — found that switches were happening immediately without confirmation
+- Identified 3 locations where role switching was triggered without confirmation:
+  1. Settings page (profile tab) — Role Switch Card with direct switchRole calls
+  2. Dashboard header — Role switch button + dropdown menu items
+  3. Dashboard header — Mobile sidebar role switch buttons
+- Updated settings.tsx:
+  - Added roleSwitchModalOpen, pendingRole, roleSwitching state variables
+  - Added switchRole to destructured useAuthStore
+  - Replaced direct switchRole calls with opening the confirmation modal
+  - Created comprehensive confirmation Dialog with:
+    - Visual role transition (current → target with arrow)
+    - Feature description for each target role (bullet points)
+    - Reassurance text about switching back anytime
+    - Cancel and Confirm buttons with loading state
+    - Role-specific color theming (amber for Locataire, emerald for Propriétaire)
+- Updated dashboard-header.tsx:
+  - Added roleSwitchModalOpen and pendingRole state
+  - Changed handleSwitchRole from async direct-switch to modal-open function
+  - Created handleConfirmSwitchRole async function
+  - Added identical confirmation Dialog component
+  - Updated mobile sidebar buttons to close menu first then open modal
+  - Added required imports: Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, Info, ArrowRight, Loader2
+- All lint checks pass cleanly
+- Dev server compiling without errors
+
+Stage Summary:
+- Confirmation modal added to ALL role switching entry points
+- Settings page: buttons open modal instead of switching directly
+- Dashboard header button: opens modal
+- Dashboard dropdown menu items: open modal
+- Mobile sidebar buttons: close drawer then open modal
+- Modal shows: current role → target role visual, feature descriptions, cancel/confirm with loading state
+- Role-specific color theming (amber=Locataire, emerald=Propriétaire)
