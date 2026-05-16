@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
         isEmailVerified: true,
         isPhoneVerified: true,
         role: true,
+        activeRole: true,
         passwordUpdatedAt: true,
         createdAt: true,
       },
@@ -145,6 +146,7 @@ export async function PUT(req: NextRequest) {
         isEmailVerified: true,
         isPhoneVerified: true,
         role: true,
+        activeRole: true,
         passwordUpdatedAt: true,
       },
     })

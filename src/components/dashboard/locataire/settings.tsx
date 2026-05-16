@@ -6,7 +6,7 @@ import {
   ChevronRight, CheckCircle2, XCircle, ScanFace, CreditCard, FileCheck,
   Save, Loader2, MapPin, Users, ArrowRight, Lightbulb, AlertTriangle,
   Info, RefreshCw, Eye, EyeOff, Monitor, Smartphone, Trash2, LogOut,
-  Camera, Pencil,
+  Camera, Pencil, ArrowLeftRight, Building2,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +19,7 @@ import { Progress } from '@/components/ui/progress'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/lib/auth-store'
+import { cn } from '@/lib/utils'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -1234,6 +1235,74 @@ export function SettingsSection() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Role Switch Card */}
+            {(() => {
+              const effectiveRole = user?.activeRole || user?.role
+              const canSwitch = ['LOCATAIRE', 'PROPRIETAIRE', 'AGENCE'].includes(user?.role || '') || ['LOCATAIRE', 'PROPRIETAIRE', 'AGENCE'].includes(user?.activeRole || user?.role || '')
+              if (!canSwitch) return null
+              return (
+                <Card className="border-border overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <ArrowLeftRight className="size-4 text-brand-500" />
+                      Changer de rôle
+                    </CardTitle>
+                    <CardDescription>
+                      Basculez entre le mode Locataire et Propriétaire selon vos besoins
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            await useAuthStore.getState().switchRole('LOCATAIRE')
+                            setSuccess('Mode Locataire activé')
+                          } catch (err) {
+                            setError(err instanceof Error ? err.message : 'Erreur')
+                          }
+                        }}
+                        className={cn(
+                          'flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all',
+                          effectiveRole === 'LOCATAIRE'
+                            ? 'border-amber-300 bg-amber-50 text-amber-700'
+                            : 'border-border text-muted-foreground hover:border-amber-200 hover:bg-amber-50/50'
+                        )}
+                      >
+                        <User className="size-4" />
+                        Locataire
+                        {effectiveRole === 'LOCATAIRE' && (
+                          <CheckCircle2 className="size-4 ml-1" />
+                        )}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await useAuthStore.getState().switchRole('PROPRIETAIRE')
+                            setSuccess('Mode Propriétaire activé')
+                          } catch (err) {
+                            setError(err instanceof Error ? err.message : 'Erreur')
+                          }
+                        }}
+                        className={cn(
+                          'flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all',
+                          effectiveRole === 'PROPRIETAIRE'
+                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                            : 'border-border text-muted-foreground hover:border-emerald-200 hover:bg-emerald-50/50'
+                        )}
+                      >
+                        <Building2 className="size-4" />
+                        Propriétaire
+                        {effectiveRole === 'PROPRIETAIRE' && (
+                          <CheckCircle2 className="size-4 ml-1" />
+                        )}
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })()}
 
             {/* Profile Form */}
             <Card className="border-border">

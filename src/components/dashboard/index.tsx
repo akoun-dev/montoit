@@ -152,12 +152,15 @@ export function Dashboard() {
 
   if (!user) return null
 
+  // Use activeRole for dashboard rendering (allows role switching)
+  const effectiveRole = user.activeRole || user.role
+
   return (
     <DashboardLayout>
-      {user.role === 'LOCATAIRE' && <LocataireDashboard section={dashboardSection} />}
-      {(user.role === 'PROPRIETAIRE' || user.role === 'AGENCE') && <ProprietaireDashboard section={dashboardSection} />}
-      {user.role === 'TIERS_CONFIANCE' && <TcDashboard section={dashboardSection} />}
-      {user.role === 'ADMIN' && <AdminDashboard section={dashboardSection} />}
+      {effectiveRole === 'LOCATAIRE' && <LocataireDashboard section={dashboardSection} />}
+      {(effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE') && <ProprietaireDashboard section={dashboardSection} />}
+      {effectiveRole === 'TIERS_CONFIANCE' && <TcDashboard section={dashboardSection} />}
+      {effectiveRole === 'ADMIN' && <AdminDashboard section={dashboardSection} />}
     </DashboardLayout>
   )
 }

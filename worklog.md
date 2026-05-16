@@ -279,3 +279,51 @@ Stage Summary:
 - Property detail and list APIs already return `hideOwnerName` and `virtualTourUrl` via Prisma findUnique/findMany without Property field selection — no changes required
 - New POST /api/visits endpoint created with full validation, auth, and error handling
 - Complements existing GET /api/visits/[id] endpoint for complete visit request CRUD
+
+---
+Task ID: 8
+Agent: Main
+Task: Add role switching system (Locataire ↔ Propriétaire) with button in profile
+
+Work Log:
+- Added `activeRole` field to User model in Prisma schema (defaults to same as `role`)
+- Ran `bun run db:push` to sync schema to database
+- Updated existing users' `activeRole` to match their `role` via SQL
+- Updated AuthUser interface in auth-store.ts to include `activeRole` field
+- Added `switchRole(newRole)` action to auth store that calls `/api/user/switch-role` API
+- Updated all auth API routes to return `activeRole` in user data:
+  - /api/auth/me (select object)
+  - /api/auth/login (response user object)
+  - /api/auth/register (3 response user objects: email, re-registration, SMS)
+  - /api/auth/verify-email-otp
+  - /api/auth/verify-sms-otp
+  - /api/profile (GET and PUT select objects)
+- Created `/api/user/switch-role/route.ts` POST endpoint:
+  - Validates role is LOCATAIRE, PROPRIETAIRE, or AGENCE
+  - Blocks ADMIN and TIERS_CONFIANCE from switching
+  - Updates `activeRole` on the user record in database
+- Updated Dashboard component to use `activeRole || role` for rendering
+- Updated Sidebar to use `activeRole || role` for navigation and role badge
+- Updated DashboardHeader with:
+  - Role switch button (visible on desktop) between Locataire/Propriétaire modes
+  - Dropdown menu with role switch options
+  - User avatar shows current active role label
+  - Mobile sidebar drawer with role switch buttons
+- Added Role Switch Card in Settings profile tab:
+  - Two toggle buttons: Locataire and Propriétaire
+  - Visual indication of current active role
+  - Calls switchRole API on click
+- Updated dashboard API routes to check `activeRole || role`:
+  - /api/dashboard/locataire
+  - /api/dashboard/proprietaire
+- Exported `getRoleColor` from sidebar.tsx (was previously internal)
+- Added cn utility import to dashboard-header.tsx
+- Added ArrowLeftRight, Building2 icons to settings imports
+- All lint checks pass, dev server running correctly
+
+Stage Summary:
+- Complete role switching system implemented: Locataire ↔ Propriétaire
+- Users can switch roles from: header button, dropdown menu, mobile sidebar, settings profile
+- activeRole persists in database and localStorage across sessions
+- Dashboard, sidebar, and API routes all respect the active role
+- ADMIN and TIERS_CONFIANCE cannot switch roles (restricted)

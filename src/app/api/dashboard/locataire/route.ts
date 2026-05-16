@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
     }
 
     const user = await db.user.findUnique({ where: { id: userId } })
-    if (!user || user.role !== 'LOCATAIRE') {
+    const effectiveRole = user?.activeRole || user?.role
+    if (!user || effectiveRole !== 'LOCATAIRE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 

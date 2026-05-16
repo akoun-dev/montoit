@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
           firstName: user.firstName,
           lastName: user.lastName,
           role: user.role,
+          activeRole: user.activeRole,
           avatarUrl: user.avatarUrl,
           isActive: user.isActive,
           isEmailVerified: user.isEmailVerified,

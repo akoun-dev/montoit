@@ -14,6 +14,7 @@ export interface AuthUser {
   firstName: string
   lastName: string
   role: 'LOCATAIRE' | 'PROPRIETAIRE' | 'AGENCE' | 'ADMIN' | 'TIERS_CONFIANCE'
+  activeRole: 'LOCATAIRE' | 'PROPRIETAIRE' | 'AGENCE' | 'ADMIN' | 'TIERS_CONFIANCE'
   avatarUrl: string | null
   isActive: boolean
   isEmailVerified: boolean
@@ -60,6 +61,7 @@ interface AuthActions {
   setSelectedPropertyId: (id: string) => void
   setSelectedItemId: (id: string) => void
   updateUser: (partial: Partial<AuthUser>) => void
+  switchRole: (newRole: AuthUser['role']) => Promise<void>
   checkAuth: () => Promise<void>
   seedData: () => Promise<void>
 }
@@ -390,6 +392,29 @@ export const useAuthStore = create<AuthState>()(
       updateUser: (partial) => set((state) => ({
         user: state.user ? { ...state.user, ...partial } : state.user,
       })),
+
+      switchRole: async (newRole) => {
+        set({ isLoading: true })
+        try {
+          const res = await fetch('/api/user/switch-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ role: newRole }),
+          })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || 'Erreur lors du changement de rôle')
+
+          set((state) => ({
+            user: state.user ? { ...state.user, activeRole: newRole } : state.user,
+            isLoading: false,
+            dashboardSection: 'overview', // Reset to overview when switching roles
+          }))
+        } catch (error) {
+          set({ isLoading: false })
+          throw error
+        }
+      },
 
       checkAuth: async () => {
         // Deduplicate: if a checkAuth is already in progress, reuse that promise

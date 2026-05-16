@@ -175,6 +175,7 @@ model User {
   firstName       String
   lastName        String
   role            Role      @default(LOCATAIRE)
+  activeRole      Role      @default(LOCATAIRE)  // Currently active role (for role switching)
   avatarUrl       String?
   isActive        Boolean   @default(true)
   isEmailVerified Boolean   @default(false)

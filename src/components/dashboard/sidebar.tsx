@@ -219,7 +219,7 @@ export function getRoleLabel(role: AuthUser['role']): string {
   }
 }
 
-function getRoleColor(role: AuthUser['role']): string {
+export function getRoleColor(role: AuthUser['role']): string {
   switch (role) {
     case 'LOCATAIRE': return 'bg-amber-100 text-amber-700'
     case 'PROPRIETAIRE': return 'bg-emerald-100 text-emerald-700'
@@ -251,7 +251,9 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
 
   if (!user) return null
 
-  const sections = getSidebarSections(user.role)
+  // Use activeRole for sidebar navigation (allows role switching)
+  const effectiveRole = user.activeRole || user.role
+  const sections = getSidebarSections(effectiveRole)
 
   // Determine the active section (map detail views to parent)
   const activeSection = detailToParent[dashboardSection] || dashboardSection
@@ -282,9 +284,9 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
         <div className="px-4 py-3 border-b border-border shrink-0">
           <span className={cn(
             'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-            getRoleColor(user.role)
+            getRoleColor(effectiveRole)
           )}>
-            {getRoleLabel(user.role)}
+            {getRoleLabel(effectiveRole)}
           </span>
         </div>
       )}
