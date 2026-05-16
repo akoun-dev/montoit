@@ -279,7 +279,7 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-sm border-b border-neutral-200 shadow-sm">
+    <header className="sticky top-0 z-50 w-full bg-white border-b border-neutral-200 shadow-sm">
       <div className="mx-auto max-w-7xl flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
         {/* Logo */}
         <button
