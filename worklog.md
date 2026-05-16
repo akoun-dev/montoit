@@ -508,3 +508,44 @@ Stage Summary:
 - All "NEOFACE" text replaced with "KYC" throughout the app
 - NNI no longer required for KYC (only needs CNI photo)
 - kycDocumentId stored temporarily during the flow, cleaned up after verification
+
+---
+Task ID: 15
+Agent: main
+Task: Remove KYC verification section from Profil tab and add it as a modal dialog in the Mon Score tab
+
+Work Log:
+- Created `KycVerificationModal` component in settings.tsx that:
+  - Accepts props: `open`, `onOpenChange`, `profile`, `onVerified`
+  - Contains all KYC state internally (kycStep, kycDocImage, kycDocumentId, kycSelfieUrl, kycResult, kycPollCount, kycDocInputRef, kycPollIntervalRef)
+  - Contains all KYC handler functions (handleKycDocUpload, handleKycOpenSelfie, handleKycReset)
+  - Uses Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription from @/components/ui/dialog
+  - Already-verified state shows green checkmark with "Vérification KYC réussie" and date
+  - Full KYC flow (upload → selfie → polling → result) inside the dialog content
+  - Dialog is max-w-md with scrollable content (max-h-[85vh] overflow-y-auto)
+  - Stops polling when modal closes during verification step
+  - Resets state when modal opens (if not yet verified)
+  - Calls `onVerified()` callback when verification succeeds
+- Removed from SettingsSection:
+  - All KYC state variables (kycStep, kycDocImage, kycDocumentId, kycSelfieUrl, kycResult, kycPollCount)
+  - All KYC refs (kycSectionRef, kycDocInputRef, kycPollIntervalRef)
+  - All KYC handlers (handleKycDocUpload, handleKycOpenSelfie, handleKycReset, scrollToKyc)
+  - Cleanup useEffect for kycPollIntervalRef
+- Removed KYC Face Verification section from Profil tab (lines 924-1146 of the original file)
+- Added `kycModalOpen` state and `handleKycVerified` callback to SettingsSection
+- Added KycVerificationModal component at the end of the main motion.div (outside AnimatePresence)
+- Changed `scrollToKyc()` references to `setKycModalOpen(true)`:
+  - KYC ScoreComponentCard action button in scoring tab
+  - Recommendation card for neoface in scoring tab
+- Updated NNI helper text from "requis pour les vérifications ONECI et KYC" to "requis pour la vérification ONECI"
+- Added Dialog import from @/components/ui/dialog
+- ONECI verification section kept as-is in Profil tab
+- Lint: 0 errors, 0 warnings
+
+Stage Summary:
+- KYC verification moved from inline section in Profil tab to modal dialog accessible from Mon Score tab
+- Modal opens via "Vérification KYC" action button and neoface recommendation button
+- All KYC state/handlers encapsulated in KycVerificationModal component
+- Polling properly cleans up on modal close or unmount
+- NNI helper text updated to remove KYC reference
+- Profil tab now only shows ONECI verification (cleaner layout)

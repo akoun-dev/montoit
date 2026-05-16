@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -236,93 +237,42 @@ function ProfileFieldRow({ label, value, isFilled, fieldName }: {
   )
 }
 
-// ── Main Settings Component ─────────────────────────────────────────────────
+// ── KYC Verification Modal ──────────────────────────────────────────────────
 
-export function SettingsSection() {
-  const { user, setDashboardSection } = useAuthStore()
-  const [profile, setProfile] = useState<ProfileData | null>(null)
-  const [scoring, setScoring] = useState<ScoringData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'profil' | 'scoring' | 'securite' | 'notifications'>('profil')
-
-  // Form state
-  const [formState, setFormState] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    gender: '',
-    city: '',
-    address: '',
-    birthDate: '',
-    nni: '',
-  })
-
-  // ONECI verification state
-  const [oneciVerifying, setOneciVerifying] = useState(false)
-  const [oneciResult, setOneciResult] = useState<{ verified: boolean; message: string; details?: string } | null>(null)
-
+function KycVerificationModal({
+  open,
+  onOpenChange,
+  profile,
+  onVerified,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  profile: ProfileData | null
+  onVerified: () => void
+}) {
   // KYC face verification state (NeoFace v2 flow)
   const [kycStep, setKycStep] = useState<'idle' | 'uploading' | 'selfie' | 'verifying' | 'done'>('idle')
-  const [kycDocImage, setKycDocImage] = useState<string | null>(null) // base64 data URL for preview
+  const [kycDocImage, setKycDocImage] = useState<string | null>(null)
   const [kycDocumentId, setKycDocumentId] = useState<string | null>(null)
   const [kycSelfieUrl, setKycSelfieUrl] = useState<string | null>(null)
   const [kycResult, setKycResult] = useState<{ verified: boolean; message: string } | null>(null)
   const [kycPollCount, setKycPollCount] = useState(0)
-  const kycSectionRef = useRef<HTMLDivElement>(null)
   const kycDocInputRef = useRef<HTMLInputElement>(null)
   const kycPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Fetch profile & scoring data
-  const fetchProfileAndScoring = useCallback(async () => {
-    if (!user) return
-
-    try {
-      const [profileResult, scoringResult] = await Promise.allSettled([
-        authFetch<{ user: ProfileData }>('/api/profile'),
-        authFetch<ScoringData>('/api/scoring'),
-      ])
-
-      if (profileResult.status === 'fulfilled') {
-        const p = profileResult.value.user
-        setProfile(p)
-        setFormState({
-          firstName: p.firstName || '',
-          lastName: p.lastName || '',
-          phone: p.phone || '',
-          gender: p.gender || '',
-          city: p.city || '',
-          address: p.address || '',
-          birthDate: p.birthDate ? new Date(p.birthDate).toISOString().split('T')[0] : '',
-          nni: p.nni || '',
-        })
-      }
-
-      if (scoringResult.status === 'fulfilled') {
-        setScoring(scoringResult.value)
-      }
-    } catch {
-      // Silent fail
-    } finally {
-      setLoading(false)
-    }
-  }, [user])
-
+  // Reset state when modal opens
   useEffect(() => {
-    fetchProfileAndScoring()
-  }, [fetchProfileAndScoring])
-
-  // Auto-clear success message
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(null), 3000)
-      return () => clearTimeout(timer)
+    if (open && !profile?.neofaceVerified) {
+      setKycStep('idle')
+      setKycDocImage(null)
+      setKycDocumentId(null)
+      setKycSelfieUrl(null)
+      setKycResult(null)
+      setKycPollCount(0)
     }
-  }, [success])
+  }, [open, profile?.neofaceVerified])
 
-  // Cleanup polling interval on unmount
+  // Cleanup polling interval on unmount or close
   useEffect(() => {
     return () => {
       if (kycPollIntervalRef.current) {
@@ -330,6 +280,17 @@ export function SettingsSection() {
       }
     }
   }, [])
+
+  // Stop polling when modal closes
+  useEffect(() => {
+    if (!open && kycPollIntervalRef.current) {
+      clearInterval(kycPollIntervalRef.current)
+      kycPollIntervalRef.current = null
+      if (kycStep === 'verifying') {
+        setKycStep('selfie')
+      }
+    }
+  }, [open, kycStep])
 
   // ── KYC: Upload ID card document ──────────────────────────────────────────
   const handleKycDocUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -420,14 +381,7 @@ export function SettingsSection() {
           if (kycPollIntervalRef.current) clearInterval(kycPollIntervalRef.current)
           setKycResult({ verified: true, message: result.message || 'Vérification KYC réussie !' })
           setKycStep('done')
-
-          // Refresh profile and scoring
-          const [profileResult, scoringResult] = await Promise.allSettled([
-            authFetch<{ user: ProfileData }>('/api/profile'),
-            authFetch<ScoringData>('/api/scoring'),
-          ])
-          if (profileResult.status === 'fulfilled') setProfile(profileResult.value.user)
-          if (scoringResult.status === 'fulfilled') setScoring(scoringResult.value)
+          onVerified()
         } else if (result.status === 'failed') {
           if (kycPollIntervalRef.current) clearInterval(kycPollIntervalRef.current)
           setKycResult({ verified: false, message: result.message || 'La vérification a échoué.' })
@@ -438,7 +392,7 @@ export function SettingsSection() {
         // Network error, continue polling
       }
     }, 3000)
-  }, [kycSelfieUrl, kycDocumentId])
+  }, [kycSelfieUrl, kycDocumentId, onVerified])
 
   // ── KYC: Reset flow ──────────────────────────────────────────────────────
   const handleKycReset = useCallback(() => {
@@ -453,12 +407,333 @@ export function SettingsSection() {
     setKycPollCount(0)
   }, [])
 
-  // Scroll to KYC section
-  const scrollToKyc = useCallback(() => {
-    setActiveTab('profil')
-    setTimeout(() => {
-      kycSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 300)
+  // Already verified state
+  if (profile?.neofaceVerified) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ScanFace className="size-5 text-brand-500" />
+              Vérification KYC
+            </DialogTitle>
+            <DialogDescription>
+              Vérification d&apos;identité par reconnaissance faciale (+20% Trust Score)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shrink-0">
+                <CheckCircle2 className="size-6" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-emerald-700">Vérification KYC réussie</p>
+                {profile.neofaceVerifiedAt && (
+                  <p className="text-xs text-emerald-600 mt-0.5">
+                    Vérifié le {new Date(profile.neofaceVerifiedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ScanFace className="size-5 text-brand-500" />
+            Vérification KYC
+          </DialogTitle>
+          <DialogDescription>
+            Vérification d&apos;identité par reconnaissance faciale (+20% Trust Score)
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          {/* Step 1: Upload ID card */}
+          {(kycStep === 'idle' || kycStep === 'uploading') && (
+            <div className="space-y-3">
+              <p className="text-xs text-neutral-500">
+                Téléchargez une photo de votre pièce d&apos;identité (recto avec votre photo). KYC comparera votre visage en direct avec la photo du document.
+              </p>
+
+              {/* Upload area */}
+              <div
+                onClick={() => kycDocInputRef.current?.click()}
+                className={`relative cursor-pointer rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+                  kycDocImage
+                    ? 'border-brand-300 bg-brand-50/30'
+                    : 'border-neutral-300 hover:border-brand-400 hover:bg-brand-50/20'
+                }`}
+              >
+                {kycDocImage ? (
+                  <div className="space-y-2">
+                    <img
+                      src={kycDocImage}
+                      alt="Aperçu du document"
+                      className="mx-auto max-h-40 rounded-lg object-contain"
+                    />
+                    <p className="text-xs text-neutral-500">Cliquer pour changer</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-neutral-100">
+                      <CreditCard className="size-5 text-neutral-400" />
+                    </div>
+                    <p className="text-sm font-medium text-neutral-700">Télécharger le recto de votre CNI</p>
+                    <p className="text-[11px] text-neutral-400">JPG, PNG — max 10 Mo</p>
+                  </div>
+                )}
+              </div>
+
+              <input
+                ref={kycDocInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png"
+                className="hidden"
+                onChange={handleKycDocUpload}
+              />
+
+              {kycStep === 'uploading' && (
+                <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
+                  <Loader2 className="size-4 animate-spin" />
+                  Envoi du document en cours...
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 2: Selfie link */}
+          {kycStep === 'selfie' && (
+            <div className="space-y-3">
+              <div className="p-3 rounded-lg bg-brand-50 border border-brand-200">
+                <p className="text-xs font-medium text-brand-700 mb-2">
+                  ✅ Document envoyé avec succès
+                </p>
+                <p className="text-[11px] text-brand-600">
+                  Cliquez sur le bouton ci-dessous pour ouvrir l&apos;interface de prise de selfie. L&apos;interface détectera votre visage en direct et vérifiera votre identité.
+                </p>
+              </div>
+
+              <Button
+                onClick={handleKycOpenSelfie}
+                className="w-full h-11 bg-brand-500 hover:bg-brand-600 text-white"
+              >
+                <ScanFace className="size-4 mr-2" />
+                Ouvrir la vérification faciale
+              </Button>
+
+              <Button
+                onClick={handleKycReset}
+                variant="outline"
+                className="w-full h-9 text-xs border-neutral-200"
+              >
+                <RefreshCw className="size-3.5 mr-1.5" />
+                Recommencer
+              </Button>
+            </div>
+          )}
+
+          {/* Step 3: Polling / Verifying */}
+          {kycStep === 'verifying' && (
+            <div className="space-y-3">
+              <div className="flex flex-col items-center gap-3 p-4 rounded-xl bg-neutral-50 border border-neutral-200">
+                <Loader2 className="size-8 animate-spin text-brand-500" />
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-neutral-700">Vérification en cours...</p>
+                  <p className="text-[11px] text-neutral-500 mt-1">
+                    Prenez votre selfie dans la fenêtre ouverte. Nous vérifions le résultat automatiquement.
+                  </p>
+                  <p className="text-[10px] text-neutral-400 mt-2">
+                    Tentative {kycPollCount}/40
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleKycOpenSelfie}
+                  variant="outline"
+                  className="flex-1 h-9 text-xs border-brand-200 text-brand-600 hover:bg-brand-50"
+                >
+                  <ScanFace className="size-3.5 mr-1.5" />
+                  R&#39;ouvrir le selfie
+                </Button>
+                <Button
+                  onClick={handleKycReset}
+                  variant="outline"
+                  className="flex-1 h-9 text-xs border-neutral-200"
+                >
+                  <XCircle className="size-3.5 mr-1.5" />
+                  Annuler
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Done (success or failure) */}
+          {kycStep === 'done' && kycResult && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`p-4 rounded-xl border ${
+                kycResult.verified
+                  ? 'bg-emerald-50 border-emerald-200'
+                  : 'bg-red-50 border-red-200'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`flex size-10 items-center justify-center rounded-full shrink-0 ${
+                  kycResult.verified ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'
+                }`}>
+                  {kycResult.verified ? <CheckCircle2 className="size-5" /> : <XCircle className="size-5" />}
+                </div>
+                <div className="flex-1">
+                  <p className={`text-sm font-semibold ${kycResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
+                    {kycResult.verified ? 'Vérification KYC réussie !' : 'Vérification échouée'}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${kycResult.verified ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {kycResult.message}
+                  </p>
+                </div>
+              </div>
+              {!kycResult.verified && (
+                <Button
+                  variant="link"
+                  className="text-[11px] text-brand-500 p-0 h-auto mt-2"
+                  onClick={handleKycReset}
+                >
+                  <RefreshCw className="size-3 mr-1" />
+                  Réessayer
+                </Button>
+              )}
+            </motion.div>
+          )}
+
+          {/* Error state (on idle) */}
+          {kycStep === 'idle' && kycResult && !kycResult.verified && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 rounded-lg border bg-red-50 border-red-200"
+            >
+              <div className="flex items-start gap-2">
+                <XCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-red-700">{kycResult.message}</p>
+                  <Button
+                    variant="link"
+                    className="text-[11px] text-brand-500 p-0 h-auto mt-1"
+                    onClick={() => { setKycResult(null) }}
+                  >
+                    <RefreshCw className="size-3 mr-1" />
+                    Réessayer
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Main Settings Component ─────────────────────────────────────────────────
+
+export function SettingsSection() {
+  const { user, setDashboardSection } = useAuthStore()
+  const [profile, setProfile] = useState<ProfileData | null>(null)
+  const [scoring, setScoring] = useState<ScoringData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'profil' | 'scoring' | 'securite' | 'notifications'>('profil')
+
+  // KYC modal state
+  const [kycModalOpen, setKycModalOpen] = useState(false)
+
+  // Form state
+  const [formState, setFormState] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    gender: '',
+    city: '',
+    address: '',
+    birthDate: '',
+    nni: '',
+  })
+
+  // ONECI verification state
+  const [oneciVerifying, setOneciVerifying] = useState(false)
+  const [oneciResult, setOneciResult] = useState<{ verified: boolean; message: string; details?: string } | null>(null)
+
+  // Fetch profile & scoring data
+  const fetchProfileAndScoring = useCallback(async () => {
+    if (!user) return
+
+    try {
+      const [profileResult, scoringResult] = await Promise.allSettled([
+        authFetch<{ user: ProfileData }>('/api/profile'),
+        authFetch<ScoringData>('/api/scoring'),
+      ])
+
+      if (profileResult.status === 'fulfilled') {
+        const p = profileResult.value.user
+        setProfile(p)
+        setFormState({
+          firstName: p.firstName || '',
+          lastName: p.lastName || '',
+          phone: p.phone || '',
+          gender: p.gender || '',
+          city: p.city || '',
+          address: p.address || '',
+          birthDate: p.birthDate ? new Date(p.birthDate).toISOString().split('T')[0] : '',
+          nni: p.nni || '',
+        })
+      }
+
+      if (scoringResult.status === 'fulfilled') {
+        setScoring(scoringResult.value)
+      }
+    } catch {
+      // Silent fail
+    } finally {
+      setLoading(false)
+    }
+  }, [user])
+
+  useEffect(() => {
+    fetchProfileAndScoring()
+  }, [fetchProfileAndScoring])
+
+  // Auto-clear success message
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [success])
+
+  // ── KYC verified callback ────────────────────────────────────────────────
+  const handleKycVerified = useCallback(async () => {
+    setKycModalOpen(false)
+    // Refresh profile and scoring
+    try {
+      const [profileResult, scoringResult] = await Promise.allSettled([
+        authFetch<{ user: ProfileData }>('/api/profile'),
+        authFetch<ScoringData>('/api/scoring'),
+      ])
+      if (profileResult.status === 'fulfilled') setProfile(profileResult.value.user)
+      if (scoringResult.status === 'fulfilled') setScoring(scoringResult.value)
+    } catch {}
   }, [])
 
   // Save profile
@@ -848,7 +1123,7 @@ export function SettingsSection() {
                         disabled={profile?.oneciVerified || profile?.neofaceVerified || oneciVerifying}
                         maxLength={11}
                       />
-                      <p className="text-[10px] text-neutral-400">10 à 11 chiffres — requis pour les vérifications ONECI et KYC</p>
+                      <p className="text-[10px] text-neutral-400">10 à 11 chiffres — requis pour la vérification ONECI</p>
                     </div>
                     {/* Birth Date */}
                     <div className="space-y-1.5">
@@ -918,230 +1193,6 @@ export function SettingsSection() {
                       <CheckCircle2 className="size-3" />
                       Vérifié le {new Date(profile.oneciVerifiedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
-                  )}
-                </div>
-
-                {/* ── KYC Face Verification Section ─────────────────────── */}
-                <div ref={kycSectionRef} className="pt-2">
-                  <Separator className="mb-4" />
-                  <div className="flex items-center gap-2 mb-3">
-                    <ScanFace className="size-4 text-brand-500" />
-                    <span className="text-sm font-semibold text-neutral-900">Vérification d&apos;identité KYC</span>
-                    {profile?.neofaceVerified ? (
-                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0 border font-semibold">
-                        <CheckCircle2 className="size-3 mr-0.5" /> Vérifié
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] px-1.5 py-0 border font-semibold">
-                        +20% Trust Score
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Already verified */}
-                  {profile?.neofaceVerified ? (
-                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shrink-0">
-                          <CheckCircle2 className="size-4" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-emerald-700">Vérification KYC réussie</p>
-                          {profile.neofaceVerifiedAt && (
-                            <p className="text-[10px] text-emerald-600 mt-0.5">
-                              Vérifié le {new Date(profile.neofaceVerifiedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    /* KYC flow */
-                    <div className="space-y-3">
-                      {/* Step 1: Upload ID card */}
-                      {(kycStep === 'idle' || kycStep === 'uploading') && (
-                        <div className="space-y-3">
-                          <p className="text-[11px] text-neutral-500">
-                            Téléchargez une photo de votre pièce d&apos;identité (recto avec votre photo). KYC comparera votre visage en direct avec la photo du document.
-                          </p>
-
-                          {/* Upload area */}
-                          <div
-                            onClick={() => kycDocInputRef.current?.click()}
-                            className={`relative cursor-pointer rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
-                              kycDocImage
-                                ? 'border-brand-300 bg-brand-50/30'
-                                : 'border-neutral-300 hover:border-brand-400 hover:bg-brand-50/20'
-                            }`}
-                          >
-                            {kycDocImage ? (
-                              <div className="space-y-2">
-                                <img
-                                  src={kycDocImage}
-                                  alt="Aperçu du document"
-                                  className="mx-auto max-h-40 rounded-lg object-contain"
-                                />
-                                <p className="text-xs text-neutral-500">Cliquer pour changer</p>
-                              </div>
-                            ) : (
-                              <div className="space-y-2">
-                              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-neutral-100">
-                                <CreditCard className="size-5 text-neutral-400" />
-                              </div>
-                              <p className="text-sm font-medium text-neutral-700">Télécharger le recto de votre CNI</p>
-                              <p className="text-[11px] text-neutral-400">JPG, PNG — max 10 Mo</p>
-                              </div>
-                            )}
-                          </div>
-
-                          <input
-                            ref={kycDocInputRef}
-                            type="file"
-                            accept="image/jpeg,image/jpg,image/png"
-                            className="hidden"
-                            onChange={handleKycDocUpload}
-                          />
-
-                          {kycStep === 'uploading' && (
-                            <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
-                              <Loader2 className="size-4 animate-spin" />
-                              Envoi du document en cours...
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Step 2: Selfie link */}
-                      {kycStep === 'selfie' && (
-                        <div className="space-y-3">
-                          <div className="p-3 rounded-lg bg-brand-50 border border-brand-200">
-                            <p className="text-xs font-medium text-brand-700 mb-2">
-                              ✅ Document envoyé avec succès
-                            </p>
-                            <p className="text-[11px] text-brand-600">
-                              Cliquez sur le bouton ci-dessous pour ouvrir l&apos;interface de prise de selfie. L&apos;interface détectera votre visage en direct et vérifiera votre identité.
-                            </p>
-                          </div>
-
-                          <Button
-                            onClick={handleKycOpenSelfie}
-                            className="w-full h-11 bg-brand-500 hover:bg-brand-600 text-white"
-                          >
-                            <ScanFace className="size-4 mr-2" />
-                            Ouvrir la vérification faciale
-                          </Button>
-
-                          <Button
-                            onClick={handleKycReset}
-                            variant="outline"
-                            className="w-full h-9 text-xs border-neutral-200"
-                          >
-                            <RefreshCw className="size-3.5 mr-1.5" />
-                            Recommencer
-                          </Button>
-                        </div>
-                      )}
-
-                      {/* Step 3: Polling / Verifying */}
-                      {kycStep === 'verifying' && (
-                        <div className="space-y-3">
-                          <div className="flex flex-col items-center gap-3 p-4 rounded-xl bg-neutral-50 border border-neutral-200">
-                            <Loader2 className="size-8 animate-spin text-brand-500" />
-                            <div className="text-center">
-                              <p className="text-sm font-semibold text-neutral-700">Vérification en cours...</p>
-                              <p className="text-[11px] text-neutral-500 mt-1">
-                                Prenez votre selfie dans la fenêtre ouverte. Nous vérifions le résultat automatiquement.
-                              </p>
-                              <p className="text-[10px] text-neutral-400 mt-2">
-                                Tentative {kycPollCount}/40
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex gap-2">
-                            <Button
-                              onClick={handleKycOpenSelfie}
-                              variant="outline"
-                              className="flex-1 h-9 text-xs border-brand-200 text-brand-600 hover:bg-brand-50"
-                            >
-                              <ScanFace className="size-3.5 mr-1.5" />
-                              R&#39;ouvrir le selfie
-                            </Button>
-                            <Button
-                              onClick={handleKycReset}
-                              variant="outline"
-                              className="flex-1 h-9 text-xs border-neutral-200"
-                            >
-                              <XCircle className="size-3.5 mr-1.5" />
-                              Annuler
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Step 4: Done (success or failure) */}
-                      {kycStep === 'done' && kycResult && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className={`p-4 rounded-xl border ${
-                            kycResult.verified
-                              ? 'bg-emerald-50 border-emerald-200'
-                              : 'bg-red-50 border-red-200'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`flex size-10 items-center justify-center rounded-full shrink-0 ${
-                              kycResult.verified ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'
-                            }`}>
-                              {kycResult.verified ? <CheckCircle2 className="size-5" /> : <XCircle className="size-5" />}
-                            </div>
-                            <div className="flex-1">
-                              <p className={`text-sm font-semibold ${kycResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
-                                {kycResult.verified ? 'Vérification KYC réussie !' : 'Vérification échouée'}
-                              </p>
-                              <p className={`text-xs mt-0.5 ${kycResult.verified ? 'text-emerald-600' : 'text-red-600'}`}>
-                                {kycResult.message}
-                              </p>
-                            </div>
-                          </div>
-                          {!kycResult.verified && (
-                            <Button
-                              variant="link"
-                              className="text-[11px] text-brand-500 p-0 h-auto mt-2"
-                              onClick={handleKycReset}
-                            >
-                              <RefreshCw className="size-3 mr-1" />
-                              Réessayer
-                            </Button>
-                          )}
-                        </motion.div>
-                      )}
-
-                      {/* Error state (on idle) */}
-                      {kycStep === 'idle' && kycResult && !kycResult.verified && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="p-3 rounded-lg border bg-red-50 border-red-200"
-                        >
-                          <div className="flex items-start gap-2">
-                            <XCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
-                            <div className="flex-1">
-                              <p className="text-xs font-medium text-red-700">{kycResult.message}</p>
-                              <Button
-                                variant="link"
-                                className="text-[11px] text-brand-500 p-0 h-auto mt-1"
-                                onClick={() => { setKycResult(null) }}
-                              >
-                                <RefreshCw className="size-3 mr-1" />
-                                Réessayer
-                              </Button>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </div>
                   )}
                 </div>
 
@@ -1252,7 +1303,7 @@ export function SettingsSection() {
                 statusColor={scoring.statusColor}
                 details="Vérification biométrique obligatoire"
                 actionLabel="Vérification KYC"
-                onAction={scrollToKyc}
+                onAction={() => setKycModalOpen(true)}
               />
               <ScoreComponentCard
                 icon={CreditCard}
@@ -1372,7 +1423,7 @@ export function SettingsSection() {
                           if (rec.action === 'settings') setActiveTab('profil')
                           else if (rec.action === 'rental-file') setDashboardSection('rental-file')
                           else if (rec.action === 'oneci') setActiveTab('profil')
-                          else if (rec.action === 'neoface') scrollToKyc()
+                          else if (rec.action === 'neoface') setKycModalOpen(true)
                         }}
                       >
                         {rec.actionLabel}
@@ -1541,6 +1592,14 @@ export function SettingsSection() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── KYC Verification Modal (accessible from scoring tab) ──────────── */}
+      <KycVerificationModal
+        open={kycModalOpen}
+        onOpenChange={setKycModalOpen}
+        profile={profile}
+        onVerified={handleKycVerified}
+      />
     </motion.div>
   )
 }
