@@ -264,14 +264,15 @@ export function SettingsSection() {
   const [oneciResult, setOneciResult] = useState<{ verified: boolean; message: string; details?: string } | null>(null)
 
   // NEOFACE face verification state
-  const [cameraActive, setCameraActive] = useState(false)
-  const [capturedImage, setCapturedImage] = useState<string | null>(null)
+  const [neofaceImage, setNeofaceImage] = useState<string | null>(null) // base64 data URL
   const [neofaceVerifying, setNeofaceVerifying] = useState(false)
   const [neofaceResult, setNeofaceResult] = useState<{ verified: boolean; message: string } | null>(null)
+  const [neofaceStep, setNeofaceStep] = useState<'idle' | 'camera' | 'preview'>('idle')
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const neofaceSectionRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch profile & scoring data
   const fetchProfileAndScoring = useCallback(async () => {
@@ -329,17 +330,16 @@ export function SettingsSection() {
     }
   }, [])
 
-  // Start camera
-  const startCamera = useCallback(async () => {
-    setCapturedImage(null)
+  // Start camera for selfie
+  const startNeofaceCamera = useCallback(async () => {
+    setNeofaceImage(null)
     setNeofaceResult(null)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 640 } },
       })
       streamRef.current = stream
-      setCameraActive(true)
-      // Set video source after state update
+      setNeofaceStep('camera')
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream
@@ -354,16 +354,16 @@ export function SettingsSection() {
   }, [])
 
   // Stop camera
-  const stopCamera = useCallback(() => {
+  const stopNeofaceCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop())
       streamRef.current = null
     }
-    setCameraActive(false)
+    setNeofaceStep('idle')
   }, [])
 
   // Capture photo from camera
-  const capturePhoto = useCallback(() => {
+  const captureNeofacePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return
 
     const video = videoRef.current
@@ -379,19 +379,37 @@ export function SettingsSection() {
     ctx.scale(-1, 1)
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
-    setCapturedImage(dataUrl)
-    stopCamera()
-  }, [stopCamera])
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+    setNeofaceImage(dataUrl)
+    stopNeofaceCamera()
+    setNeofaceStep('preview')
+  }, [stopNeofaceCamera])
+
+  // Handle file upload for selfie
+  const handleNeofaceFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string
+      setNeofaceImage(dataUrl)
+      setNeofaceResult(null)
+      setNeofaceStep('preview')
+    }
+    reader.readAsDataURL(file)
+    // Reset input so same file can be selected again
+    e.target.value = ''
+  }, [])
 
   // NEOFACE face verification handler
   const handleNeofaceVerify = useCallback(async () => {
-    if (!capturedImage) return
+    if (!neofaceImage) return
     setNeofaceVerifying(true)
     setNeofaceResult(null)
 
     // Strip data URL prefix to get raw base64
-    const base64Data = capturedImage.replace(/^data:image\/jpeg;base64,/, '')
+    const base64Data = neofaceImage.replace(/^data:image\/[a-z]+;base64,/, '')
 
     try {
       const result = await authFetch<{ verified: boolean; message?: string; error?: string }>('/api/oneci/face-auth', {
@@ -428,7 +446,7 @@ export function SettingsSection() {
     } finally {
       setNeofaceVerifying(false)
     }
-  }, [capturedImage])
+  }, [neofaceImage])
 
   // Scroll to NEOFACE section
   const scrollToNeoface = useCallback(() => {
@@ -914,22 +932,18 @@ export function SettingsSection() {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs text-neutral-500 mb-4">
-                    Prenez un selfie pour vérifier votre identité par reconnaissance faciale. Votre visage sera comparé à la photo de votre CNI.
-                  </p>
 
                   {/* Already verified */}
                   {profile?.neofaceVerified ? (
-                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
                       <div className="flex items-center gap-3">
-                        <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shrink-0">
-                          <CheckCircle2 className="size-5" />
+                        <div className="flex size-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shrink-0">
+                          <CheckCircle2 className="size-4" />
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-emerald-700">Vérification biométrique réussie</p>
                           {profile.neofaceVerifiedAt && (
-                            <p className="text-[10px] text-emerald-600 mt-0.5 flex items-center gap-1">
-                              <CheckCircle2 className="size-3" />
+                            <p className="text-[10px] text-emerald-600 mt-0.5">
                               Vérifié le {new Date(profile.neofaceVerifiedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                             </p>
                           )}
@@ -938,105 +952,130 @@ export function SettingsSection() {
                     </div>
                   ) : !profile?.oneciVerified ? (
                     /* Not ONECI verified — disabled */
-                    <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-200">
+                    <div className="p-3 rounded-xl bg-neutral-50 border border-neutral-200">
                       <div className="flex items-center gap-3">
-                        <div className="flex size-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-400 shrink-0">
-                          <ScanFace className="size-5" />
+                        <div className="flex size-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-400 shrink-0">
+                          <ScanFace className="size-4" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-neutral-600">Vérification biométrique non disponible</p>
-                          <p className="text-xs text-neutral-500 mt-0.5">
+                          <p className="text-sm font-semibold text-neutral-600">Vérification indisponible</p>
+                          <p className="text-[11px] text-neutral-500 mt-0.5">
                             Vérifiez d&apos;abord votre CNI via ONECI pour activer la vérification biométrique.
                           </p>
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        className="mt-3 w-full text-xs h-8 border-neutral-200 text-neutral-500"
-                        disabled
-                      >
-                        <ScanFace className="size-3.5 mr-1.5" />
-                        Vérification biométrique indisponible
-                      </Button>
                     </div>
                   ) : (
-                    /* ONECI verified — show face capture UI */
-                    <div className="space-y-4">
-                      {/* Camera preview / captured image */}
-                      <div className="relative rounded-xl overflow-hidden bg-neutral-900 aspect-[4/3] max-w-sm mx-auto">
-                        {cameraActive ? (
-                          <>
-                            <video
-                              ref={videoRef}
-                              autoPlay
-                              playsInline
-                              muted
-                              className="size-full object-cover -scale-x-1"
-                            />
-                            {/* Face overlay oval */}
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <div className="w-48 h-60 sm:w-56 sm:h-72 rounded-[50%] border-2 border-white/40" />
-                            </div>
-                            {/* Camera controls */}
-                            <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-3">
-                              <Button
-                                onClick={capturePhoto}
-                                className="bg-brand-500 hover:bg-brand-600 text-white rounded-full size-12 p-0"
-                              >
-                                <Camera className="size-5" />
-                              </Button>
-                              <Button
-                                onClick={stopCamera}
-                                variant="outline"
-                                className="bg-white/90 hover:bg-white text-neutral-700 rounded-full size-12 p-0 border-neutral-200"
-                              >
-                                <XCircle className="size-5" />
-                              </Button>
-                            </div>
-                          </>
-                        ) : capturedImage ? (
-                          <img
-                            src={capturedImage}
-                            alt="Selfie capturé"
-                            className="size-full object-cover"
-                          />
-                        ) : (
-                          <div className="size-full flex flex-col items-center justify-center text-neutral-400">
-                            <ScanFace className="size-12 mb-2 opacity-50" />
-                            <p className="text-xs">Aucune image capturée</p>
-                          </div>
-                        )}
-                        {/* Hidden canvas for image capture */}
-                        <canvas ref={canvasRef} className="hidden" />
-                      </div>
+                    /* ONECI verified — show simple NEOFACE flow */
+                    <div className="space-y-3">
+                      <p className="text-[11px] text-neutral-500">
+                        Prenez un selfie ou chargez une photo de votre visage. NEOFACE comparera votre visage avec la photo de votre CNI.
+                      </p>
 
-                      {/* Action buttons */}
-                      <div className="flex flex-col sm:flex-row gap-2 max-w-sm mx-auto">
-                        {!cameraActive && (
+                      {/* Camera mode */}
+                      {neofaceStep === 'camera' && (
+                        <div className="relative rounded-xl overflow-hidden bg-neutral-900 aspect-[3/4] max-w-[280px] mx-auto">
+                          <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="size-full object-cover -scale-x-1"
+                          />
+                          {/* Face guide oval */}
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-40 h-52 rounded-[50%] border-2 border-white/30" />
+                          </div>
+                          {/* Capture/Cancel buttons */}
+                          <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-3">
+                            <Button
+                              onClick={captureNeofacePhoto}
+                              className="bg-brand-500 hover:bg-brand-600 text-white rounded-full size-11 p-0 shadow-lg"
+                            >
+                              <Camera className="size-5" />
+                            </Button>
+                            <Button
+                              onClick={stopNeofaceCamera}
+                              variant="outline"
+                              className="bg-white/90 hover:bg-white text-neutral-700 rounded-full size-11 p-0 border-neutral-200"
+                            >
+                              <XCircle className="size-5" />
+                            </Button>
+                          </div>
+                          <canvas ref={canvasRef} className="hidden" />
+                        </div>
+                      )}
+
+                      {/* Preview mode */}
+                      {neofaceStep === 'preview' && neofaceImage && (
+                        <div className="space-y-3">
+                          <div className="relative rounded-xl overflow-hidden bg-neutral-100 aspect-[3/4] max-w-[280px] mx-auto">
+                            <img
+                              src={neofaceImage}
+                              alt="Photo de vérification"
+                              className="size-full object-cover"
+                            />
+                          </div>
+                          <div className="flex gap-2 max-w-[280px] mx-auto">
+                            <Button
+                              onClick={() => { setNeofaceImage(null); setNeofaceStep('idle'); setNeofaceResult(null) }}
+                              variant="outline"
+                              className="flex-1 h-9 text-xs border-neutral-200"
+                              disabled={neofaceVerifying}
+                            >
+                              <RefreshCw className="size-3.5 mr-1.5" />
+                              Changer
+                            </Button>
+                            <Button
+                              onClick={handleNeofaceVerify}
+                              disabled={neofaceVerifying}
+                              className="flex-1 h-9 text-xs bg-brand-500 hover:bg-brand-600 text-white"
+                            >
+                              {neofaceVerifying ? (
+                                <><Loader2 className="size-3.5 mr-1.5 animate-spin" /> Vérification...</>
+                              ) : (
+                                <><ScanFace className="size-3.5 mr-1.5" /> Vérifier</>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Idle mode — choose method */}
+                      {neofaceStep === 'idle' && (
+                        <div className="space-y-2">
                           <Button
-                            onClick={startCamera}
+                            onClick={startNeofaceCamera}
                             disabled={neofaceVerifying}
-                            variant="outline"
-                            className="flex-1 border-brand-200 text-brand-600 hover:bg-brand-50"
+                            className="w-full h-10 bg-brand-500 hover:bg-brand-600 text-white"
                           >
                             <Camera className="size-4 mr-2" />
-                            {capturedImage ? 'Reprendre une photo' : 'Prendre une photo'}
+                            Prendre un selfie
                           </Button>
-                        )}
-                        {capturedImage && !cameraActive && (
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 h-px bg-neutral-200" />
+                            <span className="text-[10px] text-neutral-400 uppercase">ou</span>
+                            <div className="flex-1 h-px bg-neutral-200" />
+                          </div>
                           <Button
-                            onClick={handleNeofaceVerify}
+                            onClick={() => fileInputRef.current?.click()}
                             disabled={neofaceVerifying}
-                            className="flex-1 bg-brand-500 hover:bg-brand-600 text-white"
+                            variant="outline"
+                            className="w-full h-10 border-brand-200 text-brand-600 hover:bg-brand-50"
                           >
-                            {neofaceVerifying ? (
-                              <><Loader2 className="size-4 mr-2 animate-spin" /> Vérification...</>
-                            ) : (
-                              <><ScanFace className="size-4 mr-2" /> Vérifier mon visage</>
-                            )}
+                            <FileCheck className="size-4 mr-2" />
+                            Charger une photo
                           </Button>
-                        )}
-                      </div>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            capture="user"
+                            className="hidden"
+                            onChange={handleNeofaceFileUpload}
+                          />
+                        </div>
+                      )}
 
                       {/* NEOFACE verification result */}
                       {neofaceResult && (
@@ -1055,7 +1094,7 @@ export function SettingsSection() {
                             ) : (
                               <XCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
                             )}
-                            <div>
+                            <div className="flex-1">
                               <p className={`text-xs font-medium ${neofaceResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
                                 {neofaceResult.message}
                               </p>
@@ -1063,10 +1102,10 @@ export function SettingsSection() {
                                 <Button
                                   variant="link"
                                   className="text-[11px] text-brand-500 p-0 h-auto mt-1"
-                                  onClick={startCamera}
+                                  onClick={() => { setNeofaceImage(null); setNeofaceStep('idle'); setNeofaceResult(null) }}
                                 >
                                   <RefreshCw className="size-3 mr-1" />
-                                  Réessayer avec une nouvelle photo
+                                  Réessayer
                                 </Button>
                               )}
                             </div>

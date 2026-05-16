@@ -4,14 +4,16 @@ import { db } from '@/lib/db'
 /**
  * POST /api/oneci/face-auth
  *
- * Performs biometric face authentication via the ONECI NEOFACE API.
+ * Performs biometric face authentication via the NEOFACE API.
  *
  * Flow:
  * 1. Get user session from cookie
  * 2. Validate user has NNI and is ONECI-verified
- * 3. Authenticate with ONECI to get bearer token
- * 4. Call face-auth endpoint with NNI + base64 face image
- * 5. If successful → update neofaceVerified = true, neofaceVerifiedAt = now()
+ * 3. Upload selfie to NEOFACE /document_capture → get document_id
+ * 4. Call NEOFACE /match_verify with document_id to check match
+ * 5. If matched → update neofaceVerified = true, neofaceVerifiedAt = now()
+ *
+ * The NEOFACE token is used in BOTH FormData (as "token" field) AND Authorization header.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Parse request body for face image
+    // Parse request body for face image (base64)
     const body = await req.json().catch(() => ({}))
     const faceImageBase64 = body.faceImage as string | undefined
 
@@ -62,97 +64,127 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Step 1: Get bearer token from ONECI ──────────────────────────────────
-    const apiUrl = process.env.ONECI_API_URL || 'https://api-rnpp.verif.ci'
-    const apiKey = process.env.ONECI_API_KEY
-    const secretKey = process.env.ONECI_SECRET_KEY
+    // ── NEOFACE API Configuration ────────────────────────────────────────────
+    const neofaceApiBase = process.env.NEOFACE_API_BASE
+    const neofaceToken = process.env.NEOFACE_BEARER_TOKEN
 
-    if (!apiKey || !secretKey) {
-      console.error('ONECI API credentials not configured')
+    if (!neofaceApiBase || !neofaceToken) {
+      console.error('NEOFACE API not configured')
       return NextResponse.json(
-        { error: 'Service ONECI non configuré. Veuillez contacter l\'administrateur.' },
+        { error: 'Service NEOFACE non configuré. Veuillez contacter l\'administrateur.' },
         { status: 503 }
       )
     }
 
-    let bearerToken: string
+    // ── Step 1: Upload selfie to NEOFACE /document_capture ──────────────────
+    let documentId: string
     try {
-      const authResponse = await fetch(`${apiUrl}/api/v1/authenticate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, secretKey }),
-      })
-
-      if (!authResponse.ok) {
-        const errorText = await authResponse.text()
-        console.error('ONECI auth failed:', authResponse.status, errorText)
-        return NextResponse.json(
-          { error: 'Erreur d\'authentification au service ONECI. Veuillez réessayer.' },
-          { status: 502 }
-        )
-      }
-
-      const authData = await authResponse.json()
-      bearerToken = authData.bearerToken
-
-      if (!bearerToken) {
-        console.error('ONECI auth: no bearerToken in response', authData)
-        return NextResponse.json(
-          { error: 'Réponse d\'authentification ONECI invalide.' },
-          { status: 502 }
-        )
-      }
-    } catch (err) {
-      console.error('ONECI auth network error:', err)
-      return NextResponse.json(
-        { error: 'Impossible de joindre le service ONECI. Veuillez réessayer.' },
-        { status: 503 }
-      )
-    }
-
-    // ── Step 2: Call face-auth endpoint ─────────────────────────────────────
-    try {
-      // Convert base64 string to a Blob for FormData
+      // Convert base64 to Buffer then to Blob for FormData
       const imageBuffer = Buffer.from(faceImageBase64, 'base64')
       const imageBlob = new Blob([imageBuffer], { type: 'image/jpeg' })
 
       const formData = new FormData()
-      formData.append('NNI', user.nni)
-      formData.append('FACE_IMAGE', imageBlob, 'face.jpg')
+      formData.append('token', neofaceToken)
+      formData.append('doc_file', imageBlob, 'selfie.jpg')
 
-      const faceAuthResponse = await fetch(`${apiUrl}/api/v1/oneci/face-auth`, {
+      const uploadResponse = await fetch(`${neofaceApiBase}/document_capture`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${bearerToken}`,
+          Authorization: `Bearer ${neofaceToken}`,
         },
         body: formData,
       })
 
-      // ── Step 3: Process response ─────────────────────────────────────────
-      const responseText = await faceAuthResponse.text()
-
-      // Parse the response
-      let responseData: unknown = null
-      try {
-        responseData = JSON.parse(responseText)
-      } catch {
-        // Non-JSON response
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text()
+        console.error('NEOFACE document_capture error:', uploadResponse.status, errorText)
+        return NextResponse.json(
+          { error: 'Erreur lors de l\'envoi de la photo au service NEOFACE. Veuillez réessayer.' },
+          { status: 502 }
+        )
       }
 
-      // Check for success indicators
-      // The API may return a success field, or empty body, or status 200 with match info
-      const isSuccess =
-        faceAuthResponse.ok &&
-        (
-          !responseText ||
-          responseText.trim() === '' ||
-          responseText.trim() === '{}' ||
-          (responseData as Record<string, unknown>)?.success === true ||
-          (responseData as Record<string, unknown>)?.matched === true ||
-          (responseData as Record<string, unknown>)?.match === true
-        )
+      const uploadData = await uploadResponse.json()
+      documentId = uploadData.document_id || uploadData.documentId || uploadData.id || uploadData.doc_id
 
-      if (isSuccess) {
+      if (!documentId) {
+        console.error('NEOFACE document_capture: no document_id in response', uploadData)
+        return NextResponse.json(
+          { error: 'Réponse inattendue du service NEOFACE. Veuillez réessayer.' },
+          { status: 502 }
+        )
+      }
+
+      console.log('NEOFACE document uploaded, document_id:', documentId)
+    } catch (err) {
+      console.error('NEOFACE document_capture network error:', err)
+      return NextResponse.json(
+        { error: 'Impossible de joindre le service NEOFACE. Veuillez réessayer.' },
+        { status: 503 }
+      )
+    }
+
+    // ── Step 2: Verify match with /match_verify ────────────────────────────
+    try {
+      // Poll for verification result (may take a few seconds)
+      const maxAttempts = 10
+      const pollInterval = 3000 // 3 seconds
+
+      let verified = false
+      let matchResult: Record<string, unknown> | null = null
+
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const verifyResponse = await fetch(`${neofaceApiBase}/match_verify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${neofaceToken}`,
+          },
+          body: JSON.stringify({
+            token: neofaceToken,
+            document_id: documentId,
+          }),
+        })
+
+        if (!verifyResponse.ok) {
+          const errorText = await verifyResponse.text()
+          console.error('NEOFACE match_verify error:', verifyResponse.status, errorText)
+          // If it's a transient error, keep polling
+          if (verifyResponse.status >= 500 && attempt < maxAttempts - 1) {
+            await new Promise((resolve) => setTimeout(resolve, pollInterval))
+            continue
+          }
+          return NextResponse.json(
+            { error: 'Erreur lors de la vérification biométrique. Veuillez réessayer.' },
+            { status: 502 }
+          )
+        }
+
+        const verifyData = await verifyResponse.json()
+        matchResult = verifyData as Record<string, unknown>
+
+        // Check for various success indicators
+        const status = verifyData.status || verifyData.state || verifyData.result
+        const isMatch = verifyData.match === true || verifyData.matched === true || verifyData.verified === true
+        const isPending = status === 'pending' || status === 'processing' || status === 'PENDING' || status === 'PROCESSING'
+
+        if (isMatch || (typeof status === 'string' && status.toLowerCase() === 'matched') || (typeof status === 'string' && status.toLowerCase() === 'verified')) {
+          verified = true
+          break
+        }
+
+        if (isPending && attempt < maxAttempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval))
+          continue
+        }
+
+        // If we got a definitive non-match result, stop polling
+        if (!isPending) {
+          break
+        }
+      }
+
+      if (verified) {
         // ✅ Face matched → verified
         await db.user.update({
           where: { id: userId },
@@ -168,19 +200,17 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // Face didn't match or error
-      const errorMessage = extractErrorMessage(responseData)
-
-      console.error('NEOFACE face-auth error:', faceAuthResponse.status, responseText)
+      // Face didn't match or inconclusive
+      const errorMessage = extractErrorMessage(matchResult)
+      console.error('NEOFACE match_verify: not matched', matchResult)
 
       return NextResponse.json({
         verified: false,
         error: errorMessage || 'La vérification biométrique a échoué. Votre visage ne correspond pas à la photo de votre CNI.',
-        rawStatus: faceAuthResponse.status,
       }, { status: 200 }) // Return 200 even on mismatch — it's a valid API result
 
     } catch (err) {
-      console.error('NEOFACE face-auth network error:', err)
+      console.error('NEOFACE match_verify network error:', err)
       return NextResponse.json(
         { error: 'Impossible de joindre le service de vérification biométrique. Veuillez réessayer.' },
         { status: 503 }
@@ -193,14 +223,13 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * Extract error message from ONECI face-auth response
+ * Extract error message from NEOFACE API response
  */
 function extractErrorMessage(data: unknown): string | null {
   if (!data || typeof data !== 'object') return null
 
   const obj = data as Record<string, unknown>
 
-  // Check for direct message or error field
   if (typeof obj.message === 'string') return obj.message
   if (typeof obj.error === 'string') return obj.error
 
@@ -217,6 +246,10 @@ function extractErrorMessage(data: unknown): string | null {
     const errObj = obj.error as Record<string, unknown>
     if (typeof errObj.message === 'string') return errObj.message
   }
+
+  // Check for detail/details field
+  if (typeof obj.detail === 'string') return obj.detail
+  if (typeof obj.details === 'string') return obj.details
 
   return null
 }
