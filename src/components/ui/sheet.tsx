@@ -36,7 +36,7 @@ function SheetOverlay({
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:duration-300 data-[state=closed]:duration-200",
+        "fixed inset-0 z-50 bg-black/50",
         className
       )}
       {...props}
@@ -57,16 +57,17 @@ function SheetContent({
       <SheetOverlay />
       <SheetPrimitive.Content
         data-slot="sheet-content"
+        data-side={side}
         className={cn(
-          "bg-background fixed z-50 flex flex-col shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:duration-300 data-[state=closed]:duration-200",
+          "bg-background fixed z-50 flex flex-col shadow-lg",
           side === "right" &&
-            "data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
+            "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
           side === "left" &&
-            "data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm",
+            "inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm",
           side === "top" &&
-            "data-[state=open]:slide-in-from-top data-[state=closed]:slide-out-to-top inset-x-0 top-0 h-auto border-b",
+            "inset-x-0 top-0 h-auto border-b",
           side === "bottom" &&
-            "data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom inset-x-0 bottom-0 h-auto border-t",
+            "inset-x-0 bottom-0 h-auto border-t",
           className
         )}
         {...props}
