@@ -251,7 +251,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
   }
 
   return (
-    <>
+    <div className="flex flex-col min-h-0 flex-1">
       {/* Logo */}
       <div className="flex items-center gap-2 px-4 h-16 border-b border-neutral-200 shrink-0">
         <Image
@@ -268,7 +268,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
 
       {/* Role badge */}
       {!collapsed && (
-        <div className="px-4 py-3 border-b border-neutral-100">
+        <div className="px-4 py-3 border-b border-neutral-100 shrink-0">
           <span className={cn(
             'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
             getRoleColor(user.role)
@@ -279,7 +279,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
       )}
 
       {/* Navigation with sections */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <nav className="py-2 px-2">
           {sections.map((section, sIdx) => (
             <div key={sIdx} className={sIdx > 0 ? 'mt-3' : ''}>
@@ -318,7 +318,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
           ))}
         </nav>
       </ScrollArea>
-    </>
+    </div>
   )
 }
 

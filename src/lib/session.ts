@@ -51,7 +51,13 @@ export async function validateSession(token: string): Promise<{ valid: boolean; 
   return { valid: true, userId: session.userId, shouldRefresh }
 }
 
-export async function refreshSession(token: string): Promise<{ newToken: string; expiresAt: Date } | null> {
+/**
+ * Refresh a session by extending its expiry time.
+ * Instead of deleting and recreating (which causes race conditions),
+ * we simply update the expiresAt of the existing session.
+ * This way the token stays the same and no cookie update is needed.
+ */
+export async function refreshSession(token: string): Promise<{ expiresAt: Date } | null> {
   const session = await db.session.findUnique({
     where: { token },
     select: { userId: true, expiresAt: true },
@@ -61,11 +67,15 @@ export async function refreshSession(token: string): Promise<{ newToken: string;
     return null
   }
 
-  // Delete old session
-  await db.session.delete({ where: { token } })
+  // Simply extend the expiry — keep the same token
+  const newExpiresAt = getSessionExpiry()
 
-  // Create new session
-  return createSession(session.userId)
+  await db.session.update({
+    where: { token },
+    data: { expiresAt: newExpiresAt },
+  })
+
+  return { expiresAt: newExpiresAt }
 }
 
 export async function deleteSession(token: string): Promise<void> {

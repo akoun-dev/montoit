@@ -403,3 +403,37 @@ Stage Summary:
 - Session heartbeat keeps sessions alive every 5 minutes
 - Mobile sidebar has reliable slide animation + drag-to-close gesture
 - Backward compatible: logout clears both old and new cookie names
+
+---
+Task ID: 12
+Agent: main
+Task: Fix tenant mobile sidebar not scrolling + fix session auto-disconnect
+
+Work Log:
+- Analyzed VLM screenshot: mobile sidebar shows all LOCATAIRE menu items (Mon Espace, LOCATION section, MESSAGES, COMPTE) but items below fold can't be reached
+- Root cause of sidebar scroll issue: 3 compounding problems
+  1. `SidebarContent` returned a React Fragment (`<>`) instead of a proper flex container, so `flex-1` on ScrollArea had no effect since all children were scattered in the parent flex column
+  2. `ScrollArea` had `flex-1` but lacked `min-h-0` — without this, flex items won't shrink below their content size, preventing scroll
+  3. `AnimatedSheet` panel lacked `overflow-hidden`, so the flex container could grow beyond viewport height without constraint
+- Fixed `src/components/dashboard/sidebar.tsx`:
+  - Wrapped SidebarContent in `<div className="flex flex-col min-h-0 flex-1">` instead of Fragment
+  - Added `shrink-0` to role badge container
+  - Added `min-h-0` to ScrollArea (`className="flex-1 min-h-0"`)
+- Fixed `src/components/ui/sheet.tsx`:
+  - Added `overflow-hidden` to AnimatedSheet panel motion.div classes
+- Fixed `src/components/dashboard/dashboard-header.tsx`:
+  - Removed `mt-auto` from logout button (not needed with proper flex layout)
+- Fixed session auto-disconnect root cause:
+  - `refreshSession()` was deleting the old session token and creating a new one with a different token. This created a race condition: if another request was made before the browser processed the Set-Cookie header, it would use the OLD (now deleted) token → 401 → auto logout
+  - Changed `refreshSession()` to simply UPDATE `expiresAt` on the existing session instead of deleting and recreating. Same token = no race condition
+  - Updated `/api/auth/me` to set the same token (not newToken) in the cookie on refresh
+- Improved auth-store session persistence:
+  - Added session age validation in `merge()` function: if `lastAuthenticatedAt` is older than 30 days, clear auth state
+  - Increased heartbeat interval from 5 to 10 minutes (reduces unnecessary server calls)
+- All lint checks pass (0 errors, 0 warnings)
+
+Stage Summary:
+- Tenant mobile sidebar now scrolls properly (overflow-hidden on sheet + min-h-0 on ScrollArea + flex wrapper)
+- Session refresh no longer invalidates tokens (just extends expiry) — eliminates race condition auto-disconnect
+- Auth store validates session age on rehydration and cleans up stale sessions
+- Heartbeat interval increased to 10 minutes for better performance

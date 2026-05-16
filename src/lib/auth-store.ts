@@ -88,7 +88,7 @@ const defaultTransient: TransientAuthState = {
 let checkAuthPromise: Promise<void> | null = null
 
 // ─── Session heartbeat interval ────────────────────────────────────────────
-const SESSION_HEARTBEAT_INTERVAL = 5 * 60 * 1000 // 5 minutes
+const SESSION_HEARTBEAT_INTERVAL = 10 * 60 * 1000 // 10 minutes
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null
 
 export const useAuthStore = create<AuthState>()(
@@ -455,18 +455,31 @@ export const useAuthStore = create<AuthState>()(
         lastAuthenticatedAt: state.lastAuthenticatedAt,
       }),
       // After rehydration, merge with default transient state
-      merge: (persistedState, currentState) => ({
-        ...currentState,
-        ...(persistedState as Partial<AuthState>),
-        // Always reset transient state on rehydration
-        isLoading: false,
-        isInitialized: false,
-        pendingPhone: '',
-        pendingEmail: '',
-        authMethod: 'email',
-        devCode: '',
-        otpPurpose: 'login',
-      }),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<AuthState>
+        // Validate persisted auth state — if lastAuthenticatedAt is too old,
+        // don't trust the persisted isAuthenticated flag
+        const MAX_SESSION_AGE_MS = 30 * 24 * 60 * 60 * 1000 // 30 days (matches server session)
+        const isSessionStillValid = persisted.lastAuthenticatedAt
+          ? (Date.now() - persisted.lastAuthenticatedAt) < MAX_SESSION_AGE_MS
+          : false
+
+        return {
+          ...currentState,
+          ...persisted,
+          // If persisted session is too old, clear auth
+          isAuthenticated: isSessionStillValid ? (persisted.isAuthenticated ?? false) : false,
+          user: isSessionStillValid ? persisted.user : null,
+          // Always reset transient state on rehydration
+          isLoading: false,
+          isInitialized: false,
+          pendingPhone: '',
+          pendingEmail: '',
+          authMethod: 'email',
+          devCode: '',
+          otpPurpose: 'login',
+        }
+      },
     }
   )
 )

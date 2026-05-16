@@ -102,7 +102,7 @@ export function DashboardHeader() {
         <SidebarContent onNavigate={() => setMobileMenuOpen(false)} />
 
         {/* Bottom logout */}
-        <div className="border-t border-neutral-200 p-3 shrink-0 mt-auto">
+        <div className="border-t border-neutral-200 p-3 shrink-0">
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 rounded-lg hover:bg-red-50 transition-colors text-left"

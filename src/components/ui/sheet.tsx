@@ -260,7 +260,7 @@ function AnimatedSheet({
           dragElastic={0.1}
           onDragEnd={handleDragEnd}
           className={cn(
-            "bg-background fixed z-50 flex flex-col shadow-lg touch-pan-y",
+            "bg-background fixed z-50 flex flex-col shadow-lg touch-pan-y overflow-hidden",
             positionClasses[side],
             className
           )}

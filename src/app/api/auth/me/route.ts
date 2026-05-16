@@ -38,17 +38,18 @@ export async function GET(req: NextRequest) {
 
     const response = NextResponse.json({ user })
 
-    // Sliding session: refresh if close to expiry
+    // Sliding session: extend expiry if close to expiring
+    // Since refreshSession now just updates expiresAt (same token),
+    // we also update the cookie maxAge to match
     if (result.shouldRefresh) {
       const refreshed = await refreshSession(sessionToken)
       if (refreshed) {
-        response.cookies.set(SESSION_COOKIE_NAME, refreshed.newToken, {
+        response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
           ...SESSION_COOKIE_OPTIONS,
           maxAge: Math.floor((refreshed.expiresAt.getTime() - Date.now()) / 1000),
         })
-      } else {
-        // Refresh failed, but session is still valid — just keep the existing cookie
       }
+      // If refresh failed, the session is still valid — just keep the existing cookie
     }
 
     return response
