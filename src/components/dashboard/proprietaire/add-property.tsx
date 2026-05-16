@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { PlusCircle, Upload, ImagePlus } from 'lucide-react'
+import { PlusCircle, Upload, ImagePlus, EyeOff, Video } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +17,7 @@ export function AddProperty() {
     title: '', description: '', type: 'APPARTEMENT', price: '', area: '',
     bedrooms: '', bathrooms: '', address: '', city: '', commune: '',
     isFurnished: false, hasParking: false, hasGarden: false, hasPool: false,
+    hideOwnerName: false, virtualTourUrl: '',
   })
 
   const update = (field: string, value: string | boolean) => {
@@ -132,6 +133,61 @@ export function AddProperty() {
             <PlusCircle className="size-5" />
             Publier l&apos;annonce
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Confidentiality & Virtual Tour */}
+      <Card className="border-border">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <EyeOff className="size-5 text-brand-500" />
+            Confidentialité & Visite virtuelle
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Hide owner name */}
+          <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+            <div className="flex-1 min-w-0 mr-3">
+              <Label className="cursor-pointer">Masquer mon nom</Label>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Votre nom n&apos;apparaîtra pas sur l&apos;annonce. Les locataires pourront vous contacter uniquement par message.
+              </p>
+            </div>
+            <Switch
+              checked={form.hideOwnerName}
+              onCheckedChange={(v) => update('hideOwnerName', v)}
+            />
+          </div>
+
+          {/* Virtual tour URL */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              <Video className="size-4 text-brand-500" />
+              Lien visite virtuelle 3D (optionnel)
+            </Label>
+            <Input
+              placeholder="https://youtube.com/embed/... ou lien Matterport"
+              value={form.virtualTourUrl}
+              onChange={(e) => update('virtualTourUrl', e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Ajoutez un lien vers une vidéo 3D de votre bien (YouTube, Matterport, ou autre plateforme).
+              Les locataires pourront la visionner avant de planifier une visite.
+            </p>
+          </div>
+
+          {/* Preview of virtual tour URL */}
+          {form.virtualTourUrl && (
+            <div className="rounded-lg overflow-hidden bg-neutral-900 aspect-video">
+              <iframe
+                src={form.virtualTourUrl}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title="Aperçu visite virtuelle"
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
     </motion.div>

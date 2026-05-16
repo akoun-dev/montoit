@@ -253,3 +253,29 @@ Stage Summary:
 - Brand and status badge colors preserved
 - No new lint errors introduced (existing errors in theme-toggle.tsx are unrelated)
 - Dev server compiling and serving pages correctly
+
+---
+Task ID: 5+6
+Agent: API Route Agent
+Task: Update property APIs (verified no changes needed) and create Visit Request POST API
+
+Work Log:
+- Reviewed existing property detail API (`/api/properties/[id]/route.ts`): Uses `findUnique` with `include` for related models (images, owner) but no `select` on Property fields — all Property columns including `hideOwnerName` and `virtualTourUrl` are already returned. No changes needed.
+- Reviewed existing property list API (`/api/properties/route.ts`): Uses `findMany` with `include` for images and owner, no `select` on Property fields — all Property columns are already returned. No changes needed.
+- Created new Visit Request POST API at `/api/visits/route.ts`:
+  - POST endpoint for creating visit requests
+  - Auth check: requires authenticated user with LOCATAIRE role
+  - Validates required fields: propertyId, requestedDate, timeSlot
+  - Verifies property exists and is not already rented (rentalStatus !== 'loue')
+  - Prevents duplicate pending visits (checks for existing PENDING visit by same tenant on same property)
+  - Creates VisitRequest with visitType (defaults to PHYSICAL), tenantMessage (optional)
+  - Returns created visit with included property data (id, title, address, city, type, price)
+  - Proper error handling with French error messages and appropriate HTTP status codes
+- Verified Prisma schema has all required fields: VisitRequest model with visitType, requestedDate, timeSlot, tenantMessage, status, propertyId, tenantId
+- Lint check passed with no errors
+- Dev server running normally
+
+Stage Summary:
+- Property detail and list APIs already return `hideOwnerName` and `virtualTourUrl` via Prisma findUnique/findMany without Property field selection — no changes required
+- New POST /api/visits endpoint created with full validation, auth, and error handling
+- Complements existing GET /api/visits/[id] endpoint for complete visit request CRUD

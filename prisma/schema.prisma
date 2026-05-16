@@ -91,6 +91,11 @@ enum OwnershipDocType {
   AGREMENT
 }
 
+enum VisitType {
+  PHYSICAL
+  VIRTUAL
+}
+
 enum VisitRequestStatus {
   PENDING
   ACCEPTED
@@ -289,6 +294,8 @@ model Property {
   hasClimate      Boolean        @default(false)
   amenities       String         @default("[]")  // JSON array of amenity keys
   rentalTerms     String         @default("{}")  // JSON object with rental conditions
+  hideOwnerName   Boolean        @default(false) // Owner can hide their name from property details
+  virtualTourUrl  String?                          // URL for 3D virtual tour video (uploaded by owner)
   viewsCount      Int            @default(0)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -393,12 +400,14 @@ model OwnershipDocument {
 
 model VisitRequest {
   id              String              @id @default(cuid())
+  visitType       VisitType           @default(PHYSICAL)
   requestedDate   DateTime
   timeSlot        String
   status          VisitRequestStatus  @default(PENDING)
   counterDate     DateTime?
   counterTimeSlot String?
   ownerComment    String?
+  tenantMessage   String?             // Message from tenant when requesting visit
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
