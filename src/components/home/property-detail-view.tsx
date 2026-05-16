@@ -265,7 +265,7 @@ function AuthGateDialog({
             <LogIn className="size-7 text-brand-500" />
           </div>
           <DialogTitle className="text-center text-lg">Connexion requise</DialogTitle>
-          <DialogDescription className="text-center text-sm text-neutral-500">
+          <DialogDescription className="text-center text-sm text-muted-foreground">
             Vous devez être connecté pour {action}. Créez un compte gratuitement ou connectez-vous.
           </DialogDescription>
         </DialogHeader>
@@ -355,7 +355,7 @@ function MiniMap({ lat, lng, location }: { lat: number; lng: number; location: s
   }, [lat, lng, location])
 
   return (
-    <div className="relative w-full h-48 sm:h-64 rounded-xl overflow-hidden border border-neutral-200">
+    <div className="relative w-full h-48 sm:h-64 rounded-xl overflow-hidden border border-border">
       <div ref={mapRef} className="w-full h-full" style={{ minHeight: '192px' }} />
       <style jsx global>{`
         .custom-detail-marker { background: none !important; border: none !important; }
@@ -366,7 +366,7 @@ function MiniMap({ lat, lng, location }: { lat: number; lng: number; location: s
         href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="absolute bottom-3 right-3 z-[1000] bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-md border border-neutral-200 flex items-center gap-1.5 text-xs font-medium text-neutral-700 hover:bg-white hover:text-brand-500 transition-colors"
+        className="absolute bottom-3 right-3 z-[1000] bg-card/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-md border border-border flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:bg-card hover:text-brand-500 transition-colors"
       >
         <Navigation className="size-3.5" />
         Itinéraire
@@ -379,9 +379,9 @@ function MiniMap({ lat, lng, location }: { lat: number; lng: number; location: s
 
 function PropertyDetailSkeleton() {
   return (
-    <section className="bg-neutral-50 min-h-screen">
+    <section className="bg-muted min-h-screen">
       {/* Top bar */}
-      <div className="bg-white border-b border-neutral-200 sticky top-0 z-30">
+      <div className="bg-card border-b border-border sticky top-0 z-30">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
           <Skeleton className="h-4 w-16" />
           <div className="flex gap-2">
@@ -397,7 +397,7 @@ function PropertyDetailSkeleton() {
             <Skeleton className="h-6 w-32 mb-2" />
             <Skeleton className="h-8 w-3/4 mb-2" />
             <Skeleton className="h-4 w-1/2 mb-4" />
-            <div className="border-b border-neutral-200 mb-6">
+            <div className="border-b border-border mb-6">
               <div className="flex gap-4">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <Skeleton key={i} className="h-10 w-20" />
@@ -501,8 +501,8 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   if (error || !property) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3">
-        <AlertCircle className="size-10 text-neutral-300" />
-        <p className="text-neutral-500">{error || 'Bien introuvable'}</p>
+        <AlertCircle className="size-10 text-muted-foreground" />
+        <p className="text-muted-foreground">{error || 'Bien introuvable'}</p>
         <Button variant="outline" onClick={() => setView(previousView === 'property-detail' ? 'home' : previousView)}>
           Retour
         </Button>
@@ -565,7 +565,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   ]
 
   return (
-    <section className="bg-neutral-50 min-h-screen">
+    <section className="bg-muted min-h-screen">
       {/* Auth Gate Dialog */}
       <AuthGateDialog open={authGateOpen} onOpenChange={setAuthGateOpen} action={authGateAction} />
 
@@ -580,11 +580,11 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
       />
 
       {/* ── Top Bar ─────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-neutral-200 sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
+      <div className="bg-card border-b border-border sticky top-0 z-30 pt-[env(safe-area-inset-top)]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
           <button
             onClick={() => setView(previousView === 'property-detail' ? 'home' : previousView)}
-            className="flex items-center gap-2 text-sm text-neutral-600 hover:text-brand-500 transition-colors"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-brand-500 transition-colors"
           >
             <ArrowLeft className="size-4" />
             <span className="hidden sm:inline">Retour</span>
@@ -593,16 +593,16 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
           <div className="flex items-center gap-2">
             <button
               onClick={toggleFavorite}
-              className="size-9 rounded-full bg-neutral-50 border border-neutral-200 flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-all"
+              className="size-9 rounded-full bg-muted border border-border flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-all"
               aria-label={checkIsFavorite(propertyId) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
             >
-              <Heart className={`size-4 ${checkIsFavorite(propertyId) ? 'fill-red-500 text-red-500' : 'text-neutral-500'}`} />
+              <Heart className={`size-4 ${checkIsFavorite(propertyId) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
             </button>
             <button
-              className="size-9 rounded-full bg-neutral-50 border border-neutral-200 flex items-center justify-center hover:bg-brand-50 hover:border-brand-200 transition-all"
+              className="size-9 rounded-full bg-muted border border-border flex items-center justify-center hover:bg-brand-50 hover:border-brand-200 transition-all"
               aria-label="Partager"
             >
-              <Share2 className="size-4 text-neutral-500" />
+              <Share2 className="size-4 text-muted-foreground" />
             </button>
           </div>
         </div>
@@ -629,8 +629,8 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                   priority
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-neutral-100">
-                  <Building2 className="size-16 text-neutral-300" />
+                <div className="w-full h-full flex items-center justify-center bg-muted">
+                  <Building2 className="size-16 text-muted-foreground" />
                 </div>
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
@@ -640,17 +640,17 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                 <>
                   <button
                     onClick={() => setCurrentImage((p) => (p - 1 + images.length) % images.length)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white shadow-md transition-colors"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center hover:bg-card shadow-md transition-colors"
                     aria-label="Image précédente"
                   >
-                    <ChevronLeft className="size-4 text-neutral-700" />
+                    <ChevronLeft className="size-4 text-muted-foreground" />
                   </button>
                   <button
                     onClick={() => setCurrentImage((p) => (p + 1) % images.length)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white shadow-md transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center hover:bg-card shadow-md transition-colors"
                     aria-label="Image suivante"
                   >
-                    <ChevronRight className="size-4 text-neutral-700" />
+                    <ChevronRight className="size-4 text-muted-foreground" />
                   </button>
                 </>
               )}
@@ -680,7 +680,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                   </Badge>
                 )}
                 {property.isVerified && (
-                  <Badge className="border-0 text-xs font-medium px-2.5 py-0.5 bg-white/90 backdrop-blur-sm text-neutral-700">
+                  <Badge className="border-0 text-xs font-medium px-2.5 py-0.5 bg-card/90 backdrop-blur-sm text-foreground">
                     <BadgeCheck className="size-3 text-brand-500 mr-0.5" />
                     Vérifié
                   </Badge>
@@ -696,23 +696,23 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
               className="mb-6"
             >
               <div className="flex items-center gap-2 mb-1">
-                <Badge variant="outline" className="text-[10px] font-medium px-1.5 py-0 border-neutral-300 text-neutral-600">
+                <Badge variant="outline" className="text-[10px] font-medium px-1.5 py-0 border-border text-muted-foreground">
                   <Building2 className="size-3 mr-0.5" />
                   {property.type}
                 </Badge>
-                <div className="flex items-center gap-1 text-neutral-400 text-xs">
+                <div className="flex items-center gap-1 text-muted-foreground text-xs">
                   <Eye className="size-3" />
                   <span>{property.viewsCount} vues</span>
                 </div>
               </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 mb-1">{property.title}</h1>
-              <div className="flex items-center gap-1 text-neutral-500 text-sm">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">{property.title}</h1>
+              <div className="flex items-center gap-1 text-muted-foreground text-sm">
                 <MapPin className="size-3.5 shrink-0 text-brand-500" />
                 <span>{property.address}</span>
               </div>
               <div className="flex items-center justify-between mt-3 lg:hidden">
                 <p className="text-2xl font-bold text-brand-500">
-                  {property.price.toLocaleString('fr-FR')} <span className="text-sm font-normal text-neutral-400">F CFA/mois</span>
+                  {property.price.toLocaleString('fr-FR')} <span className="text-sm font-normal text-muted-foreground">F CFA/mois</span>
                 </p>
               </div>
             </motion.div>
@@ -722,7 +722,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3, delay: 0.2 }}
-              className="border-b border-neutral-200 mb-6 -mx-4 sm:mx-0"
+              className="border-b border-border mb-6 -mx-4 sm:mx-0"
             >
               <div className="flex gap-0 -mb-px overflow-x-auto scrollbar-hide px-4 sm:px-0">
                 {tabs.map((tab) => (
@@ -732,7 +732,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                     className={`flex items-center gap-1.5 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                       activeTab === tab.key
                         ? 'border-brand-500 text-brand-500'
-                        : 'border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300'
+                        : 'border-transparent text-muted-foreground hover:text-muted-foreground hover:border-border'
                     }`}
                   >
                     <tab.icon className="size-3.5 sm:size-4" />
@@ -770,11 +770,11 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
           >
             <div className="sticky top-20 space-y-5">
               {/* Price card */}
-              <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
+              <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
                 <p className="text-2xl font-bold text-brand-500 mb-1">
-                  {property.price.toLocaleString('fr-FR')} <span className="text-sm font-normal text-neutral-400">F CFA/mois</span>
+                  {property.price.toLocaleString('fr-FR')} <span className="text-sm font-normal text-muted-foreground">F CFA/mois</span>
                 </p>
-                <div className="flex items-center gap-2 text-xs text-neutral-500 mb-4">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4">
                   <MapPin className="size-3" />
                   <span>{commune}, {property.city}</span>
                 </div>
@@ -785,8 +785,8 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                     {extras.owner.avatar}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-neutral-900">{extras.owner.name}</p>
-                    <p className="text-[11px] text-neutral-500">Propriétaire · Depuis {extras.owner.joinedDate}</p>
+                    <p className="text-sm font-semibold text-foreground">{extras.owner.name}</p>
+                    <p className="text-[11px] text-muted-foreground">Propriétaire · Depuis {extras.owner.joinedDate}</p>
                   </div>
                 </div>
                 <Button
@@ -831,11 +831,11 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
         </div>
 
         {/* Mobile CTA bar */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] z-30 lg:hidden">
+        <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] z-30 lg:hidden">
           <div className="flex items-center gap-2 sm:gap-3 max-w-7xl mx-auto">
             <div className="flex-1 min-w-0">
               <p className="text-base sm:text-lg font-bold text-brand-500">
-                {property.price.toLocaleString('fr-FR')} <span className="text-[10px] sm:text-xs font-normal text-neutral-400">F CFA/mois</span>
+                {property.price.toLocaleString('fr-FR')} <span className="text-[10px] sm:text-xs font-normal text-muted-foreground">F CFA/mois</span>
               </p>
             </div>
             <Button
@@ -887,13 +887,13 @@ function DetailsTab({
     <div className="space-y-6 pb-24 lg:pb-6">
       {/* Features grid */}
       <div>
-        <h3 className="text-sm font-semibold text-neutral-900 mb-3">Caractéristiques</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-3">Caractéristiques</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {features.map((feat) => (
-            <div key={feat.label} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-white border border-neutral-100 shadow-sm">
+            <div key={feat.label} className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-card border border-border shadow-sm">
               <feat.icon className="size-5 text-brand-500" />
-              <span className="text-[10px] text-neutral-500 font-medium">{feat.label}</span>
-              <span className="text-sm font-semibold text-neutral-800">{feat.value}</span>
+              <span className="text-[10px] text-muted-foreground font-medium">{feat.label}</span>
+              <span className="text-sm font-semibold text-foreground">{feat.value}</span>
             </div>
           ))}
         </div>
@@ -901,22 +901,22 @@ function DetailsTab({
 
       {/* Description */}
       <div>
-        <h3 className="text-sm font-semibold text-neutral-900 mb-2">Description</h3>
-        <p className="text-sm text-neutral-600 leading-relaxed">{extras.description}</p>
+        <h3 className="text-sm font-semibold text-foreground mb-2">Description</h3>
+        <p className="text-sm text-muted-foreground leading-relaxed">{extras.description}</p>
       </div>
 
       {/* Localisation with map */}
       <div>
-        <h3 className="text-sm font-semibold text-neutral-900 mb-3 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
           <MapPin className="size-4 text-brand-500" />
           Localisation
         </h3>
-        <div className="bg-white rounded-xl border border-neutral-200 p-4 space-y-4">
+        <div className="bg-card rounded-xl border border-border p-4 space-y-4">
           <div className="flex items-start gap-3">
             <MapPin className="size-5 text-brand-500 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-neutral-800">{property.address}</p>
-              <p className="text-xs text-neutral-500">{commune}, {property.city}, Côte d&apos;Ivoire</p>
+              <p className="text-sm font-medium text-foreground">{property.address}</p>
+              <p className="text-xs text-muted-foreground">{commune}, {property.city}, Côte d&apos;Ivoire</p>
             </div>
           </div>
           {/* Mini Map */}
@@ -968,12 +968,12 @@ function CommoditesTab({ amenities }: { amenities: string[] }) {
   return (
     <div className="space-y-6 pb-24 lg:pb-6">
       {/* Summary */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-neutral-900 mb-1 flex items-center gap-2">
+      <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
           <Lamp className="size-4 text-brand-500" />
           Commodités & Équipements
         </h3>
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-muted-foreground">
           {availableAmenities.length} commodité{availableAmenities.length !== 1 ? 's' : ''} disponible{availableAmenities.length !== 1 ? 's' : ''}
         </p>
       </div>
@@ -988,15 +988,15 @@ function CommoditesTab({ amenities }: { amenities: string[] }) {
         if (categoryAmenities.length === 0) return null
 
         return (
-          <div key={category.title} className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
-            <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">{category.title}</h4>
+          <div key={category.title} className="bg-card rounded-xl border border-border p-5 shadow-sm">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{category.title}</h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {categoryAmenities.map((amenity) => (
                 <div key={amenity.key} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-emerald-50/50 border border-emerald-100">
                   <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
                     <amenity.icon className="size-4 text-emerald-600" />
                   </div>
-                  <span className="text-xs font-medium text-neutral-700">{amenity.label}</span>
+                  <span className="text-xs font-medium text-muted-foreground">{amenity.label}</span>
                   <CheckCircle2 className="size-3.5 text-emerald-500 ml-auto shrink-0" />
                 </div>
               ))}
@@ -1007,7 +1007,7 @@ function CommoditesTab({ amenities }: { amenities: string[] }) {
 
       {/* Not available amenities hint */}
       <div className="text-center py-2">
-        <p className="text-[11px] text-neutral-400">
+        <p className="text-[11px] text-muted-foreground">
           Les commodités listées sont celles déclarées par le propriétaire. Vérifiez lors de la visite.
         </p>
       </div>
@@ -1030,9 +1030,9 @@ function ModalitesTab({
   if (!m.dureeBail && m.caution === 0 && m.chargesIncluses.length === 0 && m.chargesNonIncluses.length === 0) {
     return (
       <div className="pb-24 lg:pb-6">
-        <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center shadow-sm">
-          <FileText className="size-10 text-neutral-300 mx-auto mb-3" />
-          <p className="text-sm text-neutral-500">Les modalités de location n&apos;ont pas encore été renseignées par le propriétaire.</p>
+        <div className="bg-card rounded-xl border border-border p-8 text-center shadow-sm">
+          <FileText className="size-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Les modalités de location n&apos;ont pas encore été renseignées par le propriétaire.</p>
         </div>
       </div>
     )
@@ -1041,31 +1041,31 @@ function ModalitesTab({
   return (
     <div className="space-y-6 pb-24 lg:pb-6">
       {/* Financial summary */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-4 sm:p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+      <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
           <Wallet className="size-4 text-brand-500" />
           Conditions financières
         </h3>
         <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 border-b border-neutral-100 gap-1">
-            <span className="text-sm text-neutral-600">Loyer mensuel</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 border-b border-border gap-1">
+            <span className="text-sm text-muted-foreground">Loyer mensuel</span>
             <span className="text-sm font-bold text-brand-500">{price.toLocaleString('fr-FR')} F CFA</span>
           </div>
           {m.caution > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 border-b border-neutral-100 gap-1">
-              <span className="text-sm text-neutral-600">Caution / Dépôt de garantie</span>
-              <span className="text-sm font-bold text-neutral-800">{m.caution.toLocaleString('fr-FR')} F CFA</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 border-b border-border gap-1">
+              <span className="text-sm text-muted-foreground">Caution / Dépôt de garantie</span>
+              <span className="text-sm font-bold text-foreground">{m.caution.toLocaleString('fr-FR')} F CFA</span>
             </div>
           )}
           {m.modePaiement.length > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 border-b border-neutral-100 gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 border-b border-border gap-2">
               <div className="flex items-center gap-2">
-                <CreditCard className="size-4 text-neutral-400" />
-                <span className="text-sm text-neutral-600">Mode de paiement</span>
+                <CreditCard className="size-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Mode de paiement</span>
               </div>
               <div className="flex flex-wrap gap-1 sm:justify-end">
                 {m.modePaiement.map((mode) => (
-                  <Badge key={mode} variant="outline" className="text-[10px] px-1.5 py-0 border-neutral-200 text-neutral-600">
+                  <Badge key={mode} variant="outline" className="text-[10px] px-1.5 py-0 border-border text-muted-foreground">
                     {mode}
                   </Badge>
                 ))}
@@ -1077,16 +1077,16 @@ function ModalitesTab({
 
       {/* Lease duration */}
       {m.dureeBail && (
-        <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+        <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
             <Clock3 className="size-4 text-brand-500" />
             Durée du bail
           </h3>
           <div className="flex items-center gap-3 p-3 rounded-lg bg-brand-50/50 border border-brand-100">
             <Calendar className="size-5 text-brand-500 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-neutral-800">{m.dureeBail}</p>
-              {m.preavis && <p className="text-xs text-neutral-500">Préavis de départ : {m.preavis}</p>}
+              <p className="text-sm font-semibold text-foreground">{m.dureeBail}</p>
+              {m.preavis && <p className="text-xs text-muted-foreground">Préavis de départ : {m.preavis}</p>}
             </div>
           </div>
         </div>
@@ -1094,8 +1094,8 @@ function ModalitesTab({
 
       {/* Charges */}
       {(m.chargesIncluses.length > 0 || m.chargesNonIncluses.length > 0) && (
-        <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+        <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
             <Scale className="size-4 text-brand-500" />
             Charges
           </h3>
@@ -1108,7 +1108,7 @@ function ModalitesTab({
                 </p>
                 <ul className="space-y-1.5">
                   {m.chargesIncluses.map((charge) => (
-                    <li key={charge} className="flex items-center gap-2 text-xs text-neutral-700">
+                    <li key={charge} className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span className="size-1.5 rounded-full bg-emerald-400 shrink-0" />
                       {charge}
                     </li>
@@ -1124,7 +1124,7 @@ function ModalitesTab({
                 </p>
                 <ul className="space-y-1.5">
                   {m.chargesNonIncluses.map((charge) => (
-                    <li key={charge} className="flex items-center gap-2 text-xs text-neutral-700">
+                    <li key={charge} className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span className="size-1.5 rounded-full bg-red-400 shrink-0" />
                       {charge}
                     </li>
@@ -1138,14 +1138,14 @@ function ModalitesTab({
 
       {/* Conditions */}
       {m.conditions.length > 0 && (
-        <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-neutral-900 mb-3 flex items-center gap-2">
+        <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
             <FileText className="size-4 text-brand-500" />
             Conditions d&apos;entrée
           </h3>
           <ul className="space-y-2">
             {m.conditions.map((condition, i) => (
-              <li key={i} className="flex items-start gap-2.5 text-sm text-neutral-700">
+              <li key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground">
                 <span className="size-5 rounded-full bg-brand-50 text-brand-500 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
                   {i + 1}
                 </span>
@@ -1158,12 +1158,12 @@ function ModalitesTab({
 
       {/* État des lieux */}
       {m.etatLieux && (
-        <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-neutral-900 mb-2 flex items-center gap-2">
+        <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+          <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
             <Shield className="size-4 text-brand-500" />
             État des lieux
           </h3>
-          <p className="text-sm text-neutral-600">{m.etatLieux}</p>
+          <p className="text-sm text-muted-foreground">{m.etatLieux}</p>
         </div>
       )}
     </div>
@@ -1194,14 +1194,14 @@ function ContactTab({
   return (
     <div className="space-y-6 pb-24 lg:pb-6">
       {/* Owner card */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
+      <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
         <div className="flex items-center gap-4 mb-4">
           <div className="size-14 rounded-full bg-brand-500 text-white flex items-center justify-center text-lg font-bold shrink-0">
             {extras.owner.avatar}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-base font-semibold text-neutral-900">{extras.owner.name}</p>
-            <p className="text-xs text-neutral-500">Propriétaire · Membre depuis {extras.owner.joinedDate}</p>
+            <p className="text-base font-semibold text-foreground">{extras.owner.name}</p>
+            <p className="text-xs text-muted-foreground">Propriétaire · Membre depuis {extras.owner.joinedDate}</p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 mb-4">
@@ -1223,46 +1223,46 @@ function ContactTab({
           </Button>
         </div>
         {!isAuthenticated && (
-          <p className="text-[11px] text-neutral-400 text-center mb-2">
+          <p className="text-[11px] text-muted-foreground text-center mb-2">
             Connectez-vous pour accéder aux coordonnées du propriétaire
           </p>
         )}
         {isAuthenticated && (
-          <div className="text-xs text-neutral-400 text-center">
+          <div className="text-xs text-muted-foreground text-center">
             {extras.owner.phone} · {extras.owner.email}
           </div>
         )}
       </div>
 
       {/* Message form */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-neutral-900 mb-3 flex items-center gap-2">
+      <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
           <MessageSquare className="size-4 text-brand-500" />
           Envoyer un message
         </h3>
         {sent ? (
           <div className="text-center py-6">
             <CheckCircle2 className="size-10 text-emerald-500 mx-auto mb-3" />
-            <p className="text-sm font-semibold text-neutral-900 mb-1">Message envoyé !</p>
-            <p className="text-xs text-neutral-500">Le propriétaire vous répondra dans les plus brefs délais.</p>
+            <p className="text-sm font-semibold text-foreground mb-1">Message envoyé !</p>
+            <p className="text-xs text-muted-foreground">Le propriétaire vous répondra dans les plus brefs délais.</p>
           </div>
         ) : (
           <div className="space-y-3">
             <div>
-              <Label className="text-xs text-neutral-600 mb-1">Objet</Label>
+              <Label className="text-xs text-muted-foreground mb-1">Objet</Label>
               <Input
                 readOnly
                 value={`Intérêt pour : ${property.title}`}
-                className="h-9 bg-neutral-50 border-neutral-200 text-xs"
+                className="h-9 bg-muted border-border text-xs"
               />
             </div>
             <div>
-              <Label className="text-xs text-neutral-600 mb-1">Votre message</Label>
+              <Label className="text-xs text-muted-foreground mb-1">Votre message</Label>
               <Textarea
                 placeholder="Bonjour, je suis intéressé(e) par votre bien. Pourrions-nous convenir d'une visite ?"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                className="min-h-[120px] bg-white border-neutral-200 text-sm resize-none"
+                className="min-h-[120px] bg-card border-border text-sm resize-none"
               />
             </div>
             <Button
@@ -1308,27 +1308,27 @@ function VisitTab({
   if (submitted) {
     return (
       <div className="pb-24 lg:pb-6">
-        <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center shadow-sm">
+        <div className="bg-card rounded-xl border border-border p-8 text-center shadow-sm">
           <div className="size-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="size-8 text-emerald-500" />
           </div>
-          <h3 className="text-lg font-bold text-neutral-900 mb-2">Demande de visite envoyée !</h3>
-          <p className="text-sm text-neutral-500 mb-4 max-w-md mx-auto">
+          <h3 className="text-lg font-bold text-foreground mb-2">Demande de visite envoyée !</h3>
+          <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
             Votre demande de visite {visitType === 'physique' ? 'physique' : 'virtuelle'} pour le {visitDate} à {visitTime} a été transmise au propriétaire.
             Vous recevrez une confirmation sous 24h.
           </p>
-          <div className="bg-neutral-50 rounded-lg p-4 max-w-sm mx-auto text-left space-y-2 mb-5">
+          <div className="bg-muted rounded-lg p-4 max-w-sm mx-auto text-left space-y-2 mb-5">
             <div className="flex items-center gap-2 text-sm">
-              <Building2 className="size-4 text-neutral-400" />
-              <span className="text-neutral-700">{property.title}</span>
+              <Building2 className="size-4 text-muted-foreground" />
+              <span className="text-muted-foreground">{property.title}</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <Calendar className="size-4 text-neutral-400" />
-              <span className="text-neutral-700">{visitDate} à {visitTime}</span>
+              <Calendar className="size-4 text-muted-foreground" />
+              <span className="text-muted-foreground">{visitDate} à {visitTime}</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              {visitType === 'physique' ? <MapPin className="size-4 text-neutral-400" /> : <Video className="size-4 text-neutral-400" />}
-              <span className="text-neutral-700">Visite {visitType === 'physique' ? 'physique' : 'virtuelle'}</span>
+              {visitType === 'physique' ? <MapPin className="size-4 text-muted-foreground" /> : <Video className="size-4 text-muted-foreground" />}
+              <span className="text-muted-foreground">Visite {visitType === 'physique' ? 'physique' : 'virtuelle'}</span>
             </div>
           </div>
           <Button
@@ -1357,8 +1357,8 @@ function VisitTab({
       )}
 
       {/* Visit type selection */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+      <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
           <Calendar className="size-4 text-brand-500" />
           Type de visite
         </h3>
@@ -1368,51 +1368,51 @@ function VisitTab({
             className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
               visitType === 'physique'
                 ? 'border-brand-500 bg-brand-50/50'
-                : 'border-neutral-200 hover:border-neutral-300'
+                : 'border-border hover:border-border'
             }`}
           >
-            <MapPin className={`size-6 ${visitType === 'physique' ? 'text-brand-500' : 'text-neutral-400'}`} />
-            <span className={`text-sm font-medium ${visitType === 'physique' ? 'text-brand-600' : 'text-neutral-700'}`}>
+            <MapPin className={`size-6 ${visitType === 'physique' ? 'text-brand-500' : 'text-muted-foreground'}`} />
+            <span className={`text-sm font-medium ${visitType === 'physique' ? 'text-brand-600' : 'text-muted-foreground'}`}>
               Visite physique
             </span>
-            <span className="text-[11px] text-neutral-500">Sur place avec le propriétaire</span>
+            <span className="text-[11px] text-muted-foreground">Sur place avec le propriétaire</span>
           </button>
           <button
             onClick={() => setVisitType('virtuelle')}
             className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
               visitType === 'virtuelle'
                 ? 'border-brand-500 bg-brand-50/50'
-                : 'border-neutral-200 hover:border-neutral-300'
+                : 'border-border hover:border-border'
             }`}
           >
-            <Video className={`size-6 ${visitType === 'virtuelle' ? 'text-brand-500' : 'text-neutral-400'}`} />
-            <span className={`text-sm font-medium ${visitType === 'virtuelle' ? 'text-brand-600' : 'text-neutral-700'}`}>
+            <Video className={`size-6 ${visitType === 'virtuelle' ? 'text-brand-500' : 'text-muted-foreground'}`} />
+            <span className={`text-sm font-medium ${visitType === 'virtuelle' ? 'text-brand-600' : 'text-muted-foreground'}`}>
               Visite virtuelle
             </span>
-            <span className="text-[11px] text-neutral-500">Visioconférence en direct</span>
+            <span className="text-[11px] text-muted-foreground">Visioconférence en direct</span>
           </button>
         </div>
       </div>
 
       {/* Date & Time */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
+      <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
           <Clock3 className="size-4 text-brand-500" />
           Date et créneau horaire
         </h3>
         <div className="space-y-4">
           <div>
-            <Label className="text-xs text-neutral-600 mb-1">Date souhaitée</Label>
+            <Label className="text-xs text-muted-foreground mb-1">Date souhaitée</Label>
             <Input
               type="date"
               value={visitDate}
               onChange={(e) => setVisitDate(e.target.value)}
-              className="h-10 bg-white border-neutral-200 text-sm"
+              className="h-10 bg-card border-border text-sm"
               min={new Date().toISOString().split('T')[0]}
             />
           </div>
           <div>
-            <Label className="text-xs text-neutral-600 mb-2">Créneau horaire</Label>
+            <Label className="text-xs text-muted-foreground mb-2">Créneau horaire</Label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {timeSlots.map((slot) => (
                 <button
@@ -1421,7 +1421,7 @@ function VisitTab({
                   className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition-all ${
                     visitTime === slot
                       ? 'border-brand-500 bg-brand-50 text-brand-600'
-                      : 'border-neutral-200 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50'
+                      : 'border-border text-muted-foreground hover:border-border hover:bg-accent'
                   }`}
                 >
                   {slot}
@@ -1433,13 +1433,13 @@ function VisitTab({
       </div>
 
       {/* Notes */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
-        <Label className="text-xs text-neutral-600 mb-1">Message au propriétaire (optionnel)</Label>
+      <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+        <Label className="text-xs text-muted-foreground mb-1">Message au propriétaire (optionnel)</Label>
         <Textarea
           placeholder="Précisez vos disponibilités ou posez vos questions..."
           value={visitNotes}
           onChange={(e) => setVisitNotes(e.target.value)}
-          className="min-h-[80px] bg-white border-neutral-200 text-sm resize-none"
+          className="min-h-[80px] bg-card border-border text-sm resize-none"
         />
       </div>
 
@@ -1471,9 +1471,9 @@ function ReviewsTab({ avgRating, reviews, totalReviews }: { avgRating: number; r
   if (reviews.length === 0) {
     return (
       <div className="pb-24 lg:pb-6">
-        <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center shadow-sm">
-          <MessageSquare className="size-10 text-neutral-300 mx-auto mb-3" />
-          <p className="text-sm text-neutral-500">Aucun avis pour le moment. Soyez le premier à laisser un avis !</p>
+        <div className="bg-card rounded-xl border border-border p-8 text-center shadow-sm">
+          <MessageSquare className="size-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Aucun avis pour le moment. Soyez le premier à laisser un avis !</p>
         </div>
       </div>
     )
@@ -1482,10 +1482,10 @@ function ReviewsTab({ avgRating, reviews, totalReviews }: { avgRating: number; r
   return (
     <div className="space-y-6 pb-24 lg:pb-6">
       {/* Rating summary */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
+      <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
         <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
           <div className="text-center">
-            <p className="text-4xl font-bold text-neutral-900">{avgRating.toFixed(1)}</p>
+            <p className="text-4xl font-bold text-foreground">{avgRating.toFixed(1)}</p>
             <div className="flex items-center gap-0.5 mt-1">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Star
@@ -1494,20 +1494,20 @@ function ReviewsTab({ avgRating, reviews, totalReviews }: { avgRating: number; r
                 />
               ))}
             </div>
-            <p className="text-xs text-neutral-500 mt-1">{totalReviews} avis</p>
+            <p className="text-xs text-muted-foreground mt-1">{totalReviews} avis</p>
           </div>
           <div className="w-full sm:w-auto flex-1 max-w-xs space-y-1.5">
             {ratingDistribution.map((d) => (
               <div key={d.star} className="flex items-center gap-2">
-                <span className="text-xs text-neutral-600 w-3">{d.star}</span>
+                <span className="text-xs text-muted-foreground w-3">{d.star}</span>
                 <Star className="size-3 text-amber-400 fill-amber-400" />
-                <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden">
+                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full bg-amber-400 rounded-full transition-all"
                     style={{ width: `${d.percentage}%` }}
                   />
                 </div>
-                <span className="text-xs text-neutral-500 w-6">{d.count}</span>
+                <span className="text-xs text-muted-foreground w-6">{d.count}</span>
               </div>
             ))}
           </div>
@@ -1516,7 +1516,7 @@ function ReviewsTab({ avgRating, reviews, totalReviews }: { avgRating: number; r
 
       {/* Individual reviews */}
       {reviews.map((review) => (
-        <div key={review.id} className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm">
+        <div key={review.id} className="bg-card rounded-xl border border-border p-5 shadow-sm">
           <div className="flex items-start gap-3">
             <div className="size-10 rounded-full bg-brand-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
               {review.avatar}
@@ -1524,12 +1524,12 @@ function ReviewsTab({ avgRating, reviews, totalReviews }: { avgRating: number; r
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-neutral-900">{review.name}</p>
+                  <p className="text-sm font-semibold text-foreground">{review.name}</p>
                   {review.verified && (
                     <BadgeCheck className="size-4 text-brand-500" />
                   )}
                 </div>
-                <span className="text-[11px] text-neutral-400 shrink-0">{review.date}</span>
+                <span className="text-[11px] text-muted-foreground shrink-0">{review.date}</span>
               </div>
               <div className="flex items-center gap-0.5 mt-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
@@ -1539,7 +1539,7 @@ function ReviewsTab({ avgRating, reviews, totalReviews }: { avgRating: number; r
                   />
                 ))}
               </div>
-              <p className="text-sm text-neutral-600 mt-2 leading-relaxed">{review.comment}</p>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{review.comment}</p>
             </div>
           </div>
         </div>
@@ -1601,8 +1601,8 @@ function ApplyDialog({
             <div className="size-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="size-8 text-emerald-500" />
             </div>
-            <h3 className="text-lg font-bold text-neutral-900 mb-2">Candidature soumise !</h3>
-            <p className="text-sm text-neutral-500 max-w-sm mx-auto">
+            <h3 className="text-lg font-bold text-foreground mb-2">Candidature soumise !</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
               Votre dossier de candidature pour &quot;{property.title}&quot; a été transmis au propriétaire.
               Vous serez notifié de la suite donnée à votre demande.
             </p>
@@ -1616,7 +1616,7 @@ function ApplyDialog({
         ) : (
           <div className="space-y-4 mt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             {/* Property summary */}
-            <div className="bg-neutral-50 rounded-lg p-3 flex items-center gap-3">
+            <div className="bg-muted rounded-lg p-3 flex items-center gap-3">
               <div className="size-12 rounded-lg bg-neutral-200 overflow-hidden shrink-0">
                 {property.images.length > 0 ? (
                   <Image
@@ -1628,13 +1628,13 @@ function ApplyDialog({
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <Building2 className="size-5 text-neutral-400" />
+                    <Building2 className="size-5 text-muted-foreground" />
                   </div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-neutral-900 line-clamp-1">{property.title}</p>
-                <p className="text-xs text-neutral-500">{property.address}</p>
+                <p className="text-sm font-semibold text-foreground line-clamp-1">{property.title}</p>
+                <p className="text-xs text-muted-foreground">{property.address}</p>
                 <p className="text-sm font-bold text-brand-500 mt-0.5">
                   {property.price.toLocaleString('fr-FR')} F CFA/mois
                 </p>
@@ -1654,7 +1654,7 @@ function ApplyDialog({
 
             {/* Employment type */}
             <div>
-              <Label className="text-xs text-neutral-600 mb-1">Type d&apos;emploi</Label>
+              <Label className="text-xs text-muted-foreground mb-1">Type d&apos;emploi</Label>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { value: 'cdi', label: 'CDI' },
@@ -1668,7 +1668,7 @@ function ApplyDialog({
                     className={`py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
                       employmentType === opt.value
                         ? 'border-brand-500 bg-brand-50 text-brand-600'
-                        : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                        : 'border-border text-muted-foreground hover:border-border'
                     }`}
                   >
                     {opt.label}
@@ -1679,24 +1679,24 @@ function ApplyDialog({
 
             {/* Monthly income */}
             <div>
-              <Label className="text-xs text-neutral-600 mb-1">Revenus mensuels (F CFA)</Label>
+              <Label className="text-xs text-muted-foreground mb-1">Revenus mensuels (F CFA)</Label>
               <Input
                 type="number"
                 placeholder="Ex : 500000"
                 value={monthlyIncome}
                 onChange={(e) => setMonthlyIncome(e.target.value)}
-                className="h-9 bg-white border-neutral-200 text-sm"
+                className="h-9 bg-card border-border text-sm"
               />
             </div>
 
             {/* Motivation */}
             <div>
-              <Label className="text-xs text-neutral-600 mb-1">Lettre de motivation</Label>
+              <Label className="text-xs text-muted-foreground mb-1">Lettre de motivation</Label>
               <Textarea
                 placeholder="Présentez-vous et expliquez pourquoi vous souhaitez louer ce bien..."
                 value={motivation}
                 onChange={(e) => setMotivation(e.target.value)}
-                className="min-h-[100px] bg-white border-neutral-200 text-sm resize-none"
+                className="min-h-[100px] bg-card border-border text-sm resize-none"
               />
             </div>
 
@@ -1710,7 +1710,7 @@ function ApplyDialog({
               Soumettre ma candidature
             </Button>
 
-            <p className="text-[11px] text-neutral-400 text-center">
+            <p className="text-[11px] text-muted-foreground text-center">
               En soumettant votre candidature, vous acceptez que vos informations soient transmises au propriétaire.
             </p>
           </div>

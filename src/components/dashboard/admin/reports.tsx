@@ -12,8 +12,8 @@ export function Reports() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Rapports & Analyses</h1>
-          <p className="text-neutral-500 mt-1">Statistiques détaillées de la plateforme</p>
+          <h1 className="text-2xl font-bold text-foreground">Rapports & Analyses</h1>
+          <p className="text-muted-foreground mt-1">Statistiques détaillées de la plateforme</p>
         </div>
         <div className="flex gap-2">
           <Select defaultValue="month">
@@ -42,26 +42,26 @@ export function Reports() {
           { title: 'Litiges résolus', value: '4', change: '-10%', period: 'ce mois' },
           { title: 'Revenus totaux', value: '8.2M FCFA', change: '+15%', period: 'ce mois' },
         ].map((item) => (
-          <Card key={item.title} className="border-neutral-200">
+          <Card key={item.title} className="border-border">
             <CardContent className="p-4">
-              <p className="text-sm text-neutral-500">{item.title}</p>
+              <p className="text-sm text-muted-foreground">{item.title}</p>
               <div className="flex items-end gap-2 mt-1">
-                <p className="text-2xl font-bold text-neutral-900">{item.value}</p>
+                <p className="text-2xl font-bold text-foreground">{item.value}</p>
                 <span className={`text-sm font-medium ${item.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
                   {item.change}
                 </span>
               </div>
-              <p className="text-xs text-neutral-400 mt-1">{item.period}</p>
+              <p className="text-xs text-muted-foreground mt-1">{item.period}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <Card className="border-neutral-200">
+      <Card className="border-border">
         <CardContent className="p-6 text-center">
-          <BarChart3 className="size-12 text-neutral-300 mx-auto mb-3" />
-          <p className="text-neutral-500">Graphiques détaillés disponibles prochainement</p>
-          <p className="text-sm text-neutral-400 mt-1">Visualisations avec Recharts en cours de développement</p>
+          <BarChart3 className="size-12 text-muted-foreground/50 mx-auto mb-3" />
+          <p className="text-muted-foreground">Graphiques détaillés disponibles prochainement</p>
+          <p className="text-sm text-muted-foreground mt-1">Visualisations avec Recharts en cours de développement</p>
         </CardContent>
       </Card>
     </motion.div>

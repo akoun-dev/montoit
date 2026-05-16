@@ -12,15 +12,15 @@ export function TcManagement() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Gestion des Tiers de Confiance</h1>
-          <p className="text-neutral-500 mt-1">Créez et gérez les comptes TC</p>
+          <h1 className="text-2xl font-bold text-foreground">Gestion des Tiers de Confiance</h1>
+          <p className="text-muted-foreground mt-1">Créez et gérez les comptes TC</p>
         </div>
         <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2" onClick={() => toast.info('Fonctionnalité à venir')}>
           <Plus className="size-4" /> Créer un compte TC
         </Button>
       </div>
 
-      <Card className="border-neutral-200">
+      <Card className="border-border">
         <CardContent className="p-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -28,8 +28,8 @@ export function TcManagement() {
                 TC
               </div>
               <div>
-                <p className="font-medium text-neutral-900">Tiers Confiance</p>
-                <p className="text-sm text-neutral-500">+225 02 02 02 02 · tc@montoit.ci</p>
+                <p className="font-medium text-foreground">Tiers Confiance</p>
+                <p className="text-sm text-muted-foreground">+225 02 02 02 02 · tc@montoit.ci</p>
               </div>
             </div>
             <div className="flex items-center gap-2">

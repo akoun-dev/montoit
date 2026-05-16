@@ -98,13 +98,13 @@ export function SearchProperties() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-neutral-900">Chercher un bien</h1>
-        <p className="text-neutral-500 mt-1">Trouvez votre futur logement</p>
+        <h1 className="text-2xl font-bold text-foreground">Chercher un bien</h1>
+        <p className="text-muted-foreground mt-1">Trouvez votre futur logement</p>
       </motion.div>
 
       {/* Search Card */}
       <motion.div variants={itemVariants}>
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <div className="flex size-8 items-center justify-center rounded-lg bg-brand-50">
@@ -116,7 +116,7 @@ export function SearchProperties() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 placeholder="Commune, quartier, ville..."
                 className="pl-10 h-11"
@@ -185,15 +185,15 @@ export function SearchProperties() {
       <AnimatePresence mode="wait">
         {searched && !loading && results.length === 0 ? (
           <motion.div key="no-results" variants={itemVariants} initial="hidden" animate="show" exit="hidden">
-            <Card className="border-dashed border-neutral-300 bg-neutral-50/50">
+            <Card className="border-dashed border-border bg-muted/50">
               <CardContent className="py-12 flex flex-col items-center text-center">
                 <div className="flex size-16 items-center justify-center rounded-full bg-brand-50 mb-4">
                   <Search className="size-7 text-brand-500" />
                 </div>
-                <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+                <h3 className="text-lg font-semibold text-foreground mb-1">
                   Aucun résultat
                 </h3>
-                <p className="text-sm text-neutral-500 max-w-sm">
+                <p className="text-sm text-muted-foreground max-w-sm">
                   Essayez avec d&apos;autres critères de recherche ou parcourez tous nos biens.
                 </p>
                 <Button
@@ -210,7 +210,7 @@ export function SearchProperties() {
         ) : results.length > 0 ? (
           <motion.div key="results" variants={containerVariants} initial="hidden" animate="show">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm text-neutral-500">
+              <p className="text-sm text-muted-foreground">
                 {results.length} bien{results.length > 1 ? 's' : ''} trouvé{results.length > 1 ? 's' : ''}
               </p>
             </div>
@@ -224,7 +224,7 @@ export function SearchProperties() {
 
                 return (
                   <motion.div key={property.id} variants={itemVariants}>
-                    <Card className="border-neutral-200 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
+                    <Card className="border-border overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
                       onClick={() => handleViewProperty(property.id)}
                     >
                       {/* Image */}
@@ -236,7 +236,7 @@ export function SearchProperties() {
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                         ) : (
-                          <div className="w-full h-full bg-neutral-100 flex items-center justify-center">
+                          <div className="w-full h-full bg-muted flex items-center justify-center">
                             <Building2 className="size-8 text-neutral-300" />
                           </div>
                         )}
@@ -264,19 +264,19 @@ export function SearchProperties() {
 
                       {/* Content */}
                       <CardContent className="p-4">
-                        <h3 className="font-semibold text-neutral-900 text-sm line-clamp-1 mb-1 group-hover:text-brand-600 transition-colors">
+                        <h3 className="font-semibold text-foreground text-sm line-clamp-1 mb-1 group-hover:text-brand-600 transition-colors">
                           {property.title}
                         </h3>
-                        <div className="flex items-center gap-1 text-neutral-500 text-xs mb-2">
+                        <div className="flex items-center gap-1 text-muted-foreground text-xs mb-2">
                           <MapPin className="size-3 shrink-0" />
                           <span className="line-clamp-1">{property.city}{property.commune ? `, ${property.commune}` : ''}</span>
                         </div>
-                        <p className="text-neutral-600 text-xs mb-2">
+                        <p className="text-muted-foreground text-xs mb-2">
                           {bedroomsLabel} &bull; {property.area} m²
                           {property.isFurnished && ' &bull; Meublé'}
                         </p>
-                        <p className="font-bold text-neutral-900 text-sm">
-                          {formatCurrency(property.price)} <span className="text-xs font-normal text-neutral-400">{property.currency}/mois</span>
+                        <p className="font-bold text-foreground text-sm">
+                          {formatCurrency(property.price)} <span className="text-xs font-normal text-muted-foreground">{property.currency}/mois</span>
                         </p>
                       </CardContent>
                     </Card>
@@ -288,15 +288,15 @@ export function SearchProperties() {
         ) : !searched ? (
           /* Initial empty state */
           <motion.div key="initial" variants={itemVariants}>
-            <Card className="border-dashed border-neutral-300 bg-neutral-50/50">
+            <Card className="border-dashed border-border bg-muted/50">
               <CardContent className="py-12 flex flex-col items-center text-center">
                 <div className="flex size-16 items-center justify-center rounded-full bg-brand-50 mb-4">
                   <Search className="size-7 text-brand-500" />
                 </div>
-                <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+                <h3 className="text-lg font-semibold text-foreground mb-1">
                   Explorez nos biens disponibles
                 </h3>
-                <p className="text-sm text-neutral-500 mb-6 max-w-sm">
+                <p className="text-sm text-muted-foreground mb-6 max-w-sm">
                   {user?.firstName}, parcourez notre catalogue de logements et trouvez celui qui vous correspond.
                 </p>
                 <Button

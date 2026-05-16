@@ -30,11 +30,11 @@ export function AddProperty() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Ajouter un bien</h1>
-        <p className="text-neutral-500 mt-1">Publiez une nouvelle annonce immobilière</p>
+        <h1 className="text-2xl font-bold text-foreground">Ajouter un bien</h1>
+        <p className="text-muted-foreground mt-1">Publiez une nouvelle annonce immobilière</p>
       </div>
 
-      <Card className="border-neutral-200">
+      <Card className="border-border">
         <CardHeader>
           <CardTitle className="text-lg">Informations du bien</CardTitle>
         </CardHeader>
@@ -108,7 +108,7 @@ export function AddProperty() {
               { key: 'hasGarden', label: 'Jardin' },
               { key: 'hasPool', label: 'Piscine' },
             ].map((item) => (
-              <div key={item.key} className="flex items-center justify-between p-3 rounded-lg border border-neutral-200">
+              <div key={item.key} className="flex items-center justify-between p-3 rounded-lg border border-border">
                 <Label className="cursor-pointer">{item.label}</Label>
                 <Switch
                   checked={form[item.key as keyof typeof form] as boolean}
@@ -121,10 +121,10 @@ export function AddProperty() {
           {/* Image upload placeholder */}
           <div className="space-y-2">
             <Label>Photos du bien</Label>
-            <div className="border-2 border-dashed border-neutral-300 rounded-lg p-8 text-center hover:border-brand-300 transition-colors cursor-pointer">
-              <ImagePlus className="size-8 text-neutral-400 mx-auto mb-2" />
-              <p className="text-sm text-neutral-500">Cliquez ou glissez vos photos ici</p>
-              <p className="text-xs text-neutral-400 mt-1">JPG, PNG — Max 5 MB par image</p>
+            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-brand-300 transition-colors cursor-pointer">
+              <ImagePlus className="size-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Cliquez ou glissez vos photos ici</p>
+              <p className="text-xs text-muted-foreground mt-1">JPG, PNG — Max 5 MB par image</p>
             </div>
           </div>
 

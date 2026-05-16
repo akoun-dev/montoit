@@ -62,7 +62,7 @@ export function Trust() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12 sm:mb-16"
         >
-          <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900 mb-3">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
             Pourquoi nous faire confiance ?
           </h2>
         </motion.div>
@@ -82,15 +82,15 @@ export function Trust() {
                 key={feature.title}
                 variants={cardVariants}
                 whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                className="bg-white rounded-xl border border-brand-100 p-6 text-center hover:shadow-md transition-shadow"
+                className="bg-card rounded-xl border border-brand-100 p-6 text-center hover:shadow-md transition-shadow"
               >
                 <div className="size-14 rounded-full bg-brand-100 flex items-center justify-center mx-auto mb-4">
                   <Icon className="size-7 text-brand-500" />
                 </div>
-                <h3 className="font-semibold text-neutral-900 text-base mb-2">
+                <h3 className="font-semibold text-foreground text-base mb-2">
                   {feature.title}
                 </h3>
-                <p className="text-neutral-500 text-sm leading-relaxed">
+                <p className="text-muted-foreground text-sm leading-relaxed">
                   {feature.description}
                 </p>
               </motion.div>

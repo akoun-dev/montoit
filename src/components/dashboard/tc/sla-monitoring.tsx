@@ -41,22 +41,22 @@ export function SlaMonitoring() {
     fetchData()
   }, [fetchData])
 
-  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
+  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Suivi SLA</h1>
-        <p className="text-neutral-500 mt-1">Respect des délais de traitement (48h)</p>
+        <h1 className="text-2xl font-bold text-foreground">Suivi SLA</h1>
+        <p className="text-muted-foreground mt-1">Respect des délais de traitement (48h)</p>
       </div>
 
       {/* SLA Compliance */}
-      <Card className="border-neutral-200">
+      <Card className="border-border">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-lg font-semibold text-neutral-900">Conformité SLA</h2>
-              <p className="text-sm text-neutral-500">Objectif : 100% des dossiers traités sous 48h</p>
+              <h2 className="text-lg font-semibold text-foreground">Conformité SLA</h2>
+              <p className="text-sm text-muted-foreground">Objectif : 100% des dossiers traités sous 48h</p>
             </div>
             <div className="flex items-center gap-2">
               {stats.slaCompliance >= 90 ? (
@@ -64,7 +64,7 @@ export function SlaMonitoring() {
               ) : (
                 <AlertTriangle className="size-6 text-amber-500" />
               )}
-              <span className="text-3xl font-bold text-neutral-900">{stats.slaCompliance}%</span>
+              <span className="text-3xl font-bold text-foreground">{stats.slaCompliance}%</span>
             </div>
           </div>
           <Progress value={stats.slaCompliance} className="h-3" />
@@ -73,54 +73,54 @@ export function SlaMonitoring() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50">
                 <Clock className="size-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-neutral-900">{stats.pendingRentalFiles}</p>
-                <p className="text-xs text-neutral-500">Dossiers en attente</p>
+                <p className="text-2xl font-bold text-foreground">{stats.pendingRentalFiles}</p>
+                <p className="text-xs text-muted-foreground">Dossiers en attente</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-blue-50">
                 <Clock className="size-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-neutral-900">{stats.pendingOwnershipDocs}</p>
-                <p className="text-xs text-neutral-500">Docs propriétaire</p>
+                <p className="text-2xl font-bold text-foreground">{stats.pendingOwnershipDocs}</p>
+                <p className="text-xs text-muted-foreground">Docs propriétaire</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-green-50">
                 <TrendingUp className="size-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-neutral-900">{stats.totalReviewed}</p>
-                <p className="text-xs text-neutral-500">Dossiers traités</p>
+                <p className="text-2xl font-bold text-foreground">{stats.totalReviewed}</p>
+                <p className="text-xs text-muted-foreground">Dossiers traités</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-red-50">
                 <AlertTriangle className="size-5 text-red-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-neutral-900">{stats.overdueSlas}</p>
-                <p className="text-xs text-neutral-500">SLA dépassés</p>
+                <p className="text-2xl font-bold text-foreground">{stats.overdueSlas}</p>
+                <p className="text-xs text-muted-foreground">SLA dépassés</p>
               </div>
             </div>
           </CardContent>

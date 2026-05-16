@@ -59,13 +59,13 @@ function RoleCard({ role }: { role: Role }) {
     <motion.div
       variants={cardVariants}
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
-      className="bg-white rounded-xl border border-neutral-200 p-6 sm:p-7 flex flex-col hover:shadow-md transition-shadow"
+      className="bg-card rounded-xl border border-border p-6 sm:p-7 flex flex-col hover:shadow-md transition-shadow"
     >
       <div className="size-12 rounded-lg bg-brand-50 flex items-center justify-center mb-4">
         <Icon className="size-6 text-brand-500" />
       </div>
-      <h3 className="text-lg font-semibold text-neutral-900 mb-2">{role.title}</h3>
-      <p className="text-neutral-500 text-sm leading-relaxed mb-5 flex-1">
+      <h3 className="text-lg font-semibold text-foreground mb-2">{role.title}</h3>
+      <p className="text-muted-foreground text-sm leading-relaxed mb-5 flex-1">
         {role.description}
       </p>
       <Button
@@ -82,7 +82,7 @@ function RoleCard({ role }: { role: Role }) {
 
 export function Roles() {
   return (
-    <section className="py-16 sm:py-20 bg-white">
+    <section className="py-16 sm:py-20 bg-background">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
@@ -92,10 +92,10 @@ export function Roles() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12 sm:mb-16"
         >
-          <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900 mb-3">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
             Rejoignez Mon Toit
           </h2>
-          <p className="text-neutral-500 text-base sm:text-lg max-w-xl mx-auto">
+          <p className="text-muted-foreground text-base sm:text-lg max-w-xl mx-auto">
             Une plateforme pour chaque acteur de la location
           </p>
         </motion.div>

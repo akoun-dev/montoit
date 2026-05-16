@@ -63,7 +63,7 @@ const keyFigures = [
 
 export function About() {
   return (
-    <section className="py-16 sm:py-20 bg-neutral-50">
+    <section className="py-16 sm:py-20 bg-muted">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Hero sub-section */}
         <motion.div
@@ -73,10 +73,10 @@ export function About() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12 sm:mb-16"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold text-neutral-900 mb-3">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
             À Propos de Mon Toit
           </h2>
-          <p className="text-lg text-neutral-500 max-w-2xl mx-auto">
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             La plateforme de confiance pour la location immobilière en Côte d&apos;Ivoire
           </p>
         </motion.div>
@@ -93,15 +93,15 @@ export function About() {
                 initial="hidden"
                 whileInView="visible"
                 viewport={{ once: true }}
-                className="bg-white rounded-xl border border-neutral-200 p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow"
+                className="bg-card rounded-xl border border-border p-6 sm:p-8 shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="size-12 rounded-lg bg-brand-50 flex items-center justify-center mb-4">
                   <Icon className="size-6 text-brand-500" />
                 </div>
-                <h3 className="text-xl font-bold text-neutral-900 mb-3">
+                <h3 className="text-xl font-bold text-foreground mb-3">
                   {item.title}
                 </h3>
-                <p className="text-neutral-600 leading-relaxed">
+                <p className="text-muted-foreground leading-relaxed">
                   {item.description}
                 </p>
               </motion.div>
@@ -117,7 +117,7 @@ export function About() {
           transition={{ duration: 0.5 }}
           className="mb-12 sm:mb-16"
         >
-          <h3 className="text-2xl font-bold text-neutral-900 text-center mb-8">
+          <h3 className="text-2xl font-bold text-foreground text-center mb-8">
             Nos Valeurs
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -131,13 +131,13 @@ export function About() {
                   initial="hidden"
                   whileInView="visible"
                   viewport={{ once: true }}
-                  className="bg-white rounded-xl border border-neutral-200 p-5 text-center shadow-sm hover:shadow-md transition-shadow"
+                  className="bg-card rounded-xl border border-border p-5 text-center shadow-sm hover:shadow-md transition-shadow"
                 >
                   <div className="size-12 rounded-full bg-brand-50 flex items-center justify-center mx-auto mb-4">
                     <Icon className="size-5 text-brand-500" />
                   </div>
-                  <h4 className="font-bold text-neutral-900 mb-2">{value.title}</h4>
-                  <p className="text-sm text-neutral-500 leading-relaxed">
+                  <h4 className="font-bold text-foreground mb-2">{value.title}</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
                     {value.description}
                   </p>
                 </motion.div>
@@ -163,12 +163,12 @@ export function About() {
                 initial="hidden"
                 whileInView="visible"
                 viewport={{ once: true }}
-                className="bg-white rounded-xl border border-neutral-200 p-5 text-center shadow-sm"
+                className="bg-card rounded-xl border border-border p-5 text-center shadow-sm"
               >
                 <p className="text-2xl sm:text-3xl font-bold text-brand-500 mb-1">
                   {figure.value}
                 </p>
-                <p className="text-sm text-neutral-500">{figure.label}</p>
+                <p className="text-sm text-muted-foreground">{figure.label}</p>
               </motion.div>
             ))}
           </div>
@@ -180,15 +180,15 @@ export function About() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="bg-white rounded-xl border border-neutral-200 p-6 sm:p-8 text-center shadow-sm"
+          className="bg-card rounded-xl border border-border p-6 sm:p-8 text-center shadow-sm"
         >
           <div className="size-16 rounded-full bg-brand-50 flex items-center justify-center mx-auto mb-5">
             <Building2 className="size-8 text-brand-500" />
           </div>
-          <h3 className="text-xl sm:text-2xl font-bold text-neutral-900 mb-3">
+          <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-3">
             Un projet ANSUT
           </h3>
-          <p className="text-neutral-600 leading-relaxed max-w-2xl mx-auto">
+          <p className="text-muted-foreground leading-relaxed max-w-2xl mx-auto">
             Mon Toit est une initiative de l&apos;ANSUT (Agence Nationale Urbaine des Transferts),
             dédiée à l&apos;amélioration du secteur locatif en Côte d&apos;Ivoire. Notre engagement :
             un cadre locatif moderne, sûr et régulé.

@@ -165,14 +165,14 @@ export function RegisterForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 py-8 sm:py-12">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 sm:py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className="w-full max-w-md"
       >
-        <Card className="border-neutral-200 shadow-base">
+        <Card className="border-border shadow-base">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto mb-4">
               <Image
@@ -184,8 +184,8 @@ export function RegisterForm() {
                 priority
               />
             </div>
-            <CardTitle className="text-2xl font-bold text-neutral-900">Inscription</CardTitle>
-            <CardDescription className="text-neutral-500">
+            <CardTitle className="text-2xl font-bold text-foreground">Inscription</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Créez votre compte pour rejoindre Mon Toit
             </CardDescription>
 
@@ -229,14 +229,14 @@ export function RegisterForm() {
                   className="space-y-4"
                 >
                   {/* Method toggle */}
-                  <div className="flex rounded-lg border border-neutral-200 p-1 bg-neutral-50">
+                  <div className="flex rounded-lg border border-border p-1 bg-muted">
                     <button
                       type="button"
                       onClick={() => handleMethodChange('email')}
                       className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
                         method === 'email'
-                          ? 'bg-white text-brand-500 shadow-sm'
-                          : 'text-neutral-500 hover:text-neutral-700'
+                          ? 'bg-background text-brand-500 shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
                       <Mail className="size-4" />
@@ -247,8 +247,8 @@ export function RegisterForm() {
                       onClick={() => handleMethodChange('sms')}
                       className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
                         method === 'sms'
-                          ? 'bg-white text-brand-500 shadow-sm'
-                          : 'text-neutral-500 hover:text-neutral-700'
+                          ? 'bg-background text-brand-500 shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
                       <MessageSquare className="size-4" />
@@ -330,7 +330,7 @@ export function RegisterForm() {
                           <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-muted-foreground"
                             aria-label={showPassword ? 'Masquer' : 'Afficher'}
                           >
                             {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -392,7 +392,7 @@ export function RegisterForm() {
                           <button
                             type="button"
                             onClick={() => setShowConfirm(!showConfirm)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-muted-foreground"
                             aria-label={showConfirm ? 'Masquer' : 'Afficher'}
                           >
                             {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -497,15 +497,15 @@ export function RegisterForm() {
                     {/* Summary of step 1 */}
                     <div className="rounded-lg bg-brand-50 border border-brand-100 p-3">
                       <p className="text-xs font-medium text-brand-600 mb-1.5">Vos informations</p>
-                      <p className="text-sm text-neutral-700 font-medium">{firstName} {lastName}</p>
-                      <p className="text-xs text-neutral-500">
+                      <p className="text-sm text-foreground font-medium">{firstName} {lastName}</p>
+                      <p className="text-xs text-muted-foreground">
                         {method === 'email' ? email : phone}
                       </p>
                     </div>
 
                     {/* Role selection cards */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-neutral-700">Choisissez votre profil *</Label>
+                      <Label className="text-sm font-medium text-foreground">Choisissez votre profil *</Label>
                       <div className="grid grid-cols-1 gap-3">
                         {roles.map((r) => {
                           const Icon = r.icon
@@ -518,19 +518,19 @@ export function RegisterForm() {
                               className={`w-full flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all ${
                                 isSelected
                                   ? 'border-brand-500 bg-brand-50 shadow-sm'
-                                  : 'border-neutral-200 bg-white hover:border-brand-200 hover:bg-brand-50/50'
+                                  : 'border-border bg-card hover:border-brand-200 hover:bg-brand-50/50'
                               }`}
                             >
                               <div className={`flex items-center justify-center size-12 rounded-lg transition-colors ${
-                                isSelected ? 'bg-brand-500' : 'bg-neutral-100'
+                                isSelected ? 'bg-brand-500' : 'bg-muted'
                               }`}>
                                 <Icon className={`size-6 ${isSelected ? 'text-white' : 'text-neutral-400'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-semibold ${isSelected ? 'text-brand-600' : 'text-neutral-800'}`}>
+                                <p className={`text-sm font-semibold ${isSelected ? 'text-brand-600' : 'text-foreground'}`}>
                                   {r.label}
                                 </p>
-                                <p className="text-xs text-neutral-500 mt-0.5">{r.description}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{r.description}</p>
                               </div>
                               <div className={`flex items-center justify-center size-6 rounded-full border-2 transition-colors ${
                                 isSelected
@@ -546,7 +546,7 @@ export function RegisterForm() {
                     </div>
 
                     {/* Terms */}
-                    <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+                    <div className="rounded-lg border border-border bg-muted p-3">
                       <div className="flex items-start gap-3">
                         <Checkbox
                           id="accept-terms"
@@ -554,7 +554,7 @@ export function RegisterForm() {
                           onCheckedChange={(checked) => setAcceptTerms(checked === true)}
                           className="mt-0.5 data-[state=checked]:bg-brand-500 data-[state=checked]:border-brand-500"
                         />
-                        <Label htmlFor="accept-terms" className="text-sm text-neutral-600 font-normal leading-snug cursor-pointer">
+                        <Label htmlFor="accept-terms" className="text-sm text-muted-foreground font-normal leading-snug cursor-pointer">
                           J&apos;accepte les{' '}
                           <span className="text-brand-500 hover:underline cursor-pointer font-medium">conditions d&apos;utilisation</span>{' '}
                           et la{' '}
@@ -583,7 +583,7 @@ export function RegisterForm() {
                     <button
                       type="button"
                       onClick={handleBackToStep1}
-                      className="w-full flex items-center justify-center gap-1 text-sm text-neutral-500 hover:text-neutral-700"
+                      className="w-full flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground"
                     >
                       <ArrowLeft className="size-3.5" />
                       Retour aux informations
@@ -597,7 +597,7 @@ export function RegisterForm() {
             {step === 1 && (
               <button
                 onClick={() => setView('login')}
-                className="w-full flex items-center justify-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 mt-4"
+                className="w-full flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground mt-4"
               >
                 <ArrowLeft className="size-3.5" />
                 Retour à la connexion

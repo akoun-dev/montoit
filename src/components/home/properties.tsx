@@ -76,7 +76,7 @@ function PropertyCard({ property, isFavorite, onToggleFavorite }: { property: Pr
     <motion.div
       variants={cardVariants}
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
-      className="group bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      className="group bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
       onClick={handleClick}
     >
       {/* Image */}
@@ -91,7 +91,7 @@ function PropertyCard({ property, isFavorite, onToggleFavorite }: { property: Pr
           />
         ) : (
           <div className="w-full h-full bg-neutral-200 flex items-center justify-center">
-            <span className="text-neutral-400 text-sm">Aucune image</span>
+            <span className="text-muted-foreground text-sm">Aucune image</span>
           </div>
         )}
         {/* Status + Meublé badges on image top-left */}
@@ -125,12 +125,12 @@ function PropertyCard({ property, isFavorite, onToggleFavorite }: { property: Pr
             if (!isAuthenticated) { setView('login'); return }
             onToggleFavorite(property.id)
           }}
-          className="absolute top-3 right-3 size-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center transition-opacity hover:bg-white shadow-sm"
+          className="absolute top-3 right-3 size-8 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center transition-opacity hover:bg-card shadow-sm"
           aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
         >
           <Heart
             className={`size-4 transition-colors ${
-              isFavorite ? 'fill-red-500 text-red-500' : 'text-neutral-500'
+              isFavorite ? 'fill-red-500 text-red-500' : 'text-muted-foreground'
             }`}
           />
         </button>
@@ -139,28 +139,28 @@ function PropertyCard({ property, isFavorite, onToggleFavorite }: { property: Pr
       {/* Content */}
       <div className="p-4">
         {/* Title */}
-        <h3 className="font-semibold text-neutral-900 text-sm sm:text-base mb-1 line-clamp-1">
+        <h3 className="font-semibold text-foreground text-sm sm:text-base mb-1 line-clamp-1">
           {property.title}
         </h3>
         {/* Location */}
-        <div className="flex items-center gap-1 text-neutral-500 text-xs sm:text-sm mb-2">
+        <div className="flex items-center gap-1 text-muted-foreground text-xs sm:text-sm mb-2">
           <MapPin className="size-3.5 shrink-0" />
           <span className="line-clamp-1">{property.address}{property.commune ? `, ${property.commune}` : ''}</span>
         </div>
 
         {/* Features */}
-        <p className="text-neutral-600 text-xs sm:text-sm mb-3">
+        <p className="text-muted-foreground text-xs sm:text-sm mb-3">
           {bedroomsLabel} &bull; {property.area} m²
         </p>
 
         {/* Price */}
-        <p className="font-bold text-neutral-900 text-base sm:text-lg mb-2">
-          {formatPrice(property.price)} <span className="text-xs sm:text-sm font-normal text-neutral-400">{property.currency}/mois</span>
+        <p className="font-bold text-foreground text-base sm:text-lg mb-2">
+          {formatPrice(property.price)} <span className="text-xs sm:text-sm font-normal text-muted-foreground">{property.currency}/mois</span>
         </p>
 
         {/* Bottom row: views + verified */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1 text-neutral-400 text-xs">
+          <div className="flex items-center gap-1 text-muted-foreground text-xs">
             <Eye className="size-3.5" />
             <span>{property.viewsCount} vues</span>
           </div>
@@ -196,7 +196,7 @@ export function NosBiens() {
   }, [])
 
   return (
-    <section className="py-16 sm:py-20 bg-white">
+    <section className="py-16 sm:py-20 bg-background">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header - left-aligned title with "Voir tout" link on right */}
         <motion.div
@@ -207,10 +207,10 @@ export function NosBiens() {
           className="flex items-start sm:items-center justify-between mb-8 sm:mb-10 gap-4"
         >
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900 mb-1">
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-1">
               Annonces récents
             </h2>
-            <p className="text-neutral-500 text-sm sm:text-base">
+            <p className="text-muted-foreground text-sm sm:text-base">
               Découvrez les dernières annonces disponibles
             </p>
           </div>
@@ -227,7 +227,7 @@ export function NosBiens() {
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-xl border border-neutral-200 overflow-hidden animate-pulse">
+              <div key={i} className="bg-card rounded-xl border border-border overflow-hidden animate-pulse">
                 <div className="h-48 sm:h-52 bg-neutral-200" />
                 <div className="p-4 space-y-3">
                   <div className="h-4 bg-neutral-200 rounded w-3/4" />
@@ -257,7 +257,7 @@ export function NosBiens() {
           </motion.div>
         ) : (
           <div className="text-center py-16">
-            <p className="text-neutral-500">Aucun bien disponible pour le moment.</p>
+            <p className="text-muted-foreground">Aucun bien disponible pour le moment.</p>
           </div>
         )}
       </div>

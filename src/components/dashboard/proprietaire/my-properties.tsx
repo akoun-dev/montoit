@@ -47,7 +47,7 @@ export function MyProperties() {
     fetchData()
   }, [fetchData])
 
-  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-48 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
+  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-48 rounded-xl bg-muted animate-pulse" />)}</div>
 
   const typeLabels: Record<string, string> = {
     APPARTEMENT: 'Appartement', MAISON: 'Maison', STUDIO: 'Studio',
@@ -58,25 +58,25 @@ export function MyProperties() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Mes biens</h1>
-          <p className="text-neutral-500 mt-1">{properties.length} bien(s) enregistré(s)</p>
+          <h1 className="text-2xl font-bold text-foreground">Mes biens</h1>
+          <p className="text-muted-foreground mt-1">{properties.length} bien(s) enregistré(s)</p>
         </div>
       </div>
 
       {properties.length === 0 ? (
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardContent className="py-12 text-center">
-            <Building2 className="size-12 text-neutral-300 mx-auto mb-4" />
-            <p className="text-neutral-500">Aucun bien enregistré</p>
-            <p className="text-sm text-neutral-400 mt-1">Ajoutez votre premier bien immobilier</p>
+            <Building2 className="size-12 text-muted-foreground/50 mx-auto mb-4" />
+            <p className="text-muted-foreground">Aucun bien enregistré</p>
+            <p className="text-sm text-muted-foreground mt-1">Ajoutez votre premier bien immobilier</p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {properties.map((p) => (
-            <Card key={p.id} className="border-neutral-200 overflow-hidden hover:shadow-md transition-shadow">
+            <Card key={p.id} className="border-border overflow-hidden hover:shadow-md transition-shadow">
               {p.images?.[0] && (
-                <div className="aspect-video relative overflow-hidden bg-neutral-100">
+                <div className="aspect-video relative overflow-hidden bg-muted">
                   <img src={p.images[0].url} alt={p.title} className="size-full object-cover" />
                   <Badge className={`absolute top-2 right-2 ${
                     p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : p.status === 'SUSPENDED' ? 'bg-amber-100 text-amber-700' : 'bg-neutral-100 text-neutral-600'
@@ -86,15 +86,15 @@ export function MyProperties() {
                 </div>
               )}
               <CardContent className="p-4">
-                <h3 className="font-semibold text-neutral-900">{p.title}</h3>
-                <p className="text-sm text-neutral-500 mt-0.5">{p.city}{p.commune ? ` · ${p.commune}` : ''}</p>
+                <h3 className="font-semibold text-foreground">{p.title}</h3>
+                <p className="text-sm text-muted-foreground mt-0.5">{p.city}{p.commune ? ` · ${p.commune}` : ''}</p>
                 <div className="flex items-center gap-2 mt-2">
                   <Badge variant="outline" className="text-xs">{typeLabels[p.type] || p.type}</Badge>
-                  {p.bedrooms && <span className="text-xs text-neutral-500">{p.bedrooms} ch.</span>}
-                  <span className="text-xs text-neutral-500">{p.area} m²</span>
+                  {p.bedrooms && <span className="text-xs text-muted-foreground">{p.bedrooms} ch.</span>}
+                  <span className="text-xs text-muted-foreground">{p.area} m²</span>
                 </div>
                 <p className="text-lg font-bold text-brand-600 mt-2">
-                  {p.price.toLocaleString('fr-FR')} <span className="text-sm font-normal text-neutral-400">FCFA/mois</span>
+                  {p.price.toLocaleString('fr-FR')} <span className="text-sm font-normal text-muted-foreground">FCFA/mois</span>
                 </p>
                 <div className="flex gap-2 mt-3">
                   <Button variant="outline" size="sm" className="flex-1 gap-1">

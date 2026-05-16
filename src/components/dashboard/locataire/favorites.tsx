@@ -103,7 +103,7 @@ export function Favorites() {
     return (
       <div className="space-y-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />
+          <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />
         ))}
       </div>
     )
@@ -112,7 +112,7 @@ export function Favorites() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-neutral-900">Mes favoris</h1>
+        <h1 className="text-2xl font-bold text-foreground">Mes favoris</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos favoris. Veuillez réessayer.</p>
@@ -126,8 +126,8 @@ export function Favorites() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-neutral-900">Mes favoris</h1>
-        <p className="text-neutral-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Mes favoris</h1>
+        <p className="text-muted-foreground mt-1">
           {favorites.length > 0
             ? `${favorites.length} bien${favorites.length > 1 ? 's' : ''} sauvegardé${favorites.length > 1 ? 's' : ''}`
             : 'Les biens que vous avez sauvegardés'}
@@ -137,15 +137,15 @@ export function Favorites() {
       {favorites.length === 0 ? (
         /* Empty State */
         <motion.div variants={itemVariants}>
-          <Card className="border-dashed border-neutral-300 bg-neutral-50/50">
+          <Card className="border-dashed border-border bg-muted/50">
             <CardContent className="py-12 flex flex-col items-center text-center">
               <div className="flex size-16 items-center justify-center rounded-full bg-red-50 mb-4">
                 <Heart className="size-7 text-red-400" />
               </div>
-              <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+              <h3 className="text-lg font-semibold text-foreground mb-1">
                 Vous n&apos;avez pas encore de favoris
               </h3>
-              <p className="text-sm text-neutral-500 mb-4 max-w-sm">
+              <p className="text-sm text-muted-foreground mb-4 max-w-sm">
                 {user?.firstName}, commencez à sauvegarder les biens qui vous plaisent en cliquant sur le cœur.
               </p>
               <Button
@@ -172,7 +172,7 @@ export function Favorites() {
 
             return (
               <motion.div key={fav.id} variants={itemVariants}>
-                <Card className="border-neutral-200 overflow-hidden hover:shadow-md transition-shadow group">
+                <Card className="border-border overflow-hidden hover:shadow-md transition-shadow group">
                   {/* Image */}
                   <div
                     className="relative h-40 overflow-hidden cursor-pointer"
@@ -185,7 +185,7 @@ export function Favorites() {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
-                      <div className="w-full h-full bg-neutral-100 flex items-center justify-center">
+                      <div className="w-full h-full bg-muted flex items-center justify-center">
                         <Building2 className="size-8 text-neutral-300" />
                       </div>
                     )}
@@ -211,7 +211,7 @@ export function Favorites() {
                         e.stopPropagation()
                         handleRemoveFavorite(p.id)
                       }}
-                      className="absolute top-3 right-3 size-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-white transition-colors"
+                      className="absolute top-3 right-3 size-8 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center shadow-sm hover:bg-card transition-colors"
                       aria-label="Retirer des favoris"
                     >
                       <Heart className="size-4 fill-red-500 text-red-500" />
@@ -224,21 +224,21 @@ export function Favorites() {
                       onClick={() => handleViewProperty(p.id)}
                       className="text-left w-full"
                     >
-                      <h3 className="font-semibold text-neutral-900 text-sm line-clamp-1 mb-1 hover:text-brand-600 transition-colors">
+                      <h3 className="font-semibold text-foreground text-sm line-clamp-1 mb-1 hover:text-brand-600 transition-colors">
                         {p.title}
                       </h3>
                     </button>
-                    <div className="flex items-center gap-1 text-neutral-500 text-xs mb-2">
+                    <div className="flex items-center gap-1 text-muted-foreground text-xs mb-2">
                       <MapPin className="size-3 shrink-0" />
                       <span className="line-clamp-1">{p.city}{p.commune ? `, ${p.commune}` : ''}</span>
                     </div>
-                    <p className="text-neutral-600 text-xs mb-2">
+                    <p className="text-muted-foreground text-xs mb-2">
                       {bedroomsLabel} &bull; {p.area} m²
                       {p.isFurnished && ' &bull; Meublé'}
                     </p>
                     <div className="flex items-center justify-between">
-                      <p className="font-bold text-neutral-900 text-sm">
-                        {p.price.toLocaleString('fr-FR')} <span className="text-xs font-normal text-neutral-400">{p.currency}/mois</span>
+                      <p className="font-bold text-foreground text-sm">
+                        {p.price.toLocaleString('fr-FR')} <span className="text-xs font-normal text-muted-foreground">{p.currency}/mois</span>
                       </p>
                       {p.isVerified && (
                         <Badge className="bg-brand-50 text-brand-600 border-brand-200 text-[10px] px-1.5 py-0 border">

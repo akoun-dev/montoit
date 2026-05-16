@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { AnimatedSheet } from '@/components/ui/sheet'
 import { useAuthStore } from '@/lib/auth-store'
 import { SidebarContent } from './sidebar'
+import { ThemeToggle, LiveClock } from '@/components/theme-toggle'
 import { toast } from 'sonner'
 
 export function DashboardHeader() {
@@ -27,7 +28,7 @@ export function DashboardHeader() {
 
   return (
     <>
-      <header className="h-16 border-b border-neutral-200 bg-white flex items-center justify-between px-4 sm:px-6 shrink-0">
+      <header className="h-16 border-b border-border bg-background flex items-center justify-between px-4 sm:px-6 shrink-0">
         {/* Left */}
         <div className="flex items-center gap-3">
           {/* Hamburger — mobile only */}
@@ -38,27 +39,30 @@ export function DashboardHeader() {
             onClick={() => setMobileMenuOpen(true)}
             aria-label="Ouvrir le menu"
           >
-            <Menu className="size-5 text-neutral-700" />
+            <Menu className="size-5 text-muted-foreground" />
           </Button>
 
           <button
             onClick={() => setView('home')}
-            className="flex items-center gap-2 text-neutral-400 hover:text-brand-500 transition-colors"
+            className="flex items-center gap-2 text-muted-foreground hover:text-brand-500 transition-colors"
             title="Retour à l'accueil"
           >
             <Home className="size-5" />
           </button>
           <div className="hidden sm:block">
-            <p className="text-sm text-neutral-500">
-              Bienvenue, <span className="font-medium text-neutral-900">{user.firstName}</span>
+            <p className="text-sm text-muted-foreground">
+              Bienvenue, <span className="font-medium text-foreground">{user.firstName}</span>
             </p>
           </div>
         </div>
 
         {/* Right - Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <LiveClock />
+          <ThemeToggle />
+
           <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
-            <Bell className="size-5 text-neutral-500" />
+            <Bell className="size-5 text-muted-foreground" />
             <Badge className="absolute -top-0.5 -right-0.5 size-4 p-0 flex items-center justify-center bg-brand-500 text-white text-[10px]">
               3
             </Badge>
@@ -75,13 +79,13 @@ export function DashboardHeader() {
                     {initials}
                   </AvatarFallback>
                 </Avatar>
-                <span className="hidden sm:inline text-sm font-medium text-neutral-700">
+                <span className="hidden sm:inline text-sm font-medium text-foreground">
                   {user.firstName} {user.lastName}
                 </span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem className="text-sm text-neutral-500 cursor-default">
+              <DropdownMenuItem className="text-sm text-muted-foreground cursor-default">
                 {user.email || user.phone}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -105,10 +109,10 @@ export function DashboardHeader() {
         <SidebarContent onNavigate={() => setMobileMenuOpen(false)} />
 
         {/* Bottom logout */}
-        <div className="border-t border-neutral-200 p-3 shrink-0">
+        <div className="border-t border-border p-3 shrink-0">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 rounded-lg hover:bg-red-50 transition-colors text-left"
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors text-left"
           >
             <LogOut className="size-5 shrink-0" />
             <span>Déconnexion</span>

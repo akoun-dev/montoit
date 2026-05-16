@@ -232,14 +232,14 @@ export function ForgotPasswordForm() {
   )
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 py-8 sm:py-12">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 sm:py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className="w-full max-w-md"
       >
-        <Card className="border-neutral-200 shadow-base">
+        <Card className="border-border shadow-base">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto mb-4">
               <Image
@@ -251,8 +251,8 @@ export function ForgotPasswordForm() {
                 priority
               />
             </div>
-            <CardTitle className="text-2xl font-bold text-neutral-900">Mot de passe oublié</CardTitle>
-            <CardDescription className="text-neutral-500">
+            <CardTitle className="text-2xl font-bold text-foreground">Mot de passe oublié</CardTitle>
+            <CardDescription className="text-muted-foreground">
               {step === 'request' && 'Entrez votre email ou numéro pour recevoir un code de réinitialisation'}
               {step === 'verify' && 'Entrez le code de vérification reçu'}
               {step === 'reset' && 'Créez votre nouveau mot de passe'}
@@ -275,12 +275,12 @@ export function ForgotPasswordForm() {
                 >
                   <form onSubmit={handleRequest} className="space-y-4">
                     {/* Method toggle */}
-                    <div className="flex rounded-lg border border-neutral-200 p-1 bg-neutral-50">
+                    <div className="flex rounded-lg border border-border p-1 bg-muted">
                       <button
                         type="button"
                         onClick={() => setMethod('email')}
                         className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
-                          method === 'email' ? 'bg-white text-brand-500 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
+                          method === 'email' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
                         <Mail className="size-4" />
@@ -290,7 +290,7 @@ export function ForgotPasswordForm() {
                         type="button"
                         onClick={() => setMethod('sms')}
                         className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
-                          method === 'sms' ? 'bg-white text-brand-500 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
+                          method === 'sms' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
                       >
                         <Phone className="size-4" />
@@ -370,8 +370,8 @@ export function ForgotPasswordForm() {
                 >
                   <form onSubmit={handleVerify} className="space-y-4">
                     <div className="rounded-lg bg-brand-50 border border-brand-100 p-3 mb-2">
-                      <p className="text-xs text-neutral-600">
-                        Code envoyé à <span className="font-semibold text-neutral-800">{method === 'email' ? email : phone}</span>
+                      <p className="text-xs text-muted-foreground">
+                        Code envoyé à <span className="font-semibold text-foreground">{method === 'email' ? email : phone}</span>
                       </p>
                     </div>
 
@@ -433,7 +433,7 @@ export function ForgotPasswordForm() {
                     <button
                       type="button"
                       onClick={() => goToStep('request', -1)}
-                      className="w-full flex items-center justify-center gap-1 text-sm text-neutral-500 hover:text-neutral-700"
+                      className="w-full flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground"
                     >
                       <ArrowLeft className="size-3.5" />
                       Retour
@@ -472,7 +472,7 @@ export function ForgotPasswordForm() {
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-muted-foreground"
                           aria-label={showPassword ? 'Masquer' : 'Afficher'}
                         >
                           {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -535,7 +535,7 @@ export function ForgotPasswordForm() {
                         <button
                           type="button"
                           onClick={() => setShowConfirm(!showConfirm)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-muted-foreground"
                           aria-label={showConfirm ? 'Masquer' : 'Afficher'}
                         >
                           {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -567,7 +567,7 @@ export function ForgotPasswordForm() {
                     <button
                       type="button"
                       onClick={() => goToStep('verify', -1)}
-                      className="w-full flex items-center justify-center gap-1 text-sm text-neutral-500 hover:text-neutral-700"
+                      className="w-full flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground"
                     >
                       <ArrowLeft className="size-3.5" />
                       Retour
@@ -580,7 +580,7 @@ export function ForgotPasswordForm() {
             {/* Back to login — always visible */}
             <button
               onClick={() => setView('login')}
-              className="w-full flex items-center justify-center gap-1 text-sm text-neutral-500 hover:text-neutral-700 mt-4"
+              className="w-full flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground mt-4"
             >
               <ArrowLeft className="size-3.5" />
               Retour à la connexion

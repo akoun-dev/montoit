@@ -117,16 +117,16 @@ export function Reviews() {
     return (
       <div className="space-y-6">
         <div>
-          <div className="h-8 w-32 bg-neutral-100 animate-pulse rounded" />
-          <div className="h-4 w-56 bg-neutral-100 animate-pulse rounded mt-2" />
+          <div className="h-8 w-32 bg-muted animate-pulse rounded" />
+          <div className="h-4 w-56 bg-muted animate-pulse rounded mt-2" />
         </div>
         <div className="grid grid-cols-2 gap-4">
           {[1, 2].map((i) => (
-            <div key={i} className="h-24 rounded-xl bg-neutral-100 animate-pulse" />
+            <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
           ))}
         </div>
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-28 rounded-xl bg-neutral-100 animate-pulse" />
+          <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
         ))}
       </div>
     )
@@ -136,7 +136,7 @@ export function Reviews() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-neutral-900">Mes avis</h1>
+        <h1 className="text-2xl font-bold text-foreground">Mes avis</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos avis. Veuillez réessayer.</p>
@@ -150,28 +150,28 @@ export function Reviews() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-neutral-900">Mes avis</h1>
-        <p className="text-neutral-500 mt-1">Vos évaluations et commentaires</p>
+        <h1 className="text-2xl font-bold text-foreground">Mes avis</h1>
+        <p className="text-muted-foreground mt-1">Vos évaluations et commentaires</p>
       </motion.div>
 
       {/* Stats Cards */}
       <motion.div variants={itemVariants}>
         <div className="grid grid-cols-2 gap-4">
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardContent className="p-4 text-center">
-              <p className="text-3xl font-bold text-neutral-900">{stats?.givenCount ?? 0}</p>
-              <p className="text-xs text-neutral-500 mt-1">Avis donnés</p>
+              <p className="text-3xl font-bold text-foreground">{stats?.givenCount ?? 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Avis donnés</p>
             </CardContent>
           </Card>
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardContent className="p-4 text-center">
               <div className="flex justify-center mb-1">
                 <StarsDisplay score={Math.round(stats?.averageScoreReceived ?? 0)} size="lg" />
               </div>
-              <p className="text-2xl font-bold text-neutral-900">
+              <p className="text-2xl font-bold text-foreground">
                 {stats?.averageScoreReceived ? stats.averageScoreReceived.toFixed(1) : '—'}
               </p>
-              <p className="text-xs text-neutral-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Note moyenne ({stats?.receivedCount ?? 0} avis reçu{stats?.receivedCount !== 1 ? 's' : ''})
               </p>
             </CardContent>
@@ -187,7 +187,7 @@ export function Reviews() {
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
               activeTab === 'given'
                 ? 'bg-brand-500 text-white'
-                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
             }`}
           >
             Avis donnés ({stats?.givenCount ?? 0})
@@ -197,7 +197,7 @@ export function Reviews() {
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
               activeTab === 'received'
                 ? 'bg-brand-500 text-white'
-                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
             }`}
           >
             Avis reçus ({stats?.receivedCount ?? 0})
@@ -210,17 +210,17 @@ export function Reviews() {
         {activeRatings.length === 0 ? (
           /* Empty State */
           <motion.div key="empty" variants={itemVariants} initial="hidden" animate="show" exit="hidden">
-            <Card className="border-dashed border-neutral-300 bg-neutral-50/50">
+            <Card className="border-dashed border-border bg-muted/50">
               <CardContent className="py-12 flex flex-col items-center text-center">
                 <div className="flex size-16 items-center justify-center rounded-full bg-amber-50 mb-4">
                   <Star className="size-7 text-amber-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+                <h3 className="text-lg font-semibold text-foreground mb-1">
                   {activeTab === 'given'
                     ? "Vous n'avez pas encore donné d'avis"
                     : "Vous n'avez pas encore reçu d'avis"}
                 </h3>
-                <p className="text-sm text-neutral-500 max-w-sm">
+                <p className="text-sm text-muted-foreground max-w-sm">
                   {activeTab === 'given'
                     ? `${user?.firstName}, partagez votre expérience locative pour aider les autres locataires.`
                     : 'Les propriétaires vous évalueront après vos locations.'}
@@ -236,7 +236,7 @@ export function Reviews() {
 
               return (
                 <motion.div key={rating.id} variants={itemVariants}>
-                  <Card className="border-neutral-200">
+                  <Card className="border-border">
                     <CardContent className="p-4">
                       <div className="flex items-start gap-4">
                         {/* Avatar */}
@@ -251,22 +251,22 @@ export function Reviews() {
                         {/* Content */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 mb-1">
-                            <p className="text-sm font-semibold text-neutral-900 truncate">
+                            <p className="text-sm font-semibold text-foreground truncate">
                               {otherUser ? `${otherUser.firstName} ${otherUser.lastName}` : 'Utilisateur'}
                             </p>
-                            <span className="text-xs text-neutral-400 shrink-0">{formatDate(rating.createdAt)}</span>
+                            <span className="text-xs text-muted-foreground shrink-0">{formatDate(rating.createdAt)}</span>
                           </div>
                           <div className="flex items-center gap-2 mb-2">
                             <StarsDisplay score={rating.score} />
-                            <span className="text-xs font-medium text-neutral-500">{rating.score}/5</span>
+                            <span className="text-xs font-medium text-muted-foreground">{rating.score}/5</span>
                           </div>
                           {rating.comment && (
-                            <p className="text-sm text-neutral-600 line-clamp-3 mb-1">
+                            <p className="text-sm text-muted-foreground line-clamp-3 mb-1">
                               &ldquo;{rating.comment}&rdquo;
                             </p>
                           )}
                           {property && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-neutral-200 text-neutral-500">
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-border text-muted-foreground">
                               {property.title} — {property.city}
                             </Badge>
                           )}

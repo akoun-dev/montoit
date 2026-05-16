@@ -63,12 +63,12 @@ interface ApplicationItem {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  DRAFT: { label: 'Brouillon', color: 'bg-neutral-100 text-neutral-600', icon: FileText },
+  DRAFT: { label: 'Brouillon', color: 'bg-muted text-muted-foreground', icon: FileText },
   SUBMITTED: { label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Clock },
   TC_REVIEW: { label: 'En examen', color: 'bg-brand-50 text-brand-600 border-brand-200', icon: UserCheck },
   VALIDATED: { label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
   REJECTED: { label: 'Rejeté', color: 'bg-red-50 text-red-700 border-red-200', icon: AlertCircle },
-  EXPIRED: { label: 'Expiré', color: 'bg-neutral-50 text-neutral-500 border-neutral-200', icon: Clock },
+  EXPIRED: { label: 'Expiré', color: 'bg-muted text-muted-foreground border-border', icon: Clock },
 }
 
 const docTypeLabels: Record<string, string> = {
@@ -143,8 +143,8 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-8 w-48 bg-neutral-100 animate-pulse rounded" />
-        <div className="h-64 bg-neutral-100 animate-pulse rounded-xl" />
+        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+        <div className="h-64 bg-muted animate-pulse rounded-xl" />
       </div>
     )
   }
@@ -152,7 +152,7 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
   if (error || !application) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" onClick={onBack} className="gap-2 text-neutral-600">
+        <Button variant="ghost" onClick={onBack} className="gap-2 text-muted-foreground">
           <ArrowLeft className="size-4" /> Retour
         </Button>
         <Card className="border-amber-200 bg-amber-50">
@@ -172,15 +172,15 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
       {/* Back button */}
-      <Button variant="ghost" onClick={onBack} className="gap-2 text-neutral-600 -ml-2">
+      <Button variant="ghost" onClick={onBack} className="gap-2 text-muted-foreground -ml-2">
         <ArrowLeft className="size-4" /> Retour aux candidatures
       </Button>
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Détail de la candidature</h1>
-          <p className="text-neutral-500 mt-1 text-sm">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Détail de la candidature</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
             Créée le {formatShortDate(application.createdAt)}
           </p>
         </div>
@@ -191,9 +191,9 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
       </div>
 
       {/* Status Timeline */}
-      <Card className="border-neutral-200">
+      <Card className="border-border">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-neutral-500">Avancement</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Avancement</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -204,7 +204,7 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
                     ? 'bg-emerald-50 text-emerald-700'
                     : step.active
                       ? 'bg-brand-50 text-brand-600 ring-1 ring-brand-200'
-                      : 'bg-neutral-50 text-neutral-400'
+                      : 'bg-muted text-muted-foreground'
                 }`}>
                   {step.completed ? (
                     <CheckCircle2 className="size-3.5" />
@@ -226,16 +226,16 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
 
       {/* Property info */}
       {property && (
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-neutral-500 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Building2 className="size-4" /> Bien concerné
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-start gap-4">
               {property.images?.[0]?.url ? (
-                <div className="size-16 sm:size-20 rounded-lg bg-neutral-100 overflow-hidden shrink-0">
+                <div className="size-16 sm:size-20 rounded-lg bg-muted overflow-hidden shrink-0">
                   <img src={property.images[0].url} alt={property.title} className="size-full object-cover" />
                 </div>
               ) : (
@@ -244,8 +244,8 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
                 </div>
               )}
               <div className="min-w-0">
-                <h3 className="font-semibold text-neutral-900">{property.title}</h3>
-                <p className="text-sm text-neutral-500 flex items-center gap-1">
+                <h3 className="font-semibold text-foreground">{property.title}</h3>
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <MapPin className="size-3" /> {property.address}, {property.city}
                 </p>
                 <p className="text-sm font-semibold text-brand-600 mt-1">
@@ -254,13 +254,13 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
               </div>
             </div>
             {property.owner && (
-              <div className="mt-4 pt-3 border-t border-neutral-100 flex items-center gap-3">
-                <div className="flex size-8 items-center justify-center rounded-full bg-neutral-100">
-                  <User className="size-4 text-neutral-400" />
+              <div className="mt-4 pt-3 border-t border-border flex items-center gap-3">
+                <div className="flex size-8 items-center justify-center rounded-full bg-muted">
+                  <User className="size-4 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-neutral-700">{property.owner.firstName} {property.owner.lastName}</p>
-                  <p className="text-xs text-neutral-400">Propriétaire</p>
+                  <p className="text-sm font-medium text-foreground">{property.owner.firstName} {property.owner.lastName}</p>
+                  <p className="text-xs text-muted-foreground">Propriétaire</p>
                 </div>
               </div>
             )}
@@ -269,51 +269,51 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
       )}
 
       {/* Financial info */}
-      <Card className="border-neutral-200">
+      <Card className="border-border">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-neutral-500">Informations financières</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">Informations financières</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {application.monthlyIncome && (
-              <div className="flex justify-between text-sm p-3 rounded-lg bg-neutral-50">
-                <span className="text-neutral-500">Revenus mensuels</span>
-                <span className="font-medium text-neutral-700">{application.monthlyIncome.toLocaleString('fr-FR')} FCFA</span>
+              <div className="flex justify-between text-sm p-3 rounded-lg bg-muted">
+                <span className="text-muted-foreground">Revenus mensuels</span>
+                <span className="font-medium text-foreground">{application.monthlyIncome.toLocaleString('fr-FR')} FCFA</span>
               </div>
             )}
             {application.employer && (
-              <div className="flex justify-between text-sm p-3 rounded-lg bg-neutral-50">
-                <span className="text-neutral-500">Employeur</span>
-                <span className="font-medium text-neutral-700">{application.employer}</span>
+              <div className="flex justify-between text-sm p-3 rounded-lg bg-muted">
+                <span className="text-muted-foreground">Employeur</span>
+                <span className="font-medium text-foreground">{application.employer}</span>
               </div>
             )}
             {application.employmentType && (
-              <div className="flex justify-between text-sm p-3 rounded-lg bg-neutral-50">
-                <span className="text-neutral-500">Type d&apos;emploi</span>
-                <span className="font-medium text-neutral-700">{employmentLabels[application.employmentType] || application.employmentType}</span>
+              <div className="flex justify-between text-sm p-3 rounded-lg bg-muted">
+                <span className="text-muted-foreground">Type d&apos;emploi</span>
+                <span className="font-medium text-foreground">{employmentLabels[application.employmentType] || application.employmentType}</span>
               </div>
             )}
           </div>
 
           {/* Guarantor */}
           {application.guarantorName && (
-            <div className="mt-4 pt-3 border-t border-neutral-100">
-              <p className="text-xs text-neutral-400 mb-2 font-medium">Garant</p>
+            <div className="mt-4 pt-3 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-2 font-medium">Garant</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex justify-between text-sm p-3 rounded-lg bg-neutral-50">
-                  <span className="text-neutral-500">Nom</span>
-                  <span className="font-medium text-neutral-700">{application.guarantorName}</span>
+                <div className="flex justify-between text-sm p-3 rounded-lg bg-muted">
+                  <span className="text-muted-foreground">Nom</span>
+                  <span className="font-medium text-foreground">{application.guarantorName}</span>
                 </div>
                 {application.guarantorPhone && (
-                  <div className="flex justify-between text-sm p-3 rounded-lg bg-neutral-50">
-                    <span className="text-neutral-500">Téléphone</span>
-                    <span className="font-medium text-neutral-700">{application.guarantorPhone}</span>
+                  <div className="flex justify-between text-sm p-3 rounded-lg bg-muted">
+                    <span className="text-muted-foreground">Téléphone</span>
+                    <span className="font-medium text-foreground">{application.guarantorPhone}</span>
                   </div>
                 )}
                 {application.guarantorRelation && (
-                  <div className="flex justify-between text-sm p-3 rounded-lg bg-neutral-50">
-                    <span className="text-neutral-500">Relation</span>
-                    <span className="font-medium text-neutral-700">{application.guarantorRelation}</span>
+                  <div className="flex justify-between text-sm p-3 rounded-lg bg-muted">
+                    <span className="text-muted-foreground">Relation</span>
+                    <span className="font-medium text-foreground">{application.guarantorRelation}</span>
                   </div>
                 )}
               </div>
@@ -323,14 +323,14 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
       </Card>
 
       {/* Documents */}
-      <Card className="border-neutral-200">
+      <Card className="border-border">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-neutral-500 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <FileText className="size-4" /> Documents
             </CardTitle>
             {dp.total > 0 && (
-              <span className="text-xs text-neutral-400">
+              <span className="text-xs text-muted-foreground">
                 {dp.validated}/{dp.total} validé{dp.validated > 1 ? 's' : ''}
               </span>
             )}
@@ -338,7 +338,7 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
         </CardHeader>
         <CardContent>
           {dp.total > 0 && (
-            <div className="mb-4 h-2 bg-neutral-100 rounded-full overflow-hidden">
+            <div className="mb-4 h-2 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full bg-emerald-500 rounded-full transition-all"
                 style={{ width: `${(dp.validated / dp.total) * 100}%` }}
@@ -350,12 +350,12 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
               {application.documents.map((doc) => {
                 const docStatus = docStatusConfig[doc.status] || docStatusConfig.PENDING
                 return (
-                  <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg bg-neutral-50">
+                  <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg bg-muted">
                     <div className="flex items-center gap-3 min-w-0">
-                      <FileText className="size-4 text-neutral-400 shrink-0" />
+                      <FileText className="size-4 text-muted-foreground shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-neutral-700 truncate">{doc.name || docTypeLabels[doc.type] || doc.type}</p>
-                        <p className="text-xs text-neutral-400">{docTypeLabels[doc.type] || doc.type}</p>
+                        <p className="text-sm font-medium text-foreground truncate">{doc.name || docTypeLabels[doc.type] || doc.type}</p>
+                        <p className="text-xs text-muted-foreground">{docTypeLabels[doc.type] || doc.type}</p>
                       </div>
                     </div>
                     <Badge className={`shrink-0 text-[10px] ${docStatus.color}`}>
@@ -366,7 +366,7 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
               })}
             </div>
           ) : (
-            <p className="text-sm text-neutral-400 text-center py-4">Aucun document</p>
+            <p className="text-sm text-muted-foreground text-center py-4">Aucun document</p>
           )}
         </CardContent>
       </Card>
@@ -388,14 +388,14 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
 
       {/* TC Comment */}
       {application.tcComment && (
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-neutral-500">Commentaire du Tiers de Confiance</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Commentaire du Tiers de Confiance</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-neutral-700">{application.tcComment}</p>
+            <p className="text-sm text-foreground">{application.tcComment}</p>
             {application.reviewedBy && (
-              <p className="text-xs text-neutral-400 mt-2">
+              <p className="text-xs text-muted-foreground mt-2">
                 Par {application.reviewedBy.firstName} {application.reviewedBy.lastName}
                 {application.reviewedAt && ` — ${formatShortDate(application.reviewedAt)}`}
               </p>

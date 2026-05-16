@@ -80,7 +80,7 @@ const itemVariants = {
 
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
-    DRAFT: { label: 'Brouillon', className: 'bg-neutral-100 text-neutral-700' },
+    DRAFT: { label: 'Brouillon', className: 'bg-muted text-foreground' },
     SUBMITTED: { label: 'Soumis', className: 'bg-blue-100 text-blue-700' },
     TC_REVIEW: { label: 'En revue TC', className: 'bg-amber-100 text-amber-700' },
     VALIDATED: { label: 'Validé', className: 'bg-green-100 text-green-700' },
@@ -90,7 +90,7 @@ function StatusBadge({ status }: { status: string }) {
     COMPLETED: { label: 'Complété', className: 'bg-blue-100 text-blue-700' },
     ACTIVE: { label: 'Actif', className: 'bg-green-100 text-green-700' },
   }
-  const c = config[status] || { label: status, className: 'bg-neutral-100 text-neutral-700' }
+  const c = config[status] || { label: status, className: 'bg-muted text-foreground' }
   return <Badge className={c.className}>{c.label}</Badge>
 }
 
@@ -146,7 +146,7 @@ export function LocataireOverview() {
     return (
       <div className="space-y-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />
+          <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />
         ))}
       </div>
     )
@@ -155,7 +155,7 @@ export function LocataireOverview() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-neutral-900">Bonjour, {user?.firstName} 👋</h1>
+        <h1 className="text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos données. Veuillez réessayer.</p>
@@ -194,10 +194,10 @@ export function LocataireOverview() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Welcome */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-neutral-900">
+        <h1 className="text-2xl font-bold text-foreground">
           Bonjour, {user?.firstName} 👋
         </h1>
-        <p className="text-neutral-500 mt-1">Voici un aperçu de votre espace locataire</p>
+        <p className="text-muted-foreground mt-1">Voici un aperçu de votre espace locataire</p>
       </motion.div>
 
       {/* Trust Score Mini Card — prominent at top */}
@@ -228,12 +228,12 @@ export function LocataireOverview() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <ShieldCheck className={`size-4 ${scoreTextClass}`} />
-                    <span className="text-sm font-semibold text-neutral-900">Trust Score</span>
+                    <span className="text-sm font-semibold text-foreground">Trust Score</span>
                     <Badge className={`border text-[10px] font-semibold px-2 py-0 ${scoreBadgeClass}`}>
                       {scoring.statusLabel}
                     </Badge>
                   </div>
-                  <p className="text-xs text-neutral-500 mb-2">Score de confiance locataire</p>
+                  <p className="text-xs text-muted-foreground mb-2">Score de confiance locataire</p>
                   {/* Mini progress bars for each component */}
                   <div className="grid grid-cols-4 gap-2">
                     {[
@@ -244,8 +244,8 @@ export function LocataireOverview() {
                     ].map((comp) => (
                       <div key={comp.label}>
                         <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[9px] text-neutral-400">{comp.label}</span>
-                          <span className="text-[9px] font-semibold text-neutral-500">{comp.weight}%</span>
+                          <span className="text-[9px] text-muted-foreground">{comp.label}</span>
+                          <span className="text-[9px] font-semibold text-muted-foreground">{comp.weight}%</span>
                         </div>
                         <div className="h-1 rounded-full bg-neutral-200/60 overflow-hidden">
                           <div
@@ -269,15 +269,15 @@ export function LocataireOverview() {
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
-            <Card key={stat.label} className="border-neutral-200">
+            <Card key={stat.label} className="border-border">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className={`flex size-10 items-center justify-center rounded-lg ${stat.color}`}>
                     <Icon className="size-5" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-neutral-900">{stat.value}</p>
-                    <p className="text-xs text-neutral-500">{stat.label}</p>
+                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
                   </div>
                 </div>
               </CardContent>
@@ -290,24 +290,24 @@ export function LocataireOverview() {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Rental Files */}
         <motion.div variants={itemVariants}>
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Mes dossiers locatifs</CardTitle>
               <CardDescription>Suivi de vos dossiers</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 max-h-64 overflow-y-auto">
               {data.rentalFiles.length === 0 ? (
-                <p className="text-sm text-neutral-400 py-4 text-center">Aucun dossier pour le moment</p>
+                <p className="text-sm text-muted-foreground py-4 text-center">Aucun dossier pour le moment</p>
               ) : (
                 data.rentalFiles.map((rf) => (
-                  <div key={rf.id} className="flex items-center justify-between p-3 rounded-lg border border-neutral-100 hover:bg-neutral-50">
+                  <div key={rf.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent">
                     <div className="flex items-center gap-3">
-                      <FileText className="size-4 text-neutral-400" />
+                      <FileText className="size-4 text-muted-foreground" />
                       <div>
-                        <p className="text-sm font-medium text-neutral-900">
+                        <p className="text-sm font-medium text-foreground">
                           Dossier du {new Date(rf.createdAt).toLocaleDateString('fr-FR')}
                         </p>
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-xs text-muted-foreground">
                           {rf.documents.length} document(s)
                         </p>
                       </div>
@@ -322,22 +322,22 @@ export function LocataireOverview() {
 
         {/* Visit Requests */}
         <motion.div variants={itemVariants}>
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Demandes de visite</CardTitle>
               <CardDescription>Vos visites planifiées</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 max-h-64 overflow-y-auto">
               {data.visitRequests.length === 0 ? (
-                <p className="text-sm text-neutral-400 py-4 text-center">Aucune visite pour le moment</p>
+                <p className="text-sm text-muted-foreground py-4 text-center">Aucune visite pour le moment</p>
               ) : (
                 data.visitRequests.map((vr) => (
-                  <div key={vr.id} className="flex items-center justify-between p-3 rounded-lg border border-neutral-100 hover:bg-neutral-50">
+                  <div key={vr.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent">
                     <div className="flex items-center gap-3">
-                      <Eye className="size-4 text-neutral-400" />
+                      <Eye className="size-4 text-muted-foreground" />
                       <div>
-                        <p className="text-sm font-medium text-neutral-900">{vr.property.title}</p>
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-sm font-medium text-foreground">{vr.property.title}</p>
+                        <p className="text-xs text-muted-foreground">
                           {new Date(vr.requestedDate).toLocaleDateString('fr-FR')} — {vr.timeSlot}
                         </p>
                       </div>
@@ -354,29 +354,29 @@ export function LocataireOverview() {
       {/* Active Leases */}
       {data.activeLeases.length > 0 && (
         <motion.div variants={itemVariants}>
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Baux actifs</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {data.activeLeases.map((lease) => (
-                <div key={lease.id} className="flex items-center justify-between p-4 rounded-lg border border-neutral-100 hover:bg-neutral-50">
+                <div key={lease.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent">
                   <div className="flex items-center gap-4">
                     <div className="flex size-10 items-center justify-center rounded-lg bg-green-50">
                       <FileSignature className="size-5 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-neutral-900">{lease.property.title}</p>
-                      <p className="text-xs text-neutral-500">
+                      <p className="text-sm font-medium text-foreground">{lease.property.title}</p>
+                      <p className="text-xs text-muted-foreground">
                         Propriétaire : {lease.owner.firstName} {lease.owner.lastName}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-neutral-900">
+                    <p className="text-sm font-semibold text-foreground">
                       {lease.monthlyRent.toLocaleString('fr-FR')} FCFA/mois
                     </p>
-                    <p className="text-xs text-neutral-500">
+                    <p className="text-xs text-muted-foreground">
                       jusqu&apos;au {new Date(lease.endDate).toLocaleDateString('fr-FR')}
                     </p>
                   </div>

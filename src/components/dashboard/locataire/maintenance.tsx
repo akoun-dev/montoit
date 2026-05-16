@@ -67,11 +67,11 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   PENDING: { label: 'En attente', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Clock },
   IN_PROGRESS: { label: 'En cours', color: 'bg-brand-50 text-brand-600 border-brand-200', icon: Wrench },
   RESOLVED: { label: 'Résolu', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
-  CLOSED: { label: 'Fermé', color: 'bg-neutral-50 text-neutral-500 border-neutral-200', icon: X },
+  CLOSED: { label: 'Fermé', color: 'bg-muted text-muted-foreground border-border', icon: X },
 }
 
 const priorityConfig: Record<string, { label: string; color: string }> = {
-  LOW: { label: 'Faible', color: 'bg-neutral-50 text-neutral-500 border-neutral-200' },
+  LOW: { label: 'Faible', color: 'bg-muted text-muted-foreground border-border' },
   MEDIUM: { label: 'Moyenne', color: 'bg-amber-50 text-amber-700 border-amber-200' },
   HIGH: { label: 'Haute', color: 'bg-brand-50 text-brand-600 border-brand-200' },
   URGENT: { label: 'Urgente', color: 'bg-red-50 text-red-700 border-red-200' },
@@ -184,18 +184,18 @@ export function Maintenance() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <div className="h-8 w-32 bg-neutral-100 animate-pulse rounded" />
-            <div className="h-4 w-56 bg-neutral-100 animate-pulse rounded mt-2" />
+            <div className="h-8 w-32 bg-muted animate-pulse rounded" />
+            <div className="h-4 w-56 bg-muted animate-pulse rounded mt-2" />
           </div>
-          <div className="h-10 w-40 bg-neutral-100 animate-pulse rounded-lg" />
+          <div className="h-10 w-40 bg-muted animate-pulse rounded-lg" />
         </div>
         <div className="grid grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 rounded-xl bg-neutral-100 animate-pulse" />
+            <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />
           ))}
         </div>
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-28 rounded-xl bg-neutral-100 animate-pulse" />
+          <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
         ))}
       </div>
     )
@@ -205,7 +205,7 @@ export function Maintenance() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-neutral-900">Maintenance</h1>
+        <h1 className="text-2xl font-bold text-foreground">Maintenance</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos demandes. Veuillez réessayer.</p>
@@ -220,8 +220,8 @@ export function Maintenance() {
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Maintenance</h1>
-          <p className="text-neutral-500 mt-1">Demandes d&apos;intervention et suivi</p>
+          <h1 className="text-2xl font-bold text-foreground">Maintenance</h1>
+          <p className="text-muted-foreground mt-1">Demandes d&apos;intervention et suivi</p>
         </div>
         <Button className="bg-brand-500 hover:bg-brand-600 text-white" onClick={handleOpenDialog}>
           <Plus className="size-4 mr-2" />
@@ -232,22 +232,22 @@ export function Maintenance() {
       {/* Status Summary */}
       <motion.div variants={itemVariants}>
         <div className="grid grid-cols-3 gap-4">
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-amber-600">{pendingCount}</p>
-              <p className="text-xs text-neutral-500 mt-1">En attente</p>
+              <p className="text-xs text-muted-foreground mt-1">En attente</p>
             </CardContent>
           </Card>
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-brand-600">{inProgressCount}</p>
-              <p className="text-xs text-neutral-500 mt-1">En cours</p>
+              <p className="text-xs text-muted-foreground mt-1">En cours</p>
             </CardContent>
           </Card>
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-emerald-600">{resolvedCount}</p>
-              <p className="text-xs text-neutral-500 mt-1">Résolues</p>
+              <p className="text-xs text-muted-foreground mt-1">Résolues</p>
             </CardContent>
           </Card>
         </div>
@@ -256,15 +256,15 @@ export function Maintenance() {
       {/* Requests List or Empty State */}
       {requests.length === 0 ? (
         <motion.div variants={itemVariants}>
-          <Card className="border-dashed border-neutral-300 bg-neutral-50/50">
+          <Card className="border-dashed border-border bg-muted/50">
             <CardContent className="py-12 flex flex-col items-center text-center">
               <div className="flex size-16 items-center justify-center rounded-full bg-brand-50 mb-4">
                 <Wrench className="size-7 text-brand-500" />
               </div>
-              <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+              <h3 className="text-lg font-semibold text-foreground mb-1">
                 Aucune demande de maintenance
               </h3>
-              <p className="text-sm text-neutral-500 max-w-sm">
+              <p className="text-sm text-muted-foreground max-w-sm">
                 {user?.firstName}, signalez un problème ou demandez une intervention dans votre logement.
               </p>
               <Button
@@ -287,7 +287,7 @@ export function Maintenance() {
 
             return (
               <motion.div key={req.id} variants={itemVariants}>
-                <Card className="border-neutral-200 hover:shadow-sm transition-shadow">
+                <Card className="border-border hover:shadow-sm transition-shadow">
                   <CardContent className="p-4">
                     <div className="flex items-start gap-4">
                       {/* Icon */}
@@ -304,7 +304,7 @@ export function Maintenance() {
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <p className="text-sm font-semibold text-neutral-900 truncate">
+                          <p className="text-sm font-semibold text-foreground truncate">
                             {req.title}
                           </p>
                           <div className="flex items-center gap-1.5 shrink-0">
@@ -317,10 +317,10 @@ export function Maintenance() {
                             </Badge>
                           </div>
                         </div>
-                        <p className="text-xs text-neutral-500 line-clamp-2 mb-2">
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
                           {req.description}
                         </p>
-                        <div className="flex items-center gap-3 text-[10px] text-neutral-400">
+                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                           {property && (
                             <span>{property.title} — {property.city}</span>
                           )}

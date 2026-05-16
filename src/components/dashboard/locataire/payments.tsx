@@ -56,7 +56,7 @@ const statusConfig: Record<string, { label: string; color: string; dotColor: str
   PENDING: { label: 'En attente', color: 'bg-amber-50 text-amber-700 border-amber-200', dotColor: 'bg-amber-500' },
   LATE: { label: 'En retard', color: 'bg-red-50 text-red-700 border-red-200', dotColor: 'bg-red-500' },
   PARTIAL: { label: 'Partiel', color: 'bg-cyan-50 text-cyan-700 border-cyan-200', dotColor: 'bg-cyan-500' },
-  CANCELLED: { label: 'Annulé', color: 'bg-neutral-50 text-neutral-500 border-neutral-200', dotColor: 'bg-neutral-400' },
+  CANCELLED: { label: 'Annulé', color: 'bg-muted text-muted-foreground border-border', dotColor: 'bg-neutral-400' },
 }
 
 function formatCurrency(amount: number): string {
@@ -110,16 +110,16 @@ export function Payments({ onDetail }: PaymentsProps) {
     return (
       <div className="space-y-6">
         <div>
-          <div className="h-8 w-48 bg-neutral-100 animate-pulse rounded" />
-          <div className="h-4 w-64 bg-neutral-100 animate-pulse rounded mt-2" />
+          <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+          <div className="h-4 w-64 bg-muted animate-pulse rounded mt-2" />
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 rounded-xl bg-neutral-100 animate-pulse" />
+            <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
           ))}
         </div>
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-28 rounded-xl bg-neutral-100 animate-pulse" />
+          <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
         ))}
       </div>
     )
@@ -129,7 +129,7 @@ export function Payments({ onDetail }: PaymentsProps) {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-neutral-900">Mes Paiements</h1>
+        <h1 className="text-2xl font-bold text-foreground">Mes Paiements</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos paiements. Veuillez réessayer.</p>
@@ -143,52 +143,52 @@ export function Payments({ onDetail }: PaymentsProps) {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-neutral-900">Mes Paiements</h1>
-        <p className="text-neutral-500 mt-1">Historique et suivi de vos paiements</p>
+        <h1 className="text-2xl font-bold text-foreground">Mes Paiements</h1>
+        <p className="text-muted-foreground mt-1">Historique et suivi de vos paiements</p>
       </motion.div>
 
       {/* Stats Cards */}
       <motion.div variants={itemVariants}>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Calendar className="size-4 text-brand-500" />
-                <p className="text-xs text-neutral-500">Prochain paiement</p>
+                <p className="text-xs text-muted-foreground">Prochain paiement</p>
               </div>
-              <p className="text-lg font-bold text-neutral-900">
+              <p className="text-lg font-bold text-foreground">
                 {stats?.nextPaymentDue
                   ? formatCurrency(stats.nextPaymentDue.amount)
                   : '—'}
               </p>
               {stats?.nextPaymentDue && (
-                <p className="text-xs text-neutral-400 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Échéance {formatDate(stats.nextPaymentDue.dueDate)}
                 </p>
               )}
             </CardContent>
           </Card>
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <TrendingUp className="size-4 text-emerald-500" />
-                <p className="text-xs text-neutral-500">Total payé</p>
+                <p className="text-xs text-muted-foreground">Total payé</p>
               </div>
-              <p className="text-lg font-bold text-neutral-900">
+              <p className="text-lg font-bold text-foreground">
                 {stats?.totalPaid ? formatCurrency(stats.totalPaid) : '0 FCFA'}
               </p>
               {stats?.paidCount ? (
-                <p className="text-xs text-neutral-400 mt-0.5">{stats.paidCount} paiement{stats.paidCount > 1 ? 's' : ''}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{stats.paidCount} paiement{stats.paidCount > 1 ? 's' : ''}</p>
               ) : null}
             </CardContent>
           </Card>
-          <Card className="border-neutral-200 col-span-2 lg:col-span-1">
+          <Card className="border-border col-span-2 lg:col-span-1">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <AlertTriangle className={`size-4 ${(stats?.latePaymentsCount ?? 0) > 0 ? 'text-red-500' : 'text-neutral-300'}`} />
-                <p className="text-xs text-neutral-500">En retard</p>
+                <p className="text-xs text-muted-foreground">En retard</p>
               </div>
-              <p className={`text-lg font-bold ${(stats?.latePaymentsCount ?? 0) > 0 ? 'text-red-600' : 'text-neutral-900'}`}>
+              <p className={`text-lg font-bold ${(stats?.latePaymentsCount ?? 0) > 0 ? 'text-red-600' : 'text-foreground'}`}>
                 {stats?.latePaymentsCount ?? 0}
               </p>
             </CardContent>
@@ -199,15 +199,15 @@ export function Payments({ onDetail }: PaymentsProps) {
       {/* Payments List or Empty State */}
       {payments.length === 0 ? (
         <motion.div variants={itemVariants}>
-          <Card className="border-dashed border-neutral-300 bg-neutral-50/50">
+          <Card className="border-dashed border-border bg-muted/50">
             <CardContent className="py-12 flex flex-col items-center text-center">
               <div className="flex size-16 items-center justify-center rounded-full bg-brand-50 mb-4">
                 <CreditCard className="size-7 text-brand-500" />
               </div>
-              <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+              <h3 className="text-lg font-semibold text-foreground mb-1">
                 Aucun paiement enregistré
               </h3>
-              <p className="text-sm text-neutral-500 max-w-sm">
+              <p className="text-sm text-muted-foreground max-w-sm">
                 {user?.firstName}, vos paiements de loyer apparaîtront ici une fois votre bail actif.
               </p>
             </CardContent>
@@ -222,7 +222,7 @@ export function Payments({ onDetail }: PaymentsProps) {
             return (
               <motion.div key={payment.id} variants={itemVariants}>
                 <Card
-                  className="border-neutral-200 hover:shadow-sm transition-shadow cursor-pointer"
+                  className="border-border hover:shadow-sm transition-shadow cursor-pointer"
                   onClick={() => onDetail(payment.id)}
                 >
                   <CardContent className="p-4">
@@ -235,7 +235,7 @@ export function Payments({ onDetail }: PaymentsProps) {
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <p className="text-sm font-semibold text-neutral-900 truncate">
+                          <p className="text-sm font-semibold text-foreground truncate">
                             {property?.title || 'Loyer'}
                           </p>
                           <Badge variant="outline" className={`shrink-0 text-[10px] px-2 py-0.5 border ${config.color}`}>
@@ -243,14 +243,14 @@ export function Payments({ onDetail }: PaymentsProps) {
                             {config.label}
                           </Badge>
                         </div>
-                        <p className="text-xs text-neutral-500 mb-2 truncate">
+                        <p className="text-xs text-muted-foreground mb-2 truncate">
                           {property?.address}, {property?.city}
                         </p>
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-bold text-neutral-900">
+                          <p className="text-sm font-bold text-foreground">
                             {formatCurrency(payment.amount)}
                           </p>
-                          <div className="flex items-center gap-2 text-xs text-neutral-400">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <span>Échéance : {formatDate(payment.dueDate)}</span>
                             <ChevronRight className="size-3.5 text-neutral-300" />
                           </div>

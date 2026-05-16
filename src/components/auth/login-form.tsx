@@ -60,14 +60,14 @@ export function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 py-8 sm:py-12">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 sm:py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className="w-full max-w-md"
       >
-        <Card className="border-neutral-200 shadow-base">
+        <Card className="border-border shadow-base">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto mb-4">
               <Image
@@ -79,8 +79,8 @@ export function LoginForm() {
                 priority
               />
             </div>
-            <CardTitle className="text-2xl font-bold text-neutral-900">Connexion</CardTitle>
-            <CardDescription className="text-neutral-500">
+            <CardTitle className="text-2xl font-bold text-foreground">Connexion</CardTitle>
+            <CardDescription className="text-muted-foreground">
               {method === 'email'
                 ? 'Entrez vos identifiants pour accéder à votre compte'
                 : 'Recevez un code OTP par SMS sur votre téléphone'}
@@ -88,14 +88,14 @@ export function LoginForm() {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Method toggle */}
-            <div className="flex rounded-lg border border-neutral-200 p-1 bg-neutral-50">
+            <div className="flex rounded-lg border border-border p-1 bg-muted">
               <button
                 type="button"
                 onClick={() => setMethod('email')}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
                   method === 'email'
-                    ? 'bg-white text-brand-500 shadow-sm'
-                    : 'text-neutral-500 hover:text-neutral-700'
+                    ? 'bg-background text-brand-500 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Mail className="size-4" />
@@ -106,8 +106,8 @@ export function LoginForm() {
                 onClick={() => setMethod('sms')}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
                   method === 'sms'
-                    ? 'bg-white text-brand-500 shadow-sm'
-                    : 'text-neutral-500 hover:text-neutral-700'
+                    ? 'bg-background text-brand-500 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <MessageSquare className="size-4" />
@@ -161,7 +161,7 @@ export function LoginForm() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-muted-foreground"
                       aria-label={showPassword ? 'Masquer' : 'Afficher'}
                     >
                       {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -176,7 +176,7 @@ export function LoginForm() {
                     onCheckedChange={(checked) => setRememberMe(checked === true)}
                     className="data-[state=checked]:bg-brand-500 data-[state=checked]:border-brand-500"
                   />
-                  <Label htmlFor="remember-me" className="text-sm text-neutral-600 cursor-pointer">
+                  <Label htmlFor="remember-me" className="text-sm text-muted-foreground cursor-pointer">
                     Se souvenir de moi
                   </Label>
                 </div>
@@ -256,7 +256,7 @@ export function LoginForm() {
             {/* Back to home */}
             <button
               onClick={() => setView('home')}
-              className="w-full text-center text-sm text-neutral-500 hover:text-neutral-700"
+              className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
             >
               ← Retour à l&apos;accueil
             </button>

@@ -59,12 +59,12 @@ interface ApplicationsResponse {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  DRAFT: { label: 'Brouillon', color: 'bg-neutral-100 text-neutral-600', icon: FileText },
+  DRAFT: { label: 'Brouillon', color: 'bg-muted text-muted-foreground', icon: FileText },
   SUBMITTED: { label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Clock },
   TC_REVIEW: { label: 'En examen', color: 'bg-brand-50 text-brand-600 border-brand-200', icon: UserCheck },
   VALIDATED: { label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
   REJECTED: { label: 'Rejeté', color: 'bg-red-50 text-red-700 border-red-200', icon: AlertCircle },
-  EXPIRED: { label: 'Expiré', color: 'bg-neutral-50 text-neutral-500 border-neutral-200', icon: Clock },
+  EXPIRED: { label: 'Expiré', color: 'bg-muted text-muted-foreground border-border', icon: Clock },
 }
 
 function formatDate(dateStr: string): string {
@@ -118,11 +118,11 @@ export function Applications({ onDetail }: ApplicationsProps) {
     return (
       <div className="space-y-6">
         <div>
-          <div className="h-8 w-48 bg-neutral-100 animate-pulse rounded" />
-          <div className="h-4 w-56 bg-neutral-100 animate-pulse rounded mt-2" />
+          <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+          <div className="h-4 w-56 bg-muted animate-pulse rounded mt-2" />
         </div>
         {[1, 2].map((i) => (
-          <div key={i} className="h-48 rounded-xl bg-neutral-100 animate-pulse" />
+          <div key={i} className="h-48 rounded-xl bg-muted animate-pulse" />
         ))}
       </div>
     )
@@ -132,7 +132,7 @@ export function Applications({ onDetail }: ApplicationsProps) {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-neutral-900">Mes Candidatures</h1>
+        <h1 className="text-2xl font-bold text-foreground">Mes Candidatures</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos candidatures. Veuillez réessayer.</p>
@@ -146,23 +146,23 @@ export function Applications({ onDetail }: ApplicationsProps) {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-neutral-900">Mes Candidatures</h1>
-        <p className="text-neutral-500 mt-1">Suivez vos candidatures de location</p>
+        <h1 className="text-2xl font-bold text-foreground">Mes Candidatures</h1>
+        <p className="text-muted-foreground mt-1">Suivez vos candidatures de location</p>
       </motion.div>
 
       {applications.length === 0 ? (
         /* Empty State */
         <>
           <motion.div variants={itemVariants}>
-            <Card className="border-dashed border-neutral-300 bg-neutral-50/50">
+            <Card className="border-dashed border-border bg-muted/50">
               <CardContent className="py-12 flex flex-col items-center text-center">
                 <div className="flex size-16 items-center justify-center rounded-full bg-brand-50 mb-4">
                   <UserCheck className="size-7 text-brand-500" />
                 </div>
-                <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+                <h3 className="text-lg font-semibold text-foreground mb-1">
                   Aucune candidature en cours
                 </h3>
-                <p className="text-sm text-neutral-500 mb-4 max-w-sm">
+                <p className="text-sm text-muted-foreground mb-4 max-w-sm">
                   {user?.firstName}, créez votre dossier locatif pour postuler aux logements.
                 </p>
                 <Button
@@ -178,9 +178,9 @@ export function Applications({ onDetail }: ApplicationsProps) {
 
           {/* How it works */}
           <motion.div variants={itemVariants}>
-            <Card className="border-neutral-200">
+            <Card className="border-border">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-neutral-700 flex items-center gap-2">
+                <CardTitle className="text-sm font-medium text-foreground flex items-center gap-2">
                   <UserCheck className="size-4 text-brand-500" />
                   Comment ça marche ?
                 </CardTitle>
@@ -195,7 +195,7 @@ export function Applications({ onDetail }: ApplicationsProps) {
                     <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white text-xs font-bold">
                       {i + 1}
                     </div>
-                    <p className="text-sm text-neutral-600">{text}</p>
+                    <p className="text-sm text-muted-foreground">{text}</p>
                   </div>
                 ))}
               </CardContent>
@@ -214,13 +214,13 @@ export function Applications({ onDetail }: ApplicationsProps) {
             return (
               <motion.div key={app.id} variants={itemVariants}>
                 <Card
-                  className="border-neutral-200 hover:shadow-sm transition-shadow cursor-pointer"
+                  className="border-border hover:shadow-sm transition-shadow cursor-pointer"
                   onClick={() => onDetail(app.id)}
                 >
                   <CardContent className="p-4 sm:p-5">
                     <div className="flex items-start gap-3 sm:gap-4">
                       {/* Property image or icon */}
-                      <div className="size-12 sm:size-14 shrink-0 rounded-lg overflow-hidden bg-neutral-100 flex items-center justify-center">
+                      <div className="size-12 sm:size-14 shrink-0 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
                         {property?.images?.[0]?.url ? (
                           <img src={property.images[0].url} alt="" className="size-full object-cover" />
                         ) : (
@@ -232,7 +232,7 @@ export function Applications({ onDetail }: ApplicationsProps) {
                       <div className="flex-1 min-w-0">
                         {/* Top row: title + status */}
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <p className="text-sm font-semibold text-neutral-900 truncate">
+                          <p className="text-sm font-semibold text-foreground truncate">
                             {property?.title || 'Candidature'}
                           </p>
                           <Badge variant="outline" className={`shrink-0 text-[10px] px-2 py-0.5 border ${config.color}`}>
@@ -242,7 +242,7 @@ export function Applications({ onDetail }: ApplicationsProps) {
                         </div>
 
                         {property && (
-                          <p className="text-xs text-neutral-500 mb-2 truncate">
+                          <p className="text-xs text-muted-foreground mb-2 truncate">
                             {property.address}, {property.city}
                           </p>
                         )}
@@ -256,7 +256,7 @@ export function Applications({ onDetail }: ApplicationsProps) {
                                   ? 'bg-emerald-50 text-emerald-700'
                                   : step.active
                                     ? 'bg-brand-50 text-brand-600 ring-1 ring-brand-200'
-                                    : 'bg-neutral-50 text-neutral-400'
+                                    : 'bg-muted text-muted-foreground'
                               }`}>
                                 {step.completed ? (
                                   <CheckCircle2 className="size-3" />
@@ -276,9 +276,9 @@ export function Applications({ onDetail }: ApplicationsProps) {
 
                         {/* Document Progress */}
                         {dp.total > 0 && (
-                          <div className="flex items-center gap-3 text-xs text-neutral-500">
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span className="hidden sm:inline">Documents :</span>
-                            <div className="flex-1 max-w-[160px] sm:max-w-[200px] h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+                            <div className="flex-1 max-w-[160px] sm:max-w-[200px] h-1.5 bg-muted rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-emerald-500 rounded-full transition-all"
                                 style={{ width: `${dp.total > 0 ? (dp.validated / dp.total) * 100 : 0}%` }}
@@ -307,7 +307,7 @@ export function Applications({ onDetail }: ApplicationsProps) {
 
                     {/* Edit button for DRAFT */}
                     {app.status === 'DRAFT' && (
-                      <div className="mt-3 pt-3 border-t border-neutral-100 flex justify-end">
+                      <div className="mt-3 pt-3 border-t border-border flex justify-end">
                         <Button
                           variant="outline"
                           size="sm"

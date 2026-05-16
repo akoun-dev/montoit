@@ -46,7 +46,7 @@ export function OwnerValidations() {
     fetchData()
   }, [fetchData])
 
-  if (loading) return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
+  if (loading) return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 
   const typeLabels: Record<string, string> = {
     TITRE_FONCIER: 'Titre foncier',
@@ -59,34 +59,34 @@ export function OwnerValidations() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Validations propriétaires</h1>
-        <p className="text-neutral-500 mt-1">Vérifiez les documents de propriété</p>
+        <h1 className="text-2xl font-bold text-foreground">Validations propriétaires</h1>
+        <p className="text-muted-foreground mt-1">Vérifiez les documents de propriété</p>
       </div>
 
       {docs.length === 0 ? (
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardContent className="py-12 text-center">
-            <BadgeCheck className="size-12 text-neutral-300 mx-auto mb-4" />
-            <p className="text-neutral-500">Aucun document en attente de validation</p>
+            <BadgeCheck className="size-12 text-muted-foreground/50 mx-auto mb-4" />
+            <p className="text-muted-foreground">Aucun document en attente de validation</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
           {docs.map((doc) => (
-            <Card key={doc.id} className="border-neutral-200">
+            <Card key={doc.id} className="border-border">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="font-semibold text-neutral-900">{doc.owner.firstName} {doc.owner.lastName}</h3>
-                    <p className="text-sm text-neutral-500">{doc.owner.phone}</p>
+                    <h3 className="font-semibold text-foreground">{doc.owner.firstName} {doc.owner.lastName}</h3>
+                    <p className="text-sm text-muted-foreground">{doc.owner.phone}</p>
                   </div>
                   <Badge variant="outline">{typeLabels[doc.type] || doc.type}</Badge>
                 </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-neutral-50 mb-3">
-                  <FileText className="size-5 text-neutral-400" />
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted mb-3">
+                  <FileText className="size-5 text-muted-foreground" />
                   <div>
                     <p className="text-sm font-medium">{doc.name}</p>
-                    <p className="text-xs text-neutral-500">Soumis le {new Date(doc.createdAt).toLocaleDateString('fr-FR')}</p>
+                    <p className="text-xs text-muted-foreground">Soumis le {new Date(doc.createdAt).toLocaleDateString('fr-FR')}</p>
                   </div>
                 </div>
                 <div className="flex gap-2">

@@ -97,19 +97,19 @@ export function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4, ease: 'easeOut' }}
-          className="bg-white rounded-xl shadow-lg p-3 sm:p-4 max-w-4xl mx-auto"
+          className="bg-card rounded-xl shadow-lg p-3 sm:p-4 max-w-4xl mx-auto"
         >
           <div className="flex flex-col sm:flex-row gap-3 items-stretch">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 placeholder="Rechercher un bien..."
-                className="pl-9 h-11 bg-neutral-50 border-neutral-200 focus-visible:border-brand-500 focus-visible:ring-brand-500/30"
+                className="pl-9 h-11 bg-muted border-border focus-visible:border-brand-500 focus-visible:ring-brand-500/30"
               />
             </div>
             <Select>
-              <SelectTrigger className="h-11 w-full sm:w-[180px] bg-neutral-50 border-neutral-200">
-                <MapPin className="size-4 text-neutral-400 mr-1" />
+              <SelectTrigger className="h-11 w-full sm:w-[180px] bg-muted border-border">
+                <MapPin className="size-4 text-muted-foreground mr-1" />
                 <SelectValue placeholder="Ville, Commune" />
               </SelectTrigger>
               <SelectContent>
@@ -119,8 +119,8 @@ export function Hero() {
               </SelectContent>
             </Select>
             <Select>
-              <SelectTrigger className="h-11 w-full sm:w-[200px] bg-neutral-50 border-neutral-200">
-                <Building2 className="size-4 text-neutral-400 mr-1" />
+              <SelectTrigger className="h-11 w-full sm:w-[200px] bg-muted border-border">
+                <Building2 className="size-4 text-muted-foreground mr-1" />
                 <SelectValue placeholder="Type de bien" />
               </SelectTrigger>
               <SelectContent>

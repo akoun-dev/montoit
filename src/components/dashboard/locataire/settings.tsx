@@ -132,11 +132,11 @@ function ScoreCircle({ score, statusColor, size = 'md' }: { score: number; statu
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={`font-bold text-neutral-900 ${size === 'lg' ? 'text-3xl' : size === 'md' ? 'text-lg' : 'text-xs'}`}>
+        <span className={`font-bold text-foreground ${size === 'lg' ? 'text-3xl' : size === 'md' ? 'text-lg' : 'text-xs'}`}>
           {score}
         </span>
         {size !== 'sm' && (
-          <span className="text-[9px] font-medium text-neutral-400 uppercase tracking-wider">/100</span>
+          <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">/100</span>
         )}
       </div>
     </div>
@@ -172,23 +172,23 @@ function ScoreComponentCard({
   const barColor = isComplete ? 'bg-emerald-500' : score > 0 ? 'bg-amber-400' : 'bg-neutral-200'
 
   return (
-    <Card className="border-neutral-200 hover:border-neutral-300 transition-colors">
+    <Card className="border-border hover:border-border transition-colors">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
-            isComplete ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-400'
+            isComplete ? 'bg-emerald-50 text-emerald-600' : 'bg-muted text-muted-foreground'
           }`}>
             <Icon className="size-4" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-semibold text-neutral-900">{label}</span>
-              <span className={`text-xs font-bold ${isComplete ? 'text-emerald-600' : 'text-neutral-400'}`}>
+              <span className="text-sm font-semibold text-foreground">{label}</span>
+              <span className={`text-xs font-bold ${isComplete ? 'text-emerald-600' : 'text-muted-foreground'}`}>
                 {score}/{max} pts
               </span>
             </div>
-            <p className="text-[11px] text-neutral-500 mb-2">{details}</p>
-            <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden mb-2">
+            <p className="text-[11px] text-muted-foreground mb-2">{details}</p>
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-2">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${percentage}%` }}
@@ -212,7 +212,7 @@ function ScoreComponentCard({
                   <><XCircle className="size-3 mr-0.5" /> Non complété</>
                 )}
               </Badge>
-              <span className="text-[10px] font-medium text-neutral-400">Poids : {weight}%</span>
+              <span className="text-[10px] font-medium text-muted-foreground">Poids : {weight}%</span>
             </div>
             {actionLabel && onAction && !isComplete && (
               <Button
@@ -241,16 +241,16 @@ function ProfileFieldRow({ label, value, isFilled, fieldName }: {
   fieldName: string
 }) {
   return (
-    <div className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-neutral-50 transition-colors">
+    <div className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-accent transition-colors">
       <div className="flex items-center gap-2">
         {isFilled ? (
           <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
         ) : (
           <XCircle className="size-4 text-red-300 shrink-0" />
         )}
-        <span className="text-xs text-neutral-600">{label}</span>
+        <span className="text-xs text-muted-foreground">{label}</span>
       </div>
-      <span className={`text-xs font-medium ${isFilled ? 'text-neutral-800' : 'text-red-400'}`}>
+      <span className={`text-xs font-medium ${isFilled ? 'text-foreground' : 'text-red-400'}`}>
         {isFilled ? (value || '✓') : 'Non renseigné'}
       </span>
     </div>
@@ -478,7 +478,7 @@ function KycVerificationModal({
           {/* Step 1: Upload ID card */}
           {(kycStep === 'idle' || kycStep === 'uploading') && (
             <div className="space-y-3">
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-muted-foreground">
                 Téléchargez une photo de votre pièce d&apos;identité (recto avec votre photo). KYC comparera votre visage en direct avec la photo du document.
               </p>
 
@@ -488,7 +488,7 @@ function KycVerificationModal({
                 className={`relative cursor-pointer rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
                   kycDocImage
                     ? 'border-brand-300 bg-brand-50/30'
-                    : 'border-neutral-300 hover:border-brand-400 hover:bg-brand-50/20'
+                    : 'border-border hover:border-brand-400 hover:bg-brand-50/20'
                 }`}
               >
                 {kycDocImage ? (
@@ -498,15 +498,15 @@ function KycVerificationModal({
                       alt="Aperçu du document"
                       className="mx-auto max-h-40 rounded-lg object-contain"
                     />
-                    <p className="text-xs text-neutral-500">Cliquer pour changer</p>
+                    <p className="text-xs text-muted-foreground">Cliquer pour changer</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-neutral-100">
-                      <CreditCard className="size-5 text-neutral-400" />
+                    <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-muted">
+                      <CreditCard className="size-5 text-muted-foreground" />
                     </div>
-                    <p className="text-sm font-medium text-neutral-700">Télécharger le recto de votre CNI</p>
-                    <p className="text-[11px] text-neutral-400">JPG, PNG — max 10 Mo</p>
+                    <p className="text-sm font-medium text-foreground">Télécharger le recto de votre CNI</p>
+                    <p className="text-[11px] text-muted-foreground">JPG, PNG — max 10 Mo</p>
                   </div>
                 )}
               </div>
@@ -520,7 +520,7 @@ function KycVerificationModal({
               />
 
               {kycStep === 'uploading' && (
-                <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="size-4 animate-spin" />
                   Envoi du document en cours...
                 </div>
@@ -551,7 +551,7 @@ function KycVerificationModal({
               <Button
                 onClick={handleKycReset}
                 variant="outline"
-                className="w-full h-9 text-xs border-neutral-200"
+                className="w-full h-9 text-xs border-border"
               >
                 <RefreshCw className="size-3.5 mr-1.5" />
                 Recommencer
@@ -562,14 +562,14 @@ function KycVerificationModal({
           {/* Step 3: Polling / Verifying */}
           {kycStep === 'verifying' && (
             <div className="space-y-3">
-              <div className="flex flex-col items-center gap-3 p-4 rounded-xl bg-neutral-50 border border-neutral-200">
+              <div className="flex flex-col items-center gap-3 p-4 rounded-xl bg-muted border border-border">
                 <Loader2 className="size-8 animate-spin text-brand-500" />
                 <div className="text-center">
-                  <p className="text-sm font-semibold text-neutral-700">Vérification en cours...</p>
-                  <p className="text-[11px] text-neutral-500 mt-1">
+                  <p className="text-sm font-semibold text-foreground">Vérification en cours...</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">
                     Prenez votre selfie dans la fenêtre ouverte. Nous vérifions le résultat automatiquement.
                   </p>
-                  <p className="text-[10px] text-neutral-400 mt-2">
+                  <p className="text-[10px] text-muted-foreground mt-2">
                     Tentative {kycPollCount}/40
                   </p>
                 </div>
@@ -587,7 +587,7 @@ function KycVerificationModal({
                 <Button
                   onClick={handleKycReset}
                   variant="outline"
-                  className="flex-1 h-9 text-xs border-neutral-200"
+                  className="flex-1 h-9 text-xs border-border"
                 >
                   <XCircle className="size-3.5 mr-1.5" />
                   Annuler
@@ -1047,10 +1047,10 @@ export function SettingsSection() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-8 w-48 bg-neutral-100 rounded-lg animate-pulse" />
+        <div className="h-8 w-48 bg-muted rounded-lg animate-pulse" />
         <div className="grid gap-4 sm:grid-cols-2">
           {[1, 2].map((i) => (
-            <div key={i} className="h-48 bg-neutral-100 rounded-xl animate-pulse" />
+            <div key={i} className="h-48 bg-muted rounded-xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -1063,7 +1063,7 @@ export function SettingsSection() {
       : scoring.statusColor === 'amber'
         ? 'bg-amber-50 text-amber-700 border-amber-200'
         : 'bg-red-50 text-red-700 border-red-200'
-    : 'bg-neutral-50 text-neutral-500 border-neutral-200'
+    : 'bg-muted text-muted-foreground border-border'
 
   // Scoring tab navigation items
   const tabs = [
@@ -1077,13 +1077,13 @@ export function SettingsSection() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-neutral-900">Paramètres</h1>
-        <p className="text-neutral-500 mt-1">Gérez votre compte et vos préférences</p>
+        <h1 className="text-2xl font-bold text-foreground">Paramètres</h1>
+        <p className="text-muted-foreground mt-1">Gérez votre compte et vos préférences</p>
       </motion.div>
 
       {/* User Info Card with integrated scoring */}
       <motion.div variants={itemVariants}>
-        <Card className="border-neutral-200 overflow-hidden">
+        <Card className="border-border overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               {/* Avatar — clickable to upload */}
@@ -1136,15 +1136,15 @@ export function SettingsSection() {
                 />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold text-neutral-900 truncate">
+                <h3 className="text-lg font-semibold text-foreground truncate">
                   {profile?.firstName || user?.firstName} {profile?.lastName || user?.lastName}
                 </h3>
                 <div className="space-y-1 mt-1.5">
-                  <div className="flex items-center gap-2 text-sm text-neutral-500">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Mail className="size-3.5 shrink-0" />
                     <span className="truncate">{profile?.email || user?.email || 'Non renseigné'}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-neutral-500">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Phone className="size-3.5 shrink-0" />
                     <span>{profile?.phone || user?.phone || 'Non renseigné'}</span>
                   </div>
@@ -1157,7 +1157,7 @@ export function SettingsSection() {
                   className="flex flex-col items-center gap-1 shrink-0 group"
                 >
                   <ScoreCircle score={scoring.score} statusColor={scoring.statusColor} size="md" />
-                  <span className="text-[9px] font-medium text-neutral-400 group-hover:text-brand-500 transition-colors">
+                  <span className="text-[9px] font-medium text-muted-foreground group-hover:text-brand-500 transition-colors">
                     Trust Score
                   </span>
                 </button>
@@ -1169,7 +1169,7 @@ export function SettingsSection() {
 
       {/* Tab Navigation */}
       <motion.div variants={itemVariants}>
-        <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl">
+        <div className="flex gap-1 p-1 bg-muted rounded-xl">
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
@@ -1179,8 +1179,8 @@ export function SettingsSection() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex-1 justify-center ${
                   isActive
-                    ? 'bg-white text-brand-600 shadow-sm'
-                    : 'text-neutral-500 hover:text-neutral-700'
+                    ? 'bg-card text-brand-600 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Icon className="size-4" />
@@ -1210,12 +1210,12 @@ export function SettingsSection() {
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-semibold text-neutral-900">Complétion du profil</span>
+                        <span className="text-sm font-semibold text-foreground">Complétion du profil</span>
                         <Badge className={`border text-[10px] font-semibold px-2 py-0 ${statusBadgeClass}`}>
                           {scoring.statusLabel}
                         </Badge>
                       </div>
-                      <p className="text-xs text-neutral-500 mb-3">
+                      <p className="text-xs text-muted-foreground mb-3">
                         {scoring.breakdown.profile.score}/{scoring.breakdown.profile.max} points — Remplissez tous les champs pour maximiser votre score
                       </p>
                       <Progress
@@ -1236,7 +1236,7 @@ export function SettingsSection() {
             )}
 
             {/* Profile Form */}
-            <Card className="border-neutral-200">
+            <Card className="border-border">
               <CardHeader className="pb-4">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <User className="size-4 text-brand-500" />
@@ -1248,7 +1248,7 @@ export function SettingsSection() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   {/* First Name */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="firstName" className="text-xs font-medium text-neutral-700">
+                    <Label htmlFor="firstName" className="text-xs font-medium text-foreground">
                       Prénom <span className="text-red-400">*</span>
                     </Label>
                     <Input
@@ -1261,7 +1261,7 @@ export function SettingsSection() {
                   </div>
                   {/* Last Name */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="lastName" className="text-xs font-medium text-neutral-700">
+                    <Label htmlFor="lastName" className="text-xs font-medium text-foreground">
                       Nom <span className="text-red-400">*</span>
                     </Label>
                     <Input
@@ -1277,7 +1277,7 @@ export function SettingsSection() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   {/* Phone */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="phone" className="text-xs font-medium text-neutral-700 flex items-center gap-1.5">
+                    <Label htmlFor="phone" className="text-xs font-medium text-foreground flex items-center gap-1.5">
                       <Phone className="size-3" /> Téléphone
                       {profile?.isPhoneVerified && (
                         <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1 py-0 border">
@@ -1295,7 +1295,7 @@ export function SettingsSection() {
                   </div>
                   {/* Gender */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-neutral-700 flex items-center gap-1.5">
+                    <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
                       <Users className="size-3" /> Genre
                     </Label>
                     <Select
@@ -1318,7 +1318,7 @@ export function SettingsSection() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   {/* City */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="city" className="text-xs font-medium text-neutral-700 flex items-center gap-1.5">
+                    <Label htmlFor="city" className="text-xs font-medium text-foreground flex items-center gap-1.5">
                       <MapPin className="size-3" /> Ville
                     </Label>
                     <Input
@@ -1336,7 +1336,7 @@ export function SettingsSection() {
                   <Separator className="mb-4" />
                   <div className="flex items-center gap-2 mb-3">
                     <CreditCard className="size-4 text-brand-500" />
-                    <span className="text-sm font-semibold text-neutral-900">Vérification d&apos;identité ONECI</span>
+                    <span className="text-sm font-semibold text-foreground">Vérification d&apos;identité ONECI</span>
                     {profile?.oneciVerified ? (
                       <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0 border font-semibold">
                         <CheckCircle2 className="size-3 mr-0.5" /> Vérifié
@@ -1347,14 +1347,14 @@ export function SettingsSection() {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs text-neutral-500 mb-4">
+                  <p className="text-xs text-muted-foreground mb-4">
                     Renseignez votre NNI et date de naissance pour vérifier votre carte d&apos;identité nationale auprès de l&apos;ONECI.
                   </p>
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     {/* NNI */}
                     <div className="space-y-1.5">
-                      <Label htmlFor="nni" className="text-xs font-medium text-neutral-700 flex items-center gap-1.5">
+                      <Label htmlFor="nni" className="text-xs font-medium text-foreground flex items-center gap-1.5">
                         NNI
                         {(profile?.oneciVerified || profile?.neofaceVerified) && (
                           <CheckCircle2 className="size-3 text-emerald-500" />
@@ -1372,11 +1372,11 @@ export function SettingsSection() {
                         disabled={profile?.oneciVerified || profile?.neofaceVerified || oneciVerifying}
                         maxLength={11}
                       />
-                      <p className="text-[10px] text-neutral-400">10 à 11 chiffres — requis pour la vérification ONECI</p>
+                      <p className="text-[10px] text-muted-foreground">10 à 11 chiffres — requis pour la vérification ONECI</p>
                     </div>
                     {/* Birth Date */}
                     <div className="space-y-1.5">
-                      <Label htmlFor="birthDate" className="text-xs font-medium text-neutral-700">
+                      <Label htmlFor="birthDate" className="text-xs font-medium text-foreground">
                         Date de naissance
                         {profile?.oneciVerified && (
                           <CheckCircle2 className="size-3 text-emerald-500 ml-1 inline" />
@@ -1415,7 +1415,7 @@ export function SettingsSection() {
                             {oneciResult.message}
                           </p>
                           {oneciResult.details && (
-                            <p className="text-[11px] text-neutral-500 mt-0.5">{oneciResult.details}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{oneciResult.details}</p>
                           )}
                         </div>
                       </div>
@@ -1447,7 +1447,7 @@ export function SettingsSection() {
 
                 {/* Email (read-only) */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-neutral-700 flex items-center gap-1.5">
+                  <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
                     <Mail className="size-3" /> Email
                     {profile?.isEmailVerified && (
                       <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1 py-0 border">
@@ -1458,9 +1458,9 @@ export function SettingsSection() {
                   <Input
                     value={profile?.email || user?.email || ''}
                     disabled
-                    className="h-9 text-sm bg-neutral-50 text-neutral-500"
+                    className="h-9 text-sm bg-muted text-muted-foreground"
                   />
-                  <p className="text-[10px] text-neutral-400">L&apos;email ne peut pas être modifié. Contactez le support si nécessaire.</p>
+                  <p className="text-[10px] text-muted-foreground">L&apos;email ne peut pas être modifié. Contactez le support si nécessaire.</p>
                 </div>
 
                 {/* Error / Success messages */}
@@ -1505,7 +1505,7 @@ export function SettingsSection() {
             className="space-y-6"
           >
             {/* Score Overview */}
-            <Card className="border-neutral-200 overflow-hidden">
+            <Card className="border-border overflow-hidden">
               <CardContent className="p-6">
                 <div className="flex items-center gap-6">
                   <ScoreCircle score={scoring.score} statusColor={scoring.statusColor} size="lg" />
@@ -1522,7 +1522,7 @@ export function SettingsSection() {
                         {scoring.statusLabel}
                       </Badge>
                     </div>
-                    <p className="text-sm text-neutral-600">
+                    <p className="text-sm text-muted-foreground">
                       Votre Trust Score reflète votre fiabilité en tant que locataire. Plus votre score est élevé, plus vos candidatures seront favorisées.
                     </p>
                   </div>
@@ -1579,7 +1579,7 @@ export function SettingsSection() {
             </div>
 
             {/* Profile field detail breakdown */}
-            <Card className="border-neutral-200">
+            <Card className="border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <User className="size-4 text-brand-500" />
@@ -1626,7 +1626,7 @@ export function SettingsSection() {
 
             {/* Recommendations */}
             {scoring.recommendations.length > 0 && (
-              <Card className="border-neutral-200">
+              <Card className="border-border">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <Lightbulb className="size-4 text-amber-500" />
@@ -1637,7 +1637,7 @@ export function SettingsSection() {
                   {scoring.recommendations.map((rec) => (
                     <div
                       key={rec.id}
-                      className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 border border-neutral-100"
+                      className="flex items-center gap-3 p-3 rounded-xl bg-muted border border-border"
                     >
                       <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
                         rec.id === 'profile'
@@ -1655,12 +1655,12 @@ export function SettingsSection() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-neutral-900">{rec.title}</span>
+                          <span className="text-sm font-semibold text-foreground">{rec.title}</span>
                           <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] px-1.5 py-0 border font-semibold">
                             +{rec.impact}%
                           </Badge>
                         </div>
-                        <p className="text-xs text-neutral-500 mt-0.5">{rec.description}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{rec.description}</p>
                       </div>
                       <Button
                         size="sm"
@@ -1683,7 +1683,7 @@ export function SettingsSection() {
             )}
 
             {/* How it works */}
-            <Card className="border-neutral-200">
+            <Card className="border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <Info className="size-4 text-brand-500" />
@@ -1691,7 +1691,7 @@ export function SettingsSection() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <p className="text-xs text-neutral-600">
+                <p className="text-xs text-muted-foreground">
                   Le Trust Score locataire est calculé à partir de <span className="font-semibold">4 composantes</span> :
                 </p>
                 <div className="space-y-2">
@@ -1706,8 +1706,8 @@ export function SettingsSection() {
                         {item.weight}
                       </Badge>
                       <div>
-                        <span className="text-xs font-semibold text-neutral-800">{item.label}</span>
-                        <p className="text-[10px] text-neutral-500">{item.desc}</p>
+                        <span className="text-xs font-semibold text-foreground">{item.label}</span>
+                        <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                       </div>
                     </div>
                   ))}
@@ -1719,9 +1719,9 @@ export function SettingsSection() {
                     <span className="font-semibold">Astuce :</span> Profil complet + Facial + ONECI + Dossier locataire validé = <span className="font-bold">100%</span>
                   </p>
                 </div>
-                <div className="flex items-start gap-2 p-2.5 bg-neutral-50 rounded-lg border border-neutral-100">
-                  <Shield className="size-4 text-neutral-400 shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-neutral-600">
+                <div className="flex items-start gap-2 p-2.5 bg-muted rounded-lg border border-border">
+                  <Shield className="size-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-muted-foreground">
                     <span className="font-semibold">Recommandation :</span> Un score de <span className="font-bold text-emerald-600">70+</span> vous donne le statut « Approuvé », <span className="font-bold text-amber-600">50-69</span> « Sous conditions », et <span className="font-bold text-red-500">moins de 50</span> « Non recommandé ».
                   </p>
                 </div>
@@ -1741,7 +1741,7 @@ export function SettingsSection() {
             className="space-y-6"
           >
             {/* Password change card */}
-            <Card className="border-neutral-200">
+            <Card className="border-border">
               <CardHeader>
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <Shield className="size-4 text-brand-500" />
@@ -1750,14 +1750,14 @@ export function SettingsSection() {
                 <CardDescription>Modifiez votre mot de passe pour sécuriser votre compte</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between p-4 rounded-xl border border-neutral-100 hover:bg-neutral-50 transition-colors">
+                <div className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-accent transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="flex size-9 items-center justify-center rounded-lg bg-brand-50 text-brand-500">
                       <Shield className="size-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-neutral-900">Mot de passe</p>
-                      <p className="text-xs text-neutral-500">
+                      <p className="text-sm font-medium text-foreground">Mot de passe</p>
+                      <p className="text-xs text-muted-foreground">
                         {profile?.passwordUpdatedAt
                           ? `Dernière modification : ${new Date(profile.passwordUpdatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
                           : 'Jamais modifié depuis la création du compte'}
@@ -1784,7 +1784,7 @@ export function SettingsSection() {
             </Card>
 
             {/* Verification status card */}
-            <Card className="border-neutral-200">
+            <Card className="border-border">
               <CardHeader>
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <ShieldCheck className="size-4 text-brand-500" />
@@ -1794,14 +1794,14 @@ export function SettingsSection() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Email verification */}
-                <div className="flex items-center justify-between p-4 rounded-xl border border-neutral-100 hover:bg-neutral-50 transition-colors">
+                <div className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-accent transition-colors">
                   <div className="flex items-center gap-3">
                     <div className={`flex size-9 items-center justify-center rounded-lg ${profile?.isEmailVerified ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
                       <Mail className="size-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-neutral-900">Adresse email</p>
-                      <p className="text-xs text-neutral-500">{profile?.email || 'Non renseigné'}</p>
+                      <p className="text-sm font-medium text-foreground">Adresse email</p>
+                      <p className="text-xs text-muted-foreground">{profile?.email || 'Non renseigné'}</p>
                     </div>
                   </div>
                   <Badge className={profile?.isEmailVerified ? 'bg-emerald-50 text-emerald-700 border-emerald-200 border' : 'bg-red-50 text-red-600 border-red-200 border'}>
@@ -1814,14 +1814,14 @@ export function SettingsSection() {
                 </div>
 
                 {/* Phone verification */}
-                <div className="flex items-center justify-between p-4 rounded-xl border border-neutral-100 hover:bg-neutral-50 transition-colors">
+                <div className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-accent transition-colors">
                   <div className="flex items-center gap-3">
                     <div className={`flex size-9 items-center justify-center rounded-lg ${profile?.isPhoneVerified ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-500'}`}>
                       <Phone className="size-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-neutral-900">Numéro de téléphone</p>
-                      <p className="text-xs text-neutral-500">{profile?.phone || 'Non renseigné'}</p>
+                      <p className="text-sm font-medium text-foreground">Numéro de téléphone</p>
+                      <p className="text-xs text-muted-foreground">{profile?.phone || 'Non renseigné'}</p>
                     </div>
                   </div>
                   <Badge className={profile?.isPhoneVerified ? 'bg-emerald-50 text-emerald-700 border-emerald-200 border' : 'bg-amber-50 text-amber-700 border-amber-200 border'}>
@@ -1836,7 +1836,7 @@ export function SettingsSection() {
             </Card>
 
             {/* Active sessions card */}
-            <Card className="border-neutral-200">
+            <Card className="border-border">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
@@ -1867,11 +1867,11 @@ export function SettingsSection() {
                 {sessionsLoading ? (
                   <div className="space-y-3">
                     {[1, 2].map((i) => (
-                      <div key={i} className="h-14 bg-neutral-50 rounded-lg animate-pulse" />
+                      <div key={i} className="h-14 bg-muted rounded-lg animate-pulse" />
                     ))}
                   </div>
                 ) : sessions.length === 0 ? (
-                  <p className="text-xs text-neutral-500 text-center py-4">Aucune session active trouvée</p>
+                  <p className="text-xs text-muted-foreground text-center py-4">Aucune session active trouvée</p>
                 ) : (
                   <div className="space-y-3">
                     {sessions.map((session) => (
@@ -1880,18 +1880,18 @@ export function SettingsSection() {
                         className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${
                           session.isCurrent
                             ? 'border-emerald-200 bg-emerald-50/30'
-                            : 'border-neutral-100 hover:bg-neutral-50'
+                            : 'border-border hover:bg-accent'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <div className={`flex size-9 items-center justify-center rounded-lg ${
-                            session.isCurrent ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-500'
+                            session.isCurrent ? 'bg-emerald-50 text-emerald-600' : 'bg-muted text-muted-foreground'
                           }`}>
                             <Smartphone className="size-4" />
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-neutral-900">
+                              <p className="text-sm font-medium text-foreground">
                                 {session.isCurrent ? 'Cet appareil' : 'Autre appareil'}
                               </p>
                               {session.isCurrent && (
@@ -1900,7 +1900,7 @@ export function SettingsSection() {
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-[11px] text-neutral-500">
+                            <p className="text-[11px] text-muted-foreground">
                               Connecté le {new Date(session.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
@@ -1947,7 +1947,7 @@ export function SettingsSection() {
                 <div className="space-y-4 py-2">
                   {/* Current password */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-neutral-700">Mot de passe actuel</Label>
+                    <Label className="text-xs font-medium text-foreground">Mot de passe actuel</Label>
                     <div className="relative">
                       <Input
                         type={showCurrentPassword ? 'text' : 'password'}
@@ -1959,7 +1959,7 @@ export function SettingsSection() {
                       <button
                         type="button"
                         onClick={() => setShowCurrentPassword((v) => !v)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                       >
                         {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                       </button>
@@ -1968,7 +1968,7 @@ export function SettingsSection() {
                   <Separator />
                   {/* New password */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-neutral-700">Nouveau mot de passe</Label>
+                    <Label className="text-xs font-medium text-foreground">Nouveau mot de passe</Label>
                     <div className="relative">
                       <Input
                         type={showNewPassword ? 'text' : 'password'}
@@ -1980,7 +1980,7 @@ export function SettingsSection() {
                       <button
                         type="button"
                         onClick={() => setShowNewPassword((v) => !v)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                       >
                         {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                       </button>
@@ -1997,7 +1997,7 @@ export function SettingsSection() {
                             />
                           ))}
                         </div>
-                        <p className="text-[10px] text-neutral-400">
+                        <p className="text-[10px] text-muted-foreground">
                           8+ caractères, 1 majuscule, 1 minuscule, 1 chiffre
                         </p>
                       </div>
@@ -2005,7 +2005,7 @@ export function SettingsSection() {
                   </div>
                   {/* Confirm password */}
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-neutral-700">Confirmer le nouveau mot de passe</Label>
+                    <Label className="text-xs font-medium text-foreground">Confirmer le nouveau mot de passe</Label>
                     <Input
                       type="password"
                       value={confirmPassword}
@@ -2067,7 +2067,7 @@ export function SettingsSection() {
             className="space-y-6"
           >
             {/* Notification toggles */}
-            <Card className="border-neutral-200">
+            <Card className="border-border">
               <CardHeader>
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <Bell className="size-4 text-brand-500" />
@@ -2079,12 +2079,12 @@ export function SettingsSection() {
                 {notifLoading ? (
                   <div className="space-y-4">
                     {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-neutral-100">
+                      <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border">
                         <div className="space-y-2">
-                          <div className="h-4 w-40 bg-neutral-100 rounded animate-pulse" />
-                          <div className="h-3 w-56 bg-neutral-50 rounded animate-pulse" />
+                          <div className="h-4 w-40 bg-muted rounded animate-pulse" />
+                          <div className="h-3 w-56 bg-muted rounded animate-pulse" />
                         </div>
-                        <div className="h-5 w-9 bg-neutral-100 rounded-full animate-pulse" />
+                        <div className="h-5 w-9 bg-muted rounded-full animate-pulse" />
                       </div>
                     ))}
                   </div>
@@ -2095,7 +2095,7 @@ export function SettingsSection() {
                       { key: 'dossierUpdates' as const, label: 'Mises à jour de dossier', desc: 'Soyez informé des changements de statut de votre dossier', icon: FileCheck, color: 'bg-emerald-50 text-emerald-600' },
                       { key: 'visitReminders' as const, label: 'Rappels de visite', desc: 'Recevez les rappels de vos visites planifiées', icon: Bell, color: 'bg-amber-50 text-amber-600' },
                       { key: 'paymentAlerts' as const, label: 'Alertes de paiement', desc: 'Rappels pour les paiements à venir et les reçus', icon: CreditCard, color: 'bg-purple-50 text-purple-600' },
-                      { key: 'promotions' as const, label: 'Promotions', desc: 'Offres spéciales et nouveautés de Mon Toit', icon: Lightbulb, color: 'bg-neutral-100 text-neutral-500' },
+                      { key: 'promotions' as const, label: 'Promotions', desc: 'Offres spéciales et nouveautés de Mon Toit', icon: Lightbulb, color: 'bg-muted text-muted-foreground' },
                     ]).map((item) => {
                       const Icon = item.icon
                       const isEnabled = notifPrefs[item.key]
@@ -2103,19 +2103,19 @@ export function SettingsSection() {
                       return (
                         <div
                           key={item.key}
-                          className="flex items-center justify-between p-4 rounded-xl border border-neutral-100 hover:bg-neutral-50 transition-colors"
+                          className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-accent transition-colors"
                         >
                           <div className="flex items-center gap-3">
                             <div className={`flex size-9 items-center justify-center rounded-lg ${item.color}`}>
                               <Icon className="size-4" />
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-neutral-900">{item.label}</p>
-                              <p className="text-xs text-neutral-500">{item.desc}</p>
+                              <p className="text-sm font-medium text-foreground">{item.label}</p>
+                              <p className="text-xs text-muted-foreground">{item.desc}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            {isSaving && <Loader2 className="size-3.5 animate-spin text-neutral-400" />}
+                            {isSaving && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
                             <Switch
                               checked={isEnabled}
                               onCheckedChange={(checked) => handleToggleNotif(item.key, checked)}
@@ -2128,19 +2128,19 @@ export function SettingsSection() {
                     })}
                   </div>
                 ) : (
-                  <p className="text-xs text-neutral-500 text-center py-4">Impossible de charger les préférences</p>
+                  <p className="text-xs text-muted-foreground text-center py-4">Impossible de charger les préférences</p>
                 )}
               </CardContent>
             </Card>
 
             {/* Info card about notifications */}
-            <Card className="border-neutral-200 bg-neutral-50/50">
+            <Card className="border-border bg-muted/50">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
                   <Info className="size-4 text-brand-500 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs font-semibold text-neutral-700">Comment fonctionnent les notifications ?</p>
-                    <p className="text-[11px] text-neutral-500 mt-1">
+                    <p className="text-xs font-semibold text-foreground">Comment fonctionnent les notifications ?</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
                       Les notifications vous informent en temps réel des événements importants sur votre compte Mon Toit.
                       Vous pouvez activer ou désactiver chaque catégorie individuellement.
                       Les notifications critiques de sécurité sont toujours actives.

@@ -106,7 +106,7 @@ export function Contact() {
   }
 
   return (
-    <section className="py-16 sm:py-20 bg-white">
+    <section className="py-16 sm:py-20 bg-background">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
@@ -116,10 +116,10 @@ export function Contact() {
           transition={{ duration: 0.5 }}
           className="text-center mb-10 sm:mb-12"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold text-neutral-900 mb-3">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
             Nous Contacter
           </h2>
-          <p className="text-neutral-500 text-base max-w-xl mx-auto">
+          <p className="text-muted-foreground text-base max-w-xl mx-auto">
             Une question, un besoin ? Notre équipe est à votre écoute pour vous accompagner.
           </p>
         </motion.div>
@@ -134,8 +134,8 @@ export function Contact() {
             transition={{ duration: 0.5 }}
             className="lg:col-span-3"
           >
-            <div className="bg-white rounded-xl border border-neutral-200 p-6 sm:p-8 shadow-sm">
-              <h3 className="text-xl font-bold text-neutral-900 mb-6">
+            <div className="bg-card rounded-xl border border-border p-6 sm:p-8 shadow-sm">
+              <h3 className="text-xl font-bold text-foreground mb-6">
                 Envoyez-nous un message
               </h3>
               <form onSubmit={handleSubmit} className="space-y-5">
@@ -149,7 +149,7 @@ export function Contact() {
                     value={formData.name}
                     onChange={(e) => handleChange('name', e.target.value)}
                     required
-                    className="h-11 bg-neutral-50 border-neutral-200 focus-visible:border-brand-500 focus-visible:ring-brand-500/30"
+                    className="h-11 bg-muted border-border focus-visible:border-brand-500 focus-visible:ring-brand-500/30"
                   />
                 </div>
 
@@ -164,7 +164,7 @@ export function Contact() {
                       value={formData.email}
                       onChange={(e) => handleChange('email', e.target.value)}
                       required
-                      className="h-11 bg-neutral-50 border-neutral-200 focus-visible:border-brand-500 focus-visible:ring-brand-500/30"
+                      className="h-11 bg-muted border-border focus-visible:border-brand-500 focus-visible:ring-brand-500/30"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -175,7 +175,7 @@ export function Contact() {
                       placeholder="+225 01 02 03 04 05"
                       value={formData.phone}
                       onChange={(e) => handleChange('phone', e.target.value)}
-                      className="h-11 bg-neutral-50 border-neutral-200 focus-visible:border-brand-500 focus-visible:ring-brand-500/30"
+                      className="h-11 bg-muted border-border focus-visible:border-brand-500 focus-visible:ring-brand-500/30"
                     />
                   </div>
                 </div>
@@ -184,7 +184,7 @@ export function Contact() {
                 <div className="space-y-1.5">
                   <Label htmlFor="contact-subject">Sujet</Label>
                   <Select value={formData.subject} onValueChange={(val) => handleChange('subject', val)}>
-                    <SelectTrigger className="h-11 bg-neutral-50 border-neutral-200">
+                    <SelectTrigger className="h-11 bg-muted border-border">
                       <SelectValue placeholder="Sélectionnez un sujet" />
                     </SelectTrigger>
                     <SelectContent>
@@ -207,7 +207,7 @@ export function Contact() {
                     value={formData.message}
                     onChange={(e) => handleChange('message', e.target.value)}
                     required
-                    className="bg-neutral-50 border-neutral-200 focus-visible:border-brand-500 focus-visible:ring-brand-500/30 min-h-[100px]"
+                    className="bg-muted border-border focus-visible:border-brand-500 focus-visible:ring-brand-500/30 min-h-[100px]"
                   />
                 </div>
 
@@ -242,8 +242,8 @@ export function Contact() {
             className="lg:col-span-2 space-y-6"
           >
             {/* Contact details card */}
-            <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
-              <h3 className="text-lg font-bold text-neutral-900 mb-5">
+            <div className="bg-muted rounded-xl border border-border p-6">
+              <h3 className="text-lg font-bold text-foreground mb-5">
                 Nos coordonnées
               </h3>
               <ul className="space-y-4">
@@ -257,12 +257,12 @@ export function Contact() {
                       {item.href ? (
                         <a
                           href={item.href}
-                          className="text-sm text-neutral-600 hover:text-brand-500 transition-colors pt-1.5"
+                          className="text-sm text-muted-foreground hover:text-brand-500 transition-colors pt-1.5"
                         >
                           {item.label}
                         </a>
                       ) : (
-                        <span className="text-sm text-neutral-600 pt-1.5">
+                        <span className="text-sm text-muted-foreground pt-1.5">
                           {item.label}
                         </span>
                       )}
@@ -272,8 +272,8 @@ export function Contact() {
               </ul>
 
               {/* Social links */}
-              <div className="mt-6 pt-5 border-t border-neutral-200">
-                <p className="text-sm font-medium text-neutral-700 mb-3">Suivez-nous</p>
+              <div className="mt-6 pt-5 border-t border-border">
+                <p className="text-sm font-medium text-foreground mb-3">Suivez-nous</p>
                 <div className="flex items-center gap-3">
                   {socialLinks.map((social) => {
                     const Icon = social.icon
@@ -282,7 +282,7 @@ export function Contact() {
                         key={social.label}
                         href={social.href}
                         aria-label={social.label}
-                        className="size-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center hover:bg-brand-500 hover:border-brand-500 hover:text-white text-neutral-500 transition-colors"
+                        className="size-9 rounded-full bg-card border border-border flex items-center justify-center hover:bg-brand-500 hover:border-brand-500 hover:text-white text-muted-foreground transition-colors"
                       >
                         <Icon className="size-4" />
                       </a>
@@ -293,17 +293,17 @@ export function Contact() {
             </div>
 
             {/* Mini FAQ */}
-            <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
-              <h3 className="text-lg font-bold text-neutral-900 mb-4">
+            <div className="bg-muted rounded-xl border border-border p-6">
+              <h3 className="text-lg font-bold text-foreground mb-4">
                 Questions fréquentes
               </h3>
               <Accordion type="single" collapsible className="w-full">
                 {faqItems.map((item, i) => (
                   <AccordionItem key={i} value={`faq-${i}`}>
-                    <AccordionTrigger className="text-sm text-left text-neutral-700 hover:text-brand-500 hover:no-underline">
+                    <AccordionTrigger className="text-sm text-left text-foreground hover:text-brand-500 hover:no-underline">
                       {item.question}
                     </AccordionTrigger>
-                    <AccordionContent className="text-sm text-neutral-500">
+                    <AccordionContent className="text-sm text-muted-foreground">
                       {item.answer}
                     </AccordionContent>
                   </AccordionItem>

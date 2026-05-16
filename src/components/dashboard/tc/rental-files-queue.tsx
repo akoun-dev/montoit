@@ -54,33 +54,33 @@ export function RentalFilesQueue() {
   const handleValidate = (id: string) => { toast.success('Dossier validé avec succès !') }
   const handleReject = (id: string) => { toast.error('Dossier rejeté') }
 
-  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
+  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Dossiers à valider</h1>
-        <p className="text-neutral-500 mt-1">File d&apos;attente des dossiers locatifs</p>
+        <h1 className="text-2xl font-bold text-foreground">Dossiers à valider</h1>
+        <p className="text-muted-foreground mt-1">File d&apos;attente des dossiers locatifs</p>
       </div>
 
       {files.length === 0 ? (
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardContent className="py-12 text-center">
-            <ClipboardCheck className="size-12 text-neutral-300 mx-auto mb-4" />
-            <p className="text-neutral-500">Aucun dossier en attente</p>
+            <ClipboardCheck className="size-12 text-muted-foreground/50 mx-auto mb-4" />
+            <p className="text-muted-foreground">Aucun dossier en attente</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
           {files.map((rf) => (
-            <Card key={rf.id} className="border-neutral-200">
+            <Card key={rf.id} className="border-border">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="font-semibold text-neutral-900">{rf.tenant.firstName} {rf.tenant.lastName}</h3>
-                    <p className="text-sm text-neutral-500">{rf.tenant.phone}</p>
+                    <h3 className="font-semibold text-foreground">{rf.tenant.firstName} {rf.tenant.lastName}</h3>
+                    <p className="text-sm text-muted-foreground">{rf.tenant.phone}</p>
                     {rf.monthlyIncome && (
-                      <p className="text-sm text-neutral-600 mt-1">
+                      <p className="text-sm text-muted-foreground mt-1">
                         Revenus : {rf.monthlyIncome.toLocaleString('fr-FR')} FCFA · {rf.employer || 'N/A'}
                       </p>
                     )}
@@ -94,12 +94,12 @@ export function RentalFilesQueue() {
 
                 {/* Documents */}
                 <div className="space-y-2 mb-4">
-                  <p className="text-sm font-medium text-neutral-700">Documents :</p>
+                  <p className="text-sm font-medium text-foreground">Documents :</p>
                   {rf.documents.map((doc, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 rounded border border-neutral-100">
+                    <div key={i} className="flex items-center justify-between p-2 rounded border border-border">
                       <div className="flex items-center gap-2">
-                        <FileText className="size-4 text-neutral-400" />
-                        <span className="text-sm text-neutral-700">{doc.name}</span>
+                        <FileText className="size-4 text-muted-foreground" />
+                        <span className="text-sm text-foreground">{doc.name}</span>
                       </div>
                       <Badge className={
                         doc.status === 'VALIDATED' ? 'bg-green-100 text-green-700' :

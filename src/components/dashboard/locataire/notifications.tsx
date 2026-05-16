@@ -34,16 +34,16 @@ const typeConfig: Record<string, { icon: typeof Bell; label: string; color: stri
   VISIT_REMINDER: { icon: Calendar, label: 'Visites', color: 'bg-amber-50 text-amber-700 border-amber-200' },
   PAYMENT_ALERT: { icon: CreditCard, label: 'Paiements', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   PROMOTION: { icon: Megaphone, label: 'Promotions', color: 'bg-purple-50 text-purple-700 border-purple-200' },
-  SYSTEM: { icon: Settings, label: 'Système', color: 'bg-neutral-50 text-neutral-600 border-neutral-200' },
+  SYSTEM: { icon: Settings, label: 'Système', color: 'bg-muted text-muted-foreground border-border' },
 }
 
 const notificationCategories = [
-  { type: '', label: 'Toutes', color: 'bg-neutral-50 text-neutral-700 border-neutral-200' },
+  { type: '', label: 'Toutes', color: 'bg-muted text-foreground border-border' },
   { type: 'MESSAGE', label: 'Messages', color: 'bg-amber-50 text-amber-700 border-amber-200' },
   { type: 'DOSSIER_UPDATE', label: 'Candidatures', color: 'bg-brand-50 text-brand-600 border-brand-200' },
   { type: 'VISIT_REMINDER', label: 'Visites', color: 'bg-amber-50 text-amber-700 border-amber-200' },
   { type: 'PAYMENT_ALERT', label: 'Paiements', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  { type: 'SYSTEM', label: 'Système', color: 'bg-neutral-50 text-neutral-600 border-neutral-200' },
+  { type: 'SYSTEM', label: 'Système', color: 'bg-muted text-muted-foreground border-border' },
 ]
 
 function formatTimeAgo(dateStr: string): string {
@@ -134,17 +134,17 @@ export function Notifications() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <div className="h-8 w-48 bg-neutral-100 animate-pulse rounded" />
-            <div className="h-4 w-64 bg-neutral-100 animate-pulse rounded mt-2" />
+            <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+            <div className="h-4 w-64 bg-muted animate-pulse rounded mt-2" />
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-8 w-24 bg-neutral-100 animate-pulse rounded-full" />
+            <div key={i} className="h-8 w-24 bg-muted animate-pulse rounded-full" />
           ))}
         </div>
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-24 rounded-xl bg-neutral-100 animate-pulse" />
+          <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
         ))}
       </div>
     )
@@ -154,7 +154,7 @@ export function Notifications() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-neutral-900">Mes notifications</h1>
+        <h1 className="text-2xl font-bold text-foreground">Mes notifications</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos notifications. Veuillez réessayer.</p>
@@ -169,7 +169,7 @@ export function Notifications() {
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">
+          <h1 className="text-2xl font-bold text-foreground">
             Mes notifications
             {unreadCount > 0 && (
               <Badge className="ml-2 bg-brand-500 text-white border-0 text-xs px-2 py-0.5">
@@ -177,7 +177,7 @@ export function Notifications() {
               </Badge>
             )}
           </h1>
-          <p className="text-neutral-500 mt-1">Restez informé de vos démarches</p>
+          <p className="text-muted-foreground mt-1">Restez informé de vos démarches</p>
         </div>
         {unreadCount > 0 && (
           <Button
@@ -195,10 +195,10 @@ export function Notifications() {
 
       {/* Category Badges */}
       <motion.div variants={itemVariants}>
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Filter className="size-4 text-neutral-400" />
+              <Filter className="size-4 text-muted-foreground" />
               Catégories
             </CardTitle>
             <CardDescription>Filtrez vos notifications par type</CardDescription>
@@ -225,15 +225,15 @@ export function Notifications() {
         {notifications.length === 0 ? (
           /* Empty State */
           <motion.div key="empty" variants={itemVariants} initial="hidden" animate="show" exit="hidden">
-            <Card className="border-dashed border-neutral-300 bg-neutral-50/50">
+            <Card className="border-dashed border-border bg-muted/50">
               <CardContent className="py-12 flex flex-col items-center text-center">
                 <div className="flex size-16 items-center justify-center rounded-full bg-brand-50 mb-4">
                   <Bell className="size-7 text-brand-500" />
                 </div>
-                <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+                <h3 className="text-lg font-semibold text-foreground mb-1">
                   Aucune notification
                 </h3>
-                <p className="text-sm text-neutral-500 max-w-sm">
+                <p className="text-sm text-muted-foreground max-w-sm">
                   {user?.firstName}, vous serez notifié dès qu&apos;une mise à jour intervient sur vos démarches.
                 </p>
               </CardContent>
@@ -252,7 +252,7 @@ export function Notifications() {
                   layout
                   className={`cursor-pointer rounded-xl border transition-all ${
                     notif.isRead
-                      ? 'border-neutral-200 bg-white'
+                      ? 'border-border bg-card'
                       : 'border-brand-100 bg-brand-50/30 hover:bg-brand-50/60'
                   }`}
                   onClick={() => { if (!notif.isRead) handleMarkAsRead(notif.id) }}
@@ -260,25 +260,25 @@ export function Notifications() {
                   <div className="flex items-start gap-4 p-4">
                     {/* Icon */}
                     <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
-                      notif.isRead ? 'bg-neutral-100' : 'bg-brand-100'
+                      notif.isRead ? 'bg-muted' : 'bg-brand-100'
                     }`}>
-                      <IconComp className={`size-5 ${notif.isRead ? 'text-neutral-400' : 'text-brand-500'}`} />
+                      <IconComp className={`size-5 ${notif.isRead ? 'text-muted-foreground' : 'text-brand-500'}`} />
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <p className={`text-sm font-medium truncate ${notif.isRead ? 'text-neutral-600' : 'text-neutral-900'}`}>
+                        <p className={`text-sm font-medium truncate ${notif.isRead ? 'text-muted-foreground' : 'text-foreground'}`}>
                           {notif.title}
                         </p>
                         {!notif.isRead && (
                           <div className="size-2 shrink-0 rounded-full bg-brand-500" />
                         )}
                       </div>
-                      <p className={`text-sm line-clamp-2 ${notif.isRead ? 'text-neutral-400' : 'text-neutral-600'}`}>
+                      <p className={`text-sm line-clamp-2 ${notif.isRead ? 'text-muted-foreground' : 'text-muted-foreground'}`}>
                         {notif.message}
                       </p>
-                      <p className="text-xs text-neutral-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {formatTimeAgo(notif.createdAt)}
                       </p>
                     </div>

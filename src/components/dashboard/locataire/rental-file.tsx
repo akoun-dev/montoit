@@ -72,12 +72,12 @@ const documentTypes = [
 ]
 
 const statusConfig: Record<string, { label: string; color: string }> = {
-  DRAFT: { label: 'Brouillon', color: 'bg-neutral-100 text-neutral-600' },
+  DRAFT: { label: 'Brouillon', color: 'bg-muted text-muted-foreground' },
   SUBMITTED: { label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200' },
   TC_REVIEW: { label: 'En examen TC', color: 'bg-brand-50 text-brand-600 border-brand-200' },
   VALIDATED: { label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   REJECTED: { label: 'Rejeté', color: 'bg-red-50 text-red-700 border-red-200' },
-  EXPIRED: { label: 'Expiré', color: 'bg-neutral-50 text-neutral-500 border-neutral-200' },
+  EXPIRED: { label: 'Expiré', color: 'bg-muted text-muted-foreground border-border' },
 }
 
 export function RentalFileForm() {
@@ -184,15 +184,15 @@ export function RentalFileForm() {
     return (
       <div className="space-y-6">
         <div>
-          <div className="h-8 w-40 bg-neutral-100 animate-pulse rounded" />
-          <div className="h-4 w-56 bg-neutral-100 animate-pulse rounded mt-2" />
+          <div className="h-8 w-40 bg-muted animate-pulse rounded" />
+          <div className="h-4 w-56 bg-muted animate-pulse rounded mt-2" />
         </div>
         <div className="flex gap-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-8 w-24 bg-neutral-100 animate-pulse rounded-full" />
+            <div key={i} className="h-8 w-24 bg-muted animate-pulse rounded-full" />
           ))}
         </div>
-        <div className="h-64 rounded-xl bg-neutral-100 animate-pulse" />
+        <div className="h-64 rounded-xl bg-muted animate-pulse" />
       </div>
     )
   }
@@ -201,7 +201,7 @@ export function RentalFileForm() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-neutral-900">Dossier locatif</h1>
+        <h1 className="text-2xl font-bold text-foreground">Dossier locatif</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger votre dossier. Veuillez réessayer.</p>
@@ -218,8 +218,8 @@ export function RentalFileForm() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Dossier locatif</h1>
-        <p className="text-neutral-500 mt-1">Complétez votre dossier pour postuler aux logements</p>
+        <h1 className="text-2xl font-bold text-foreground">Dossier locatif</h1>
+        <p className="text-muted-foreground mt-1">Complétez votre dossier pour postuler aux logements</p>
       </div>
 
       {/* Existing file status banner */}
@@ -242,10 +242,10 @@ export function RentalFileForm() {
                   <p className="text-xs text-red-600 mt-1">Raison : {existingFile.rejectionReason}</p>
                 )}
                 {existingFile.tcComment && (
-                  <p className="text-xs text-neutral-600 mt-1">Commentaire TC : {existingFile.tcComment}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Commentaire TC : {existingFile.tcComment}</p>
                 )}
                 {existingFile.validUntil && (
-                  <p className="text-xs text-neutral-500 mt-1">Valide jusqu&apos;au {new Date(existingFile.validUntil).toLocaleDateString('fr-FR')}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Valide jusqu&apos;au {new Date(existingFile.validUntil).toLocaleDateString('fr-FR')}</p>
                 )}
               </div>
             </div>
@@ -258,12 +258,12 @@ export function RentalFileForm() {
         {steps.map((s, i) => (
           <div key={s.id} className="flex items-center gap-2">
             <div className={`flex items-center justify-center size-8 rounded-full text-sm font-medium ${
-              step >= s.id ? 'bg-brand-500 text-white' : 'bg-neutral-100 text-neutral-400'
+              step >= s.id ? 'bg-brand-500 text-white' : 'bg-muted text-muted-foreground'
             }`}>
               {step > s.id ? <CheckCircle2 className="size-5" /> : s.id}
             </div>
             <span className={`text-sm hidden sm:inline ${
-              step >= s.id ? 'text-neutral-900 font-medium' : 'text-neutral-400'
+              step >= s.id ? 'text-foreground font-medium' : 'text-muted-foreground'
             }`}>
               {s.title}
             </span>
@@ -274,7 +274,7 @@ export function RentalFileForm() {
         ))}
       </div>
 
-      <Card className="border-neutral-200">
+      <Card className="border-border">
         <CardHeader>
           <CardTitle className="text-lg">{steps[step - 1].title}</CardTitle>
           <CardDescription>Étape {step} sur {steps.length}</CardDescription>
@@ -385,18 +385,18 @@ export function RentalFileForm() {
           {/* Step 4: Documents */}
           {step === 4 && (
             <div className="space-y-4">
-              <p className="text-sm text-neutral-500">
+              <p className="text-sm text-muted-foreground">
                 Téléchargez les documents nécessaires pour votre dossier locatif.
               </p>
               {/* Show existing documents */}
               {existingFile?.documents && existingFile.documents.length > 0 && (
                 <div className="space-y-2 mb-4">
-                  <p className="text-xs font-medium text-neutral-600">Documents déjà téléchargés :</p>
+                  <p className="text-xs font-medium text-muted-foreground">Documents déjà téléchargés :</p>
                   {existingFile.documents.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-2.5 rounded-lg border border-neutral-200 bg-neutral-50">
+                    <div key={doc.id} className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-muted">
                       <div className="flex items-center gap-2 min-w-0">
-                        <FileText className="size-4 text-neutral-400 shrink-0" />
-                        <span className="text-sm text-neutral-700 truncate">{doc.name}</span>
+                        <FileText className="size-4 text-muted-foreground shrink-0" />
+                        <span className="text-sm text-foreground truncate">{doc.name}</span>
                       </div>
                       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${
                         doc.status === 'VALIDATED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -415,10 +415,10 @@ export function RentalFileForm() {
                 if (alreadyUploaded) return null
 
                 return (
-                  <div key={doc.type} className="flex items-center justify-between p-3 rounded-lg border border-neutral-200">
+                  <div key={doc.type} className="flex items-center justify-between p-3 rounded-lg border border-border">
                     <div className="flex items-center gap-3">
-                      <FileText className="size-4 text-neutral-400" />
-                      <span className="text-sm text-neutral-700">{doc.label}</span>
+                      <FileText className="size-4 text-muted-foreground" />
+                      <span className="text-sm text-foreground">{doc.label}</span>
                     </div>
                     <Button variant="outline" size="sm" className="gap-1.5" disabled>
                       <Upload className="size-3.5" />
@@ -427,14 +427,14 @@ export function RentalFileForm() {
                   </div>
                 )
               })}
-              <p className="text-xs text-neutral-400 italic">
+              <p className="text-xs text-muted-foreground italic">
                 L&apos;upload de documents sera bientôt disponible. Vous pouvez soumettre votre dossier sans documents pour l&apos;instant.
               </p>
             </div>
           )}
 
           {/* Navigation */}
-          <div className="flex items-center justify-between pt-4 border-t border-neutral-100">
+          <div className="flex items-center justify-between pt-4 border-t border-border">
             <Button
               variant="outline"
               onClick={() => setStep(Math.max(1, step - 1))}

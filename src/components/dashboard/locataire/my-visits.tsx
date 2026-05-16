@@ -27,10 +27,10 @@ function StatusBadge({ status }: { status: string }) {
     ACCEPTED: { label: 'Accepté', className: 'bg-green-100 text-green-700' },
     REJECTED: { label: 'Rejeté', className: 'bg-red-100 text-red-700' },
     COUNTER_PROPOSED: { label: 'Contre-proposition', className: 'bg-brand-100 text-brand-700' },
-    COMPLETED: { label: 'Complété', className: 'bg-neutral-100 text-neutral-700' },
-    CANCELLED: { label: 'Annulé', className: 'bg-neutral-100 text-neutral-500' },
+    COMPLETED: { label: 'Complété', className: 'bg-muted text-foreground' },
+    CANCELLED: { label: 'Annulé', className: 'bg-muted text-muted-foreground' },
   }
-  const c = config[status] || { label: status, className: 'bg-neutral-100 text-neutral-700' }
+  const c = config[status] || { label: status, className: 'bg-muted text-foreground' }
   return <Badge className={`${c.className} text-[10px]`}>{c.label}</Badge>
 }
 
@@ -68,22 +68,22 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
   }, [fetchData])
 
   if (loading) {
-    return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
+    return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />)}</div>
   }
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Mes visites</h1>
-        <p className="text-neutral-500 mt-1">Suivez vos demandes de visite</p>
+        <h1 className="text-2xl font-bold text-foreground">Mes visites</h1>
+        <p className="text-muted-foreground mt-1">Suivez vos demandes de visite</p>
       </div>
 
       {!data?.visitRequests.length ? (
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardContent className="py-12 text-center">
             <Eye className="size-12 text-neutral-300 mx-auto mb-4" />
-            <p className="text-neutral-500">Aucune visite planifiée</p>
-            <p className="text-sm text-neutral-400 mt-1">Explorez les biens disponibles pour demander une visite</p>
+            <p className="text-muted-foreground">Aucune visite planifiée</p>
+            <p className="text-sm text-muted-foreground mt-1">Explorez les biens disponibles pour demander une visite</p>
           </CardContent>
         </Card>
       ) : (
@@ -91,14 +91,14 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
           {data.visitRequests.map((vr) => (
             <Card
               key={vr.id}
-              className="border-neutral-200 hover:shadow-sm transition-shadow cursor-pointer"
+              className="border-border hover:shadow-sm transition-shadow cursor-pointer"
               onClick={() => onDetail(vr.id)}
             >
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
                   {/* Property image */}
                   {vr.property.images?.[0] ? (
-                    <div className="size-14 sm:size-16 rounded-lg bg-neutral-100 overflow-hidden shrink-0">
+                    <div className="size-14 sm:size-16 rounded-lg bg-muted overflow-hidden shrink-0">
                       <img
                         src={vr.property.images[0].url}
                         alt={vr.property.title}
@@ -113,14 +113,14 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-neutral-900 text-sm truncate">{vr.property.title}</h3>
+                      <h3 className="font-semibold text-foreground text-sm truncate">{vr.property.title}</h3>
                       <StatusBadge status={vr.status} />
                     </div>
-                    <div className="flex items-center gap-1.5 mt-1 text-xs text-neutral-500">
+                    <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
                       <MapPin className="size-3" />
                       {vr.property.city}
                     </div>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-neutral-500">
+                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Calendar className="size-3" />
                         {new Date(vr.requestedDate).toLocaleDateString('fr-FR')}

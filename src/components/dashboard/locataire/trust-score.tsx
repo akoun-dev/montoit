@@ -113,8 +113,8 @@ function ScoreCircle({ score, statusColor }: { score: number; statusColor: strin
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-bold text-neutral-900">{score}</span>
-        <span className="text-[10px] font-medium text-neutral-400 uppercase tracking-wider">/100</span>
+        <span className="text-3xl font-bold text-foreground">{score}</span>
+        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">/100</span>
       </div>
     </div>
   )
@@ -136,16 +136,16 @@ function ScoreBar({ label, weight, score, max, icon: Icon, color }: {
   return (
     <div className="flex items-center gap-3">
       <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${
-        isComplete ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-400'
+        isComplete ? 'bg-emerald-50 text-emerald-600' : 'bg-muted text-muted-foreground'
       }`}>
         <Icon className="size-4" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs font-medium text-neutral-700">{label}</span>
-          <span className="text-[10px] font-semibold text-neutral-400">{weight}%</span>
+          <span className="text-xs font-medium text-foreground">{label}</span>
+          <span className="text-[10px] font-semibold text-muted-foreground">{weight}%</span>
         </div>
-        <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden">
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${percentage}%` }}
@@ -154,7 +154,7 @@ function ScoreBar({ label, weight, score, max, icon: Icon, color }: {
           />
         </div>
       </div>
-      <span className={`text-xs font-bold shrink-0 ${isComplete ? 'text-emerald-600' : 'text-neutral-400'}`}>
+      <span className={`text-xs font-bold shrink-0 ${isComplete ? 'text-emerald-600' : 'text-muted-foreground'}`}>
         {score}/{max}
       </span>
     </div>
@@ -177,19 +177,19 @@ function ExpandableSection({
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <Card className="border-neutral-200">
+    <Card className="border-border">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-4 text-left"
       >
         <div className="flex items-center gap-2.5">
           <Icon className="size-4 text-brand-500" />
-          <span className="text-sm font-semibold text-neutral-900">{title}</span>
+          <span className="text-sm font-semibold text-foreground">{title}</span>
         </div>
         {open ? (
-          <ChevronUp className="size-4 text-neutral-400" />
+          <ChevronUp className="size-4 text-muted-foreground" />
         ) : (
-          <ChevronDown className="size-4 text-neutral-400" />
+          <ChevronDown className="size-4 text-muted-foreground" />
         )}
       </button>
       <AnimatePresence>
@@ -265,14 +265,14 @@ export function TrustScore() {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-8 w-48 bg-neutral-100 rounded-lg animate-pulse" />
+        <div className="h-8 w-48 bg-muted rounded-lg animate-pulse" />
         <div className="grid gap-4 sm:grid-cols-2">
           {[1, 2].map((i) => (
-            <div key={i} className="h-48 bg-neutral-100 rounded-xl animate-pulse" />
+            <div key={i} className="h-48 bg-muted rounded-xl animate-pulse" />
           ))}
         </div>
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-16 bg-neutral-100 rounded-xl animate-pulse" />
+          <div key={i} className="h-16 bg-muted rounded-xl animate-pulse" />
         ))}
       </div>
     )
@@ -282,7 +282,7 @@ export function TrustScore() {
   if (error || !data) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-neutral-900">Trust Score</h1>
+        <h1 className="text-2xl font-bold text-foreground">Trust Score</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger votre score. Veuillez réessayer.</p>
@@ -313,13 +313,13 @@ export function TrustScore() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-neutral-900">Trust Score</h1>
-        <p className="text-neutral-500 mt-1">Votre score de confiance locataire</p>
+        <h1 className="text-2xl font-bold text-foreground">Trust Score</h1>
+        <p className="text-muted-foreground mt-1">Votre score de confiance locataire</p>
       </motion.div>
 
       {/* ── Score Overview Card ──────────────────────────────────────────── */}
       <motion.div variants={itemVariants}>
-        <Card className="border-neutral-200 overflow-hidden">
+        <Card className="border-border overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center gap-6">
               {/* Score circle */}
@@ -405,9 +405,9 @@ export function TrustScore() {
       {/* ── Recommendations Card ────────────────────────────────────────── */}
       {recommendations.length > 0 && (
         <motion.div variants={itemVariants}>
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-neutral-900 flex items-center gap-2">
+              <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <Lightbulb className="size-4 text-amber-500" />
                 Améliorez votre score
               </CardTitle>
@@ -416,7 +416,7 @@ export function TrustScore() {
               {recommendations.map((rec) => (
                 <div
                   key={rec.id}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50 border border-neutral-100"
+                  className="flex items-center gap-3 p-3 rounded-xl bg-muted border border-border"
                 >
                   <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
                     rec.id === 'profile'
@@ -434,12 +434,12 @@ export function TrustScore() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-neutral-900">{rec.title}</span>
+                      <span className="text-sm font-semibold text-foreground">{rec.title}</span>
                       <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] px-1.5 py-0 border font-semibold">
                         +{rec.impact}%
                       </Badge>
                     </div>
-                    <p className="text-xs text-neutral-500 mt-0.5">{rec.description}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{rec.description}</p>
                   </div>
                   <Button
                     size="sm"
@@ -462,12 +462,12 @@ export function TrustScore() {
         {/* Profile details */}
         <ExpandableSection title="Détails du score de profil" icon={User}>
           <div className="space-y-2.5">
-            <p className="text-xs text-neutral-500 mb-3">
+            <p className="text-xs text-muted-foreground mb-3">
               Profil complet = <span className="font-semibold text-brand-500">+5%</span>
             </p>
             {breakdown.profile.fields.map((field) => (
               <div key={field.key} className="flex items-center justify-between">
-                <span className="text-xs text-neutral-600">{field.label}</span>
+                <span className="text-xs text-muted-foreground">{field.label}</span>
                 {field.filled ? (
                   <div className="flex items-center gap-1 text-emerald-600">
                     <CheckCircle2 className="size-3.5" />
@@ -490,11 +490,11 @@ export function TrustScore() {
             {/* ONECI */}
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-neutral-900">Vérification ONECI</p>
-                <p className="text-[10px] text-neutral-500">Carte d&apos;identité nationale</p>
+                <p className="text-xs font-semibold text-foreground">Vérification ONECI</p>
+                <p className="text-[10px] text-muted-foreground">Carte d&apos;identité nationale</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-neutral-400">{breakdown.oneci.weight}%</span>
+                <span className="text-[10px] text-muted-foreground">{breakdown.oneci.weight}%</span>
                 {breakdown.oneci.verified ? (
                   <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] px-2 py-0 border font-medium">
                     <CheckCircle2 className="size-3 mr-0.5" /> Vérifié
@@ -512,11 +512,11 @@ export function TrustScore() {
             {/* KYC */}
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-neutral-900">KYC</p>
-                <p className="text-[10px] text-neutral-500">Vérification biométrique</p>
+                <p className="text-xs font-semibold text-foreground">KYC</p>
+                <p className="text-[10px] text-muted-foreground">Vérification biométrique</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-neutral-400">{breakdown.neoface.weight}%</span>
+                <span className="text-[10px] text-muted-foreground">{breakdown.neoface.weight}%</span>
                 {breakdown.neoface.verified ? (
                   <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] px-2 py-0 border font-medium">
                     <CheckCircle2 className="size-3 mr-0.5" /> Vérifié
@@ -534,7 +534,7 @@ export function TrustScore() {
         {/* How it works */}
         <ExpandableSection title="Comment fonctionne le Trust Score ?" icon={Info} defaultOpen={false}>
           <div className="space-y-3">
-            <p className="text-xs text-neutral-600">
+            <p className="text-xs text-muted-foreground">
               Le Trust Score locataire est calculé à partir de <span className="font-semibold">4 composantes</span> :
             </p>
             <div className="space-y-2">
@@ -549,8 +549,8 @@ export function TrustScore() {
                     {item.weight}
                   </Badge>
                   <div>
-                    <span className="text-xs font-semibold text-neutral-800">{item.label}</span>
-                    <p className="text-[10px] text-neutral-500">{item.desc}</p>
+                    <span className="text-xs font-semibold text-foreground">{item.label}</span>
+                    <p className="text-[10px] text-muted-foreground">{item.desc}</p>
                   </div>
                 </div>
               ))}
@@ -565,9 +565,9 @@ export function TrustScore() {
               </p>
             </div>
 
-            <div className="flex items-start gap-2 p-2.5 bg-neutral-50 rounded-lg border border-neutral-100">
-              <Shield className="size-4 text-neutral-400 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-neutral-600">
+            <div className="flex items-start gap-2 p-2.5 bg-muted rounded-lg border border-border">
+              <Shield className="size-4 text-muted-foreground shrink-0 mt-0.5" />
+              <p className="text-[11px] text-muted-foreground">
                 <span className="font-semibold">Recommandation :</span> Un score de <span className="font-bold text-emerald-600">70+</span> vous donne le statut « Approuvé », <span className="font-bold text-amber-600">50-69</span> « Sous conditions », et <span className="font-bold text-red-500">moins de 50</span> « Non recommandé ».
               </p>
             </div>

@@ -62,28 +62,28 @@ export function Messages() {
     : null
 
   if (loading) {
-    return <div className="h-96 rounded-xl bg-neutral-100 animate-pulse" />
+    return <div className="h-96 rounded-xl bg-muted animate-pulse" />
   }
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Messages</h1>
-        <p className="text-neutral-500 mt-1">Vos conversations</p>
+        <h1 className="text-2xl font-bold text-foreground">Messages</h1>
+        <p className="text-muted-foreground mt-1">Vos conversations</p>
       </div>
 
-      <Card className="border-neutral-200 overflow-hidden">
+      <Card className="border-border overflow-hidden">
         <div className="flex h-[500px]">
           {/* Conversation list */}
-          <div className={`w-full sm:w-80 border-r border-neutral-200 ${selectedId ? 'hidden sm:block' : ''}`}>
-            <div className="p-3 border-b border-neutral-200">
+          <div className={`w-full sm:w-80 border-r border-border ${selectedId ? 'hidden sm:block' : ''}`}>
+            <div className="p-3 border-b border-border">
               <Input placeholder="Rechercher..." className="h-9" />
             </div>
             <div className="overflow-y-auto h-[calc(500px-49px)]">
               {conversations.length === 0 ? (
                 <div className="py-12 text-center">
                   <MessageSquare className="size-8 text-neutral-300 mx-auto mb-2" />
-                  <p className="text-sm text-neutral-400">Aucune conversation</p>
+                  <p className="text-sm text-muted-foreground">Aucune conversation</p>
                 </div>
               ) : (
                 conversations.map((conv) => {
@@ -93,7 +93,7 @@ export function Messages() {
                     <button
                       key={conv.id}
                       onClick={() => setSelectedId(conv.id)}
-                      className={`w-full flex items-start gap-3 p-3 text-left hover:bg-neutral-50 transition-colors border-b border-neutral-100 ${
+                      className={`w-full flex items-start gap-3 p-3 text-left hover:bg-accent transition-colors border-b border-border ${
                         selectedId === conv.id ? 'bg-brand-50' : ''
                       }`}
                     >
@@ -104,20 +104,20 @@ export function Messages() {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-neutral-900 truncate">
+                          <p className="text-sm font-medium text-foreground truncate">
                             {other.firstName} {other.lastName}
                           </p>
                           {lastMsg && (
-                            <span className="text-xs text-neutral-400 shrink-0">
+                            <span className="text-xs text-muted-foreground shrink-0">
                               {new Date(lastMsg.createdAt).toLocaleDateString('fr-FR')}
                             </span>
                           )}
                         </div>
                         {conv.property && (
-                          <p className="text-xs text-neutral-400 truncate">{conv.property.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{conv.property.title}</p>
                         )}
                         {lastMsg && (
-                          <p className="text-xs text-neutral-500 truncate mt-0.5">{lastMsg.content}</p>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{lastMsg.content}</p>
                         )}
                       </div>
                     </button>
@@ -131,9 +131,9 @@ export function Messages() {
           <div className={`flex-1 flex flex-col ${!selectedId ? 'hidden sm:flex' : ''}`}>
             {selected && otherPerson ? (
               <>
-                <div className="flex items-center gap-3 p-3 border-b border-neutral-200">
+                <div className="flex items-center gap-3 p-3 border-b border-border">
                   <button onClick={() => setSelectedId(null)} className="sm:hidden">
-                    <ArrowLeft className="size-5 text-neutral-500" />
+                    <ArrowLeft className="size-5 text-muted-foreground" />
                   </button>
                   <Avatar className="size-8">
                     <AvatarFallback className="bg-brand-100 text-brand-700 text-xs">
@@ -143,7 +143,7 @@ export function Messages() {
                   <div>
                     <p className="text-sm font-medium">{otherPerson.firstName} {otherPerson.lastName}</p>
                     {selected.property && (
-                      <p className="text-xs text-neutral-400">{selected.property.title}</p>
+                      <p className="text-xs text-muted-foreground">{selected.property.title}</p>
                     )}
                   </div>
                 </div>
@@ -153,10 +153,10 @@ export function Messages() {
                     return (
                       <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[70%] rounded-2xl px-4 py-2 text-sm ${
-                          isMe ? 'bg-brand-500 text-white' : 'bg-neutral-100 text-neutral-900'
+                          isMe ? 'bg-brand-500 text-white' : 'bg-muted text-foreground'
                         }`}>
                           {msg.content}
-                          <p className={`text-xs mt-1 ${isMe ? 'text-white/70' : 'text-neutral-400'}`}>
+                          <p className={`text-xs mt-1 ${isMe ? 'text-white/70' : 'text-muted-foreground'}`}>
                             {new Date(msg.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
@@ -164,7 +164,7 @@ export function Messages() {
                     )
                   })}
                 </div>
-                <div className="p-3 border-t border-neutral-200 flex gap-2">
+                <div className="p-3 border-t border-border flex gap-2">
                   <Input placeholder="Votre message..." className="flex-1 h-10" />
                   <Button size="icon" className="bg-brand-500 hover:bg-brand-600 text-white shrink-0">
                     <Send className="size-4" />
@@ -175,7 +175,7 @@ export function Messages() {
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
                   <MessageSquare className="size-12 text-neutral-300 mx-auto mb-3" />
-                  <p className="text-neutral-400">Sélectionnez une conversation</p>
+                  <p className="text-muted-foreground">Sélectionnez une conversation</p>
                 </div>
               </div>
             )}

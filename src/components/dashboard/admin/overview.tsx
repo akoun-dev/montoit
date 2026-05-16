@@ -102,12 +102,12 @@ export function AdminOverview() {
     fetchData()
   }, [fetchData])
 
-  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
+  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-neutral-900">Tableau de bord Admin</h1>
+        <h1 className="text-2xl font-bold text-foreground">Tableau de bord Admin</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger les données. Veuillez réessayer.</p>
@@ -135,8 +135,8 @@ export function AdminOverview() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-neutral-900">Tableau de bord Admin</h1>
-        <p className="text-neutral-500 mt-1">Vue d&apos;ensemble de la plateforme Mon Toit</p>
+        <h1 className="text-2xl font-bold text-foreground">Tableau de bord Admin</h1>
+        <p className="text-muted-foreground mt-1">Vue d&apos;ensemble de la plateforme Mon Toit</p>
       </motion.div>
 
       {/* KPIs */}
@@ -144,15 +144,15 @@ export function AdminOverview() {
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
-            <Card key={stat.label} className="border-neutral-200">
+            <Card key={stat.label} className="border-border">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className={`flex size-10 items-center justify-center rounded-lg ${stat.color}`}>
                     <Icon className="size-5" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-neutral-900">{stat.value}</p>
-                    <p className="text-xs text-neutral-500">{stat.label}</p>
+                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
                   </div>
                 </div>
               </CardContent>
@@ -164,21 +164,21 @@ export function AdminOverview() {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Users by Role */}
         <motion.div variants={itemVariants}>
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Répartition des utilisateurs</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {Object.entries(data.stats.usersByRole).length === 0 ? (
-                <p className="text-sm text-neutral-400 py-4 text-center">Aucune donnée</p>
+                <p className="text-sm text-muted-foreground py-4 text-center">Aucune donnée</p>
               ) : (
                 Object.entries(data.stats.usersByRole).map(([role, count]) => (
-                  <div key={role} className="flex items-center justify-between p-3 rounded-lg border border-neutral-100">
+                  <div key={role} className="flex items-center justify-between p-3 rounded-lg border border-border">
                     <div className="flex items-center gap-3">
                       <RoleBadge role={role} />
-                      <span className="text-sm text-neutral-700">{roleLabels[role] || role}</span>
+                      <span className="text-sm text-foreground">{roleLabels[role] || role}</span>
                     </div>
-                    <span className="text-lg font-bold text-neutral-900">{count}</span>
+                    <span className="text-lg font-bold text-foreground">{count}</span>
                   </div>
                 ))
               )}
@@ -188,7 +188,7 @@ export function AdminOverview() {
 
         {/* Revenue */}
         <motion.div variants={itemVariants}>
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Revenus mensuels</CardTitle>
               <CardDescription>Somme des loyers actifs</CardDescription>
@@ -199,10 +199,10 @@ export function AdminOverview() {
                   <DollarSign className="size-6 text-brand-600" />
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-neutral-900">
+                  <p className="text-3xl font-bold text-foreground">
                     {data.stats.totalRevenue.toLocaleString('fr-FR')}
                   </p>
-                  <p className="text-sm text-neutral-500">FCFA / mois</p>
+                  <p className="text-sm text-muted-foreground">FCFA / mois</p>
                 </div>
               </div>
             </CardContent>
@@ -212,37 +212,37 @@ export function AdminOverview() {
 
       {/* Recent Users */}
       <motion.div variants={itemVariants}>
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold">Utilisateurs récents</CardTitle>
           </CardHeader>
           <CardContent>
             {data.recentUsers.length === 0 ? (
-              <p className="text-sm text-neutral-400 py-4 text-center">Aucun utilisateur récent</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">Aucun utilisateur récent</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-neutral-200">
-                      <th className="text-left py-2 px-3 text-neutral-500 font-medium">Nom</th>
-                      <th className="text-left py-2 px-3 text-neutral-500 font-medium">Téléphone</th>
-                      <th className="text-left py-2 px-3 text-neutral-500 font-medium">Rôle</th>
-                      <th className="text-left py-2 px-3 text-neutral-500 font-medium">Statut</th>
-                      <th className="text-left py-2 px-3 text-neutral-500 font-medium">Inscrit le</th>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Nom</th>
+                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Téléphone</th>
+                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Rôle</th>
+                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Statut</th>
+                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Inscrit le</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.recentUsers.map((u) => (
-                      <tr key={u.id} className="border-b border-neutral-100 hover:bg-neutral-50">
-                        <td className="py-2 px-3 font-medium text-neutral-900">{u.firstName} {u.lastName}</td>
-                        <td className="py-2 px-3 text-neutral-600">{u.phone}</td>
+                      <tr key={u.id} className="border-b border-border hover:bg-accent">
+                        <td className="py-2 px-3 font-medium text-foreground">{u.firstName} {u.lastName}</td>
+                        <td className="py-2 px-3 text-muted-foreground">{u.phone}</td>
                         <td className="py-2 px-3"><RoleBadge role={u.role} /></td>
                         <td className="py-2 px-3">
                           <Badge className={u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
                             {u.isActive ? 'Actif' : 'Inactif'}
                           </Badge>
                         </td>
-                        <td className="py-2 px-3 text-neutral-500">{new Date(u.createdAt).toLocaleDateString('fr-FR')}</td>
+                        <td className="py-2 px-3 text-muted-foreground">{new Date(u.createdAt).toLocaleDateString('fr-FR')}</td>
                       </tr>
                     ))}
                   </tbody>

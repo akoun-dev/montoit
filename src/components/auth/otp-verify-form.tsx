@@ -129,14 +129,14 @@ export function OtpVerifyForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 py-8 sm:py-12">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 sm:py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className="w-full max-w-md"
       >
-        <Card className="border-neutral-200 shadow-base">
+        <Card className="border-border shadow-base">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto mb-4">
               <Image
@@ -148,10 +148,10 @@ export function OtpVerifyForm() {
                 priority
               />
             </div>
-            <CardTitle className="text-2xl font-bold text-neutral-900">{titleMap[otpPurpose]}</CardTitle>
-            <CardDescription className="text-neutral-500">
+            <CardTitle className="text-2xl font-bold text-foreground">{titleMap[otpPurpose]}</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Entrez le code de {purposeLabels[otpPurpose]} envoyé à{' '}
-              <span className="font-semibold text-neutral-700">{targetLabel}</span>
+              <span className="font-semibold text-foreground">{targetLabel}</span>
             </CardDescription>
             <div className="flex items-center justify-center gap-1.5 mt-2">
               {channelIcon}
@@ -240,7 +240,7 @@ export function OtpVerifyForm() {
                   setView('login')
                 }
               }}
-              className="w-full flex items-center justify-center gap-1 text-sm text-neutral-500 hover:text-neutral-700"
+              className="w-full flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="size-3.5" />
               {isEmailOtp ? 'Changer l\'email' : 'Modifier le numéro'}

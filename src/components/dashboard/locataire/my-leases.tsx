@@ -50,21 +50,21 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
   }, [fetchData])
 
   if (loading) {
-    return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
+    return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
   }
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Mes baux</h1>
-        <p className="text-neutral-500 mt-1">Consultez vos contrats de location</p>
+        <h1 className="text-2xl font-bold text-foreground">Mes baux</h1>
+        <p className="text-muted-foreground mt-1">Consultez vos contrats de location</p>
       </div>
 
       {!data?.activeLeases.length ? (
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardContent className="py-12 text-center">
             <FileSignature className="size-12 text-neutral-300 mx-auto mb-4" />
-            <p className="text-neutral-500">Aucun bail actif</p>
+            <p className="text-muted-foreground">Aucun bail actif</p>
           </CardContent>
         </Card>
       ) : (
@@ -72,14 +72,14 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
           {data.activeLeases.map((lease) => (
             <Card
               key={lease.id}
-              className="border-neutral-200 hover:shadow-sm transition-shadow cursor-pointer"
+              className="border-border hover:shadow-sm transition-shadow cursor-pointer"
               onClick={() => onDetail(lease.id)}
             >
               <CardContent className="p-4 sm:p-5">
                 <div className="flex items-start gap-3">
                   {/* Property image */}
                   {lease.property.images?.[0] ? (
-                    <div className="size-14 sm:size-16 rounded-lg bg-neutral-100 overflow-hidden shrink-0">
+                    <div className="size-14 sm:size-16 rounded-lg bg-muted overflow-hidden shrink-0">
                       <img src={lease.property.images[0].url} alt="" className="size-full object-cover" />
                     </div>
                   ) : (
@@ -91,8 +91,8 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <h3 className="font-semibold text-neutral-900 text-sm truncate">{lease.property.title}</h3>
-                        <div className="flex items-center gap-1.5 text-xs text-neutral-500 mt-0.5">
+                        <h3 className="font-semibold text-foreground text-sm truncate">{lease.property.title}</h3>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                           <User className="size-3" />
                           {lease.owner.firstName} {lease.owner.lastName}
                         </div>
@@ -102,20 +102,20 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
 
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-3 text-xs">
                       <div>
-                        <span className="text-neutral-400">Loyer</span>
-                        <p className="font-semibold text-neutral-900">{lease.monthlyRent.toLocaleString('fr-FR')} FCFA</p>
+                        <span className="text-muted-foreground">Loyer</span>
+                        <p className="font-semibold text-foreground">{lease.monthlyRent.toLocaleString('fr-FR')} FCFA</p>
                       </div>
                       <div>
-                        <span className="text-neutral-400">Charges</span>
-                        <p className="font-semibold text-neutral-900">{lease.charges?.toLocaleString('fr-FR') || 0} FCFA</p>
+                        <span className="text-muted-foreground">Charges</span>
+                        <p className="font-semibold text-foreground">{lease.charges?.toLocaleString('fr-FR') || 0} FCFA</p>
                       </div>
                       <div>
-                        <span className="text-neutral-400">Début</span>
-                        <p className="font-medium text-neutral-700">{new Date(lease.startDate).toLocaleDateString('fr-FR')}</p>
+                        <span className="text-muted-foreground">Début</span>
+                        <p className="font-medium text-foreground">{new Date(lease.startDate).toLocaleDateString('fr-FR')}</p>
                       </div>
                       <div>
-                        <span className="text-neutral-400">Fin</span>
-                        <p className="font-medium text-neutral-700">{new Date(lease.endDate).toLocaleDateString('fr-FR')}</p>
+                        <span className="text-muted-foreground">Fin</span>
+                        <p className="font-medium text-foreground">{new Date(lease.endDate).toLocaleDateString('fr-FR')}</p>
                       </div>
                     </div>
                   </div>

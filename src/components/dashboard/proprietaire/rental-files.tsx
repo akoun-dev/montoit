@@ -46,31 +46,31 @@ export function ProprietaireRentalFiles() {
     fetchData()
   }, [fetchData])
 
-  if (loading) return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-neutral-100 animate-pulse" />)}</div>
+  if (loading) return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Dossiers locatifs</h1>
-        <p className="text-neutral-500 mt-1">Dossiers validés par les Tiers de Confiance</p>
+        <h1 className="text-2xl font-bold text-foreground">Dossiers locatifs</h1>
+        <p className="text-muted-foreground mt-1">Dossiers validés par les Tiers de Confiance</p>
       </div>
 
       {data.length === 0 ? (
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardContent className="py-12 text-center">
-            <ClipboardCheck className="size-12 text-neutral-300 mx-auto mb-4" />
-            <p className="text-neutral-500">Aucun dossier locatif validé</p>
+            <ClipboardCheck className="size-12 text-muted-foreground/50 mx-auto mb-4" />
+            <p className="text-muted-foreground">Aucun dossier locatif validé</p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
           {data.map((rf) => (
-            <Card key={rf.id} className="border-neutral-200">
+            <Card key={rf.id} className="border-border">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="font-semibold text-neutral-900">{rf.tenant.firstName} {rf.tenant.lastName}</h3>
-                    <p className="text-sm text-neutral-500">{rf.tenant.phone}</p>
+                    <h3 className="font-semibold text-foreground">{rf.tenant.firstName} {rf.tenant.lastName}</h3>
+                    <p className="text-sm text-muted-foreground">{rf.tenant.phone}</p>
                   </div>
                   <Badge className={
                     rf.status === 'VALIDATED' ? 'bg-green-100 text-green-700' :
@@ -82,7 +82,7 @@ export function ProprietaireRentalFiles() {
                   </Badge>
                 </div>
                 {rf.monthlyIncome && (
-                  <p className="text-sm text-neutral-600 mb-2">
+                  <p className="text-sm text-muted-foreground mb-2">
                     Revenus : {rf.monthlyIncome.toLocaleString('fr-FR')} FCFA · {rf.employer || 'Non renseigné'}
                   </p>
                 )}

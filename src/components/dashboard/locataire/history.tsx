@@ -28,8 +28,8 @@ const actionConfig: Record<string, { icon: typeof LogIn; label: string; color: s
   CREATE: { icon: CheckCircle2, label: 'Création', color: 'text-emerald-500 bg-emerald-50' },
   UPDATE: { icon: Settings, label: 'Mise à jour', color: 'text-amber-500 bg-amber-50' },
   SUBMIT: { icon: FileText, label: 'Soumission', color: 'text-brand-500 bg-brand-50' },
-  LOGIN: { icon: LogIn, label: 'Connexion', color: 'text-neutral-500 bg-neutral-100' },
-  LOGOUT: { icon: LogIn, label: 'Déconnexion', color: 'text-neutral-400 bg-neutral-100' },
+  LOGIN: { icon: LogIn, label: 'Connexion', color: 'text-muted-foreground bg-muted' },
+  LOGOUT: { icon: LogIn, label: 'Déconnexion', color: 'text-muted-foreground bg-muted' },
   DELETE: { icon: XCircle, label: 'Suppression', color: 'text-red-500 bg-red-50' },
   VERIFY: { icon: CheckCircle2, label: 'Vérification', color: 'text-emerald-500 bg-emerald-50' },
 }
@@ -48,7 +48,7 @@ const entityLabels: Record<string, string> = {
 }
 
 function getActionConfig(action: string) {
-  return actionConfig[action] || { icon: Settings, label: action, color: 'text-neutral-500 bg-neutral-100' }
+  return actionConfig[action] || { icon: Settings, label: action, color: 'text-muted-foreground bg-muted' }
 }
 
 function formatDateTime(dateStr: string): string {
@@ -107,16 +107,16 @@ export function ActivityHistory() {
     return (
       <div className="space-y-6">
         <div>
-          <div className="h-8 w-32 bg-neutral-100 animate-pulse rounded" />
-          <div className="h-4 w-48 bg-neutral-100 animate-pulse rounded mt-2" />
+          <div className="h-8 w-32 bg-muted animate-pulse rounded" />
+          <div className="h-4 w-48 bg-muted animate-pulse rounded mt-2" />
         </div>
         <div className="space-y-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="flex items-start gap-4">
-              <div className="size-6 rounded-full bg-neutral-100 animate-pulse shrink-0" />
+              <div className="size-6 rounded-full bg-muted animate-pulse shrink-0" />
               <div className="flex-1">
-                <div className="h-4 w-48 bg-neutral-100 animate-pulse rounded" />
-                <div className="h-3 w-24 bg-neutral-100 animate-pulse rounded mt-2" />
+                <div className="h-4 w-48 bg-muted animate-pulse rounded" />
+                <div className="h-3 w-24 bg-muted animate-pulse rounded mt-2" />
               </div>
             </div>
           ))}
@@ -129,7 +129,7 @@ export function ActivityHistory() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-neutral-900">Historique</h1>
+        <h1 className="text-2xl font-bold text-foreground">Historique</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger votre historique. Veuillez réessayer.</p>
@@ -143,8 +143,8 @@ export function ActivityHistory() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-neutral-900">Historique</h1>
-        <p className="text-neutral-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Historique</h1>
+        <p className="text-muted-foreground mt-1">
           {logs.length > 0
             ? `${total} activité${total > 1 ? 's' : ''} récente${total > 1 ? 's' : ''}`
             : 'Vos activités récentes'}
@@ -154,15 +154,15 @@ export function ActivityHistory() {
       {logs.length === 0 ? (
         /* Empty State */
         <motion.div variants={itemVariants}>
-          <Card className="border-dashed border-neutral-300 bg-neutral-50/50">
+          <Card className="border-dashed border-border bg-muted/50">
             <CardContent className="py-12 flex flex-col items-center text-center">
               <div className="flex size-16 items-center justify-center rounded-full bg-brand-50 mb-4">
                 <HistoryIcon className="size-7 text-brand-500" />
               </div>
-              <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+              <h3 className="text-lg font-semibold text-foreground mb-1">
                 Aucune activité récente
               </h3>
-              <p className="text-sm text-neutral-500 max-w-sm">
+              <p className="text-sm text-muted-foreground max-w-sm">
                 {user?.firstName}, vos actions et événements apparaîtront ici au fil du temps.
               </p>
             </CardContent>
@@ -171,7 +171,7 @@ export function ActivityHistory() {
       ) : (
         /* Timeline */
         <motion.div variants={itemVariants}>
-          <Card className="border-neutral-200">
+          <Card className="border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Fil d&apos;activité</CardTitle>
             </CardHeader>
@@ -190,18 +190,18 @@ export function ActivityHistory() {
                     return (
                       <div key={log.id} className="flex items-start gap-4 relative">
                         <div className={`flex size-6 shrink-0 items-center justify-center rounded-full border-2 z-10 ${
-                          isFirst ? 'border-brand-500 bg-brand-50' : 'border-neutral-200 bg-white'
+                          isFirst ? 'border-brand-500 bg-brand-50' : 'border-border bg-card'
                         }`}>
-                          <IconComp className={`size-3 ${isFirst ? 'text-brand-500' : 'text-neutral-400'}`} />
+                          <IconComp className={`size-3 ${isFirst ? 'text-brand-500' : 'text-muted-foreground'}`} />
                         </div>
                         <div className="flex-1 pt-0.5 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className={`text-sm ${isFirst ? 'text-neutral-900 font-medium' : 'text-neutral-600'}`}>
+                            <p className={`text-sm ${isFirst ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
                               {log.details || `${config.label} — ${entityLabel}`}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-neutral-200 text-neutral-400">
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-border text-muted-foreground">
                               {entityLabel}
                             </Badge>
                             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border ${config.color}`}>

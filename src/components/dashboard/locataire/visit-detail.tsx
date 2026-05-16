@@ -35,8 +35,8 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   ACCEPTED: { label: 'Accepté', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: Eye, description: 'Le propriétaire a accepté votre demande de visite.' },
   REJECTED: { label: 'Rejeté', color: 'bg-red-50 text-red-700 border-red-200', icon: Eye, description: 'Le propriétaire a décliné votre demande de visite.' },
   COUNTER_PROPOSED: { label: 'Contre-proposition', color: 'bg-brand-50 text-brand-700 border-brand-200', icon: Calendar, description: 'Le propriétaire propose une autre date pour la visite.' },
-  COMPLETED: { label: 'Complété', color: 'bg-neutral-50 text-neutral-700 border-neutral-200', icon: Eye, description: 'La visite a été effectuée.' },
-  CANCELLED: { label: 'Annulé', color: 'bg-neutral-50 text-neutral-500 border-neutral-200', icon: Eye, description: 'La visite a été annulée.' },
+  COMPLETED: { label: 'Complété', color: 'bg-muted text-foreground border-border', icon: Eye, description: 'La visite a été effectuée.' },
+  CANCELLED: { label: 'Annulé', color: 'bg-muted text-muted-foreground border-border', icon: Eye, description: 'La visite a été annulée.' },
 }
 
 function formatDate(dateStr: string): string {
@@ -85,8 +85,8 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="h-8 w-48 bg-neutral-100 animate-pulse rounded" />
-        <div className="h-64 bg-neutral-100 animate-pulse rounded-xl" />
+        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+        <div className="h-64 bg-muted animate-pulse rounded-xl" />
       </div>
     )
   }
@@ -94,7 +94,7 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
   if (error || !visit) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" onClick={onBack} className="gap-2 text-neutral-600">
+        <Button variant="ghost" onClick={onBack} className="gap-2 text-muted-foreground">
           <ArrowLeft className="size-4" /> Retour
         </Button>
         <Card className="border-amber-200 bg-amber-50">
@@ -113,15 +113,15 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
       {/* Back button */}
-      <Button variant="ghost" onClick={onBack} className="gap-2 text-neutral-600 -ml-2">
+      <Button variant="ghost" onClick={onBack} className="gap-2 text-muted-foreground -ml-2">
         <ArrowLeft className="size-4" /> Retour aux visites
       </Button>
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Détail de la visite</h1>
-          <p className="text-neutral-500 mt-1 text-sm">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Détail de la visite</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
             Demandée le {formatShortDate(visit.createdAt)}
           </p>
         </div>
@@ -132,32 +132,32 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
       </div>
 
       {/* Status description */}
-      <Card className="border-neutral-200">
+      <Card className="border-border">
         <CardContent className="p-4">
-          <p className="text-sm text-neutral-600">{config.description}</p>
+          <p className="text-sm text-muted-foreground">{config.description}</p>
         </CardContent>
       </Card>
 
       {/* Date & Time */}
-      <Card className="border-neutral-200">
+      <Card className="border-border">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-neutral-500 flex items-center gap-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
             <Calendar className="size-4" /> Date et heure
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-neutral-50">
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
             <Calendar className="size-5 text-brand-500 shrink-0" />
             <div>
-              <p className="text-xs text-neutral-400">Date demandée</p>
-              <p className="text-sm font-semibold text-neutral-900 capitalize">{formatDate(visit.requestedDate)}</p>
+              <p className="text-xs text-muted-foreground">Date demandée</p>
+              <p className="text-sm font-semibold text-foreground capitalize">{formatDate(visit.requestedDate)}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-neutral-50">
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
             <Clock className="size-5 text-brand-500 shrink-0" />
             <div>
-              <p className="text-xs text-neutral-400">Créneau horaire</p>
-              <p className="text-sm font-semibold text-neutral-900">{visit.timeSlot}</p>
+              <p className="text-xs text-muted-foreground">Créneau horaire</p>
+              <p className="text-sm font-semibold text-foreground">{visit.timeSlot}</p>
             </div>
           </div>
 
@@ -179,16 +179,16 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
 
       {/* Property info */}
       {property && (
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-neutral-500 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Building2 className="size-4" /> Bien à visiter
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-start gap-4">
               {property.images?.[0]?.url ? (
-                <div className="size-16 sm:size-20 rounded-lg bg-neutral-100 overflow-hidden shrink-0">
+                <div className="size-16 sm:size-20 rounded-lg bg-muted overflow-hidden shrink-0">
                   <img src={property.images[0].url} alt={property.title} className="size-full object-cover" />
                 </div>
               ) : (
@@ -197,8 +197,8 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
                 </div>
               )}
               <div className="min-w-0">
-                <h3 className="font-semibold text-neutral-900">{property.title}</h3>
-                <p className="text-sm text-neutral-500 flex items-center gap-1 mt-0.5">
+                <h3 className="font-semibold text-foreground">{property.title}</h3>
+                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                   <MapPin className="size-3" /> {property.city}
                 </p>
               </div>
@@ -209,14 +209,14 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
 
       {/* Owner comment */}
       {visit.ownerComment && (
-        <Card className="border-neutral-200">
+        <Card className="border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-neutral-500 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <MessageSquare className="size-4" /> Commentaire du propriétaire
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="p-3 rounded-lg bg-neutral-50 italic text-sm text-neutral-700">
+            <div className="p-3 rounded-lg bg-muted italic text-sm text-foreground">
               &ldquo;{visit.ownerComment}&rdquo;
             </div>
           </CardContent>

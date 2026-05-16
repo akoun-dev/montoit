@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { AnimatedSheet } from '@/components/ui/sheet'
 import { useAuthStore, type AppView, type AuthUser } from '@/lib/auth-store'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
 
 const navLinks: { label: string; view: AppView; icon: React.ElementType }[] = [
@@ -74,7 +75,7 @@ function getRoleBadgeStyle(role: AuthUser['role']): string {
     case 'AGENCE': return 'bg-teal-100 text-teal-700 border-teal-200'
     case 'TIERS_CONFIANCE': return 'bg-orange-100 text-orange-700 border-orange-200'
     case 'ADMIN': return 'bg-rose-100 text-rose-700 border-rose-200'
-    default: return 'bg-neutral-100 text-neutral-700 border-neutral-200'
+    default: return 'bg-muted text-muted-foreground border-border'
   }
 }
 
@@ -185,11 +186,11 @@ function UserDropdown() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64 p-0 overflow-hidden">
         {/* Profile header */}
-        <div className="px-4 py-3 bg-neutral-50 border-b border-neutral-100">
-          <p className="text-sm font-semibold text-neutral-900 truncate">
+        <div className="px-4 py-3 bg-muted border-b border-border">
+          <p className="text-sm font-semibold text-foreground truncate">
             {user.firstName} {user.lastName}
           </p>
-          <p className="text-xs text-neutral-500 truncate mt-0.5">
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
             {user.email || user.phone}
           </p>
           <Badge
@@ -211,22 +212,22 @@ function UserDropdown() {
               <DropdownMenuItem
                 key={item.id}
                 onClick={() => handleMenuItem(item)}
-                className="px-3 py-2 cursor-pointer gap-3 text-sm text-neutral-700 focus:bg-brand-50 focus:text-brand-700"
+                className="px-3 py-2 cursor-pointer gap-3 text-sm text-foreground focus:bg-brand-50 focus:text-brand-700"
               >
-                <Icon className="size-4 text-neutral-400 shrink-0" />
+                <Icon className="size-4 text-muted-foreground shrink-0" />
                 <span>{item.label}</span>
               </DropdownMenuItem>
             )
           })}
         </div>
 
-        <DropdownMenuSeparator className="bg-neutral-100" />
+        <DropdownMenuSeparator />
 
         {/* Logout */}
         <div className="py-1">
           <DropdownMenuItem
             onClick={handleLogout}
-            className="px-3 py-2 cursor-pointer gap-3 text-sm text-red-600 focus:bg-red-50 focus:text-red-700"
+            className="px-3 py-2 cursor-pointer gap-3 text-sm text-red-600 focus:bg-red-50 focus:text-red-700 dark:focus:bg-red-950/30"
           >
             <LogOut className="size-4 shrink-0" />
             <span>Déconnexion</span>
@@ -279,7 +280,7 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white border-b border-neutral-200 shadow-sm">
+    <header className="sticky top-0 z-50 w-full bg-background border-b border-border shadow-sm">
       <div className="mx-auto max-w-7xl flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
         {/* Logo */}
         <button
@@ -310,7 +311,7 @@ export function Header() {
                 className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                   isActive
                     ? 'text-brand-500 bg-brand-50'
-                    : 'text-neutral-700 hover:text-brand-500 hover:bg-brand-50'
+                    : 'text-foreground hover:text-brand-500 hover:bg-brand-50'
                 }`}
               >
                 {link.label}
@@ -321,6 +322,7 @@ export function Header() {
 
         {/* Desktop CTA */}
         <div className="hidden lg:flex items-center gap-3">
+          <ThemeToggle />
           {isAuthenticated && user ? (
             <UserDropdown />
           ) : (
@@ -335,8 +337,9 @@ export function Header() {
           )}
         </div>
 
-        {/* ─── Mobile Hamburger ─────────────────────────────────────────── */}
-        <div className="lg:hidden">
+        {/* ─── Mobile: Theme toggle + Hamburger ──────────────────────── */}
+        <div className="lg:hidden flex items-center gap-1">
+          <ThemeToggle />
           <Button variant="ghost" size="icon" aria-label="Menu" onClick={() => setOpen(true)}>
             <Menu className="size-5" />
           </Button>
@@ -352,7 +355,7 @@ export function Header() {
               /* ── AUTHENTICATED: profile card + role menu ── */
               <>
                 {/* Profile header */}
-                <div className="px-5 pt-5 pb-4 bg-gradient-to-br from-brand-50 to-white border-b border-neutral-100">
+                <div className="px-5 pt-5 pb-4 bg-gradient-to-br from-brand-50 to-background border-b border-border">
                   <div className="flex items-center gap-2.5 mb-3">
                     <Avatar className="h-11 w-11 border-2 border-brand-300">
                       <AvatarFallback className="bg-brand-500 text-white text-base font-bold">
@@ -360,10 +363,10 @@ export function Header() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0 text-left">
-                      <p className="text-sm font-bold text-neutral-900 truncate">
+                      <p className="text-sm font-bold text-foreground truncate">
                         {user.firstName} {user.lastName}
                       </p>
-                      <p className="text-xs text-neutral-500 truncate">
+                      <p className="text-xs text-muted-foreground truncate">
                         {user.email || user.phone}
                       </p>
                     </div>
@@ -386,7 +389,7 @@ export function Header() {
                       <div key={gIdx} className={gIdx > 0 ? 'mt-1' : ''}>
                         {/* Group label */}
                         {group.group && (
-                          <p className="px-5 pt-3 pb-1 text-[10px] font-bold tracking-widest text-neutral-400 uppercase">
+                          <p className="px-5 pt-3 pb-1 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
                             {group.group}
                           </p>
                         )}
@@ -398,11 +401,11 @@ export function Header() {
                               <li key={item.id}>
                                 <button
                                   onClick={() => handleMobileDashboardItem(item.section)}
-                                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-neutral-700 rounded-lg hover:bg-brand-50 hover:text-brand-700 transition-colors text-left group"
+                                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-foreground rounded-lg hover:bg-brand-50 hover:text-brand-700 transition-colors text-left group"
                                 >
-                                  <Icon className="size-[18px] text-neutral-400 group-hover:text-brand-500 shrink-0 transition-colors" />
+                                  <Icon className="size-[18px] text-muted-foreground group-hover:text-brand-500 shrink-0 transition-colors" />
                                   <span className="flex-1">{item.label}</span>
-                                  <ChevronRight className="size-3.5 text-neutral-300 group-hover:text-brand-400 shrink-0 transition-colors" />
+                                  <ChevronRight className="size-3.5 text-muted-foreground/50 group-hover:text-brand-400 shrink-0 transition-colors" />
                                 </button>
                               </li>
                             )
@@ -414,7 +417,7 @@ export function Header() {
                 </ScrollArea>
 
                 {/* Bottom: public nav + logout */}
-                <div className="border-t border-neutral-100 bg-neutral-50/80">
+                <div className="border-t border-border bg-muted/80">
                   {/* Quick public nav */}
                   <div className="px-3 py-2 flex gap-1">
                     {navLinks.map((link) => {
@@ -428,7 +431,7 @@ export function Header() {
                             'flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-medium transition-colors',
                             isActive
                               ? 'text-brand-600 bg-brand-50'
-                              : 'text-neutral-500 hover:text-brand-600 hover:bg-brand-50'
+                              : 'text-muted-foreground hover:text-brand-600 hover:bg-brand-50'
                           )}
                         >
                           <Icon className="size-4" />
@@ -444,7 +447,7 @@ export function Header() {
                   <div className="px-3 py-2">
                     <button
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 rounded-lg hover:bg-red-50 transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors text-left"
                     >
                       <LogOut className="size-[18px] shrink-0" />
                       <span>Déconnexion</span>
@@ -479,7 +482,7 @@ export function Header() {
                         className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-colors text-left ${
                           isActive
                             ? 'text-brand-500 bg-brand-50'
-                            : 'text-neutral-700 hover:text-brand-500 hover:bg-brand-50'
+                            : 'text-foreground hover:text-brand-500 hover:bg-brand-50'
                         }`}
                       >
                         <Icon className="size-4" />
@@ -489,7 +492,7 @@ export function Header() {
                   })}
                 </nav>
 
-                <div className="px-4 mt-4 pt-4 border-t border-neutral-200">
+                <div className="px-4 mt-4 pt-4 border-t border-border">
                   <div className="flex flex-col gap-2">
                     <Button variant="outline" className="w-full" onClick={handleLogin}>
                       Se connecter

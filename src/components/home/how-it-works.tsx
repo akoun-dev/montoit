@@ -47,7 +47,7 @@ const itemVariants = {
 
 export function HowItWorks() {
   return (
-    <section className="py-16 sm:py-20 bg-neutral-50">
+    <section className="py-16 sm:py-20 bg-muted">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
@@ -57,10 +57,10 @@ export function HowItWorks() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12 sm:mb-16"
         >
-          <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900 mb-3">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">
             Comment ça marche ?
           </h2>
-          <p className="text-neutral-500 text-base sm:text-lg max-w-xl mx-auto">
+          <p className="text-muted-foreground text-base sm:text-lg max-w-xl mx-auto">
             Trouvez votre logement en 3 étapes simples
           </p>
         </motion.div>
@@ -89,15 +89,15 @@ export function HowItWorks() {
                 {/* Number circle */}
                 <div className="relative z-10 size-16 rounded-full bg-brand-500 flex items-center justify-center mb-5 shadow-lg shadow-brand-500/20">
                   <Icon className="size-7 text-white" />
-                  <span className="absolute -top-1 -right-1 size-6 rounded-full bg-white border-2 border-brand-500 flex items-center justify-center text-xs font-bold text-brand-500">
+                  <span className="absolute -top-1 -right-1 size-6 rounded-full bg-card border-2 border-brand-500 flex items-center justify-center text-xs font-bold text-brand-500">
                     {step.number}
                   </span>
                 </div>
 
-                <h3 className="text-lg font-semibold text-neutral-900 mb-2">
+                <h3 className="text-lg font-semibold text-foreground mb-2">
                   {step.title}
                 </h3>
-                <p className="text-neutral-500 text-sm max-w-xs leading-relaxed">
+                <p className="text-muted-foreground text-sm max-w-xs leading-relaxed">
                   {step.description}
                 </p>
               </motion.div>

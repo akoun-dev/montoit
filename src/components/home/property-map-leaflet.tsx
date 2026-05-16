@@ -68,7 +68,7 @@ function LeafletPopupCard({ property, onVoirClick }: { property: MapProperty; on
           />
         ) : (
           <div className="w-full h-full bg-neutral-200 flex items-center justify-center">
-            <MapPin className="size-6 text-neutral-400" />
+            <MapPin className="size-6 text-muted-foreground" />
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
@@ -84,20 +84,20 @@ function LeafletPopupCard({ property, onVoirClick }: { property: MapProperty; on
         </div>
       </div>
       <div className="p-2.5">
-        <h3 className="font-semibold text-neutral-900 text-[11px] mb-0.5 line-clamp-1">{property.title}</h3>
-        <div className="flex items-center gap-1 text-neutral-500 text-[10px] mb-1.5">
+        <h3 className="font-semibold text-foreground text-[11px] mb-0.5 line-clamp-1">{property.title}</h3>
+        <div className="flex items-center gap-1 text-muted-foreground text-[10px] mb-1.5">
           <MapPin className="size-2.5 shrink-0" />
           <span className="line-clamp-1">{location}</span>
         </div>
-        <div className="flex items-center gap-2 text-[10px] text-neutral-600 mb-2">
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground mb-2">
           {property.bedrooms !== null && (
             <div className="flex items-center gap-0.5">
-              <BedDouble className="size-2.5 text-neutral-400" />
+              <BedDouble className="size-2.5 text-muted-foreground" />
               <span>{property.bedrooms} pièce{property.bedrooms > 1 ? 's' : ''}</span>
             </div>
           )}
           <div className="flex items-center gap-0.5">
-            <Maximize className="size-2.5 text-neutral-400" />
+            <Maximize className="size-2.5 text-muted-foreground" />
             <span>{property.area} m²</span>
           </div>
           {property.isVerified && (
@@ -106,9 +106,9 @@ function LeafletPopupCard({ property, onVoirClick }: { property: MapProperty; on
             </div>
           )}
         </div>
-        <div className="flex items-center justify-between pt-1.5 border-t border-neutral-100">
+        <div className="flex items-center justify-between pt-1.5 border-t border-border">
           <p className="text-xs font-bold text-brand-500">
-            {property.price.toLocaleString('fr-FR')} <span className="text-[9px] font-normal text-neutral-400">F CFA/mois</span>
+            {property.price.toLocaleString('fr-FR')} <span className="text-[9px] font-normal text-muted-foreground">F CFA/mois</span>
           </p>
           <Button
             variant="outline"
@@ -415,14 +415,14 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick }: Prop
           exit={{ opacity: 0, y: 20 }}
           className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] sm:left-4 sm:translate-x-0"
         >
-          <div className="bg-white rounded-xl shadow-2xl border border-neutral-200 overflow-hidden w-72">
+          <div className="bg-card rounded-xl shadow-2xl border border-border overflow-hidden w-72">
             {/* Close button */}
             <button
               onClick={() => setSelectedProperty(null)}
-              className="absolute top-2 right-2 z-10 size-6 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white shadow-sm"
+              className="absolute top-2 right-2 z-10 size-6 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center hover:bg-card shadow-sm"
               aria-label="Fermer"
             >
-              <X className="size-3 text-neutral-500" />
+              <X className="size-3 text-muted-foreground" />
             </button>
             <LeafletPopupCard
               property={selectedProperty}
@@ -435,8 +435,8 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick }: Prop
       )}
 
       {/* Zoom hint */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 backdrop-blur-sm rounded-full px-4 py-2 shadow-md border border-neutral-200">
-        <p className="text-[11px] text-neutral-600 font-medium flex items-center gap-1.5">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-card/95 backdrop-blur-sm rounded-full px-4 py-2 shadow-md border border-border">
+        <p className="text-[11px] text-muted-foreground font-medium flex items-center gap-1.5">
           <MapPin className="size-3 text-brand-500" />
           {mapZoomLevel < 14
             ? 'Cliquez sur un marqueur pour zoomer et voir les détails'
@@ -445,20 +445,20 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick }: Prop
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-4 right-4 z-[1000] sm:right-14 bg-white/95 backdrop-blur-sm rounded-lg shadow-md border border-neutral-200 px-3 py-2">
-        <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">Légende</p>
+      <div className="absolute bottom-4 right-4 z-[1000] sm:right-14 bg-card/95 backdrop-blur-sm rounded-lg shadow-md border border-border px-3 py-2">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Légende</p>
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-brand-500" />
-            <span className="text-[10px] text-neutral-600">Disponible</span>
+            <span className="text-[10px] text-muted-foreground">Disponible</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-red-500" />
-            <span className="text-[10px] text-neutral-600">Loué</span>
+            <span className="text-[10px] text-muted-foreground">Loué</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-full bg-amber-500" />
-            <span className="text-[10px] text-neutral-600">Réservé</span>
+            <span className="text-[10px] text-muted-foreground">Réservé</span>
           </div>
         </div>
       </div>

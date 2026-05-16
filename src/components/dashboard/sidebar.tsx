@@ -264,7 +264,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
   return (
     <div className="flex flex-col min-h-0 flex-1">
       {/* Logo */}
-      <div className="flex items-center gap-2 px-4 h-16 border-b border-neutral-200 shrink-0">
+      <div className="flex items-center gap-2 px-4 h-16 border-b border-border shrink-0">
         <Image
           src="/favicon-96x96.png"
           alt="Mon Toit"
@@ -279,7 +279,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
 
       {/* Role badge */}
       {!collapsed && (
-        <div className="px-4 py-3 border-b border-neutral-100 shrink-0">
+        <div className="px-4 py-3 border-b border-border shrink-0">
           <span className={cn(
             'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
             getRoleColor(user.role)
@@ -296,7 +296,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
             <div key={sIdx} className={sIdx > 0 ? 'mt-3' : ''}>
               {/* Section title */}
               {section.title && !collapsed && (
-                <p className="px-3 mb-1 text-[10px] font-bold tracking-widest text-neutral-400 uppercase">
+                <p className="px-3 mb-1 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
                   {section.title}
                 </p>
               )}
@@ -313,12 +313,12 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
                           'w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                           isActive
                             ? 'bg-brand-50 text-brand-700'
-                            : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900',
+                            : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                           collapsed && 'justify-center px-0'
                         )}
                         title={collapsed ? item.label : undefined}
                       >
-                        <Icon className={cn('size-5 shrink-0', isActive ? 'text-brand-500' : 'text-neutral-400')} />
+                        <Icon className={cn('size-5 shrink-0', isActive ? 'text-brand-500' : 'text-muted-foreground')} />
                         {!collapsed && <span className="truncate">{item.label}</span>}
                       </button>
                     </li>
@@ -341,14 +341,14 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'hidden lg:flex flex-col border-r border-neutral-200 bg-white transition-all duration-300 h-full',
+        'hidden lg:flex flex-col border-r border-border bg-background transition-all duration-300 h-full',
         collapsed ? 'w-16' : 'w-64'
       )}
     >
       <SidebarContent collapsed={collapsed} />
 
       {/* Collapse button */}
-      <div className="border-t border-neutral-200 p-2 shrink-0">
+      <div className="border-t border-border p-2 shrink-0">
         <Button
           variant="ghost"
           size="sm"

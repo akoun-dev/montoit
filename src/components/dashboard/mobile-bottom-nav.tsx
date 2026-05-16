@@ -37,7 +37,7 @@ export function MobileBottomNav() {
   const activeTab = detailToParent[dashboardSection] || dashboardSection
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-neutral-200 safe-area-bottom">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border safe-area-bottom">
       <div className="flex items-center justify-around h-14">
         {tenantItems.map((item) => {
           const Icon = item.icon

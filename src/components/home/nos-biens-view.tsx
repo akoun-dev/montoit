@@ -100,7 +100,7 @@ function getPropertyLocation(property: Property): string {
 
 function PropertyCardSkeleton() {
   return (
-    <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm animate-pulse">
+    <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm animate-pulse">
       <div className="h-52 bg-neutral-200" />
       <div className="p-4 space-y-3">
         <div className="h-4 bg-neutral-200 rounded w-3/4" />
@@ -109,7 +109,7 @@ function PropertyCardSkeleton() {
           <div className="h-3 bg-neutral-200 rounded w-16" />
           <div className="h-3 bg-neutral-200 rounded w-16" />
         </div>
-        <div className="h-px bg-neutral-100" />
+        <div className="h-px bg-border" />
         <div className="flex justify-between">
           <div className="h-4 bg-neutral-200 rounded w-24" />
           <div className="h-3 bg-neutral-200 rounded w-16" />
@@ -121,7 +121,7 @@ function PropertyCardSkeleton() {
 
 function PropertyListItemSkeleton() {
   return (
-    <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm flex animate-pulse">
+    <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm flex animate-pulse">
       <div className="w-36 sm:w-48 h-36 bg-neutral-200 shrink-0" />
       <div className="flex-1 p-4 space-y-3">
         <div className="h-4 bg-neutral-200 rounded w-3/4" />
@@ -180,7 +180,7 @@ function FilterSidebar({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="size-4 text-brand-500" />
-          <span className="text-sm font-semibold text-neutral-900">Filtres</span>
+          <span className="text-sm font-semibold text-foreground">Filtres</span>
           <Badge className="bg-brand-500 text-white border-0 text-[11px] px-2 py-0.5 hover:bg-brand-500 leading-tight">
             {resultCount}
           </Badge>
@@ -196,18 +196,18 @@ function FilterSidebar({
         )}
       </div>
 
-      <div className="h-px bg-neutral-100" />
+      <div className="h-px bg-border" />
 
       {/* Type de bien */}
       <div className="space-y-2">
-        <Label className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">Type de bien</Label>
+        <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Type de bien</Label>
         <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setTypeFilter('Tous')}
             className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
               typeFilter === 'Tous'
                 ? 'bg-brand-500 text-white shadow-sm'
-                : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100 border border-neutral-200'
+                : 'bg-muted text-muted-foreground hover:bg-accent border border-border'
             }`}
           >
             Tous
@@ -219,7 +219,7 @@ function FilterSidebar({
               className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
                 typeFilter === type
                   ? 'bg-brand-500 text-white shadow-sm'
-                  : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100 border border-neutral-200'
+                  : 'bg-muted text-muted-foreground hover:bg-accent border border-border'
               }`}
             >
               {formatPropertyType(type)}
@@ -230,9 +230,9 @@ function FilterSidebar({
 
       {/* Ville ou commune */}
       <div className="space-y-1.5">
-        <Label className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">Ville ou commune</Label>
+        <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Ville ou commune</Label>
         <Select value={communeFilter} onValueChange={setCommuneFilter}>
-          <SelectTrigger className="h-9 bg-white border-neutral-200 text-xs rounded-md">
+          <SelectTrigger className="h-9 bg-card border-border text-xs rounded-md">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -248,7 +248,7 @@ function FilterSidebar({
 
       {/* Loyer */}
       <div className="space-y-1.5">
-        <Label className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">Loyer (FCFA/Mois)</Label>
+        <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Loyer (FCFA/Mois)</Label>
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Input
@@ -256,34 +256,34 @@ function FilterSidebar({
               placeholder="Min"
               value={priceMin}
               onChange={(e) => setPriceMin(e.target.value)}
-              className="h-9 bg-white border-neutral-200 text-xs rounded-md pr-8"
+              className="h-9 bg-card border-border text-xs rounded-md pr-8"
             />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-neutral-400">Min</span>
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">Min</span>
           </div>
-          <span className="text-neutral-300 text-xs">—</span>
+          <span className="text-muted-foreground text-xs">—</span>
           <div className="relative flex-1">
             <Input
               type="number"
               placeholder="Max"
               value={priceMax}
               onChange={(e) => setPriceMax(e.target.value)}
-              className="h-9 bg-white border-neutral-200 text-xs rounded-md pr-8"
+              className="h-9 bg-card border-border text-xs rounded-md pr-8"
             />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-neutral-400">Max</span>
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">Max</span>
           </div>
         </div>
       </div>
 
       {/* Nombre de pièces min. */}
       <div className="space-y-2">
-        <Label className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">Nombre de pièces min.</Label>
+        <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Nombre de pièces min.</Label>
         <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setRoomsMin('0')}
             className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
               roomsMin === '0'
                 ? 'bg-brand-500 text-white shadow-sm'
-                : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100 border border-neutral-200'
+                : 'bg-muted text-muted-foreground hover:bg-accent border border-border'
             }`}
           >
             Tous
@@ -295,7 +295,7 @@ function FilterSidebar({
               className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
                 roomsMin === String(n)
                   ? 'bg-brand-500 text-white shadow-sm'
-                  : 'bg-neutral-50 text-neutral-600 hover:bg-neutral-100 border border-neutral-200'
+                  : 'bg-muted text-muted-foreground hover:bg-accent border border-border'
               }`}
             >
               {n}{n === 5 ? '+' : ''}
@@ -306,7 +306,7 @@ function FilterSidebar({
 
       {/* Meublé uniquement */}
       <div className="flex items-center justify-between py-1">
-        <Label className="text-xs font-medium text-neutral-700 cursor-pointer">Meublé uniquement</Label>
+        <Label className="text-xs font-medium text-muted-foreground cursor-pointer">Meublé uniquement</Label>
         <Switch
           checked={meubleOnly}
           onCheckedChange={setMeubleOnly}
@@ -314,7 +314,7 @@ function FilterSidebar({
         />
       </div>
 
-      <div className="h-px bg-neutral-100" />
+      <div className="h-px bg-border" />
 
       {/* Reset button */}
       {hasActiveFilters ? (
@@ -327,7 +327,7 @@ function FilterSidebar({
           Réinitialiser les filtres
         </Button>
       ) : (
-        <p className="text-[11px] text-neutral-400 text-center">
+        <p className="text-[11px] text-muted-foreground text-center">
           Ajustez les filtres pour affiner votre recherche
         </p>
       )}
@@ -351,7 +351,7 @@ function PropertyCard({ property, onClick, isFavorite, toggleFavorite }: { prope
   return (
     <motion.div
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
-      className="group bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
+      className="group bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
       onClick={onClick}
     >
       {/* Image */}
@@ -366,7 +366,7 @@ function PropertyCard({ property, onClick, isFavorite, toggleFavorite }: { prope
           />
         ) : (
           <div className="w-full h-full bg-neutral-200 flex items-center justify-center">
-            <MapPin className="size-8 text-neutral-400" />
+            <MapPin className="size-8 text-muted-foreground" />
           </div>
         )}
         {/* Gradient overlay */}
@@ -386,9 +386,9 @@ function PropertyCard({ property, onClick, isFavorite, toggleFavorite }: { prope
 
         {/* Verified badge */}
         {property.isVerified && (
-          <div className="absolute top-3 right-12 flex items-center gap-1 bg-white/95 backdrop-blur-sm rounded-full px-2 py-0.5">
+          <div className="absolute top-3 right-12 flex items-center gap-1 bg-card/95 backdrop-blur-sm rounded-full px-2 py-0.5">
             <BadgeCheck className="size-3 text-brand-500" />
-            <span className="text-[11px] font-medium text-neutral-700">Vérifié</span>
+            <span className="text-[11px] font-medium text-muted-foreground">Vérifié</span>
           </div>
         )}
 
@@ -400,12 +400,12 @@ function PropertyCard({ property, onClick, isFavorite, toggleFavorite }: { prope
             if (!isAuthenticated) { setView('login'); return }
             toggleFavorite(property.id)
           }}
-          className="absolute top-3 right-3 size-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center hover:bg-white shadow-sm transition-all"
+          className="absolute top-3 right-3 size-8 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center hover:bg-card shadow-sm transition-all"
           aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
         >
           <Heart
             className={`size-4 transition-colors ${
-              isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-neutral-500'
+              isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'
             }`}
           />
         </button>
@@ -413,34 +413,34 @@ function PropertyCard({ property, onClick, isFavorite, toggleFavorite }: { prope
 
       {/* Content */}
       <div className="p-4">
-        <h3 className="font-semibold text-neutral-900 text-sm mb-1 line-clamp-1">
+        <h3 className="font-semibold text-foreground text-sm mb-1 line-clamp-1">
           {property.title}
         </h3>
-        <div className="flex items-center gap-1 text-neutral-500 text-xs mb-3">
+        <div className="flex items-center gap-1 text-muted-foreground text-xs mb-3">
           <MapPin className="size-3 shrink-0" />
           <span className="line-clamp-1">{location}</span>
         </div>
 
         {/* Features */}
-        <div className="flex items-center gap-3 text-xs text-neutral-600 mb-3">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
           {property.bedrooms !== null && (
             <div className="flex items-center gap-1">
-              <BedDouble className="size-3.5 text-neutral-400" />
+              <BedDouble className="size-3.5 text-muted-foreground" />
               <span>{property.bedrooms} pièce{property.bedrooms > 1 ? 's' : ''}</span>
             </div>
           )}
           <div className="flex items-center gap-1">
-            <Maximize className="size-3.5 text-neutral-400" />
+            <Maximize className="size-3.5 text-muted-foreground" />
             <span>{property.area} m²</span>
           </div>
         </div>
 
         {/* Price & Views */}
-        <div className="flex items-center justify-between pt-3 border-t border-neutral-100">
+        <div className="flex items-center justify-between pt-3 border-t border-border">
           <p className="text-base font-bold text-brand-500">
-            {formatPrice(property.price)} <span className="text-xs font-normal text-neutral-400">F CFA/mois</span>
+            {formatPrice(property.price)} <span className="text-xs font-normal text-muted-foreground">F CFA/mois</span>
           </p>
-          <div className="flex items-center gap-1 text-neutral-400">
+          <div className="flex items-center gap-1 text-muted-foreground">
             <Eye className="size-3.5" />
             <span className="text-xs">{property.viewsCount} vues</span>
           </div>
@@ -466,7 +466,7 @@ function PropertyListItem({ property, onClick, isFavorite, toggleFavorite }: { p
   return (
     <motion.div
       whileHover={{ y: -2, transition: { duration: 0.15 } }}
-      className="group bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex cursor-pointer"
+      className="group bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-all flex cursor-pointer"
       onClick={onClick}
     >
       {/* Image */}
@@ -481,7 +481,7 @@ function PropertyListItem({ property, onClick, isFavorite, toggleFavorite }: { p
           />
         ) : (
           <div className="w-full h-full bg-neutral-200 flex items-center justify-center">
-            <MapPin className="size-6 text-neutral-400" />
+            <MapPin className="size-6 text-muted-foreground" />
           </div>
         )}
         <Badge className={`absolute top-2 left-2 border-0 text-xs font-semibold px-2 py-0.5 ${statusConfig[property.rentalStatus].className}`}>
@@ -493,28 +493,28 @@ function PropertyListItem({ property, onClick, isFavorite, toggleFavorite }: { p
       <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between min-w-0">
         <div>
           <div className="flex items-start justify-between gap-2 mb-1">
-            <h3 className="font-semibold text-neutral-900 text-sm line-clamp-1">{property.title}</h3>
+            <h3 className="font-semibold text-foreground text-sm line-clamp-1">{property.title}</h3>
             <button
               onClick={async (e) => { e.preventDefault(); e.stopPropagation(); if (!isAuthenticated) { setView('login'); return } toggleFavorite(property.id) }}
-              className="shrink-0 size-7 sm:size-8 rounded-full bg-neutral-50 flex items-center justify-center hover:bg-neutral-100 transition-colors"
+              className="shrink-0 size-7 sm:size-8 rounded-full bg-muted flex items-center justify-center hover:bg-accent transition-colors"
               aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
             >
-              <Heart className={`size-3.5 sm:size-4 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-neutral-400'}`} />
+              <Heart className={`size-3.5 sm:size-4 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
             </button>
           </div>
-          <div className="flex items-center gap-1 text-neutral-500 text-xs mb-2">
+          <div className="flex items-center gap-1 text-muted-foreground text-xs mb-2">
             <MapPin className="size-3 shrink-0" />
             <span className="line-clamp-1">{location}</span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 text-xs text-neutral-600 mb-2 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-3 text-xs text-muted-foreground mb-2 flex-wrap">
             {property.bedrooms !== null && (
               <div className="flex items-center gap-1">
-                <BedDouble className="size-3.5 text-neutral-400" />
+                <BedDouble className="size-3.5 text-muted-foreground" />
                 <span>{property.bedrooms}p</span>
               </div>
             )}
             <div className="flex items-center gap-1">
-              <Maximize className="size-3.5 text-neutral-400" />
+              <Maximize className="size-3.5 text-muted-foreground" />
               <span>{property.area}m²</span>
             </div>
             {property.isFurnished && (
@@ -532,10 +532,10 @@ function PropertyListItem({ property, onClick, isFavorite, toggleFavorite }: { p
         </div>
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm sm:text-base font-bold text-brand-500 whitespace-nowrap">
-            {formatPrice(property.price)} <span className="text-xs font-normal text-neutral-400">F CFA/mois</span>
+            {formatPrice(property.price)} <span className="text-xs font-normal text-muted-foreground">F CFA/mois</span>
           </p>
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden sm:flex items-center gap-1 text-neutral-400">
+            <div className="hidden sm:flex items-center gap-1 text-muted-foreground">
               <Eye className="size-3.5" />
               <span className="text-xs">{property.viewsCount} vues</span>
             </div>
@@ -564,7 +564,7 @@ function MapListItem({ property, onClick, isFavorite, toggleFavorite }: { proper
 
   return (
     <div
-      className="group bg-white rounded-lg border border-neutral-200 overflow-hidden shadow-sm hover:shadow-md hover:border-brand-200 transition-all cursor-pointer"
+      className="group bg-card rounded-lg border border-border overflow-hidden shadow-sm hover:shadow-md hover:border-brand-200 transition-all cursor-pointer"
       onClick={onClick}
     >
       <div className="flex gap-3 p-2.5">
@@ -580,7 +580,7 @@ function MapListItem({ property, onClick, isFavorite, toggleFavorite }: { proper
             />
           ) : (
             <div className="w-full h-full bg-neutral-200 flex items-center justify-center rounded-md">
-              <MapPin className="size-4 text-neutral-400" />
+              <MapPin className="size-4 text-muted-foreground" />
             </div>
           )}
           <Badge className={`absolute top-1 left-1 border-0 text-[8px] font-semibold px-1 py-0 ${statusConfig[property.rentalStatus].className}`}>
@@ -591,20 +591,20 @@ function MapListItem({ property, onClick, isFavorite, toggleFavorite }: { proper
         {/* Content */}
         <div className="flex-1 min-w-0 flex flex-col justify-between">
           <div>
-            <h3 className="font-semibold text-neutral-900 text-xs line-clamp-1 mb-0.5">{property.title}</h3>
-            <div className="flex items-center gap-1 text-neutral-500 text-[10px] mb-1">
+            <h3 className="font-semibold text-foreground text-xs line-clamp-1 mb-0.5">{property.title}</h3>
+            <div className="flex items-center gap-1 text-muted-foreground text-[10px] mb-1">
               <MapPin className="size-2.5 shrink-0" />
               <span className="line-clamp-1">{location}</span>
             </div>
-            <div className="flex items-center gap-2 text-[10px] text-neutral-600">
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
               {property.bedrooms !== null && (
                 <div className="flex items-center gap-0.5">
-                  <BedDouble className="size-2.5 text-neutral-400" />
+                  <BedDouble className="size-2.5 text-muted-foreground" />
                   <span>{property.bedrooms}p</span>
                 </div>
               )}
               <div className="flex items-center gap-0.5">
-                <Maximize className="size-2.5 text-neutral-400" />
+                <Maximize className="size-2.5 text-muted-foreground" />
                 <span>{property.area}m²</span>
               </div>
               {property.isFurnished && (
@@ -614,14 +614,14 @@ function MapListItem({ property, onClick, isFavorite, toggleFavorite }: { proper
           </div>
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-brand-500">
-              {formatPrice(property.price)} <span className="text-[9px] font-normal text-neutral-400">F CFA</span>
+              {formatPrice(property.price)} <span className="text-[9px] font-normal text-muted-foreground">F CFA</span>
             </p>
             <button
               onClick={async (e) => { e.preventDefault(); e.stopPropagation(); if (!isAuthenticated) { setView('login'); return } toggleFavorite(property.id) }}
-              className="size-5 rounded-full flex items-center justify-center hover:bg-neutral-100 transition-colors"
+              className="size-5 rounded-full flex items-center justify-center hover:bg-accent transition-colors"
               aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
             >
-              <Heart className={`size-3 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-neutral-300'}`} />
+              <Heart className={`size-3 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
             </button>
           </div>
         </div>
@@ -787,7 +787,7 @@ export function NosBiensView() {
   // Loading state
   if (isLoading) {
     return (
-      <section className="bg-neutral-50 min-h-screen">
+      <section className="bg-muted min-h-screen">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           {/* Search bar skeleton */}
           <div className="space-y-3 mb-6">
@@ -802,7 +802,7 @@ export function NosBiensView() {
           {/* Content skeleton */}
           <div className="flex gap-6">
             <div className="hidden lg:block w-72 shrink-0">
-              <div className="bg-white rounded-xl border border-neutral-200 p-5 h-96 animate-pulse" />
+              <div className="bg-card rounded-xl border border-border p-5 h-96 animate-pulse" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -820,16 +820,16 @@ export function NosBiensView() {
   // Error state
   if (error) {
     return (
-      <section className="bg-neutral-50 min-h-screen">
+      <section className="bg-muted min-h-screen">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <div className="text-center py-20">
             <div className="size-20 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-5">
               <Search className="size-8 text-red-300" />
             </div>
-            <h3 className="text-lg font-semibold text-neutral-900 mb-2">
+            <h3 className="text-lg font-semibold text-foreground mb-2">
               Erreur de chargement
             </h3>
-            <p className="text-neutral-500 text-sm mb-6 max-w-md mx-auto">
+            <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
               {error}
             </p>
             <Button
@@ -846,7 +846,7 @@ export function NosBiensView() {
   }
 
   return (
-    <section className="bg-neutral-50 min-h-screen">
+    <section className="bg-muted min-h-screen">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* ── Search Bar + Controls ─────────────────────────────────── */}
         <motion.div
@@ -859,27 +859,27 @@ export function NosBiensView() {
           <div className="flex items-center gap-3">
             {/* Search input */}
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4.5 text-neutral-400" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4.5 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Rechercher un bien, quartier, ville..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-11 pl-11 pr-10 rounded-xl border border-neutral-200 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm"
+                className="w-full h-11 pl-11 pr-10 rounded-xl border border-border bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 size-5 rounded-full bg-neutral-200 flex items-center justify-center hover:bg-neutral-300 transition-colors"
                 >
-                  <X className="size-3 text-neutral-600" />
+                  <X className="size-3 text-muted-foreground" />
                 </button>
               )}
             </div>
 
             {/* Sort - desktop/tablet */}
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="hidden sm:flex h-11 w-[150px] bg-white border-neutral-200 text-xs rounded-xl shadow-sm">
+              <SelectTrigger className="hidden sm:flex h-11 w-[150px] bg-card border-border text-xs rounded-xl shadow-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -892,24 +892,24 @@ export function NosBiensView() {
             </Select>
 
             {/* View toggle - desktop/tablet */}
-            <div className="hidden sm:flex items-center bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm h-11">
+            <div className="hidden sm:flex items-center bg-card border border-border rounded-xl overflow-hidden shadow-sm h-11">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`h-full px-3 transition-colors ${viewMode === 'grid' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                className={`h-full px-3 transition-colors ${viewMode === 'grid' ? 'bg-brand-500 text-white' : 'text-muted-foreground hover:bg-accent'}`}
                 aria-label="Vue grille"
               >
                 <LayoutGrid className="size-4" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`h-full px-3 transition-colors ${viewMode === 'list' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                className={`h-full px-3 transition-colors ${viewMode === 'list' ? 'bg-brand-500 text-white' : 'text-muted-foreground hover:bg-accent'}`}
                 aria-label="Vue liste"
               >
                 <List className="size-4" />
               </button>
               <button
                 onClick={() => setViewMode('map')}
-                className={`h-full px-3 transition-colors flex items-center gap-1.5 ${viewMode === 'map' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                className={`h-full px-3 transition-colors flex items-center gap-1.5 ${viewMode === 'map' ? 'bg-brand-500 text-white' : 'text-muted-foreground hover:bg-accent'}`}
                 aria-label="Vue carte"
               >
                 <Map className="size-4" />
@@ -920,7 +920,7 @@ export function NosBiensView() {
             <Button
               variant="outline"
               size="sm"
-              className="lg:hidden text-neutral-600 border-neutral-200 hover:bg-neutral-50 h-11 rounded-xl text-xs shadow-sm"
+              className="lg:hidden text-muted-foreground border-border hover:bg-accent h-11 rounded-xl text-xs shadow-sm"
               onClick={() => setMobileFiltersOpen(true)}
             >
               <SlidersHorizontal className="size-3.5 mr-1.5" />
@@ -936,7 +936,7 @@ export function NosBiensView() {
               side="left"
               className="w-[85vw] max-w-80"
             >
-              <div className="p-4 border-b border-neutral-100">
+              <div className="p-4 border-b border-border">
                 <h2 className="font-semibold flex items-center gap-2">
                   <SlidersHorizontal className="size-4 text-brand-500" />
                   Filtres
@@ -959,7 +959,7 @@ export function NosBiensView() {
           {/* Mobile-only: Sort + View toggle row */}
           <div className="flex sm:hidden items-center gap-3">
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="h-9 flex-1 bg-white border-neutral-200 text-xs rounded-xl shadow-sm">
+              <SelectTrigger className="h-9 flex-1 bg-card border-border text-xs rounded-xl shadow-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -970,24 +970,24 @@ export function NosBiensView() {
                 ))}
               </SelectContent>
             </Select>
-            <div className="flex items-center bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm h-9">
+            <div className="flex items-center bg-card border border-border rounded-xl overflow-hidden shadow-sm h-9">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`h-full px-2.5 transition-colors ${viewMode === 'grid' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                className={`h-full px-2.5 transition-colors ${viewMode === 'grid' ? 'bg-brand-500 text-white' : 'text-muted-foreground hover:bg-accent'}`}
                 aria-label="Vue grille"
               >
                 <LayoutGrid className="size-3.5" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`h-full px-2.5 transition-colors ${viewMode === 'list' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                className={`h-full px-2.5 transition-colors ${viewMode === 'list' ? 'bg-brand-500 text-white' : 'text-muted-foreground hover:bg-accent'}`}
                 aria-label="Vue liste"
               >
                 <List className="size-3.5" />
               </button>
               <button
                 onClick={() => setViewMode('map')}
-                className={`h-full px-2.5 transition-colors ${viewMode === 'map' ? 'bg-brand-500 text-white' : 'text-neutral-500 hover:bg-neutral-50'}`}
+                className={`h-full px-2.5 transition-colors ${viewMode === 'map' ? 'bg-brand-500 text-white' : 'text-muted-foreground hover:bg-accent'}`}
                 aria-label="Vue carte"
               >
                 <Map className="size-3.5" />
@@ -1003,7 +1003,7 @@ export function NosBiensView() {
           transition={{ duration: 0.3, delay: 0.1 }}
           className="flex items-center gap-3 mb-5"
         >
-          <h1 className="text-sm font-semibold text-neutral-900">
+          <h1 className="text-sm font-semibold text-foreground">
             {filteredProperties.length} bien{filteredProperties.length !== 1 ? 's' : ''} trouvé{filteredProperties.length !== 1 ? 's' : ''}
           </h1>
           {hasActiveFilters && (
@@ -1036,7 +1036,7 @@ export function NosBiensView() {
                   ))
                 ) : (
                   <div className="text-center py-12">
-                    <p className="text-sm text-neutral-500">Aucun bien trouvé</p>
+                    <p className="text-sm text-muted-foreground">Aucun bien trouvé</p>
                   </div>
                 )}
               </div>
@@ -1051,8 +1051,8 @@ export function NosBiensView() {
                     onPropertyClick={(p) => openDetail(p.id)}
                   />
                 ) : (
-                  <div className="w-full h-full bg-neutral-100 rounded-xl flex items-center justify-center">
-                    <p className="text-sm text-neutral-400">Aucun bien à afficher sur la carte</p>
+                  <div className="w-full h-full bg-muted rounded-xl flex items-center justify-center">
+                    <p className="text-sm text-muted-foreground">Aucun bien à afficher sur la carte</p>
                   </div>
                 )}
               </div>
@@ -1075,7 +1075,7 @@ export function NosBiensView() {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-sm text-neutral-500">Aucun bien trouvé</p>
+                  <p className="text-sm text-muted-foreground">Aucun bien trouvé</p>
                 </div>
               )}
             </div>
@@ -1090,7 +1090,7 @@ export function NosBiensView() {
               transition={{ duration: 0.4, delay: 0.15 }}
               className="hidden lg:block w-72 shrink-0"
             >
-              <div className="bg-white rounded-xl border border-neutral-200 p-5 sticky top-24">
+              <div className="bg-card rounded-xl border border-border p-5 sticky top-24">
                 <FilterSidebar {...filterSidebarProps} />
               </div>
             </motion.aside>
@@ -1154,13 +1154,13 @@ export function NosBiensView() {
                   animate={{ opacity: 1 }}
                   className="text-center py-20"
                 >
-                  <div className="size-20 rounded-full bg-neutral-100 flex items-center justify-center mx-auto mb-5">
-                    <Search className="size-8 text-neutral-300" />
+                  <div className="size-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-5">
+                    <Search className="size-8 text-muted-foreground" />
                   </div>
-                  <h3 className="text-lg font-semibold text-neutral-900 mb-2">
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
                     Aucun bien ne correspond à vos critères
                   </h3>
-                  <p className="text-neutral-500 text-sm mb-6 max-w-md mx-auto">
+                  <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
                     Essayez de modifier vos filtres ou votre recherche pour découvrir plus de biens disponibles.
                   </p>
                   <Button
