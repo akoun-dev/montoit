@@ -496,3 +496,42 @@ Stage Summary:
 - Trust Score + Mon dossier added to proprietaire/agence sidebar
 - Scoring now uses "Dossier propriétaire" (50%) instead of "Profil propriétaire"
 - Both locataire and proprietaire now share the same scoring logic for the 50% component
+
+---
+Task ID: 2
+Agent: Main
+Task: Add property draft auto-save and multi-draft support with resume capability
+
+Work Log:
+- Added DRAFT to PropertyStatus enum in Prisma schema
+- Made property fields (title, description, address, city) default to empty string for drafts
+- Changed default Property status from ACTIVE to DRAFT
+- Pushed schema changes with `bun run db:push`
+- Updated POST /api/properties to support `draft: true` flag — skips required field validation for drafts
+- Created PATCH /api/properties/[id] route for updating existing properties (draft or published)
+- Added GET /api/properties/[id] route for fetching a single property (owner-scoped)
+- Added DELETE /api/properties/[id] route for deleting properties (owner-scoped)
+- Rewrote AddProperty component with:
+  - `editId` prop for resuming existing drafts
+  - Auto-save on 5-second debounce after form changes
+  - "Sauvegarder le brouillon" button with silent/visible modes
+  - Draft pre-fill when editing existing draft
+  - "Brouillon sauvegardé" indicator after auto-save
+  - Create-then-update flow: POST for first save, PATCH for subsequent
+  - Existing image/video handling for drafts
+- Rewrote MyProperties component with:
+  - Drafts section with amber styling and "Brouillons" header
+  - Published properties section with standard styling
+  - "Reprendre" button on drafts to resume editing
+  - "Publier" button on complete drafts to publish directly
+  - Delete button on drafts
+  - Editing ID state to pass to AddProperty for resume
+- Lint passes with no errors
+
+Stage Summary:
+- Properties can now be saved as drafts with partial data
+- Multiple drafts supported — each preserved in DB
+- Auto-save every 5 seconds of inactivity
+- Users can abandon and resume draft editing later
+- Drafts displayed separately with "Reprendre" button
+- Complete drafts can be published directly from the list view

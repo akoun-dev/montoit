@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/properties — Create a new property with images and optional video
+// POST /api/properties — Create a new property (draft or published) with images and optional video
 export async function POST(req: NextRequest) {
   try {
     // 1. Authenticate user
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // 3. Parse and validate request body
+    // 3. Parse request body
     const body = await req.json()
     const {
       title,
@@ -154,35 +154,42 @@ export async function POST(req: NextRequest) {
       hideOwnerName,
       virtualTourUrl,
       images,
+      draft,
     } = body
 
-    // Validate required fields
-    if (!title || typeof title !== 'string' || !title.trim()) {
-      return NextResponse.json({ error: 'Le titre est requis' }, { status: 400 })
-    }
-    if (!description || typeof description !== 'string' || !description.trim()) {
-      return NextResponse.json({ error: 'La description est requise' }, { status: 400 })
-    }
-    if (!type || !VALID_PROPERTY_TYPES.includes(type)) {
-      return NextResponse.json(
-        { error: `Le type doit être l'un des suivants : ${VALID_PROPERTY_TYPES.join(', ')}` },
-        { status: 400 }
-      )
-    }
-    if (price === undefined || price === null || typeof price !== 'number' || price <= 0) {
-      return NextResponse.json({ error: 'Le prix doit être un nombre positif' }, { status: 400 })
-    }
-    if (!area || typeof area !== 'number' || area <= 0) {
-      return NextResponse.json({ error: 'La surface doit être un nombre positif' }, { status: 400 })
-    }
-    if (!address || typeof address !== 'string' || !address.trim()) {
-      return NextResponse.json({ error: "L'adresse est requise" }, { status: 400 })
-    }
-    if (!city || typeof city !== 'string' || !city.trim()) {
-      return NextResponse.json({ error: 'La ville est requise' }, { status: 400 })
+    // Determine status: draft=true → DRAFT, otherwise validate and create as ACTIVE
+    const isDraft = draft === true
+    const status = isDraft ? 'DRAFT' : 'ACTIVE'
+
+    // 4. Validate required fields only when publishing (not draft)
+    if (!isDraft) {
+      if (!title || typeof title !== 'string' || !title.trim()) {
+        return NextResponse.json({ error: 'Le titre est requis' }, { status: 400 })
+      }
+      if (!description || typeof description !== 'string' || !description.trim()) {
+        return NextResponse.json({ error: 'La description est requise' }, { status: 400 })
+      }
+      if (!type || !VALID_PROPERTY_TYPES.includes(type)) {
+        return NextResponse.json(
+          { error: `Le type doit être l'un des suivants : ${VALID_PROPERTY_TYPES.join(', ')}` },
+          { status: 400 }
+        )
+      }
+      if (price === undefined || price === null || typeof price !== 'number' || price <= 0) {
+        return NextResponse.json({ error: 'Le prix doit être un nombre positif' }, { status: 400 })
+      }
+      if (!area || typeof area !== 'number' || area <= 0) {
+        return NextResponse.json({ error: 'La surface doit être un nombre positif' }, { status: 400 })
+      }
+      if (!address || typeof address !== 'string' || !address.trim()) {
+        return NextResponse.json({ error: "L'adresse est requise" }, { status: 400 })
+      }
+      if (!city || typeof city !== 'string' || !city.trim()) {
+        return NextResponse.json({ error: 'La ville est requise' }, { status: 400 })
+      }
     }
 
-    // 4. Validate images
+    // 5. Validate images
     const imageArray: string[] = Array.isArray(images) ? images : []
     if (imageArray.length > MAX_IMAGES) {
       return NextResponse.json(
@@ -190,7 +197,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
-    // Validate each image is a base64 data URL
     for (let i = 0; i < imageArray.length; i++) {
       if (typeof imageArray[i] !== 'string' || !imageArray[i].startsWith('data:')) {
         return NextResponse.json(
@@ -200,7 +206,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 5. Validate video (virtualTourUrl)
+    // 6. Validate video (virtualTourUrl)
     if (virtualTourUrl !== null && virtualTourUrl !== undefined) {
       if (typeof virtualTourUrl !== 'string' || !virtualTourUrl.startsWith('data:')) {
         return NextResponse.json(
@@ -208,7 +214,6 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         )
       }
-      // Estimate base64 size: the actual bytes are ~3/4 of the base64 string length
       const base64Part = virtualTourUrl.split(',')[1] || ''
       const estimatedSize = Math.ceil(base64Part.length * 0.75)
       if (estimatedSize > MAX_VIDEO_SIZE_BYTES) {
@@ -219,18 +224,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 6. Create property with images
+    // 7. Create property with images
     const property = await db.property.create({
       data: {
-        title: title.trim(),
-        description: description.trim(),
-        type,
-        price,
-        area,
+        title: title ? String(title).trim() : '',
+        description: description ? String(description).trim() : '',
+        type: type && VALID_PROPERTY_TYPES.includes(type) ? type : 'STUDIO',
+        status,
+        price: price ? Number(price) : 0,
+        area: area ? Number(area) : 0,
         bedrooms: bedrooms !== undefined && bedrooms !== null ? Number(bedrooms) : null,
         bathrooms: bathrooms !== undefined && bathrooms !== null ? Number(bathrooms) : null,
-        address: address.trim(),
-        city: city.trim(),
+        address: address ? String(address).trim() : '',
+        city: city ? String(city).trim() : '',
         commune: commune ? String(commune).trim() : null,
         isFurnished: Boolean(isFurnished),
         hasParking: Boolean(hasParking),

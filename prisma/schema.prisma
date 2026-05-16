@@ -37,6 +37,7 @@ enum PropertyType {
 }
 
 enum PropertyStatus {
+  DRAFT
   ACTIVE
   SUSPENDED
   CLOSED
@@ -275,18 +276,18 @@ model OTPCode {
 
 model Property {
   id              String         @id @default(cuid())
-  title           String
-  description     String
-  type            PropertyType
-  status          PropertyStatus @default(ACTIVE)
+  title           String         @default("")   // Empty for drafts
+  description     String         @default("")   // Empty for drafts
+  type            PropertyType   @default(STUDIO)
+  status          PropertyStatus @default(DRAFT)
   rentalStatus    RentalStatus   @default(disponible)
-  price           Float
+  price           Float          @default(0)     // 0 for drafts
   currency        String         @default("FCFA")
-  area            Float          // m²
+  area            Float          @default(0)     // 0 for drafts
   bedrooms        Int?
   bathrooms       Int?
-  address         String
-  city            String
+  address         String         @default("")   // Empty for drafts
+  city            String         @default("")   // Empty for drafts
   commune         String?
   latitude        Float?
   longitude       Float?
