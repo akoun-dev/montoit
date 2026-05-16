@@ -1087,10 +1087,10 @@ export function SettingsSection() {
         <p className="text-muted-foreground mt-1">Gérez votre compte et vos préférences</p>
       </motion.div>
 
-      {/* User Info Card with integrated scoring */}
+      {/* User Info Card with integrated scoring + role switch */}
       <motion.div variants={itemVariants}>
         <Card className="border-border overflow-hidden">
-          <CardContent className="p-6">
+          <CardContent className="p-6 pb-3">
             <div className="flex items-center gap-4">
               {/* Avatar — clickable to upload */}
               <div className="relative shrink-0 group">
@@ -1170,6 +1170,39 @@ export function SettingsSection() {
               )}
             </div>
           </CardContent>
+
+          {/* ── Role Switch Button at bottom of profile card ──────────── */}
+          {(() => {
+            const effectiveRole = user?.activeRole || user?.role
+            const canSwitch = ['LOCATAIRE', 'PROPRIETAIRE', 'AGENCE'].includes(user?.role || '') || ['LOCATAIRE', 'PROPRIETAIRE', 'AGENCE'].includes(user?.activeRole || user?.role || '')
+            if (!canSwitch) return null
+            const targetRole = effectiveRole === 'LOCATAIRE' ? 'PROPRIETAIRE' : 'LOCATAIRE'
+            const isTargetProprietaire = targetRole === 'PROPRIETAIRE'
+            return (
+              <div className="px-6 pb-4 pt-1">
+                <button
+                  onClick={() => {
+                    setPendingRole(targetRole)
+                    setRoleSwitchModalOpen(true)
+                  }}
+                  className={cn(
+                    'w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-2xl text-sm font-semibold transition-all shadow-sm',
+                    isTargetProprietaire
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-amber-600 hover:bg-amber-700 text-white'
+                  )}
+                >
+                  {isTargetProprietaire ? (
+                    <Building2 className="size-4.5" />
+                  ) : (
+                    <User className="size-4.5" />
+                  )}
+                  Mon espace {isTargetProprietaire ? 'propriétaire' : 'locataire'}
+                  <ArrowRight className="size-4 ml-0.5 opacity-70" />
+                </button>
+              </div>
+            )
+          })()}
         </Card>
       </motion.div>
 
@@ -1240,68 +1273,6 @@ export function SettingsSection() {
                 </CardContent>
               </Card>
             )}
-
-            {/* Role Switch Card */}
-            {(() => {
-              const effectiveRole = user?.activeRole || user?.role
-              const canSwitch = ['LOCATAIRE', 'PROPRIETAIRE', 'AGENCE'].includes(user?.role || '') || ['LOCATAIRE', 'PROPRIETAIRE', 'AGENCE'].includes(user?.activeRole || user?.role || '')
-              if (!canSwitch) return null
-              return (
-                <Card className="border-border overflow-hidden">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <ArrowLeftRight className="size-4 text-brand-500" />
-                      Changer de rôle
-                    </CardTitle>
-                    <CardDescription>
-                      Basculez entre le mode Locataire et Propriétaire selon vos besoins
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          if (effectiveRole === 'LOCATAIRE') return
-                          setPendingRole('LOCATAIRE')
-                          setRoleSwitchModalOpen(true)
-                        }}
-                        className={cn(
-                          'flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all',
-                          effectiveRole === 'LOCATAIRE'
-                            ? 'border-amber-300 bg-amber-50 text-amber-700'
-                            : 'border-border text-muted-foreground hover:border-amber-200 hover:bg-amber-50/50'
-                        )}
-                      >
-                        <User className="size-4" />
-                        Locataire
-                        {effectiveRole === 'LOCATAIRE' && (
-                          <CheckCircle2 className="size-4 ml-1" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (effectiveRole === 'PROPRIETAIRE') return
-                          setPendingRole('PROPRIETAIRE')
-                          setRoleSwitchModalOpen(true)
-                        }}
-                        className={cn(
-                          'flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all',
-                          effectiveRole === 'PROPRIETAIRE'
-                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                            : 'border-border text-muted-foreground hover:border-emerald-200 hover:bg-emerald-50/50'
-                        )}
-                      >
-                        <Building2 className="size-4" />
-                        Propriétaire
-                        {effectiveRole === 'PROPRIETAIRE' && (
-                          <CheckCircle2 className="size-4 ml-1" />
-                        )}
-                      </button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })()}
 
             {/* Role Switch Confirmation Modal */}
             <Dialog open={roleSwitchModalOpen} onOpenChange={setRoleSwitchModalOpen}>

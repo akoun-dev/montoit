@@ -367,3 +367,24 @@ Stage Summary:
 - Mobile sidebar buttons: close drawer then open modal
 - Modal shows: current role → target role visual, feature descriptions, cancel/confirm with loading state
 - Role-specific color theming (amber=Locataire, emerald=Propriétaire)
+
+---
+Task ID: 10
+Agent: Main
+Task: Reposition role switch button at bottom of profile card as "Mon espace propriétaire/locataire"
+
+Work Log:
+- Analyzed user's design reference image showing a dark rounded button at the bottom of a profile card with "Mon espace locataire" text
+- Moved the role switch button from a separate "Changer de rôle" Card into the profile info Card itself
+- The button is now positioned at the bottom of the User Info Card with proper spacing
+- Design: full-width, dark background (emerald-600 for propriétaire, amber-600 for locataire), white text, rounded-2xl, with icon + arrow
+- Shows "Mon espace propriétaire" when currently in locataire mode, and "Mon espace locataire" when in propriétaire mode
+- Clicking the button opens the confirmation modal (kept from previous implementation)
+- Removed the old separate "Changer de rôle" Card that was in the profile tab
+- All lint checks pass, dev server compiling correctly
+
+Stage Summary:
+- Role switch button now at bottom of profile card matching the user's design reference
+- Text dynamically shows the target role: "Mon espace propriétaire" or "Mon espace locataire"
+- Color-coded: emerald for propriétaire, amber for locataire
+- Confirmation modal preserved for the switch action
