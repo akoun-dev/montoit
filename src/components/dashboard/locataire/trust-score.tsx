@@ -259,6 +259,8 @@ export function TrustScore() {
       setDashboardSection('settings')
     } else if (action === 'rental-file') {
       setDashboardSection('rental-file')
+    } else if (action === 'owner-file') {
+      setDashboardSection('owner-file')
     } else if (action === 'my-properties') {
       setDashboardSection('my-properties')
     }
@@ -433,7 +435,7 @@ export function TrustScore() {
                     {rec.id === 'profile' && <User className="size-4" />}
                     {rec.id === 'neoface' && <ScanFace className="size-4" />}
                     {rec.id === 'oneci' && <CreditCard className="size-4" />}
-                    {(rec.id === 'rental-file' || rec.id === 'owner-profile') && <FileCheck className="size-4" />}
+                    {(rec.id === 'rental-file' || rec.id === 'owner-profile' || rec.id === 'owner-file') && <FileCheck className="size-4" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">

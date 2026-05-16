@@ -27,6 +27,7 @@ import { VisitRequests } from './proprietaire/visit-requests'
 import { ProprietaireRentalFiles } from './proprietaire/rental-files'
 import { ProprietaireLeases } from './proprietaire/my-leases'
 import { ProprietaireMessages } from './proprietaire/messages'
+import { OwnerFileForm } from './proprietaire/owner-file'
 import { TcOverview } from './tc/overview'
 import { RentalFilesQueue } from './tc/rental-files-queue'
 import { OwnerValidations } from './tc/owner-validations'
@@ -109,6 +110,8 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'payments': return <Payments onDetail={() => {}} />
     case 'messages': return <ProprietaireMessages />
     case 'notifications': return <Notifications />
+    case 'trust-score': return <TrustScore />
+    case 'owner-file': return <OwnerFileForm />
     case 'reviews': return <Reviews />
     case 'maintenance': return <Maintenance />
     case 'history': return <ActivityHistory />

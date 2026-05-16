@@ -466,3 +466,33 @@ Stage Summary:
 - 3D video changed from URL text input to file upload with preview
 - Property detail view updated to render both uploaded videos and external embeds
 - POST /api/properties API already created in previous task
+
+---
+Task ID: 1
+Agent: Main
+Task: Add "Dossier propriétaire" with same scoring points as "Dossier locataire" for proprietaire role
+
+Work Log:
+- Investigated current scoring system: API at /api/scoring, TrustScore component at locataire/trust-score.tsx
+- Found that proprietaire had no Trust Score sidebar item or dashboard route
+- Found that the 50% component was "Profil propriétaire" (based on OwnershipDocument + active properties) instead of "Dossier propriétaire"
+- Added OwnerFile and OwnerFileDocument models to Prisma schema (same structure as RentalFile/RentalFileDocument)
+- Added ownerFiles and reviewedOwnerFiles relations to User model
+- Pushed schema changes with `bun run db:push`
+- Created /api/owner-file route with GET and POST handlers (same logic as rental-file but for PROPRIETAIRE/AGENCE)
+- Created OwnerFileForm component at proprietaire/owner-file.tsx (4-step form: Personal Info, Income, Guarantor, Documents)
+- Added "Trust Score" and "Mon dossier" sidebar items to PROPRIETAIRE and AGENCE sidebar sections
+- Added trust-score and owner-file routes to ProprietaireDashboard switch
+- Updated scoring API: replaced "Profil propriétaire" (ownership docs) with "Dossier propriétaire" (owner file validation, same logic as locataire)
+- Updated TrustScore component to handle owner-file action navigation
+- Updated recommendation ID from "owner-profile" to "owner-file"
+- Both roles now have identical scoring structure: Profil (5%) + KYC (20%) + ONECI (25%) + Dossier (50%)
+- Lint passes with no errors
+
+Stage Summary:
+- OwnerFile/OwnerFileDocument models added to schema
+- /api/owner-file API created (GET/POST)
+- OwnerFileForm component created (4-step form)
+- Trust Score + Mon dossier added to proprietaire/agence sidebar
+- Scoring now uses "Dossier propriétaire" (50%) instead of "Profil propriétaire"
+- Both locataire and proprietaire now share the same scoring logic for the 50% component

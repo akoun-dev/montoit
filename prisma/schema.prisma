@@ -201,6 +201,10 @@ model User {
   rentalFiles          RentalFile[]
   // Relations — rental file reviews (as TC reviewer)
   reviewedRentalFiles  RentalFile[]       @relation("RentalFileReviewer")
+  // Relations — owner files (as owner)
+  ownerFiles            OwnerFile[]
+  // Relations — owner file reviews (as TC reviewer)
+  reviewedOwnerFiles    OwnerFile[]         @relation("OwnerFileReviewer")
   // Relations — ownership documents
   ownershipDocuments   OwnershipDocument[]
   // Relations — ownership doc reviews (as TC reviewer)
@@ -373,6 +377,52 @@ model RentalFileDocument {
   rentalFile   RentalFile   @relation(fields: [rentalFileId], references: [id], onDelete: Cascade)
 
   @@index([rentalFileId])
+  @@index([status])
+}
+
+// ─── Owner File (Dossier Propriétaire) ────────────────────────────────────────
+
+model OwnerFile {
+  id              String           @id @default(cuid())
+  status          RentalFileStatus @default(DRAFT)
+  monthlyIncome   Float?
+  employer        String?
+  employmentType  EmploymentType?
+  guarantorName   String?
+  guarantorPhone  String?
+  guarantorRelation String?
+  validUntil      DateTime?
+  rejectionReason String?
+  tcComment       String?
+  reviewedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  ownerId  String
+  owner    User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  reviewedById String?
+  reviewedBy   User?  @relation("OwnerFileReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  documents OwnerFileDocument[]
+
+  @@index([status])
+  @@index([ownerId])
+}
+
+model OwnerFileDocument {
+  id         String         @id @default(cuid())
+  type       DocumentType
+  url        String
+  name       String
+  status     DocumentStatus @default(PENDING)
+  tcComment  String?
+  createdAt  DateTime       @default(now())
+
+  ownerFileId String
+  ownerFile   OwnerFile   @relation(fields: [ownerFileId], references: [id], onDelete: Cascade)
+
+  @@index([ownerFileId])
   @@index([status])
 }
 

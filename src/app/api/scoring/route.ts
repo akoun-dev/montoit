@@ -17,7 +17,7 @@ import { getUserIdFromRequest } from '@/lib/session'
  * - Profil complet (5%): Based on required profile fields filled (SAME as locataire)
  * - KYC (20%): Biometric verification (SAME as locataire)
  * - ONECI (25%): National ID card verification (SAME as locataire)
- * - Profil propriétaire (50%): Ownership documents validated + at least one active property
+ * - Dossier propriétaire (50%): Owner file approved by TC
  *
  * Status thresholds:
  * - 70+ → "Approuvé"
@@ -85,38 +85,26 @@ export async function GET(req: NextRequest) {
     let roleSpecificActionLabel = ''
 
     if (isProprietaire) {
-      // PROPRIETAIRE: Score based on ownership documents validation
-      const validatedOwnershipDocs = await db.ownershipDocument.count({
+      // PROPRIETAIRE: Score based on owner file validation (same logic as Dossier locataire)
+      const approvedOwnerFile = await db.ownerFile.findFirst({
         where: { ownerId: userId, status: 'VALIDATED' },
+        select: { id: true, status: true },
       })
 
-      const activeProperties = await db.property.count({
-        where: { ownerId: userId, status: 'ACTIVE' },
-      })
-
-      const anyOwnershipDocs = await db.ownershipDocument.count({
+      const anyOwnerFile = await db.ownerFile.findFirst({
         where: { ownerId: userId },
+        select: { id: true, status: true },
       })
 
-      // Full 50 points if at least one ownership doc is validated AND at least one active property
-      // 25 points if only ownership docs validated (but no active property yet)
-      // 15 points if there are pending ownership docs (but none validated)
-      if (validatedOwnershipDocs > 0 && activeProperties > 0) {
-        roleSpecificScore = 50
-        roleSpecificApproved = true
-      } else if (validatedOwnershipDocs > 0) {
-        roleSpecificScore = 25
-      } else if (anyOwnershipDocs > 0) {
-        roleSpecificScore = 10
-      }
-
-      roleSpecificHasFile = anyOwnershipDocs > 0
-      roleSpecificLabel = 'Profil propriétaire'
-      roleSpecificDescription = 'Documents de propriété validés et biens actifs'
-      roleSpecificRecommendationTitle = 'Profil propriétaire'
-      roleSpecificRecommendationDescription = 'Validez vos documents de propriété = +50% sur votre score'
-      roleSpecificAction = 'my-properties'
-      roleSpecificActionLabel = anyOwnershipDocs > 0 ? 'Voir mes documents' : 'Ajouter un bien'
+      roleSpecificApproved = !!approvedOwnerFile
+      roleSpecificScore = roleSpecificApproved ? 50 : 0
+      roleSpecificHasFile = !!anyOwnerFile
+      roleSpecificLabel = 'Dossier propriétaire'
+      roleSpecificDescription = 'Dossier propriétaire approuvé'
+      roleSpecificRecommendationTitle = 'Dossier propriétaire'
+      roleSpecificRecommendationDescription = 'Dossier propriétaire validé = +50% sur votre score'
+      roleSpecificAction = 'owner-file'
+      roleSpecificActionLabel = anyOwnerFile ? 'Voir mon dossier' : 'Commencer la vérification'
     } else {
       // LOCATAIRE: Score based on rental file validation
       const approvedRentalFile = await db.rentalFile.findFirst({
@@ -211,7 +199,7 @@ export async function GET(req: NextRequest) {
 
     if (!roleSpecificApproved) {
       recommendations.push({
-        id: isProprietaire ? 'owner-profile' : 'rental-file',
+        id: isProprietaire ? 'owner-file' : 'rental-file',
         title: roleSpecificRecommendationTitle,
         description: roleSpecificRecommendationDescription,
         impact: 50 - roleSpecificScore,
