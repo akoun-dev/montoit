@@ -24,8 +24,11 @@ export async function GET(req: NextRequest) {
         city: true,
         address: true,
         avatarUrl: true,
+        birthDate: true,
+        nni: true,
         neofaceVerified: true,
         oneciVerified: true,
+        oneciVerifiedAt: true,
         isEmailVerified: true,
         isPhoneVerified: true,
         role: true,
@@ -52,7 +55,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { firstName, lastName, phone, gender, city, address } = body
+    const { firstName, lastName, phone, gender, city, address, birthDate, nni } = body
 
     // Validate fields
     const updateData: Record<string, unknown> = {}
@@ -92,6 +95,25 @@ export async function PUT(req: NextRequest) {
       updateData.address = address?.trim() || null
     }
 
+    if (birthDate !== undefined) {
+      if (birthDate) {
+        const d = new Date(birthDate)
+        if (isNaN(d.getTime())) {
+          return NextResponse.json({ error: 'Date de naissance invalide' }, { status: 400 })
+        }
+        updateData.birthDate = d
+      } else {
+        updateData.birthDate = null
+      }
+    }
+
+    if (nni !== undefined) {
+      if (nni && !/^\d{10,11}$/.test(nni.trim())) {
+        return NextResponse.json({ error: 'NNI invalide (10-11 chiffres requis)' }, { status: 400 })
+      }
+      updateData.nni = nni?.trim() || null
+    }
+
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'Aucune donnée à mettre à jour' }, { status: 400 })
     }
@@ -109,8 +131,11 @@ export async function PUT(req: NextRequest) {
         city: true,
         address: true,
         avatarUrl: true,
+        birthDate: true,
+        nni: true,
         neofaceVerified: true,
         oneciVerified: true,
+        oneciVerifiedAt: true,
         isEmailVerified: true,
         isPhoneVerified: true,
         role: true,

@@ -147,8 +147,11 @@ model User {
   gender          String?           // Genre (M/F)
   city            String?           // Ville
   address         String?           // Adresse
+  birthDate       DateTime?         // Date de naissance (required for ONECI)
+  nni             String?           // Numéro National d'Identification (ONECI)
   neofaceVerified Boolean   @default(false) // Vérification biométrique NEOFACE
   oneciVerified   Boolean   @default(false) // Vérification CNI ONECI
+  oneciVerifiedAt DateTime?         // Date de vérification ONECI
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

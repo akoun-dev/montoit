@@ -21,6 +21,14 @@ export async function GET(req: NextRequest) {
         avatarUrl: true,
         isActive: true,
         isEmailVerified: true,
+        gender: true,
+        city: true,
+        address: true,
+        birthDate: true,
+        nni: true,
+        neofaceVerified: true,
+        oneciVerified: true,
+        oneciVerifiedAt: true,
       },
     })
 

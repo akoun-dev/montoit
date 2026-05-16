@@ -254,10 +254,12 @@ export function TrustScore() {
   }, [fetchScore])
 
   const handleAction = (action: string) => {
-    if (action === 'settings' || action === 'rental-file') {
-      setDashboardSection(action === 'rental-file' ? 'rental-file' : 'settings')
+    if (action === 'settings' || action === 'oneci') {
+      setDashboardSection('settings')
+    } else if (action === 'rental-file') {
+      setDashboardSection('rental-file')
     }
-    // neoface and oneci actions — for now, show a toast or modal in the future
+    // neoface action — for now, show a toast or modal in the future
   }
 
   // Loading state

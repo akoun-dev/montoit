@@ -225,3 +225,43 @@ Stage Summary:
 - Scoring system fully functional (API verified working with real data)
 - Trust Score mini card now correctly links to dedicated Trust Score page
 - Server stability remains an issue (sandbox kills background processes) — no code fix possible
+
+---
+Task ID: 8
+Agent: main
+Task: Integrate ONECI API for NNI-based identity verification
+
+Work Log:
+- Added `birthDate`, `nni`, `oneciVerifiedAt` fields to Prisma User schema
+- Added ONECI API credentials to `.env` (fixed `#` character issue by quoting the secret key)
+- Ran `bun run db:push` to update database schema
+- Regenerated Prisma client with `bunx prisma generate`
+- Created `/api/oneci/verify` route that:
+  1. Authenticates with ONECI API (POST /api/v1/authenticate) to get bearer token
+  2. Calls match endpoint (POST /api/v1/oneci/persons/{NNI}/match) with user attributes
+  3. Empty response = verified → sets `oneciVerified: true` and `oneciVerifiedAt`
+  4. Non-empty response = mismatch → extracts specific field names and returns French error details
+- Updated `/api/profile` GET/PUT to include `birthDate`, `nni`, `oneciVerifiedAt` fields
+- Updated `/api/auth/me` to return new fields
+- Updated Settings page:
+  - Added `birthDate` and `nni` to form state and ProfileData type
+  - Added ONECI Identity Verification section in profile tab with:
+    - NNI input (digits only, max 11)
+    - Birth date input
+    - "Vérifier ma CNI" button (disabled until NNI + birthDate + gender filled)
+    - Animated verification result (success/error with details)
+    - Verified badge with date when already verified
+  - Fields disabled when already verified
+  - ONECI score card in scoring tab now has "Vérifier ma CNI" action → navigates to profile tab
+  - ONECI recommendation button navigates to profile tab
+- Updated Trust Score page: `oneci` action navigates to settings
+- Cleared `.next` cache to fix Prisma client staleness issue
+- Lint: 0 errors, 0 warnings
+- Tested API: ONECI authentication works, match endpoint returns proper mismatch details in French
+
+Stage Summary:
+- ONECI API fully integrated: token auth → match endpoint → verification result
+- API verified working with real ONECI endpoint (returns mismatch details for invalid data)
+- Settings page has complete ONECI verification UI with NNI + birthDate fields
+- Empty ONECI response = verified, non-empty = specific field mismatches shown
+- Environment variable for secret key properly quoted to handle `#` character

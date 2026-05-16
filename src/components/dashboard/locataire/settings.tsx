@@ -31,8 +31,11 @@ interface ProfileData {
   city: string | null
   address: string | null
   avatarUrl: string | null
+  birthDate: string | null
+  nni: string | null
   neofaceVerified: boolean
   oneciVerified: boolean
+  oneciVerifiedAt: string | null
   isEmailVerified: boolean
   isPhoneVerified: boolean
   role: string
@@ -251,7 +254,13 @@ export function SettingsSection() {
     gender: '',
     city: '',
     address: '',
+    birthDate: '',
+    nni: '',
   })
+
+  // ONECI verification state
+  const [oneciVerifying, setOneciVerifying] = useState(false)
+  const [oneciResult, setOneciResult] = useState<{ verified: boolean; message: string; details?: string } | null>(null)
 
   // Fetch profile & scoring data
   const fetchProfileAndScoring = useCallback(async () => {
@@ -273,6 +282,8 @@ export function SettingsSection() {
           gender: p.gender || '',
           city: p.city || '',
           address: p.address || '',
+          birthDate: p.birthDate ? new Date(p.birthDate).toISOString().split('T')[0] : '',
+          nni: p.nni || '',
         })
       }
 
@@ -325,6 +336,64 @@ export function SettingsSection() {
       setError(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde')
     } finally {
       setSaving(false)
+    }
+  }
+
+  // ONECI verification handler
+  const handleOneciVerify = async () => {
+    setOneciVerifying(true)
+    setOneciResult(null)
+
+    // First, save the profile if NNI or birthDate changed
+    try {
+      await authFetch<{ user: ProfileData }>('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nni: formState.nni,
+          birthDate: formState.birthDate || null,
+        }),
+      })
+    } catch {
+      // Profile save might fail, but try verification anyway
+    }
+
+    try {
+      const result = await authFetch<{ verified: boolean; message: string; details?: string; error?: string }>('/api/oneci/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nni: formState.nni,
+          birthDate: formState.birthDate || null,
+        }),
+      })
+
+      setOneciResult({
+        verified: result.verified,
+        message: result.verified ? result.message : (result.error || result.message),
+        details: result.details,
+      })
+
+      // If verified, refresh profile and scoring
+      if (result.verified) {
+        const [profileResult, scoringResult] = await Promise.allSettled([
+          authFetch<{ user: ProfileData }>('/api/profile'),
+          authFetch<ScoringData>('/api/scoring'),
+        ])
+        if (profileResult.status === 'fulfilled') {
+          setProfile(profileResult.value.user)
+        }
+        if (scoringResult.status === 'fulfilled') {
+          setScoring(scoringResult.value)
+        }
+      }
+    } catch (err) {
+      setOneciResult({
+        verified: false,
+        message: err instanceof Error ? err.message : 'Erreur lors de la vérification ONECI',
+      })
+    } finally {
+      setOneciVerifying(false)
     }
   }
 
@@ -586,6 +655,120 @@ export function SettingsSection() {
                   </div>
                 </div>
 
+                {/* ── ONECI Identity Verification Section ──────────────────────── */}
+                <div className="pt-2">
+                  <Separator className="mb-4" />
+                  <div className="flex items-center gap-2 mb-3">
+                    <CreditCard className="size-4 text-brand-500" />
+                    <span className="text-sm font-semibold text-neutral-900">Vérification d&apos;identité ONECI</span>
+                    {profile?.oneciVerified ? (
+                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0 border font-semibold">
+                        <CheckCircle2 className="size-3 mr-0.5" /> Vérifié
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] px-1.5 py-0 border font-semibold">
+                        +25% Trust Score
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-500 mb-4">
+                    Renseignez votre NNI et date de naissance pour vérifier votre carte d&apos;identité nationale auprès de l&apos;ONECI.
+                  </p>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {/* NNI */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="nni" className="text-xs font-medium text-neutral-700 flex items-center gap-1.5">
+                        NNI
+                        {profile?.oneciVerified && (
+                          <CheckCircle2 className="size-3 text-emerald-500" />
+                        )}
+                      </Label>
+                      <Input
+                        id="nni"
+                        value={formState.nni}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 11)
+                          setFormState((prev) => ({ ...prev, nni: val }))
+                        }}
+                        placeholder="Numéro National d'Identification"
+                        className="h-9 text-sm"
+                        disabled={profile?.oneciVerified || oneciVerifying}
+                        maxLength={11}
+                      />
+                      <p className="text-[10px] text-neutral-400">10 à 11 chiffres</p>
+                    </div>
+                    {/* Birth Date */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="birthDate" className="text-xs font-medium text-neutral-700">
+                        Date de naissance
+                        {profile?.oneciVerified && (
+                          <CheckCircle2 className="size-3 text-emerald-500 ml-1 inline" />
+                        )}
+                      </Label>
+                      <Input
+                        id="birthDate"
+                        type="date"
+                        value={formState.birthDate}
+                        onChange={(e) => setFormState((prev) => ({ ...prev, birthDate: e.target.value }))}
+                        className="h-9 text-sm"
+                        disabled={profile?.oneciVerified || oneciVerifying}
+                      />
+                    </div>
+                  </div>
+
+                  {/* ONECI verification result */}
+                  {oneciResult && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`mt-3 p-3 rounded-lg border ${
+                        oneciResult.verified
+                          ? 'bg-emerald-50 border-emerald-200'
+                          : 'bg-red-50 border-red-200'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {oneciResult.verified ? (
+                          <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                        ) : (
+                          <XCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
+                        )}
+                        <div>
+                          <p className={`text-xs font-medium ${oneciResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
+                            {oneciResult.message}
+                          </p>
+                          {oneciResult.details && (
+                            <p className="text-[11px] text-neutral-500 mt-0.5">{oneciResult.details}</p>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* ONECI verify button */}
+                  {!profile?.oneciVerified && (
+                    <Button
+                      onClick={handleOneciVerify}
+                      disabled={oneciVerifying || !formState.nni || !formState.birthDate || !formState.gender}
+                      className="mt-3 bg-brand-500 hover:bg-brand-600 text-white w-full sm:w-auto"
+                    >
+                      {oneciVerifying ? (
+                        <><Loader2 className="size-4 mr-2 animate-spin" /> Vérification en cours...</>
+                      ) : (
+                        <><CreditCard className="size-4 mr-2" /> Vérifier ma CNI</>
+                      )}
+                    </Button>
+                  )}
+
+                  {profile?.oneciVerified && profile?.oneciVerifiedAt && (
+                    <p className="text-[10px] text-emerald-600 mt-2 flex items-center gap-1">
+                      <CheckCircle2 className="size-3" />
+                      Vérifié le {new Date(profile.oneciVerifiedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
+                  )}
+                </div>
+
                 {/* Email (read-only) */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-neutral-700 flex items-center gap-1.5">
@@ -701,6 +884,8 @@ export function SettingsSection() {
                 max={scoring.breakdown.oneci.max}
                 statusColor={scoring.statusColor}
                 details="Authentification de votre carte d'identité nationale"
+                actionLabel="Vérifier ma CNI"
+                onAction={() => setActiveTab('profil')}
               />
               <ScoreComponentCard
                 icon={FileCheck}
@@ -808,6 +993,7 @@ export function SettingsSection() {
                         onClick={() => {
                           if (rec.action === 'settings') setActiveTab('profil')
                           else if (rec.action === 'rental-file') setDashboardSection('rental-file')
+                          else if (rec.action === 'oneci') setActiveTab('profil')
                         }}
                       >
                         {rec.actionLabel}
