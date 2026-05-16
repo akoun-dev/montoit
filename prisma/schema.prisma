@@ -67,14 +67,30 @@ enum EmploymentType {
   OTHER
 }
 
+enum TenantCategory {
+  SALARIE
+  ENTREPRENEUR
+  ETUDIANT
+}
+
 enum DocumentType {
   ID_CARD
   PASSPORT
   PAY_SLIP
   EMPLOYMENT_CONTRACT
+  WORK_CERTIFICATE
   BANK_STATEMENT
   GUARANTOR_ID
+  GUARANTOR_INCOME_PROOF
   PROOF_OF_ADDRESS
+  PARENT_ADDRESS_PROOF
+  RCCM_REGISTRATION
+  TAX_DECLARATION
+  SCHOOL_CERTIFICATE
+  SCHOLARSHIP_CERTIFICATE
+  PROPERTY_TITLE
+  UTILITY_BILL
+  BANK_ACCOUNT_DETAILS
   OTHER
 }
 
@@ -339,6 +355,7 @@ model PropertyImage {
 model RentalFile {
   id              String           @id @default(cuid())
   status          RentalFileStatus @default(DRAFT)
+  tenantCategory  TenantCategory?
   monthlyIncome   Float?
   employer        String?
   employmentType  EmploymentType?

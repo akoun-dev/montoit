@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const {
+      tenantCategory,
       monthlyIncome,
       employer,
       employmentType,
@@ -102,6 +103,7 @@ export async function POST(req: NextRequest) {
       guarantorRelation,
       submit,
     } = body as {
+      tenantCategory?: string
       monthlyIncome?: number
       employer?: string
       employmentType?: string
@@ -110,6 +112,13 @@ export async function POST(req: NextRequest) {
       guarantorRelation?: string
       submit?: boolean
     }
+
+    // Validate tenant category if provided
+    const validTenantCategories = ['SALARIE', 'ENTREPRENEUR', 'ETUDIANT']
+    const resolvedTenantCategory =
+      tenantCategory && validTenantCategories.includes(tenantCategory)
+        ? tenantCategory
+        : undefined
 
     // Validate employment type if provided
     const validEmploymentTypes = ['CDI', 'CDD', 'FREELANCE', 'RETIRED', 'OTHER']
@@ -127,11 +136,10 @@ export async function POST(req: NextRequest) {
 
     if (existingDraft) {
       // Update existing draft
-      const newStatus = submit ? 'SUBMITTED' : 'DRAFT'
-
       rentalFile = await db.rentalFile.update({
         where: { id: existingDraft.id },
         data: {
+          ...(resolvedTenantCategory && { tenantCategory: resolvedTenantCategory as 'SALARIE' | 'ENTREPRENEUR' | 'ETUDIANT' }),
           ...(monthlyIncome !== undefined && { monthlyIncome }),
           ...(employer !== undefined && { employer }),
           ...(resolvedEmploymentType && { employmentType: resolvedEmploymentType as 'CDI' | 'CDD' | 'FREELANCE' | 'RETIRED' | 'OTHER' }),
@@ -174,6 +182,7 @@ export async function POST(req: NextRequest) {
         data: {
           tenantId: userId,
           status,
+          ...(resolvedTenantCategory && { tenantCategory: resolvedTenantCategory as 'SALARIE' | 'ENTREPRENEUR' | 'ETUDIANT' }),
           ...(monthlyIncome !== undefined && { monthlyIncome }),
           ...(employer !== undefined && { employer }),
           ...(resolvedEmploymentType && { employmentType: resolvedEmploymentType as 'CDI' | 'CDD' | 'FREELANCE' | 'RETIRED' | 'OTHER' }),

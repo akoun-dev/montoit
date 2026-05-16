@@ -56,6 +56,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           title: 'COMPTE',
           items: [
             { id: 'trust-score', label: 'Trust Score', icon: ShieldCheck },
+            { id: 'rental-file', label: 'Mon dossier', icon: FileText },
             { id: 'reviews', label: 'Mes avis', icon: Star },
             { id: 'maintenance', label: 'Maintenance', icon: Wrench },
             { id: 'history', label: 'Historique', icon: History },

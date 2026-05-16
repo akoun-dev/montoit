@@ -71,30 +71,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const {
-      monthlyIncome,
-      employer,
-      employmentType,
-      guarantorName,
-      guarantorPhone,
-      guarantorRelation,
-      submit,
-    } = body as {
-      monthlyIncome?: number
-      employer?: string
-      employmentType?: string
-      guarantorName?: string
-      guarantorPhone?: string
-      guarantorRelation?: string
+    const { submit } = body as {
       submit?: boolean
     }
-
-    // Validate employment type if provided
-    const validEmploymentTypes = ['CDI', 'CDD', 'FREELANCE', 'RETIRED', 'OTHER']
-    const resolvedEmploymentType =
-      employmentType && validEmploymentTypes.includes(employmentType)
-        ? employmentType
-        : undefined
 
     // Check if a DRAFT owner file exists
     const existingDraft = await db.ownerFile.findFirst({
@@ -108,12 +87,6 @@ export async function POST(req: NextRequest) {
       ownerFile = await db.ownerFile.update({
         where: { id: existingDraft.id },
         data: {
-          ...(monthlyIncome !== undefined && { monthlyIncome }),
-          ...(employer !== undefined && { employer }),
-          ...(resolvedEmploymentType && { employmentType: resolvedEmploymentType as 'CDI' | 'CDD' | 'FREELANCE' | 'RETIRED' | 'OTHER' }),
-          ...(guarantorName !== undefined && { guarantorName }),
-          ...(guarantorPhone !== undefined && { guarantorPhone }),
-          ...(guarantorRelation !== undefined && { guarantorRelation }),
           ...(submit && { status: 'SUBMITTED' }),
         },
         include: {
@@ -141,12 +114,6 @@ export async function POST(req: NextRequest) {
         data: {
           ownerId: userId,
           status,
-          ...(monthlyIncome !== undefined && { monthlyIncome }),
-          ...(employer !== undefined && { employer }),
-          ...(resolvedEmploymentType && { employmentType: resolvedEmploymentType as 'CDI' | 'CDD' | 'FREELANCE' | 'RETIRED' | 'OTHER' }),
-          ...(guarantorName !== undefined && { guarantorName }),
-          ...(guarantorPhone !== undefined && { guarantorPhone }),
-          ...(guarantorRelation !== undefined && { guarantorRelation }),
         },
         include: {
           documents: { orderBy: { createdAt: 'desc' } },
