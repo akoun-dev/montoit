@@ -340,7 +340,7 @@ function KycVerificationModal({
         reader.readAsDataURL(file)
       })
 
-      const result = await authFetch<{ documentId: string; selfieUrl: string }>('/api/oneci/face-auth', {
+      const result = await authFetch<{ documentId: string; selfieUrl: string }>('/api/kyc/face-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: 'upload', docFile: base64 }),
@@ -388,7 +388,7 @@ function KycVerificationModal({
 
       try {
         const result = await authFetch<{ status: string; verified: boolean; message?: string; matchingScore?: number }>(
-          '/api/oneci/face-auth',
+          '/api/kyc/face-auth',
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
