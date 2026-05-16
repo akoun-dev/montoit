@@ -601,3 +601,261 @@ Stage Summary:
 - No mock data — everything reads from and writes to the database
 - Password strength meter shows real-time validation progress
 - Sessions show current device with "Actif" badge, other devices can be individually or bulk revoked
+
+---
+Task ID: 17
+Agent: api-developer
+Task: Create all missing API routes for tenant (locataire) views
+
+Work Log:
+- Created 7 API route files for the tenant views, all using Prisma DB queries and proper auth/role checks
+- All routes follow the existing pattern from `/api/dashboard/locataire/route.ts`:
+  - `getUserIdFromRequest(req)` for session validation
+  - 401 if not authenticated, 403 if not LOCATAIRE role
+  - Proper error handling with try/catch
+
+1. `/api/notifications/route.ts` — GET + PUT
+   - GET: List notifications with pagination (page, limit), filter by type and isRead, returns unreadCount
+   - PUT: Mark specific notifications as read (notificationIds[]) or mark all as read (markAllRead: true)
+   - Ensures user can only mark their own notifications (userId filter in updateMany)
+
+2. `/api/payments/route.ts` — GET
+   - List payments for current tenant with lease → property → images → owner includes
+   - Filter by status and leaseId
+   - Stats: totalPaid (sum of PAID amounts), latePaymentsCount, nextPaymentDue (earliest PENDING)
+   - Also returns paidCount, pendingCount, totalPayments
+
+3. `/api/maintenance/route.ts` — GET + POST
+   - GET: List maintenance requests with lease/property info, filter by status/priority/leaseId
+   - POST: Create new request (requires leaseId, title, description; optional priority)
+   - Validates lease belongs to tenant before creation
+   - Creates audit log entry on creation
+   - Returns status counts (groupBy) as stats
+
+4. `/api/reviews/route.ts` — GET
+   - Returns ratings given (fromUser) and received (toUser) with lease/property/fromUser/toUser info
+   - Supports `direction` filter: 'given', 'received', or 'all'
+   - Stats: givenCount, receivedCount, averageScoreReceived (rounded to 1 decimal)
+
+5. `/api/history/route.ts` — GET
+   - List audit logs for current user ordered by most recent first
+   - Filter by entity and action
+   - Pagination support
+
+6. `/api/rental-file/route.ts` — GET + POST
+   - GET: List rental files with documents, leases (with property info), and reviewer
+   - Returns status counts as stats
+   - POST: Upsert approach — if DRAFT exists, update it; otherwise create new
+   - Supports `submit` flag to change status from DRAFT to SUBMITTED
+   - Validates employmentType against allowed values
+   - Creates audit log entries for CREATE/UPDATE/SUBMIT actions
+
+7. `/api/applications/route.ts` — GET
+   - Status tracking view of rental files with enriched computed fields
+   - Each application includes: statusTimeline (DRAFT→SUBMITTED→TC_REVIEW→VALIDATED with completed/active flags)
+   - Handles REJECTED and EXPIRED statuses as terminal states
+   - documentProgress: total, validated, rejected, pending counts
+   - linkedProperty from first lease if available
+   - Pagination and status filter support
+   - Status counts as stats
+
+- All lint checks pass (0 errors, 0 warnings)
+- Dev server running stable
+
+Stage Summary:
+- 7 API route files created for tenant views: notifications, payments, maintenance, reviews, history, rental-file, applications
+- All routes use proper auth (401) and role checks (403 for non-LOCATAIRE)
+- Related data included where needed (lease→property→images→owner)
+- Pagination, filtering, and stats included for frontend consumption
+- Audit logging on mutations (maintenance create, rental file create/update/submit)
+- Rental file upsert pattern (update DRAFT if exists, create otherwise)
+- Applications route has computed status timeline and document progress
+
+---
+Task ID: 4-11
+Agent: frontend-developer
+Task: Update ALL tenant (locataire) frontend components to use real API data instead of mocks
+
+Work Log:
+- Read worklog.md to understand prior work (Tasks 1-17)
+- Analyzed all 8 existing mock components in `/src/components/dashboard/locataire/`
+- Analyzed all API route response shapes to map correctly
+- Followed the pattern from `favorites.tsx` (authFetch + useCallback + useState + error/loading states)
+
+1. **notifications.tsx** — Complete rewrite:
+   - Fetches from `/api/notifications` with type filter support
+   - Shows real notification items with type-specific icons (MessageSquare, FileText, Calendar, CreditCard, Megaphone, Settings)
+   - Click-to-mark-as-read (PUT /api/notifications with notificationIds)
+   - "Tout marquer lu" button (PUT with markAllRead: true)
+   - Unread count badge in header
+   - Category filter badges (Toutes, Messages, Candidatures, Visites, Paiements, Système)
+   - Time-ago formatting (À l'instant, Il y a X min, Xh, Xj)
+   - Unread notifications highlighted with brand-50 background and dot indicator
+   - Empty state when no notifications
+
+2. **payments.tsx** — Complete rewrite:
+   - Fetches from `/api/payments` for payments list + stats
+   - Shows stats cards: next payment due (with date), total paid (with count), late payments (red if >0)
+   - Payment list with status badges (PAID=emerald, PENDING=amber, LATE=red, PARTIAL=cyan)
+   - Shows amount, due date, paid date, reference, property info
+   - Empty state when no payments
+
+3. **reviews.tsx** — Complete rewrite:
+   - Fetches from `/api/reviews` for given/received ratings + stats
+   - Stats cards: count given, average score received with star display
+   - Tab toggle between "Avis donnés" and "Avis reçus"
+   - Rating cards with user avatar, stars, comment, property badge, date
+   - Empty state per tab
+
+4. **history.tsx** — Complete rewrite:
+   - Fetches from `/api/history` for audit logs
+   - Timeline visual with action-type icons (CheckCircle2 for CREATE/VERIFY, Settings for UPDATE, Clock for SUBMIT, etc.)
+   - Entity badges (Profil, Dossier locatif, Maintenance, etc.)
+   - Action badges color-coded (green for CREATE, amber for UPDATE, brand for SUBMIT)
+   - First item highlighted with brand color
+   - Empty state when no logs
+
+5. **applications.tsx** — Complete rewrite:
+   - Fetches from `/api/applications` for rental files with status tracking
+   - Shows application cards with property image, status badge, status timeline (Brouillon→Soumis→Examen TC→Validé)
+   - Document progress bar (validated/total)
+   - Rejection reason display (red box with AlertCircle)
+   - "Compléter le dossier" button for DRAFT status → navigates to rental-file section
+   - How-it-works card when no applications
+   - Create dossier button in empty state
+
+6. **maintenance.tsx** — Complete rewrite:
+   - Fetches from `/api/maintenance` for requests + stats
+   - Stats cards: En attente (amber), En cours (brand), Résolues (emerald)
+   - Request cards with priority badge (LOW/MEDIUM/HIGH/URGENT) and status badge
+   - URGENT priority shows AlertTriangle icon in red
+   - "Nouvelle demande" button opens Dialog with form:
+     - Lease selector (fetched from /api/dashboard/locataire activeLeases)
+     - Title, description, priority inputs
+     - Form validation and POST to /api/maintenance
+     - Success/error toast feedback
+   - Empty state with "Nouvelle demande" CTA
+
+7. **rental-file.tsx** — Complete rewrite:
+   - Fetches existing rental files from `/api/rental-file` on mount
+   - If DRAFT exists, loads it into the form fields
+   - "Sauvegarder" button saves draft (POST without submit flag)
+   - "Soumettre le dossier" button submits (POST with submit: true)
+   - Status banner showing current file status (VALIDATED=green, REJECTED=red, SUBMITTED=amber)
+   - Rejection reason and TC comment display
+   - Read-only mode when file is not DRAFT (all fields disabled)
+   - Document upload placeholders with existing document status badges
+   - Valid until date display
+
+8. **search-properties.tsx** — Complete rewrite:
+   - Real search using `/api/properties` (public endpoint, uses raw fetch not authFetch)
+   - Search input, city filter, min/max price inputs (all enabled)
+   - Enter key triggers search
+   - Results grid with property cards (image, rental status badge, verified badge)
+   - Click property card → navigates to property detail
+   - Result count display
+   - Empty result state with "Voir tous les biens" button
+   - Initial empty state with "Voir les biens" button
+
+UI consistency across all components:
+- Orange (#FF6C2F) brand color, NO blue/indigo
+- Loading skeleton states with pulse animation
+- Error card with amber styling
+- Empty states with icon + name + CTA
+- All text in French
+- framer-motion animations (containerVariants/itemVariants)
+- authFetch pattern with isAuthenticated guard and AuthError 401 silent handling
+- Responsive design (grid cols adapt: 1→2→3)
+
+Fixed issues:
+- maintenance.tsx: No `/api/leases/my-leases` route exists → changed to fetch activeLeases from `/api/dashboard/locataire`
+- search-properties.tsx: `/api/properties` is public → changed from authFetch to raw fetch, removed unused imports (Heart, PropertiesResponse, isAuthenticated)
+
+Lint: 0 errors, 0 warnings
+
+Stage Summary:
+- All 8 tenant components now use real API data instead of mocks
+- Full CRUD: notifications (mark read), maintenance (create), rental-file (save draft + submit)
+- Consistent UI pattern: loading skeleton → error state → empty state → data display
+- All API responses properly mapped (data field, stats, pagination)
+- No lint errors
+
+---
+Task ID: 18
+Agent: seed-developer
+Task: Update seed route with Notification, Payment, MaintenanceRequest, AuditLog, and Rating data for tenant1
+
+Work Log:
+- Read existing seed file and Prisma schema to understand current data structure and model relationships
+- Added delete statements for new models at the top of the seed (before existing deletes):
+  - `db.maintenanceRequest.deleteMany()`
+  - `db.payment.deleteMany()`
+  - `db.notification.deleteMany()`
+- Captured lease ID by changing `await db.lease.create(...)` to `const lease1 = await db.lease.create(...)` for tenant1's active lease
+- Added 5 Payments for tenant1's active lease:
+  - 3 PAID: Jan (PMT-2025-001), Feb (PMT-2025-002), Mar (PMT-2025-003) — 250000 FCFA each with paidAt dates
+  - 1 PENDING: Apr 2025 (PMT-2025-004) — due April 1st
+  - 1 LATE: Dec 2024 (PMT-2024-012) — was due December 1st
+- Added 6 Notifications for tenant1:
+  - MESSAGE: "Nouveau message de Kouadio Yao" (unread, with actionUrl)
+  - DOSSIER_UPDATE: "Votre dossier locatif a été validé" (read, with actionUrl)
+  - VISIT_REMINDER: "Rappel : visite prévue le 12 mars" (unread, with actionUrl)
+  - PAYMENT_ALERT: "Paiement en retard - décembre 2024" (unread, with actionUrl)
+  - SYSTEM: "Bienvenue sur Mon Toit !" (read)
+  - PROMOTION: "Offre spéciale : premiers mois réduits" (unread)
+- Added 3 MaintenanceRequests for tenant1's active lease:
+  - RESOLVED: "Réparation robinet cuisine" (priority: MEDIUM, with resolution text)
+  - IN_PROGRESS: "Climatisation défaillante chambre 2" (priority: HIGH)
+  - PENDING: "Porte d'entrée difficile à fermer" (priority: LOW)
+- Added 6 AuditLog entries for tenant1:
+  - LOGIN: session entity with location detail
+  - PROFILE_UPDATE: user entity with tenant1's ID
+  - DOSSIER_SUBMIT: rental file entity with rentalFile1's ID
+  - FAVORITE_ADD: property entity with property[0]'s ID
+  - VISIT_REQUEST: property entity with property[4]'s ID
+  - PAYMENT_MADE: payment entity with PMT-2025-003 reference
+- Added 1 Rating: tenant1 rating owner1, score 4, comment "Propriétaire réactif et logement en bon état"
+- Tested seed route: POST /api/seed returns success with all user IDs
+- Verified all data in database using direct Prisma queries:
+  - 5 payments (3 PAID, 1 PENDING, 1 LATE) ✅
+  - 6 notifications (3 read, 3 unread, 6 types) ✅
+  - 3 maintenance requests (RESOLVED, IN_PROGRESS, PENDING) ✅
+  - 6 audit logs (6 different actions) ✅
+  - 1 rating (score 4) ✅
+- Lint: 0 errors, 0 warnings
+
+Stage Summary:
+- Seed route now creates comprehensive demo data for all new models
+- tenant1 (Moussa Koné, locataire@montoit.ci) has full data: payments, notifications, maintenance requests, audit logs, and a rating
+- All foreign key references are correct (lease1, tenant1, owner1, rentalFile1, createdProperties)
+- Delete order properly handles dependencies (maintenanceRequest, payment, notification before lease and user)
+
+---
+Task ID: 19
+Agent: main
+Task: Ensure ALL tenant views use real DB data (no mocks) — audit + implementation
+
+Work Log:
+- Audited all 11 tenant locataire components to identify mock vs real data
+- Already using real DB data: overview, settings, messages, my-leases, my-visits, favorites, trust-score
+- Found 8 components using mock/hardcoded data: notifications, payments, reviews, history, applications, maintenance, rental-file, search-properties
+- Added missing Prisma models to schema: Notification, Payment, MaintenanceRequest, MaintenanceStatus, MaintenancePriority, NotificationType, PaymentStatus enums
+- Added relations to User model (notifications, payments, maintenanceRequests) and Lease model (payments, maintenanceRequests)
+- Ran `bun run db:push` successfully
+- Dispatched 3 parallel subagent tasks:
+  1. Create 7 API routes (notifications, payments, maintenance, reviews, history, rental-file, applications) — COMPLETED
+  2. Update seed data with new model entries — COMPLETED
+  3. Update all 8 frontend components to use real API data — COMPLETED
+- Verified all API routes and frontend components are properly connected
+- Verified lint passes clean (0 errors)
+- Profile photo upload already implemented in settings component (handleAvatarUpload + handleAvatarDelete + /api/profile/avatar)
+- Sécurité tab already properly implemented with password change + session management
+- Notification preferences tab already properly implemented with DB persistence
+
+Stage Summary:
+- ALL 11 tenant views now use real DB data — no mocks remaining
+- New Prisma models: Notification, Payment, MaintenanceRequest (with enums)
+- 7 new API routes created for tenant-specific data
+- Seed data includes: 5 payments, 6 notifications, 3 maintenance requests, 6 audit logs, 1 rating
+- 8 frontend components rewritten: notifications, payments, reviews, history, applications, maintenance, rental-file, search-properties
+- Lint: 0 errors

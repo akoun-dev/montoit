@@ -129,6 +129,37 @@ enum ValidationSLAEntityType {
   AGENCY
 }
 
+enum PaymentStatus {
+  PENDING
+  PAID
+  LATE
+  PARTIAL
+  CANCELLED
+}
+
+enum MaintenanceStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum NotificationType {
+  MESSAGE
+  DOSSIER_UPDATE
+  VISIT_REMINDER
+  PAYMENT_ALERT
+  PROMOTION
+  SYSTEM
+}
+
 // ─── User & Authentication ────────────────────────────────────────────────────
 
 model User {
@@ -199,6 +230,12 @@ model User {
   sessions             Session[]
   // Relations — notification preferences
   notificationPreference NotificationPreference?
+  // Relations — notifications
+  notifications         Notification[]
+  // Relations — payments (as tenant)
+  payments              Payment[]
+  // Relations — maintenance requests (as tenant)
+  maintenanceRequests   MaintenanceRequest[]
 
   @@index([role])
   @@index([phone])
@@ -408,6 +445,8 @@ model Lease {
 
   ratings   Rating[]
   disputes  Dispute[]
+  payments  Payment[]
+  maintenanceRequests MaintenanceRequest[]
 
   @@index([propertyId])
   @@index([tenantId])
@@ -604,4 +643,73 @@ model NotificationPreference {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  actionUrl String?                    // Optional link to related entity
+  entityId  String?                    // ID of the related entity (lease, rental file, etc.)
+  createdAt DateTime         @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([type])
+  @@index([createdAt])
+}
+
+// ─── Payments ─────────────────────────────────────────────────────────────────
+
+model Payment {
+  id          String        @id @default(cuid())
+  amount      Float
+  status      PaymentStatus @default(PENDING)
+  dueDate     DateTime
+  paidAt      DateTime?
+  reference   String?                        // Payment reference number
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  leaseId String
+  lease   Lease  @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  tenantId String
+  tenant   User   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([leaseId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+// ─── Maintenance Requests ─────────────────────────────────────────────────────
+
+model MaintenanceRequest {
+  id          String             @id @default(cuid())
+  title       String
+  description String
+  status      MaintenanceStatus  @default(PENDING)
+  priority    MaintenancePriority @default(MEDIUM)
+  resolution  String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  leaseId String
+  lease   Lease  @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  tenantId String
+  tenant   User   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([leaseId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdAt])
 }

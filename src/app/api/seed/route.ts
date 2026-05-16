@@ -9,6 +9,9 @@ export async function POST() {
     const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12)
 
     // Clean up existing data
+    await db.maintenanceRequest.deleteMany()
+    await db.payment.deleteMany()
+    await db.notification.deleteMany()
     await db.validationSLA.deleteMany()
     await db.dispute.deleteMany()
     await db.rating.deleteMany()
@@ -323,7 +326,7 @@ export async function POST() {
     })
 
     // ─── Create Leases ──────────────────────────────────────────────────
-    await db.lease.create({
+    const lease1 = await db.lease.create({
       data: {
         propertyId: createdProperties[0].id,
         tenantId: tenant1.id,
@@ -469,6 +472,195 @@ export async function POST() {
           reviewerId: tc.id,
         },
       ],
+    })
+
+    // ─── Create Payments for tenant1's active lease ────────────────────
+    await db.payment.createMany({
+      data: [
+        {
+          leaseId: lease1.id,
+          tenantId: tenant1.id,
+          amount: 250000,
+          status: 'PAID',
+          dueDate: new Date('2025-01-01'),
+          paidAt: new Date('2025-01-03'),
+          reference: 'PMT-2025-001',
+        },
+        {
+          leaseId: lease1.id,
+          tenantId: tenant1.id,
+          amount: 250000,
+          status: 'PAID',
+          dueDate: new Date('2025-02-01'),
+          paidAt: new Date('2025-02-02'),
+          reference: 'PMT-2025-002',
+        },
+        {
+          leaseId: lease1.id,
+          tenantId: tenant1.id,
+          amount: 250000,
+          status: 'PAID',
+          dueDate: new Date('2025-03-01'),
+          paidAt: new Date('2025-03-01'),
+          reference: 'PMT-2025-003',
+        },
+        {
+          leaseId: lease1.id,
+          tenantId: tenant1.id,
+          amount: 250000,
+          status: 'PENDING',
+          dueDate: new Date('2025-04-01'),
+          reference: 'PMT-2025-004',
+        },
+        {
+          leaseId: lease1.id,
+          tenantId: tenant1.id,
+          amount: 250000,
+          status: 'LATE',
+          dueDate: new Date('2024-12-01'),
+          reference: 'PMT-2024-012',
+        },
+      ],
+    })
+
+    // ─── Create Notifications for tenant1 ────────────────────────────────
+    await db.notification.createMany({
+      data: [
+        {
+          userId: tenant1.id,
+          type: 'MESSAGE',
+          title: 'Nouveau message',
+          message: 'Nouveau message de Kouadio Yao',
+          isRead: false,
+          actionUrl: '/dashboard?section=messages',
+        },
+        {
+          userId: tenant1.id,
+          type: 'DOSSIER_UPDATE',
+          title: 'Dossier locatif',
+          message: 'Votre dossier locatif a été validé',
+          isRead: true,
+          actionUrl: '/dashboard?section=my-applications',
+        },
+        {
+          userId: tenant1.id,
+          type: 'VISIT_REMINDER',
+          title: 'Rappel de visite',
+          message: 'Rappel : visite prévue le 12 mars',
+          isRead: false,
+          actionUrl: '/dashboard?section=my-visits',
+        },
+        {
+          userId: tenant1.id,
+          type: 'PAYMENT_ALERT',
+          title: 'Paiement en retard',
+          message: 'Paiement en retard - décembre 2024',
+          isRead: false,
+          actionUrl: '/dashboard?section=my-leases',
+        },
+        {
+          userId: tenant1.id,
+          type: 'SYSTEM',
+          title: 'Bienvenue',
+          message: 'Bienvenue sur Mon Toit !',
+          isRead: true,
+        },
+        {
+          userId: tenant1.id,
+          type: 'PROMOTION',
+          title: 'Offre spéciale',
+          message: 'Offre spéciale : premiers mois réduits',
+          isRead: false,
+        },
+      ],
+    })
+
+    // ─── Create MaintenanceRequests for tenant1's active lease ──────────
+    await db.maintenanceRequest.createMany({
+      data: [
+        {
+          leaseId: lease1.id,
+          tenantId: tenant1.id,
+          title: 'Réparation robinet cuisine',
+          description: 'Le robinet de la cuisine fuit depuis quelques jours. Une réparation est nécessaire pour éviter le gaspillage d\'eau.',
+          status: 'RESOLVED',
+          priority: 'MEDIUM',
+          resolution: 'Robinets remplacés par le plombier mandaté par le propriétaire le 15/02/2025.',
+        },
+        {
+          leaseId: lease1.id,
+          tenantId: tenant1.id,
+          title: 'Climatisation défaillante chambre 2',
+          description: 'La climatisation de la chambre 2 ne souffle plus d\'air froid. Le compresseur semble défaillant.',
+          status: 'IN_PROGRESS',
+          priority: 'HIGH',
+        },
+        {
+          leaseId: lease1.id,
+          tenantId: tenant1.id,
+          title: 'Porte d\'entrée difficile à fermer',
+          description: 'La porte d\'entrée nécessite un effort important pour se fermer correctement. La serrure semble légèrement décalée.',
+          status: 'PENDING',
+          priority: 'LOW',
+        },
+      ],
+    })
+
+    // ─── Create AuditLog entries for tenant1 ─────────────────────────────
+    await db.auditLog.createMany({
+      data: [
+        {
+          userId: tenant1.id,
+          action: 'LOGIN',
+          entity: 'SESSION',
+          details: 'Connexion depuis Abidjan, Côte d\'Ivoire',
+        },
+        {
+          userId: tenant1.id,
+          action: 'PROFILE_UPDATE',
+          entity: 'USER',
+          entityId: tenant1.id,
+          details: 'Mise à jour des informations personnelles',
+        },
+        {
+          userId: tenant1.id,
+          action: 'DOSSIER_SUBMIT',
+          entity: 'RENTAL_FILE',
+          entityId: rentalFile1.id,
+          details: 'Soumission du dossier locatif pour Appartement F3 Cocody',
+        },
+        {
+          userId: tenant1.id,
+          action: 'FAVORITE_ADD',
+          entity: 'PROPERTY',
+          entityId: createdProperties[0].id,
+          details: 'Ajout du bien "Appartement F3 Cocody" aux favoris',
+        },
+        {
+          userId: tenant1.id,
+          action: 'VISIT_REQUEST',
+          entity: 'PROPERTY',
+          entityId: createdProperties[4].id,
+          details: 'Demande de visite pour Duplex Riviera Palmeraie',
+        },
+        {
+          userId: tenant1.id,
+          action: 'PAYMENT_MADE',
+          entity: 'PAYMENT',
+          details: 'Paiement de 250 000 FCFA — référence PMT-2025-003',
+        },
+      ],
+    })
+
+    // ─── Create Rating for tenant1 (rating owner1) ───────────────────────
+    await db.rating.create({
+      data: {
+        leaseId: lease1.id,
+        fromUserId: tenant1.id,
+        toUserId: owner1.id,
+        score: 4,
+        comment: 'Propriétaire réactif et logement en bon état',
+      },
     })
 
     return NextResponse.json({

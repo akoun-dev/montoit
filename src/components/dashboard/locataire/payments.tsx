@@ -1,10 +1,73 @@
 'use client'
 
-import { CreditCard } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect, useCallback } from 'react'
+import { CreditCard, Calendar, TrendingUp, AlertTriangle, Building2 } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 
+// ─── Types ──────────────────────────────────────────────────────────────────
+interface PaymentItem {
+  id: string
+  amount: number
+  status: string
+  dueDate: string
+  paidAt: string | null
+  reference: string | null
+  createdAt: string
+  lease: {
+    id: string
+    startDate: string
+    endDate: string
+    monthlyRent: number
+    property: {
+      id: string
+      title: string
+      address: string
+      city: string
+      images: Array<{ url: string }>
+    }
+    owner: {
+      id: string
+      firstName: string
+      lastName: string
+    }
+  }
+}
+
+interface PaymentsResponse {
+  data: PaymentItem[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+  stats: {
+    totalPaid: number
+    latePaymentsCount: number
+    nextPaymentDue: { amount: number; dueDate: string } | null
+    totalPayments: number
+    paidCount: number
+    pendingCount: number
+  }
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+const statusConfig: Record<string, { label: string; color: string; dotColor: string }> = {
+  PAID: { label: 'Payé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', dotColor: 'bg-emerald-500' },
+  PENDING: { label: 'En attente', color: 'bg-amber-50 text-amber-700 border-amber-200', dotColor: 'bg-amber-500' },
+  LATE: { label: 'En retard', color: 'bg-red-50 text-red-700 border-red-200', dotColor: 'bg-red-500' },
+  PARTIAL: { label: 'Partiel', color: 'bg-cyan-50 text-cyan-700 border-cyan-200', dotColor: 'bg-cyan-500' },
+  CANCELLED: { label: 'Annulé', color: 'bg-neutral-50 text-neutral-500 border-neutral-200', dotColor: 'bg-neutral-400' },
+}
+
+function formatCurrency(amount: number): string {
+  return amount.toLocaleString('fr-FR') + ' FCFA'
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// ─── Animation Variants ────────────────────────────────────────────────────
 const containerVariants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.1 } },
@@ -15,7 +78,62 @@ const itemVariants = {
 }
 
 export function Payments() {
-  const { user } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
+  const [payments, setPayments] = useState<PaymentItem[]>([])
+  const [stats, setStats] = useState<PaymentsResponse['stats'] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchPayments = useCallback(async () => {
+    if (!isAuthenticated) { setLoading(false); return }
+    try {
+      const result = await authFetch<PaymentsResponse>('/api/payments')
+      setPayments(result.data ?? [])
+      setStats(result.stats ?? null)
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) { setPayments([]); return }
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      setPayments([])
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => { fetchPayments() }, [fetchPayments])
+
+  // ─── Loading skeleton ──────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <div className="h-8 w-48 bg-neutral-100 animate-pulse rounded" />
+          <div className="h-4 w-64 bg-neutral-100 animate-pulse rounded mt-2" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 rounded-xl bg-neutral-100 animate-pulse" />
+          ))}
+        </div>
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-28 rounded-xl bg-neutral-100 animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+
+  // ─── Error state ───────────────────────────────────────────────────────
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-neutral-900">Mes Paiements</h1>
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-4">
+            <p className="text-sm text-amber-700">Impossible de charger vos paiements. Veuillez réessayer.</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
@@ -25,50 +143,129 @@ export function Payments() {
         <p className="text-neutral-500 mt-1">Historique et suivi de vos paiements</p>
       </motion.div>
 
-      {/* Summary Placeholder */}
+      {/* Stats Cards */}
       <motion.div variants={itemVariants}>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <Card className="border-neutral-200">
             <CardContent className="p-4">
-              <p className="text-xs text-neutral-500 mb-1">Prochain paiement</p>
-              <p className="text-xl font-bold text-neutral-300">—</p>
+              <div className="flex items-center gap-2 mb-1">
+                <Calendar className="size-4 text-brand-500" />
+                <p className="text-xs text-neutral-500">Prochain paiement</p>
+              </div>
+              <p className="text-lg font-bold text-neutral-900">
+                {stats?.nextPaymentDue
+                  ? formatCurrency(stats.nextPaymentDue.amount)
+                  : '—'}
+              </p>
+              {stats?.nextPaymentDue && (
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Échéance {formatDate(stats.nextPaymentDue.dueDate)}
+                </p>
+              )}
             </CardContent>
           </Card>
           <Card className="border-neutral-200">
             <CardContent className="p-4">
-              <p className="text-xs text-neutral-500 mb-1">Total payé</p>
-              <p className="text-xl font-bold text-neutral-300">—</p>
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="size-4 text-emerald-500" />
+                <p className="text-xs text-neutral-500">Total payé</p>
+              </div>
+              <p className="text-lg font-bold text-neutral-900">
+                {stats?.totalPaid ? formatCurrency(stats.totalPaid) : '0 FCFA'}
+              </p>
+              {stats?.paidCount ? (
+                <p className="text-xs text-neutral-400 mt-0.5">{stats.paidCount} paiement{stats.paidCount > 1 ? 's' : ''}</p>
+              ) : null}
             </CardContent>
           </Card>
           <Card className="border-neutral-200 col-span-2 lg:col-span-1">
             <CardContent className="p-4">
-              <p className="text-xs text-neutral-500 mb-1">Paiements en retard</p>
-              <p className="text-xl font-bold text-neutral-300">—</p>
+              <div className="flex items-center gap-2 mb-1">
+                <AlertTriangle className={`size-4 ${(stats?.latePaymentsCount ?? 0) > 0 ? 'text-red-500' : 'text-neutral-300'}`} />
+                <p className="text-xs text-neutral-500">Paiements en retard</p>
+              </div>
+              <p className={`text-lg font-bold ${(stats?.latePaymentsCount ?? 0) > 0 ? 'text-red-600' : 'text-neutral-900'}`}>
+                {stats?.latePaymentsCount ?? 0}
+              </p>
             </CardContent>
           </Card>
         </div>
       </motion.div>
 
-      {/* Empty State */}
-      <motion.div variants={itemVariants}>
-        <Card className="border-dashed border-neutral-300 bg-neutral-50/50">
-          <CardContent className="py-12 flex flex-col items-center text-center">
-            <div className="flex size-16 items-center justify-center rounded-full bg-brand-50 mb-4">
-              <CreditCard className="size-7 text-brand-500" />
-            </div>
-            <h3 className="text-lg font-semibold text-neutral-900 mb-1">
-              Aucun paiement enregistré
-            </h3>
-            <p className="text-sm text-neutral-500 mb-2 max-w-sm">
-              {user?.firstName}, vos paiements de loyer apparaîtront ici une fois votre bail actif.
-            </p>
-            <p className="text-xs text-neutral-400 flex items-center gap-1.5 mt-2">
-              <CreditCard className="size-3" />
-              Vos paiements de loyer apparaîtront ici
-            </p>
-          </CardContent>
-        </Card>
-      </motion.div>
+      {/* Payments List or Empty State */}
+      {payments.length === 0 ? (
+        <motion.div variants={itemVariants}>
+          <Card className="border-dashed border-neutral-300 bg-neutral-50/50">
+            <CardContent className="py-12 flex flex-col items-center text-center">
+              <div className="flex size-16 items-center justify-center rounded-full bg-brand-50 mb-4">
+                <CreditCard className="size-7 text-brand-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+                Aucun paiement enregistré
+              </h3>
+              <p className="text-sm text-neutral-500 max-w-sm">
+                {user?.firstName}, vos paiements de loyer apparaîtront ici une fois votre bail actif.
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ) : (
+        <motion.div variants={containerVariants} className="space-y-3">
+          {payments.map((payment) => {
+            const config = statusConfig[payment.status] || statusConfig.PENDING
+            const property = payment.lease?.property
+
+            return (
+              <motion.div key={payment.id} variants={itemVariants}>
+                <Card className="border-neutral-200 hover:shadow-sm transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-4">
+                      {/* Property icon */}
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-50">
+                        <Building2 className="size-5 text-brand-500" />
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className="text-sm font-semibold text-neutral-900 truncate">
+                            {property?.title || 'Loyer'}
+                          </p>
+                          <Badge variant="outline" className={`shrink-0 text-[10px] px-2 py-0.5 border ${config.color}`}>
+                            <span className={`size-1.5 rounded-full ${config.dotColor} mr-1`} />
+                            {config.label}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-neutral-500 mb-2">
+                          {property?.address}, {property?.city}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <p className="text-sm font-bold text-neutral-900">
+                              {formatCurrency(payment.amount)}
+                            </p>
+                            <div className="text-xs text-neutral-400">
+                              <span>Échéance : {formatDate(payment.dueDate)}</span>
+                              {payment.paidAt && (
+                                <span className="ml-3">Payé le : {formatDate(payment.paidAt)}</span>
+                              )}
+                            </div>
+                          </div>
+                          {payment.reference && (
+                            <p className="text-xs text-neutral-400 font-mono">
+                              Réf : {payment.reference}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )
+          })}
+        </motion.div>
+      )}
     </motion.div>
   )
 }
