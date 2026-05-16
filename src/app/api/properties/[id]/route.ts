@@ -21,7 +21,7 @@ export async function PATCH(
     // Verify property exists and belongs to user
     const existing = await db.property.findUnique({
       where: { id },
-      select: { id: true, ownerId: true, status: true },
+      select: { id: true, ownerId: true, status: true, title: true, description: true, price: true, area: true, address: true, city: true },
     })
 
     if (!existing) {
@@ -56,72 +56,82 @@ export async function PATCH(
       status,
     } = body
 
-    // If publishing (changing status to ACTIVE), validate required fields
-    const newStatus = status || existing.status
-    if (newStatus === 'ACTIVE') {
-      const finalTitle = title !== undefined ? title : ''
-      const finalDescription = description !== undefined ? description : ''
-      const finalPrice = price !== undefined ? price : 0
-      const finalArea = area !== undefined ? area : 0
-      const finalAddress = address !== undefined ? address : ''
-      const finalCity = city !== undefined ? city : ''
+    // Only validate required fields when explicitly publishing (status === 'ACTIVE' sent in body)
+    // Auto-saves (drafts) should never trigger publish validation
+    const isPublishing = status === 'ACTIVE'
+    if (isPublishing) {
+      // Merge provided values with existing data for validation
+      const finalTitle = (title !== undefined ? String(title) : existing.title || '').trim()
+      const finalDescription = (description !== undefined ? String(description) : existing.description || '').trim()
+      const finalPrice = price !== undefined ? Number(price) : (existing.price || 0)
+      const finalArea = area !== undefined ? Number(area) : (existing.area || 0)
+      const finalAddress = (address !== undefined ? String(address) : existing.address || '').trim()
+      const finalCity = (city !== undefined ? String(city) : existing.city || '').trim()
 
-      // If any required field is missing, check existing data too
-      if (!finalTitle.trim() && existing.status !== 'ACTIVE') {
+      if (!finalTitle) {
         return NextResponse.json({ error: 'Le titre est requis pour publier' }, { status: 400 })
       }
-      if (!finalDescription.trim() && existing.status !== 'ACTIVE') {
+      if (!finalDescription) {
         return NextResponse.json({ error: 'La description est requise pour publier' }, { status: 400 })
       }
-      if ((!finalPrice || finalPrice <= 0) && existing.status !== 'ACTIVE') {
+      if (!finalPrice || finalPrice <= 0 || isNaN(finalPrice)) {
         return NextResponse.json({ error: 'Le prix doit être positif pour publier' }, { status: 400 })
       }
-      if ((!finalArea || finalArea <= 0) && existing.status !== 'ACTIVE') {
+      if (!finalArea || finalArea <= 0 || isNaN(finalArea)) {
         return NextResponse.json({ error: 'La surface doit être positive pour publier' }, { status: 400 })
       }
-      if (!finalAddress.trim() && existing.status !== 'ACTIVE') {
+      if (!finalAddress) {
         return NextResponse.json({ error: "L'adresse est requise pour publier" }, { status: 400 })
       }
-      if (!finalCity.trim() && existing.status !== 'ACTIVE') {
+      if (!finalCity) {
         return NextResponse.json({ error: 'La ville est requise pour publier' }, { status: 400 })
       }
     }
 
     // Validate type if provided
-    if (type && !VALID_PROPERTY_TYPES.includes(type)) {
+    if (type !== undefined && type !== null && !VALID_PROPERTY_TYPES.includes(type)) {
       return NextResponse.json(
         { error: `Le type doit être l'un des suivants : ${VALID_PROPERTY_TYPES.join(', ')}` },
         { status: 400 }
       )
     }
 
-    // Validate video if provided
-    if (virtualTourUrl !== undefined && virtualTourUrl !== null) {
-      if (typeof virtualTourUrl !== 'string' || !virtualTourUrl.startsWith('data:')) {
+    // Validate video if provided (allow null to clear, allow any string for flexibility)
+    if (virtualTourUrl !== undefined && virtualTourUrl !== null && virtualTourUrl !== '') {
+      if (typeof virtualTourUrl !== 'string') {
         return NextResponse.json(
-          { error: 'La vidéo de visite virtuelle doit être une URL de données base64 valide' },
+          { error: 'Format de vidéo invalide' },
           { status: 400 }
         )
       }
-      const base64Part = virtualTourUrl.split(',')[1] || ''
-      const estimatedSize = Math.ceil(base64Part.length * 0.75)
-      if (estimatedSize > MAX_VIDEO_SIZE_BYTES) {
-        return NextResponse.json(
-          { error: 'La vidéo ne doit pas dépasser 50 Mo' },
-          { status: 400 }
-        )
+      // Only validate size for data: URLs (base64 encoded uploads)
+      if (virtualTourUrl.startsWith('data:')) {
+        const base64Part = virtualTourUrl.split(',')[1] || ''
+        const estimatedSize = Math.ceil(base64Part.length * 0.75)
+        if (estimatedSize > MAX_VIDEO_SIZE_BYTES) {
+          return NextResponse.json(
+            { error: 'La vidéo ne doit pas dépasser 50 Mo' },
+            { status: 400 }
+          )
+        }
       }
     }
 
-    // Build update data
+    // Build update data — sanitize numeric fields to avoid NaN
     const updateData: Record<string, unknown> = {}
     if (title !== undefined) updateData.title = String(title).trim()
     if (description !== undefined) updateData.description = String(description).trim()
     if (type !== undefined) updateData.type = type
-    if (price !== undefined) updateData.price = Number(price)
-    if (area !== undefined) updateData.area = Number(area)
-    if (bedrooms !== undefined) updateData.bedrooms = bedrooms !== null ? Number(bedrooms) : null
-    if (bathrooms !== undefined) updateData.bathrooms = bathrooms !== null ? Number(bathrooms) : null
+    if (price !== undefined) {
+      const numPrice = Number(price)
+      updateData.price = isNaN(numPrice) ? 0 : numPrice
+    }
+    if (area !== undefined) {
+      const numArea = Number(area)
+      updateData.area = isNaN(numArea) ? 0 : numArea
+    }
+    if (bedrooms !== undefined) updateData.bedrooms = bedrooms !== null && bedrooms !== '' ? Number(bedrooms) : null
+    if (bathrooms !== undefined) updateData.bathrooms = bathrooms !== null && bathrooms !== '' ? Number(bathrooms) : null
     if (address !== undefined) updateData.address = String(address).trim()
     if (city !== undefined) updateData.city = String(city).trim()
     if (commune !== undefined) updateData.commune = commune ? String(commune).trim() : null

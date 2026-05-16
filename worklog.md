@@ -77,3 +77,29 @@ Stage Summary:
 - DRAFT/other status properties still require ownership
 - Views count now auto-increments when a property is viewed
 - Owner anonymization is now enforced server-side for hideOwnerName feature
+
+---
+Task ID: 1
+Agent: Main
+Task: Fix 400 Bad Request on PATCH /api/properties/[id]
+
+Work Log:
+- Investigated the 400 error from add-property.tsx auto-save (line 290) and publish (line 373)
+- Identified root cause: PATCH route used `status || existing.status` which caused publish validation to run on auto-saves of already-ACTIVE properties
+- Fixed PATCH route: Changed to only validate when `status === 'ACTIVE'` is explicitly sent (isPublishing flag)
+- Fixed PATCH route: Added NaN protection for numeric fields (price, area)
+- Fixed PATCH route: Made video validation more lenient — allow non-data: URLs for flexibility
+- Fixed PATCH route: Fetch existing property fields (title, description, price, area, address, city) for proper validation merge when publishing
+- Fixed POST route: Removed strict data: prefix requirement on images and videos
+- Fixed authFetch: Now parses error messages from 400 responses (previously just showed "Erreur 400")
+- Fixed add-property.tsx: Removed confusing draft: true/draft: undefined pattern from PATCH payload
+- Fixed add-property.tsx: Clean payload construction removing undefined values
+- Fixed add-property.tsx: Better error logging in silent auto-save mode
+- Fixed brace mismatch in POST route video validation section
+
+Stage Summary:
+- PATCH /api/properties/[id] now only validates required fields when explicitly publishing (status: 'ACTIVE')
+- Auto-saves (draft updates) skip all publish validation
+- Error messages from 400 responses are now properly surfaced to the user
+- Video/image validation is more flexible to handle seed data and various URL formats
+- NaN values from parseFloat are handled gracefully (default to 0)

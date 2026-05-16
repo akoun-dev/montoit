@@ -71,9 +71,18 @@ export async function authFetch<T = Record<string, unknown>>(url: string, option
     throw new AuthError(403, 'Accès refusé.')
   }
 
-  // ─── Other non-OK response ──────────────────────────────────────────────
+  // ─── Other non-OK response — try to extract server error message ────────
   if (!res.ok) {
-    throw new AuthError(res.status, `Erreur ${res.status}`)
+    let message = `Erreur ${res.status}`
+    try {
+      const data = await res.json()
+      if (data.error && typeof data.error === 'string') {
+        message = data.error
+      }
+    } catch {
+      // Response body was not JSON — keep default message
+    }
+    throw new AuthError(res.status, message)
   }
 
   return res.json() as T

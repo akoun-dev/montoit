@@ -264,7 +264,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
       }
       // If existingVideo is set and no new video, don't send virtualTourUrl (keep existing)
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         title: form.title.trim() || undefined,
         description: form.description.trim() || undefined,
         type: form.type || undefined,
@@ -282,25 +282,26 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
         hideOwnerName: form.hideOwnerName,
         ...(virtualTourUrl !== undefined && { virtualTourUrl }),
         images: allImages.length > 0 ? allImages : undefined,
-        draft: true,
       }
 
+      // Remove undefined values from payload to reduce body size
+      const cleanPayload = Object.fromEntries(
+        Object.entries(payload).filter(([_, v]) => v !== undefined)
+      )
+
       if (propertyId) {
-        // Update existing draft
+        // Update existing draft — no status = stays in current status
         await authFetch(`/api/properties/${propertyId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...payload,
-            draft: undefined, // PATCH doesn't need draft flag
-          }),
+          body: JSON.stringify(cleanPayload),
         })
       } else {
         // Create new draft
         const result = await authFetch<{ property: { id: string } }>('/api/properties', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...cleanPayload, draft: true }),
         })
         setPropertyId(result.property.id)
       }
@@ -310,8 +311,11 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
         toast.success('Brouillon sauvegardé')
       }
     } catch (err) {
+      const errMsg = err instanceof AuthError ? err.message : 'Erreur lors de la sauvegarde du brouillon'
       if (!silent) {
-        toast.error('Erreur lors de la sauvegarde du brouillon')
+        toast.error(errMsg)
+      } else {
+        console.warn('[Auto-save failed]', errMsg)
       }
     } finally {
       if (!silent) setSavingDraft(false)
@@ -341,11 +345,15 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
       const allImages = [...existingImages.map((img) => img.url), ...newImagesBase64]
 
       // Convert video to base64
-      let virtualTourUrl: string | null = null
+      let virtualTourUrl: string | null | undefined = undefined
       if (videoFile) {
         virtualTourUrl = await fileToBase64(videoFile)
       } else if (existingVideo) {
+        // Keep existing video (don't re-encode it)
         virtualTourUrl = existingVideo
+      } else {
+        // No video at all
+        virtualTourUrl = null
       }
 
       const payload = {

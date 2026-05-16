@@ -198,29 +198,32 @@ export async function POST(req: NextRequest) {
       )
     }
     for (let i = 0; i < imageArray.length; i++) {
-      if (typeof imageArray[i] !== 'string' || !imageArray[i].startsWith('data:')) {
+      if (typeof imageArray[i] !== 'string') {
         return NextResponse.json(
-          { error: `L'image ${i + 1} doit être une URL de données base64 valide` },
+          { error: `L'image ${i + 1} a un format invalide` },
           { status: 400 }
         )
       }
     }
 
-    // 6. Validate video (virtualTourUrl)
-    if (virtualTourUrl !== null && virtualTourUrl !== undefined) {
-      if (typeof virtualTourUrl !== 'string' || !virtualTourUrl.startsWith('data:')) {
+    // 6. Validate video (virtualTourUrl) — allow any string URL, only validate size for data: URLs
+    if (virtualTourUrl !== null && virtualTourUrl !== undefined && virtualTourUrl !== '') {
+      if (typeof virtualTourUrl !== 'string') {
         return NextResponse.json(
-          { error: 'La vidéo de visite virtuelle doit être une URL de données base64 valide' },
+          { error: 'Format de vidéo invalide' },
           { status: 400 }
         )
       }
-      const base64Part = virtualTourUrl.split(',')[1] || ''
-      const estimatedSize = Math.ceil(base64Part.length * 0.75)
-      if (estimatedSize > MAX_VIDEO_SIZE_BYTES) {
-        return NextResponse.json(
-          { error: 'La vidéo de visite virtuelle ne doit pas dépasser 50 Mo' },
-          { status: 400 }
-        )
+      // Only validate size for data: URLs (base64 encoded uploads)
+      if (virtualTourUrl.startsWith('data:')) {
+        const base64Part = virtualTourUrl.split(',')[1] || ''
+        const estimatedSize = Math.ceil(base64Part.length * 0.75)
+        if (estimatedSize > MAX_VIDEO_SIZE_BYTES) {
+          return NextResponse.json(
+            { error: 'La vidéo de visite virtuelle ne doit pas dépasser 50 Mo' },
+            { status: 400 }
+          )
+        }
       }
     }
 
