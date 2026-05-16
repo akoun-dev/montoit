@@ -5,7 +5,7 @@ import {
   Settings, User, Shield, Bell, Sliders, Mail, Phone, ShieldCheck,
   ChevronRight, CheckCircle2, XCircle, ScanFace, CreditCard, FileCheck,
   Save, Loader2, MapPin, Users, ArrowRight, Lightbulb, AlertTriangle,
-  Info, Camera, RefreshCw,
+  Info, RefreshCw,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -35,6 +35,7 @@ interface ProfileData {
   nni: string | null
   neofaceVerified: boolean
   neofaceVerifiedAt: string | null
+  kycDocumentId: string | null
   oneciVerified: boolean
   oneciVerifiedAt: string | null
   isEmailVerified: boolean
@@ -263,16 +264,16 @@ export function SettingsSection() {
   const [oneciVerifying, setOneciVerifying] = useState(false)
   const [oneciResult, setOneciResult] = useState<{ verified: boolean; message: string; details?: string } | null>(null)
 
-  // NEOFACE face verification state
-  const [neofaceImage, setNeofaceImage] = useState<string | null>(null) // base64 data URL
-  const [neofaceVerifying, setNeofaceVerifying] = useState(false)
-  const [neofaceResult, setNeofaceResult] = useState<{ verified: boolean; message: string } | null>(null)
-  const [neofaceStep, setNeofaceStep] = useState<'idle' | 'camera' | 'preview'>('idle')
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const neofaceSectionRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  // KYC face verification state (NeoFace v2 flow)
+  const [kycStep, setKycStep] = useState<'idle' | 'uploading' | 'selfie' | 'verifying' | 'done'>('idle')
+  const [kycDocImage, setKycDocImage] = useState<string | null>(null) // base64 data URL for preview
+  const [kycDocumentId, setKycDocumentId] = useState<string | null>(null)
+  const [kycSelfieUrl, setKycSelfieUrl] = useState<string | null>(null)
+  const [kycResult, setKycResult] = useState<{ verified: boolean; message: string } | null>(null)
+  const [kycPollCount, setKycPollCount] = useState(0)
+  const kycSectionRef = useRef<HTMLDivElement>(null)
+  const kycDocInputRef = useRef<HTMLInputElement>(null)
+  const kycPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Fetch profile & scoring data
   const fetchProfileAndScoring = useCallback(async () => {
@@ -321,152 +322,142 @@ export function SettingsSection() {
     }
   }, [success])
 
-  // Cleanup camera stream on unmount
+  // Cleanup polling interval on unmount
   useEffect(() => {
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop())
+      if (kycPollIntervalRef.current) {
+        clearInterval(kycPollIntervalRef.current)
       }
     }
   }, [])
 
-  // Start camera for selfie
-  const startNeofaceCamera = useCallback(async () => {
-    setNeofaceImage(null)
-    setNeofaceResult(null)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 640 } },
-      })
-      streamRef.current = stream
-      setNeofaceStep('camera')
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-        }
-      }, 100)
-    } catch {
-      setNeofaceResult({
-        verified: false,
-        message: 'Impossible d\'accéder à la caméra. Vérifiez les permissions de votre navigateur.',
-      })
-    }
-  }, [])
-
-  // Stop camera
-  const stopNeofaceCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop())
-      streamRef.current = null
-    }
-    setNeofaceStep('idle')
-  }, [])
-
-  // Capture photo from camera
-  const captureNeofacePhoto = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return
-
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    // Mirror the image for selfie view
-    ctx.translate(canvas.width, 0)
-    ctx.scale(-1, 1)
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
-    setNeofaceImage(dataUrl)
-    stopNeofaceCamera()
-    setNeofaceStep('preview')
-  }, [stopNeofaceCamera])
-
-  // Handle file upload for selfie
-  const handleNeofaceFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  // ── KYC: Upload ID card document ──────────────────────────────────────────
+  const handleKycDocUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
+    // Show preview
     const reader = new FileReader()
     reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string
-      setNeofaceImage(dataUrl)
-      setNeofaceResult(null)
-      setNeofaceStep('preview')
+      setKycDocImage(ev.target?.result as string)
     }
     reader.readAsDataURL(file)
-    // Reset input so same file can be selected again
     e.target.value = ''
-  }, [])
 
-  // NEOFACE face verification handler
-  const handleNeofaceVerify = useCallback(async () => {
-    if (!neofaceImage) return
-    setNeofaceVerifying(true)
-    setNeofaceResult(null)
+    // Upload to NeoFace
+    setKycStep('uploading')
+    setKycResult(null)
 
-    // First, save the profile if NNI changed (needed for face-auth API)
     try {
-      await authFetch<{ user: ProfileData }>('/api/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nni: formState.nni,
-          birthDate: formState.birthDate || null,
-        }),
+      // Convert file to base64
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const result = reader.result as string
+          // Strip data URL prefix to get raw base64
+          resolve(result.replace(/^data:image\/[a-z]+;base64,/, ''))
+        }
+        reader.readAsDataURL(file)
       })
-    } catch {
-      // Profile save might fail, but try verification anyway
-    }
 
-    // Strip data URL prefix to get raw base64
-    const base64Data = neofaceImage.replace(/^data:image\/[a-z]+;base64,/, '')
-
-    try {
-      const result = await authFetch<{ verified: boolean; message?: string; error?: string }>('/api/oneci/face-auth', {
+      const result = await authFetch<{ documentId: string; selfieUrl: string }>('/api/oneci/face-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ faceImage: base64Data }),
+        body: JSON.stringify({ mode: 'upload', docFile: base64 }),
       })
 
-      setNeofaceResult({
-        verified: result.verified,
-        message: result.verified
-          ? result.message || 'Vérification biométrique réussie !'
-          : result.error || result.message || 'La vérification a échoué.',
-      })
-
-      // If verified, refresh profile and scoring
-      if (result.verified) {
-        const [profileResult, scoringResult] = await Promise.allSettled([
-          authFetch<{ user: ProfileData }>('/api/profile'),
-          authFetch<ScoringData>('/api/scoring'),
-        ])
-        if (profileResult.status === 'fulfilled') {
-          setProfile(profileResult.value.user)
-        }
-        if (scoringResult.status === 'fulfilled') {
-          setScoring(scoringResult.value)
-        }
-      }
+      setKycDocumentId(result.documentId)
+      setKycSelfieUrl(result.selfieUrl)
+      setKycStep('selfie')
     } catch (err) {
-      setNeofaceResult({
+      setKycResult({
         verified: false,
-        message: err instanceof Error ? err.message : 'Erreur lors de la vérification biométrique',
+        message: err instanceof Error ? err.message : 'Erreur lors de l\'envoi du document',
       })
-    } finally {
-      setNeofaceVerifying(false)
+      setKycStep('idle')
     }
-  }, [neofaceImage])
+  }, [])
 
-  // Scroll to NEOFACE section
-  const scrollToNeoface = useCallback(() => {
+  // ── KYC: Open selfie URL in new window ────────────────────────────────────
+  const handleKycOpenSelfie = useCallback(() => {
+    if (!kycSelfieUrl) return
+    window.open(kycSelfieUrl, '_blank', 'width=500,height=700')
+
+    // Start polling after a short delay
+    setKycStep('verifying')
+    setKycPollCount(0)
+
+    // Clear any existing polling
+    if (kycPollIntervalRef.current) {
+      clearInterval(kycPollIntervalRef.current)
+    }
+
+    let pollAttempts = 0
+    const maxAttempts = 40 // 40 * 3s = 120s max
+
+    kycPollIntervalRef.current = setInterval(async () => {
+      pollAttempts++
+      setKycPollCount(pollAttempts)
+
+      if (pollAttempts > maxAttempts) {
+        if (kycPollIntervalRef.current) clearInterval(kycPollIntervalRef.current)
+        setKycResult({ verified: false, message: 'Délai de vérification dépassé. Veuillez réessayer.' })
+        setKycStep('idle')
+        return
+      }
+
+      try {
+        const result = await authFetch<{ status: string; verified: boolean; message?: string; matchingScore?: number }>(
+          '/api/oneci/face-auth',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: 'verify', documentId: kycDocumentId }),
+          }
+        )
+
+        if (result.status === 'verified') {
+          if (kycPollIntervalRef.current) clearInterval(kycPollIntervalRef.current)
+          setKycResult({ verified: true, message: result.message || 'Vérification KYC réussie !' })
+          setKycStep('done')
+
+          // Refresh profile and scoring
+          const [profileResult, scoringResult] = await Promise.allSettled([
+            authFetch<{ user: ProfileData }>('/api/profile'),
+            authFetch<ScoringData>('/api/scoring'),
+          ])
+          if (profileResult.status === 'fulfilled') setProfile(profileResult.value.user)
+          if (scoringResult.status === 'fulfilled') setScoring(scoringResult.value)
+        } else if (result.status === 'failed') {
+          if (kycPollIntervalRef.current) clearInterval(kycPollIntervalRef.current)
+          setKycResult({ verified: false, message: result.message || 'La vérification a échoué.' })
+          setKycStep('idle')
+        }
+        // If "waiting", continue polling
+      } catch {
+        // Network error, continue polling
+      }
+    }, 3000)
+  }, [kycSelfieUrl, kycDocumentId])
+
+  // ── KYC: Reset flow ──────────────────────────────────────────────────────
+  const handleKycReset = useCallback(() => {
+    if (kycPollIntervalRef.current) {
+      clearInterval(kycPollIntervalRef.current)
+    }
+    setKycStep('idle')
+    setKycDocImage(null)
+    setKycDocumentId(null)
+    setKycSelfieUrl(null)
+    setKycResult(null)
+    setKycPollCount(0)
+  }, [])
+
+  // Scroll to KYC section
+  const scrollToKyc = useCallback(() => {
     setActiveTab('profil')
     setTimeout(() => {
-      neofaceSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      kycSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 300)
   }, [])
 
@@ -857,7 +848,7 @@ export function SettingsSection() {
                         disabled={profile?.oneciVerified || profile?.neofaceVerified || oneciVerifying}
                         maxLength={11}
                       />
-                      <p className="text-[10px] text-neutral-400">10 à 11 chiffres — requis pour les vérifications ONECI et NEOFACE</p>
+                      <p className="text-[10px] text-neutral-400">10 à 11 chiffres — requis pour les vérifications ONECI et KYC</p>
                     </div>
                     {/* Birth Date */}
                     <div className="space-y-1.5">
@@ -930,12 +921,12 @@ export function SettingsSection() {
                   )}
                 </div>
 
-                {/* ── NEOFACE Face Verification Section ─────────────────────── */}
-                <div ref={neofaceSectionRef} className="pt-2">
+                {/* ── KYC Face Verification Section ─────────────────────── */}
+                <div ref={kycSectionRef} className="pt-2">
                   <Separator className="mb-4" />
                   <div className="flex items-center gap-2 mb-3">
                     <ScanFace className="size-4 text-brand-500" />
-                    <span className="text-sm font-semibold text-neutral-900">Vérification biométrique NEOFACE</span>
+                    <span className="text-sm font-semibold text-neutral-900">Vérification d&apos;identité KYC</span>
                     {profile?.neofaceVerified ? (
                       <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0 border font-semibold">
                         <CheckCircle2 className="size-3 mr-0.5" /> Vérifié
@@ -955,7 +946,7 @@ export function SettingsSection() {
                           <CheckCircle2 className="size-4" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-emerald-700">Vérification biométrique réussie</p>
+                          <p className="text-sm font-semibold text-emerald-700">Vérification KYC réussie</p>
                           {profile.neofaceVerifiedAt && (
                             <p className="text-[10px] text-emerald-600 mt-0.5">
                               Vérifié le {new Date(profile.neofaceVerifiedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -964,164 +955,188 @@ export function SettingsSection() {
                         </div>
                       </div>
                     </div>
-                  ) : !formState.nni ? (
-                    /* NNI not filled — show info */
-                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-9 items-center justify-center rounded-full bg-amber-100 text-amber-500 shrink-0">
-                          <ScanFace className="size-4" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-amber-700">NNI requis</p>
-                          <p className="text-[11px] text-amber-600 mt-0.5">
-                            Renseignez votre NNI ci-dessus pour activer la vérification biométrique.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
                   ) : (
-                    /* NNI available — show NEOFACE flow */
+                    /* KYC flow */
                     <div className="space-y-3">
-                      <p className="text-[11px] text-neutral-500">
-                        Prenez un selfie ou chargez une photo de votre visage. NEOFACE comparera votre visage avec la photo de votre CNI.
-                      </p>
+                      {/* Step 1: Upload ID card */}
+                      {(kycStep === 'idle' || kycStep === 'uploading') && (
+                        <div className="space-y-3">
+                          <p className="text-[11px] text-neutral-500">
+                            Téléchargez une photo de votre pièce d&apos;identité (recto avec votre photo). KYC comparera votre visage en direct avec la photo du document.
+                          </p>
 
-                      {/* Camera mode */}
-                      {neofaceStep === 'camera' && (
-                        <div className="relative rounded-xl overflow-hidden bg-neutral-900 aspect-[3/4] max-w-[280px] mx-auto">
-                          <video
-                            ref={videoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className="size-full object-cover -scale-x-1"
+                          {/* Upload area */}
+                          <div
+                            onClick={() => kycDocInputRef.current?.click()}
+                            className={`relative cursor-pointer rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+                              kycDocImage
+                                ? 'border-brand-300 bg-brand-50/30'
+                                : 'border-neutral-300 hover:border-brand-400 hover:bg-brand-50/20'
+                            }`}
+                          >
+                            {kycDocImage ? (
+                              <div className="space-y-2">
+                                <img
+                                  src={kycDocImage}
+                                  alt="Aperçu du document"
+                                  className="mx-auto max-h-40 rounded-lg object-contain"
+                                />
+                                <p className="text-xs text-neutral-500">Cliquer pour changer</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-neutral-100">
+                                <CreditCard className="size-5 text-neutral-400" />
+                              </div>
+                              <p className="text-sm font-medium text-neutral-700">Télécharger le recto de votre CNI</p>
+                              <p className="text-[11px] text-neutral-400">JPG, PNG — max 10 Mo</p>
+                              </div>
+                            )}
+                          </div>
+
+                          <input
+                            ref={kycDocInputRef}
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png"
+                            className="hidden"
+                            onChange={handleKycDocUpload}
                           />
-                          {/* Face guide oval */}
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-40 h-52 rounded-[50%] border-2 border-white/30" />
-                          </div>
-                          {/* Capture/Cancel buttons */}
-                          <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-3">
-                            <Button
-                              onClick={captureNeofacePhoto}
-                              className="bg-brand-500 hover:bg-brand-600 text-white rounded-full size-11 p-0 shadow-lg"
-                            >
-                              <Camera className="size-5" />
-                            </Button>
-                            <Button
-                              onClick={stopNeofaceCamera}
-                              variant="outline"
-                              className="bg-white/90 hover:bg-white text-neutral-700 rounded-full size-11 p-0 border-neutral-200"
-                            >
-                              <XCircle className="size-5" />
-                            </Button>
-                          </div>
-                          <canvas ref={canvasRef} className="hidden" />
+
+                          {kycStep === 'uploading' && (
+                            <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
+                              <Loader2 className="size-4 animate-spin" />
+                              Envoi du document en cours...
+                            </div>
+                          )}
                         </div>
                       )}
 
-                      {/* Preview mode */}
-                      {neofaceStep === 'preview' && neofaceImage && (
+                      {/* Step 2: Selfie link */}
+                      {kycStep === 'selfie' && (
                         <div className="space-y-3">
-                          <div className="relative rounded-xl overflow-hidden bg-neutral-100 aspect-[3/4] max-w-[280px] mx-auto">
-                            <img
-                              src={neofaceImage}
-                              alt="Photo de vérification"
-                              className="size-full object-cover"
-                            />
+                          <div className="p-3 rounded-lg bg-brand-50 border border-brand-200">
+                            <p className="text-xs font-medium text-brand-700 mb-2">
+                              ✅ Document envoyé avec succès
+                            </p>
+                            <p className="text-[11px] text-brand-600">
+                              Cliquez sur le bouton ci-dessous pour ouvrir l&apos;interface de prise de selfie. L&apos;interface détectera votre visage en direct et vérifiera votre identité.
+                            </p>
                           </div>
-                          <div className="flex gap-2 max-w-[280px] mx-auto">
+
+                          <Button
+                            onClick={handleKycOpenSelfie}
+                            className="w-full h-11 bg-brand-500 hover:bg-brand-600 text-white"
+                          >
+                            <ScanFace className="size-4 mr-2" />
+                            Ouvrir la vérification faciale
+                          </Button>
+
+                          <Button
+                            onClick={handleKycReset}
+                            variant="outline"
+                            className="w-full h-9 text-xs border-neutral-200"
+                          >
+                            <RefreshCw className="size-3.5 mr-1.5" />
+                            Recommencer
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Step 3: Polling / Verifying */}
+                      {kycStep === 'verifying' && (
+                        <div className="space-y-3">
+                          <div className="flex flex-col items-center gap-3 p-4 rounded-xl bg-neutral-50 border border-neutral-200">
+                            <Loader2 className="size-8 animate-spin text-brand-500" />
+                            <div className="text-center">
+                              <p className="text-sm font-semibold text-neutral-700">Vérification en cours...</p>
+                              <p className="text-[11px] text-neutral-500 mt-1">
+                                Prenez votre selfie dans la fenêtre ouverte. Nous vérifions le résultat automatiquement.
+                              </p>
+                              <p className="text-[10px] text-neutral-400 mt-2">
+                                Tentative {kycPollCount}/40
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
                             <Button
-                              onClick={() => { setNeofaceImage(null); setNeofaceStep('idle'); setNeofaceResult(null) }}
+                              onClick={handleKycOpenSelfie}
+                              variant="outline"
+                              className="flex-1 h-9 text-xs border-brand-200 text-brand-600 hover:bg-brand-50"
+                            >
+                              <ScanFace className="size-3.5 mr-1.5" />
+                              R&#39;ouvrir le selfie
+                            </Button>
+                            <Button
+                              onClick={handleKycReset}
                               variant="outline"
                               className="flex-1 h-9 text-xs border-neutral-200"
-                              disabled={neofaceVerifying}
                             >
-                              <RefreshCw className="size-3.5 mr-1.5" />
-                              Changer
-                            </Button>
-                            <Button
-                              onClick={handleNeofaceVerify}
-                              disabled={neofaceVerifying}
-                              className="flex-1 h-9 text-xs bg-brand-500 hover:bg-brand-600 text-white"
-                            >
-                              {neofaceVerifying ? (
-                                <><Loader2 className="size-3.5 mr-1.5 animate-spin" /> Vérification...</>
-                              ) : (
-                                <><ScanFace className="size-3.5 mr-1.5" /> Vérifier</>
-                              )}
+                              <XCircle className="size-3.5 mr-1.5" />
+                              Annuler
                             </Button>
                           </div>
                         </div>
                       )}
 
-                      {/* Idle mode — choose method */}
-                      {neofaceStep === 'idle' && (
-                        <div className="space-y-2">
-                          <Button
-                            onClick={startNeofaceCamera}
-                            disabled={neofaceVerifying}
-                            className="w-full h-10 bg-brand-500 hover:bg-brand-600 text-white"
-                          >
-                            <Camera className="size-4 mr-2" />
-                            Prendre un selfie
-                          </Button>
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 h-px bg-neutral-200" />
-                            <span className="text-[10px] text-neutral-400 uppercase">ou</span>
-                            <div className="flex-1 h-px bg-neutral-200" />
-                          </div>
-                          <Button
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={neofaceVerifying}
-                            variant="outline"
-                            className="w-full h-10 border-brand-200 text-brand-600 hover:bg-brand-50"
-                          >
-                            <FileCheck className="size-4 mr-2" />
-                            Charger une photo
-                          </Button>
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            capture="user"
-                            className="hidden"
-                            onChange={handleNeofaceFileUpload}
-                          />
-                        </div>
-                      )}
-
-                      {/* NEOFACE verification result */}
-                      {neofaceResult && (
+                      {/* Step 4: Done (success or failure) */}
+                      {kycStep === 'done' && kycResult && (
                         <motion.div
                           initial={{ opacity: 0, y: -5 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className={`p-3 rounded-lg border ${
-                            neofaceResult.verified
+                          className={`p-4 rounded-xl border ${
+                            kycResult.verified
                               ? 'bg-emerald-50 border-emerald-200'
                               : 'bg-red-50 border-red-200'
                           }`}
                         >
-                          <div className="flex items-start gap-2">
-                            {neofaceResult.verified ? (
-                              <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
-                            ) : (
-                              <XCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
-                            )}
+                          <div className="flex items-center gap-3">
+                            <div className={`flex size-10 items-center justify-center rounded-full shrink-0 ${
+                              kycResult.verified ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'
+                            }`}>
+                              {kycResult.verified ? <CheckCircle2 className="size-5" /> : <XCircle className="size-5" />}
+                            </div>
                             <div className="flex-1">
-                              <p className={`text-xs font-medium ${neofaceResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
-                                {neofaceResult.message}
+                              <p className={`text-sm font-semibold ${kycResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
+                                {kycResult.verified ? 'Vérification KYC réussie !' : 'Vérification échouée'}
                               </p>
-                              {!neofaceResult.verified && (
-                                <Button
-                                  variant="link"
-                                  className="text-[11px] text-brand-500 p-0 h-auto mt-1"
-                                  onClick={() => { setNeofaceImage(null); setNeofaceStep('idle'); setNeofaceResult(null) }}
-                                >
-                                  <RefreshCw className="size-3 mr-1" />
-                                  Réessayer
-                                </Button>
-                              )}
+                              <p className={`text-xs mt-0.5 ${kycResult.verified ? 'text-emerald-600' : 'text-red-600'}`}>
+                                {kycResult.message}
+                              </p>
+                            </div>
+                          </div>
+                          {!kycResult.verified && (
+                            <Button
+                              variant="link"
+                              className="text-[11px] text-brand-500 p-0 h-auto mt-2"
+                              onClick={handleKycReset}
+                            >
+                              <RefreshCw className="size-3 mr-1" />
+                              Réessayer
+                            </Button>
+                          )}
+                        </motion.div>
+                      )}
+
+                      {/* Error state (on idle) */}
+                      {kycStep === 'idle' && kycResult && !kycResult.verified && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="p-3 rounded-lg border bg-red-50 border-red-200"
+                        >
+                          <div className="flex items-start gap-2">
+                            <XCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-xs font-medium text-red-700">{kycResult.message}</p>
+                              <Button
+                                variant="link"
+                                className="text-[11px] text-brand-500 p-0 h-auto mt-1"
+                                onClick={() => { setKycResult(null) }}
+                              >
+                                <RefreshCw className="size-3 mr-1" />
+                                Réessayer
+                              </Button>
                             </div>
                           </div>
                         </motion.div>
@@ -1230,14 +1245,14 @@ export function SettingsSection() {
               />
               <ScoreComponentCard
                 icon={ScanFace}
-                label="NEOFACE"
+                label="KYC"
                 weight={scoring.breakdown.neoface.weight}
                 score={scoring.breakdown.neoface.score}
                 max={scoring.breakdown.neoface.max}
                 statusColor={scoring.statusColor}
                 details="Vérification biométrique obligatoire"
-                actionLabel="Vérifier mon visage"
-                onAction={scrollToNeoface}
+                actionLabel="Vérification KYC"
+                onAction={scrollToKyc}
               />
               <ScoreComponentCard
                 icon={CreditCard}
@@ -1357,7 +1372,7 @@ export function SettingsSection() {
                           if (rec.action === 'settings') setActiveTab('profil')
                           else if (rec.action === 'rental-file') setDashboardSection('rental-file')
                           else if (rec.action === 'oneci') setActiveTab('profil')
-                          else if (rec.action === 'neoface') scrollToNeoface()
+                          else if (rec.action === 'neoface') scrollToKyc()
                         }}
                       >
                         {rec.actionLabel}
@@ -1384,7 +1399,7 @@ export function SettingsSection() {
                 <div className="space-y-2">
                   {[
                     { label: 'Profil complet', weight: '5%', desc: 'Toutes les informations requises du profil sont renseignées.' },
-                    { label: 'NEOFACE', weight: '20%', desc: 'Vérification biométrique.' },
+                    { label: 'KYC', weight: '20%', desc: 'Vérification d\'identité par reconnaissance faciale.' },
                     { label: 'Vérification ONECI', weight: '25%', desc: 'CNI authentifiée.' },
                     { label: 'Dossier locataire validé', weight: '50%', desc: 'Dossier locataire approuvé.' },
                   ].map((item) => (

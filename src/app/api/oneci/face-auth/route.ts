@@ -3,22 +3,28 @@ import { db } from '@/lib/db'
 import { getUserIdFromRequest } from '@/lib/session'
 
 /**
- * POST /api/oneci/face-auth
+ * KYC Face Recognition API using NeoFace v2
  *
- * Performs biometric face authentication via the ONECI API.
+ * Two modes:
+ * 1. POST { mode: "upload", docFile: "<base64>" }
+ *    → Uploads ID card photo to NeoFace document_capture
+ *    → Returns { documentId, selfieUrl }
  *
- * Based on the ONECI Postman Collection:
- * - Endpoint: POST {ONECI_API_URL}/api/v1/oneci/face-auth
- * - Auth: Bearer token (same as match endpoint, obtained via /api/v1/authenticate)
- * - Body: JSON { NNI, BIOMETRIC_TYPE: "AUTH_FACE", BIOMETRIC_DATA: "<base64>" }
+ * 2. POST { mode: "verify", documentId: "doc-xxx" }
+ *    → Polls NeoFace match_verify for the result
+ *    → Returns { status, verified, matchingScore }
  *
  * Flow:
- * 1. Get user session from cookie
- * 2. Validate user has NNI and is ONECI-verified
- * 3. Authenticate with ONECI to get bearer token
- * 4. Call face-auth endpoint with NNI + base64 face image
- * 5. If successful → update neofaceVerified = true, neofaceVerifiedAt = now()
+ * 1. User uploads photo of their ID card (front side with face photo)
+ * 2. Backend calls NeoFace /api/v2/document_capture → gets document_id + selfie URL
+ * 3. Frontend opens selfie URL in new tab/iframe → user takes selfie with liveness detection
+ * 4. Frontend polls backend with document_id → backend calls NeoFace /api/v2/match_verify
+ * 5. When verified → update user.neofaceVerified = true
  */
+
+const NEOFACE_API_BASE = () => process.env.NEOFACE_API_BASE || 'https://neoface.aineo.ai'
+const NEOFACE_TOKEN = () => process.env.NEOFACE_BEARER_TOKEN
+
 export async function POST(req: NextRequest) {
   try {
     const userId = await getUserIdFromRequest(req)
@@ -31,7 +37,6 @@ export async function POST(req: NextRequest) {
       where: { id: userId },
       select: {
         id: true,
-        nni: true,
         neofaceVerified: true,
       },
     })
@@ -40,197 +45,178 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
     }
 
-    // Must have NNI (required by the face-auth API)
-    if (!user.nni) {
-      return NextResponse.json(
-        { error: 'Votre NNI n\'est pas renseigné. Renseignez-le dans votre profil pour activer la vérification biométrique.' },
-        { status: 400 }
-      )
+    if (user.neofaceVerified) {
+      return NextResponse.json({ error: 'Vous êtes déjà vérifié KYC.' }, { status: 400 })
     }
 
-    // Parse request body for face image (base64)
     const body = await req.json().catch(() => ({}))
-    const faceImageBase64 = body.faceImage as string | undefined
+    const mode = body.mode as string | undefined
 
-    if (!faceImageBase64) {
+    if (!mode || (mode !== 'upload' && mode !== 'verify')) {
       return NextResponse.json(
-        { error: 'L\'image du visage est requise.' },
+        { error: 'Mode requis : "upload" ou "verify"' },
         { status: 400 }
       )
     }
 
-    // ── Step 1: Get bearer token from ONECI ──────────────────────────────────
-    const apiUrl = process.env.ONECI_API_URL || 'https://api-rnpp.verif.ci'
-    const apiKey = process.env.ONECI_API_KEY
-    const secretKey = process.env.ONECI_SECRET_KEY
-
-    if (!apiKey || !secretKey) {
-      console.error('ONECI API credentials not configured')
+    const token = NEOFACE_TOKEN()
+    if (!token) {
+      console.error('NEOFACE_BEARER_TOKEN not configured')
       return NextResponse.json(
-        { error: 'Service ONECI non configuré. Veuillez contacter l\'administrateur.' },
+        { error: 'Service KYC non configuré. Veuillez contacter l\'administrateur.' },
         { status: 503 }
       )
     }
 
-    let bearerToken: string
-    try {
-      const authResponse = await fetch(`${apiUrl}/api/v1/authenticate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, secretKey }),
-      })
-
-      if (!authResponse.ok) {
-        const errorText = await authResponse.text()
-        console.error('ONECI auth failed:', authResponse.status, errorText)
+    // ─── MODE: Upload ID card document ─────────────────────────────────────
+    if (mode === 'upload') {
+      const docFileBase64 = body.docFile as string | undefined
+      if (!docFileBase64) {
         return NextResponse.json(
-          { error: 'Erreur d\'authentification au service ONECI. Veuillez réessayer.' },
-          { status: 502 }
+          { error: 'L\'image du document (recto) est requise.' },
+          { status: 400 }
         )
       }
 
-      const authData = await authResponse.json()
-      bearerToken = authData.bearerToken
+      // Convert base64 to Blob for multipart/form-data
+      const buffer = Buffer.from(docFileBase64, 'base64')
+      const blob = new Blob([buffer], { type: 'image/jpeg' })
 
-      if (!bearerToken) {
-        console.error('ONECI auth: no bearerToken in response', authData)
-        return NextResponse.json(
-          { error: 'Réponse d\'authentification ONECI invalide.' },
-          { status: 502 }
-        )
-      }
-    } catch (err) {
-      console.error('ONECI auth network error:', err)
-      return NextResponse.json(
-        { error: 'Impossible de joindre le service ONECI. Veuillez réessayer.' },
-        { status: 503 }
-      )
-    }
+      const formData = new FormData()
+      formData.append('doc_file', blob, 'document.jpg')
 
-    // ── Step 2: Call face-auth endpoint ─────────────────────────────────────
-    // As per the ONECI Postman Collection:
-    // POST /api/v1/oneci/face-auth
-    // Body: JSON { NNI, BIOMETRIC_TYPE: "AUTH_FACE", BIOMETRIC_DATA: "<base64>" }
-    try {
-      const faceAuthResponse = await fetch(`${apiUrl}/api/v1/oneci/face-auth`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${bearerToken}`,
-        },
-        body: JSON.stringify({
-          NNI: user.nni,
-          BIOMETRIC_TYPE: 'AUTH_FACE',
-          BIOMETRIC_DATA: faceImageBase64,
-        }),
-      })
-
-      // ── Step 3: Process response ─────────────────────────────────────────
-      const responseText = await faceAuthResponse.text()
-
-      // Parse response
-      let responseData: unknown = null
       try {
-        responseData = JSON.parse(responseText)
-      } catch {
-        // Non-JSON response
-      }
+        const uploadResponse = await fetch(`${NEOFACE_API_BASE()}/api/v2/document_capture`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        })
 
-      // Check for success indicators
-      // Empty response or specific success fields = verified
-      const isSuccess =
-        faceAuthResponse.ok &&
-        (
-          !responseText ||
-          responseText.trim() === '' ||
-          responseText.trim() === '{}' ||
-          (responseData as Record<string, unknown>)?.success === true ||
-          (responseData as Record<string, unknown>)?.matched === true ||
-          (responseData as Record<string, unknown>)?.match === true ||
-          (responseData as Record<string, unknown>)?.authenticated === true
-        )
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text()
+          console.error('NeoFace document_capture error:', uploadResponse.status, errorText.substring(0, 500))
+          return NextResponse.json(
+            { error: 'Erreur lors de l\'envoi du document. Veuillez réessayer.' },
+            { status: 502 }
+          )
+        }
 
-      if (isSuccess) {
-        // ✅ Face matched → verified
+        const uploadData = await uploadResponse.json()
+
+        if (!uploadData.success || !uploadData.document_id) {
+          console.error('NeoFace document_capture: unexpected response', uploadData)
+          return NextResponse.json(
+            { error: 'Réponse inattendue du service KYC. Veuillez réessayer.' },
+            { status: 502 }
+          )
+        }
+
+        // Store document_id in user record for later verification
         await db.user.update({
           where: { id: userId },
-          data: {
-            neofaceVerified: true,
-            neofaceVerifiedAt: new Date(),
-          },
+          data: { kycDocumentId: uploadData.document_id },
         })
 
         return NextResponse.json({
-          verified: true,
-          message: 'Vérification biométrique réussie ! Votre visage a été authentifié avec succès.',
+          documentId: uploadData.document_id,
+          selfieUrl: uploadData.url,
         })
+
+      } catch (err) {
+        console.error('NeoFace document_capture network error:', err)
+        return NextResponse.json(
+          { error: 'Impossible de joindre le service KYC. Veuillez réessayer.' },
+          { status: 503 }
+        )
+      }
+    }
+
+    // ─── MODE: Verify / Poll for status ─────────────────────────────────────
+    if (mode === 'verify') {
+      const documentId = body.documentId as string | undefined
+      if (!documentId) {
+        return NextResponse.json(
+          { error: 'document_id requis pour la vérification.' },
+          { status: 400 }
+        )
       }
 
-      // Face didn't match or error
-      const errorMessage = extractErrorMessage(responseData)
+      try {
+        const verifyResponse = await fetch(`${NEOFACE_API_BASE()}/api/v2/match_verify`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ document_id: documentId }),
+        })
 
-      console.error('ONECI face-auth error:', faceAuthResponse.status, responseText.substring(0, 500))
+        if (!verifyResponse.ok) {
+          const errorText = await verifyResponse.text()
+          console.error('NeoFace match_verify error:', verifyResponse.status, errorText.substring(0, 500))
+          return NextResponse.json(
+            { error: 'Erreur lors de la vérification. Veuillez réessayer.' },
+            { status: 502 }
+          )
+        }
 
-      return NextResponse.json({
-        verified: false,
-        error: errorMessage || 'La vérification biométrique a échoué. Votre visage ne correspond pas à la photo de votre CNI.',
-        rawStatus: faceAuthResponse.status,
-      }, { status: 200 }) // Return 200 even on mismatch — it's a valid API result
+        const verifyData = await verifyResponse.json()
+        const status = verifyData.status as string
 
-    } catch (err) {
-      console.error('ONECI face-auth network error:', err)
-      return NextResponse.json(
-        { error: 'Impossible de joindre le service de vérification biométrique. Veuillez réessayer.' },
-        { status: 503 }
-      )
+        // If verified → update user
+        if (status === 'verified') {
+          await db.user.update({
+            where: { id: userId },
+            data: {
+              neofaceVerified: true,
+              neofaceVerifiedAt: new Date(),
+              kycDocumentId: null, // Clean up
+            },
+          })
+
+          return NextResponse.json({
+            status: 'verified',
+            verified: true,
+            matchingScore: verifyData.matching_score ?? null,
+            message: verifyData.message || 'Vérification KYC réussie ! Votre visage a été authentifié avec succès.',
+          })
+        }
+
+        if (status === 'failed') {
+          // Clean up document_id
+          await db.user.update({
+            where: { id: userId },
+            data: { kycDocumentId: null },
+          }).catch(() => {})
+
+          return NextResponse.json({
+            status: 'failed',
+            verified: false,
+            message: verifyData.message || 'La vérification a échoué. Le selfie ne correspond pas à la photo du document.',
+          })
+        }
+
+        // Still waiting
+        return NextResponse.json({
+          status: 'waiting',
+          verified: false,
+          message: 'En attente du selfie...',
+        })
+
+      } catch (err) {
+        console.error('NeoFace match_verify network error:', err)
+        return NextResponse.json(
+          { error: 'Impossible de joindre le service KYC. Veuillez réessayer.' },
+          { status: 503 }
+        )
+      }
     }
+
+    return NextResponse.json({ error: 'Mode invalide' }, { status: 400 })
   } catch (error) {
-    console.error('ONECI face-auth error:', error)
+    console.error('KYC face-auth error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
-}
-
-/**
- * Extract error message from ONECI face-auth response
- */
-function extractErrorMessage(data: unknown): string | null {
-  if (!data || typeof data !== 'object') return null
-
-  const obj = data as Record<string, unknown>
-
-  // Check for direct message or error field
-  if (typeof obj.message === 'string') return obj.message
-  if (typeof obj.error === 'string') return obj.error
-
-  // Check for errorMessage field
-  if (typeof obj.errorMessage === 'string') return obj.errorMessage
-
-  // Check for errors array (like the match endpoint)
-  if (Array.isArray(obj.errors) && obj.errors.length > 0) {
-    const labels: Record<string, string> = {
-      FACE_NOT_MATCHED: 'Le visage ne correspond pas',
-      FACE_NOT_DETECTED: 'Aucun visage détecté',
-      MULTIPLE_FACES: 'Plusieurs visages détectés',
-      POOR_IMAGE_QUALITY: 'Qualité d\'image insuffisante',
-    }
-    return obj.errors
-      .map((e: unknown) => {
-        const err = e as Record<string, unknown>
-        return labels[err.AttributeName || err.ErrorCode || err.error || err.message || String(e)] || err.message || err.msg || String(e)
-      })
-      .filter(Boolean)
-      .join(', ')
-  }
-
-  // Check for nested error
-  if (obj.error && typeof obj.error === 'object') {
-    const errObj = obj.error as Record<string, unknown>
-    if (typeof errObj.message === 'string') return errObj.message
-  }
-
-  // Check for detail/details field
-  if (typeof obj.detail === 'string') return obj.detail
-  if (typeof obj.details === 'string') return obj.details
-
-  return null
 }

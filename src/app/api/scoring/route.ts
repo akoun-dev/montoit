@@ -124,10 +124,10 @@ export async function GET(req: NextRequest) {
       recommendations.push({
         id: 'neoface',
         title: 'Reconnaissance faciale',
-        description: 'Vérification biométrique NEOFACE',
+        description: 'Vérification d\'identité KYC (reconnaissance faciale)',
         impact: 20,
         action: 'neoface',
-        actionLabel: 'Vérification faciale',
+        actionLabel: 'Vérification KYC',
         completed: false,
       })
     }
@@ -173,8 +173,8 @@ export async function GET(req: NextRequest) {
           max: 20,
           weight: 20,
           verified: user.neofaceVerified,
-          label: 'NEOFACE',
-          description: 'Vérification biométrique',
+          label: 'KYC',
+          description: 'Reconnaissance faciale',
         },
         oneci: {
           score: oneciScore,

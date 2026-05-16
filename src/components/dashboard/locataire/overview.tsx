@@ -238,7 +238,7 @@ export function LocataireOverview() {
                   <div className="grid grid-cols-4 gap-2">
                     {[
                       { label: 'Profil', pct: scoring.breakdown.profile.max > 0 ? (scoring.breakdown.profile.score / scoring.breakdown.profile.max) * 100 : 0, weight: 5 },
-                      { label: 'NEOFACE', pct: scoring.breakdown.neoface.verified ? 100 : 0, weight: 20 },
+                      { label: 'KYC', pct: scoring.breakdown.neoface.verified ? 100 : 0, weight: 20 },
                       { label: 'ONECI', pct: scoring.breakdown.oneci.verified ? 100 : 0, weight: 25 },
                       { label: 'Dossier', pct: scoring.breakdown.rentalFile.approved ? 100 : scoring.breakdown.rentalFile.hasFile ? 50 : 0, weight: 50 },
                     ].map((comp) => (

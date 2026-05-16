@@ -467,3 +467,44 @@ Stage Summary:
 - NEOFACE requires only NNI (not ONECI verification)
 - Users can do NEOFACE face verification before or without ONECI CNI verification
 - Both share the NNI field which locks after either verification succeeds
+
+---
+Task ID: 14
+Agent: main
+Task: Implement proper NeoFace v2 KYC flow + replace NEOFACE branding with KYC
+
+Work Log:
+- Completely rewrote the KYC face verification using the NeoFace API v2 flow:
+  1. Upload ID card photo → POST /api/v2/document_capture (returns document_id + selfie URL)
+  2. User opens selfie URL in new window → NeoFace handles webcam, liveness detection, auto-capture
+  3. Backend polls → POST /api/v2/match_verify until status is "verified" or "failed"
+- Updated `.env`: Changed NEOFACE_API_BASE from `https://neoface.ansut.ci` to `https://neoface.aineo.ai`
+- Rewrote `/api/oneci/face-auth/route.ts`:
+  - Two modes: `upload` (sends doc_file as multipart/form-data) and `verify` (polls match_verify)
+  - No NNI required — the API only needs the document image
+  - Stores document_id temporarily in user.kycDocumentId during the flow
+  - On verified: updates neofaceVerified=true, neofaceVerifiedAt=now(), clears kycDocumentId
+  - On failed: clears kycDocumentId, returns error message
+- Added `kycDocumentId String?` to Prisma User schema (temporary field during KYC flow)
+- Updated profile API to include kycDocumentId in select
+- Rewrote settings UI KYC section:
+  - Step 1 (idle/uploading): Drag-and-drop area to upload CNI recto photo
+  - Step 2 (selfie): Success message + "Ouvrir la vérification faciale" button (opens NeoFace selfie URL)
+  - Step 3 (verifying): Polling spinner with attempt counter (max 40 attempts / 120s)
+  - Step 4 (done): Success/failure result with retry option
+  - Removed all camera/stream/canvas code (no longer needed — NeoFace handles the selfie)
+- Replaced all "NEOFACE" branding with "KYC" in:
+  - settings.tsx (section title, badges, labels, scoring cards, recommendations, how-it-works)
+  - trust-score.tsx (score bars, detail section, how-it-works)
+  - overview.tsx (mini progress bar label)
+  - scoring/route.ts (breakdown label, recommendation description/actionLabel)
+- Removed NNI requirement from KYC verification (no NNI needed for document_capture)
+- Fixed Buffer.from() usage in client code (replaced with FileReader-based base64 conversion)
+- All lint checks pass (0 errors, 0 warnings)
+
+Stage Summary:
+- KYC now uses proper NeoFace v2 API: upload CNI → redirect to selfie interface → poll for result
+- No more in-app camera capture — NeoFace provides the selfie interface with liveness detection
+- All "NEOFACE" text replaced with "KYC" throughout the app
+- NNI no longer required for KYC (only needs CNI photo)
+- kycDocumentId stored temporarily during the flow, cleaned up after verification

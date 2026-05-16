@@ -358,7 +358,7 @@ export function TrustScore() {
                     }
                   />
                   <ScoreBar
-                    label="NEOFACE"
+                    label="KYC"
                     weight={breakdown.neoface.weight}
                     score={breakdown.neoface.score}
                     max={breakdown.neoface.max}
@@ -509,10 +509,10 @@ export function TrustScore() {
 
             <Separator />
 
-            {/* NEOFACE */}
+            {/* KYC */}
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-neutral-900">NEOFACE</p>
+                <p className="text-xs font-semibold text-neutral-900">KYC</p>
                 <p className="text-[10px] text-neutral-500">Vérification biométrique</p>
               </div>
               <div className="flex items-center gap-2">
@@ -540,7 +540,7 @@ export function TrustScore() {
             <div className="space-y-2">
               {[
                 { label: 'Profil complet', weight: '5%', desc: 'Toutes les informations requises du profil sont renseignées.' },
-                { label: 'NEOFACE', weight: '20%', desc: 'Vérification biométrique.' },
+                { label: 'KYC', weight: '20%', desc: 'Vérification d\'identité par reconnaissance faciale.' },
                 { label: 'Vérification ONECI', weight: '25%', desc: 'CNI authentifiée.' },
                 { label: 'Dossier locataire validé', weight: '50%', desc: 'Dossier locataire approuvé.' },
               ].map((item) => (
