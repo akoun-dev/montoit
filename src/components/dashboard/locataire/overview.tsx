@@ -204,7 +204,7 @@ export function LocataireOverview() {
       {scoring && (
         <motion.div variants={itemVariants}>
           <Card className={`border bg-gradient-to-r ${scoreBgClass} cursor-pointer hover:shadow-md transition-all group`}
-            onClick={() => setDashboardSection('settings')}
+            onClick={() => setDashboardSection('trust-score')}
           >
             <CardContent className="p-4 sm:p-5">
               <div className="flex items-center gap-4">

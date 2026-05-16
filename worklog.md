@@ -194,3 +194,34 @@ Stage Summary:
 - Beautiful UI with animated score circle, progress bars, and recommendations
 - Accessible from sidebar (Trust Score) and Settings page (mini badge + card)
 - Status thresholds: 70+ Approuvé, 50-69 Sous conditions, <50 Non recommandé
+
+---
+Task ID: 7
+Agent: main
+Task: Resume session - Verify scoring system, fix Trust Score navigation, restart server
+
+Work Log:
+- Resumed from previous session that ran out of context
+- Verified dev server was down (502 Bad Gateway from sandbox killing background processes)
+- Restarted dev server multiple times (sandbox kills it after ~30s of inactivity)
+- Verified scoring API works correctly with demo locataire account:
+  - Score: 52/100 — "Sous conditions" (amber)
+  - Profile: 2/5 (fullName ✅, phone ✅, city ❌, address ❌, gender ❌)
+  - NEOFACE: 0/20 ❌
+  - ONECI: 0/25 ❌
+  - Dossier locataire: 50/50 ✅ (VALIDATED)
+- Verified profile API (GET /api/profile) works
+- Verified scoring API bug fix (APPROVED → VALIDATED) is in place
+- Fixed UX issue: Trust Score mini card in locataire overview now navigates to dedicated 'trust-score' section instead of 'settings' section
+- All lint checks pass (0 errors, 0 warnings)
+- All scoring system files verified present and correct:
+  - /api/scoring/route.ts — Scoring API
+  - /api/profile/route.ts — Profile GET/PUT API
+  - trust-score.tsx — Dedicated Trust Score page
+  - overview.tsx — Trust Score mini card in dashboard overview
+  - settings.tsx — 4-tab settings with Mon Score tab
+
+Stage Summary:
+- Scoring system fully functional (API verified working with real data)
+- Trust Score mini card now correctly links to dedicated Trust Score page
+- Server stability remains an issue (sandbox kills background processes) — no code fix possible
