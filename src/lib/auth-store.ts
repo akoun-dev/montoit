@@ -27,6 +27,7 @@ interface PersistedAuthState {
   previousView: AppView
   dashboardSection: string
   selectedPropertyId: string
+  selectedItemId: string  // ID for detail views (payment, application, visit, lease)
   lastAuthenticatedAt: number | null  // timestamp of last successful auth
 }
 
@@ -57,6 +58,7 @@ interface AuthActions {
   setOtpPurpose: (purpose: OtpPurpose) => void
   setDashboardSection: (section: string) => void
   setSelectedPropertyId: (id: string) => void
+  setSelectedItemId: (id: string) => void
   updateUser: (partial: Partial<AuthUser>) => void
   checkAuth: () => Promise<void>
   seedData: () => Promise<void>
@@ -71,6 +73,7 @@ const defaultPersisted: PersistedAuthState = {
   previousView: 'home',
   dashboardSection: 'overview',
   selectedPropertyId: '',
+  selectedItemId: '',
   lastAuthenticatedAt: null,
 }
 
@@ -372,6 +375,7 @@ export const useAuthStore = create<AuthState>()(
             devCode: '',
             dashboardSection: 'overview',
             selectedPropertyId: '',
+            selectedItemId: '',
             lastAuthenticatedAt: null,
           })
         }
@@ -382,6 +386,7 @@ export const useAuthStore = create<AuthState>()(
       setOtpPurpose: (purpose) => set({ otpPurpose: purpose }),
       setDashboardSection: (section) => set({ dashboardSection: section }),
       setSelectedPropertyId: (id) => set({ selectedPropertyId: id }),
+      setSelectedItemId: (id) => set({ selectedItemId: id }),
       updateUser: (partial) => set((state) => ({
         user: state.user ? { ...state.user, ...partial } : state.user,
       })),
@@ -456,6 +461,7 @@ export const useAuthStore = create<AuthState>()(
         previousView: state.previousView,
         dashboardSection: state.dashboardSection,
         selectedPropertyId: state.selectedPropertyId,
+        selectedItemId: state.selectedItemId,
         lastAuthenticatedAt: state.lastAuthenticatedAt,
       }),
       // After rehydration, merge with default transient state

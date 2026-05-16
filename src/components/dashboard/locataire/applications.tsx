@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { UserCheck, FileText, Building2, Clock, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
@@ -81,7 +81,11 @@ const itemVariants = {
   show: { opacity: 1, y: 0 },
 }
 
-export function Applications() {
+interface ApplicationsProps {
+  onDetail: (id: string) => void
+}
+
+export function Applications({ onDetail }: ApplicationsProps) {
   const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const [applications, setApplications] = useState<ApplicationItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -200,7 +204,7 @@ export function Applications() {
         </>
       ) : (
         /* Applications List */
-        <motion.div variants={containerVariants} className="space-y-4">
+        <motion.div variants={containerVariants} className="space-y-3">
           {applications.map((app) => {
             const config = statusConfig[app.status] || statusConfig.DRAFT
             const StatusIcon = config.icon
@@ -209,13 +213,16 @@ export function Applications() {
 
             return (
               <motion.div key={app.id} variants={itemVariants}>
-                <Card className="border-neutral-200 hover:shadow-sm transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-start gap-4">
+                <Card
+                  className="border-neutral-200 hover:shadow-sm transition-shadow cursor-pointer"
+                  onClick={() => onDetail(app.id)}
+                >
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex items-start gap-3 sm:gap-4">
                       {/* Property image or icon */}
-                      <div className="size-14 shrink-0 rounded-lg overflow-hidden bg-neutral-100 flex items-center justify-center">
+                      <div className="size-12 sm:size-14 shrink-0 rounded-lg overflow-hidden bg-neutral-100 flex items-center justify-center">
                         {property?.images?.[0]?.url ? (
-                          <img src={property.images[0].url} alt="" className="size-14 object-cover" />
+                          <img src={property.images[0].url} alt="" className="size-full object-cover" />
                         ) : (
                           <Building2 className="size-6 text-neutral-300" />
                         )}
@@ -224,7 +231,7 @@ export function Applications() {
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         {/* Top row: title + status */}
-                        <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center justify-between gap-2 mb-1">
                           <p className="text-sm font-semibold text-neutral-900 truncate">
                             {property?.title || 'Candidature'}
                           </p>
@@ -235,13 +242,13 @@ export function Applications() {
                         </div>
 
                         {property && (
-                          <p className="text-xs text-neutral-500 mb-3">
+                          <p className="text-xs text-neutral-500 mb-2 truncate">
                             {property.address}, {property.city}
                           </p>
                         )}
 
-                        {/* Status Timeline */}
-                        <div className="flex items-center gap-1 mb-3">
+                        {/* Status Timeline - hidden on mobile, shown on sm+ */}
+                        <div className="hidden sm:flex items-center gap-1 mb-3">
                           {app.statusTimeline.map((step, i) => (
                             <div key={step.status} className="flex items-center gap-1">
                               <div className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium ${
@@ -270,8 +277,8 @@ export function Applications() {
                         {/* Document Progress */}
                         {dp.total > 0 && (
                           <div className="flex items-center gap-3 text-xs text-neutral-500">
-                            <span>Documents :</span>
-                            <div className="flex-1 max-w-[200px] h-1.5 bg-neutral-100 rounded-full overflow-hidden">
+                            <span className="hidden sm:inline">Documents :</span>
+                            <div className="flex-1 max-w-[160px] sm:max-w-[200px] h-1.5 bg-neutral-100 rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-emerald-500 rounded-full transition-all"
                                 style={{ width: `${dp.total > 0 ? (dp.validated / dp.total) * 100 : 0}%` }}
@@ -286,20 +293,16 @@ export function Applications() {
                         {/* Rejection reason */}
                         {app.rejectionReason && (
                           <div className="mt-2 p-2 rounded bg-red-50 border border-red-100">
-                            <p className="text-xs text-red-600">
+                            <p className="text-xs text-red-600 line-clamp-1">
                               <AlertCircle className="size-3 inline mr-1" />
                               {app.rejectionReason}
                             </p>
                           </div>
                         )}
-
-                        {/* Dates */}
-                        <div className="flex items-center gap-4 mt-2 text-[10px] text-neutral-400">
-                          <span>Créé le {formatDate(app.createdAt)}</span>
-                          {app.reviewedAt && <span>Examiné le {formatDate(app.reviewedAt)}</span>}
-                          {app.validUntil && <span>Valide jusqu&apos;au {formatDate(app.validUntil)}</span>}
-                        </div>
                       </div>
+
+                      {/* Chevron */}
+                      <ChevronRight className="size-5 text-neutral-300 shrink-0 self-center" />
                     </div>
 
                     {/* Edit button for DRAFT */}
@@ -308,11 +311,11 @@ export function Applications() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={handleEditRentalFile}
+                          onClick={(e) => { e.stopPropagation(); handleEditRentalFile() }}
                           className="gap-1.5 text-brand-600 border-brand-200 hover:bg-brand-50"
                         >
                           <FileText className="size-3.5" />
-                          Compléter le dossier
+                          Compléter
                         </Button>
                       </div>
                     )}

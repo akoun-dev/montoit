@@ -17,6 +17,10 @@ import { Maintenance } from './locataire/maintenance'
 import { ActivityHistory } from './locataire/history'
 import { SettingsSection } from './locataire/settings'
 import { TrustScore } from './locataire/trust-score'
+import { PaymentDetail } from './locataire/payment-detail'
+import { ApplicationDetail } from './locataire/application-detail'
+import { VisitDetail } from './locataire/visit-detail'
+import { LeaseDetail } from './locataire/lease-detail'
 import { ProprietaireOverview } from './proprietaire/overview'
 import { MyProperties } from './proprietaire/my-properties'
 import { AddProperty } from './proprietaire/add-property'
@@ -38,15 +42,53 @@ import { Reports } from './admin/reports'
 import { AdminSettings } from './admin/settings'
 
 function LocataireDashboard({ section }: { section: string }) {
+  const { selectedItemId, setDashboardSection, setSelectedItemId } = useAuthStore()
+
+  const goToPaymentDetail = (id: string) => {
+    setSelectedItemId(id)
+    setDashboardSection('payment-detail')
+  }
+
+  const goToApplicationDetail = (id: string) => {
+    setSelectedItemId(id)
+    setDashboardSection('application-detail')
+  }
+
+  const goToVisitDetail = (id: string) => {
+    setSelectedItemId(id)
+    setDashboardSection('visit-detail')
+  }
+
+  const goToLeaseDetail = (id: string) => {
+    setSelectedItemId(id)
+    setDashboardSection('lease-detail')
+  }
+
+  const goBackToList = (listSection: string) => {
+    setSelectedItemId('')
+    setDashboardSection(listSection)
+  }
+
+  const goBackToPayments = () => goBackToList('payments')
+  const goBackToApplications = () => goBackToList('applications')
+  const goBackToVisits = () => goBackToList('my-visits')
+  const goBackToLeases = () => goBackToList('my-leases')
+
+  const goToRentalFile = () => setDashboardSection('rental-file')
+
   switch (section) {
     case 'overview': return <LocataireOverview />
     case 'search-properties': return <SearchProperties />
     case 'favorites': return <Favorites />
-    case 'applications': return <Applications />
+    case 'applications': return <Applications onDetail={goToApplicationDetail} />
+    case 'application-detail': return <ApplicationDetail applicationId={selectedItemId} onBack={goBackToApplications} onEditRentalFile={goToRentalFile} />
     case 'rental-file': return <RentalFileForm />
-    case 'my-visits': return <MyVisits />
-    case 'my-leases': return <MyLeases />
-    case 'payments': return <Payments />
+    case 'my-visits': return <MyVisits onDetail={goToVisitDetail} />
+    case 'visit-detail': return <VisitDetail visitId={selectedItemId} onBack={goBackToVisits} />
+    case 'my-leases': return <MyLeases onDetail={goToLeaseDetail} />
+    case 'lease-detail': return <LeaseDetail leaseId={selectedItemId} onBack={goBackToLeases} />
+    case 'payments': return <Payments onDetail={goToPaymentDetail} />
+    case 'payment-detail': return <PaymentDetail paymentId={selectedItemId} onBack={goBackToPayments} />
     case 'messages': return <Messages />
     case 'notifications': return <Notifications />
     case 'reviews': return <Reviews />
@@ -66,7 +108,7 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'visit-requests': return <VisitRequests />
     case 'rental-files': return <ProprietaireRentalFiles />
     case 'my-leases': return <ProprietaireLeases />
-    case 'payments': return <Payments />
+    case 'payments': return <Payments onDetail={() => {}} />
     case 'messages': return <ProprietaireMessages />
     case 'notifications': return <Notifications />
     case 'reviews': return <Reviews />

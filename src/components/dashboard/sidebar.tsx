@@ -238,12 +238,23 @@ interface SidebarContentProps {
   onNavigate?: () => void  // called after clicking a nav item (to close mobile Sheet)
 }
 
+// Map detail sections to their parent sidebar item
+const detailToParent: Record<string, string> = {
+  'payment-detail': 'payments',
+  'application-detail': 'applications',
+  'visit-detail': 'my-visits',
+  'lease-detail': 'my-leases',
+}
+
 export function SidebarContent({ collapsed = false, onNavigate }: SidebarContentProps) {
   const { user, dashboardSection, setDashboardSection } = useAuthStore()
 
   if (!user) return null
 
   const sections = getSidebarSections(user.role)
+
+  // Determine the active section (map detail views to parent)
+  const activeSection = detailToParent[dashboardSection] || dashboardSection
 
   const handleItemClick = (id: string) => {
     setDashboardSection(id)
@@ -293,7 +304,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
               <ul className="space-y-0.5">
                 {section.items.map((item) => {
                   const Icon = item.icon
-                  const isActive = dashboardSection === item.id
+                  const isActive = activeSection === item.id
                   return (
                     <li key={item.id}>
                       <button

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CreditCard, Calendar, TrendingUp, AlertTriangle, Building2 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CreditCard, Calendar, TrendingUp, AlertTriangle, Building2, ChevronRight } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
@@ -77,7 +77,11 @@ const itemVariants = {
   show: { opacity: 1, y: 0 },
 }
 
-export function Payments() {
+interface PaymentsProps {
+  onDetail: (id: string) => void
+}
+
+export function Payments({ onDetail }: PaymentsProps) {
   const { user, isAuthenticated } = useAuthStore()
   const [payments, setPayments] = useState<PaymentItem[]>([])
   const [stats, setStats] = useState<PaymentsResponse['stats'] | null>(null)
@@ -109,7 +113,7 @@ export function Payments() {
           <div className="h-8 w-48 bg-neutral-100 animate-pulse rounded" />
           <div className="h-4 w-64 bg-neutral-100 animate-pulse rounded mt-2" />
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-24 rounded-xl bg-neutral-100 animate-pulse" />
           ))}
@@ -145,7 +149,7 @@ export function Payments() {
 
       {/* Stats Cards */}
       <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           <Card className="border-neutral-200">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
@@ -182,7 +186,7 @@ export function Payments() {
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <AlertTriangle className={`size-4 ${(stats?.latePaymentsCount ?? 0) > 0 ? 'text-red-500' : 'text-neutral-300'}`} />
-                <p className="text-xs text-neutral-500">Paiements en retard</p>
+                <p className="text-xs text-neutral-500">En retard</p>
               </div>
               <p className={`text-lg font-bold ${(stats?.latePaymentsCount ?? 0) > 0 ? 'text-red-600' : 'text-neutral-900'}`}>
                 {stats?.latePaymentsCount ?? 0}
@@ -217,9 +221,12 @@ export function Payments() {
 
             return (
               <motion.div key={payment.id} variants={itemVariants}>
-                <Card className="border-neutral-200 hover:shadow-sm transition-shadow">
+                <Card
+                  className="border-neutral-200 hover:shadow-sm transition-shadow cursor-pointer"
+                  onClick={() => onDetail(payment.id)}
+                >
                   <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-3">
                       {/* Property icon */}
                       <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-50">
                         <Building2 className="size-5 text-brand-500" />
@@ -236,26 +243,17 @@ export function Payments() {
                             {config.label}
                           </Badge>
                         </div>
-                        <p className="text-xs text-neutral-500 mb-2">
+                        <p className="text-xs text-neutral-500 mb-2 truncate">
                           {property?.address}, {property?.city}
                         </p>
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <p className="text-sm font-bold text-neutral-900">
-                              {formatCurrency(payment.amount)}
-                            </p>
-                            <div className="text-xs text-neutral-400">
-                              <span>Échéance : {formatDate(payment.dueDate)}</span>
-                              {payment.paidAt && (
-                                <span className="ml-3">Payé le : {formatDate(payment.paidAt)}</span>
-                              )}
-                            </div>
+                          <p className="text-sm font-bold text-neutral-900">
+                            {formatCurrency(payment.amount)}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-neutral-400">
+                            <span>Échéance : {formatDate(payment.dueDate)}</span>
+                            <ChevronRight className="size-3.5 text-neutral-300" />
                           </div>
-                          {payment.reference && (
-                            <p className="text-xs text-neutral-400 font-mono">
-                              Réf : {payment.reference}
-                            </p>
-                          )}
                         </div>
                       </div>
                     </div>
