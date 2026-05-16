@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Bell, LogOut, Home, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 import { AnimatedSheet } from '@/components/ui/sheet'
@@ -68,6 +68,9 @@ export function DashboardHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 px-2">
                 <Avatar className="size-8">
+                  {user.avatarUrl && (
+                    <AvatarImage src={user.avatarUrl} alt={`${user.firstName} ${user.lastName}`} />
+                  )}
                   <AvatarFallback className="bg-brand-100 text-brand-700 text-sm font-semibold">
                     {initials}
                   </AvatarFallback>

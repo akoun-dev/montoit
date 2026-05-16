@@ -57,6 +57,7 @@ interface AuthActions {
   setOtpPurpose: (purpose: OtpPurpose) => void
   setDashboardSection: (section: string) => void
   setSelectedPropertyId: (id: string) => void
+  updateUser: (partial: Partial<AuthUser>) => void
   checkAuth: () => Promise<void>
   seedData: () => Promise<void>
 }
@@ -381,6 +382,9 @@ export const useAuthStore = create<AuthState>()(
       setOtpPurpose: (purpose) => set({ otpPurpose: purpose }),
       setDashboardSection: (section) => set({ dashboardSection: section }),
       setSelectedPropertyId: (id) => set({ selectedPropertyId: id }),
+      updateUser: (partial) => set((state) => ({
+        user: state.user ? { ...state.user, ...partial } : state.user,
+      })),
 
       checkAuth: async () => {
         // Deduplicate: if a checkAuth is already in progress, reuse that promise

@@ -6,6 +6,7 @@ import {
   ChevronRight, CheckCircle2, XCircle, ScanFace, CreditCard, FileCheck,
   Save, Loader2, MapPin, Users, ArrowRight, Lightbulb, AlertTriangle,
   Info, RefreshCw, Eye, EyeOff, Monitor, Smartphone, Trash2, LogOut,
+  Camera, Pencil,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -666,7 +667,7 @@ function KycVerificationModal({
 // ── Main Settings Component ─────────────────────────────────────────────────
 
 export function SettingsSection() {
-  const { user, setDashboardSection } = useAuthStore()
+  const { user, setDashboardSection, updateUser } = useAuthStore()
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [scoring, setScoring] = useState<ScoringData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -713,6 +714,10 @@ export function SettingsSection() {
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences | null>(null)
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifSaving, setNotifSaving] = useState<Record<string, boolean>>({})
+
+  // Avatar upload state
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch profile & scoring data
   const fetchProfileAndScoring = useCallback(async () => {
@@ -871,6 +876,85 @@ export function SettingsSection() {
     } catch {}
   }, [])
 
+  // ── Avatar upload handler ────────────────────────────────────────────────
+  const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+
+    // Validate file type
+    if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Format d\'image invalide. Utilisez JPG, PNG ou WEBP.')
+      return
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setError('L\'image est trop volumineuse (max 2 Mo).')
+      return
+    }
+
+    setAvatarUploading(true)
+    setError(null)
+
+    try {
+      // Resize image to 200x200 and convert to data URL
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const SIZE = 200
+          canvas.width = SIZE
+          canvas.height = SIZE
+
+          const ctx = canvas.getContext('2d')
+          if (!ctx) { reject(new Error('Canvas non supporté')); return }
+
+          // Crop to square (center crop)
+          const sourceSize = Math.min(img.width, img.height)
+          const sx = (img.width - sourceSize) / 2
+          const sy = (img.height - sourceSize) / 2
+
+          ctx.drawImage(img, sx, sy, sourceSize, sourceSize, 0, 0, SIZE, SIZE)
+          resolve(canvas.toDataURL('image/jpeg', 0.85))
+        }
+        img.onerror = () => reject(new Error('Impossible de charger l\'image'))
+        img.src = URL.createObjectURL(file)
+      })
+
+      // Upload to server
+      const result = await authFetch<{ user: { avatarUrl: string | null; id: string; firstName: string; lastName: string; email: string | null; phone: string | null; role: string; isActive: boolean; isEmailVerified: boolean } }>('/api/profile/avatar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar: dataUrl }),
+      })
+
+      // Update local state
+      setProfile((prev) => prev ? { ...prev, avatarUrl: result.user.avatarUrl } : prev)
+      updateUser({ avatarUrl: result.user.avatarUrl })
+      setSuccess('Photo de profil mise à jour !')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors du chargement de la photo')
+    } finally {
+      setAvatarUploading(false)
+    }
+  }, [updateUser])
+
+  // ── Avatar delete handler ────────────────────────────────────────────────
+  const handleAvatarDelete = useCallback(async () => {
+    setAvatarUploading(true)
+    try {
+      await authFetch('/api/profile/avatar', { method: 'DELETE' })
+      setProfile((prev) => prev ? { ...prev, avatarUrl: null } : prev)
+      updateUser({ avatarUrl: null })
+      setSuccess('Photo de profil supprimée')
+    } catch {
+      setError('Erreur lors de la suppression de la photo')
+    } finally {
+      setAvatarUploading(false)
+    }
+  }, [updateUser])
+
   // Save profile
   const handleSave = async () => {
     setSaving(true)
@@ -1002,11 +1086,54 @@ export function SettingsSection() {
         <Card className="border-neutral-200 overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="flex size-14 items-center justify-center rounded-full bg-brand-50 text-brand-500 shrink-0">
-                <span className="text-lg font-bold">
-                  {profile?.firstName?.charAt(0)?.toUpperCase() || user?.firstName?.charAt(0)?.toUpperCase() || 'U'}
-                  {profile?.lastName?.charAt(0)?.toUpperCase() || user?.lastName?.charAt(0)?.toUpperCase() || ''}
-                </span>
+              {/* Avatar — clickable to upload */}
+              <div className="relative shrink-0 group">
+                <button
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  className="relative size-14 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2"
+                  title="Changer la photo de profil"
+                >
+                  {profile?.avatarUrl ? (
+                    <img
+                      src={profile.avatarUrl}
+                      alt="Photo de profil"
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex size-full items-center justify-center bg-brand-50 text-brand-500">
+                      <span className="text-lg font-bold">
+                        {profile?.firstName?.charAt(0)?.toUpperCase() || user?.firstName?.charAt(0)?.toUpperCase() || 'U'}
+                        {profile?.lastName?.charAt(0)?.toUpperCase() || user?.lastName?.charAt(0)?.toUpperCase() || ''}
+                      </span>
+                    </div>
+                  )}
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    {avatarUploading ? (
+                      <Loader2 className="size-5 animate-spin text-white" />
+                    ) : (
+                      <Camera className="size-5 text-white" />
+                    )}
+                  </div>
+                </button>
+                {/* Delete button */}
+                {profile?.avatarUrl && !avatarUploading && (
+                  <button
+                    onClick={handleAvatarDelete}
+                    className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600 transition-colors"
+                    title="Supprimer la photo"
+                  >
+                    <Trash2 className="size-3" />
+                  </button>
+                )}
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-semibold text-neutral-900 truncate">
