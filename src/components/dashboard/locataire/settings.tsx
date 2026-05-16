@@ -1924,7 +1924,7 @@ export function SettingsSection() {
                 actionLabel={scoring.breakdown.roleSpecific.hasFile ? "Voir le détail" : "Commencer"}
                 onAction={() => {
                   const effectiveRole = user?.activeRole || user?.role
-                  setDashboardSection(effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE' ? 'my-properties' : 'rental-file')
+                  setDashboardSection(effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE' ? 'owner-file' : 'rental-file')
                 }}
               />
             </div>
