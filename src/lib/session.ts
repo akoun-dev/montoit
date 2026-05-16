@@ -108,6 +108,26 @@ export async function getUserIdFromRequest(req: NextRequest): Promise<string | n
   return result.userId
 }
 
+/**
+ * Helper for API routes: extract userId and effective role from the session cookie.
+ * Uses `activeRole` (the currently active role after role switching) if set,
+ * otherwise falls back to `role`.
+ * Returns null if no valid session or user not found.
+ */
+export async function getUserIdAndRole(req: NextRequest): Promise<{ userId: string; effectiveRole: string } | null> {
+  const userId = await getUserIdFromRequest(req)
+  if (!userId) return null
+
+  const { db } = await import('@/lib/db')
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { role: true, activeRole: true },
+  })
+  if (!user) return null
+
+  return { userId, effectiveRole: user.activeRole || user.role }
+}
+
 // Cookie configuration
 export const SESSION_COOKIE_NAME = 'montoit-session'
 export const SESSION_COOKIE_OPTIONS = {

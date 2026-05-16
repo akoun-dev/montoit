@@ -19,3 +19,38 @@ Stage Summary:
 - Document upload is fully functional (base64, max 5MB, replace/delete)
 - Seed data includes complete lease/payment data for locataire@montoit.ci
 - All lint checks pass, dev server running on port 3000
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix 403 error on /api/owner-file and all API routes checking user.role instead of activeRole
+
+Work Log:
+- Diagnosed root cause: All API routes checked `user.role` from database, but when users switch roles (LOCATAIRE → PROPRIETAIRE), their `activeRole` is updated while `role` stays the same
+- Added `getUserIdAndRole()` helper to `/home/z/my-project/src/lib/session.ts` that returns both `userId` and `effectiveRole` (which uses `activeRole || role`)
+- Updated 18 API route files to use the new helper:
+  - owner-file/route.ts (GET, POST)
+  - rental-file/route.ts (GET, POST)
+  - visits/route.ts (GET, POST)
+  - visits/[id]/route.ts (GET)
+  - history/route.ts (GET)
+  - payments/route.ts (GET)
+  - payments/[id]/route.ts (GET)
+  - notifications/route.ts (GET, PUT)
+  - applications/route.ts (GET)
+  - applications/[id]/route.ts (GET)
+  - dashboard/admin/route.ts (GET)
+  - dashboard/tc/route.ts (GET)
+  - dashboard/locataire/route.ts (GET)
+  - dashboard/proprietaire/route.ts (GET)
+  - tenants/route.ts (GET)
+  - scoring/route.ts (GET)
+  - reviews/route.ts (GET)
+  - maintenance/route.ts (GET, POST)
+- Verified lint passes with no errors
+- Left switch-role/route.ts untouched (intentionally checks base `role`)
+
+Stage Summary:
+- Fixed 403 Forbidden error on /api/owner-file by checking effectiveRole (activeRole) instead of base role
+- Created reusable getUserIdAndRole() helper for consistent role-based authorization across all API routes
+- All 18 API routes now properly respect the activeRole when a user switches between LOCATAIRE/PROPRIETAIRE modes

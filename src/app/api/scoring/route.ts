@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { getUserIdAndRole } from '@/lib/session'
 
 /**
  * GET /api/scoring — compute Trust Score for the authenticated user
@@ -26,10 +26,11 @@ import { getUserIdFromRequest } from '@/lib/session'
  */
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
-    if (!userId) {
+    const authResult = await getUserIdAndRole(req)
+    if (!authResult) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
+    const { userId, effectiveRole } = authResult
 
     const user = await db.user.findUnique({
       where: { id: userId },
@@ -41,8 +42,6 @@ export async function GET(req: NextRequest) {
         email: true,
         gender: true,
         city: true,
-        role: true,
-        activeRole: true,
         neofaceVerified: true,
         oneciVerified: true,
       },
@@ -53,7 +52,6 @@ export async function GET(req: NextRequest) {
     }
 
     // Determine the effective role
-    const effectiveRole = user.activeRole || user.role
     const isProprietaire = effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE'
 
     // ── 1. Profil complet (5%) — SAME for all roles ────────────────────────

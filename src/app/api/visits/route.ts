@@ -1,25 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { getUserIdAndRole } from '@/lib/session'
 
 // GET /api/visits — List visit requests for the current user
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
-    if (!userId) {
+    const authResult = await getUserIdAndRole(req)
+    if (!authResult) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
-
-    const user = await db.user.findUnique({ where: { id: userId }, select: { role: true } })
-    if (!user) {
-      return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 })
-    }
+    const { userId, effectiveRole } = authResult
 
     // For tenants: list their visit requests
     // For owners: list visit requests for their properties
-    const where = user.role === 'LOCATAIRE'
+    const where = effectiveRole === 'LOCATAIRE'
       ? { tenantId: userId }
-      : user.role === 'PROPRIETAIRE' || user.role === 'AGENCE'
+      : effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE'
         ? { property: { ownerId: userId } }
         : {}
 
@@ -55,13 +51,13 @@ export async function GET(req: NextRequest) {
 // POST /api/visits — Create a visit request
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
-    if (!userId) {
+    const authResult = await getUserIdAndRole(req)
+    if (!authResult) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
+    const { userId, effectiveRole } = authResult
 
-    const user = await db.user.findUnique({ where: { id: userId }, select: { role: true } })
-    if (!user || user.role !== 'LOCATAIRE') {
+    if (effectiveRole !== 'LOCATAIRE') {
       return NextResponse.json({ error: 'Seuls les locataires peuvent demander des visites' }, { status: 403 })
     }
 

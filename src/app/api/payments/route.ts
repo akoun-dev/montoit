@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { getUserIdAndRole } from '@/lib/session'
 
 // GET /api/payments — List payments for current tenant with stats
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
-    if (!userId) {
+    const authResult = await getUserIdAndRole(req)
+    if (!authResult) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
+    const { userId, effectiveRole } = authResult
 
-    const user = await db.user.findUnique({ where: { id: userId }, select: { role: true } })
-    if (!user || user.role !== 'LOCATAIRE') {
+    if (effectiveRole !== 'LOCATAIRE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 

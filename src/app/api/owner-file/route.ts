@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { getUserIdAndRole } from '@/lib/session'
 
 // GET /api/owner-file — List owner files for current owner with documents
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
-    if (!userId) {
+    const authResult = await getUserIdAndRole(req)
+    if (!authResult) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
+    const { userId, effectiveRole } = authResult
 
-    const user = await db.user.findUnique({ where: { id: userId }, select: { role: true } })
-    if (!user || (user.role !== 'PROPRIETAIRE' && user.role !== 'AGENCE')) {
+    if (effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
@@ -60,13 +60,13 @@ export async function GET(req: NextRequest) {
 // POST /api/owner-file — Create or update an owner file (upsert draft)
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
-    if (!userId) {
+    const authResult = await getUserIdAndRole(req)
+    if (!authResult) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
+    const { userId, effectiveRole } = authResult
 
-    const user = await db.user.findUnique({ where: { id: userId }, select: { role: true } })
-    if (!user || (user.role !== 'PROPRIETAIRE' && user.role !== 'AGENCE')) {
+    if (effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
