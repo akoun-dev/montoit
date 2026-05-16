@@ -20,7 +20,7 @@ interface PendingProperty {
   type: string
   price: number
   commune: string
-  images: string[]
+  images: Array<{ id: string; url: string; order: number }>
   owner: {
     firstName: string
     lastName: string
@@ -32,9 +32,12 @@ interface PendingProperty {
 
 interface VerificationResponse {
   properties: PendingProperty[]
-  total: number
-  page: number
-  pageSize: number
+  pagination: {
+    total: number
+    limit: number
+    offset: number
+    hasMore: boolean
+  }
 }
 
 const typeLabels: Record<string, string> = {
@@ -200,7 +203,7 @@ export function PropertyVerifications() {
                   <div className="relative w-full sm:w-40 h-32 sm:h-auto bg-muted shrink-0">
                     {property.images && property.images.length > 0 ? (
                       <img
-                        src={property.images[0]}
+                        src={property.images[0].url}
                         alt={property.title}
                         className="w-full h-full object-cover"
                       />

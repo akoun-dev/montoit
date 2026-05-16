@@ -26,11 +26,16 @@ interface PropertyDetail {
   area: number
   commune: string
   address: string
-  images: string[]
+  images: Array<{ id: string; url: string; order: number }>
   bedrooms?: number
   bathrooms?: number
-  parking?: boolean
-  features: string[]
+  hasParking?: boolean
+  hasGarden?: boolean
+  hasPool?: boolean
+  hasGuardian?: boolean
+  hasClimate?: boolean
+  isFurnished?: boolean
+  amenities: string
   owner: {
     id: string
     firstName: string
@@ -86,11 +91,17 @@ export function PropertyVerifyDetail() {
       const d = await authFetch<{ property: PropertyDetail }>(`/api/tc/verifications?propertyId=${selectedItemId}`)
       setProperty(d.property || null)
     } catch (err) {
-      if (err instanceof AuthError && err.status === 401) {
+      if (err instanceof AuthError && (err.status === 401 || err.status === 403)) {
         setProperty(null)
         return
       }
-      setProperty(null)
+      // Try fallback via properties API (property may no longer be PENDING_VERIFICATION)
+      try {
+        const d2 = await authFetch<{ property: PropertyDetail }>(`/api/properties/${selectedItemId}`)
+        setProperty(d2.property || null)
+      } catch {
+        setProperty(null)
+      }
     } finally {
       setLoading(false)
     }
@@ -185,7 +196,7 @@ export function PropertyVerifyDetail() {
           {property.images && property.images.length > 0 ? (
             <>
               <img
-                src={property.images[currentImage]}
+                src={property.images[currentImage]?.url || property.images[0]?.url}
                 alt={`${property.title} - ${currentImage + 1}`}
                 className="w-full h-full object-cover"
               />
@@ -273,6 +284,18 @@ export function PropertyVerifyDetail() {
                     {property.bathrooms} SDB
                   </div>
                 )}
+                {property.hasParking && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Car className="size-4 text-brand-500" />
+                    Parking
+                  </div>
+                )}
+                {property.hasClimate && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Zap className="size-4 text-brand-500" />
+                    Climatisé
+                  </div>
+                )}
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Calendar className="size-4 text-brand-500" />
                   Soumis le {new Date(property.createdAt).toLocaleDateString('fr-FR')}
@@ -287,23 +310,28 @@ export function PropertyVerifyDetail() {
                 </p>
               </div>
 
-              {/* Features */}
-              {property.features && property.features.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-2">Équipements</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {property.features.map((feature, i) => {
-                      const Icon = featureIcons[feature.toLowerCase()]
-                      return (
-                        <Badge key={i} variant="secondary" className="gap-1.5">
-                          {Icon && <Icon className="size-3" />}
-                          {feature}
-                        </Badge>
-                      )
-                    })}
+              {/* Amenities */}
+              {(() => {
+                let amenities: string[] = []
+                try { amenities = JSON.parse((property as Record<string, unknown>).amenities as string || '[]') } catch { amenities = [] }
+                if (amenities.length === 0) return null
+                return (
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-2">Équipements</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {amenities.map((feature, i) => {
+                        const Icon = featureIcons[feature.toLowerCase()]
+                        return (
+                          <Badge key={i} variant="secondary" className="gap-1.5">
+                            {Icon && <Icon className="size-3" />}
+                            {feature}
+                          </Badge>
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
             </CardContent>
           </Card>
         </div>

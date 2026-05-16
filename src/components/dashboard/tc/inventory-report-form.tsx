@@ -73,6 +73,14 @@ interface PropertyInfo {
   title: string
   type: string
   commune: string
+  images: Array<{ id: string; url: string; order: number }>
+  owner: {
+    id: string
+    firstName: string
+    lastName: string
+    phone: string
+    email: string
+  }
 }
 
 const typeLabels: Record<string, string> = {
@@ -106,8 +114,13 @@ export function InventoryReportForm() {
       const d = await authFetch<{ property: PropertyInfo }>(`/api/tc/verifications?propertyId=${selectedItemId}`)
       setPropertyInfo(d.property || null)
     } catch {
-      // If we can't fetch property, still show the form
-      setPropertyInfo(null)
+      // Fallback: try properties API
+      try {
+        const d2 = await authFetch<{ property: PropertyInfo }>(`/api/properties/${selectedItemId}`)
+        setPropertyInfo(d2.property || null)
+      } catch {
+        setPropertyInfo(null)
+      }
     } finally {
       setInitialLoading(false)
     }
@@ -158,18 +171,29 @@ export function InventoryReportForm() {
   })()
 
   const buildItemsPayload = () => {
+    // Create one item per designation row (9 rows)
+    // Each row maps 5 room columns to: kitchen, mainBathroom, otherBathroom, otherRoom1, otherRoom2
     const items = []
     for (let r = 0; r < DESIGNATIONS.length; r++) {
-      for (let c = 0; c < ROOM_COLUMNS.length; c++) {
-        const cell = grid[r]?.[c]
-        items.push({
-          designation: DESIGNATIONS[r],
-          room: ROOM_COLUMNS[c],
-          condition: cell?.condition || null,
-          keyCount: cell?.keyCount || null,
-          observation: cell?.observation || '',
-        })
-      }
+      const isKeyRow = r === 8 // NOMBRE DE CLÉS row
+      const cell0 = grid[r]?.[0] // CUISINE → kitchen
+      const cell1 = grid[r]?.[1] // SALLE D'EAU CH. PRINCIPALE → mainBathroom
+      const cell2 = grid[r]?.[2] // SALLE D'EAU AUTRES CHAMBRES → otherBathroom
+      const cell3 = grid[r]?.[3] // AUTRE PIÈCE → otherRoom1
+      const cell4 = grid[r]?.[4] // AUTRE PIÈCE → otherRoom2
+
+      // For key row, store key counts as observations string
+      // For condition rows, store BON/MAUVAIS values
+      items.push({
+        designation: DESIGNATIONS[r],
+        designationOrder: r + 1,
+        kitchen: isKeyRow ? (cell0?.keyCount !== null && cell0?.keyCount !== undefined ? `${cell0.keyCount} clé(s)` : null) : (cell0?.condition || null),
+        mainBathroom: isKeyRow ? (cell1?.keyCount !== null && cell1?.keyCount !== undefined ? `${cell1.keyCount} clé(s)` : null) : (cell1?.condition || null),
+        otherBathroom: isKeyRow ? (cell2?.keyCount !== null && cell2?.keyCount !== undefined ? `${cell2.keyCount} clé(s)` : null) : (cell2?.condition || null),
+        otherRoom1: isKeyRow ? (cell3?.keyCount !== null && cell3?.keyCount !== undefined ? `${cell3.keyCount} clé(s)` : null) : (cell3?.condition || null),
+        otherRoom2: isKeyRow ? (cell4?.keyCount !== null && cell4?.keyCount !== undefined ? `${cell4.keyCount} clé(s)` : null) : (cell4?.condition || null),
+        observations: cell0?.observation || null,
+      })
     }
     return items
   }

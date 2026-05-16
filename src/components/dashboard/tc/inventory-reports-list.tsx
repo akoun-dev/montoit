@@ -11,27 +11,35 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
+interface InventoryReportItem {
+  id: string
+  designation: string
+  designationOrder: number
+  kitchen: string | null
+  mainBathroom: string | null
+  otherBathroom: string | null
+  otherRoom1: string | null
+  otherRoom2: string | null
+  observations: string | null
+}
+
 interface InventoryReport {
   id: string
   propertyId: string
   type: 'INVENTORY_ENTRANCE' | 'INVENTORY_EXIT'
   status: 'DRAFT' | 'COMPLETED' | 'SIGNED_OWNER' | 'SIGNED_TENANT' | 'SIGNED_BOTH'
-  totalKeys: number
-  generalObservations: string
+  totalKeys: number | null
+  generalObservations: string | null
   createdAt: string
   updatedAt: string
   property: {
+    id: string
     title: string
-    commune: string
-    type: string
+    address: string
+    city: string
+    commune: string | null
   }
-  items: Array<{
-    designation: string
-    room: string
-    condition: string | null
-    keyCount: number | null
-    observation: string
-  }>
+  items: InventoryReportItem[]
 }
 
 interface ReportsResponse {
@@ -234,7 +242,7 @@ export function InventoryReportsList() {
                             <span>
                               {report.items?.length || 0} élément(s)
                             </span>
-                            {report.totalKeys > 0 && (
+                            {report.totalKeys != null && report.totalKeys > 0 && (
                               <span>
                                 🔑 {report.totalKeys} clé(s)
                               </span>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
 
-// GET /api/tc/verifications — List properties pending TC verification
+// GET /api/tc/verifications — List properties pending TC verification, or get a single property by ID
 export async function GET(req: NextRequest) {
   try {
     const authResult = await getUserIdAndRole(req)
@@ -16,10 +16,43 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url)
+    const propertyId = searchParams.get('propertyId')
+
+    // Single property lookup by ID
+    if (propertyId) {
+      const property = await db.property.findUnique({
+        where: { id: propertyId },
+        include: {
+          owner: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              avatarUrl: true,
+              createdAt: true,
+            },
+          },
+          images: {
+            orderBy: { order: 'asc' },
+          },
+        },
+      })
+
+      if (!property) {
+        return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
+      }
+
+      return NextResponse.json({ property })
+    }
+
+    // List all pending properties
     const limitParam = searchParams.get('limit')
     const offsetParam = searchParams.get('offset')
     const commune = searchParams.get('commune')
     const type = searchParams.get('type')
+    const search = searchParams.get('search')
 
     const limit = limitParam ? Math.min(parseInt(limitParam), 100) : 20
     const offset = offsetParam ? parseInt(offsetParam) : 0
@@ -35,6 +68,14 @@ export async function GET(req: NextRequest) {
 
     if (type) {
       where.type = type
+    }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search } },
+        { commune: { contains: search } },
+        { address: { contains: search } },
+      ]
     }
 
     const [properties, total] = await Promise.all([

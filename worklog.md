@@ -281,3 +281,33 @@ Stage Summary:
 - Full État des Lieux form with 9 designations × 5 rooms + observations
 - TC dashboard shows pending properties count and quick action card
 - Property status badges show "En attente de vérification" for PENDING_VERIFICATION
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Fix Tiers de Confiance views to use real data instead of mocks, fix "Bien introuvable" across all views
+
+Work Log:
+- Root cause: /api/tc/verifications GET handler did NOT support the `propertyId` query parameter, causing property-verify-detail.tsx and inventory-report-form.tsx to always get "Bien introuvable"
+- Fixed /api/tc/verifications/route.ts: Added `propertyId` query parameter support — when provided, returns a single property with full details instead of the list. Also added `search` query parameter for text search.
+- Fixed property-verifications.tsx: Updated `PendingProperty.images` type from `string[]` to `Array<{ id: string; url: string; order: number }>` and changed image rendering from `property.images[0]` to `property.images[0].url`
+- Fixed property-verifications.tsx: Updated `VerificationResponse` interface to match actual API response with `pagination` object instead of flat `total/page/pageSize`
+- Fixed property-verify-detail.tsx: Updated `PropertyDetail` interface with correct field types — `images` as objects, added `hasParking`, `hasGarden`, `hasPool`, `hasGuardian`, `hasClimate`, `isFurnished`, `amenities` fields
+- Fixed property-verify-detail.tsx: Changed image gallery from `property.images[currentImage]` to `property.images[currentImage]?.url`
+- Fixed property-verify-detail.tsx: Replaced hardcoded `features` array with dynamic amenities parsing from JSON string
+- Fixed property-verify-detail.tsx: Added fallback to `/api/properties/${id}` when `/api/tc/verifications?propertyId=` fails (e.g., property no longer PENDING_VERIFICATION)
+- Fixed property-verify-detail.tsx: Added quick stats for `hasParking` and `hasClimate` with Car/Zap icons
+- Fixed inventory-report-form.tsx: Completely rewrote `buildItemsPayload()` — was creating 45 items (9 rows × 5 columns), now creates 9 items (one per designation) with 5 room columns mapped correctly: kitchen, mainBathroom, otherBathroom, otherRoom1, otherRoom2
+- Fixed inventory-report-form.tsx: Updated `PropertyInfo` interface with `images` and `owner` fields to match API response
+- Fixed inventory-report-form.tsx: Added fallback to `/api/properties/${id}` for property info fetch
+- Fixed inventory-reports-list.tsx: Updated `InventoryReport` interface to match actual API response — `totalKeys` nullable, `generalObservations` nullable, `property` includes `id/address/city/commune`, items have `kitchen/mainBathroom/otherBathroom/otherRoom1/otherRoom2/observations` instead of `room/condition/keyCount`
+- Verified all other dashboard views (locataire, proprietaire, admin) use real data from APIs, no mock data found
+- Ran lint: All checks pass with no errors
+
+Stage Summary:
+- TC property verification detail now correctly fetches and displays real property data
+- TC inventory report form now correctly builds items payload (9 items with 5 room columns each)
+- All TC views use real API data — no mock data remains
+- "Bien introuvable" issue in TC views fixed by adding propertyId support to verifications API
+- Fallback to properties API handles case where property status has changed
+- All image handling uses correct .url property from PropertyImage objects
