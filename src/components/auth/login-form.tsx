@@ -26,6 +26,8 @@ export function LoginForm() {
   const [rememberMe, setRememberMe] = useState(false)
   const { loginWithEmail, loginWithSms, isLoading, setView, setAuthMethod, seedData } = useAuthStore()
 
+  const DEMO_EMAILS = ['admin@montoit.ci', 'proprietaire@montoit.ci', 'locataire@montoit.ci', 'tc@montoit.ci', 'awa.diallo@email.ci', 'fatou.b@email.ci', 'jean.c@email.ci']
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email.trim()) {
@@ -40,7 +42,20 @@ export function LoginForm() {
       await loginWithEmail(email.trim(), password)
       toast.success('Connexion réussie !')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de la connexion')
+      const msg = error instanceof Error ? error.message : ''
+      // Auto-seed for demo accounts
+      if (msg.includes('incorrects') && DEMO_EMAILS.includes(email.trim().toLowerCase())) {
+        toast.info('Initialisation des données de démo...')
+        try {
+          await seedData()
+          await loginWithEmail(email.trim(), password)
+          toast.success('Connexion réussie !')
+        } catch (retryError) {
+          toast.error(retryError instanceof Error ? retryError.message : 'Erreur lors de la connexion')
+        }
+      } else {
+        toast.error(msg || 'Erreur lors de la connexion')
+      }
     }
   }
 
@@ -67,7 +82,20 @@ export function LoginForm() {
       await loginWithEmail(demoEmail, 'demo1234')
       toast.success('Connexion réussie !')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur')
+      // If 401, auto-seed and retry once
+      const msg = error instanceof Error ? error.message : ''
+      if (msg.includes('incorrects')) {
+        toast.info('Initialisation des données de démo...')
+        try {
+          await seedData()
+          await loginWithEmail(demoEmail, 'demo1234')
+          toast.success('Connexion réussie !')
+        } catch (retryError) {
+          toast.error(retryError instanceof Error ? retryError.message : 'Erreur')
+        }
+      } else {
+        toast.error(msg || 'Erreur')
+      }
     }
   }
 
@@ -294,7 +322,7 @@ export function LoginForm() {
                 <span className="text-sm font-medium text-neutral-700">Comptes démo</span>
               </div>
               <p className="text-xs text-neutral-500 mb-3">
-                Cliquez sur &quot;Initialiser les données&quot; puis sur un compte pour vous connecter rapidement.
+                Cliquez sur un compte pour vous connecter rapidement. Les données seront initialisées automatiquement si nécessaire.
               </p>
               <Button
                 variant="outline"
@@ -302,7 +330,7 @@ export function LoginForm() {
                 onClick={handleSeed}
                 className="w-full mb-3 border-brand-200 text-brand-600 hover:bg-brand-50"
               >
-                🔄 Initialiser les données de démo
+                🔄 Réinitialiser les données de démo
               </Button>
 
               {/* Email demo */}
