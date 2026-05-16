@@ -408,6 +408,20 @@ export function SettingsSection() {
     setNeofaceVerifying(true)
     setNeofaceResult(null)
 
+    // First, save the profile if NNI changed (needed for face-auth API)
+    try {
+      await authFetch<{ user: ProfileData }>('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nni: formState.nni,
+          birthDate: formState.birthDate || null,
+        }),
+      })
+    } catch {
+      // Profile save might fail, but try verification anyway
+    }
+
     // Strip data URL prefix to get raw base64
     const base64Data = neofaceImage.replace(/^data:image\/[a-z]+;base64,/, '')
 
@@ -827,7 +841,7 @@ export function SettingsSection() {
                     <div className="space-y-1.5">
                       <Label htmlFor="nni" className="text-xs font-medium text-neutral-700 flex items-center gap-1.5">
                         NNI
-                        {profile?.oneciVerified && (
+                        {(profile?.oneciVerified || profile?.neofaceVerified) && (
                           <CheckCircle2 className="size-3 text-emerald-500" />
                         )}
                       </Label>
@@ -840,10 +854,10 @@ export function SettingsSection() {
                         }}
                         placeholder="Numéro National d'Identification"
                         className="h-9 text-sm"
-                        disabled={profile?.oneciVerified || oneciVerifying}
+                        disabled={profile?.oneciVerified || profile?.neofaceVerified || oneciVerifying}
                         maxLength={11}
                       />
-                      <p className="text-[10px] text-neutral-400">10 à 11 chiffres</p>
+                      <p className="text-[10px] text-neutral-400">10 à 11 chiffres — requis pour les vérifications ONECI et NEOFACE</p>
                     </div>
                     {/* Birth Date */}
                     <div className="space-y-1.5">
@@ -950,23 +964,23 @@ export function SettingsSection() {
                         </div>
                       </div>
                     </div>
-                  ) : !profile?.oneciVerified ? (
-                    /* Not ONECI verified — disabled */
-                    <div className="p-3 rounded-xl bg-neutral-50 border border-neutral-200">
+                  ) : !formState.nni ? (
+                    /* NNI not filled — show info */
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
                       <div className="flex items-center gap-3">
-                        <div className="flex size-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-400 shrink-0">
+                        <div className="flex size-9 items-center justify-center rounded-full bg-amber-100 text-amber-500 shrink-0">
                           <ScanFace className="size-4" />
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-neutral-600">Vérification indisponible</p>
-                          <p className="text-[11px] text-neutral-500 mt-0.5">
-                            Vérifiez d&apos;abord votre CNI via ONECI pour activer la vérification biométrique.
+                          <p className="text-sm font-semibold text-amber-700">NNI requis</p>
+                          <p className="text-[11px] text-amber-600 mt-0.5">
+                            Renseignez votre NNI ci-dessus pour activer la vérification biométrique.
                           </p>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    /* ONECI verified — show simple NEOFACE flow */
+                    /* NNI available — show NEOFACE flow */
                     <div className="space-y-3">
                       <p className="text-[11px] text-neutral-500">
                         Prenez un selfie ou chargez une photo de votre visage. NEOFACE comparera votre visage avec la photo de votre CNI.

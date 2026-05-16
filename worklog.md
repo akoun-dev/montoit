@@ -437,3 +437,33 @@ Stage Summary:
 - Session refresh no longer invalidates tokens (just extends expiry) — eliminates race condition auto-disconnect
 - Auth store validates session age on rehydration and cleans up stale sessions
 - Heartbeat interval increased to 10 minutes for better performance
+
+---
+Task ID: 13
+Agent: main
+Task: Detach NEOFACE verification from ONECI - allow independent verifications
+
+Work Log:
+- Analyzed the 2 places where ONECI→NEOFACE dependency was enforced:
+  1. Backend API (`/api/oneci/face-auth/route.ts`): blocked if `oneciVerified` was false or `nni` was missing
+  2. Settings UI (`settings.tsx` line 953): showed "Vérification indisponible" when ONECI wasn't verified
+- Fixed backend API:
+  - Removed `oneciVerified` check entirely — NEOFACE no longer requires ONECI verification
+  - Kept NNI requirement (the ONECI API needs it for face-auth) but changed error message to be about profile, not ONECI
+  - Removed `oneciVerified` from the database select query (no longer needed)
+- Fixed Settings UI:
+  - Replaced `!profile?.oneciVerified` condition with `!formState.nni` — NEOFACE is now available as long as the user has entered their NNI, regardless of ONECI status
+  - Changed the "disabled" block from neutral colors to amber (warning) with message "NNI requis" instead of "Vérification indisponible"
+  - NNI input is now disabled if either ONECI or NEOFACE is verified (both use it)
+  - NNI label shows checkmark if either verification is done
+  - Updated NNI help text: "10 à 11 chiffres — requis pour les vérifications ONECI et NEOFACE"
+- Added NNI auto-save to NEOFACE verification flow:
+  - `handleNeofaceVerify` now saves the NNI to the profile before calling face-auth API (same pattern as ONECI)
+  - This ensures the NNI is in the database for the face-auth API to read
+- All lint checks pass (0 errors, 0 warnings)
+
+Stage Summary:
+- NEOFACE and ONECI are now completely independent verifications
+- NEOFACE requires only NNI (not ONECI verification)
+- Users can do NEOFACE face verification before or without ONECI CNI verification
+- Both share the NNI field which locks after either verification succeeds

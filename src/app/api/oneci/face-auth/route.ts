@@ -32,7 +32,6 @@ export async function POST(req: NextRequest) {
       select: {
         id: true,
         nni: true,
-        oneciVerified: true,
         neofaceVerified: true,
       },
     })
@@ -41,18 +40,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
     }
 
-    // Must be ONECI-verified first
-    if (!user.oneciVerified) {
-      return NextResponse.json(
-        { error: 'Vérifiez d\'abord votre CNI via ONECI avant la vérification biométrique.' },
-        { status: 400 }
-      )
-    }
-
-    // Must have NNI
+    // Must have NNI (required by the face-auth API)
     if (!user.nni) {
       return NextResponse.json(
-        { error: 'Votre NNI n\'est pas renseigné. Vérifiez d\'abord votre CNI via ONECI.' },
+        { error: 'Votre NNI n\'est pas renseigné. Renseignez-le dans votre profil pour activer la vérification biométrique.' },
         { status: 400 }
       )
     }
