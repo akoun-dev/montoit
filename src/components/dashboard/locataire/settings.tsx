@@ -59,7 +59,7 @@ interface ScoringBreakdown {
   profile: { score: number; max: number; weight: number; fields: ProfileField[] }
   neoface: { score: number; max: number; weight: number; verified: boolean; label: string; description: string }
   oneci: { score: number; max: number; weight: number; verified: boolean; label: string; description: string }
-  rentalFile: { score: number; max: number; weight: number; approved: boolean; hasFile: boolean; label: string; description: string }
+  roleSpecific: { score: number; max: number; weight: number; approved: boolean; hasFile: boolean; label: string; description: string }
 }
 
 interface Recommendation {
@@ -77,6 +77,7 @@ interface ScoringData {
   status: 'approuve' | 'sous_conditions' | 'non_recommande'
   statusLabel: string
   statusColor: string
+  roleLabel: string
   breakdown: ScoringBreakdown
   recommendations: Recommendation[]
 }
@@ -1720,7 +1721,7 @@ export function SettingsSection() {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Votre Trust Score reflète votre fiabilité en tant que locataire. Plus votre score est élevé, plus vos candidatures seront favorisées.
+                      Votre Trust Score reflète votre fiabilité en tant que {scoring.roleLabel || 'locataire'}. Plus votre score est élevé, plus vos candidatures seront favorisées.
                     </p>
                   </div>
                 </div>
@@ -1764,14 +1765,17 @@ export function SettingsSection() {
               />
               <ScoreComponentCard
                 icon={FileCheck}
-                label="Dossier locataire"
-                weight={scoring.breakdown.rentalFile.weight}
-                score={scoring.breakdown.rentalFile.score}
-                max={scoring.breakdown.rentalFile.max}
+                label={scoring.breakdown.roleSpecific.label}
+                weight={scoring.breakdown.roleSpecific.weight}
+                score={scoring.breakdown.roleSpecific.score}
+                max={scoring.breakdown.roleSpecific.max}
                 statusColor={scoring.statusColor}
-                details={scoring.breakdown.rentalFile.hasFile ? "Dossier en cours de validation" : "Dossier locataire validé par un TC"}
-                actionLabel={scoring.breakdown.rentalFile.hasFile ? "Voir mon dossier" : "Commencer la vérification"}
-                onAction={() => setDashboardSection('rental-file')}
+                details={scoring.breakdown.roleSpecific.hasFile && !scoring.breakdown.roleSpecific.approved ? "En cours de validation" : scoring.breakdown.roleSpecific.description}
+                actionLabel={scoring.breakdown.roleSpecific.hasFile ? "Voir le détail" : "Commencer"}
+                onAction={() => {
+                  const effectiveRole = user?.activeRole || user?.role
+                  setDashboardSection(effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE' ? 'my-properties' : 'rental-file')
+                }}
               />
             </div>
 

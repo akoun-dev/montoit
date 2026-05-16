@@ -3,13 +3,21 @@ import { db } from '@/lib/db'
 import { getUserIdFromRequest } from '@/lib/session'
 
 /**
- * GET /api/scoring — compute Trust Score for the authenticated locataire
+ * GET /api/scoring — compute Trust Score for the authenticated user
  *
- * Trust Score breakdown (100 points total):
+ * The Trust Score is role-aware:
+ *
+ * LOCATAIRE breakdown (100 points total):
  * - Profil complet (5%): Based on required profile fields filled
- * - NEOFACE (20%): Biometric verification
+ * - KYC (20%): Biometric verification
  * - ONECI (25%): National ID card verification
  * - Dossier locataire (50%): Rental file approved by TC
+ *
+ * PROPRIETAIRE / AGENCE breakdown (100 points total):
+ * - Profil complet (5%): Based on required profile fields filled (SAME as locataire)
+ * - KYC (20%): Biometric verification (SAME as locataire)
+ * - ONECI (25%): National ID card verification (SAME as locataire)
+ * - Profil propriétaire (50%): Ownership documents validated + at least one active property
  *
  * Status thresholds:
  * - 70+ → "Approuvé"
@@ -33,7 +41,8 @@ export async function GET(req: NextRequest) {
         email: true,
         gender: true,
         city: true,
-
+        role: true,
+        activeRole: true,
         neofaceVerified: true,
         oneciVerified: true,
       },
@@ -43,7 +52,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
     }
 
-    // ── 1. Profil complet (5%) ──────────────────────────────────────────────
+    // Determine the effective role
+    const effectiveRole = user.activeRole || user.role
+    const isProprietaire = effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE'
+
+    // ── 1. Profil complet (5%) — SAME for all roles ────────────────────────
     const profileFields = [
       { key: 'fullName', label: 'Nom complet', filled: !!(user.firstName && user.lastName) },
       { key: 'phone', label: 'Téléphone', filled: !!user.phone },
@@ -54,28 +67,81 @@ export async function GET(req: NextRequest) {
     const profileTotalFields = profileFields.length
     const profileScore = Math.round((profileFilledCount / profileTotalFields) * 5) // max 5 points
 
-    // ── 2. NEOFACE (20%) ────────────────────────────────────────────────────
+    // ── 2. KYC / NEOFACE (20%) — SAME for all roles ───────────────────────
     const neofaceScore = user.neofaceVerified ? 20 : 0
 
-    // ── 3. ONECI (25%) ──────────────────────────────────────────────────────
+    // ── 3. ONECI (25%) — SAME for all roles ────────────────────────────────
     const oneciScore = user.oneciVerified ? 25 : 0
 
-    // ── 4. Dossier locataire (50%) ──────────────────────────────────────────
-    const approvedRentalFile = await db.rentalFile.findFirst({
-      where: { tenantId: userId, status: 'VALIDATED' },
-      select: { id: true, status: true },
-    })
-    const hasApprovedRentalFile = !!approvedRentalFile
-    const rentalFileScore = hasApprovedRentalFile ? 50 : 0
+    // ── 4. Role-specific component (50%) ────────────────────────────────────
+    let roleSpecificScore = 0
+    let roleSpecificLabel = ''
+    let roleSpecificDescription = ''
+    let roleSpecificApproved = false
+    let roleSpecificHasFile = false
+    let roleSpecificRecommendationTitle = ''
+    let roleSpecificRecommendationDescription = ''
+    let roleSpecificAction = ''
+    let roleSpecificActionLabel = ''
 
-    // Check if user has a rental file in any status
-    const anyRentalFile = await db.rentalFile.findFirst({
-      where: { tenantId: userId },
-      select: { id: true, status: true },
-    })
+    if (isProprietaire) {
+      // PROPRIETAIRE: Score based on ownership documents validation
+      const validatedOwnershipDocs = await db.ownershipDocument.count({
+        where: { ownerId: userId, status: 'VALIDATED' },
+      })
+
+      const activeProperties = await db.property.count({
+        where: { ownerId: userId, status: 'ACTIVE' },
+      })
+
+      const anyOwnershipDocs = await db.ownershipDocument.count({
+        where: { ownerId: userId },
+      })
+
+      // Full 50 points if at least one ownership doc is validated AND at least one active property
+      // 25 points if only ownership docs validated (but no active property yet)
+      // 15 points if there are pending ownership docs (but none validated)
+      if (validatedOwnershipDocs > 0 && activeProperties > 0) {
+        roleSpecificScore = 50
+        roleSpecificApproved = true
+      } else if (validatedOwnershipDocs > 0) {
+        roleSpecificScore = 25
+      } else if (anyOwnershipDocs > 0) {
+        roleSpecificScore = 10
+      }
+
+      roleSpecificHasFile = anyOwnershipDocs > 0
+      roleSpecificLabel = 'Profil propriétaire'
+      roleSpecificDescription = 'Documents de propriété validés et biens actifs'
+      roleSpecificRecommendationTitle = 'Profil propriétaire'
+      roleSpecificRecommendationDescription = 'Validez vos documents de propriété = +50% sur votre score'
+      roleSpecificAction = 'my-properties'
+      roleSpecificActionLabel = anyOwnershipDocs > 0 ? 'Voir mes documents' : 'Ajouter un bien'
+    } else {
+      // LOCATAIRE: Score based on rental file validation
+      const approvedRentalFile = await db.rentalFile.findFirst({
+        where: { tenantId: userId, status: 'VALIDATED' },
+        select: { id: true, status: true },
+      })
+
+      const anyRentalFile = await db.rentalFile.findFirst({
+        where: { tenantId: userId },
+        select: { id: true, status: true },
+      })
+
+      roleSpecificApproved = !!approvedRentalFile
+      roleSpecificScore = roleSpecificApproved ? 50 : 0
+      roleSpecificHasFile = !!anyRentalFile
+      roleSpecificLabel = 'Dossier locataire'
+      roleSpecificDescription = 'Dossier locataire approuvé'
+      roleSpecificRecommendationTitle = 'Dossier locataire'
+      roleSpecificRecommendationDescription = 'Dossier locataire validé = +50% sur votre score'
+      roleSpecificAction = 'rental-file'
+      roleSpecificActionLabel = anyRentalFile ? 'Voir mon dossier' : 'Commencer la vérification'
+    }
 
     // ── Total score ─────────────────────────────────────────────────────────
-    const totalScore = profileScore + neofaceScore + oneciScore + rentalFileScore
+    const totalScore = profileScore + neofaceScore + oneciScore + roleSpecificScore
 
     // ── Status ──────────────────────────────────────────────────────────────
     let status: 'approuve' | 'sous_conditions' | 'non_recommande'
@@ -143,23 +209,27 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    if (!hasApprovedRentalFile) {
+    if (!roleSpecificApproved) {
       recommendations.push({
-        id: 'rental-file',
-        title: 'Dossier locataire',
-        description: 'Dossier locataire validé = +50% sur votre score',
-        impact: 50,
-        action: 'rental-file',
-        actionLabel: anyRentalFile ? 'Voir mon dossier' : 'Commencer la vérification',
+        id: isProprietaire ? 'owner-profile' : 'rental-file',
+        title: roleSpecificRecommendationTitle,
+        description: roleSpecificRecommendationDescription,
+        impact: 50 - roleSpecificScore,
+        action: roleSpecificAction,
+        actionLabel: roleSpecificActionLabel,
         completed: false,
       })
     }
+
+    // ── Role label for UI ───────────────────────────────────────────────────
+    const roleLabel = isProprietaire ? 'propriétaire' : 'locataire'
 
     return NextResponse.json({
       score: totalScore,
       status,
       statusLabel,
       statusColor,
+      roleLabel,
       breakdown: {
         profile: {
           score: profileScore,
@@ -183,14 +253,14 @@ export async function GET(req: NextRequest) {
           label: 'ONECI',
           description: 'Carte d\'identité nationale',
         },
-        rentalFile: {
-          score: rentalFileScore,
+        roleSpecific: {
+          score: roleSpecificScore,
           max: 50,
           weight: 50,
-          approved: hasApprovedRentalFile,
-          hasFile: !!anyRentalFile,
-          label: 'Dossier locataire',
-          description: 'Dossier locataire approuvé',
+          approved: roleSpecificApproved,
+          hasFile: roleSpecificHasFile,
+          label: roleSpecificLabel,
+          description: roleSpecificDescription,
         },
       },
       recommendations,

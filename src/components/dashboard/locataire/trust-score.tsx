@@ -51,7 +51,7 @@ interface VerificationBreakdown {
   description: string
 }
 
-interface RentalFileBreakdown extends VerificationBreakdown {
+interface RoleSpecificBreakdown extends VerificationBreakdown {
   approved: boolean
   hasFile: boolean
 }
@@ -71,11 +71,12 @@ interface ScoringData {
   status: 'approuve' | 'sous_conditions' | 'non_recommande'
   statusLabel: string
   statusColor: string
+  roleLabel: string
   breakdown: {
     profile: ProfileBreakdown
     neoface: VerificationBreakdown
     oneci: VerificationBreakdown
-    rentalFile: RentalFileBreakdown
+    roleSpecific: RoleSpecificBreakdown
   }
   recommendations: Recommendation[]
 }
@@ -258,6 +259,8 @@ export function TrustScore() {
       setDashboardSection('settings')
     } else if (action === 'rental-file') {
       setDashboardSection('rental-file')
+    } else if (action === 'my-properties') {
+      setDashboardSection('my-properties')
     }
   }
 
@@ -314,7 +317,7 @@ export function TrustScore() {
       {/* Header */}
       <motion.div variants={itemVariants}>
         <h1 className="text-2xl font-bold text-foreground">Trust Score</h1>
-        <p className="text-muted-foreground mt-1">Votre score de confiance locataire</p>
+        <p className="text-muted-foreground mt-1">Votre score de confiance {data.roleLabel || 'locataire'}</p>
       </motion.div>
 
       {/* ── Score Overview Card ──────────────────────────────────────────── */}
@@ -382,15 +385,15 @@ export function TrustScore() {
                     }
                   />
                   <ScoreBar
-                    label="Dossier locataire"
-                    weight={breakdown.rentalFile.weight}
-                    score={breakdown.rentalFile.score}
-                    max={breakdown.rentalFile.max}
+                    label={breakdown.roleSpecific.label}
+                    weight={breakdown.roleSpecific.weight}
+                    score={breakdown.roleSpecific.score}
+                    max={breakdown.roleSpecific.max}
                     icon={FileCheck}
                     color={
-                      breakdown.rentalFile.approved
+                      breakdown.roleSpecific.approved
                         ? 'bg-emerald-500'
-                        : breakdown.rentalFile.hasFile
+                        : breakdown.roleSpecific.hasFile
                           ? 'bg-amber-400'
                           : 'bg-neutral-200'
                     }
@@ -430,7 +433,7 @@ export function TrustScore() {
                     {rec.id === 'profile' && <User className="size-4" />}
                     {rec.id === 'neoface' && <ScanFace className="size-4" />}
                     {rec.id === 'oneci' && <CreditCard className="size-4" />}
-                    {rec.id === 'rental-file' && <FileCheck className="size-4" />}
+                    {(rec.id === 'rental-file' || rec.id === 'owner-profile') && <FileCheck className="size-4" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -535,14 +538,14 @@ export function TrustScore() {
         <ExpandableSection title="Comment fonctionne le Trust Score ?" icon={Info} defaultOpen={false}>
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Le Trust Score locataire est calculé à partir de <span className="font-semibold">4 composantes</span> :
+              Le Trust Score {data.roleLabel || 'locataire'} est calculé à partir de <span className="font-semibold">4 composantes</span> :
             </p>
             <div className="space-y-2">
               {[
                 { label: 'Profil complet', weight: '5%', desc: 'Toutes les informations requises du profil sont renseignées.' },
                 { label: 'KYC', weight: '20%', desc: 'Vérification d\'identité par reconnaissance faciale.' },
                 { label: 'Vérification ONECI', weight: '25%', desc: 'CNI authentifiée.' },
-                { label: 'Dossier locataire validé', weight: '50%', desc: 'Dossier locataire approuvé.' },
+                { label: breakdown.roleSpecific.label, weight: '50%', desc: breakdown.roleSpecific.description },
               ].map((item) => (
                 <div key={item.label} className="flex items-start gap-2">
                   <Badge className="bg-brand-50 text-brand-600 border-brand-200 text-[10px] px-1.5 py-0 border font-bold shrink-0">
@@ -561,7 +564,7 @@ export function TrustScore() {
             <div className="flex items-start gap-2 p-2.5 bg-brand-50 rounded-lg border border-brand-100">
               <Lightbulb className="size-4 text-brand-500 shrink-0 mt-0.5" />
               <p className="text-[11px] text-brand-700">
-                <span className="font-semibold">Astuce :</span> Profil complet + Facial + ONECI + Dossier locataire validé = <span className="font-bold">100%</span>
+                <span className="font-semibold">Astuce :</span> Profil complet + Facial + ONECI + {breakdown.roleSpecific.label} validé = <span className="font-bold">100%</span>
               </p>
             </div>
 

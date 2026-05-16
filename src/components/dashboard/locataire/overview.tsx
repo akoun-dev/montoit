@@ -57,7 +57,7 @@ interface ScoringSummary {
     profile: { score: number; max: number; weight: number }
     neoface: { score: number; max: number; weight: number; verified: boolean }
     oneci: { score: number; max: number; weight: number; verified: boolean }
-    rentalFile: { score: number; max: number; weight: number; approved: boolean; hasFile: boolean }
+    roleSpecific: { score: number; max: number; weight: number; approved: boolean; hasFile: boolean; label: string }
   }
 }
 
@@ -240,7 +240,7 @@ export function LocataireOverview() {
                       { label: 'Profil', pct: scoring.breakdown.profile.max > 0 ? (scoring.breakdown.profile.score / scoring.breakdown.profile.max) * 100 : 0, weight: 5 },
                       { label: 'KYC', pct: scoring.breakdown.neoface.verified ? 100 : 0, weight: 20 },
                       { label: 'ONECI', pct: scoring.breakdown.oneci.verified ? 100 : 0, weight: 25 },
-                      { label: 'Dossier', pct: scoring.breakdown.rentalFile.approved ? 100 : scoring.breakdown.rentalFile.hasFile ? 50 : 0, weight: 50 },
+                      { label: scoring.breakdown.roleSpecific.label || 'Dossier', pct: scoring.breakdown.roleSpecific.approved ? 100 : scoring.breakdown.roleSpecific.hasFile ? 50 : 0, weight: 50 },
                     ].map((comp) => (
                       <div key={comp.label}>
                         <div className="flex items-center justify-between mb-0.5">
