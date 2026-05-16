@@ -549,3 +549,55 @@ Stage Summary:
 - Polling properly cleans up on modal close or unmount
 - NNI helper text updated to remove KYC reference
 - Profil tab now only shows ONECI verification (cleaner layout)
+
+---
+Task ID: 16
+Agent: main
+Task: Implement proper Sécurité and Notifications tabs with real functionality (no mocks)
+
+Work Log:
+- Updated Prisma schema with:
+  - `passwordUpdatedAt DateTime?` on User model (tracks when password was last changed)
+  - `NotificationPreference` model with userId (unique) and 5 boolean toggles: messages, dossierUpdates, visitReminders, paymentAlerts, promotions
+  - Added `notificationPreference NotificationPreference?` relation to User model
+- Ran `bun run db:push` to sync database
+- Created 3 new API routes:
+  - `PUT /api/settings/password` — Change password (requires current password verification, validates new password strength, updates passwordUpdatedAt, logs to audit)
+  - `GET /api/settings/notifications` — Fetch notification preferences (auto-creates defaults if not exist)
+  - `PUT /api/settings/notifications` — Update individual notification toggles (upsert pattern)
+  - `GET /api/settings/sessions` — List all active sessions for current user (marks current session)
+  - `DELETE /api/settings/sessions` — Revoke sessions (all others, or specific sessionIds)
+- Updated `/api/profile/route.ts` to include `passwordUpdatedAt` in GET and PUT select
+- Added new types: `SessionInfo`, `NotificationPreferences`
+- Added new state variables to SettingsSection:
+  - Password change: passwordModalOpen, currentPassword, newPassword, confirmPassword, showCurrentPassword, showNewPassword, passwordSaving, passwordError, passwordSuccess
+  - Sessions: sessions, sessionsLoading, revokingSessions
+  - Notifications: notifPrefs, notifLoading, notifSaving
+- Added useEffect hooks:
+  - Fetch sessions when security tab is active
+  - Fetch notification preferences when notifications tab is active
+  - Auto-clear passwordSuccess after 3s
+- Added handler functions:
+  - handlePasswordChange: validates all fields, calls API, refreshes profile
+  - handleRevokeOtherSessions: calls DELETE API, filters out revoked sessions locally
+  - handleToggleNotif: optimistic toggle with per-key saving state
+- Rewrote Sécurité tab with 3 cards:
+  1. Password card: Shows "Jamais modifié" or last change date, "Modifier" button opens modal
+  2. Verification card: Email verified badge + phone verified badge (read-only status display)
+  3. Active sessions card: Lists all sessions with current device highlighted, revoke button per session, "Déconnecter tout" button
+  4. Password change modal: Current password + new password (with strength meter) + confirm, eye toggle for visibility, error/success feedback
+- Rewrote Notifications tab:
+  - 5 notification categories with Switch toggles (real DB persistence)
+  - Each toggle immediately saves to backend via PUT API
+  - Loading skeleton while fetching preferences
+  - Saving spinner per-toggle during save
+  - Info card explaining how notifications work
+- Added imports: Eye, EyeOff, Monitor, Smartphone, Trash2, LogOut, DialogFooter, Switch
+- All lint checks pass (0 errors, 0 warnings)
+
+Stage Summary:
+- Sécurité tab: Real password change with modal dialog, email/phone verification status, active session management with revoke
+- Notifications tab: 5 DB-backed notification toggles with Switch components, loading states, immediate persistence
+- No mock data — everything reads from and writes to the database
+- Password strength meter shows real-time validation progress
+- Sessions show current device with "Actif" badge, other devices can be individually or bulk revoked

@@ -154,6 +154,7 @@ model User {
   kycDocumentId     String?                   // NeoFace document_id (temporary, during KYC flow)
   oneciVerified     Boolean   @default(false) // Vérification CNI ONECI
   oneciVerifiedAt DateTime?         // Date de vérification ONECI
+  passwordUpdatedAt DateTime?       // Date de dernière modification du mot de passe
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -196,6 +197,8 @@ model User {
   favorites            Favorite[]
   // Relations — sessions
   sessions             Session[]
+  // Relations — notification preferences
+  notificationPreference NotificationPreference?
 
   @@index([role])
   @@index([phone])
@@ -582,4 +585,23 @@ model Session {
   @@index([token])
   @@index([userId])
   @@index([expiresAt])
+}
+
+// ─── Notification Preferences ──────────────────────────────────────────────
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  // Notification toggles — all default to true except promotions
+  messages       Boolean @default(true)  // Nouveaux messages
+  dossierUpdates Boolean @default(true)  // Mises à jour de dossier
+  visitReminders Boolean @default(true)  // Demandes de visite / rappels
+  paymentAlerts  Boolean @default(true)  // Alertes de paiement
+  promotions     Boolean @default(false) // Promotions et offres spéciales
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

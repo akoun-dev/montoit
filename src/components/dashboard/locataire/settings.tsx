@@ -5,7 +5,7 @@ import {
   Settings, User, Shield, Bell, Sliders, Mail, Phone, ShieldCheck,
   ChevronRight, CheckCircle2, XCircle, ScanFace, CreditCard, FileCheck,
   Save, Loader2, MapPin, Users, ArrowRight, Lightbulb, AlertTriangle,
-  Info, RefreshCw,
+  Info, RefreshCw, Eye, EyeOff, Monitor, Smartphone, Trash2, LogOut,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +15,8 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -41,7 +42,9 @@ interface ProfileData {
   oneciVerifiedAt: string | null
   isEmailVerified: boolean
   isPhoneVerified: boolean
+  passwordUpdatedAt: string | null
   role: string
+  createdAt: string
 }
 
 interface ProfileField {
@@ -74,6 +77,22 @@ interface ScoringData {
   statusColor: string
   breakdown: ScoringBreakdown
   recommendations: Recommendation[]
+}
+
+interface SessionInfo {
+  id: string
+  isCurrent: boolean
+  createdAt: string
+  expiresAt: string
+}
+
+interface NotificationPreferences {
+  id: string
+  messages: boolean
+  dossierUpdates: boolean
+  visitReminders: boolean
+  paymentAlerts: boolean
+  promotions: boolean
 }
 
 // ── Animations ──────────────────────────────────────────────────────────────
@@ -675,6 +694,27 @@ export function SettingsSection() {
   const [oneciVerifying, setOneciVerifying] = useState(false)
   const [oneciResult, setOneciResult] = useState<{ verified: boolean; message: string; details?: string } | null>(null)
 
+  // Security tab state
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null)
+
+  // Sessions state
+  const [sessions, setSessions] = useState<SessionInfo[]>([])
+  const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [revokingSessions, setRevokingSessions] = useState(false)
+
+  // Notification preferences state
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences | null>(null)
+  const [notifLoading, setNotifLoading] = useState(false)
+  const [notifSaving, setNotifSaving] = useState<Record<string, boolean>>({})
+
   // Fetch profile & scoring data
   const fetchProfileAndScoring = useCallback(async () => {
     if (!user) return
@@ -721,6 +761,103 @@ export function SettingsSection() {
       return () => clearTimeout(timer)
     }
   }, [success])
+
+  // Auto-clear password success
+  useEffect(() => {
+    if (passwordSuccess) {
+      const timer = setTimeout(() => setPasswordSuccess(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [passwordSuccess])
+
+  // Fetch sessions when security tab is active
+  useEffect(() => {
+    if (activeTab === 'securite' && user) {
+      setSessionsLoading(true)
+      authFetch<{ sessions: SessionInfo[] }>('/api/settings/sessions')
+        .then((data) => setSessions(data.sessions))
+        .catch(() => {})
+        .finally(() => setSessionsLoading(false))
+    }
+  }, [activeTab, user])
+
+  // Fetch notification preferences when notifications tab is active
+  useEffect(() => {
+    if (activeTab === 'notifications' && user) {
+      setNotifLoading(true)
+      authFetch<{ preferences: NotificationPreferences }>('/api/settings/notifications')
+        .then((data) => setNotifPrefs(data.preferences))
+        .catch(() => {})
+        .finally(() => setNotifLoading(false))
+    }
+  }, [activeTab, user])
+
+  // Password change handler
+  const handlePasswordChange = useCallback(async () => {
+    setPasswordError(null)
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Tous les champs sont requis')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Les mots de passe ne correspondent pas')
+      return
+    }
+    if (newPassword.length < 8 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      setPasswordError('Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre')
+      return
+    }
+
+    setPasswordSaving(true)
+    try {
+      await authFetch('/api/settings/password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      setPasswordSuccess('Mot de passe mis à jour avec succès !')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      // Refresh profile to get updated passwordUpdatedAt
+      try {
+        const profileResult = await authFetch<{ user: ProfileData }>('/api/profile')
+        setProfile(profileResult.user)
+      } catch {}
+      setTimeout(() => setPasswordModalOpen(false), 1500)
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Erreur lors du changement de mot de passe')
+    } finally {
+      setPasswordSaving(false)
+    }
+  }, [currentPassword, newPassword, confirmPassword])
+
+  // Revoke other sessions handler
+  const handleRevokeOtherSessions = useCallback(async () => {
+    setRevokingSessions(true)
+    try {
+      await authFetch('/api/settings/sessions', { method: 'DELETE' })
+      setSessions((prev) => prev.filter((s) => s.isCurrent))
+    } catch {} finally {
+      setRevokingSessions(false)
+    }
+  }, [])
+
+  // Toggle notification preference
+  const handleToggleNotif = useCallback(async (key: keyof NotificationPreferences, value: boolean) => {
+    if (key === 'id') return
+    setNotifSaving((prev) => ({ ...prev, [key]: true }))
+    try {
+      await authFetch('/api/settings/notifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      })
+      setNotifPrefs((prev) => prev ? { ...prev, [key]: value } : prev)
+    } catch {} finally {
+      setNotifSaving((prev) => ({ ...prev, [key]: false }))
+    }
+  }, [])
 
   // ── KYC verified callback ────────────────────────────────────────────────
   const handleKycVerified = useCallback(async () => {
@@ -1491,61 +1628,321 @@ export function SettingsSection() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="space-y-4"
+            className="space-y-6"
           >
+            {/* Password change card */}
             <Card className="border-neutral-200">
               <CardHeader>
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Shield className="size-4 text-green-600" />
-                  Sécurité du compte
+                  <Shield className="size-4 text-brand-500" />
+                  Mot de passe
                 </CardTitle>
-                <CardDescription>Gérez votre mot de passe et l&apos;authentification</CardDescription>
+                <CardDescription>Modifiez votre mot de passe pour sécuriser votre compte</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent>
                 <div className="flex items-center justify-between p-4 rounded-xl border border-neutral-100 hover:bg-neutral-50 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="flex size-9 items-center justify-center rounded-lg bg-green-50 text-green-600">
+                    <div className="flex size-9 items-center justify-center rounded-lg bg-brand-50 text-brand-500">
                       <Shield className="size-4" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-neutral-900">Mot de passe</p>
-                      <p className="text-xs text-neutral-500">Dernière modification : Non disponible</p>
+                      <p className="text-xs text-neutral-500">
+                        {profile?.passwordUpdatedAt
+                          ? `Dernière modification : ${new Date(profile.passwordUpdatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                          : 'Jamais modifié depuis la création du compte'}
+                      </p>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" className="text-xs h-8">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8 border-brand-200 text-brand-600 hover:bg-brand-50"
+                    onClick={() => {
+                      setCurrentPassword('')
+                      setNewPassword('')
+                      setConfirmPassword('')
+                      setPasswordError(null)
+                      setPasswordSuccess(null)
+                      setPasswordModalOpen(true)
+                    }}
+                  >
                     Modifier
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Verification status card */}
+            <Card className="border-neutral-200">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <ShieldCheck className="size-4 text-brand-500" />
+                  Vérifications
+                </CardTitle>
+                <CardDescription>Statut de vérification de vos coordonnées</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Email verification */}
                 <div className="flex items-center justify-between p-4 rounded-xl border border-neutral-100 hover:bg-neutral-50 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="flex size-9 items-center justify-center rounded-lg bg-brand-50 text-brand-500">
+                    <div className={`flex size-9 items-center justify-center rounded-lg ${profile?.isEmailVerified ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
                       <Mail className="size-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-neutral-900">Email vérifié</p>
-                      <p className="text-xs text-neutral-500">{profile?.isEmailVerified ? 'Votre email est vérifié' : 'Email non vérifié'}</p>
+                      <p className="text-sm font-medium text-neutral-900">Adresse email</p>
+                      <p className="text-xs text-neutral-500">{profile?.email || 'Non renseigné'}</p>
                     </div>
                   </div>
                   <Badge className={profile?.isEmailVerified ? 'bg-emerald-50 text-emerald-700 border-emerald-200 border' : 'bg-red-50 text-red-600 border-red-200 border'}>
-                    {profile?.isEmailVerified ? 'Vérifié' : 'Non vérifié'}
+                    {profile?.isEmailVerified ? (
+                      <><CheckCircle2 className="size-3 mr-0.5" /> Vérifié</>
+                    ) : (
+                      <><XCircle className="size-3 mr-0.5" /> Non vérifié</>
+                    )}
                   </Badge>
                 </div>
+
+                {/* Phone verification */}
                 <div className="flex items-center justify-between p-4 rounded-xl border border-neutral-100 hover:bg-neutral-50 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="flex size-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                    <div className={`flex size-9 items-center justify-center rounded-lg ${profile?.isPhoneVerified ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-500'}`}>
                       <Phone className="size-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-neutral-900">Téléphone vérifié</p>
-                      <p className="text-xs text-neutral-500">{profile?.isPhoneVerified ? 'Votre numéro est vérifié' : 'Numéro non vérifié'}</p>
+                      <p className="text-sm font-medium text-neutral-900">Numéro de téléphone</p>
+                      <p className="text-xs text-neutral-500">{profile?.phone || 'Non renseigné'}</p>
                     </div>
                   </div>
-                  <Badge className={profile?.isPhoneVerified ? 'bg-emerald-50 text-emerald-700 border-emerald-200 border' : 'bg-red-50 text-red-600 border-red-200 border'}>
-                    {profile?.isPhoneVerified ? 'Vérifié' : 'Non vérifié'}
+                  <Badge className={profile?.isPhoneVerified ? 'bg-emerald-50 text-emerald-700 border-emerald-200 border' : 'bg-amber-50 text-amber-700 border-amber-200 border'}>
+                    {profile?.isPhoneVerified ? (
+                      <><CheckCircle2 className="size-3 mr-0.5" /> Vérifié</>
+                    ) : (
+                      <><AlertTriangle className="size-3 mr-0.5" /> Non vérifié</>
+                    )}
                   </Badge>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Active sessions card */}
+            <Card className="border-neutral-200">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <Monitor className="size-4 text-brand-500" />
+                      Sessions actives
+                    </CardTitle>
+                    <CardDescription>Appareils connectés à votre compte</CardDescription>
+                  </div>
+                  {sessions.filter((s) => !s.isCurrent).length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-8 text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={handleRevokeOtherSessions}
+                      disabled={revokingSessions}
+                    >
+                      {revokingSessions ? (
+                        <><Loader2 className="size-3 mr-1 animate-spin" /> Révocation...</>
+                      ) : (
+                        <><LogOut className="size-3 mr-1" /> Déconnecter tout</>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {sessionsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="h-14 bg-neutral-50 rounded-lg animate-pulse" />
+                    ))}
+                  </div>
+                ) : sessions.length === 0 ? (
+                  <p className="text-xs text-neutral-500 text-center py-4">Aucune session active trouvée</p>
+                ) : (
+                  <div className="space-y-3">
+                    {sessions.map((session) => (
+                      <div
+                        key={session.id}
+                        className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${
+                          session.isCurrent
+                            ? 'border-emerald-200 bg-emerald-50/30'
+                            : 'border-neutral-100 hover:bg-neutral-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`flex size-9 items-center justify-center rounded-lg ${
+                            session.isCurrent ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-500'
+                          }`}>
+                            <Smartphone className="size-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-neutral-900">
+                                {session.isCurrent ? 'Cet appareil' : 'Autre appareil'}
+                              </p>
+                              {session.isCurrent && (
+                                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0 border font-semibold">
+                                  Actif
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-neutral-500">
+                              Connecté le {new Date(session.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                        {!session.isCurrent && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                            onClick={async () => {
+                              try {
+                                await authFetch('/api/settings/sessions', {
+                                  method: 'DELETE',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ sessionIds: [session.id] }),
+                                })
+                                setSessions((prev) => prev.filter((s) => s.id !== session.id))
+                              } catch {}
+                            }}
+                          >
+                            <Trash2 className="size-3 mr-1" />
+                            Révoquer
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Password Change Modal */}
+            <Dialog open={passwordModalOpen} onOpenChange={setPasswordModalOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Shield className="size-5 text-brand-500" />
+                    Changer le mot de passe
+                  </DialogTitle>
+                  <DialogDescription>
+                    Entrez votre mot de passe actuel puis choisissez un nouveau mot de passe
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                  {/* Current password */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-neutral-700">Mot de passe actuel</Label>
+                    <div className="relative">
+                      <Input
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="h-9 text-sm pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword((v) => !v)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                      >
+                        {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <Separator />
+                  {/* New password */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-neutral-700">Nouveau mot de passe</Label>
+                    <div className="relative">
+                      <Input
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Min. 8 caractères"
+                        className="h-9 text-sm pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword((v) => !v)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                      >
+                        {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                    {newPassword && (
+                      <div className="space-y-1 mt-1.5">
+                        <div className="flex gap-1">
+                          {[/[A-Z]/, /[a-z]/, /[0-9]/, /.{8,}/].map((regex, i) => (
+                            <div
+                              key={i}
+                              className={`h-1 flex-1 rounded-full ${
+                                regex.test(newPassword) ? 'bg-emerald-400' : 'bg-neutral-200'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-neutral-400">
+                          8+ caractères, 1 majuscule, 1 minuscule, 1 chiffre
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {/* Confirm password */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-neutral-700">Confirmer le nouveau mot de passe</Label>
+                    <Input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className={`h-9 text-sm ${confirmPassword && newPassword !== confirmPassword ? 'border-red-300 focus:border-red-400' : ''}`}
+                    />
+                    {confirmPassword && newPassword !== confirmPassword && (
+                      <p className="text-[10px] text-red-500">Les mots de passe ne correspondent pas</p>
+                    )}
+                  </div>
+                  {/* Error */}
+                  {passwordError && (
+                    <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                      <p className="text-xs text-red-600">{passwordError}</p>
+                    </div>
+                  )}
+                  {/* Success */}
+                  {passwordSuccess && (
+                    <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+                      <p className="text-xs text-emerald-600">{passwordSuccess}</p>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter className="gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setPasswordModalOpen(false)}
+                    disabled={passwordSaving}
+                    className="text-xs h-9"
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    onClick={handlePasswordChange}
+                    disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
+                    className="bg-brand-500 hover:bg-brand-600 text-white text-xs h-9"
+                  >
+                    {passwordSaving ? (
+                      <><Loader2 className="size-3.5 mr-1.5 animate-spin" /> Enregistrement...</>
+                    ) : (
+                      <><Save className="size-3.5 mr-1.5" /> Changer le mot de passe</>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </motion.div>
         )}
 
@@ -1557,35 +1954,88 @@ export function SettingsSection() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="space-y-4"
+            className="space-y-6"
           >
+            {/* Notification toggles */}
             <Card className="border-neutral-200">
               <CardHeader>
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Bell className="size-4 text-amber-600" />
+                  <Bell className="size-4 text-brand-500" />
                   Préférences de notifications
                 </CardTitle>
-                <CardDescription>Choisissez comment vous souhaitez être notifié</CardDescription>
+                <CardDescription>Choisissez les notifications que vous souhaitez recevoir</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {[
-                    { label: 'Nouveaux messages', desc: 'Recevez une notification pour chaque nouveau message', defaultOn: true },
-                    { label: 'Mises à jour de dossier', desc: 'Soyez informé des changements de statut de votre dossier', defaultOn: true },
-                    { label: 'Demandes de visite', desc: 'Recevez les rappels de vos visites planifiées', defaultOn: true },
-                    { label: 'Alertes de paiement', desc: 'Rappels pour les paiements à venir et les reçus', defaultOn: false },
-                    { label: 'Promotions', desc: 'Offres spéciales et nouveautés de Mon Toit', defaultOn: false },
-                  ].map((item) => (
-                    <div key={item.label} className="flex items-center justify-between p-4 rounded-xl border border-neutral-100 hover:bg-neutral-50 transition-colors">
-                      <div>
-                        <p className="text-sm font-medium text-neutral-900">{item.label}</p>
-                        <p className="text-xs text-neutral-500">{item.desc}</p>
+                {notifLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-neutral-100">
+                        <div className="space-y-2">
+                          <div className="h-4 w-40 bg-neutral-100 rounded animate-pulse" />
+                          <div className="h-3 w-56 bg-neutral-50 rounded animate-pulse" />
+                        </div>
+                        <div className="h-5 w-9 bg-neutral-100 rounded-full animate-pulse" />
                       </div>
-                      <Button variant="outline" size="sm" className="text-xs h-8">
-                        {item.defaultOn ? 'Activé' : 'Désactivé'}
-                      </Button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                ) : notifPrefs ? (
+                  <div className="space-y-1">
+                    {([
+                      { key: 'messages' as const, label: 'Nouveaux messages', desc: 'Recevez une notification pour chaque nouveau message', icon: Mail, color: 'bg-brand-50 text-brand-500' },
+                      { key: 'dossierUpdates' as const, label: 'Mises à jour de dossier', desc: 'Soyez informé des changements de statut de votre dossier', icon: FileCheck, color: 'bg-emerald-50 text-emerald-600' },
+                      { key: 'visitReminders' as const, label: 'Rappels de visite', desc: 'Recevez les rappels de vos visites planifiées', icon: Bell, color: 'bg-amber-50 text-amber-600' },
+                      { key: 'paymentAlerts' as const, label: 'Alertes de paiement', desc: 'Rappels pour les paiements à venir et les reçus', icon: CreditCard, color: 'bg-purple-50 text-purple-600' },
+                      { key: 'promotions' as const, label: 'Promotions', desc: 'Offres spéciales et nouveautés de Mon Toit', icon: Lightbulb, color: 'bg-neutral-100 text-neutral-500' },
+                    ]).map((item) => {
+                      const Icon = item.icon
+                      const isEnabled = notifPrefs[item.key]
+                      const isSaving = notifSaving[item.key]
+                      return (
+                        <div
+                          key={item.key}
+                          className="flex items-center justify-between p-4 rounded-xl border border-neutral-100 hover:bg-neutral-50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`flex size-9 items-center justify-center rounded-lg ${item.color}`}>
+                              <Icon className="size-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-neutral-900">{item.label}</p>
+                              <p className="text-xs text-neutral-500">{item.desc}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isSaving && <Loader2 className="size-3.5 animate-spin text-neutral-400" />}
+                            <Switch
+                              checked={isEnabled}
+                              onCheckedChange={(checked) => handleToggleNotif(item.key, checked)}
+                              disabled={isSaving}
+                              className="data-[state=checked]:bg-brand-500"
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-neutral-500 text-center py-4">Impossible de charger les préférences</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Info card about notifications */}
+            <Card className="border-neutral-200 bg-neutral-50/50">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <Info className="size-4 text-brand-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-semibold text-neutral-700">Comment fonctionnent les notifications ?</p>
+                    <p className="text-[11px] text-neutral-500 mt-1">
+                      Les notifications vous informent en temps réel des événements importants sur votre compte Mon Toit.
+                      Vous pouvez activer ou désactiver chaque catégorie individuellement.
+                      Les notifications critiques de sécurité sont toujours actives.
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
