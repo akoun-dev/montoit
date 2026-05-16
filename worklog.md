@@ -388,3 +388,81 @@ Stage Summary:
 - Text dynamically shows the target role: "Mon espace propriétaire" or "Mon espace locataire"
 - Color-coded: emerald for propriétaire, amber for locataire
 - Confirmation modal preserved for the switch action
+
+---
+Task ID: 5
+Agent: API Route Agent
+Task: Create the API endpoint for property creation with image and video upload
+
+Work Log:
+- Added POST handler to `/api/properties/route.ts` (existing GET handler preserved untouched)
+- Authentication: Uses `getUserIdFromRequest` from `@/lib/session` to extract userId from session cookie
+- Role validation: Checks `activeRole || role` — only PROPRIETAIRE and AGENCE can create properties
+- Required field validation: title, description, type, price, area, address, city (with type checking and trimming)
+- Property type validation: Must be one of APPARTEMENT, MAISON, STUDIO, DUPLEX, PENTHOUSE, VILLA
+- Image handling:
+  - Accepts `images` as a JSON array of base64 data URLs
+  - Max 10 images enforced
+  - Each image validated to start with `data:` prefix
+  - Creates PropertyImage records with sequential order: 0, 1, 2...
+- Video handling:
+  - Accepts `virtualTourUrl` as a base64 data URL string (or null)
+  - Validates data URL format
+  - Size validation: estimates decoded base64 size (base64 length × 0.75) and rejects if > 50MB
+- Creates Property with all schema fields including optional booleans (isFurnished, hasParking, hasGarden, hasPool, hasGuardian, hasClimate), optional string fields (commune, amenities, rentalTerms), and hideOwnerName
+- Returns created property with included images (ordered by order asc) and owner info (id, firstName, lastName, email, phone)
+- Error handling: 401 for unauthenticated, 403 for wrong role, 400 for validation errors, 500 for server errors
+- All error messages in French
+- Lint check passed with no errors
+- Dev server running normally
+
+Stage Summary:
+- POST /api/properties endpoint created with full auth, validation, image/video upload support
+- Only PROPRIETAIRE and AGENCE users (based on activeRole || role) can create properties
+- Images stored as PropertyImage records with base64 data URLs and sequential ordering
+- Video virtual tour stored as virtualTourUrl with 50MB size limit
+- Proper error handling with French messages and appropriate HTTP status codes
+
+---
+Task ID: 11
+Agent: Main
+Task: Remove "Ajouter un bien" from sidebar, add button on "Mes biens" view, make add-property form responsive, change 3D video to file upload
+
+Work Log:
+- Removed "Ajouter un bien" menu item from both PROPRIETAIRE and AGENCE sidebar sections in sidebar.tsx
+- Removed PlusCircle import from sidebar.tsx (no longer used)
+- Added add-property → my-properties mapping in detailToParent for sidebar active state
+- Updated MyProperties component (my-properties.tsx):
+  - Added "Ajouter un bien" button in header (responsive: full text on desktop, short text on mobile)
+  - Added "Ajouter mon premier bien" CTA in empty state with centered layout
+  - Added showAddForm state to toggle between list view and AddProperty form
+  - When AddProperty succeeds, it refreshes the property list
+- Removed AddProperty from ProprietaireDashboard section router (index.tsx) since it's now embedded in MyProperties
+- Removed AddProperty import from index.tsx
+- Completely rewrote AddProperty component (add-property.tsx):
+  - Fully functional: form now actually POSTs to /api/properties API
+  - Very responsive design with mobile-first approach:
+    - Single column on mobile, multi-column on larger screens
+    - Cards broken into logical sections (Info, Location, Features, Photos, Video, Privacy)
+    - Compact field spacing with proper labels and hints
+  - Image upload: working file selector with multi-file support, preview grid, cover badge on first image, remove buttons, max 10 images
+  - Video upload: file input replacing URL text field, supports MP4/MOV/AVI/WEBM, max 50MB, video preview with controls, remove button
+  - Form validation: required fields checked before submit
+  - Converts files to base64 data URLs for API submission
+  - Back button with onCancel callback
+  - Loading/error states during submission
+  - All images stored as PropertyImage records, video stored as virtualTourUrl
+- Updated property-detail-view.tsx to render uploaded videos:
+  - Detects data: URLs vs regular URLs
+  - Uses <video> element with controls for uploaded videos (data: URLs)
+  - Uses <iframe> for external URLs (YouTube, Matterport, etc.)
+- All lint checks pass cleanly
+- Dev server running without errors
+
+Stage Summary:
+- "Ajouter un bien" removed from proprietaire/agence sidebar menus
+- Add-property button added to "Mes biens" view header and empty state
+- AddProperty form completely rewritten: functional, responsive, with working image and video upload
+- 3D video changed from URL text input to file upload with preview
+- Property detail view updated to render both uploaded videos and external embeds
+- POST /api/properties API already created in previous task

@@ -2,7 +2,7 @@
 
 import { 
   FileText, Eye, FileSignature, MessageSquare, 
-  Building2, PlusCircle, ClipboardCheck, Users, Shield, 
+  Building2, ClipboardCheck, Users, Shield, 
   BarChart3, Settings, AlertTriangle, Clock, BadgeCheck,
   LayoutDashboard, ChevronLeft, ChevronRight,
   Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck
@@ -74,7 +74,6 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           title: 'MES BIENS',
           items: [
             { id: 'my-properties', label: 'Mes biens', icon: Building2 },
-            { id: 'add-property', label: 'Ajouter un bien', icon: PlusCircle },
           ],
         },
         {
@@ -114,7 +113,6 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           title: 'NOS BIENS',
           items: [
             { id: 'my-properties', label: 'Nos biens', icon: Building2 },
-            { id: 'add-property', label: 'Ajouter un bien', icon: PlusCircle },
           ],
         },
         {
@@ -244,6 +242,7 @@ const detailToParent: Record<string, string> = {
   'application-detail': 'applications',
   'visit-detail': 'my-visits',
   'lease-detail': 'my-leases',
+  'add-property': 'my-properties',
 }
 
 export function SidebarContent({ collapsed = false, onNavigate }: SidebarContentProps) {

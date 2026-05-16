@@ -1432,13 +1432,24 @@ function VisitTab({
             Visite virtuelle 3D disponible
           </h3>
           <div className="relative rounded-lg overflow-hidden bg-neutral-900 aspect-video">
-            <iframe
-              src={property.virtualTourUrl!}
-              className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              title="Visite virtuelle 3D"
-            />
+            {property.virtualTourUrl!.startsWith('data:video') || property.virtualTourUrl!.startsWith('data:') ? (
+              <video
+                src={property.virtualTourUrl!}
+                controls
+                className="w-full h-full object-contain"
+                title="Visite virtuelle 3D"
+              >
+                Votre navigateur ne supporte pas la lecture vidéo.
+              </video>
+            ) : (
+              <iframe
+                src={property.virtualTourUrl!}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title="Visite virtuelle 3D"
+              />
+            )}
           </div>
           <p className="text-[11px] text-muted-foreground mt-2">
             Visionnez la visite virtuelle 3D du bien, ou planifiez une visite physique ci-dessous.

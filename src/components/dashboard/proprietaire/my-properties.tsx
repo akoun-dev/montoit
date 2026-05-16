@@ -1,13 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Building2, Edit, Eye, Power } from 'lucide-react'
+import { Building2, Edit, Eye, Power, PlusCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { AddProperty } from './add-property'
 
 export function MyProperties() {
   const { isAuthenticated } = useAuthStore()
@@ -17,6 +18,7 @@ export function MyProperties() {
     images: Array<{ url: string; order: number }>
   }>>([])
   const [loading, setLoading] = useState(true)
+  const [showAddForm, setShowAddForm] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -33,7 +35,6 @@ export function MyProperties() {
       setProperties(d.properties || [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) {
-        // authFetch already handled logout — just show default data
         setProperties([])
         return
       }
@@ -46,6 +47,11 @@ export function MyProperties() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // If showing the add form, render it instead
+  if (showAddForm) {
+    return <AddProperty onSuccess={() => { setShowAddForm(false); fetchData(); setLoading(true) }} onCancel={() => setShowAddForm(false)} />
+  }
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-48 rounded-xl bg-muted animate-pulse" />)}</div>
 
@@ -61,14 +67,35 @@ export function MyProperties() {
           <h1 className="text-2xl font-bold text-foreground">Mes biens</h1>
           <p className="text-muted-foreground mt-1">{properties.length} bien(s) enregistré(s)</p>
         </div>
+        <Button
+          onClick={() => setShowAddForm(true)}
+          className="gap-2 bg-brand-500 hover:bg-brand-600 text-white"
+        >
+          <PlusCircle className="size-4" />
+          <span className="hidden sm:inline">Ajouter un bien</span>
+          <span className="sm:hidden">Ajouter</span>
+        </Button>
       </div>
 
       {properties.length === 0 ? (
         <Card className="border-border">
-          <CardContent className="py-12 text-center">
-            <Building2 className="size-12 text-muted-foreground/50 mx-auto mb-4" />
-            <p className="text-muted-foreground">Aucun bien enregistré</p>
-            <p className="text-sm text-muted-foreground mt-1">Ajoutez votre premier bien immobilier</p>
+          <CardContent className="py-16 text-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex size-16 items-center justify-center rounded-full bg-brand-50">
+                <Building2 className="size-8 text-brand-500" />
+              </div>
+              <div>
+                <p className="text-foreground font-semibold">Aucun bien enregistré</p>
+                <p className="text-sm text-muted-foreground mt-1">Ajoutez votre premier bien immobilier</p>
+              </div>
+              <Button
+                onClick={() => setShowAddForm(true)}
+                className="gap-2 bg-brand-500 hover:bg-brand-600 text-white"
+              >
+                <PlusCircle className="size-4" />
+                Ajouter mon premier bien
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getUserIdFromRequest } from '@/lib/session'
+
+const VALID_PROPERTY_TYPES = ['APPARTEMENT', 'MAISON', 'STUDIO', 'DUPLEX', 'PENTHOUSE', 'VILLA'] as const
+const MAX_IMAGES = 10
+const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024 // 50MB
 
 export async function GET(req: NextRequest) {
   try {
@@ -95,6 +100,173 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ properties: result })
   } catch (error) {
     console.error('Properties error:', error)
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  }
+}
+
+// POST /api/properties — Create a new property with images and optional video
+export async function POST(req: NextRequest) {
+  try {
+    // 1. Authenticate user
+    const userId = await getUserIdFromRequest(req)
+    if (!userId) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
+
+    // 2. Validate role (must be PROPRIETAIRE or AGENCE)
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { role: true, activeRole: true },
+    })
+    if (!user) {
+      return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 })
+    }
+
+    const effectiveRole = user.activeRole || user.role
+    if (effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
+      return NextResponse.json(
+        { error: 'Seuls les propriétaires et les agences peuvent créer des annonces' },
+        { status: 403 }
+      )
+    }
+
+    // 3. Parse and validate request body
+    const body = await req.json()
+    const {
+      title,
+      description,
+      type,
+      price,
+      area,
+      bedrooms,
+      bathrooms,
+      address,
+      city,
+      commune,
+      isFurnished,
+      hasParking,
+      hasGarden,
+      hasPool,
+      hasGuardian,
+      hasClimate,
+      amenities,
+      rentalTerms,
+      hideOwnerName,
+      virtualTourUrl,
+      images,
+    } = body
+
+    // Validate required fields
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return NextResponse.json({ error: 'Le titre est requis' }, { status: 400 })
+    }
+    if (!description || typeof description !== 'string' || !description.trim()) {
+      return NextResponse.json({ error: 'La description est requise' }, { status: 400 })
+    }
+    if (!type || !VALID_PROPERTY_TYPES.includes(type)) {
+      return NextResponse.json(
+        { error: `Le type doit être l'un des suivants : ${VALID_PROPERTY_TYPES.join(', ')}` },
+        { status: 400 }
+      )
+    }
+    if (price === undefined || price === null || typeof price !== 'number' || price <= 0) {
+      return NextResponse.json({ error: 'Le prix doit être un nombre positif' }, { status: 400 })
+    }
+    if (!area || typeof area !== 'number' || area <= 0) {
+      return NextResponse.json({ error: 'La surface doit être un nombre positif' }, { status: 400 })
+    }
+    if (!address || typeof address !== 'string' || !address.trim()) {
+      return NextResponse.json({ error: "L'adresse est requise" }, { status: 400 })
+    }
+    if (!city || typeof city !== 'string' || !city.trim()) {
+      return NextResponse.json({ error: 'La ville est requise' }, { status: 400 })
+    }
+
+    // 4. Validate images
+    const imageArray: string[] = Array.isArray(images) ? images : []
+    if (imageArray.length > MAX_IMAGES) {
+      return NextResponse.json(
+        { error: `Maximum ${MAX_IMAGES} images autorisées` },
+        { status: 400 }
+      )
+    }
+    // Validate each image is a base64 data URL
+    for (let i = 0; i < imageArray.length; i++) {
+      if (typeof imageArray[i] !== 'string' || !imageArray[i].startsWith('data:')) {
+        return NextResponse.json(
+          { error: `L'image ${i + 1} doit être une URL de données base64 valide` },
+          { status: 400 }
+        )
+      }
+    }
+
+    // 5. Validate video (virtualTourUrl)
+    if (virtualTourUrl !== null && virtualTourUrl !== undefined) {
+      if (typeof virtualTourUrl !== 'string' || !virtualTourUrl.startsWith('data:')) {
+        return NextResponse.json(
+          { error: 'La vidéo de visite virtuelle doit être une URL de données base64 valide' },
+          { status: 400 }
+        )
+      }
+      // Estimate base64 size: the actual bytes are ~3/4 of the base64 string length
+      const base64Part = virtualTourUrl.split(',')[1] || ''
+      const estimatedSize = Math.ceil(base64Part.length * 0.75)
+      if (estimatedSize > MAX_VIDEO_SIZE_BYTES) {
+        return NextResponse.json(
+          { error: 'La vidéo de visite virtuelle ne doit pas dépasser 50 Mo' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // 6. Create property with images
+    const property = await db.property.create({
+      data: {
+        title: title.trim(),
+        description: description.trim(),
+        type,
+        price,
+        area,
+        bedrooms: bedrooms !== undefined && bedrooms !== null ? Number(bedrooms) : null,
+        bathrooms: bathrooms !== undefined && bathrooms !== null ? Number(bathrooms) : null,
+        address: address.trim(),
+        city: city.trim(),
+        commune: commune ? String(commune).trim() : null,
+        isFurnished: Boolean(isFurnished),
+        hasParking: Boolean(hasParking),
+        hasGarden: Boolean(hasGarden),
+        hasPool: Boolean(hasPool),
+        hasGuardian: Boolean(hasGuardian),
+        hasClimate: Boolean(hasClimate),
+        amenities: typeof amenities === 'string' ? amenities : '[]',
+        rentalTerms: typeof rentalTerms === 'string' ? rentalTerms : '{}',
+        hideOwnerName: Boolean(hideOwnerName),
+        virtualTourUrl: virtualTourUrl || null,
+        ownerId: userId,
+        images: {
+          create: imageArray.map((url, index) => ({
+            url,
+            order: index,
+          })),
+        },
+      },
+      include: {
+        images: { orderBy: { order: 'asc' } },
+        owner: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json({ property }, { status: 201 })
+  } catch (error) {
+    console.error('Property creation error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }

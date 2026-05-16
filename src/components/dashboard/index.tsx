@@ -23,7 +23,6 @@ import { VisitDetail } from './locataire/visit-detail'
 import { LeaseDetail } from './locataire/lease-detail'
 import { ProprietaireOverview } from './proprietaire/overview'
 import { MyProperties } from './proprietaire/my-properties'
-import { AddProperty } from './proprietaire/add-property'
 import { VisitRequests } from './proprietaire/visit-requests'
 import { ProprietaireRentalFiles } from './proprietaire/rental-files'
 import { ProprietaireLeases } from './proprietaire/my-leases'
@@ -104,7 +103,6 @@ function ProprietaireDashboard({ section }: { section: string }) {
   switch (section) {
     case 'overview': return <ProprietaireOverview />
     case 'my-properties': return <MyProperties />
-    case 'add-property': return <AddProperty />
     case 'visit-requests': return <VisitRequests />
     case 'rental-files': return <ProprietaireRentalFiles />
     case 'my-leases': return <ProprietaireLeases />
