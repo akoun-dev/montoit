@@ -54,3 +54,26 @@ Stage Summary:
 - Fixed 403 Forbidden error on /api/owner-file by checking effectiveRole (activeRole) instead of base role
 - Created reusable getUserIdAndRole() helper for consistent role-based authorization across all API routes
 - All 18 API routes now properly respect the activeRole when a user switches between LOCATAIRE/PROPRIETAIRE modes
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix 401 Unauthorized on GET /api/properties/[id] for public property detail view
+
+Work Log:
+- Diagnosed root cause: The GET handler required authentication + ownership check, but the property detail page is a public page that should be viewable by anyone
+- Rewrote GET /api/properties/[id] to support both public and private access:
+  - ACTIVE properties are publicly viewable (no auth required)
+  - Non-ACTIVE properties (DRAFT, SUSPENDED) require ownership (auth required)
+  - Added viewsCount increment for active properties
+  - Added server-side hideOwnerName support: anonymizes owner data for non-owners
+  - Added avatarUrl and createdAt to the owner select for richer data
+- Updated property-detail-view.tsx fetch to include credentials: 'include' so authenticated users can also see their own drafts
+- Added normalization of owner data in case of partial responses
+
+Stage Summary:
+- Fixed 401 error when viewing property detail pages without authentication
+- ACTIVE properties now publicly accessible for browsing
+- DRAFT/other status properties still require ownership
+- Views count now auto-increments when a property is viewed
+- Owner anonymization is now enforced server-side for hideOwnerName feature

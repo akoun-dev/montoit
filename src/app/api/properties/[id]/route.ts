@@ -180,7 +180,9 @@ export async function PATCH(
   }
 }
 
-// GET /api/properties/[id] — Get a single property (for editing)
+// GET /api/properties/[id] — Get a single property
+// - Unauthenticated users can view ACTIVE properties (public listing detail)
+// - Authenticated owners can view their own DRAFT/any-status properties (for editing)
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -188,9 +190,6 @@ export async function GET(
   try {
     const { id } = await params
     const userId = await getUserIdFromRequest(req)
-    if (!userId) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    }
 
     const property = await db.property.findUnique({
       where: { id },
@@ -201,6 +200,10 @@ export async function GET(
             id: true,
             firstName: true,
             lastName: true,
+            email: true,
+            phone: true,
+            avatarUrl: true,
+            createdAt: true,
           },
         },
       },
@@ -210,9 +213,31 @@ export async function GET(
       return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
     }
 
-    // Only allow owner to fetch their draft/property for editing
-    if (property.ownerId !== userId) {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    // Access control:
+    // - ACTIVE properties are publicly viewable
+    // - Non-ACTIVE properties (DRAFT, SUSPENDED, etc.) require ownership
+    if (property.status !== 'ACTIVE') {
+      if (!userId || property.ownerId !== userId) {
+        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      }
+    }
+
+    // Increment views count (fire and forget, only for active properties)
+    if (property.status === 'ACTIVE') {
+      db.property.update({
+        where: { id },
+        data: { viewsCount: { increment: 1 } },
+      }).catch(() => {
+        // Silently ignore increment errors
+      })
+    }
+
+    // If the owner has hidden their name, anonymize owner data for non-owners
+    if (property.hideOwnerName && property.ownerId !== userId) {
+      property.owner.firstName = 'Propriétaire'
+      property.owner.lastName = 'anonyme'
+      property.owner.email = ''
+      property.owner.phone = null
     }
 
     return NextResponse.json({ property })

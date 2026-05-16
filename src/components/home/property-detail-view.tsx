@@ -455,14 +455,20 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   useEffect(() => {
     if (!propertyId) return
     let cancelled = false
-    fetch(`/api/properties/${propertyId}`)
+    fetch(`/api/properties/${propertyId}`, { credentials: 'include' })
       .then((res) => {
         if (!res.ok) throw new Error('Bien introuvable')
         return res.json()
       })
       .then((data) => {
         if (!cancelled) {
-          setProperty(data.property)
+          // Normalize owner data — API may return partial owner info for anonymous owners
+          const p = data.property
+          if (p.owner) {
+            p.owner.avatarUrl = p.owner.avatarUrl ?? null
+            p.owner.createdAt = p.owner.createdAt ?? new Date().toISOString()
+          }
+          setProperty(p)
           setCurrentImage(0)
           setError(null)
           setLoading(false)
