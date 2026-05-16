@@ -5,7 +5,7 @@ import {
   Building2, ClipboardCheck, Users, Shield, 
   BarChart3, Settings, AlertTriangle, Clock, BadgeCheck,
   LayoutDashboard, ChevronLeft, ChevronRight,
-  Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck
+  Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck, UserCircle
 } from 'lucide-react'
 import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
@@ -79,6 +79,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
         {
           title: 'LOCATION',
           items: [
+            { id: 'my-tenants', label: 'Mes locataires', icon: UserCircle },
             { id: 'visit-requests', label: 'Demandes de visite', icon: Eye },
             { id: 'rental-files', label: 'Dossiers locatifs', icon: ClipboardCheck },
             { id: 'my-leases', label: 'Mes baux', icon: FileSignature },
@@ -247,6 +248,7 @@ const detailToParent: Record<string, string> = {
   'visit-detail': 'my-visits',
   'lease-detail': 'my-leases',
   'add-property': 'my-properties',
+  'tenant-detail': 'my-tenants',
 }
 
 export function SidebarContent({ collapsed = false, onNavigate }: SidebarContentProps) {

@@ -535,3 +535,61 @@ Stage Summary:
 - Users can abandon and resume draft editing later
 - Drafts displayed separately with "Reprendre" button
 - Complete drafts can be published directly from the list view
+
+---
+Task ID: 12
+Agent: Main
+Task: Add "Mes locataires" menu with tenant list view and detailed tenant view with payment info
+
+Work Log:
+- Added "Mes locataires" menu item to PROPRIETAIRE sidebar section (LOCATION group, first item)
+- Added UserCircle icon import to sidebar.tsx
+- Added 'tenant-detail' → 'my-tenants' mapping in detailToParent for sidebar active state
+- Created /api/tenants route (GET):
+  - Lists all tenants from owner's leases with grouping by tenant
+  - Includes tenant info, lease details, property info, payments, rental file data
+  - Computes per-tenant stats: totalPaid, totalDue, latePayments, pendingPayments, activeLeases
+  - Computes global stats: totalTenants, activeTenants, totalRevenue, latePayments
+  - Supports search filter (name, email, phone) and lease status filter
+  - Checks effectiveRole (activeRole || role) for PROPRIETAIRE/AGENCE access
+- Created /api/tenants/[id] route (GET):
+  - Returns full tenant detail: personal info, KYC/ONECI verification status
+  - All leases with expanded data: property, payments, rental file with documents, maintenance requests, ratings
+  - Payment stats: totalPaid, totalPending, totalLate, paidCount, lateCount, paymentScore
+  - Verifies owner-tenant relationship (owner must have leases with this tenant)
+- Created TenantsList component (my-tenants.tsx):
+  - Stats cards: Total locataires, Locataires actifs, Revenus totaux, Paiements en retard
+  - Search bar with real-time filtering
+  - Tenant cards showing: name, active lease badge, property, monthly rent, paid amount, pending/late counts
+  - Click to navigate to tenant detail view
+  - Loading skeleton and empty state
+- Created TenantDetail component (tenant-detail.tsx):
+  - Header with avatar, name, email, phone, active tenant badge
+  - Personal info card: gender, city, address, registration date, KYC/ONECI verification status
+  - Payment stats: 5 cards (score, total paid, pending, late, payment count breakdown)
+  - Payment regularity progress bar with color coding
+  - Expandable lease sections (one per lease):
+    - Lease details: rent, charges, deposit, dates, special conditions
+    - Rental file info: employer, employment type, income, guarantor details, document status
+    - Payment history: scrollable list with status badges and references
+    - Maintenance requests: title, priority, status
+    - Ratings: star display with comments
+  - Back button to return to tenants list
+- Updated ProprietaireDashboard in index.tsx:
+  - Added TenantsList and TenantDetail imports
+  - Added goToTenantDetail and goBackToTenants navigation functions
+  - Added 'my-tenants' and 'tenant-detail' routes
+- Updated seed data:
+  - Added activeRole for all users (was defaulting to LOCATAIRE, breaking role-based access)
+  - Added 4 new leases: lease2 (Fatou Bamba, Villa Marcory), lease3 (Jean Coulibaly, Studio Plateau), lease4 (Moussa Koné, terminated Yopougon), lease5 (Jean Coulibaly, Duplex Riviera)
+  - Added payments for all new leases with PAID, LATE, PENDING statuses
+  - Added maintenance requests for lease2 and lease3
+- All lint checks pass, dev server running correctly
+
+Stage Summary:
+- "Mes locataires" menu added to proprietaire sidebar
+- Full tenant list with search, stats, and payment summaries
+- Detailed tenant view with personal info, payment score, leases, rental files, payments, maintenance, ratings
+- API routes secured with role checks (PROPRIETAIRE/AGENCE)
+- Seed data enriched with multiple leases and payments for realistic demo
+- Fixed activeRole defaults in seed data (was causing 403 errors)

@@ -28,6 +28,8 @@ import { ProprietaireRentalFiles } from './proprietaire/rental-files'
 import { ProprietaireLeases } from './proprietaire/my-leases'
 import { ProprietaireMessages } from './proprietaire/messages'
 import { OwnerFileForm } from './proprietaire/owner-file'
+import { TenantsList } from './proprietaire/my-tenants'
+import { TenantDetail } from './proprietaire/tenant-detail'
 import { TcOverview } from './tc/overview'
 import { RentalFilesQueue } from './tc/rental-files-queue'
 import { OwnerValidations } from './tc/owner-validations'
@@ -101,9 +103,23 @@ function LocataireDashboard({ section }: { section: string }) {
 }
 
 function ProprietaireDashboard({ section }: { section: string }) {
+  const { selectedItemId, setDashboardSection, setSelectedItemId } = useAuthStore()
+
+  const goToTenantDetail = (id: string) => {
+    setSelectedItemId(id)
+    setDashboardSection('tenant-detail')
+  }
+
+  const goBackToTenants = () => {
+    setSelectedItemId('')
+    setDashboardSection('my-tenants')
+  }
+
   switch (section) {
     case 'overview': return <ProprietaireOverview />
     case 'my-properties': return <MyProperties />
+    case 'my-tenants': return <TenantsList onDetail={goToTenantDetail} />
+    case 'tenant-detail': return <TenantDetail tenantId={selectedItemId} onBack={goBackToTenants} />
     case 'visit-requests': return <VisitRequests />
     case 'rental-files': return <ProprietaireRentalFiles />
     case 'my-leases': return <ProprietaireLeases />

@@ -38,6 +38,7 @@ export async function POST() {
         email: 'admin@montoit.ci',
         passwordHash,
         role: 'ADMIN',
+        activeRole: 'ADMIN',
         isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
@@ -52,6 +53,7 @@ export async function POST() {
         email: 'tc@montoit.ci',
         passwordHash,
         role: 'TIERS_CONFIANCE',
+        activeRole: 'TIERS_CONFIANCE',
         isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
@@ -67,6 +69,7 @@ export async function POST() {
         email: 'proprietaire@montoit.ci',
         passwordHash,
         role: 'PROPRIETAIRE',
+        activeRole: 'PROPRIETAIRE',
         isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
@@ -81,6 +84,7 @@ export async function POST() {
         email: 'awa.diallo@email.ci',
         passwordHash,
         role: 'PROPRIETAIRE',
+        activeRole: 'PROPRIETAIRE',
         isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
@@ -96,6 +100,7 @@ export async function POST() {
         email: 'locataire@montoit.ci',
         passwordHash,
         role: 'LOCATAIRE',
+        activeRole: 'LOCATAIRE',
         isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
@@ -110,6 +115,7 @@ export async function POST() {
         email: 'fatou.b@email.ci',
         passwordHash,
         role: 'LOCATAIRE',
+        activeRole: 'LOCATAIRE',
         isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
@@ -124,6 +130,7 @@ export async function POST() {
         email: 'jean.c@email.ci',
         passwordHash,
         role: 'LOCATAIRE',
+        activeRole: 'LOCATAIRE',
         isEmailVerified: true,
         isPhoneVerified: true,
         isActive: true,
@@ -341,6 +348,226 @@ export async function POST() {
         ownerSignedAt: new Date('2025-01-01'),
         tenantSignedAt: new Date('2025-01-02'),
       },
+    })
+
+    // ─── Create Additional Leases (for "Mes locataires" feature) ──────
+    const lease2 = await db.lease.create({
+      data: {
+        propertyId: createdProperties[2].id,
+        tenantId: tenant2.id,
+        ownerId: owner1.id,
+        rentalFileId: rentalFile2.id,
+        status: 'ACTIVE',
+        startDate: new Date('2025-03-01'),
+        endDate: new Date('2027-02-28'),
+        monthlyRent: 450000,
+        charges: 50000,
+        deposit: 900000,
+        ownerSignedAt: new Date('2025-03-01'),
+        tenantSignedAt: new Date('2025-03-02'),
+      },
+    })
+
+    const lease3 = await db.lease.create({
+      data: {
+        propertyId: createdProperties[1].id,
+        tenantId: tenant3.id,
+        ownerId: owner1.id,
+        rentalFileId: rentalFile3.id,
+        status: 'ACTIVE',
+        startDate: new Date('2025-06-01'),
+        endDate: new Date('2026-05-31'),
+        monthlyRent: 120000,
+        charges: 10000,
+        deposit: 240000,
+        ownerSignedAt: new Date('2025-06-01'),
+        tenantSignedAt: new Date('2025-06-02'),
+      },
+    })
+
+    const lease4 = await db.lease.create({
+      data: {
+        propertyId: createdProperties[3].id,
+        tenantId: tenant1.id,
+        ownerId: owner2.id,
+        rentalFileId: rentalFile1.id,
+        status: 'TERMINATED',
+        startDate: new Date('2023-01-01'),
+        endDate: new Date('2024-12-31'),
+        monthlyRent: 80000,
+        charges: 5000,
+        deposit: 160000,
+        ownerSignedAt: new Date('2023-01-01'),
+        tenantSignedAt: new Date('2023-01-02'),
+        specialConditions: 'Animaux de compagnie non autorisés. Pas de sous-location.',
+      },
+    })
+
+    const lease5 = await db.lease.create({
+      data: {
+        propertyId: createdProperties[4].id,
+        tenantId: tenant3.id,
+        ownerId: owner2.id,
+        rentalFileId: rentalFile3.id,
+        status: 'ACTIVE',
+        startDate: new Date('2025-09-01'),
+        endDate: new Date('2027-08-31'),
+        monthlyRent: 600000,
+        charges: 75000,
+        deposit: 1200000,
+        ownerSignedAt: new Date('2025-09-01'),
+        tenantSignedAt: new Date('2025-09-03'),
+      },
+    })
+
+    // ─── Create Additional Payments ─────────────────────────────────────
+    // Payments for lease2 (tenant2 - Fatou Bamba, Villa Marcory)
+    await db.payment.createMany({
+      data: [
+        {
+          leaseId: lease2.id,
+          tenantId: tenant2.id,
+          amount: 450000,
+          status: 'PAID',
+          dueDate: new Date('2025-03-01'),
+          paidAt: new Date('2025-03-02'),
+          reference: 'PMT-2025-010',
+        },
+        {
+          leaseId: lease2.id,
+          tenantId: tenant2.id,
+          amount: 450000,
+          status: 'PAID',
+          dueDate: new Date('2025-04-01'),
+          paidAt: new Date('2025-04-01'),
+          reference: 'PMT-2025-011',
+        },
+        {
+          leaseId: lease2.id,
+          tenantId: tenant2.id,
+          amount: 450000,
+          status: 'LATE',
+          dueDate: new Date('2025-02-01'),
+          reference: 'PMT-2025-012',
+        },
+        {
+          leaseId: lease2.id,
+          tenantId: tenant2.id,
+          amount: 450000,
+          status: 'PENDING',
+          dueDate: new Date('2025-05-01'),
+          reference: 'PMT-2025-013',
+        },
+      ],
+    })
+
+    // Payments for lease3 (tenant3 - Jean Coulibaly, Studio Plateau)
+    await db.payment.createMany({
+      data: [
+        {
+          leaseId: lease3.id,
+          tenantId: tenant3.id,
+          amount: 120000,
+          status: 'PAID',
+          dueDate: new Date('2025-06-01'),
+          paidAt: new Date('2025-06-03'),
+          reference: 'PMT-2025-020',
+        },
+        {
+          leaseId: lease3.id,
+          tenantId: tenant3.id,
+          amount: 120000,
+          status: 'PAID',
+          dueDate: new Date('2025-07-01'),
+          paidAt: new Date('2025-07-01'),
+          reference: 'PMT-2025-021',
+        },
+        {
+          leaseId: lease3.id,
+          tenantId: tenant3.id,
+          amount: 120000,
+          status: 'PENDING',
+          dueDate: new Date('2025-08-01'),
+          reference: 'PMT-2025-022',
+        },
+      ],
+    })
+
+    // Payments for lease4 (tenant1 - Moussa Koné, terminated lease)
+    await db.payment.createMany({
+      data: [
+        {
+          leaseId: lease4.id,
+          tenantId: tenant1.id,
+          amount: 80000,
+          status: 'PAID',
+          dueDate: new Date('2024-11-01'),
+          paidAt: new Date('2024-11-02'),
+          reference: 'PMT-2024-110',
+        },
+        {
+          leaseId: lease4.id,
+          tenantId: tenant1.id,
+          amount: 80000,
+          status: 'PAID',
+          dueDate: new Date('2024-12-01'),
+          paidAt: new Date('2024-12-01'),
+          reference: 'PMT-2024-112',
+        },
+      ],
+    })
+
+    // Payments for lease5 (tenant3 - Jean Coulibaly, Duplex Riviera)
+    await db.payment.createMany({
+      data: [
+        {
+          leaseId: lease5.id,
+          tenantId: tenant3.id,
+          amount: 600000,
+          status: 'PAID',
+          dueDate: new Date('2025-09-01'),
+          paidAt: new Date('2025-09-02'),
+          reference: 'PMT-2025-030',
+        },
+        {
+          leaseId: lease5.id,
+          tenantId: tenant3.id,
+          amount: 600000,
+          status: 'LATE',
+          dueDate: new Date('2025-10-01'),
+          reference: 'PMT-2025-031',
+        },
+        {
+          leaseId: lease5.id,
+          tenantId: tenant3.id,
+          amount: 600000,
+          status: 'PENDING',
+          dueDate: new Date('2025-11-01'),
+          reference: 'PMT-2025-032',
+        },
+      ],
+    })
+
+    // ─── Create Additional Maintenance Requests ────────────────────────
+    await db.maintenanceRequest.createMany({
+      data: [
+        {
+          leaseId: lease2.id,
+          tenantId: tenant2.id,
+          title: 'Fuite toiture véranda',
+          description: 'La véranda présente une fuite au niveau de la toiture lors des fortes pluies.',
+          status: 'PENDING',
+          priority: 'HIGH',
+        },
+        {
+          leaseId: lease3.id,
+          tenantId: tenant3.id,
+          title: 'Remplacement ampoules couloir',
+          description: 'Les ampoules du couloir sont grillées et nécessitent un remplacement.',
+          status: 'RESOLVED',
+          priority: 'LOW',
+        },
+      ],
     })
 
     // ─── Create Visit Requests ──────────────────────────────────────────
