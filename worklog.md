@@ -347,3 +347,59 @@ Stage Summary:
 - GPU acceleration hints added for smoother mobile rendering
 - Next.js image config fixed for Unsplash domains
 - Both public and dashboard mobile menus verified working with proper slide animations
+
+---
+Task ID: 11
+Agent: main
+Task: Fix session management - auto-disconnect issue + mobile sidebar sliding
+
+Work Log:
+- Diagnosed root causes of auto-disconnect:
+  1. Session was just a raw user ID in `montoit-user-id` cookie — no server-side session tracking, no invalidation, no tokens
+  2. `checkAuth()` cleared ALL auth state on ANY non-200 response (including 5xx server errors)
+  3. No sliding session refresh — fixed 7-day maxAge with no activity-based extension
+  4. `authFetch` aggressively called `logout()` on any 401, even transient ones
+  5. No `credentials: 'include'` in `checkAuth()`
+- Added `Session` model to Prisma schema with token, userId, expiresAt fields
+- Created `src/lib/session.ts` session utility library:
+  - `generateSessionToken()`: 48-byte random hex tokens
+  - `createSession()`: single session per user (deletes old ones), 30-day expiry
+  - `validateSession()`: checks token exists and hasn't expired
+  - `refreshSession()`: sliding session refresh when within 7 days of expiry
+  - `deleteSession()`: removes session from database
+  - `getUserIdFromRequest()`: centralized helper for API routes
+  - Cookie name changed from `montoit-user-id` to `montoit-session`
+- Updated all auth API routes:
+  - `/api/auth/login`: creates session token, sets `montoit-session` cookie
+  - `/api/auth/verify-sms-otp`: same session pattern
+  - `/api/auth/verify-email-otp`: same session pattern
+  - `/api/auth/me`: validates session token + sliding refresh + returns 500 (NOT 401) on server errors
+  - `/api/auth/logout`: deletes server-side session, clears both old and new cookie names
+  - All 10 other API routes: replaced `montoit-user-id` cookie with `getUserIdFromRequest()`
+- Fixed `checkAuth()` in auth-store:
+  - Added `credentials: 'include'`
+  - Don't clear auth state on 5xx server errors (only on 401)
+  - Added deduplication guard to prevent multiple simultaneous calls
+  - Added `lastAuthenticatedAt` timestamp to persisted state
+- Fixed `authFetch`:
+  - Don't auto-logout on 5xx errors (just throw AuthError)
+  - On 401, try re-validation once before logging out
+  - On network error, don't logout (might be temporary)
+- Added session heartbeat:
+  - Every 5 minutes, calls `checkAuth()` to keep session alive
+  - Starts automatically on login, stops on logout
+  - Starts on store creation if already authenticated
+- Fixed mobile sidebar sliding:
+  - Changed `AnimatedSheet` to render overlay and panel as direct children of `AnimatePresence` (not wrapped in Fragment)
+  - Added drag-to-close gesture support for mobile
+  - Added `touch-pan-y` class for smooth scrolling inside the panel
+- Pushed Prisma schema, regenerated Prisma client
+- Tested full session flow: login → check auth → logout → verify 401 after logout
+- All lint checks pass
+
+Stage Summary:
+- Sessions now use proper database-backed tokens with 30-day sliding expiry
+- Server errors (5xx) no longer cause auto-logout
+- Session heartbeat keeps sessions alive every 5 minutes
+- Mobile sidebar has reliable slide animation + drag-to-close gesture
+- Backward compatible: logout clears both old and new cookie names

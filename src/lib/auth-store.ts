@@ -27,6 +27,7 @@ interface PersistedAuthState {
   previousView: AppView
   dashboardSection: string
   selectedPropertyId: string
+  lastAuthenticatedAt: number | null  // timestamp of last successful auth
 }
 
 // Transient state that does NOT persist
@@ -69,6 +70,7 @@ const defaultPersisted: PersistedAuthState = {
   previousView: 'home',
   dashboardSection: 'overview',
   selectedPropertyId: '',
+  lastAuthenticatedAt: null,
 }
 
 const defaultTransient: TransientAuthState = {
@@ -80,6 +82,14 @@ const defaultTransient: TransientAuthState = {
   devCode: '',
   otpPurpose: 'login',
 }
+
+// ─── checkAuth deduplication guard ──────────────────────────────────────────
+// Prevents multiple simultaneous checkAuth calls
+let checkAuthPromise: Promise<void> | null = null
+
+// ─── Session heartbeat interval ────────────────────────────────────────────
+const SESSION_HEARTBEAT_INTERVAL = 5 * 60 * 1000 // 5 minutes
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -93,6 +103,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ email, password }),
           })
           const data = await res.json()
@@ -116,7 +127,9 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
             currentView: 'dashboard',
+            lastAuthenticatedAt: Date.now(),
           })
+          startHeartbeat()
         } catch (error) {
           set({ isLoading: false })
           throw error
@@ -129,6 +142,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await fetch('/api/auth/send-sms-otp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ phone, purpose: 'login' }),
           })
           const data = await res.json()
@@ -147,6 +161,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await fetch('/api/auth/verify-sms-otp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ phone, code }),
           })
           const data = await res.json()
@@ -163,7 +178,9 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
             currentView: 'dashboard',
+            lastAuthenticatedAt: Date.now(),
           })
+          startHeartbeat()
         } catch (error) {
           set({ isLoading: false })
           throw error
@@ -176,6 +193,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await fetch('/api/auth/send-email-otp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ email, purpose }),
           })
           const data = await res.json()
@@ -194,6 +212,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await fetch('/api/auth/verify-email-otp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ email, code, purpose }),
           })
           const data = await res.json()
@@ -216,7 +235,9 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true,
               isLoading: false,
               currentView: 'dashboard',
+              lastAuthenticatedAt: Date.now(),
             })
+            startHeartbeat()
           }
 
           return data
@@ -233,6 +254,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await fetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ ...data, method: 'email' }),
           })
           const result = await res.json()
@@ -259,6 +281,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await fetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ ...data, method: 'sms' }),
           })
           const result = await res.json()
@@ -285,6 +308,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await fetch('/api/auth/forgot-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ identifier, method }),
           })
           const data = await res.json()
@@ -317,6 +341,7 @@ export const useAuthStore = create<AuthState>()(
           const res = await fetch('/api/auth/reset-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify(data),
           })
           const result = await res.json()
@@ -330,8 +355,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
+        stopHeartbeat()
         try {
-          await fetch('/api/auth/logout', { method: 'POST' })
+          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
         } finally {
           set({
             user: null,
@@ -345,6 +371,7 @@ export const useAuthStore = create<AuthState>()(
             devCode: '',
             dashboardSection: 'overview',
             selectedPropertyId: '',
+            lastAuthenticatedAt: null,
           })
         }
       },
@@ -356,36 +383,56 @@ export const useAuthStore = create<AuthState>()(
       setSelectedPropertyId: (id) => set({ selectedPropertyId: id }),
 
       checkAuth: async () => {
-        try {
-          const res = await fetch('/api/auth/me')
-          if (res.ok) {
-            const data = await res.json()
-            set({
-              user: data.user,
-              isAuthenticated: true,
-              // Don't override currentView if user was on a specific view
-              // Only ensure dashboard is shown if the user was already authenticated
-              isInitialized: true,
+        // Deduplicate: if a checkAuth is already in progress, reuse that promise
+        if (checkAuthPromise) return checkAuthPromise
+
+        checkAuthPromise = (async () => {
+          try {
+            const res = await fetch('/api/auth/me', {
+              credentials: 'include',
             })
-          } else {
-            // Server says not authenticated → clear persisted auth state
-            set({
-              user: null,
-              isAuthenticated: false,
-              currentView: get().currentView === 'dashboard' ? 'home' : get().currentView,
-              isInitialized: true,
-            })
+
+            if (res.ok) {
+              const data = await res.json()
+              set({
+                user: data.user,
+                isAuthenticated: true,
+                isInitialized: true,
+                lastAuthenticatedAt: Date.now(),
+              })
+              startHeartbeat()
+            } else if (res.status === 401) {
+              // Server explicitly says not authenticated — session is truly expired
+              set({
+                user: null,
+                isAuthenticated: false,
+                currentView: get().currentView === 'dashboard' ? 'home' : get().currentView,
+                isInitialized: true,
+                lastAuthenticatedAt: null,
+              })
+              stopHeartbeat()
+            } else {
+              // Server error (5xx) or other non-401 error — DO NOT clear auth state
+              // The session might still be valid; just mark as initialized
+              // Keep whatever was persisted in localStorage
+              console.warn(`[checkAuth] Server returned ${res.status}, keeping current auth state`)
+              set({ isInitialized: true })
+            }
+          } catch {
+            // Network error → don't clear the persisted state, just mark as initialized
+            // The persisted state might still be valid when connectivity returns
+            set({ isInitialized: true })
+          } finally {
+            checkAuthPromise = null
           }
-        } catch {
-          // Network error → don't clear the persisted state, just mark as initialized
-          // The persisted state might still be valid
-          set({ isInitialized: true })
-        }
+        })()
+
+        return checkAuthPromise
       },
 
       seedData: async () => {
         try {
-          const res = await fetch('/api/seed', { method: 'POST' })
+          const res = await fetch('/api/seed', { method: 'POST', credentials: 'include' })
           const data = await res.json()
           if (!res.ok) throw new Error(data.error)
           return data
@@ -405,6 +452,7 @@ export const useAuthStore = create<AuthState>()(
         previousView: state.previousView,
         dashboardSection: state.dashboardSection,
         selectedPropertyId: state.selectedPropertyId,
+        lastAuthenticatedAt: state.lastAuthenticatedAt,
       }),
       // After rehydration, merge with default transient state
       merge: (persistedState, currentState) => ({
@@ -422,3 +470,40 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 )
+
+// ─── Session Heartbeat ──────────────────────────────────────────────────────
+// Periodically calls /api/auth/me to keep the session alive (sliding refresh)
+// and detect server-side session expiry
+
+function startHeartbeat() {
+  if (heartbeatTimer) return // Already running
+  if (typeof window === 'undefined') return
+
+  heartbeatTimer = setInterval(async () => {
+    const { isAuthenticated, checkAuth } = useAuthStore.getState()
+    if (!isAuthenticated) {
+      stopHeartbeat()
+      return
+    }
+    try {
+      await checkAuth()
+    } catch {
+      // Silently ignore heartbeat errors — the next one will retry
+    }
+  }, SESSION_HEARTBEAT_INTERVAL)
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer)
+    heartbeatTimer = null
+  }
+}
+
+// Start heartbeat on store creation if already authenticated
+if (typeof window !== 'undefined') {
+  const { isAuthenticated } = useAuthStore.getState()
+  if (isAuthenticated) {
+    startHeartbeat()
+  }
+}

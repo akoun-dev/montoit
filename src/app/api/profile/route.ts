@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getUserIdFromRequest } from '@/lib/session'
 
 /**
  * GET /api/profile — Fetch current user profile (with scoring-related fields)
@@ -7,7 +8,7 @@ import { db } from '@/lib/db'
  */
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.cookies.get('montoit-user-id')?.value
+    const userId = await getUserIdFromRequest(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const userId = req.cookies.get('montoit-user-id')?.value
+    const userId = await getUserIdFromRequest(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }

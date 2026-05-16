@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { createSession, SESSION_COOKIE_NAME, SESSION_COOKIE_OPTIONS } from '@/lib/session'
 
 export async function POST(req: NextRequest) {
   try {
@@ -81,6 +82,9 @@ export async function POST(req: NextRequest) {
           data: { isEmailVerified: true },
         })
 
+        // Create session
+        const { token: sessionToken, expiresAt } = await createSession(user.id)
+
         const response = NextResponse.json({
           verified: true,
           user: {
@@ -96,12 +100,9 @@ export async function POST(req: NextRequest) {
           },
         })
 
-        response.cookies.set('montoit-user-id', user.id, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/',
+        response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
+          ...SESSION_COOKIE_OPTIONS,
+          maxAge: Math.floor((expiresAt.getTime() - Date.now()) / 1000),
         })
 
         return response

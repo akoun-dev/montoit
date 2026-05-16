@@ -23,6 +23,7 @@ export async function POST() {
     await db.property.deleteMany()
     await db.auditLog.deleteMany()
     await db.oTPCode.deleteMany()
+    await db.session.deleteMany()
     await db.user.deleteMany()
 
     // ─── Create Users ───────────────────────────────────────────────────

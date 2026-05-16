@@ -209,51 +209,77 @@ function AnimatedSheet({
 
   const variants = slideVariants[side]
 
+  // Drag-to-close: determine drag direction and constraints based on side
+  const dragDirection = side === "left" || side === "right" ? "x" : "y"
+  const dragConstraints = side === "left" ? { left: 0, right: 0 }
+    : side === "right" ? { left: 0, right: 0 }
+    : side === "top" ? { top: 0, bottom: 0 }
+    : { top: 0, bottom: 0 }
+
+  const handleDragEnd = React.useCallback((_: unknown, info: { offset: { x: number; y: number }; velocity: { x: number; y: number } }) => {
+    const threshold = 100 // pixels
+    const velocityThreshold = 500 // pixels per second
+    const shouldClose = side === "left"
+      ? info.offset.x < -threshold || info.velocity.x < -velocityThreshold
+      : side === "right"
+        ? info.offset.x > threshold || info.velocity.x > velocityThreshold
+        : side === "top"
+          ? info.offset.y < -threshold || info.velocity.y < -velocityThreshold
+          : info.offset.y > threshold || info.velocity.y > velocityThreshold
+
+    if (shouldClose) {
+      handleClose()
+    }
+  }, [side, handleClose])
+
   return (
     <AnimatePresence>
+      {/* Overlay — rendered as direct child of AnimatePresence for reliable exit animation */}
       {open && (
-        <>
-          {/* Overlay */}
-          <motion.div
-            key="sheet-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            onClick={handleClose}
-            className="fixed inset-0 z-50 bg-black/50"
-            aria-hidden="true"
-          />
+        <motion.div
+          key="sheet-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          onClick={handleClose}
+          className="fixed inset-0 z-50 bg-black/50"
+          aria-hidden="true"
+        />
+      )}
+      {/* Panel — rendered as direct child of AnimatePresence for reliable exit animation */}
+      {open && (
+        <motion.div
+          key="sheet-panel"
+          initial={variants.initial}
+          animate={variants.animate}
+          exit={variants.exit}
+          transition={{ type: "tween", duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+          drag={dragDirection}
+          dragConstraints={dragConstraints}
+          dragElastic={0.1}
+          onDragEnd={handleDragEnd}
+          className={cn(
+            "bg-background fixed z-50 flex flex-col shadow-lg touch-pan-y",
+            positionClasses[side],
+            className
+          )}
+          role="dialog"
+          aria-modal="true"
+        >
+          {children}
 
-          {/* Panel */}
-          <motion.div
-            key="sheet-panel"
-            initial={variants.initial}
-            animate={variants.animate}
-            exit={variants.exit}
-            transition={{ type: "tween", duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
-            className={cn(
-              "bg-background fixed z-50 flex flex-col shadow-lg",
-              positionClasses[side],
-              className
-            )}
-            role="dialog"
-            aria-modal="true"
-          >
-            {children}
-
-            {/* Close button */}
-            {showCloseButton && (
-              <button
-                onClick={handleClose}
-                className="absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
-                aria-label="Fermer"
-              >
-                <XIcon className="size-4" />
-              </button>
-            )}
-          </motion.div>
-        </>
+          {/* Close button */}
+          {showCloseButton && (
+            <button
+              onClick={handleClose}
+              className="absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+              aria-label="Fermer"
+            >
+              <XIcon className="size-4" />
+            </button>
+          )}
+        </motion.div>
       )}
     </AnimatePresence>
   )

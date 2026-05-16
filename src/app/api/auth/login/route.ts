@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 import { generateOtpCode, sendOtpEmail } from '@/lib/ansut-messaging'
+import { createSession, SESSION_COOKIE_NAME, SESSION_COOKIE_OPTIONS } from '@/lib/session'
 
 const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10)
 
@@ -67,6 +68,9 @@ export async function POST(req: NextRequest) {
         )
       }
 
+      // Create session
+      const { token: sessionToken, expiresAt } = await createSession(user.id)
+
       const response = NextResponse.json({
         user: {
           id: user.id,
@@ -81,12 +85,9 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      response.cookies.set('montoit-user-id', user.id, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/',
+      response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
+        ...SESSION_COOKIE_OPTIONS,
+        maxAge: Math.floor((expiresAt.getTime() - Date.now()) / 1000),
       })
 
       return response
