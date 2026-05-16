@@ -310,3 +310,40 @@ Stage Summary:
 - Trust Score integrates NEOFACE verification (20% weight)
 - Scoring tab NEOFACE card links to face verification section
 - All APIs include neofaceVerifiedAt field
+
+---
+Task ID: 10
+Agent: main
+Task: Fix mobile menu slide animation not working
+
+Work Log:
+- Investigated both mobile menus: public header (Sheet side="right") and dashboard header (Sheet side="left")
+- Found the root causes:
+  1. `transition ease-in-out` class on SheetContent conflicted with CSS animation (both try to animate transform)
+  2. `animation-fill-mode: none` (default from tw-animate-css) caused animation start/end states to not persist
+  3. `duration-500` / `duration-300` set `--tw-duration` which also set `transition-duration`, creating further conflicts
+- Fixed `src/components/ui/sheet.tsx`:
+  - Removed `transition ease-in-out` from SheetContent base classes
+  - Removed `gap-4` from SheetContent (was causing layout issues)
+  - Changed duration to `duration-300` for open and `duration-200` for close (snappier feel)
+  - Reordered class names for clarity (animation classes grouped together)
+  - Added duration classes to SheetOverlay for smooth fade
+- Fixed `src/app/globals.css`:
+  - Added `[data-slot="sheet-content"]` rule with `animation-fill-mode: both !important`
+  - Added `will-change: transform, opacity` for GPU-accelerated animations
+  - Added `backface-visibility: hidden` for smoother mobile rendering
+  - Added `[data-slot="sheet-overlay"]` rule with `animation-fill-mode: both !important`
+- Fixed `next.config.ts`:
+  - Added `images.remotePatterns` for `images.unsplash.com` and `plus.unsplash.com`
+  - Was causing Next.js Image errors that crashed the page
+- Tested both menus with agent-browser at 375x812 (iPhone X viewport):
+  - Public header menu: slides in from right, closes properly
+  - Dashboard menu: slides in from left, closes properly
+  - Navigation from menu items works correctly
+- VLM analysis confirmed both menus have proper slide animations
+
+Stage Summary:
+- Mobile menu slide animation fixed by removing conflicting transition classes and setting animation-fill-mode: both
+- GPU acceleration hints added for smoother mobile rendering
+- Next.js image config fixed for Unsplash domains
+- Both public and dashboard mobile menus verified working with proper slide animations

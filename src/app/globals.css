@@ -308,3 +308,20 @@
     scrollbar-width: none;
   }
 }
+
+/* ──────────────────────────────────────────────
+   Sheet / Dialog Slide Animation Fix
+   Ensures smooth slide-in/out on mobile devices.
+   The tw-animate-css animation-fill-mode:none
+   can cause the panel to not visibly slide.
+   ────────────────────────────────────────────── */
+[data-slot="sheet-content"] {
+  animation-fill-mode: both !important;
+  will-change: transform, opacity;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+[data-slot="sheet-overlay"] {
+  animation-fill-mode: both !important;
+}
