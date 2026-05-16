@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { ShieldCheck, ArrowLeft, RotateCcw, Phone, Mail, KeyRound, Copy, Check } from 'lucide-react'
+import { ArrowLeft, RotateCcw, Phone, Mail, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { useAuthStore, type OtpPurpose } from '@/lib/auth-store'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
+import Image from 'next/image'
 
 const RESEND_COOLDOWN = 60 // seconds
 
@@ -119,11 +120,7 @@ export function OtpVerifyForm() {
 
   const channelLabel = isEmailOtp ? 'Envoyé par email' : 'Envoyé par SMS'
 
-  const headerIcon = otpPurpose === 'password_reset' ? (
-    <KeyRound className="size-6 text-brand-500" />
-  ) : (
-    <ShieldCheck className="size-6 text-brand-500" />
-  )
+  // Logo is now used in CardHeader instead of headerIcon
 
   const titleMap: Record<OtpPurpose, string> = {
     login: 'Vérification SMS',
@@ -141,8 +138,15 @@ export function OtpVerifyForm() {
       >
         <Card className="border-neutral-200 shadow-base">
           <CardHeader className="text-center pb-2">
-            <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-brand-50">
-              {headerIcon}
+            <div className="mx-auto mb-4">
+              <Image
+                src="/favicon-96x96.png"
+                alt="Mon Toit"
+                width={56}
+                height={56}
+                className="shrink-0 mx-auto"
+                priority
+              />
             </div>
             <CardTitle className="text-2xl font-bold text-neutral-900">{titleMap[otpPurpose]}</CardTitle>
             <CardDescription className="text-neutral-500">

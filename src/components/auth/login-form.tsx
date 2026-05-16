@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Info, Phone, MessageSquare } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Phone, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,12 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useAuthStore, type AuthMethod } from '@/lib/auth-store'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
-
-const demoAccounts = [
-  { email: 'admin@montoit.ci', phone: '+22501010101', label: 'Admin', role: 'ADMIN' },
-  { email: 'proprietaire@montoit.ci', phone: '+22503030303', label: 'Propriétaire (Kouadio)', role: 'PROPRIETAIRE' },
-  { email: 'locataire@montoit.ci', phone: '+22505050505', label: 'Locataire (Moussa)', role: 'LOCATAIRE' },
-]
+import Image from 'next/image'
 
 export function LoginForm() {
   const [method, setMethod] = useState<AuthMethod>('email')
@@ -24,9 +19,7 @@ export function LoginForm() {
   const [phone, setPhone] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
-  const { loginWithEmail, loginWithSms, isLoading, setView, setAuthMethod, seedData } = useAuthStore()
-
-  const DEMO_EMAILS = ['admin@montoit.ci', 'proprietaire@montoit.ci', 'locataire@montoit.ci', 'tc@montoit.ci', 'awa.diallo@email.ci', 'fatou.b@email.ci', 'jean.c@email.ci']
+  const { loginWithEmail, loginWithSms, isLoading, setView, setAuthMethod } = useAuthStore()
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,19 +36,7 @@ export function LoginForm() {
       toast.success('Connexion réussie !')
     } catch (error) {
       const msg = error instanceof Error ? error.message : ''
-      // Auto-seed for demo accounts
-      if (msg.includes('incorrects') && DEMO_EMAILS.includes(email.trim().toLowerCase())) {
-        toast.info('Initialisation des données de démo...')
-        try {
-          await seedData()
-          await loginWithEmail(email.trim(), password)
-          toast.success('Connexion réussie !')
-        } catch (retryError) {
-          toast.error(retryError instanceof Error ? retryError.message : 'Erreur lors de la connexion')
-        }
-      } else {
-        toast.error(msg || 'Erreur lors de la connexion')
-      }
+      toast.error(msg || 'Erreur lors de la connexion')
     }
   }
 
@@ -74,52 +55,6 @@ export function LoginForm() {
     }
   }
 
-  const handleDemoEmailLogin = async (demoEmail: string) => {
-    setMethod('email')
-    setEmail(demoEmail)
-    setPassword('demo1234')
-    try {
-      await loginWithEmail(demoEmail, 'demo1234')
-      toast.success('Connexion réussie !')
-    } catch (error) {
-      // If 401, auto-seed and retry once
-      const msg = error instanceof Error ? error.message : ''
-      if (msg.includes('incorrects')) {
-        toast.info('Initialisation des données de démo...')
-        try {
-          await seedData()
-          await loginWithEmail(demoEmail, 'demo1234')
-          toast.success('Connexion réussie !')
-        } catch (retryError) {
-          toast.error(retryError instanceof Error ? retryError.message : 'Erreur')
-        }
-      } else {
-        toast.error(msg || 'Erreur')
-      }
-    }
-  }
-
-  const handleDemoSmsLogin = async (demoPhone: string) => {
-    setMethod('sms')
-    setPhone(demoPhone)
-    try {
-      setAuthMethod('sms')
-      await loginWithSms(demoPhone)
-      toast.success('Code OTP envoyé par SMS !')
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur')
-    }
-  }
-
-  const handleSeed = async () => {
-    try {
-      await seedData()
-      toast.success('Données de démonstration créées ! Vous pouvez maintenant vous connecter.')
-    } catch {
-      toast.error('Erreur lors de la création des données')
-    }
-  }
-
   const handleForgotPassword = () => {
     setView('forgot-password')
   }
@@ -134,12 +69,15 @@ export function LoginForm() {
       >
         <Card className="border-neutral-200 shadow-base">
           <CardHeader className="text-center pb-2">
-            <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-brand-50">
-              {method === 'email' ? (
-                <Mail className="size-6 text-brand-500" />
-              ) : (
-                <Phone className="size-6 text-brand-500" />
-              )}
+            <div className="mx-auto mb-4">
+              <Image
+                src="/favicon-96x96.png"
+                alt="Mon Toit"
+                width={56}
+                height={56}
+                className="shrink-0 mx-auto"
+                priority
+              />
             </div>
             <CardTitle className="text-2xl font-bold text-neutral-900">Connexion</CardTitle>
             <CardDescription className="text-neutral-500">
@@ -314,55 +252,6 @@ export function LoginForm() {
             >
               Pas encore de compte ? S&apos;inscrire
             </button>
-
-            {/* Demo accounts */}
-            <div className="border-t border-neutral-200 pt-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Info className="size-4 text-brand-500" />
-                <span className="text-sm font-medium text-neutral-700">Comptes démo</span>
-              </div>
-              <p className="text-xs text-neutral-500 mb-3">
-                Cliquez sur un compte pour vous connecter rapidement. Les données seront initialisées automatiquement si nécessaire.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSeed}
-                className="w-full mb-3 border-brand-200 text-brand-600 hover:bg-brand-50"
-              >
-                🔄 Réinitialiser les données de démo
-              </Button>
-
-              {/* Email demo */}
-              <p className="text-xs font-medium text-neutral-500 mb-1.5">Par Email (mot de passe : demo1234)</p>
-              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 mb-3">
-                {demoAccounts.map((demo) => (
-                  <button
-                    key={demo.email}
-                    onClick={() => handleDemoEmailLogin(demo.email)}
-                    className="w-full flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-sm hover:bg-brand-50 hover:border-brand-200 transition-colors"
-                  >
-                    <span className="text-neutral-700">{demo.label}</span>
-                    <span className="text-neutral-400 text-xs truncate ml-2">{demo.email}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* SMS demo */}
-              <p className="text-xs font-medium text-neutral-500 mb-1.5">Par SMS (code OTP envoyé par SMS)</p>
-              <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                {demoAccounts.map((demo) => (
-                  <button
-                    key={demo.phone}
-                    onClick={() => handleDemoSmsLogin(demo.phone)}
-                    className="w-full flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-sm hover:bg-brand-50 hover:border-brand-200 transition-colors"
-                  >
-                    <span className="text-neutral-700">{demo.label}</span>
-                    <span className="text-neutral-400 text-xs font-mono truncate ml-2">{demo.phone}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* Back to home */}
             <button

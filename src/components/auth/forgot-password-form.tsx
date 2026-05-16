@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { KeyRound, Mail, Phone, ArrowLeft, Send, RotateCcw, Check, Eye, EyeOff, Lock } from 'lucide-react'
+import { Mail, Phone, ArrowLeft, Send, RotateCcw, Check, Eye, EyeOff, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/lib/auth-store'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
+import Image from 'next/image'
 
 type ResetMethod = 'email' | 'sms'
 type Step = 'request' | 'verify' | 'reset'
@@ -240,8 +241,15 @@ export function ForgotPasswordForm() {
       >
         <Card className="border-neutral-200 shadow-base">
           <CardHeader className="text-center pb-2">
-            <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-brand-50">
-              <KeyRound className="size-6 text-brand-500" />
+            <div className="mx-auto mb-4">
+              <Image
+                src="/favicon-96x96.png"
+                alt="Mon Toit"
+                width={56}
+                height={56}
+                className="shrink-0 mx-auto"
+                priority
+              />
             </div>
             <CardTitle className="text-2xl font-bold text-neutral-900">Mot de passe oublié</CardTitle>
             <CardDescription className="text-neutral-500">

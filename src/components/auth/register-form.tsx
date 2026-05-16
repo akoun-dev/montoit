@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useAuthStore, type AuthMethod } from '@/lib/auth-store'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
+import Image from 'next/image'
 
 const passwordRules = [
   { label: 'Au moins 8 caractères', test: (p: string) => p.length >= 8 },
@@ -173,8 +174,15 @@ export function RegisterForm() {
       >
         <Card className="border-neutral-200 shadow-base">
           <CardHeader className="text-center pb-2">
-            <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-brand-50">
-              <UserPlus className="size-6 text-brand-500" />
+            <div className="mx-auto mb-4">
+              <Image
+                src="/favicon-96x96.png"
+                alt="Mon Toit"
+                width={56}
+                height={56}
+                className="shrink-0 mx-auto"
+                priority
+              />
             </div>
             <CardTitle className="text-2xl font-bold text-neutral-900">Inscription</CardTitle>
             <CardDescription className="text-neutral-500">
