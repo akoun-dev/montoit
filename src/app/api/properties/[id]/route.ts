@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { getUserIdFromRequest, getUserIdAndRole } from '@/lib/session'
 
 const VALID_PROPERTY_TYPES = ['APPARTEMENT', 'MAISON', 'STUDIO', 'DUPLEX', 'PENTHOUSE', 'VILLA'] as const
 const MAX_IMAGES = 10
@@ -58,6 +58,7 @@ export async function PATCH(
 
     // Only validate required fields when explicitly publishing (status === 'ACTIVE' sent in body)
     // Auto-saves (drafts) should never trigger publish validation
+    // Properties must be verified by TC before becoming ACTIVE
     const isPublishing = status === 'ACTIVE'
     if (isPublishing) {
       // Merge provided values with existing data for validation
@@ -143,7 +144,11 @@ export async function PATCH(
     if (hasClimate !== undefined) updateData.hasClimate = Boolean(hasClimate)
     if (hideOwnerName !== undefined) updateData.hideOwnerName = Boolean(hideOwnerName)
     if (virtualTourUrl !== undefined) updateData.virtualTourUrl = virtualTourUrl || null
-    if (status !== undefined) updateData.status = status
+    // Properties must be verified by TC before becoming ACTIVE
+    // Intercept ACTIVE status and change to PENDING_VERIFICATION
+    if (status !== undefined) {
+      updateData.status = status === 'ACTIVE' ? 'PENDING_VERIFICATION' : status
+    }
 
     // Handle images replacement
     if (images !== undefined) {
@@ -225,10 +230,18 @@ export async function GET(
 
     // Access control:
     // - ACTIVE properties are publicly viewable
-    // - Non-ACTIVE properties (DRAFT, SUSPENDED, etc.) require ownership
+    // - Non-ACTIVE properties (DRAFT, PENDING_VERIFICATION, SUSPENDED, etc.) require ownership or TC role
     if (property.status !== 'ACTIVE') {
-      if (!userId || property.ownerId !== userId) {
+      if (!userId) {
         return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      }
+      // Owner can always view their own properties
+      if (property.ownerId !== userId) {
+        // TC users can view any non-ACTIVE property
+        const authResult = await getUserIdAndRole(req)
+        if (!authResult || authResult.effectiveRole !== 'TIERS_CONFIANCE') {
+          return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+        }
       }
     }
 

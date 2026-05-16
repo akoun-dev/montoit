@@ -60,7 +60,7 @@ export function MyProperties() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'ACTIVE' }),
       })
-      toast.success('Bien publié avec succès !')
+      toast.success('Bien soumis pour vérification ! Un Tiers de Confiance validera votre annonce.')
       fetchData()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de la publication')
@@ -115,7 +115,8 @@ export function MyProperties() {
 
   const statusConfig: Record<string, { label: string; className: string }> = {
     ACTIVE: { label: 'Actif', className: 'bg-green-100 text-green-700' },
-    SUSPENDED: { label: 'Suspendu', className: 'bg-amber-100 text-amber-700' },
+    PENDING_VERIFICATION: { label: 'En attente de vérification', className: 'bg-amber-100 text-amber-700' },
+    SUSPENDED: { label: 'Suspendu', className: 'bg-red-100 text-red-700' },
     CLOSED: { label: 'Fermé', className: 'bg-neutral-100 text-neutral-600' },
     RENTED: { label: 'Loué', className: 'bg-blue-100 text-blue-700' },
   }

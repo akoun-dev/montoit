@@ -5,7 +5,7 @@ import {
   Building2, ClipboardCheck, Users, Shield, 
   BarChart3, Settings, AlertTriangle, Clock, BadgeCheck,
   LayoutDashboard, ChevronLeft, ChevronRight,
-  Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck, UserCircle
+  Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck, UserCircle, Home
 } from 'lucide-react'
 import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
@@ -157,9 +157,16 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
         {
           title: 'VALIDATION',
           items: [
-            { id: 'rental-files-queue', label: 'Dossiers à valider', icon: ClipboardCheck },
+            { id: 'property-verifications', label: 'Vérification biens', icon: Home },
+            { id: 'rental-files-queue', label: 'Dossiers locataires', icon: ClipboardCheck },
             { id: 'owner-validations', label: 'Validations propriétaires', icon: BadgeCheck },
             { id: 'agency-validations', label: 'Validations agences', icon: Building2 },
+          ],
+        },
+        {
+          title: 'ÉTAT DES LIEUX',
+          items: [
+            { id: 'inventory-reports', label: 'Rapports existants', icon: FileText },
           ],
         },
         {
@@ -250,6 +257,8 @@ const detailToParent: Record<string, string> = {
   'lease-detail': 'my-leases',
   'add-property': 'my-properties',
   'tenant-detail': 'my-tenants',
+  'property-verify-detail': 'property-verifications',
+  'inventory-report-form': 'property-verifications',
 }
 
 export function SidebarContent({ collapsed = false, onNavigate }: SidebarContentProps) {

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    const [pendingRentalFiles, pendingOwnershipDocs, slas] = await Promise.all([
+    const [pendingRentalFiles, pendingOwnershipDocs, slas, pendingProperties] = await Promise.all([
       db.rentalFile.findMany({
         where: { status: { in: ['SUBMITTED', 'TC_REVIEW'] } },
         include: {
@@ -35,6 +35,9 @@ export async function GET(req: NextRequest) {
         orderBy: { deadlineAt: 'asc' },
         take: 50,
       }),
+      db.property.count({
+        where: { status: 'PENDING_VERIFICATION' },
+      }),
     ])
 
     const totalReviewed = await db.rentalFile.count({
@@ -50,6 +53,7 @@ export async function GET(req: NextRequest) {
       stats: {
         pendingRentalFiles: pendingRentalFiles.length,
         pendingOwnershipDocs: pendingOwnershipDocs.length,
+        pendingProperties,
         totalReviewed,
         overdueSlas: overdueSlas.length,
         slaCompliance: totalReviewed > 0 ? Math.round(((totalReviewed - overdueSlas.length) / totalReviewed) * 100) : 100,

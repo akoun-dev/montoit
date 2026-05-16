@@ -392,7 +392,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
         })
       }
 
-      toast.success('Bien publié avec succès ! Il sera visible après validation.')
+      toast.success('Bien soumis pour vérification ! Un Tiers de Confiance validera votre annonce.')
       onSuccess?.()
     } catch (err) {
       if (err instanceof AuthError) {
@@ -878,12 +878,12 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
           {submitting ? (
             <>
               <Loader2 className="size-5 animate-spin" />
-              Publication en cours...
+              Vérification en cours...
             </>
           ) : (
             <>
               <PlusCircle className="size-5" />
-              Publier l&apos;annonce
+              Soumettre pour vérification
             </>
           )}
         </Button>

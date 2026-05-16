@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { getUserIdFromRequest, getUserIdAndRole } from '@/lib/session'
 
 const VALID_PROPERTY_TYPES = ['APPARTEMENT', 'MAISON', 'STUDIO', 'DUPLEX', 'PENTHOUSE', 'VILLA'] as const
 const MAX_IMAGES = 10
@@ -21,12 +21,23 @@ export async function GET(req: NextRequest) {
     const minBedrooms = searchParams.get('minBedrooms')
     const furnished = searchParams.get('furnished')
     const all = searchParams.get('all')
+    const pending = searchParams.get('pending')
 
     const limit = limitParam ? parseInt(limitParam) : 6
 
+    // Check if TC user is requesting pending verification properties
+    let isTCRequestingPending = false
+    if (pending === 'true') {
+      const authResult = await getUserIdAndRole(req)
+      if (authResult && authResult.effectiveRole === 'TIERS_CONFIANCE') {
+        isTCRequestingPending = true
+      }
+    }
+
     // Build where clause
+    // Public listing only shows ACTIVE properties; TC with pending=true sees PENDING_VERIFICATION
     const where: Record<string, unknown> = {
-      status: 'ACTIVE',
+      status: isTCRequestingPending ? 'PENDING_VERIFICATION' : 'ACTIVE',
     }
 
     if (type) {
@@ -157,9 +168,10 @@ export async function POST(req: NextRequest) {
       draft,
     } = body
 
-    // Determine status: draft=true → DRAFT, otherwise validate and create as ACTIVE
+    // Determine status: draft=true → DRAFT, otherwise validate and create as PENDING_VERIFICATION
+    // Properties must be verified by TC before becoming ACTIVE
     const isDraft = draft === true
-    const status = isDraft ? 'DRAFT' : 'ACTIVE'
+    const status = isDraft ? 'DRAFT' : 'PENDING_VERIFICATION'
 
     // 4. Validate required fields only when publishing (not draft)
     if (!isDraft) {

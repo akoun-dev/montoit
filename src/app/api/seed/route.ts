@@ -48,8 +48,8 @@ export async function POST() {
     const tc = await db.user.create({
       data: {
         phone: '+22502020202',
-        firstName: 'Tiers',
-        lastName: 'Confiance',
+        firstName: 'Aya',
+        lastName: 'Diabaté',
         email: 'tc@montoit.ci',
         passwordHash,
         role: 'TIERS_CONFIANCE',
@@ -188,6 +188,7 @@ export async function POST() {
         title: 'Villa 4 Chambres Marcory',
         description: 'Magnifique villa 4 chambres avec jardin et piscine à Marcory. Quartier résidentiel calme.',
         type: 'VILLA' as const,
+        status: 'PENDING_VERIFICATION' as const,
         price: 450000,
         area: 220,
         bedrooms: 4,
@@ -224,6 +225,7 @@ export async function POST() {
         title: 'Duplex Riviera Palmeraie',
         description: 'Superbe duplex standing à la Riviera Palmeraie. Finitions haut de gamme, vue lagune.',
         type: 'DUPLEX' as const,
+        status: 'PENDING_VERIFICATION' as const,
         price: 600000,
         area: 180,
         bedrooms: 3,

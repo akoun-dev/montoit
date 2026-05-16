@@ -38,6 +38,7 @@ enum PropertyType {
 
 enum PropertyStatus {
   DRAFT
+  PENDING_VERIFICATION
   ACTIVE
   SUSPENDED
   CLOSED
@@ -182,6 +183,24 @@ enum NotificationType {
   SYSTEM
 }
 
+enum InventoryType {
+  INVENTORY_ENTRANCE
+  INVENTORY_EXIT
+}
+
+enum InventoryStatus {
+  DRAFT
+  COMPLETED
+  SIGNED_OWNER
+  SIGNED_TENANT
+  SIGNED_BOTH
+}
+
+enum RoomCondition {
+  BON
+  MAUVAIS
+}
+
 // ─── User & Authentication ────────────────────────────────────────────────────
 
 model User {
@@ -263,6 +282,8 @@ model User {
   payments              Payment[]
   // Relations — maintenance requests (as tenant)
   maintenanceRequests   MaintenanceRequest[]
+  // Relations — inventory reports (as TC reviewer)
+  inventoryReports     InventoryReport[]
 
   @@index([role])
   @@index([phone])
@@ -325,11 +346,12 @@ model Property {
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
-  images         PropertyImage[]
-  visitRequests  VisitRequest[]
-  conversations  Conversation[]
-  leases         Lease[]
-  favorites      Favorite[]
+  images           PropertyImage[]
+  visitRequests    VisitRequest[]
+  conversations    Conversation[]
+  leases           Lease[]
+  favorites        Favorite[]
+  inventoryReports InventoryReport[]
 
   @@index([status])
   @@index([city])
@@ -525,6 +547,7 @@ model Lease {
   disputes  Dispute[]
   payments  Payment[]
   maintenanceRequests MaintenanceRequest[]
+  inventoryReports   InventoryReport[]
 
   @@index([propertyId])
   @@index([tenantId])
@@ -766,6 +789,53 @@ model Payment {
   @@index([tenantId])
   @@index([status])
   @@index([dueDate])
+}
+
+// ─── Inventory Report (État des Lieux) ────────────────────────────────────────
+
+model InventoryReport {
+  id                  String         @id @default(cuid())
+  type                InventoryType
+  status              InventoryStatus @default(DRAFT)
+  completedAt         DateTime?
+  ownerSignedAt       DateTime?
+  tenantSignedAt      DateTime?
+  generalObservations String?
+  totalKeys           Int?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  reviewerId String
+  reviewer   User     @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  leaseId String?
+  lease   Lease?  @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+
+  items InventoryReportItem[]
+
+  @@index([propertyId])
+  @@index([reviewerId])
+  @@index([status])
+}
+
+model InventoryReportItem {
+  id              String   @id @default(cuid())
+  designation     String
+  designationOrder Int
+  kitchen         String?
+  mainBathroom    String?
+  otherBathroom   String?
+  otherRoom1      String?
+  otherRoom2      String?
+  observations    String?
+
+  reportId String
+  report   InventoryReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
 }
 
 // ─── Maintenance Requests ─────────────────────────────────────────────────────

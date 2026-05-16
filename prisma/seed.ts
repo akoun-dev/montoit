@@ -61,7 +61,24 @@ async function main() {
     },
   })
 
-  console.log(`✅ Users created: ${admin.email}, ${proprietaire.email}, ${locataire.email}`)
+  const tiersConfiance = await db.user.upsert({
+    where: { email: 'tc@montoit.ci' },
+    update: {
+      activeRole: 'TIERS_CONFIANCE',
+    },
+    create: {
+      email: 'tc@montoit.ci',
+      passwordHash,
+      firstName: 'Aya',
+      lastName: 'Diabaté',
+      role: 'TIERS_CONFIANCE',
+      activeRole: 'TIERS_CONFIANCE',
+      isActive: true,
+      isEmailVerified: true,
+    },
+  })
+
+  console.log(`✅ Users created: ${admin.email}, ${proprietaire.email}, ${locataire.email}, ${tiersConfiance.email}`)
 
   // ─── 2. Delete existing properties (avoid duplicates) ─────────────────────────
   await db.maintenanceRequest.deleteMany({})
@@ -181,7 +198,7 @@ async function main() {
       description:
         "Magnifique villa 4 chambres dans le quartier résidentiel de Marcory. Grand séjour double, cuisine indépendante aménagée, terrasse couverte donnant sur un jardin tropical de 500m². Garage double, dépendance studio. Terrain clos avec portail motorisé.",
       type: 'VILLA',
-      status: 'ACTIVE',
+      status: 'PENDING_VERIFICATION',
       rentalStatus: 'disponible',
       price: 350000,
       currency: 'FCFA',
@@ -274,7 +291,7 @@ async function main() {
       description:
         "Duplex meublé moderne à Abobo Avocatier. Réparti sur 2 niveaux : en bas, séjour ouvert sur cuisine américaine et WC visiteurs ; en haut, 3 chambres et 2 salles de bain. Terrasse rooftop avec vue panoramique.",
       type: 'DUPLEX',
-      status: 'ACTIVE',
+      status: 'PENDING_VERIFICATION',
       rentalStatus: 'disponible',
       price: 180000,
       currency: 'FCFA',

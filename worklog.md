@@ -103,3 +103,181 @@ Stage Summary:
 - Error messages from 400 responses are now properly surfaced to the user
 - Video/image validation is more flexible to handle seed data and various URL formats
 - NaN values from parseFloat are handled gracefully (default to 0)
+
+---
+Task ID: 1
+Agent: Schema
+Task: Update Prisma schema for TC verification and État des Lieux
+
+Work Log:
+- Added PENDING_VERIFICATION to PropertyStatus enum (between DRAFT and ACTIVE) to support TC property verification workflow
+- Added three new enums: InventoryType (INVENTORY_ENTRANCE, INVENTORY_EXIT), InventoryStatus (DRAFT, COMPLETED, SIGNED_OWNER, SIGNED_TENANT, SIGNED_BOTH), RoomCondition (BON, MAUVAIS)
+- Created InventoryReport model with fields: id, type, status, completedAt, ownerSignedAt, tenantSignedAt, generalObservations, totalKeys, createdAt, updatedAt; relations to Property, User (reviewer), and optional Lease
+- Created InventoryReportItem model with fields: id, designation, designationOrder, kitchen, mainBathroom, otherBathroom, otherRoom1, otherRoom2, observations; relation to InventoryReport
+- Added inventoryReports relation to Property model
+- Added inventoryReports relation to User model (for TC reviewer)
+- Added inventoryReports relation to Lease model
+- Added @@index on InventoryReport for propertyId, reviewerId, status query patterns
+- Added @@index on InventoryReportItem for reportId
+- Ran prisma generate and db:push successfully — database is in sync
+
+Stage Summary:
+- PropertyStatus now includes PENDING_VERIFICATION for TC verification workflow
+- Full État des Lieux support with InventoryReport and InventoryReportItem models
+- Signature flow supported via InventoryStatus enum (DRAFT → COMPLETED → SIGNED_OWNER → SIGNED_TENANT → SIGNED_BOTH)
+- Room condition items support per-room evaluation (kitchen, main bathroom, other bathroom, other rooms)
+- All existing models and relations preserved — only additions made
+
+---
+Task ID: 2
+Agent: API Agent
+Task: Update property API routes for PENDING_VERIFICATION flow and create TC verification + inventory report endpoints
+
+Work Log:
+- Updated `/api/properties/route.ts`:
+  - POST: Changed `status` from `'ACTIVE'` to `'PENDING_VERIFICATION'` when publishing (non-draft). Added comment explaining TC verification requirement.
+  - GET: Added `pending=true` query param that TC users (TIERS_CONFIANCE) can use to list PENDING_VERIFICATION properties. Public listing still only shows ACTIVE properties.
+  - Added `getUserIdAndRole` import for TC role checking.
+- Updated `/api/properties/[id]/route.ts`:
+  - PATCH: When client sends `status === 'ACTIVE'`, it is intercepted and changed to `'PENDING_VERIFICATION'`. Added comments explaining TC verification requirement. Validation still runs for required fields.
+  - GET: TC users can now view any non-ACTIVE property (not just owners). Added role check using `getUserIdAndRole` — if user is not the owner but has TIERS_CONFIANCE role, access is granted.
+  - Added `getUserIdAndRole` import.
+- Created `/api/tc/verifications/route.ts`:
+  - GET: Lists PENDING_VERIFICATION properties for TC users with pagination (limit, offset) and filtering (commune, type). Includes owner info and images.
+  - PATCH: Approve or reject a property. APPROVE → sets status to ACTIVE and isVerified to true. REJECT → sets status to SUSPENDED and stores rejection reason in rentalTerms JSON. Creates audit logs and notifications for the owner on both actions.
+- Created `/api/tc/inventory-reports/route.ts`:
+  - GET: Lists inventory reports. TC/ADMIN can see all; others see only reports for their properties/leases. Supports filtering by propertyId, leaseId, type, status. Includes property, lease, and items data.
+  - POST: Creates an inventory report with items in one transaction. Only TC users can create. Validates items (designation required, room conditions must be BON/MAUVAIS). Creates audit log.
+  - PATCH: Updates inventory report. TC can update items, observations, totalKeys. Owner can sign (ownerSigned), tenant can sign (tenantSigned). Signing auto-updates status to SIGNED_OWNER, SIGNED_TENANT, or SIGNED_BOTH. Creates audit log.
+- Ran lint: All checks pass with no errors.
+
+Stage Summary:
+- Properties now go to PENDING_VERIFICATION instead of ACTIVE when published
+- TC verification workflow fully implemented via /api/tc/verifications (list pending, approve/reject)
+- Inventory report CRUD fully implemented via /api/tc/inventory-reports (list, create, update/sign)
+- Public property listing still only shows ACTIVE properties
+- TC users can view non-ACTIVE properties and use pending=true param for the listing API
+- All endpoints include proper authentication, authorization, validation, audit logging, and notifications
+
+---
+Task ID: 5
+Agent: Seed Agent
+Task: Create Tiers de Confiance seed user and update seed script
+
+Work Log:
+- Added TIERS_CONFIANCE user to prisma/seed.ts:
+  - Email: tc@montoit.ci, Password: demo1234, FirstName: "Aya", LastName: "Diabaté"
+  - Role: TIERS_CONFIANCE, activeRole: TIERS_CONFIANCE, isActive: true, isEmailVerified: true
+  - Used upsert pattern consistent with existing users
+- Updated 2 properties to PENDING_VERIFICATION status in prisma/seed.ts:
+  - p3: Villa 4 Chambres – Marcory (was ACTIVE, now PENDING_VERIFICATION)
+  - p5: Duplex Moderne – Abobo (was ACTIVE, now PENDING_VERIFICATION)
+  - This gives the TC demo user something to verify
+- Updated /api/seed/route.ts:
+  - Changed TC user from firstName: 'Tiers', lastName: 'Confiance' to firstName: 'Aya', lastName: 'Diabaté'
+  - Added status: 'PENDING_VERIFICATION' to Villa 4 Chambres Marcory property
+  - Added status: 'PENDING_VERIFICATION' to Duplex Riviera Palmeraie property
+- Added prisma.seed config to package.json: "bun run prisma/seed.ts"
+- Ran prisma db push --force-reset && prisma db seed successfully
+- Verified data:
+  - TC user exists with correct fields (Aya Diabaté, TIERS_CONFIANCE role)
+  - 2 properties have PENDING_VERIFICATION status
+  - 6 properties remain ACTIVE
+  - All other seed data intact
+
+Stage Summary:
+- TC demo user (tc@montoit.ci / demo1234) now available for Tiers de Confiance workflow testing
+- 2 properties in PENDING_VERIFICATION status ready for TC to verify
+- Both seed scripts (prisma/seed.ts and /api/seed/route.ts) are consistent with TC user details
+- Seed runs cleanly with no errors
+
+---
+Task ID: 3 + 4
+Agent: Frontend Agent
+Task: Create TC (Tiers de Confiance) frontend components for property verification and État des Lieux
+
+Work Log:
+- Created `/src/components/dashboard/tc/property-verifications.tsx`:
+  - Fetches PENDING_VERIFICATION properties from `/api/tc/verifications`
+  - Displays property cards with thumbnail, title, type, price, commune, owner name, submission date
+  - Each card has "Vérifier" (navigates to detail), "Approve" (green check), "Reject" (red X) buttons
+  - Reject action opens a Dialog with a Textarea for rejection reason
+  - Search and commune filters for filtering properties
+  - Empty state when no pending properties
+  - Mobile-responsive grid layout (2 cols on desktop)
+  - Uses authFetch, toast notifications, motion animations
+- Created `/src/components/dashboard/tc/property-verify-detail.tsx`:
+  - Detailed view when TC clicks "Vérifier" on a property
+  - Image gallery with carousel navigation (ChevronLeft/Right, dot indicators)
+  - Property info: title, description, price, area, bedrooms, bathrooms, features, address
+  - Owner information card with name, phone, email
+  - Three action buttons: "Approuver le bien" (green), "Rejeter" (red with dialog), "Créer un État des Lieux" (orange)
+  - Uses selectedItemId from auth store to know which property
+  - "Retour" button navigates back to property-verifications
+  - Reject dialog with comment Textarea
+- Created `/src/components/dashboard/tc/inventory-report-form.tsx` (MOST IMPORTANT):
+  - Full État des Lieux form with the exact table structure specified
+  - Header: Title "État des Lieux", type selector (Entrée/Sortie des lieux), property info display, lease selector
+  - 9×5 grid table: N°, DÉSIGNATIONS, CUISINE, SALLE D'EAU CH. PRINCIPALE, SALLE D'EAU AUTRES CHAMBRES, AUTRE PIÈCE, AUTRE PIÈCE, OBSERVATIONS PARTICULIÈRES
+  - 9 designations hardcoded: SOL, PEINTURE DES MURS, PEINTURE DES PLAFONDS, PORTES, ÉLECTRICITÉ, ROBINETTERIE, ÉVIER INOX DE LAVABO, DOUCHE ET SDB, NOMBRE DE CLÉS
+  - Each cell (rows 1-8): Two clickable buttons styled as BON (green bg when selected) / MAUVAIS (red bg when selected)
+  - Row 9 (NOMBRE DE CLÉS): Number inputs instead of BON/MAUVAIS toggles
+  - Footer: Total keys count, general observations Textarea
+  - Save draft and validate buttons with proper API calls
+  - Horizontal scroll on mobile for table
+  - Orange (#FF6C2F) brand color for primary actions
+- Created `/src/components/dashboard/tc/inventory-reports-list.tsx`:
+  - Fetches inventory reports from `/api/tc/inventory-reports`
+  - Filter buttons for type (ALL/Entrée/Sortie) and status (ALL/DRAFT/COMPLETED/SIGNED_OWNER/SIGNED_TENANT/SIGNED_BOTH)
+  - Cards with property title, type badge, status badge, creation date, item count, key count
+  - Click to view/edit (DRAFT → edit form, others → info toast)
+  - Status badges with distinct colors: DRAFT (gray), COMPLETED (amber), SIGNED_OWNER/TENANT (emerald), SIGNED_BOTH (green)
+  - Empty state when no reports
+- Updated `/src/components/dashboard/index.tsx`:
+  - Added imports for PropertyVerifications, PropertyVerifyDetail, InventoryReportForm, InventoryReportsList
+  - Added cases in TcDashboard switch: 'property-verifications', 'property-verify-detail', 'inventory-report-form', 'inventory-reports'
+- Updated `/src/components/dashboard/sidebar.tsx`:
+  - Added Home icon import
+  - Updated TIERS_CONFIANCE VALIDATION section: Added 'property-verifications' (Vérification biens), changed 'rental-files-queue' label to 'Dossiers locataires'
+  - Added ÉTAT DES LIEUX section with 'inventory-reports' (Rapports existants)
+  - Added detailToParent mappings: 'property-verify-detail' → 'property-verifications', 'inventory-report-form' → 'property-verifications'
+- Ran lint: All checks pass with no errors
+
+Stage Summary:
+- Complete TC frontend workflow: property list → verify detail → approve/reject → create inventory report
+- État des Lieux form implements exact 9×5 table with BON/MAUVAIS toggles and key count inputs
+- Inventory reports list with filtering by type and status
+- All components use 'use client', authFetch, toast, motion animations, shadcn/ui, orange brand color
+- Mobile-responsive design throughout
+- Sidebar navigation properly highlights active section with detail-to-parent mapping
+
+---
+Task ID: 3-5
+Agent: Main + Subagents
+Task: Create TC dashboard, État des Lieux form, seed data, and update property flow
+
+Work Log:
+- Created 4 new TC frontend components:
+  - property-verifications.tsx: List of PENDING_VERIFICATION properties with approve/reject
+  - property-verify-detail.tsx: Detailed property view for TC verification
+  - inventory-report-form.tsx: Full État des Lieux form with 9×5 BON/MAUVAIS grid
+  - inventory-reports-list.tsx: List of existing inventory reports
+- Updated dashboard/index.tsx with new TC section routes
+- Updated sidebar with Vérification biens and ÉTAT DES LIEUX sections
+- Added TC seed user (tc@montoit.ci / demo1234, Aya Diabaté)
+- Changed 2 properties to PENDING_VERIFICATION status for demo
+- Updated TC overview with pending properties stat card and quick action
+- Updated TC dashboard API with pendingProperties count
+- Changed property publish flow: DRAFT → PENDING_VERIFICATION (not directly ACTIVE)
+- Updated publish button text: "Soumettre pour vérification"
+- Updated toast messages to reflect TC verification requirement
+- Added PENDING_VERIFICATION status badge in my-properties component
+- Fixed inventory-reports API route field names (reviewerId vs createdById)
+- Re-seeded database with all new data
+
+Stage Summary:
+- Properties now require TC verification before being published (PENDING_VERIFICATION flow)
+- TC user can log in at tc@montoit.ci / demo1234
+- Full État des Lieux form with 9 designations × 5 rooms + observations
+- TC dashboard shows pending properties count and quick action card
+- Property status badges show "En attente de vérification" for PENDING_VERIFICATION

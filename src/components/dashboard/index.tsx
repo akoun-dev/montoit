@@ -35,6 +35,10 @@ import { RentalFilesQueue } from './tc/rental-files-queue'
 import { OwnerValidations } from './tc/owner-validations'
 import { AgencyValidations } from './tc/agency-validations'
 import { SlaMonitoring } from './tc/sla-monitoring'
+import { PropertyVerifications } from './tc/property-verifications'
+import { PropertyVerifyDetail } from './tc/property-verify-detail'
+import { InventoryReportForm } from './tc/inventory-report-form'
+import { InventoryReportsList } from './tc/inventory-reports-list'
 import { AdminOverview } from './admin/overview'
 import { AdminUsers } from './admin/users'
 import { PropertiesModeration } from './admin/properties-moderation'
@@ -139,9 +143,13 @@ function ProprietaireDashboard({ section }: { section: string }) {
 function TcDashboard({ section }: { section: string }) {
   switch (section) {
     case 'overview': return <TcOverview />
+    case 'property-verifications': return <PropertyVerifications />
+    case 'property-verify-detail': return <PropertyVerifyDetail />
+    case 'inventory-report-form': return <InventoryReportForm />
     case 'rental-files-queue': return <RentalFilesQueue />
     case 'owner-validations': return <OwnerValidations />
     case 'agency-validations': return <AgencyValidations />
+    case 'inventory-reports': return <InventoryReportsList />
     case 'sla-monitoring': return <SlaMonitoring />
     case 'notifications': return <Notifications />
     case 'history': return <ActivityHistory />

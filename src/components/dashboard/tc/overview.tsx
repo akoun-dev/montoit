@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { ClipboardCheck, BadgeCheck, Clock, AlertTriangle, FileText } from 'lucide-react'
+import { ClipboardCheck, BadgeCheck, Clock, AlertTriangle, FileText, Home } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
@@ -12,6 +13,7 @@ interface TcData {
   stats: {
     pendingRentalFiles: number
     pendingOwnershipDocs: number
+    pendingProperties: number
     totalReviewed: number
     overdueSlas: number
     slaCompliance: number
@@ -31,6 +33,7 @@ interface ApiTcResponse {
   stats?: {
     pendingRentalFiles?: number
     pendingOwnershipDocs?: number
+    pendingProperties?: number
     totalReviewed?: number
     overdueSlas?: number
     slaCompliance?: number
@@ -47,7 +50,7 @@ interface ApiTcResponse {
 }
 
 const defaultData: TcData = {
-  stats: { pendingRentalFiles: 0, pendingOwnershipDocs: 0, totalReviewed: 0, overdueSlas: 0, slaCompliance: 100 },
+  stats: { pendingRentalFiles: 0, pendingOwnershipDocs: 0, pendingProperties: 0, totalReviewed: 0, overdueSlas: 0, slaCompliance: 100 },
   pendingRentalFiles: [],
   pendingOwnershipDocs: [],
 }
@@ -56,7 +59,7 @@ const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transiti
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
 export function TcOverview() {
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const [data, setData] = useState<TcData>(defaultData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -68,9 +71,12 @@ export function TcOverview() {
     }
 
     try {
-      const d = await authFetch<ApiTcResponse>('/api/dashboard/tc')
+      const [d, pendingProps] = await Promise.all([
+        authFetch<ApiTcResponse>('/api/dashboard/tc'),
+        authFetch<{ pagination: { total: number } }>('/api/tc/verifications?limit=1'),
+      ])
       setData({
-        stats: { ...defaultData.stats, ...d.stats },
+        stats: { ...defaultData.stats, ...d.stats, pendingProperties: pendingProps.pagination?.total || 0 },
         pendingRentalFiles: d.pendingRentalFiles ?? [],
         pendingOwnershipDocs: d.pendingOwnershipDocs ?? [],
       })
@@ -106,9 +112,9 @@ export function TcOverview() {
   }
 
   const stats = [
+    { label: 'Biens à vérifier', value: data.stats.pendingProperties, icon: Home, color: 'text-brand-600 bg-brand-50', action: () => setDashboardSection('property-verifications') },
     { label: 'Dossiers en attente', value: data.stats.pendingRentalFiles, icon: ClipboardCheck, color: 'text-amber-600 bg-amber-50' },
-    { label: 'Docs propriétaire', value: data.stats.pendingOwnershipDocs, icon: BadgeCheck, color: 'text-blue-600 bg-blue-50' },
-    { label: 'SLA conformité', value: `${data.stats.slaCompliance}%`, icon: Clock, color: 'text-green-600 bg-green-50' },
+    { label: 'Docs propriétaire', value: data.stats.pendingOwnershipDocs, icon: BadgeCheck, color: 'text-emerald-600 bg-emerald-50' },
     { label: 'SLA en retard', value: data.stats.overdueSlas, icon: AlertTriangle, color: 'text-red-600 bg-red-50' },
   ]
 
@@ -123,7 +129,7 @@ export function TcOverview() {
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
-            <Card key={stat.label} className="border-border">
+            <Card key={stat.label} className={`border-border ${stat.action ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`} onClick={stat.action}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className={`flex size-10 items-center justify-center rounded-lg ${stat.color}`}>
@@ -139,6 +145,31 @@ export function TcOverview() {
           )
         })}
       </motion.div>
+
+      {/* Quick Action: Property Verifications */}
+      {data.stats.pendingProperties > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card className="border-brand-200 bg-brand-50/30">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-brand-500 text-white">
+                  <Home className="size-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{data.stats.pendingProperties} bien(s) en attente de vérification</p>
+                  <p className="text-xs text-muted-foreground">Ces annonces nécessitent votre validation avant publication</p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setDashboardSection('property-verifications')}
+                className="bg-brand-500 hover:bg-brand-600 text-white"
+              >
+                Vérifier
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Pending Rental Files */}
