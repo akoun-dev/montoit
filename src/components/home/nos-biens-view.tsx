@@ -35,15 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-  SheetClose,
-  SheetFooter,
-} from '@/components/ui/sheet'
+import { AnimatedSheet } from '@/components/ui/sheet'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -925,39 +917,43 @@ export function NosBiensView() {
             </div>
 
             {/* Mobile filter button */}
-            <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="lg:hidden text-neutral-600 border-neutral-200 hover:bg-neutral-50 h-11 rounded-xl text-xs shadow-sm"
-                >
-                  <SlidersHorizontal className="size-3.5 mr-1.5" />
+            <Button
+              variant="outline"
+              size="sm"
+              className="lg:hidden text-neutral-600 border-neutral-200 hover:bg-neutral-50 h-11 rounded-xl text-xs shadow-sm"
+              onClick={() => setMobileFiltersOpen(true)}
+            >
+              <SlidersHorizontal className="size-3.5 mr-1.5" />
+              Filtres
+              {hasActiveFilters && (
+                <span className="ml-1.5 size-4 rounded-full bg-brand-500 text-white text-[10px] flex items-center justify-center">!</span>
+              )}
+            </Button>
+
+            <AnimatedSheet
+              open={mobileFiltersOpen}
+              onOpenChange={setMobileFiltersOpen}
+              side="left"
+              className="w-[85vw] max-w-80"
+            >
+              <div className="p-4 border-b border-neutral-100">
+                <h2 className="font-semibold flex items-center gap-2">
+                  <SlidersHorizontal className="size-4 text-brand-500" />
                   Filtres
-                  {hasActiveFilters && (
-                    <span className="ml-1.5 size-4 rounded-full bg-brand-500 text-white text-[10px] flex items-center justify-center">!</span>
-                  )}
+                </h2>
+              </div>
+              <div className="px-4 py-6 overflow-y-auto max-h-[calc(100vh-120px)]">
+                <FilterSidebar {...filterSidebarProps} />
+              </div>
+              <div className="px-4 pb-4 mt-auto">
+                <Button
+                  className="w-full bg-brand-500 hover:bg-brand-600 text-white"
+                  onClick={() => setMobileFiltersOpen(false)}
+                >
+                  Voir {filteredProperties.length} résultat{filteredProperties.length !== 1 ? 's' : ''}
                 </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-[85vw] max-w-80">
-                <SheetHeader>
-                  <SheetTitle className="flex items-center gap-2">
-                    <SlidersHorizontal className="size-4 text-brand-500" />
-                    Filtres
-                  </SheetTitle>
-                </SheetHeader>
-                <div className="px-4 py-6 overflow-y-auto max-h-[calc(100vh-120px)]">
-                  <FilterSidebar {...filterSidebarProps} />
-                </div>
-                <SheetFooter className="px-4 pb-4">
-                  <SheetClose asChild>
-                    <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white">
-                      Voir {filteredProperties.length} résultat{filteredProperties.length !== 1 ? 's' : ''}
-                    </Button>
-                  </SheetClose>
-                </SheetFooter>
-              </SheetContent>
-            </Sheet>
+              </div>
+            </AnimatedSheet>
           </div>
 
           {/* Mobile-only: Sort + View toggle row */}

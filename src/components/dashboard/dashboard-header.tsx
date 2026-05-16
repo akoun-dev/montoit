@@ -2,18 +2,11 @@
 
 import { useState } from 'react'
 import { Bell, LogOut, Home, Menu } from 'lucide-react'
-import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetClose,
-} from '@/components/ui/sheet'
+import { AnimatedSheet } from '@/components/ui/sheet'
 import { useAuthStore } from '@/lib/auth-store'
 import { SidebarContent } from './sidebar'
 import { toast } from 'sonner'
@@ -27,6 +20,7 @@ export function DashboardHeader() {
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
 
   const handleLogout = async () => {
+    setMobileMenuOpen(false)
     await logout()
     toast.success('Déconnexion réussie')
   }
@@ -97,28 +91,27 @@ export function DashboardHeader() {
         </div>
       </header>
 
-      {/* ─── Mobile Sheet sidebar ──────────────────────────────────────── */}
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-72 p-0 flex flex-col">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Menu de navigation</SheetTitle>
-          </SheetHeader>
-          <SidebarContent onNavigate={() => setMobileMenuOpen(false)} />
+      {/* ─── Mobile Drawer sidebar (framer-motion powered) ──────────── */}
+      <AnimatedSheet
+        open={mobileMenuOpen}
+        onOpenChange={setMobileMenuOpen}
+        side="left"
+        className="w-72 p-0"
+        showCloseButton={false}
+      >
+        <SidebarContent onNavigate={() => setMobileMenuOpen(false)} />
 
-          {/* Bottom logout */}
-          <div className="border-t border-neutral-200 p-3 shrink-0">
-            <SheetClose asChild>
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 rounded-lg hover:bg-red-50 transition-colors text-left"
-              >
-                <LogOut className="size-5 shrink-0" />
-                <span>Déconnexion</span>
-              </button>
-            </SheetClose>
-          </div>
-        </SheetContent>
-      </Sheet>
+        {/* Bottom logout */}
+        <div className="border-t border-neutral-200 p-3 shrink-0 mt-auto">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 rounded-lg hover:bg-red-50 transition-colors text-left"
+          >
+            <LogOut className="size-5 shrink-0" />
+            <span>Déconnexion</span>
+          </button>
+        </div>
+      </AnimatedSheet>
     </>
   )
 }

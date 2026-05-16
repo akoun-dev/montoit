@@ -43,14 +43,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-  SheetClose,
-} from '@/components/ui/sheet'
+import { AnimatedSheet } from '@/components/ui/sheet'
 import { useAuthStore, type AppView, type AuthUser } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 
@@ -344,181 +337,171 @@ export function Header() {
 
         {/* ─── Mobile Hamburger ─────────────────────────────────────────── */}
         <div className="lg:hidden">
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Menu">
-                <Menu className="size-5" />
-              </Button>
-            </SheetTrigger>
+          <Button variant="ghost" size="icon" aria-label="Menu" onClick={() => setOpen(true)}>
+            <Menu className="size-5" />
+          </Button>
 
-            <SheetContent side="right" className="w-80 p-0 flex flex-col">
-              {isAuthenticated && user ? (
-                /* ── AUTHENTICATED: profile card + role menu ── */
-                <>
-                  {/* Profile header */}
-                  <div className="px-5 pt-5 pb-4 bg-gradient-to-br from-brand-50 to-white border-b border-neutral-100">
-                    <SheetHeader className="p-0 mb-3">
-                      <SheetTitle className="flex items-center gap-2.5">
-                        <Avatar className="h-11 w-11 border-2 border-brand-300">
-                          <AvatarFallback className="bg-brand-500 text-white text-base font-bold">
-                            {`${user.firstName[0]}${user.lastName[0]}`.toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0 text-left">
-                          <p className="text-sm font-bold text-neutral-900 truncate">
-                            {user.firstName} {user.lastName}
-                          </p>
-                          <p className="text-xs text-neutral-500 truncate">
-                            {user.email || user.phone}
-                          </p>
-                        </div>
-                      </SheetTitle>
-                    </SheetHeader>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        'text-[11px] font-semibold px-2.5 py-0.5 h-6 border',
-                        getRoleBadgeStyle(user.role)
-                      )}
-                    >
-                      {getRoleLabel(user.role)}
-                    </Badge>
-                  </div>
-
-                  {/* Scrollable menu sections */}
-                  <ScrollArea className="flex-1">
-                    <div className="py-2">
-                      {groupedItems.map((group, gIdx) => (
-                        <div key={gIdx} className={gIdx > 0 ? 'mt-1' : ''}>
-                          {/* Group label */}
-                          {group.group && (
-                            <p className="px-5 pt-3 pb-1 text-[10px] font-bold tracking-widest text-neutral-400 uppercase">
-                              {group.group}
-                            </p>
-                          )}
-                          {/* Group items */}
-                          <ul className="px-3 space-y-0.5">
-                            {group.items.map((item) => {
-                              const Icon = item.icon
-                              return (
-                                <li key={item.id}>
-                                  <SheetClose asChild>
-                                    <button
-                                      onClick={() => handleMobileDashboardItem(item.section)}
-                                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-neutral-700 rounded-lg hover:bg-brand-50 hover:text-brand-700 transition-colors text-left group"
-                                    >
-                                      <Icon className="size-[18px] text-neutral-400 group-hover:text-brand-500 shrink-0 transition-colors" />
-                                      <span className="flex-1">{item.label}</span>
-                                      <ChevronRight className="size-3.5 text-neutral-300 group-hover:text-brand-400 shrink-0 transition-colors" />
-                                    </button>
-                                  </SheetClose>
-                                </li>
-                              )
-                            })}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-
-                  {/* Bottom: public nav + logout */}
-                  <div className="border-t border-neutral-100 bg-neutral-50/80">
-                    {/* Quick public nav */}
-                    <div className="px-3 py-2 flex gap-1">
-                      {navLinks.map((link) => {
-                        const Icon = link.icon
-                        const isActive = currentView === link.view
-                        return (
-                          <SheetClose asChild key={link.label}>
-                            <button
-                              onClick={() => handleNavClick(link.view)}
-                              className={cn(
-                                'flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-medium transition-colors',
-                                isActive
-                                  ? 'text-brand-600 bg-brand-50'
-                                  : 'text-neutral-500 hover:text-brand-600 hover:bg-brand-50'
-                              )}
-                            >
-                              <Icon className="size-4" />
-                              {link.label}
-                            </button>
-                          </SheetClose>
-                        )
-                      })}
-                    </div>
-
-                    <Separator />
-
-                    {/* Logout */}
-                    <div className="px-3 py-2">
-                      <SheetClose asChild>
-                        <button
-                          onClick={handleLogout}
-                          className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 rounded-lg hover:bg-red-50 transition-colors text-left"
-                        >
-                          <LogOut className="size-[18px] shrink-0" />
-                          <span>Déconnexion</span>
-                        </button>
-                      </SheetClose>
+          <AnimatedSheet
+            open={open}
+            onOpenChange={setOpen}
+            side="right"
+            className="w-80 p-0"
+            showCloseButton={false}
+          >
+            {isAuthenticated && user ? (
+              /* ── AUTHENTICATED: profile card + role menu ── */
+              <>
+                {/* Profile header */}
+                <div className="px-5 pt-5 pb-4 bg-gradient-to-br from-brand-50 to-white border-b border-neutral-100">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <Avatar className="h-11 w-11 border-2 border-brand-300">
+                      <AvatarFallback className="bg-brand-500 text-white text-base font-bold">
+                        {`${user.firstName[0]}${user.lastName[0]}`.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-sm font-bold text-neutral-900 truncate">
+                        {user.firstName} {user.lastName}
+                      </p>
+                      <p className="text-xs text-neutral-500 truncate">
+                        {user.email || user.phone}
+                      </p>
                     </div>
                   </div>
-                </>
-              ) : (
-                /* ── NOT AUTHENTICATED: classic nav + login ── */
-                <>
-                  <SheetHeader className="px-4 pt-4">
-                    <SheetTitle className="flex items-center gap-2">
-                      <Image
-                        src="/favicon-96x96.png"
-                        alt="Mon Toit"
-                        width={24}
-                        height={24}
-                        className="shrink-0"
-                      />
-                      <span className="text-brand-500 font-bold">MON TOIT</span>
-                    </SheetTitle>
-                  </SheetHeader>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'text-[11px] font-semibold px-2.5 py-0.5 h-6 border',
+                      getRoleBadgeStyle(user.role)
+                    )}
+                  >
+                    {getRoleLabel(user.role)}
+                  </Badge>
+                </div>
 
-                  <nav className="flex flex-col gap-1 px-4 pt-2">
+                {/* Scrollable menu sections */}
+                <ScrollArea className="flex-1">
+                  <div className="py-2">
+                    {groupedItems.map((group, gIdx) => (
+                      <div key={gIdx} className={gIdx > 0 ? 'mt-1' : ''}>
+                        {/* Group label */}
+                        {group.group && (
+                          <p className="px-5 pt-3 pb-1 text-[10px] font-bold tracking-widest text-neutral-400 uppercase">
+                            {group.group}
+                          </p>
+                        )}
+                        {/* Group items */}
+                        <ul className="px-3 space-y-0.5">
+                          {group.items.map((item) => {
+                            const Icon = item.icon
+                            return (
+                              <li key={item.id}>
+                                <button
+                                  onClick={() => handleMobileDashboardItem(item.section)}
+                                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-neutral-700 rounded-lg hover:bg-brand-50 hover:text-brand-700 transition-colors text-left group"
+                                >
+                                  <Icon className="size-[18px] text-neutral-400 group-hover:text-brand-500 shrink-0 transition-colors" />
+                                  <span className="flex-1">{item.label}</span>
+                                  <ChevronRight className="size-3.5 text-neutral-300 group-hover:text-brand-400 shrink-0 transition-colors" />
+                                </button>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+
+                {/* Bottom: public nav + logout */}
+                <div className="border-t border-neutral-100 bg-neutral-50/80">
+                  {/* Quick public nav */}
+                  <div className="px-3 py-2 flex gap-1">
                     {navLinks.map((link) => {
                       const Icon = link.icon
                       const isActive = currentView === link.view
                       return (
-                        <SheetClose asChild key={link.label}>
-                          <button
-                            onClick={() => handleNavClick(link.view)}
-                            className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-colors text-left ${
-                              isActive
-                                ? 'text-brand-500 bg-brand-50'
-                                : 'text-neutral-700 hover:text-brand-500 hover:bg-brand-50'
-                            }`}
-                          >
-                            <Icon className="size-4" />
-                            {link.label}
-                          </button>
-                        </SheetClose>
+                        <button
+                          key={link.label}
+                          onClick={() => handleNavClick(link.view)}
+                          className={cn(
+                            'flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] font-medium transition-colors',
+                            isActive
+                              ? 'text-brand-600 bg-brand-50'
+                              : 'text-neutral-500 hover:text-brand-600 hover:bg-brand-50'
+                          )}
+                        >
+                          <Icon className="size-4" />
+                          {link.label}
+                        </button>
                       )
                     })}
-                  </nav>
-
-                  <div className="px-4 mt-4 pt-4 border-t border-neutral-200">
-                    <div className="flex flex-col gap-2">
-                      <SheetClose asChild>
-                        <Button variant="outline" className="w-full" onClick={handleLogin}>
-                          Se connecter
-                        </Button>
-                      </SheetClose>
-                      <SheetClose asChild>
-                        <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white" onClick={handleLogin}>
-                          S&apos;inscrire
-                        </Button>
-                      </SheetClose>
-                    </div>
                   </div>
-                </>
-              )}
-            </SheetContent>
-          </Sheet>
+
+                  <Separator />
+
+                  {/* Logout */}
+                  <div className="px-3 py-2">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 rounded-lg hover:bg-red-50 transition-colors text-left"
+                    >
+                      <LogOut className="size-[18px] shrink-0" />
+                      <span>Déconnexion</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* ── NOT AUTHENTICATED: classic nav + login ── */
+              <>
+                <div className="px-4 pt-4">
+                  <div className="flex items-center gap-2">
+                    <Image
+                      src="/favicon-96x96.png"
+                      alt="Mon Toit"
+                      width={24}
+                      height={24}
+                      className="shrink-0"
+                    />
+                    <span className="text-brand-500 font-bold text-lg">MON TOIT</span>
+                  </div>
+                </div>
+
+                <nav className="flex flex-col gap-1 px-4 pt-2">
+                  {navLinks.map((link) => {
+                    const Icon = link.icon
+                    const isActive = currentView === link.view
+                    return (
+                      <button
+                        key={link.label}
+                        onClick={() => handleNavClick(link.view)}
+                        className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-colors text-left ${
+                          isActive
+                            ? 'text-brand-500 bg-brand-50'
+                            : 'text-neutral-700 hover:text-brand-500 hover:bg-brand-50'
+                        }`}
+                      >
+                        <Icon className="size-4" />
+                        {link.label}
+                      </button>
+                    )
+                  })}
+                </nav>
+
+                <div className="px-4 mt-4 pt-4 border-t border-neutral-200">
+                  <div className="flex flex-col gap-2">
+                    <Button variant="outline" className="w-full" onClick={handleLogin}>
+                      Se connecter
+                    </Button>
+                    <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white" onClick={handleLogin}>
+                      S&apos;inscrire
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </AnimatedSheet>
         </div>
       </div>
     </header>
