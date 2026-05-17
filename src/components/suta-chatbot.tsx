@@ -154,12 +154,12 @@ export function SutaChatbot() {
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 20 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#FF6C2F] shadow-lg hover:shadow-xl transition-shadow sm:bottom-6 sm:right-6"
+            className="fixed bottom-4 right-4 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-[#FF6C2F] p-1 shadow-lg shadow-[#FF6C2F]/30 hover:shadow-xl hover:shadow-[#FF6C2F]/40 transition-shadow sm:bottom-6 sm:right-6"
             aria-label="Ouvrir le chat SUTA"
           >
-            <div className="relative h-10 w-10">
+            <div className="relative h-full w-full">
               <img
-                src="/suta-icon.png"
+                src="/suta-avatar.jpg"
                 alt="SUTA"
                 className="h-full w-full rounded-full object-cover"
               />
