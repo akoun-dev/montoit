@@ -155,6 +155,7 @@ export function RentalFilesQueue() {
     open: boolean
     url: string
     name: string
+    type?: string
   }>({ open: false, url: '', name: '' })
 
   // ─── Fetch ──────────────────────────────────────────────────────────────
@@ -259,7 +260,7 @@ export function RentalFilesQueue() {
   // ─── Document preview ──────────────────────────────────────────────────
 
   const openDocPreview = (doc: RentalFile['documents'][0]) => {
-    setPreviewDoc({ open: true, url: doc.url, name: doc.name })
+    setPreviewDoc({ open: true, url: doc.url, name: doc.name, type: doc.type })
   }
 
   // ─── Filtered files (client-side search fallback) ─────────────────────
@@ -360,7 +361,7 @@ export function RentalFilesQueue() {
         </Card>
       ) : viewMode === 'card' ? (
         /* ─── Card View ──────────────────────────────────────────────── */
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           <AnimatePresence mode="popLayout">
             {displayedFiles.map((rf) => (
               <motion.div
@@ -781,8 +782,7 @@ export function RentalFilesQueue() {
       <DocumentPreviewDialog
         open={previewDoc.open}
         onOpenChange={(open) => setPreviewDoc((prev) => ({ ...prev, open }))}
-        documentUrl={previewDoc.url}
-        documentName={previewDoc.name}
+        document={{ url: previewDoc.url, name: previewDoc.name, type: previewDoc.type }}
       />
     </motion.div>
   )

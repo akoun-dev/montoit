@@ -14,7 +14,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    const [pendingRentalFiles, pendingOwnershipDocs, slas, pendingProperties] = await Promise.all([
+    const [
+      pendingRentalFiles,
+      pendingOwnershipDocs,
+      slas,
+      pendingProperties,
+      pendingAgencyDocs,
+      pendingOwnerDocs,
+      submittedRentalCount,
+      tcReviewRentalCount,
+      recentActivities,
+    ] = await Promise.all([
       db.rentalFile.findMany({
         where: { status: { in: ['SUBMITTED', 'TC_REVIEW'] } },
         include: {
@@ -38,6 +48,39 @@ export async function GET(req: NextRequest) {
       db.property.count({
         where: { status: 'PENDING_VERIFICATION' },
       }),
+      // Agency-specific docs: AGREMENT or RCCM with PENDING status
+      db.ownershipDocument.count({
+        where: {
+          status: 'PENDING',
+          type: { in: ['AGREMENT', 'RCCM'] },
+        },
+      }),
+      // Owner-specific docs: TITRE_FONCIER, ACTE_NOTARIE, ATTESTATION_PROPRIETE with PENDING status
+      db.ownershipDocument.count({
+        where: {
+          status: 'PENDING',
+          type: { in: ['TITRE_FONCIER', 'ACTE_NOTARIE', 'ATTESTATION_PROPRIETE'] },
+        },
+      }),
+      // Rental files broken down by status: SUBMITTED
+      db.rentalFile.count({
+        where: { status: 'SUBMITTED' },
+      }),
+      // Rental files broken down by status: TC_REVIEW
+      db.rentalFile.count({
+        where: { status: 'TC_REVIEW' },
+      }),
+      // Recent activities: 5 most recent audit logs for this TC user
+      db.auditLog.findMany({
+        where: { userId },
+        select: {
+          entity: true,
+          action: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
     ])
 
     const totalReviewed = await db.rentalFile.count({
@@ -57,7 +100,17 @@ export async function GET(req: NextRequest) {
         totalReviewed,
         overdueSlas: overdueSlas.length,
         slaCompliance: totalReviewed > 0 ? Math.round(((totalReviewed - overdueSlas.length) / totalReviewed) * 100) : 100,
+        // New: agency-specific document counts
+        pendingAgencyDocs,
+        pendingOwnerDocs,
+        // New: rental file breakdown by status
+        rentalFilesByStatus: {
+          SUBMITTED: submittedRentalCount,
+          TC_REVIEW: tcReviewRentalCount,
+        },
       },
+      // New: recent audit log activities for this TC user
+      recentActivities,
     })
   } catch (error) {
     console.error('TC dashboard error:', error)

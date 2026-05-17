@@ -517,15 +517,16 @@ export function OwnerValidations() {
                 transition={{ duration: 0.2 }}
               >
                 <Card className="border-border overflow-hidden">
+                  <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Propriétaire</TableHead>
-                        <TableHead>Contact</TableHead>
+                        <TableHead className="hidden md:table-cell">Contact</TableHead>
                         <TableHead>Document</TableHead>
-                        <TableHead>Type</TableHead>
+                        <TableHead className="hidden sm:table-cell">Type</TableHead>
                         <TableHead>Statut</TableHead>
-                        <TableHead>Date</TableHead>
+                        <TableHead className="hidden lg:table-cell">Date</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -546,20 +547,20 @@ export function OwnerValidations() {
                                   {doc.owner.lastName[0]}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="font-medium text-sm">
+                              <span className="font-medium text-sm truncate">
                                 {doc.owner.firstName} {doc.owner.lastName}
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden md:table-cell">
                             <div className="text-xs text-muted-foreground space-y-0.5">
                               <div className="flex items-center gap-1">
                                 <Phone className="size-3" />
-                                {doc.owner.phone}
+                                <span className="truncate">{doc.owner.phone}</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 <Mail className="size-3" />
-                                {doc.owner.email}
+                                <span className="truncate">{doc.owner.email}</span>
                               </div>
                             </div>
                           </TableCell>
@@ -574,7 +575,7 @@ export function OwnerValidations() {
                               </span>
                             </button>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden sm:table-cell">
                             <Badge
                               variant="outline"
                               className={`text-xs ${TYPE_COLORS[doc.type]}`}
@@ -590,7 +591,7 @@ export function OwnerValidations() {
                               {STATUS_CONFIG[doc.status].label}
                             </Badge>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden lg:table-cell">
                             <span className="text-xs text-muted-foreground">
                               {new Date(doc.createdAt).toLocaleDateString('fr-FR')}
                             </span>
@@ -643,6 +644,7 @@ export function OwnerValidations() {
                       ))}
                     </TableBody>
                   </Table>
+                  </div>
                 </Card>
               </motion.div>
             )}

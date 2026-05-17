@@ -125,7 +125,7 @@ export function AgencyValidations() {
 
       {/* Search + View Toggle */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Rechercher une agence..."
@@ -146,7 +146,7 @@ export function AgencyValidations() {
           </CardContent>
         </Card>
       ) : viewMode === 'card' ? (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
           {filteredDocs.map((doc) => (
             <Card key={doc.id} className="border-border">
               <CardContent className="p-5">
@@ -155,8 +155,8 @@ export function AgencyValidations() {
                     <Building2 className="size-5 text-brand-500" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-foreground">{doc.owner.firstName} {doc.owner.lastName}</h3>
-                    <p className="text-sm text-muted-foreground">{doc.owner.phone}</p>
+                    <h3 className="font-semibold text-foreground truncate">{doc.owner.firstName} {doc.owner.lastName}</h3>
+                    <p className="text-sm text-muted-foreground truncate">{doc.owner.phone}</p>
                   </div>
                   <Badge variant="outline" className="text-xs">
                     {doc.type === 'AGREMENT' ? 'Agrément' : 'RCCM'}
@@ -214,8 +214,8 @@ export function AgencyValidations() {
                 <tr className="bg-muted/50 border-b border-border">
                   <th className="px-4 py-3 text-left text-xs font-bold text-foreground">Agence</th>
                   <th className="px-4 py-3 text-left text-xs font-bold text-foreground">Document</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-foreground">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-foreground">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-foreground hidden sm:table-cell">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold text-foreground hidden md:table-cell">Date</th>
                   <th className="px-4 py-3 text-right text-xs font-bold text-foreground">Actions</th>
                 </tr>
               </thead>
@@ -223,20 +223,20 @@ export function AgencyValidations() {
                 {filteredDocs.map((doc) => (
                   <tr key={doc.id} className="border-b border-border hover:bg-muted/30">
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-foreground">{doc.owner.firstName} {doc.owner.lastName}</p>
-                      <p className="text-xs text-muted-foreground">{doc.owner.phone}</p>
+                      <p className="text-sm font-medium text-foreground truncate max-w-[140px]">{doc.owner.firstName} {doc.owner.lastName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{doc.owner.phone}</p>
                     </td>
                     <td className="px-4 py-3">
                       <button onClick={() => openPreview(doc)} className="text-sm text-brand-600 hover:underline">
                         {doc.name}
                       </button>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden sm:table-cell">
                       <Badge variant="outline" className="text-xs">
                         {doc.type === 'AGREMENT' ? 'Agrément' : 'RCCM'}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                    <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">
                       {new Date(doc.createdAt).toLocaleDateString('fr-FR')}
                     </td>
                     <td className="px-4 py-3">

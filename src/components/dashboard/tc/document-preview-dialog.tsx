@@ -89,7 +89,7 @@ export function DocumentPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-4xl max-w-[95vw] max-h-[90vh] flex flex-col">
         <DialogHeader className="shrink-0">
           <div className="flex items-center gap-2">
             <DialogTitle className="flex items-center gap-2">
@@ -109,17 +109,17 @@ export function DocumentPreviewDialog({
 
         <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-border bg-muted/30">
           {isImage ? (
-            <div className="flex items-center justify-center p-4 max-h-[65vh] overflow-auto">
+            <div className="flex items-center justify-center p-2 sm:p-4 max-h-[55vh] sm:max-h-[65vh] overflow-auto">
               <img
                 src={url}
                 alt={name}
-                className="max-w-full max-h-[60vh] object-contain rounded"
+                className="max-w-full max-h-[50vh] sm:max-h-[60vh] object-contain rounded"
               />
             </div>
           ) : isPdf ? (
             <iframe
               src={url}
-              className="w-full h-[65vh] rounded"
+              className="w-full h-[50vh] sm:h-[65vh] rounded"
               title={name}
             />
           ) : (

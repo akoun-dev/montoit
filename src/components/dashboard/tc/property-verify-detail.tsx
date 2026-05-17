@@ -36,6 +36,8 @@ interface PropertyDetail {
   hasClimate?: boolean
   isFurnished?: boolean
   amenities: string
+  status: string
+  isVerified: boolean
   owner: {
     id: string
     firstName: string
@@ -48,11 +50,24 @@ interface PropertyDetail {
 
 const typeLabels: Record<string, string> = {
   APARTMENT: 'Appartement',
+  APPARTEMENT: 'Appartement',
   HOUSE: 'Maison',
+  MAISON: 'Maison',
   STUDIO: 'Studio',
   VILLA: 'Villa',
+  DUPLEX: 'Duplex',
+  PENTHOUSE: 'Penthouse',
   COMMERCIAL: 'Local commercial',
   LAND: 'Terrain',
+}
+
+const statusLabels: Record<string, { label: string; className: string }> = {
+  DRAFT: { label: 'Brouillon', className: 'bg-gray-100 text-gray-700' },
+  PENDING_VERIFICATION: { label: 'En attente de vérification', className: 'bg-amber-100 text-amber-700' },
+  ACTIVE: { label: 'Actif', className: 'bg-green-100 text-green-700' },
+  SUSPENDED: { label: 'Suspendu', className: 'bg-red-100 text-red-700' },
+  CLOSED: { label: 'Fermé', className: 'bg-gray-100 text-gray-500' },
+  RENTED: { label: 'Loué', className: 'bg-emerald-100 text-emerald-700' },
 }
 
 const featureIcons: Record<string, React.ElementType> = {
@@ -67,6 +82,7 @@ export function PropertyVerifyDetail() {
   const { isAuthenticated, selectedItemId, setDashboardSection, setSelectedItemId, setSelectedPropertyId } = useAuthStore()
   const [property, setProperty] = useState<PropertyDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
   const [currentImage, setCurrentImage] = useState(0)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
   const [rejectComment, setRejectComment] = useState('')
@@ -78,40 +94,54 @@ export function PropertyVerifyDetail() {
   }
 
   const goToInventoryForm = () => {
-    setSelectedPropertyId(selectedItemId) // Pass property ID for new report
-    setSelectedItemId('') // Clear selectedItemId so form knows it's a new report
+    setSelectedPropertyId(selectedItemId)
+    setSelectedItemId('')
     setDashboardSection('inventory-report-form')
   }
 
   const fetchProperty = useCallback(async () => {
     if (!isAuthenticated || !selectedItemId) {
       setLoading(false)
+      setNotFound(true)
       return
     }
 
+    setLoading(true)
+    setNotFound(false)
+
     try {
+      // Primary: fetch via TC verifications API (works for any property status)
       const d = await authFetch<{ property: PropertyDetail }>(`/api/tc/verifications?propertyId=${selectedItemId}`)
-      setProperty(d.property || null)
-    } catch (err) {
-      if (err instanceof AuthError && err.status === 401) {
-        setProperty(null)
+      if (d.property) {
+        setProperty(d.property)
         return
       }
-      // Fallback via properties API — works for any property status when user is TC
-      try {
-        const d2 = await authFetch<{ property: PropertyDetail }>(`/api/properties/${selectedItemId}`)
-        setProperty(d2.property || null)
-      } catch {
-        setProperty(null)
-      }
-    } finally {
-      setLoading(false)
+    } catch {
+      // Primary failed, try fallback
     }
+
+    try {
+      // Fallback: properties API (also handles TC role access for non-ACTIVE properties)
+      const d2 = await authFetch<{ property: PropertyDetail }>(`/api/properties/${selectedItemId}`)
+      if (d2.property) {
+        setProperty(d2.property)
+        return
+      }
+    } catch {
+      // Fallback also failed
+    }
+
+    setNotFound(true)
+    setProperty(null)
   }, [isAuthenticated, selectedItemId])
 
   useEffect(() => {
     fetchProperty()
   }, [fetchProperty])
+
+  useEffect(() => {
+    if (!loading) setLoading(false)
+  }, [loading])
 
   const handleApprove = async () => {
     if (!selectedItemId) return
@@ -169,7 +199,7 @@ export function PropertyVerifyDetail() {
     )
   }
 
-  if (!property) {
+  if (notFound || !property) {
     return (
       <div className="space-y-6">
         <Button variant="ghost" onClick={goBack} className="gap-2">
@@ -178,12 +208,21 @@ export function PropertyVerifyDetail() {
         <Card className="border-border">
           <CardContent className="py-12 text-center">
             <Building2 className="size-12 text-muted-foreground/50 mx-auto mb-4" />
-            <p className="text-muted-foreground">Bien introuvable</p>
+            <p className="text-muted-foreground font-medium">Bien introuvable</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Ce bien n&apos;existe pas ou vous n&apos;avez pas les droits pour le consulter.
+            </p>
+            <Button variant="outline" className="mt-4 gap-2" onClick={goBack}>
+              <ArrowLeft className="size-4" /> Retour aux vérifications
+            </Button>
           </CardContent>
         </Card>
       </div>
     )
   }
+
+  const isPendingVerification = property.status === 'PENDING_VERIFICATION'
+  const statusInfo = statusLabels[property.status] || { label: property.status, className: 'bg-gray-100 text-gray-700' }
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -194,7 +233,7 @@ export function PropertyVerifyDetail() {
 
       {/* Image Gallery */}
       <Card className="border-border overflow-hidden">
-        <div className="relative h-64 sm:h-80 bg-muted">
+        <div className="relative h-48 sm:h-64 md:h-80 bg-muted">
           {property.images && property.images.length > 0 ? (
             <>
               <img
@@ -240,9 +279,14 @@ export function PropertyVerifyDetail() {
               <Building2 className="size-16 text-muted-foreground/30" />
             </div>
           )}
-          <Badge className="absolute top-3 left-3 bg-brand-500 text-white">
-            {typeLabels[property.type] || property.type}
-          </Badge>
+          <div className="absolute top-3 left-3 flex items-center gap-2">
+            <Badge className="bg-brand-500 text-white">
+              {typeLabels[property.type] || property.type}
+            </Badge>
+            <Badge className={statusInfo.className}>
+              {statusInfo.label}
+            </Badge>
+          </div>
         </div>
       </Card>
 
@@ -252,7 +296,7 @@ export function PropertyVerifyDetail() {
           {/* Property details */}
           <Card className="border-border">
             <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div>
                   <CardTitle className="text-xl font-bold text-foreground">{property.title}</CardTitle>
                   <div className="flex items-center gap-1 mt-1">
@@ -260,15 +304,15 @@ export function PropertyVerifyDetail() {
                     <span className="text-sm text-muted-foreground">{property.commune} — {property.address}</span>
                   </div>
                 </div>
-                <p className="text-2xl font-bold text-brand-500">
+                <p className="text-2xl font-bold text-brand-500 shrink-0">
                   {property.price.toLocaleString('fr-FR')} <span className="text-sm font-normal text-muted-foreground">FCFA/mois</span>
                 </p>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Quick stats */}
-              <div className="flex flex-wrap gap-4">
-                {property.area && (
+              <div className="flex flex-wrap gap-3 sm:gap-4">
+                {property.area > 0 && (
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Ruler className="size-4 text-brand-500" />
                     {property.area} m²
@@ -369,21 +413,31 @@ export function PropertyVerifyDetail() {
           {/* Action buttons */}
           <Card className="border-border">
             <CardContent className="p-4 space-y-3">
-              <Button
-                className="w-full bg-green-600 hover:bg-green-700 text-white gap-2"
-                onClick={handleApprove}
-                disabled={actionLoading}
-              >
-                <Check className="size-4" /> Approuver le bien
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full text-red-600 border-red-200 hover:bg-red-50 gap-2"
-                onClick={() => setShowRejectDialog(true)}
-                disabled={actionLoading}
-              >
-                <X className="size-4" /> Rejeter
-              </Button>
+              {isPendingVerification ? (
+                <>
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700 text-white gap-2"
+                    onClick={handleApprove}
+                    disabled={actionLoading}
+                  >
+                    <Check className="size-4" /> Approuver le bien
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full text-red-600 border-red-200 hover:bg-red-50 gap-2"
+                    onClick={() => setShowRejectDialog(true)}
+                    disabled={actionLoading}
+                  >
+                    <X className="size-4" /> Rejeter
+                  </Button>
+                </>
+              ) : (
+                <div className="p-3 rounded-lg bg-muted/50 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    Ce bien a déjà été traité ({statusInfo.label})
+                  </p>
+                </div>
+              )}
               <div className="pt-2 border-t border-border">
                 <Button
                   className="w-full bg-brand-500 hover:bg-brand-600 text-white gap-2"

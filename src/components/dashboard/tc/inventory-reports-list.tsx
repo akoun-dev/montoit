@@ -582,15 +582,16 @@ export function InventoryReportsList() {
               transition={{ duration: 0.2 }}
             >
               <Card className="border-border overflow-hidden">
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50 hover:bg-muted/50">
                       <TableHead className="text-xs font-bold">Bien</TableHead>
-                      <TableHead className="text-xs font-bold">Type</TableHead>
+                      <TableHead className="text-xs font-bold hidden sm:table-cell">Type</TableHead>
                       <TableHead className="text-xs font-bold">Statut</TableHead>
-                      <TableHead className="text-xs font-bold">Date</TableHead>
-                      <TableHead className="text-xs font-bold text-center">Éléments</TableHead>
-                      <TableHead className="text-xs font-bold text-center">Clés</TableHead>
+                      <TableHead className="text-xs font-bold hidden md:table-cell">Date</TableHead>
+                      <TableHead className="text-xs font-bold text-center hidden md:table-cell">Éléments</TableHead>
+                      <TableHead className="text-xs font-bold text-center hidden lg:table-cell">Clés</TableHead>
                       <TableHead className="text-xs font-bold text-right">Action</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -623,7 +624,7 @@ export function InventoryReportsList() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden sm:table-cell">
                             <Badge variant="outline" className="text-[11px]">
                               {typeLabels[report.type] || report.type}
                             </Badge>
@@ -634,13 +635,13 @@ export function InventoryReportsList() {
                               {config.label}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap hidden md:table-cell">
                             {formatDate(report.createdAt)}
                           </TableCell>
-                          <TableCell className="text-center text-xs text-muted-foreground">
+                          <TableCell className="text-center text-xs text-muted-foreground hidden md:table-cell">
                             {report.items?.length || 0}
                           </TableCell>
-                          <TableCell className="text-center text-xs text-muted-foreground">
+                          <TableCell className="text-center text-xs text-muted-foreground hidden lg:table-cell">
                             {report.totalKeys != null && report.totalKeys > 0 ? (
                               <span className="flex items-center justify-center gap-1">
                                 <Key className="size-3" />
@@ -679,6 +680,7 @@ export function InventoryReportsList() {
                     })}
                   </TableBody>
                 </Table>
+                </div>
               </Card>
             </motion.div>
           )}

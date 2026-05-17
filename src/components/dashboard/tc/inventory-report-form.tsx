@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Save, CheckCircle2, FileText, Building2, Key } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle2, FileText, Building2, Key, Info } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -33,6 +33,15 @@ const ROOM_COLUMNS = [
   'SALLE D\'EAU AUTRES CHAMBRES',
   'AUTRE PIÈCE',
   'AUTRE PIÈCE',
+] as const
+
+// Shorter labels for mobile
+const ROOM_COLUMNS_SHORT = [
+  'Cuisine',
+  'SdB princ.',
+  'SdB autres',
+  'Autre pièce 1',
+  'Autre pièce 2',
 ] as const
 
 type Condition = 'BON' | 'MAUVAIS' | null
@@ -125,13 +134,9 @@ export function InventoryReportForm() {
   const [existingReport, setExistingReport] = useState<ExistingReport | null>(null)
   const [reportId, setReportId] = useState<string | null>(null)
   const [leaseId, setLeaseId] = useState('')
-  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
 
-  // Determine if we're editing an existing report or creating new
-  // selectedItemId could be a reportId (from inventory-reports-list) or a propertyId (from property-verify-detail)
-  // We use selectedPropertyId to know the property context
   const effectivePropertyId = selectedPropertyId || selectedItemId
 
   const goBack = () => {
@@ -156,7 +161,6 @@ export function InventoryReportForm() {
         const value = item[roomFields[cIdx]]
 
         if (isKeyRow && value) {
-          // Parse key count from string like "3 clé(s)"
           const numMatch = value.match(/(\d+)/)
           newGrid[rowIdx][colIdx] = {
             ...defaultCellState(),
@@ -187,11 +191,10 @@ export function InventoryReportForm() {
     }
 
     const loadData = async () => {
-      // First, try to load as an existing report
+      // Try to load as an existing report
       try {
         const d = await authFetch<{ reports: ExistingReport[] }>(`/api/tc/inventory-reports?propertyId=${selectedItemId}`)
         if (d.reports && d.reports.length > 0) {
-          // Check if selectedItemId matches a report ID
           const match = d.reports.find((r: ExistingReport) => r.id === selectedItemId)
           if (match) {
             setExistingReport(match)
@@ -209,7 +212,7 @@ export function InventoryReportForm() {
           }
         }
       } catch {
-        // Not a report lookup, continue
+        // Continue
       }
 
       // Try to load by report ID directly
@@ -314,7 +317,6 @@ export function InventoryReportForm() {
     setSaving(true)
     try {
       if (reportId) {
-        // Update existing report
         await authFetch('/api/tc/inventory-reports', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -327,7 +329,6 @@ export function InventoryReportForm() {
           }),
         })
       } else {
-        // Create new report
         await authFetch('/api/tc/inventory-reports', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -370,7 +371,6 @@ export function InventoryReportForm() {
     setSaving(true)
     try {
       if (reportId) {
-        // Update existing report and set to COMPLETED
         await authFetch('/api/tc/inventory-reports', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -383,7 +383,6 @@ export function InventoryReportForm() {
           }),
         })
       } else {
-        // Create new report as COMPLETED
         await authFetch('/api/tc/inventory-reports', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -448,24 +447,24 @@ export function InventoryReportForm() {
               <button
                 onClick={() => setInventoryType('INVENTORY_ENTRANCE')}
                 className={cn(
-                  'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                  'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                   inventoryType === 'INVENTORY_ENTRANCE'
                     ? 'bg-brand-500 text-white'
                     : 'bg-muted text-muted-foreground hover:bg-muted/80'
                 )}
               >
-                Entrée des lieux
+                Entrée
               </button>
               <button
                 onClick={() => setInventoryType('INVENTORY_EXIT')}
                 className={cn(
-                  'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+                  'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                   inventoryType === 'INVENTORY_EXIT'
                     ? 'bg-brand-500 text-white'
                     : 'bg-muted text-muted-foreground hover:bg-muted/80'
                 )}
               >
-                Sortie des lieux
+                Sortie
               </button>
             </div>
           </div>
@@ -483,29 +482,37 @@ export function InventoryReportForm() {
         </CardHeader>
       </Card>
 
+      {/* Mobile hint */}
+      <div className="sm:hidden flex items-center gap-2 px-1 text-xs text-muted-foreground">
+        <Info className="size-3.5 shrink-0" />
+        Faites défiler horizontalement pour voir toutes les colonnes
+      </div>
+
       {/* The Table */}
       <Card className="border-border overflow-hidden">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse">
+          <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
+            <table className="w-full min-w-[800px] sm:min-w-[900px] border-collapse">
               <thead>
                 <tr className="bg-muted/50">
-                  <th className="px-3 py-3 text-left text-xs font-bold text-foreground border-b border-r border-border w-10">
+                  <th className="px-2 sm:px-3 py-3 text-left text-xs font-bold text-foreground border-b border-r border-border w-8 sm:w-10">
                     N°
                   </th>
-                  <th className="px-3 py-3 text-left text-xs font-bold text-foreground border-b border-r border-border min-w-[140px]">
+                  <th className="px-2 sm:px-3 py-3 text-left text-xs font-bold text-foreground border-b border-r border-border min-w-[100px] sm:min-w-[140px]">
                     DÉSIGNATIONS
                   </th>
                   {ROOM_COLUMNS.map((col, i) => (
                     <th
                       key={i}
-                      className="px-2 py-3 text-center text-[10px] font-bold text-foreground border-b border-r border-border min-w-[110px] leading-tight"
+                      className="px-1 sm:px-2 py-3 text-center text-[9px] sm:text-[10px] font-bold text-foreground border-b border-r border-border min-w-[80px] sm:min-w-[110px] leading-tight"
                     >
-                      {col}
+                      {/* Show short labels on mobile, full labels on desktop */}
+                      <span className="sm:hidden">{ROOM_COLUMNS_SHORT[i]}</span>
+                      <span className="hidden sm:inline">{col}</span>
                     </th>
                   ))}
-                  <th className="px-3 py-3 text-left text-xs font-bold text-foreground border-b border-border min-w-[150px]">
-                    OBSERVATIONS PARTICULIÈRES
+                  <th className="px-2 sm:px-3 py-3 text-left text-xs font-bold text-foreground border-b border-border min-w-[120px] sm:min-w-[150px]">
+                    OBSERVATIONS
                   </th>
                 </tr>
               </thead>
@@ -521,18 +528,18 @@ export function InventoryReportForm() {
                         isKeyRow && 'bg-amber-50/50'
                       )}
                     >
-                      <td className="px-3 py-2.5 text-sm text-muted-foreground border-b border-r border-border text-center font-medium">
+                      <td className="px-2 sm:px-3 py-2 sm:py-2.5 text-sm text-muted-foreground border-b border-r border-border text-center font-medium">
                         {rowIdx + 1}
                       </td>
-                      <td className="px-3 py-2.5 text-sm font-semibold text-foreground border-b border-r border-border whitespace-nowrap">
-                        {isKeyRow && <Key className="size-3.5 inline mr-1.5 text-brand-500" />}
+                      <td className="px-2 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-foreground border-b border-r border-border whitespace-nowrap">
+                        {isKeyRow && <Key className="size-3 sm:size-3.5 inline mr-1 sm:mr-1.5 text-brand-500" />}
                         {designation}
                       </td>
 
                       {ROOM_COLUMNS.map((_, colIdx) => (
                         <td
                           key={colIdx}
-                          className="px-2 py-2 border-b border-r border-border text-center"
+                          className="px-1 sm:px-2 py-1.5 sm:py-2 border-b border-r border-border text-center"
                         >
                           {isKeyRow ? (
                             <Input
@@ -544,14 +551,14 @@ export function InventoryReportForm() {
                                 const val = e.target.value
                                 setKeyCount(rowIdx, colIdx, val === '' ? null : parseInt(val, 10))
                               }}
-                              className="w-16 h-8 text-center text-sm mx-auto"
+                              className="w-14 sm:w-16 h-8 text-center text-sm mx-auto"
                             />
                           ) : (
-                            <div className="flex items-center justify-center gap-1">
+                            <div className="flex items-center justify-center gap-0.5 sm:gap-1">
                               <button
                                 onClick={() => setCondition(rowIdx, colIdx, 'BON')}
                                 className={cn(
-                                  'px-2 py-1 rounded text-[11px] font-bold transition-colors',
+                                  'px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-[11px] font-bold transition-colors',
                                   grid[rowIdx]?.[colIdx]?.condition === 'BON'
                                     ? 'bg-green-500 text-white shadow-sm'
                                     : 'bg-green-50 text-green-600 hover:bg-green-100 border border-green-200'
@@ -562,20 +569,20 @@ export function InventoryReportForm() {
                               <button
                                 onClick={() => setCondition(rowIdx, colIdx, 'MAUVAIS')}
                                 className={cn(
-                                  'px-2 py-1 rounded text-[11px] font-bold transition-colors',
+                                  'px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-[11px] font-bold transition-colors',
                                   grid[rowIdx]?.[colIdx]?.condition === 'MAUVAIS'
                                     ? 'bg-red-500 text-white shadow-sm'
                                     : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
                                 )}
                               >
-                                MAUVAIS
+                                M
                               </button>
                             </div>
                           )}
                         </td>
                       ))}
 
-                      <td className="px-2 py-2 border-b border-border">
+                      <td className="px-1 sm:px-2 py-1.5 sm:py-2 border-b border-border">
                         <Input
                           placeholder="..."
                           value={grid[rowIdx]?.[0]?.observation ?? ''}
@@ -592,7 +599,7 @@ export function InventoryReportForm() {
                               return newGrid
                             })
                           }}
-                          className="h-8 text-sm"
+                          className="h-8 text-xs sm:text-sm"
                         />
                       </td>
                     </tr>
@@ -602,17 +609,17 @@ export function InventoryReportForm() {
 
               <tfoot>
                 <tr className="bg-muted/50">
-                  <td colSpan={2} className="px-3 py-3 text-sm font-bold text-foreground border-t border-border text-right">
+                  <td colSpan={2} className="px-2 sm:px-3 py-3 text-xs sm:text-sm font-bold text-foreground border-t border-border text-right">
                     TOTAL :
                   </td>
-                  <td colSpan={4} className="px-3 py-3 border-t border-border text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <Key className="size-4 text-brand-500" />
-                      <span className="text-lg font-bold text-brand-500">{totalKeys}</span>
-                      <span className="text-xs text-muted-foreground">clé(s)</span>
+                  <td colSpan={4} className="px-2 sm:px-3 py-3 border-t border-border text-center">
+                    <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+                      <Key className="size-3.5 sm:size-4 text-brand-500" />
+                      <span className="text-lg sm:text-xl font-bold text-brand-500">{totalKeys}</span>
+                      <span className="text-[10px] sm:text-xs text-muted-foreground">clé(s)</span>
                     </div>
                   </td>
-                  <td className="px-3 py-3 border-t border-border"></td>
+                  <td className="px-2 sm:px-3 py-3 border-t border-border"></td>
                 </tr>
               </tfoot>
             </table>
@@ -640,7 +647,7 @@ export function InventoryReportForm() {
         <Button
           variant="outline"
           onClick={goBack}
-          className="gap-2"
+          className="gap-2 order-3 sm:order-1"
         >
           <ArrowLeft className="size-4" /> Annuler
         </Button>
@@ -648,14 +655,14 @@ export function InventoryReportForm() {
           variant="outline"
           onClick={handleSaveDraft}
           disabled={saving}
-          className="gap-2 border-brand-200 text-brand-600 hover:bg-brand-50"
+          className="gap-2 border-brand-200 text-brand-600 hover:bg-brand-50 order-2 sm:order-2"
         >
           <Save className="size-4" /> Sauvegarder le brouillon
         </Button>
         <Button
           onClick={handleValidate}
           disabled={saving}
-          className="bg-brand-500 hover:bg-brand-600 text-white gap-2"
+          className="bg-brand-500 hover:bg-brand-600 text-white gap-2 order-1 sm:order-3"
         >
           <CheckCircle2 className="size-4" /> Valider l&apos;état des lieux
         </Button>

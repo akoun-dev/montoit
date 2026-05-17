@@ -16,7 +16,7 @@ export function ViewModeToggle({ viewMode, onViewModeChange }: ViewModeTogglePro
       <button
         onClick={() => onViewModeChange('card')}
         className={cn(
-          'p-2 transition-colors',
+          'flex items-center justify-center min-w-[44px] min-h-[44px] p-2 transition-colors',
           viewMode === 'card'
             ? 'bg-brand-500 text-white'
             : 'bg-background text-muted-foreground hover:bg-muted'
@@ -28,7 +28,7 @@ export function ViewModeToggle({ viewMode, onViewModeChange }: ViewModeTogglePro
       <button
         onClick={() => onViewModeChange('list')}
         className={cn(
-          'p-2 transition-colors',
+          'flex items-center justify-center min-w-[44px] min-h-[44px] p-2 transition-colors',
           viewMode === 'list'
             ? 'bg-brand-500 text-white'
             : 'bg-background text-muted-foreground hover:bg-muted'

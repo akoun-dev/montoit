@@ -1,13 +1,21 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { ClipboardCheck, BadgeCheck, Clock, AlertTriangle, FileText, Home, ArrowRight, Shield } from 'lucide-react'
+import {
+  ClipboardCheck, BadgeCheck, Clock, AlertTriangle, FileText,
+  Home, ArrowRight, Shield, Building2, CheckCircle2, XCircle,
+  MessageSquare, TrendingUp, ChevronRight, User, Activity,
+} from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { cn } from '@/lib/utils'
+
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface TcStats {
   pendingRentalFiles: number
@@ -16,6 +24,12 @@ interface TcStats {
   totalReviewed: number
   overdueSlas: number
   slaCompliance: number
+  pendingAgencyDocs: number
+  pendingOwnerDocs: number
+  rentalFilesByStatus: {
+    SUBMITTED: number
+    TC_REVIEW: number
+  }
 }
 
 interface RentalFileSummary {
@@ -37,10 +51,17 @@ interface OwnershipDocSummary {
   owner: { firstName: string; lastName: string; phone: string }
 }
 
+interface RecentActivity {
+  entity: string
+  action: string
+  createdAt: string
+}
+
 interface ApiTcResponse {
   stats?: TcStats
   pendingRentalFiles?: RentalFileSummary[]
   pendingOwnershipDocs?: OwnershipDocSummary[]
+  recentActivities?: RecentActivity[]
 }
 
 const defaultStats: TcStats = {
@@ -50,9 +71,12 @@ const defaultStats: TcStats = {
   totalReviewed: 0,
   overdueSlas: 0,
   slaCompliance: 100,
+  pendingAgencyDocs: 0,
+  pendingOwnerDocs: 0,
+  rentalFilesByStatus: { SUBMITTED: 0, TC_REVIEW: 0 },
 }
 
-const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }
+const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } }
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
 const docTypeLabels: Record<string, string> = {
@@ -63,11 +87,40 @@ const docTypeLabels: Record<string, string> = {
   AGREMENT: 'Agrément',
 }
 
+const actionLabels: Record<string, string> = {
+  RENTAL_FILE_APPROVED: 'Dossier locatif validé',
+  RENTAL_FILE_REJECTED: 'Dossier locatif rejeté',
+  RENTAL_FILE_INFO_REQUESTED: 'Info demandée (dossier)',
+  OWNERSHIP_DOC_APPROVED: 'Document validé',
+  OWNERSHIP_DOC_REJECTED: 'Document rejeté',
+  OWNERSHIP_DOC_INFO_REQUESTED: 'Info demandée (document)',
+  PROPERTY_APPROVED: 'Bien approuvé',
+  PROPERTY_REJECTED: 'Bien rejeté',
+  INVENTORY_REPORT_CREATED: 'État des lieux créé',
+  INVENTORY_REPORT_UPDATED: 'État des lieux modifié',
+}
+
+const actionIcons: Record<string, React.ElementType> = {
+  RENTAL_FILE_APPROVED: CheckCircle2,
+  RENTAL_FILE_REJECTED: XCircle,
+  RENTAL_FILE_INFO_REQUESTED: MessageSquare,
+  OWNERSHIP_DOC_APPROVED: CheckCircle2,
+  OWNERSHIP_DOC_REJECTED: XCircle,
+  OWNERSHIP_DOC_INFO_REQUESTED: MessageSquare,
+  PROPERTY_APPROVED: CheckCircle2,
+  PROPERTY_REJECTED: XCircle,
+  INVENTORY_REPORT_CREATED: FileText,
+  INVENTORY_REPORT_UPDATED: FileText,
+}
+
+// ─── Component ──────────────────────────────────────────────────────────────
+
 export function TcOverview() {
   const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const [stats, setStats] = useState<TcStats>(defaultStats)
   const [pendingRentalFiles, setPendingRentalFiles] = useState<RentalFileSummary[]>([])
   const [pendingOwnershipDocs, setPendingOwnershipDocs] = useState<OwnershipDocSummary[]>([])
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -92,6 +145,7 @@ export function TcOverview() {
       setStats(mergedStats)
       setPendingRentalFiles(d.pendingRentalFiles ?? [])
       setPendingOwnershipDocs(d.pendingOwnershipDocs ?? [])
+      setRecentActivities(d.recentActivities ?? [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) {
         setStats(defaultStats)
@@ -108,7 +162,15 @@ export function TcOverview() {
     fetchData()
   }, [fetchData])
 
-  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />
+        ))}
+      </div>
+    )
+  }
 
   if (error) {
     return (
@@ -123,35 +185,101 @@ export function TcOverview() {
     )
   }
 
-  const statCards = [
-    { label: 'Biens à vérifier', value: stats.pendingProperties, icon: Home, color: 'text-brand-600 bg-brand-50', action: () => setDashboardSection('property-verifications') },
-    { label: 'Dossiers en attente', value: stats.pendingRentalFiles, icon: ClipboardCheck, color: 'text-amber-600 bg-amber-50', action: () => setDashboardSection('rental-files-queue') },
-    { label: 'Docs propriétaire', value: stats.pendingOwnershipDocs, icon: BadgeCheck, color: 'text-emerald-600 bg-emerald-50', action: () => setDashboardSection('owner-validations') },
-    { label: 'SLA en retard', value: stats.overdueSlas, icon: AlertTriangle, color: 'text-red-600 bg-red-50', action: () => setDashboardSection('sla-monitoring') },
+  // ─── Main status cards ──────────────────────────────────────────────────
+
+  const mainCards = [
+    {
+      id: 'rental-files-queue',
+      label: 'Dossiers locataires',
+      count: stats.pendingRentalFiles,
+      icon: ClipboardCheck,
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-50',
+      borderColor: 'border-amber-200',
+      hoverBg: 'hover:border-amber-300',
+      breakdown: [
+        { label: 'Soumis', count: stats.rentalFilesByStatus?.SUBMITTED ?? 0, color: 'text-amber-600' },
+        { label: 'En revue TC', count: stats.rentalFilesByStatus?.TC_REVIEW ?? 0, color: 'text-orange-600' },
+      ],
+    },
+    {
+      id: 'owner-validations',
+      label: 'Validations propriétaires',
+      count: stats.pendingOwnerDocs,
+      icon: BadgeCheck,
+      color: 'text-emerald-600',
+      bgColor: 'bg-emerald-50',
+      borderColor: 'border-emerald-200',
+      hoverBg: 'hover:border-emerald-300',
+      breakdown: [
+        { label: 'Titre foncier', count: 0, color: 'text-emerald-600' },
+        { label: 'Acte notarié', count: 0, color: 'text-emerald-600' },
+      ],
+    },
+    {
+      id: 'agency-validations',
+      label: 'Validations agences',
+      count: stats.pendingAgencyDocs,
+      icon: Building2,
+      color: 'text-rose-600',
+      bgColor: 'bg-rose-50',
+      borderColor: 'border-rose-200',
+      hoverBg: 'hover:border-rose-300',
+      breakdown: [
+        { label: 'Agrément', count: 0, color: 'text-rose-600' },
+        { label: 'RCCM', count: 0, color: 'text-rose-600' },
+      ],
+    },
   ]
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
+      {/* Header */}
       <motion.div variants={itemVariants}>
         <h1 className="text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
         <p className="text-muted-foreground mt-1">Espace Tiers de Confiance — Validation et contrôle</p>
       </motion.div>
 
-      {/* Stats Grid */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((stat) => {
-          const Icon = stat.icon
+      {/* ─── 3 Main Status Cards ──────────────────────────────────────────── */}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {mainCards.map((card) => {
+          const Icon = card.icon
           return (
-            <Card key={stat.label} className="border-border cursor-pointer hover:shadow-md transition-shadow" onClick={stat.action}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className={`flex size-10 items-center justify-center rounded-lg ${stat.color}`}>
-                    <Icon className="size-5" />
+            <Card
+              key={card.id}
+              className={cn(
+                'border-2 cursor-pointer transition-all duration-200',
+                card.borderColor,
+                card.hoverBg,
+                'hover:shadow-lg'
+              )}
+              onClick={() => setDashboardSection(card.id)}
+            >
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div className={cn('flex size-12 items-center justify-center rounded-xl', card.bgColor)}>
+                    <Icon className={cn('size-6', card.color)} />
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  <div className="text-right">
+                    <p className={cn('text-3xl font-bold', card.color)}>{card.count}</p>
+                    <p className="text-xs text-muted-foreground">en attente</p>
                   </div>
+                </div>
+
+                <h3 className="text-base font-semibold text-foreground mb-2">{card.label}</h3>
+
+                {/* Breakdown */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {card.breakdown.map((item) => (
+                    <div key={item.label} className="flex items-center gap-1 text-xs">
+                      <span className={cn('font-semibold', item.color)}>{item.count}</span>
+                      <span className="text-muted-foreground">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-1 text-xs font-medium text-brand-500">
+                  Voir les détails <ArrowRight className="size-3" />
                 </div>
               </CardContent>
             </Card>
@@ -159,13 +287,89 @@ export function TcOverview() {
         })}
       </motion.div>
 
-      {/* SLA Compliance Bar */}
+      {/* ─── Secondary Stats Row ──────────────────────────────────────────── */}
+      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Biens à vérifier */}
+        <Card
+          className="border-border cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setDashboardSection('property-verifications')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50">
+                <Home className="size-5 text-brand-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{stats.pendingProperties}</p>
+                <p className="text-xs text-muted-foreground">Biens à vérifier</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* SLA en retard */}
+        <Card
+          className="border-border cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setDashboardSection('sla-monitoring')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className={cn('flex size-10 items-center justify-center rounded-lg', stats.overdueSlas > 0 ? 'bg-red-50' : 'bg-green-50')}>
+                <AlertTriangle className={cn('size-5', stats.overdueSlas > 0 ? 'text-red-600' : 'text-green-600')} />
+              </div>
+              <div>
+                <p className={cn('text-2xl font-bold', stats.overdueSlas > 0 ? 'text-red-600' : 'text-green-600')}>
+                  {stats.overdueSlas}
+                </p>
+                <p className="text-xs text-muted-foreground">SLA en retard</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Dossiers traités */}
+        <Card className="border-border">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-50">
+                <TrendingUp className="size-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{stats.totalReviewed}</p>
+                <p className="text-xs text-muted-foreground">Dossiers traités</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* SLA Compliance */}
+        <Card
+          className="border-border cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setDashboardSection('sla-monitoring')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50">
+                <Shield className="size-5 text-brand-500" />
+              </div>
+              <div>
+                <p className={cn('text-2xl font-bold', stats.slaCompliance >= 90 ? 'text-green-600' : stats.slaCompliance >= 70 ? 'text-amber-600' : 'text-red-600')}>
+                  {stats.slaCompliance}%
+                </p>
+                <p className="text-xs text-muted-foreground">Conformité SLA</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ─── SLA Compliance Bar ─────────────────────────────────────────────── */}
       <motion.div variants={itemVariants}>
         <Card className="border-border">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50 shrink-0">
                   <Shield className="size-5 text-brand-500" />
                 </div>
                 <div>
@@ -173,7 +377,7 @@ export function TcOverview() {
                   <p className="text-xs text-muted-foreground">Objectif : 100% sous 48h</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 {stats.slaCompliance >= 90 ? (
                   <Badge className="bg-green-100 text-green-700">✓ Conforme</Badge>
                 ) : (
@@ -184,7 +388,10 @@ export function TcOverview() {
             </div>
             <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${stats.slaCompliance >= 90 ? 'bg-green-500' : stats.slaCompliance >= 70 ? 'bg-amber-500' : 'bg-red-500'}`}
+                className={cn(
+                  'h-full rounded-full transition-all',
+                  stats.slaCompliance >= 90 ? 'bg-green-500' : stats.slaCompliance >= 70 ? 'bg-amber-500' : 'bg-red-500'
+                )}
                 style={{ width: `${stats.slaCompliance}%` }}
               />
             </div>
@@ -192,13 +399,13 @@ export function TcOverview() {
         </Card>
       </motion.div>
 
-      {/* Quick Action: Property Verifications */}
+      {/* ─── Quick Action: Property Verifications ────────────────────────────── */}
       {stats.pendingProperties > 0 && (
         <motion.div variants={itemVariants}>
           <Card className="border-brand-200 bg-brand-50/30">
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-brand-500 text-white">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-brand-500 text-white shrink-0">
                   <Home className="size-5" />
                 </div>
                 <div>
@@ -208,7 +415,7 @@ export function TcOverview() {
               </div>
               <Button
                 onClick={() => setDashboardSection('property-verifications')}
-                className="bg-brand-500 hover:bg-brand-600 text-white"
+                className="bg-brand-500 hover:bg-brand-600 text-white shrink-0"
               >
                 Vérifier
               </Button>
@@ -217,6 +424,7 @@ export function TcOverview() {
         </motion.div>
       )}
 
+      {/* ─── Two-column layout: Recent items + Activities ──────────────────── */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Pending Rental Files */}
         <motion.div variants={itemVariants}>
@@ -224,7 +432,7 @@ export function TcOverview() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base font-semibold">Dossiers locataires</CardTitle>
+                  <CardTitle className="text-base font-semibold">Dossiers locataires récents</CardTitle>
                   <CardDescription>{pendingRentalFiles.length} en attente de validation</CardDescription>
                 </div>
                 <Button variant="ghost" size="sm" className="text-brand-500 gap-1" onClick={() => setDashboardSection('rental-files-queue')}>
@@ -232,18 +440,27 @@ export function TcOverview() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3 max-h-72 overflow-y-auto">
+            <CardContent className="space-y-2 max-h-72 overflow-y-auto">
               {pendingRentalFiles.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Aucun dossier en attente</p>
+                <div className="py-8 text-center">
+                  <ClipboardCheck className="size-10 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Aucun dossier en attente</p>
+                </div>
               ) : (
                 pendingRentalFiles.slice(0, 5).map((rf) => (
-                  <div key={rf.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent cursor-pointer"
+                  <div
+                    key={rf.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors"
                     onClick={() => setDashboardSection('rental-files-queue')}
                   >
-                    <div className="flex items-center gap-3">
-                      <FileText className="size-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{rf.tenant.firstName} {rf.tenant.lastName}</p>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="size-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                        <User className="size-4 text-amber-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {rf.tenant.firstName} {rf.tenant.lastName}
+                        </p>
                         <p className="text-xs text-muted-foreground">{rf.documents.length} document(s)</p>
                       </div>
                     </div>
@@ -257,60 +474,126 @@ export function TcOverview() {
           </Card>
         </motion.div>
 
-        {/* Pending Ownership Docs */}
+        {/* Recent Activities */}
         <motion.div variants={itemVariants}>
           <Card className="border-border h-full">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base font-semibold">Documents propriétaire</CardTitle>
-                  <CardDescription>{pendingOwnershipDocs.length} en attente de validation</CardDescription>
+                  <CardTitle className="text-base font-semibold">Activité récente</CardTitle>
+                  <CardDescription>Vos dernières actions de vérification</CardDescription>
                 </div>
-                <Button variant="ghost" size="sm" className="text-brand-500 gap-1" onClick={() => setDashboardSection('owner-validations')}>
-                  Voir tout <ArrowRight className="size-3.5" />
+                <Button variant="ghost" size="sm" className="text-brand-500 gap-1" onClick={() => setDashboardSection('history')}>
+                  Historique <ArrowRight className="size-3.5" />
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3 max-h-72 overflow-y-auto">
-              {pendingOwnershipDocs.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Aucun document en attente</p>
+            <CardContent className="space-y-2 max-h-72 overflow-y-auto">
+              {recentActivities.length === 0 ? (
+                <div className="py-8 text-center">
+                  <Activity className="size-10 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Aucune activité récente</p>
+                </div>
               ) : (
-                pendingOwnershipDocs.slice(0, 5).map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent cursor-pointer"
-                    onClick={() => setDashboardSection('owner-validations')}
-                  >
-                    <div className="flex items-center gap-3">
-                      <BadgeCheck className="size-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{doc.name}</p>
-                        <p className="text-xs text-muted-foreground">{doc.owner.firstName} {doc.owner.lastName} · {docTypeLabels[doc.type] || doc.type}</p>
+                recentActivities.map((activity, idx) => {
+                  const Icon = actionIcons[activity.action] || FileText
+                  const label = actionLabels[activity.action] || activity.action
+                  const isApproved = activity.action.includes('APPROVED')
+                  const isRejected = activity.action.includes('REJECTED')
+                  return (
+                    <div key={idx} className="flex items-center gap-3 p-3 rounded-lg border border-border">
+                      <div className={cn(
+                        'size-8 rounded-full flex items-center justify-center shrink-0',
+                        isApproved ? 'bg-green-50' : isRejected ? 'bg-red-50' : 'bg-amber-50'
+                      )}>
+                        <Icon className={cn(
+                          'size-4',
+                          isApproved ? 'text-green-600' : isRejected ? 'text-red-600' : 'text-amber-600'
+                        )} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">{label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(activity.createdAt).toLocaleDateString('fr-FR', {
+                            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                          })}
+                        </p>
                       </div>
                     </div>
-                    <Badge className="bg-amber-100 text-amber-700">En attente</Badge>
-                  </div>
-                ))
+                  )
+                })
               )}
             </CardContent>
           </Card>
         </motion.div>
       </div>
 
-      {/* Total reviewed */}
+      {/* ─── Pending Ownership Docs ──────────────────────────────────────────── */}
+      {pendingOwnershipDocs.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-semibold">Documents propriétaire en attente</CardTitle>
+                  <CardDescription>{pendingOwnershipDocs.length} document(s) à valider</CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" className="text-brand-500 gap-1" onClick={() => setDashboardSection('owner-validations')}>
+                  Voir tout <ArrowRight className="size-3.5" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2 max-h-48 overflow-y-auto">
+              {pendingOwnershipDocs.slice(0, 4).map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors"
+                  onClick={() => setDashboardSection('owner-validations')}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="size-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                      <BadgeCheck className="size-4 text-emerald-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
+                      <p className="text-xs text-muted-foreground">{doc.owner.firstName} {doc.owner.lastName} · {docTypeLabels[doc.type] || doc.type}</p>
+                    </div>
+                  </div>
+                  <Badge className="bg-amber-100 text-amber-700">En attente</Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* ─── Quick Links ─────────────────────────────────────────────────────── */}
       <motion.div variants={itemVariants}>
         <Card className="border-border">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-50">
-                <Clock className="size-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{stats.totalReviewed} dossiers traités au total</p>
-                <p className="text-xs text-muted-foreground">Historique de vos validations et rejets</p>
-              </div>
+          <CardContent className="p-4">
+            <p className="text-sm font-semibold text-foreground mb-3">Accès rapide</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { id: 'property-verifications', label: 'Vérification biens', icon: Home, color: 'bg-brand-50 text-brand-600' },
+                { id: 'inventory-reports', label: 'État des lieux', icon: FileText, color: 'bg-amber-50 text-amber-600' },
+                { id: 'sla-monitoring', label: 'Suivi SLA', icon: Clock, color: 'bg-emerald-50 text-emerald-600' },
+                { id: 'history', label: 'Historique', icon: Activity, color: 'bg-rose-50 text-rose-600' },
+              ].map((link) => {
+                const Icon = link.icon
+                return (
+                  <button
+                    key={link.id}
+                    onClick={() => setDashboardSection(link.id)}
+                    className="flex flex-col items-center gap-2 p-3 rounded-lg border border-border hover:bg-accent hover:shadow-sm transition-all"
+                  >
+                    <div className={cn('flex size-10 items-center justify-center rounded-lg', link.color)}>
+                      <Icon className="size-5" />
+                    </div>
+                    <span className="text-xs font-medium text-foreground text-center">{link.label}</span>
+                  </button>
+                )
+              })}
             </div>
-            <Button variant="outline" size="sm" className="gap-1" onClick={() => setDashboardSection('history')}>
-              Voir l&apos;historique <ArrowRight className="size-3.5" />
-            </Button>
           </CardContent>
         </Card>
       </motion.div>

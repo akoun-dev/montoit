@@ -218,7 +218,7 @@ export function PropertyVerifications() {
 
       {/* Search, filter & view toggle */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="relative flex-1 w-full">
+        <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Rechercher un bien..."
@@ -251,7 +251,7 @@ export function PropertyVerifications() {
         emptyState
       ) : viewMode === 'card' ? (
         /* ─── CARD VIEW ─── */
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
           <AnimatePresence mode="popLayout">
             {properties.map((property) => (
               <motion.div

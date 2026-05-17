@@ -345,3 +345,127 @@ Stage Summary:
 - Rental file and ownership doc approval/rejection now functional via PATCH APIs
 - Inventory report editing now works: loads existing data, supports PATCH updates
 - All lint checks pass
+
+---
+Task ID: 3
+Agent: API Agent
+Task: Update TC dashboard API at /src/app/api/dashboard/tc/route.ts to include agency-specific document counts alongside existing stats
+
+Work Log:
+- Read current TC dashboard API route and Prisma schema to understand existing structure
+- Added `pendingAgencyDocs` count: ownership docs with type AGREMENT or RCCM that are PENDING
+- Added `pendingOwnerDocs` count: ownership docs with type TITRE_FONCIER, ACTE_NOTARIE, or ATTESTATION_PROPRIETE that are PENDING
+- Added `rentalFilesByStatus` breakdown: object with SUBMITTED and TC_REVIEW counts
+- Added `recentActivities`: 5 most recent audit logs for this TC user (entity, action, createdAt)
+- All new queries run in the existing Promise.all for parallel execution (plus the separate totalReviewed query remains unchanged)
+- Existing API contract fully preserved: all original fields (pendingRentalFiles, pendingOwnershipDocs, slas, stats.*) remain unchanged
+- New fields added to stats object: pendingAgencyDocs, pendingOwnerDocs, rentalFilesByStatus
+- New top-level field: recentActivities
+- Enforced effectiveRole === 'TIERS_CONFIANCE' check (unchanged)
+- Lint passes with no errors
+
+Stage Summary:
+- TC dashboard API now returns agency-specific doc counts (AGREMENT/RCCM) vs owner doc counts (TITRE_FONCIER/ACTE_NOTARIE/ATTESTATION_PROPRIETE)
+- Rental file pending count broken down by SUBMITTED vs TC_REVIEW status
+- Recent audit log activities exposed for TC user dashboard
+- All existing fields preserved — purely additive changes
+- Parallel query execution maintained for performance
+
+---
+Task ID: 6
+Agent: Frontend Styling Expert
+Task: Audit and fix responsiveness across all TC (Tiers de Confiance) views
+
+Work Log:
+- Audited all 5 TC view components and the ViewModeToggle for mobile responsiveness issues
+- Fixed rental-files-queue.tsx: Added `grid-cols-1` to card grid (was missing, only had `sm:grid-cols-2`)
+- Fixed owner-validations.tsx:
+  - Wrapped `<Table>` in `overflow-x-auto` div for horizontal scroll on mobile
+  - Added `hidden md:table-cell` to Contact column header and cells
+  - Added `hidden sm:table-cell` to Type column header and cells
+  - Added `hidden lg:table-cell` to Date column header and cells
+  - Added `truncate` to owner name and contact text in table cells
+- Fixed agency-validations.tsx:
+  - Changed search input from `flex-1 max-w-sm` to `w-full sm:max-w-xs` for proper mobile width
+  - Added `grid-cols-1` to card grid (was missing, only had `md:grid-cols-2`)
+  - Added `truncate` to owner name and phone in card view
+  - Added `hidden sm:table-cell` to Type column header/cells in table
+  - Added `hidden md:table-cell` to Date column header/cells in table
+  - Added `truncate max-w-[140px]` to agency name in table row
+- Fixed property-verifications.tsx:
+  - Changed search input from `flex-1 w-full` to `w-full sm:max-w-xs`
+  - Added `grid-cols-1` to card grid (was missing, only had `md:grid-cols-2`)
+- Fixed inventory-reports-list.tsx:
+  - Wrapped `<Table>` in `overflow-x-auto` div for horizontal scroll on mobile
+  - Added `hidden sm:table-cell` to Type column header/cells
+  - Added `hidden md:table-cell` to Date and Éléments column headers/cells
+  - Added `hidden lg:table-cell` to Clés column header/cells
+- Fixed view-mode-toggle.tsx: Added `min-w-[44px] min-h-[44px] flex items-center justify-center` to both toggle buttons for proper 44px minimum touch targets on mobile
+- Build verified: Next.js compiles successfully with no errors
+
+Stage Summary:
+- Card grids across all TC views now properly stack on mobile with `grid-cols-1 md:grid-cols-2`
+- Tables in owner-validations and inventory-reports-list now have `overflow-x-auto` wrappers
+- Less important table columns are hidden on mobile using responsive `hidden sm/md/lg:table-cell`
+- Search inputs use `w-full sm:max-w-xs` pattern for proper mobile width
+- Long text values use `truncate` to prevent overflow
+- ViewModeToggle now meets 44px minimum touch target for mobile accessibility
+- All changes are minimal and targeted — no component rewrites
+
+---
+Task ID: 1-8
+Agent: Main Agent
+Task: Redesign TC Overview dashboard, fix Bien introuvable errors, improve responsiveness, add verification statistics
+
+Work Log:
+- Explored all existing TC components (10 files), API routes (5 files), Prisma schema, sidebar, and dashboard index
+- Identified issues: TC overview lacked prominent status cards for the 3 main categories, property-verify-detail showed "Bien introuvable" when property status changed, État des Lieux form wasn't fully responsive, SLA monitoring lacked verification statistics
+- Updated /api/dashboard/tc/route.ts: Added pendingAgencyDocs, pendingOwnerDocs, rentalFilesByStatus breakdown, recentActivities
+- Redesigned TC Overview (overview.tsx): 
+  - 3 prominent status cards (Dossiers locataires, Validations propriétaires, Validations agences) with color-coded borders
+  - Secondary stats row (Biens à vérifier, SLA en retard, Dossiers traités, Conformité SLA)
+  - SLA compliance bar with visual progress indicator
+  - Quick action card for pending properties
+  - Two-column layout: Recent rental files + Recent activities (audit logs)
+  - Quick links grid at the bottom
+  - All fully responsive with mobile-first grid layout
+- Fixed property-verify-detail.tsx:
+  - Better error handling with proper loading/notFound states
+  - Shows property status badge (PENDING_VERIFICATION, ACTIVE, SUSPENDED, etc.)
+  - Action buttons only shown when property is PENDING_VERIFICATION
+  - "Déjà traité" message for already processed properties
+  - Responsive image gallery (h-48 on mobile, h-80 on desktop)
+  - Better mobile layout for price and quick stats
+- Made inventory-report-form.tsx responsive:
+  - Mobile hint message about horizontal scrolling
+  - Shorter column labels on mobile (ROOM_COLUMNS_SHORT)
+  - Smaller BON/MAUVAIS buttons on mobile (text-[10px] px-1.5)
+  - Responsive padding and font sizes throughout the grid
+  - Action buttons reordered on mobile (Validate first)
+- Enhanced SLA monitoring (sla-monitoring.tsx):
+  - Main SLA compliance card with color-coded percentage
+  - Performance metrics grid (Total en attente, Dossiers traités, Taux d'approbation, SLA dépassés)
+  - Category breakdown with progress bars (Dossiers locataires, Validations propriétaires, Validations agences, Vérification biens)
+  - Performance indicators card (délai moyen, taux conformité, taux approbation, SLA retard)
+  - Volume de travail card (detailed breakdown by category)
+  - All fully responsive with sm: breakpoints
+- Fixed document preview across all views:
+  - Updated rental-files-queue.tsx to pass document type to preview dialog
+  - Updated DocumentPreviewDialog with better mobile sizing (95vw max on mobile, smaller heights)
+  - Consistent use of `document` prop interface across all views
+- Responsive fixes across all TC views (via subagent):
+  - Card grids use grid-cols-1 on mobile across all views
+  - Tables have overflow-x-auto and hidden columns on mobile
+  - Search inputs use w-full sm:max-w-xs
+  - ViewModeToggle has 44px minimum touch targets
+  - Text truncation on long values
+
+Stage Summary:
+- TC Overview now prominently displays the 3 main status categories with counts and color-coded cards
+- "Bien introuvable" errors fixed with better fallback logic and status-aware UI
+- All TC views are fully responsive (mobile-first design)
+- État des Lieux form works on mobile with horizontal scroll and compact controls
+- SLA monitoring now includes full verification statistics (T-08 user story)
+- Document preview works consistently across all TC views with mobile-friendly sizing
+- List/card toggle available on all list views with proper touch targets
+- All lint checks pass, dev server running clean

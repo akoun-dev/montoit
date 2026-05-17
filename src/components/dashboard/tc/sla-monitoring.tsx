@@ -1,19 +1,51 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Clock, AlertTriangle, CheckCircle2, TrendingUp } from 'lucide-react'
+import {
+  Clock, AlertTriangle, CheckCircle2, TrendingUp,
+  ClipboardCheck, BadgeCheck, Home, BarChart3, Activity,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { cn } from '@/lib/utils'
 
-const defaultStats = { pendingRentalFiles: 0, pendingOwnershipDocs: 0, totalReviewed: 0, overdueSlas: 0, slaCompliance: 0 }
+interface TcStats {
+  pendingRentalFiles: number
+  pendingOwnershipDocs: number
+  pendingProperties: number
+  totalReviewed: number
+  overdueSlas: number
+  slaCompliance: number
+  pendingAgencyDocs: number
+  pendingOwnerDocs: number
+  rentalFilesByStatus: {
+    SUBMITTED: number
+    TC_REVIEW: number
+  }
+}
+
+const defaultStats: TcStats = {
+  pendingRentalFiles: 0,
+  pendingOwnershipDocs: 0,
+  pendingProperties: 0,
+  totalReviewed: 0,
+  overdueSlas: 0,
+  slaCompliance: 0,
+  pendingAgencyDocs: 0,
+  pendingOwnerDocs: 0,
+  rentalFilesByStatus: { SUBMITTED: 0, TC_REVIEW: 0 },
+}
+
+const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }
+const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
 export function SlaMonitoring() {
   const { isAuthenticated } = useAuthStore()
-  const [stats, setStats] = useState(defaultStats)
+  const [stats, setStats] = useState<TcStats>(defaultStats)
   const [loading, setLoading] = useState(true)
 
   const fetchData = useCallback(async () => {
@@ -23,11 +55,10 @@ export function SlaMonitoring() {
     }
 
     try {
-      const d = await authFetch<{ stats?: typeof defaultStats }>('/api/dashboard/tc')
+      const d = await authFetch<{ stats?: TcStats }>('/api/dashboard/tc')
       setStats(d.stats || defaultStats)
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) {
-        // authFetch already handled logout — just show default data
         setStats(defaultStats)
         return
       }
@@ -41,91 +72,292 @@ export function SlaMonitoring() {
     fetchData()
   }, [fetchData])
 
-  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+
+  const totalPending = stats.pendingRentalFiles + stats.pendingOwnershipDocs + stats.pendingProperties
+  const approvalRate = stats.totalReviewed > 0 ? Math.round(((stats.totalReviewed - stats.overdueSlas) / stats.totalReviewed) * 100) : 100
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Suivi SLA</h1>
-        <p className="text-muted-foreground mt-1">Respect des délais de traitement (48h)</p>
-      </div>
+    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
+      <motion.div variants={itemVariants}>
+        <h1 className="text-2xl font-bold text-foreground">Suivi SLA & Statistiques</h1>
+        <p className="text-muted-foreground mt-1">Respect des délais de traitement et indicateurs de performance</p>
+      </motion.div>
 
-      {/* SLA Compliance */}
-      <Card className="border-border">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Conformité SLA</h2>
-              <p className="text-sm text-muted-foreground">Objectif : 100% des dossiers traités sous 48h</p>
+      {/* SLA Compliance - Main Card */}
+      <motion.div variants={itemVariants}>
+        <Card className="border-border">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-12 items-center justify-center rounded-xl bg-brand-50 shrink-0">
+                  <BarChart3 className="size-6 text-brand-500" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Conformité SLA</h2>
+                  <p className="text-sm text-muted-foreground">Objectif : 100% des dossiers traités sous 48h</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {stats.slaCompliance >= 90 ? (
+                  <Badge className="bg-green-100 text-green-700">✓ Conforme</Badge>
+                ) : (
+                  <Badge className="bg-amber-100 text-amber-700">⚠ En dessous</Badge>
+                )}
+                <span className={cn(
+                  'text-3xl font-bold',
+                  stats.slaCompliance >= 90 ? 'text-green-600' : stats.slaCompliance >= 70 ? 'text-amber-600' : 'text-red-600'
+                )}>
+                  {stats.slaCompliance}%
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              {stats.slaCompliance >= 90 ? (
-                <CheckCircle2 className="size-6 text-green-500" />
-              ) : (
-                <AlertTriangle className="size-6 text-amber-500" />
-              )}
-              <span className="text-3xl font-bold text-foreground">{stats.slaCompliance}%</span>
-            </div>
-          </div>
-          <Progress value={stats.slaCompliance} className="h-3" />
-        </CardContent>
-      </Card>
+            <Progress value={stats.slaCompliance} className="h-3" />
+          </CardContent>
+        </Card>
+      </motion.div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Performance Metrics */}
+      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card className="border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50">
-                <Clock className="size-5 text-amber-600" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex size-9 sm:size-10 items-center justify-center rounded-lg bg-amber-50 shrink-0">
+                <Clock className="size-4 sm:size-5 text-amber-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{stats.pendingRentalFiles}</p>
-                <p className="text-xs text-muted-foreground">Dossiers en attente</p>
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{totalPending}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Total en attente</p>
               </div>
             </div>
           </CardContent>
         </Card>
+
         <Card className="border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-50">
-                <Clock className="size-5 text-emerald-600" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex size-9 sm:size-10 items-center justify-center rounded-lg bg-green-50 shrink-0">
+                <TrendingUp className="size-4 sm:size-5 text-green-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{stats.pendingOwnershipDocs}</p>
-                <p className="text-xs text-muted-foreground">Docs propriétaire</p>
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.totalReviewed}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Dossiers traités</p>
               </div>
             </div>
           </CardContent>
         </Card>
+
         <Card className="border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-green-50">
-                <TrendingUp className="size-5 text-green-600" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex size-9 sm:size-10 items-center justify-center rounded-lg bg-emerald-50 shrink-0">
+                <CheckCircle2 className="size-4 sm:size-5 text-emerald-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{stats.totalReviewed}</p>
-                <p className="text-xs text-muted-foreground">Dossiers traités</p>
+              <div className="min-w-0">
+                <p className={cn('text-xl sm:text-2xl font-bold', approvalRate >= 90 ? 'text-green-600' : 'text-amber-600')}>
+                  {approvalRate}%
+                </p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Taux d&apos;approbation</p>
               </div>
             </div>
           </CardContent>
         </Card>
+
         <Card className="border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-red-50">
-                <AlertTriangle className="size-5 text-red-600" />
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className={cn('flex size-9 sm:size-10 items-center justify-center rounded-lg shrink-0', stats.overdueSlas > 0 ? 'bg-red-50' : 'bg-green-50')}>
+                <AlertTriangle className={cn('size-4 sm:size-5', stats.overdueSlas > 0 ? 'text-red-600' : 'text-green-600')} />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{stats.overdueSlas}</p>
-                <p className="text-xs text-muted-foreground">SLA dépassés</p>
+              <div className="min-w-0">
+                <p className={cn('text-xl sm:text-2xl font-bold', stats.overdueSlas > 0 ? 'text-red-600' : 'text-green-600')}>
+                  {stats.overdueSlas}
+                </p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">SLA dépassés</p>
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
+
+      {/* Breakdown by Category */}
+      <motion.div variants={itemVariants}>
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold">Répartition par catégorie</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Dossiers locataires */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ClipboardCheck className="size-4 text-amber-600" />
+                  <span className="text-sm font-medium text-foreground">Dossiers locataires</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-foreground">{stats.pendingRentalFiles}</span>
+                  <span className="text-xs text-muted-foreground">en attente</span>
+                </div>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-amber-500 transition-all"
+                  style={{ width: totalPending > 0 ? `${(stats.pendingRentalFiles / totalPending) * 100}%` : '0%' }}
+                />
+              </div>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Badge className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0">
+                    {stats.rentalFilesByStatus?.SUBMITTED ?? 0}
+                  </Badge>
+                  Soumis
+                </span>
+                <span className="flex items-center gap-1">
+                  <Badge className="bg-orange-100 text-orange-700 text-[10px] px-1.5 py-0">
+                    {stats.rentalFilesByStatus?.TC_REVIEW ?? 0}
+                  </Badge>
+                  En revue TC
+                </span>
+              </div>
+            </div>
+
+            {/* Validations propriétaires */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BadgeCheck className="size-4 text-emerald-600" />
+                  <span className="text-sm font-medium text-foreground">Validations propriétaires</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-foreground">{stats.pendingOwnerDocs}</span>
+                  <span className="text-xs text-muted-foreground">en attente</span>
+                </div>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all"
+                  style={{ width: totalPending > 0 ? `${(stats.pendingOwnerDocs / totalPending) * 100}%` : '0%' }}
+                />
+              </div>
+            </div>
+
+            {/* Validations agences */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Home className="size-4 text-rose-600" />
+                  <span className="text-sm font-medium text-foreground">Validations agences</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-foreground">{stats.pendingAgencyDocs}</span>
+                  <span className="text-xs text-muted-foreground">en attente</span>
+                </div>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-rose-500 transition-all"
+                  style={{ width: totalPending > 0 ? `${(stats.pendingAgencyDocs / totalPending) * 100}%` : '0%' }}
+                />
+              </div>
+            </div>
+
+            {/* Vérification biens */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Activity className="size-4 text-brand-500" />
+                  <span className="text-sm font-medium text-foreground">Vérification biens</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-foreground">{stats.pendingProperties}</span>
+                  <span className="text-xs text-muted-foreground">en attente</span>
+                </div>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-brand-500 transition-all"
+                  style={{ width: totalPending > 0 ? `${(stats.pendingProperties / totalPending) * 100}%` : '0%' }}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Performance Indicators */}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold">Indicateurs de performance</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Délai moyen de traitement</span>
+              <Badge variant="outline" className="text-xs">
+                {stats.slaCompliance >= 90 ? '< 48h' : stats.slaCompliance >= 70 ? '48-72h' : '> 72h'}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Taux de conformité SLA</span>
+              <span className={cn('text-sm font-bold', stats.slaCompliance >= 90 ? 'text-green-600' : 'text-amber-600')}>
+                {stats.slaCompliance}%
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Taux d&apos;approbation</span>
+              <span className={cn('text-sm font-bold', approvalRate >= 80 ? 'text-green-600' : 'text-amber-600')}>
+                {approvalRate}%
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">SLA en retard</span>
+              <span className={cn('text-sm font-bold', stats.overdueSlas > 0 ? 'text-red-600' : 'text-green-600')}>
+                {stats.overdueSlas}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold">Volume de travail</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Dossiers traités (total)</span>
+              <span className="text-sm font-bold text-foreground">{stats.totalReviewed}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">En attente (total)</span>
+              <span className="text-sm font-bold text-foreground">{totalPending}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Dossiers locataires</span>
+              <span className="text-sm font-bold text-amber-600">{stats.pendingRentalFiles}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Docs propriétaire</span>
+              <span className="text-sm font-bold text-emerald-600">{stats.pendingOwnerDocs}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Docs agences</span>
+              <span className="text-sm font-bold text-rose-600">{stats.pendingAgencyDocs}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Biens à vérifier</span>
+              <span className="text-sm font-bold text-brand-500">{stats.pendingProperties}</span>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </motion.div>
   )
 }
