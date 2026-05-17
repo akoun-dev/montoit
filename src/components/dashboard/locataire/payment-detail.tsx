@@ -1,13 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Building2, Calendar, CreditCard, Receipt, User, FileSignature } from 'lucide-react'
+import { ArrowLeft, Building2, Calendar, CreditCard, Receipt, User, FileSignature, Download } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -129,6 +130,66 @@ export function PaymentDetail({ paymentId, onBack }: PaymentDetailProps) {
   const property = payment.lease?.property
   const owner = payment.lease?.owner
 
+  const handleDownloadReceipt = () => {
+    if (payment.status !== 'PAID') {
+      toast.error('Quittance disponible uniquement pour les paiements effectués')
+      return
+    }
+    // Generate a simple text receipt
+    const receiptContent = `
+═══════════════════════════════════════
+         QUITTANCE DE LOYER
+         MON TOIT — ANSUT
+═══════════════════════════════════════
+
+Référence : ${payment.reference || 'N/A'}
+Date d'émission : ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+
+───────────────────────────────────────
+LOCATAIRE
+───────────────────────────────────────
+Nom : Non renseigné
+
+───────────────────────────────────────
+PROPRIÉTAIRE
+───────────────────────────────────────
+Nom : ${owner ? `${owner.firstName} ${owner.lastName}` : 'Non renseigné'}
+
+───────────────────────────────────────
+BIEN LOUÉ
+───────────────────────────────────────
+Titre : ${property?.title || 'Non renseigné'}
+Adresse : ${property ? `${property.address}, ${property.city}` : 'Non renseigné'}
+
+───────────────────────────────────────
+DÉTAILS DU PAIEMENT
+───────────────────────────────────────
+Mois concerné : ${new Date(payment.dueDate).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+Montant du loyer : ${formatCurrency(payment.lease?.monthlyRent || payment.amount)}
+Charges : ${formatCurrency(payment.lease?.charges || 0)}
+Total payé : ${formatCurrency(payment.amount)}
+Date de paiement : ${payment.paidAt ? formatDate(payment.paidAt) : 'Non renseignée'}
+
+═══════════════════════════════════════
+Le propriétaire reconnaît avoir reçu
+le montant ci-dessus en paiement du
+loyer et des charges pour la période
+indiquée.
+═══════════════════════════════════════
+    `.trim()
+
+    const blob = new Blob([receiptContent], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `quittance-${new Date(payment.dueDate).toISOString().slice(0, 7)}-${payment.reference || payment.id.slice(0, 8)}.txt`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    toast.success('Quittance téléchargée')
+  }
+
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
       {/* Back button */}
@@ -148,6 +209,17 @@ export function PaymentDetail({ paymentId, onBack }: PaymentDetailProps) {
           <span className={`size-2 rounded-full ${config.dotColor} mr-1.5`} />
           {config.label}
         </Badge>
+        {payment.status === 'PAID' && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-brand-600 border-brand-200 hover:bg-brand-50 hover:text-brand-700"
+            onClick={handleDownloadReceipt}
+          >
+            <Download className="size-3.5" />
+            Quittance
+          </Button>
+        )}
       </div>
 
       {/* Amount card */}

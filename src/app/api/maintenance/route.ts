@@ -119,11 +119,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { leaseId, title, description, priority } = body as {
+    const { leaseId, title, description, priority, images } = body as {
       leaseId?: string
       title?: string
       description?: string
       priority?: string
+      images?: string[]
     }
 
     // Validate required fields
@@ -149,11 +150,18 @@ export async function POST(req: NextRequest) {
     const validPriorities = ['LOW', 'MEDIUM', 'HIGH', 'URGENT']
     const resolvedPriority = validPriorities.includes(priority || '') ? priority : 'MEDIUM'
 
+    // Validate images — must be an array of strings, max 5
+    let resolvedImages: string[] = []
+    if (Array.isArray(images)) {
+      resolvedImages = images.filter((img) => typeof img === 'string').slice(0, 5)
+    }
+
     const maintenanceRequest = await db.maintenanceRequest.create({
       data: {
         title,
         description,
         priority: resolvedPriority as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT',
+        images: JSON.stringify(resolvedImages),
         leaseId,
         tenantId: userId,
       },
@@ -185,7 +193,7 @@ export async function POST(req: NextRequest) {
         action: 'CREATE',
         entity: 'MaintenanceRequest',
         entityId: maintenanceRequest.id,
-        details: `Demande de maintenance créée: ${title}`,
+        details: `Demande de maintenance créée: ${title}${resolvedImages.length > 0 ? ` (${resolvedImages.length} photo(s))` : ''}`,
         userId,
       },
     })

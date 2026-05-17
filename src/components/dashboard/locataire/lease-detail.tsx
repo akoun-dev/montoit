@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, FileSignature, Building2, User, MapPin, FileText, CreditCard, Wrench, AlertTriangle, Loader2 } from 'lucide-react'
+import { ArrowLeft, FileSignature, Building2, User, MapPin, FileText, CreditCard, Wrench, AlertTriangle, Loader2, PenTool, CheckCircle2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -123,6 +123,8 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
   const [error, setError] = useState<string | null>(null)
   const [terminating, setTerminating] = useState(false)
   const [showTerminateDialog, setShowTerminateDialog] = useState(false)
+  const [signing, setSigning] = useState(false)
+  const [showSignDialog, setShowSignDialog] = useState(false)
 
   const fetchLease = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -151,9 +153,10 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
     if (!lease) return
     setTerminating(true)
     try {
-      await authFetch(`/api/leases/${lease.id}/terminate`, {
+      await authFetch(`/api/leases/${lease.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'terminate' }),
       })
       toast.success('Bail résilié avec succès')
       setShowTerminateDialog(false)
@@ -167,6 +170,35 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
       }
     } finally {
       setTerminating(false)
+    }
+  }
+
+  const handleSign = async () => {
+    if (!lease) return
+    setSigning(true)
+    try {
+      const result = await authFetch<{ data: LeaseItem }>(`/api/leases/${lease.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sign' }),
+      })
+      toast.success('Bail signé avec succès')
+      setShowSignDialog(false)
+      // Update local state with the signed lease
+      if (result.data) {
+        setLease(result.data)
+      } else {
+        // Refresh from API
+        fetchLease()
+      }
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message || 'Erreur lors de la signature')
+      } else {
+        toast.error('Erreur lors de la signature du bail')
+      }
+    } finally {
+      setSigning(false)
     }
   }
 
@@ -199,6 +231,9 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
   const owner = lease.owner
   const daysRemaining = getDaysRemaining(lease.endDate)
   const totalCost = lease.monthlyRent + (lease.charges || 0)
+
+  // Determine if tenant can sign
+  const canSign = lease.status === 'PENDING_SIGNATURE' && !lease.tenantSignedAt
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
@@ -342,7 +377,9 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
                 <p className="text-sm font-medium text-foreground">Propriétaire</p>
                 <p className="text-xs text-muted-foreground">{owner.firstName} {owner.lastName}</p>
                 {lease.ownerSignedAt ? (
-                  <p className="text-xs text-emerald-600 mt-0.5">Signé le {formatShortDate(lease.ownerSignedAt)}</p>
+                  <p className="text-xs text-emerald-600 mt-0.5 flex items-center gap-1">
+                    <CheckCircle2 className="size-3" /> Signé le {formatShortDate(lease.ownerSignedAt)}
+                  </p>
                 ) : (
                   <p className="text-xs text-amber-600 mt-0.5">En attente de signature</p>
                 )}
@@ -356,7 +393,9 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
                 <p className="text-sm font-medium text-foreground">Locataire</p>
                 <p className="text-xs text-muted-foreground">Vous</p>
                 {lease.tenantSignedAt ? (
-                  <p className="text-xs text-emerald-600 mt-0.5">Signé le {formatShortDate(lease.tenantSignedAt)}</p>
+                  <p className="text-xs text-emerald-600 mt-0.5 flex items-center gap-1">
+                    <CheckCircle2 className="size-3" /> Signé le {formatShortDate(lease.tenantSignedAt)}
+                  </p>
                 ) : (
                   <p className="text-xs text-amber-600 mt-0.5">En attente de signature</p>
                 )}
@@ -431,6 +470,19 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
         </Card>
       )}
 
+      {/* ─── Sign Lease Button ────────────────────────────────────────────── */}
+      {canSign && (
+        <div className="pt-2">
+          <Button
+            className="w-full bg-brand-500 hover:bg-brand-600 text-white gap-2"
+            onClick={() => setShowSignDialog(true)}
+          >
+            <PenTool className="size-4" />
+            Signer le bail
+          </Button>
+        </div>
+      )}
+
       {/* ─── Terminate Lease Button ──────────────────────────────────────────── */}
       {lease.status === 'ACTIVE' && (
         <div className="pt-2">
@@ -444,6 +496,76 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
           </Button>
         </div>
       )}
+
+      {/* ─── Sign Confirmation Dialog ────────────────────────────────────────── */}
+      <Dialog open={showSignDialog} onOpenChange={setShowSignDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PenTool className="size-5 text-brand-500" />
+              Signer le bail électroniquement
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              En signant ce bail, vous acceptez les termes du contrat de location pour
+              <span className="font-semibold text-foreground"> {property?.title}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 my-2">
+            <div className="p-3 rounded-lg bg-brand-50 border border-brand-100">
+              <p className="text-xs text-brand-700">
+                Votre signature électronique a la même valeur légale qu&apos;une signature manuscrite.
+                Un code OTP sera généré pour tracer votre signature de manière sécurisée.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2 rounded bg-muted">
+                <span className="text-muted-foreground">Loyer</span>
+                <p className="font-semibold text-foreground">{formatCurrency(lease.monthlyRent)}</p>
+              </div>
+              <div className="p-2 rounded bg-muted">
+                <span className="text-muted-foreground">Durée</span>
+                <p className="font-semibold text-foreground">
+                  {formatShortDate(lease.startDate)} → {formatShortDate(lease.endDate)}
+                </p>
+              </div>
+            </div>
+            {lease.ownerSignedAt && (
+              <div className="p-2 rounded bg-emerald-50 border border-emerald-100 flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                <p className="text-xs text-emerald-700">
+                  Le propriétaire a déjà signé ce bail le {formatShortDate(lease.ownerSignedAt)}.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowSignDialog(false)}
+              disabled={signing}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleSign}
+              disabled={signing}
+              className="gap-2 bg-brand-500 hover:bg-brand-600 text-white"
+            >
+              {signing ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Signature...
+                </>
+              ) : (
+                <>
+                  <PenTool className="size-4" />
+                  Confirmer la signature
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ─── Termination Confirmation Dialog ──────────────────────────────────── */}
       <Dialog open={showTerminateDialog} onOpenChange={setShowTerminateDialog}>

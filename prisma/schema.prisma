@@ -376,6 +376,7 @@ model Property {
   favorites        Favorite[]
   inventoryReports InventoryReport[]
   missions         Mission[]
+  ratings          Rating[]
 
   @@index([status])
   @@index([city])
@@ -639,10 +640,13 @@ model Favorite {
 // ─── Rating / Review ──────────────────────────────────────────────────────────
 
 model Rating {
-  id        String   @id @default(cuid())
-  score     Int      // 1-5
-  comment   String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  score      Int      // 1-5
+  comment    String?
+  reply      String?  // Response from the rated user
+  repliedAt  DateTime?
+  propertyId String?  // If rating is about a property (vs. person)
+  createdAt  DateTime @default(now())
 
   leaseId   String
   lease     Lease    @relation(fields: [leaseId], references: [id], onDelete: Cascade)
@@ -653,9 +657,12 @@ model Rating {
   toUserId   String
   toUser     User     @relation("RatingTo", fields: [toUserId], references: [id], onDelete: Cascade)
 
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
   @@index([leaseId])
   @@index([toUserId])
   @@index([fromUserId])
+  @@index([propertyId])
 }
 
 // ─── Dispute ──────────────────────────────────────────────────────────────────
@@ -876,6 +883,8 @@ model MaintenanceRequest {
   description String
   status      MaintenanceStatus  @default(PENDING)
   priority    MaintenancePriority @default(MEDIUM)
+  images      String             @default("[]")  // JSON array of image URLs
+  scheduledAt DateTime?                       // Scheduled intervention date
   resolution  String?
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt

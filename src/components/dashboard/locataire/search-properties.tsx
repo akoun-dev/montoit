@@ -1,12 +1,45 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { Search, MapPin, Building2, ChevronRight } from 'lucide-react'
+import { useState, useCallback, useMemo } from 'react'
+import {
+  Search,
+  MapPin,
+  Building2,
+  ChevronRight,
+  Heart,
+  Car,
+  Trees,
+  Waves,
+  Shield,
+  Thermometer,
+  CalendarDays,
+  Clock,
+  MessageSquare,
+} from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
+import { useFavorites } from '@/lib/use-favorites'
+import { authFetch } from '@/lib/auth-fetch'
+import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -27,6 +60,11 @@ interface PropertyItem {
   isVerified: boolean
   viewsCount: number
   image: string | null
+  hasParking: boolean
+  hasGarden: boolean
+  hasPool: boolean
+  hasGuardian: boolean
+  hasClimate: boolean
   owner: {
     id: string
     firstName: string
@@ -34,10 +72,51 @@ interface PropertyItem {
   }
 }
 
+interface VisitDialogState {
+  open: boolean
+  propertyId: string | null
+  propertyTitle: string | null
+  requestedDate: string
+  timeSlot: string
+  tenantMessage: string
+  submitting: boolean
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function formatCurrency(amount: number): string {
   return amount.toLocaleString('fr-FR')
 }
+
+const PROPERTY_TYPE_OPTIONS = [
+  { value: 'ALL', label: 'Tous les types' },
+  { value: 'STUDIO', label: 'Studio' },
+  { value: 'APPARTEMENT', label: 'Appartement' },
+  { value: 'MAISON', label: 'Maison' },
+  { value: 'DUPLEX', label: 'Duplex' },
+  { value: 'PENTHOUSE', label: 'Penthouse' },
+  { value: 'VILLA', label: 'Villa' },
+] as const
+
+const TIME_SLOTS = [
+  { value: '08:00-10:00', label: '08h00 – 10h00' },
+  { value: '10:00-12:00', label: '10h00 – 12h00' },
+  { value: '12:00-14:00', label: '12h00 – 14h00' },
+  { value: '14:00-16:00', label: '14h00 – 16h00' },
+  { value: '16:00-18:00', label: '16h00 – 18h00' },
+] as const
+
+// ─── Amenity icon config ────────────────────────────────────────────────────
+const AMENITY_ICONS: {
+  key: keyof Pick<PropertyItem, 'hasParking' | 'hasGarden' | 'hasPool' | 'hasGuardian' | 'hasClimate'>
+  icon: typeof Car
+  label: string
+}[] = [
+  { key: 'hasParking', icon: Car, label: 'Parking' },
+  { key: 'hasGarden', icon: Trees, label: 'Jardin' },
+  { key: 'hasPool', icon: Waves, label: 'Piscine' },
+  { key: 'hasGuardian', icon: Shield, label: 'Gardien' },
+  { key: 'hasClimate', icon: Thermometer, label: 'Climatisation' },
+]
 
 // ─── Animation Variants ────────────────────────────────────────────────────
 const containerVariants = {
@@ -50,15 +129,33 @@ const itemVariants = {
 }
 
 export function SearchProperties() {
-  const { user, setView, setSelectedPropertyId } = useAuthStore()
+  const { user, isAuthenticated, setView, setSelectedPropertyId } = useAuthStore()
+
+  // Search state
   const [search, setSearch] = useState('')
   const [city, setCity] = useState('')
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
+  const [propertyType, setPropertyType] = useState('ALL')
   const [results, setResults] = useState<PropertyItem[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Visit dialog state
+  const [visitDialog, setVisitDialog] = useState<VisitDialogState>({
+    open: false,
+    propertyId: null,
+    propertyTitle: null,
+    requestedDate: '',
+    timeSlot: '',
+    tenantMessage: '',
+    submitting: false,
+  })
+
+  // Favorites hook
+  const propertyIds = useMemo(() => results.map((p) => p.id), [results])
+  const { isFavorite, toggleFavorite } = useFavorites(propertyIds)
 
   const handleSearch = useCallback(async () => {
     setLoading(true)
@@ -70,6 +167,7 @@ export function SearchProperties() {
       if (city) params.set('commune', city)
       if (minPrice) params.set('minPrice', minPrice)
       if (maxPrice) params.set('maxPrice', maxPrice)
+      if (propertyType !== 'ALL') params.set('type', propertyType)
       params.set('all', 'true')
 
       // /api/properties is a public endpoint — use raw fetch
@@ -83,7 +181,7 @@ export function SearchProperties() {
     } finally {
       setLoading(false)
     }
-  }, [search, city, minPrice, maxPrice])
+  }, [search, city, minPrice, maxPrice, propertyType])
 
   const handleViewProperty = (propertyId: string) => {
     setSelectedPropertyId(propertyId)
@@ -92,6 +190,80 @@ export function SearchProperties() {
 
   const handleBrowseAll = () => {
     setView('nos-biens')
+  }
+
+  const handleToggleFavorite = async (e: React.MouseEvent, propertyId: string) => {
+    e.stopPropagation()
+    if (!isAuthenticated) {
+      setView('login')
+      return
+    }
+    const result = await toggleFavorite(propertyId)
+    if (result) {
+      toast.success('Ajouté aux favoris')
+    } else {
+      toast.success('Retiré des favoris')
+    }
+  }
+
+  // ─── Visit dialog handlers ──────────────────────────────────────────────
+  const openVisitDialog = (e: React.MouseEvent, property: PropertyItem) => {
+    e.stopPropagation()
+    if (!isAuthenticated) {
+      setView('login')
+      return
+    }
+    setVisitDialog({
+      open: true,
+      propertyId: property.id,
+      propertyTitle: property.title,
+      requestedDate: '',
+      timeSlot: '',
+      tenantMessage: '',
+      submitting: false,
+    })
+  }
+
+  const closeVisitDialog = () => {
+    setVisitDialog((prev) => ({ ...prev, open: false }))
+  }
+
+  const submitVisitRequest = async () => {
+    if (!visitDialog.propertyId || !visitDialog.requestedDate || !visitDialog.timeSlot) {
+      toast.error('Veuillez remplir tous les champs obligatoires')
+      return
+    }
+
+    setVisitDialog((prev) => ({ ...prev, submitting: true }))
+    try {
+      await authFetch('/api/visits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId: visitDialog.propertyId,
+          requestedDate: visitDialog.requestedDate,
+          timeSlot: visitDialog.timeSlot,
+          visitType: 'PHYSICAL',
+          tenantMessage: visitDialog.tenantMessage || undefined,
+        }),
+      })
+      toast.success('Demande de visite envoyée !')
+      closeVisitDialog()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erreur lors de la demande'
+      toast.error(message)
+    } finally {
+      setVisitDialog((prev) => ({ ...prev, submitting: false }))
+    }
+  }
+
+  // ─── Build address display ──────────────────────────────────────────────
+  const formatAddress = (property: PropertyItem): string => {
+    const parts: string[] = []
+    if (property.address) parts.push(property.address)
+    if (property.commune) parts.push(property.commune)
+    if (property.city) parts.push(property.city)
+    return parts.join(', ')
   }
 
   return (
@@ -122,32 +294,46 @@ export function SearchProperties() {
                 className="pl-10 h-11"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSearch() }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSearch()
+                }}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
+              <Select value={propertyType} onValueChange={setPropertyType}>
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue placeholder="Type de bien" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROPERTY_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input
                 placeholder="Ville"
                 className="h-10"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
               />
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  placeholder="Budget min"
-                  className="h-10"
-                  type="number"
-                  value={minPrice}
-                  onChange={(e) => setMinPrice(e.target.value)}
-                />
-                <Input
-                  placeholder="Budget max"
-                  className="h-10"
-                  type="number"
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
-                />
-              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                placeholder="Budget min"
+                className="h-10"
+                type="number"
+                value={minPrice}
+                onChange={(e) => setMinPrice(e.target.value)}
+              />
+              <Input
+                placeholder="Budget max"
+                className="h-10"
+                type="number"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+              />
             </div>
             <Button
               onClick={handleSearch}
@@ -190,9 +376,7 @@ export function SearchProperties() {
                 <div className="flex size-16 items-center justify-center rounded-full bg-brand-50 mb-4">
                   <Search className="size-7 text-brand-500" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground mb-1">
-                  Aucun résultat
-                </h3>
+                <h3 className="text-lg font-semibold text-foreground mb-1">Aucun résultat</h3>
                 <p className="text-sm text-muted-foreground max-w-sm">
                   Essayez avec d&apos;autres critères de recherche ou parcourez tous nos biens.
                 </p>
@@ -222,9 +406,13 @@ export function SearchProperties() {
                     : `${property.bedrooms} pièces`
                   : 'Studio'
 
+                // Compute active amenities
+                const activeAmenities = AMENITY_ICONS.filter((a) => property[a.key])
+
                 return (
                   <motion.div key={property.id} variants={itemVariants}>
-                    <Card className="border-border overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
+                    <Card
+                      className="border-border overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
                       onClick={() => handleViewProperty(property.id)}
                     >
                       {/* Image */}
@@ -256,10 +444,25 @@ export function SearchProperties() {
                               : 'Réservé'}
                         </Badge>
                         {property.isVerified && (
-                          <Badge className="absolute top-3 right-3 bg-brand-50 text-brand-600 border-brand-200 text-[10px] px-1.5 py-0 border">
+                          <Badge className="absolute top-3 right-12 bg-brand-50 text-brand-600 border-brand-200 text-[10px] px-1.5 py-0 border">
                             Vérifié
                           </Badge>
                         )}
+                        {/* Favorite heart button */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleFavorite(e, property.id)}
+                          className="absolute top-3 right-3 flex size-8 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-colors shadow-sm"
+                          aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                        >
+                          <Heart
+                            className={`size-4 transition-colors ${
+                              isFavorite(property.id)
+                                ? 'fill-red-500 text-red-500'
+                                : 'text-neutral-500 hover:text-red-400'
+                            }`}
+                          />
+                        </button>
                       </div>
 
                       {/* Content */}
@@ -269,15 +472,45 @@ export function SearchProperties() {
                         </h3>
                         <div className="flex items-center gap-1 text-muted-foreground text-xs mb-2">
                           <MapPin className="size-3 shrink-0" />
-                          <span className="line-clamp-1">{property.city}{property.commune ? `, ${property.commune}` : ''}</span>
+                          <span className="line-clamp-1">{formatAddress(property)}</span>
                         </div>
                         <p className="text-muted-foreground text-xs mb-2">
                           {bedroomsLabel} &bull; {property.area} m²
-                          {property.isFurnished && ' &bull; Meublé'}
+                          {property.isFurnished && ' \u2022 Meublé'}
                         </p>
-                        <p className="font-bold text-foreground text-sm">
-                          {formatCurrency(property.price)} <span className="text-xs font-normal text-muted-foreground">{property.currency}/mois</span>
-                        </p>
+
+                        {/* Amenity icons */}
+                        {activeAmenities.length > 0 && (
+                          <div className="flex items-center gap-1.5 mb-2">
+                            {activeAmenities.map(({ key, icon: Icon, label }) => (
+                              <div
+                                key={key}
+                                className="flex items-center gap-0.5 rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] text-brand-600"
+                                title={label}
+                              >
+                                <Icon className="size-3" />
+                                <span className="hidden sm:inline">{label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex items-end justify-between gap-2">
+                          <p className="font-bold text-foreground text-sm">
+                            {formatCurrency(property.price)}{' '}
+                            <span className="text-xs font-normal text-muted-foreground">
+                              {property.currency}/mois
+                            </span>
+                          </p>
+                          <Button
+                            size="sm"
+                            onClick={(e) => openVisitDialog(e, property)}
+                            className="bg-brand-500 hover:bg-brand-600 text-white text-xs h-7 px-2.5 shrink-0"
+                          >
+                            <CalendarDays className="size-3 mr-1" />
+                            Visiter
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   </motion.div>
@@ -297,7 +530,8 @@ export function SearchProperties() {
                   Explorez nos biens disponibles
                 </h3>
                 <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-                  {user?.firstName}, parcourez notre catalogue de logements et trouvez celui qui vous correspond.
+                  {user?.firstName}, parcourez notre catalogue de logements et trouvez celui qui vous
+                  correspond.
                 </p>
                 <Button
                   onClick={handleBrowseAll}
@@ -311,6 +545,106 @@ export function SearchProperties() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      {/* Visit Request Dialog */}
+      <Dialog open={visitDialog.open} onOpenChange={(open) => !open && closeVisitDialog()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="size-5 text-brand-500" />
+              Demander une visite
+            </DialogTitle>
+            <DialogDescription>
+              {visitDialog.propertyTitle
+                ? `Pour : ${visitDialog.propertyTitle}`
+                : 'Planifiez votre visite'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Date */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                <CalendarDays className="size-3.5 text-muted-foreground" />
+                Date souhaitée <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="date"
+                value={visitDialog.requestedDate}
+                onChange={(e) =>
+                  setVisitDialog((prev) => ({ ...prev, requestedDate: e.target.value }))
+                }
+                min={new Date().toISOString().split('T')[0]}
+                className="h-10"
+              />
+            </div>
+
+            {/* Time slot */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                <Clock className="size-3.5 text-muted-foreground" />
+                Créneau horaire <span className="text-red-500">*</span>
+              </label>
+              <Select
+                value={visitDialog.timeSlot}
+                onValueChange={(value) =>
+                  setVisitDialog((prev) => ({ ...prev, timeSlot: value }))
+                }
+              >
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue placeholder="Sélectionnez un créneau" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIME_SLOTS.map((slot) => (
+                    <SelectItem key={slot.value} value={slot.value}>
+                      {slot.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Message */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                <MessageSquare className="size-3.5 text-muted-foreground" />
+                Message (optionnel)
+              </label>
+              <Textarea
+                placeholder="Précisez vos besoins ou posez vos questions..."
+                value={visitDialog.tenantMessage}
+                onChange={(e) =>
+                  setVisitDialog((prev) => ({ ...prev, tenantMessage: e.target.value }))
+                }
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={closeVisitDialog} className="h-9">
+              Annuler
+            </Button>
+            <Button
+              onClick={submitVisitRequest}
+              disabled={visitDialog.submitting || !visitDialog.requestedDate || !visitDialog.timeSlot}
+              className="bg-brand-500 hover:bg-brand-600 text-white h-9"
+            >
+              {visitDialog.submitting ? (
+                <div className="flex items-center gap-2">
+                  <div className="size-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Envoi...
+                </div>
+              ) : (
+                <>
+                  <CalendarDays className="size-3.5 mr-1.5" />
+                  Confirmer
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

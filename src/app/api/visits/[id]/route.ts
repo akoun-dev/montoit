@@ -67,7 +67,9 @@ export async function GET(
   }
 }
 
-// PATCH /api/visits/[id] — Update visit request status (accept/reject/counter-propose)
+// PATCH /api/visits/[id] — Update visit request status
+// PROPRIETAIRE/AGENCE: accept, reject, counter-propose
+// LOCATAIRE: cancel (set status to CANCELLED)
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -79,11 +81,6 @@ export async function PATCH(
     }
     const { userId, effectiveRole } = authResult
 
-    // Only PROPRIETAIRE or AGENCE can update visit requests
-    if (effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    }
-
     const { id } = await params
     const body = await req.json()
     const { status, counterDate, counterTimeSlot, ownerComment } = body as {
@@ -91,6 +88,60 @@ export async function PATCH(
       counterDate?: string
       counterTimeSlot?: string
       ownerComment?: string
+    }
+
+    // ─── LOCATAIRE cancellation ──────────────────────────────────────────────
+    if (effectiveRole === 'LOCATAIRE') {
+      if (status !== 'CANCELLED') {
+        return NextResponse.json(
+          { error: 'Les locataires ne peuvent annuler que les visites (CANCELLED)' },
+          { status: 400 }
+        )
+      }
+
+      // Find the visit belonging to this tenant
+      const visit = await db.visitRequest.findFirst({
+        where: { id, tenantId: userId },
+      })
+
+      if (!visit) {
+        return NextResponse.json({ error: 'Visite introuvable ou accès refusé' }, { status: 404 })
+      }
+
+      // Only allow cancellation if status is PENDING or ACCEPTED
+      if (visit.status !== 'PENDING' && visit.status !== 'ACCEPTED') {
+        return NextResponse.json(
+          { error: 'Seules les visites en attente ou acceptées peuvent être annulées' },
+          { status: 400 }
+        )
+      }
+
+      const updated = await db.visitRequest.update({
+        where: { id },
+        data: { status: 'CANCELLED' },
+        include: {
+          tenant: { select: { id: true, firstName: true, lastName: true } },
+          property: { select: { id: true, title: true, city: true, ownerId: true } },
+        },
+      })
+
+      // Create notification for the property owner
+      await db.notification.create({
+        data: {
+          userId: updated.property.ownerId,
+          type: 'VISIT_REMINDER',
+          title: 'Visite annulée',
+          message: `${updated.tenant.firstName} ${updated.tenant.lastName} a annulé la visite pour "${updated.property.title}".`,
+          entityId: visit.id,
+        },
+      })
+
+      return NextResponse.json({ data: updated })
+    }
+
+    // ─── PROPRIETAIRE / AGENCE: accept, reject, counter-propose ─────────────
+    if (effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
     // Validate that the visit belongs to a property owned by this user

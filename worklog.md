@@ -726,3 +726,155 @@ Stage Summary:
 - Message recipients get a notification ("Nouveau message") when they receive a message
 - User search filters by role: tenants see owners/agencies, owners see tenants
 - All lint checks pass, dev server running clean
+
+---
+Task ID: 3-a
+Agent: Frontend Agent
+Task: Improve locataire search-properties component with type filter, amenities, address, favorites, and visit request
+
+Work Log:
+- Updated PropertyItem interface: Added hasParking, hasGarden, hasPool, hasGuardian, hasClimate boolean fields
+- Added property type filter: Select dropdown with options (Tous, Studio, Appartement, Maison, Duplex, Penthouse, Villa) — passes `type` query param to /api/properties
+- Added amenity icon badges on property cards: Car (parking), Trees (garden), Waves (pool), Shield (guardian), Thermometer (climate) — only shown for amenities that are true, with small icon badges in brand-50 color
+- Updated address display: Changed from "city, commune" to full "address, commune, city" using formatAddress helper
+- Added favorite heart button: Top-right corner of each property card image, uses useFavorites hook from @/lib/use-favorites, optimistic toggle with toast notifications, redirects to login when not authenticated
+- Added "Demander une visite" (Request Visit) button: Orange button on each property card, opens Dialog with date picker, time slot select (5 slots from 08h-18h), optional message textarea, submits POST /api/visits with authFetch
+- Reorganized search form layout: Type filter and Ville on first row, budget min/max on second row (was Ville alone, then budget)
+- All components use brand-500 (#FF6C2F) for orange/primary color
+- Used shadcn/ui components: Select, Dialog, Textarea, Badge, Button, Input, Card
+- Responsive design: amenity labels hidden on mobile (hidden sm:inline), mobile-first grid
+- Lint passes with no errors, dev server running clean
+
+Stage Summary:
+- US-T-002: Property type filter implemented with Select dropdown
+- US-T-005: Amenities shown as icon badges on cards (5 types)
+- US-T-006: Full address now displayed on property cards
+- US-T-007: Favorite heart button with toggle, login redirect for unauthenticated
+- US-T-011: Visit request dialog with date, time slot, message, and authenticated POST
+
+---
+Task ID: 3-e
+Agent: Full-stack Developer
+Task: Improve locataire maintenance component — add photo upload (US-T-053) and cancel request (US-T-054)
+
+Work Log:
+- Updated `/src/app/api/maintenance/route.ts` POST handler:
+  - Added `images` field (string array) to request body type
+  - Validate images as array of strings, max 5 items
+  - Save images as `JSON.stringify(resolvedImages)` to the `images` field on MaintenanceRequest
+  - Updated audit log to include photo count
+- Created `/src/app/api/maintenance/[id]/route.ts`:
+  - PATCH endpoint for cancellation (status → CLOSED)
+  - Only LOCATAIRE can cancel their own requests
+  - Only PENDING requests can be cancelled (returns 400 otherwise)
+  - Creates audit log entry on cancellation
+  - Follows same pattern as visits/[id]/route.ts
+- Updated `/src/components/dashboard/locataire/maintenance.tsx`:
+  - Added image upload section to "New Request Dialog":
+    - File input accepting image/jpeg, image/jpg, image/png, image/webp
+    - Max 5 images with validation (5MB per image)
+    - Thumbnail previews with delete (trash icon on hover)
+    - "+" button to add more images when under limit
+    - Images converted to base64 data URLs via FileReader (same pattern as add-property.tsx)
+    - Base64 URLs sent as `images` array in POST body
+  - Added image display in maintenance request cards:
+    - First image thumbnail shown when images exist (replaces priority icon)
+    - Image count badge on thumbnail when >1 image
+    - Image count badge next to priority/status badges
+    - JSON `images` field parsed via `parseImages()` helper
+  - Added "Annuler" cancel button on PENDING maintenance request cards:
+    - Confirmation dialog with request title/description
+    - Calls PATCH `/api/maintenance/{id}` with `{ status: 'CLOSED' }`
+    - Uses authFetch and toast for feedback
+    - Red-styled button and confirmation dialog
+  - Added `fileToBase64` utility, `parseImages` helper
+  - Added `ImageIcon`, `Trash2` imports from lucide-react
+  - All lint checks pass, dev server running clean
+
+Stage Summary:
+- US-T-053: Photo upload fully functional — tenants can attach up to 5 photos to maintenance requests, stored as base64 URLs in JSON images field, with thumbnails in cards
+- US-T-054: Cancel request fully functional — "Annuler" button on PENDING requests, confirmation dialog, PATCH API with audit log, only own PENDING requests can be cancelled
+- No blue colors used — brand orange (#FF6C2F) throughout
+- All components use 'use client', authFetch, toast, shadcn/ui, motion animations
+
+---
+Task ID: 3-b and 3-c
+Agent: Fullstack Agent
+Task: Create API routes and UI components for visit cancellation, reviews, lease signing, and previous leases
+
+Work Log:
+- Updated `/api/visits/[id]/route.ts` PATCH handler:
+  - Added LOCATAIRE cancellation support: if requester is LOCATAIRE and status is CANCELLED, allow it
+  - Only allows cancellation when visit status is PENDING or ACCEPTED
+  - Creates notification for the property owner when tenant cancels
+  - Existing PROPRIETAIRE/AGENCE accept/reject/counter-propose flow preserved unchanged
+- Updated `/components/dashboard/locataire/visit-detail.tsx`:
+  - Added "Annuler la visite" button (visible when status is PENDING or ACCEPTED)
+  - On click, shows confirmation Dialog with warning about irreversibility
+  - Calls PATCH `/api/visits/{id}` with `{ status: 'CANCELLED' }` using authFetch
+  - Toast notifications for success/error, loading state with spinner
+  - Updated CANCELLED status config to use XCircle icon
+- Updated `/api/reviews/route.ts` — Added POST endpoint:
+  - LOCATAIRE-only review creation
+  - Validates required fields: leaseId, toUserId, score (1-5)
+  - Validates score is integer 1-5
+  - Validates lease belongs to the tenant
+  - Validates toUserId is the owner of the lease
+  - Validates propertyId matches the lease if provided
+  - Prevents duplicate reviews (one per lease per tenant)
+  - Creates Rating with propertyId for property-level ratings
+  - Creates notification for the rated user (owner)
+  - Returns 201 on success
+- Updated `/components/dashboard/locataire/reviews.tsx`:
+  - Added "Laisser un avis" button in header (brand orange, with Plus icon)
+  - Added review creation Dialog with:
+    - Lease selector (Select component, fetched from dashboard API)
+    - Auto-populated owner info when lease selected
+    - Interactive star rating (1-5 clickable Stars with hover effect)
+    - Score description text (Très insatisfait → Très satisfait)
+    - Comment textarea (optional)
+    - Submit button calls POST `/api/reviews`
+  - Dialog resets on close, toast on success/error
+  - Refreshes review list after successful submission
+- Updated `/api/leases/[id]/route.ts` PATCH handler:
+  - Added `sign` action alongside existing `terminate` action
+  - Tenant signing: sets tenantSignedAt + tenantSignOtp, auto-activates lease if owner already signed
+  - Owner signing: sets ownerSignedAt + ownerSignOtp, auto-activates lease if tenant already signed
+  - Generates random OTP (crypto.randomBytes) for audit trail
+  - Creates notifications for the other party on signature
+  - Creates audit log entry for each signature
+  - Both parties must sign for lease to become ACTIVE
+- Updated `/components/dashboard/locataire/lease-detail.tsx`:
+  - Added "Signer le bail" button (brand orange, PenTool icon)
+  - Visible when lease is PENDING_SIGNATURE and tenantSignedAt is null
+  - Confirmation Dialog shows: contract terms summary, legal notice about electronic signature
+  - Shows if owner has already signed (green check)
+  - On confirm, calls PATCH `/api/leases/{id}` with `{ action: 'sign' }`
+  - Updates local state after successful signing
+  - Toast notifications for success/error, loading spinner
+  - Added CheckCircle2 icons for signed status in Signatures card
+- Created `/api/leases/route.ts` — New GET endpoint:
+  - Lists all leases for current user (LOCATAIRE or PROPRIETAIRE)
+  - LOCATAIRE: filters by tenantId, PROPRIETAIRE: filters by ownerId
+  - Optional status query parameter for filtering
+  - Includes property, tenant, owner, and payments data
+  - Ordered by createdAt desc
+- Updated `/components/dashboard/locataire/my-leases.tsx`:
+  - Replaced single list view with tab toggle: "Baux actifs" / "Baux précédents"
+  - Active tab: shows ACTIVE and PENDING_SIGNATURE leases
+  - Previous tab: shows TERMINATED and EXPIRED leases
+  - Fetches all leases from new GET `/api/leases` endpoint
+  - Client-side filtering by status
+  - Status-specific badges and icons (XCircle for TERMINATED)
+  - Tab counts in button labels
+  - Empty state varies by tab (FileSignature for active, Clock for previous)
+- All lint checks pass with no errors
+- Dev server running cleanly
+
+Stage Summary:
+- US-T-014: Tenants can cancel visits (PENDING/ACCEPTED) with confirmation dialog, owner gets notified
+- US-T-060/061: Tenants can create reviews with star rating, lease selection, and optional comment
+- US-T-031: Tenants can sign leases electronically (OTP audit trail, auto-activate when both sign)
+- US-T-033: My Leases now shows all leases with tab toggle for active vs previous
+- New GET /api/leases endpoint for listing all user leases
+- All components use brand orange (#FF6C2F), authFetch, toast, shadcn/ui Dialogs

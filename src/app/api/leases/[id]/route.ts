@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { getUserIdAndRole } from '@/lib/session'
+import crypto from 'crypto'
 
 // GET /api/leases/[id] — Get a single lease detail (accessible by both tenant and owner)
 export async function GET(
@@ -8,10 +9,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getUserIdFromRequest(req)
-    if (!userId) {
+    const authResult = await getUserIdAndRole(req)
+    if (!authResult) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
+    const userId = authResult.userId
 
     const { id } = await params
 
@@ -84,20 +86,144 @@ export async function GET(
   }
 }
 
-// PATCH /api/leases/[id] — Terminate a lease
+// PATCH /api/leases/[id] — Terminate a lease OR sign a lease
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getUserIdFromRequest(req)
-    if (!userId) {
+    const authResult = await getUserIdAndRole(req)
+    if (!authResult) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
+    const { userId, effectiveRole } = authResult
 
     const { id } = await params
     const body = await req.json()
 
+    // ─── Sign lease action ──────────────────────────────────────────────────
+    if (body.action === 'sign') {
+      const lease = await db.lease.findUnique({
+        where: { id },
+        include: {
+          property: { select: { id: true, title: true } },
+          owner: { select: { id: true, firstName: true, lastName: true } },
+          tenant: { select: { id: true, firstName: true, lastName: true } },
+        },
+      })
+
+      if (!lease) {
+        return NextResponse.json({ error: 'Bail introuvable' }, { status: 404 })
+      }
+
+      // Auth check: must be tenant or owner of this lease
+      if (lease.tenantId !== userId && lease.ownerId !== userId) {
+        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      }
+
+      // Validate lease is PENDING_SIGNATURE
+      if (lease.status !== 'PENDING_SIGNATURE') {
+        return NextResponse.json(
+          { error: 'Ce bail ne peut pas être signé (statut: ' + lease.status + ')' },
+          { status: 400 }
+        )
+      }
+
+      // Generate a random OTP for audit trail
+      const signOtp = crypto.randomBytes(16).toString('hex')
+      const now = new Date()
+
+      let updatedLease
+
+      if (lease.tenantId === userId) {
+        // Tenant signing
+        if (lease.tenantSignedAt) {
+          return NextResponse.json({ error: 'Vous avez déjà signé ce bail' }, { status: 400 })
+        }
+        updatedLease = await db.lease.update({
+          where: { id },
+          data: {
+            tenantSignedAt: now,
+            tenantSignOtp: signOtp,
+            // If both parties have signed, activate the lease
+            ...(lease.ownerSignedAt ? { status: 'ACTIVE' } : {}),
+            updatedAt: now,
+          },
+          include: {
+            property: { select: { id: true, title: true, address: true, city: true } },
+            owner: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+            tenant: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+          },
+        })
+
+        // Notify owner that tenant signed
+        await db.notification.create({
+          data: {
+            userId: lease.ownerId,
+            type: 'DOSSIER_UPDATE',
+            title: lease.ownerSignedAt ? 'Bail signé et activé' : 'Le locataire a signé le bail',
+            message: lease.ownerSignedAt
+              ? `Le bail pour "${lease.property.title}" est maintenant actif. Les deux parties ont signé.`
+              : `${lease.tenant.firstName} ${lease.tenant.lastName} a signé le bail pour "${lease.property.title}".`,
+            entityId: lease.id,
+          },
+        })
+      } else {
+        // Owner signing
+        if (lease.ownerSignedAt) {
+          return NextResponse.json({ error: 'Vous avez déjà signé ce bail' }, { status: 400 })
+        }
+        updatedLease = await db.lease.update({
+          where: { id },
+          data: {
+            ownerSignedAt: now,
+            ownerSignOtp: signOtp,
+            // If both parties have signed, activate the lease
+            ...(lease.tenantSignedAt ? { status: 'ACTIVE' } : {}),
+            updatedAt: now,
+          },
+          include: {
+            property: { select: { id: true, title: true, address: true, city: true } },
+            owner: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+            tenant: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+          },
+        })
+
+        // Notify tenant that owner signed
+        await db.notification.create({
+          data: {
+            userId: lease.tenantId,
+            type: 'DOSSIER_UPDATE',
+            title: lease.tenantSignedAt ? 'Bail signé et activé' : 'Le propriétaire a signé le bail',
+            message: lease.tenantSignedAt
+              ? `Le bail pour "${lease.property.title}" est maintenant actif. Les deux parties ont signé.`
+              : `${lease.owner.firstName} ${lease.owner.lastName} a signé le bail pour "${lease.property.title}".`,
+            entityId: lease.id,
+          },
+        })
+      }
+
+      // Audit log
+      await db.auditLog.create({
+        data: {
+          action: lease.tenantId === userId ? 'LEASE_TENANT_SIGNED' : 'LEASE_OWNER_SIGNED',
+          entity: 'Lease',
+          entityId: id,
+          details: JSON.stringify({
+            signedBy: userId,
+            role: lease.tenantId === userId ? 'TENANT' : 'OWNER',
+            propertyTitle: lease.property.title,
+            bothSigned: !!(updatedLease.tenantSignedAt && updatedLease.ownerSignedAt),
+            newStatus: updatedLease.status,
+          }),
+          userId,
+        },
+      })
+
+      return NextResponse.json({ data: updatedLease })
+    }
+
+    // ─── Terminate lease action ─────────────────────────────────────────────
     if (body.action !== 'terminate') {
       return NextResponse.json({ error: 'Action non reconnue' }, { status: 400 })
     }
@@ -188,3 +314,5 @@ export async function PATCH(
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
+
+

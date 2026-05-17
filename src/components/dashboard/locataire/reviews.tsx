@@ -1,12 +1,31 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Star, User } from 'lucide-react'
+import { Star, User, Plus } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
+import { toast } from 'sonner'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface RatingItem {
@@ -36,6 +55,23 @@ interface RatingItem {
     firstName: string
     lastName: string
     avatarUrl: string | null
+  }
+}
+
+interface LeaseOption {
+  id: string
+  startDate: string
+  endDate: string
+  status: string
+  property: {
+    id: string
+    title: string
+    images: Array<{ url: string }>
+  }
+  owner: {
+    id: string
+    firstName: string
+    lastName: string
   }
 }
 
@@ -70,6 +106,32 @@ function StarsDisplay({ score, size = 'sm' }: { score: number; size?: 'sm' | 'lg
   )
 }
 
+function InteractiveStars({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [hovered, setHovered] = useState(0)
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => onChange(i)}
+          onMouseEnter={() => setHovered(i)}
+          onMouseLeave={() => setHovered(0)}
+          className="p-0.5 transition-transform hover:scale-110"
+        >
+          <Star
+            className={`size-8 transition-colors ${
+              i <= (hovered || value)
+                ? 'fill-amber-400 text-amber-400'
+                : 'text-neutral-200 hover:text-amber-300'
+            }`}
+          />
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ─── Animation Variants ────────────────────────────────────────────────────
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -91,6 +153,14 @@ export function Reviews() {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>('given')
 
+  // Review form state
+  const [showReviewDialog, setShowReviewDialog] = useState(false)
+  const [leases, setLeases] = useState<LeaseOption[]>([])
+  const [selectedLeaseId, setSelectedLeaseId] = useState<string>('')
+  const [ratingScore, setRatingScore] = useState(0)
+  const [ratingComment, setRatingComment] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
   const fetchReviews = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
     try {
@@ -108,7 +178,57 @@ export function Reviews() {
     }
   }, [isAuthenticated])
 
+  const fetchLeases = useCallback(async () => {
+    if (!isAuthenticated) return
+    try {
+      const result = await authFetch<{ activeLeases: LeaseOption[] }>('/api/dashboard/locataire')
+      setLeases(result.activeLeases ?? [])
+    } catch {
+      // Silently fail — leases are for the review form only
+    }
+  }, [isAuthenticated])
+
   useEffect(() => { fetchReviews() }, [fetchReviews])
+  useEffect(() => { fetchLeases() }, [fetchLeases])
+
+  const selectedLease = leases.find((l) => l.id === selectedLeaseId)
+
+  const handleSubmitReview = async () => {
+    if (!selectedLeaseId || ratingScore === 0) {
+      toast.error('Veuillez sélectionner un bail et une note')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      await authFetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leaseId: selectedLeaseId,
+          toUserId: selectedLease?.owner.id,
+          score: ratingScore,
+          comment: ratingComment || undefined,
+          propertyId: selectedLease?.property.id,
+        }),
+      })
+      toast.success('Avis envoyé avec succès')
+      setShowReviewDialog(false)
+      setSelectedLeaseId('')
+      setRatingScore(0)
+      setRatingComment('')
+      // Refresh reviews
+      fetchReviews()
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message || "Erreur lors de l'envoi de l'avis")
+      } else {
+        toast.error("Erreur lors de l'envoi de l'avis")
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const activeRatings = activeTab === 'given' ? ratingsGiven : ratingsReceived
 
@@ -149,9 +269,19 @@ export function Reviews() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
-      <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Mes avis</h1>
-        <p className="text-muted-foreground mt-1">Vos évaluations et commentaires</p>
+      <motion.div variants={itemVariants} className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Mes avis</h1>
+          <p className="text-muted-foreground mt-1">Vos évaluations et commentaires</p>
+        </div>
+        <Button
+          onClick={() => setShowReviewDialog(true)}
+          className="gap-2 bg-brand-500 hover:bg-brand-600 text-white"
+        >
+          <Plus className="size-4" />
+          <span className="hidden sm:inline">Laisser un avis</span>
+          <span className="sm:hidden">Avis</span>
+        </Button>
       </motion.div>
 
       {/* Stats Cards */}
@@ -280,6 +410,120 @@ export function Reviews() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ─── Review Creation Dialog ──────────────────────────────────────────── */}
+      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Star className="size-5 text-amber-400" />
+              Laisser un avis
+            </DialogTitle>
+            <DialogDescription>
+              Partagez votre expérience locative. Votre avis aidera les autres locataires.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            {/* Lease selector */}
+            <div className="space-y-2">
+              <Label htmlFor="lease-select" className="text-sm font-medium">
+                Bail concerné
+              </Label>
+              <Select value={selectedLeaseId} onValueChange={(val) => { setSelectedLeaseId(val); setRatingScore(0) }}>
+                <SelectTrigger className="w-full" id="lease-select">
+                  <SelectValue placeholder="Sélectionnez un bail" />
+                </SelectTrigger>
+                <SelectContent>
+                  {leases.length === 0 ? (
+                    <SelectItem value="_none" disabled>
+                      Aucun bail disponible
+                    </SelectItem>
+                  ) : (
+                    leases.map((lease) => (
+                      <SelectItem key={lease.id} value={lease.id}>
+                        {lease.property.title} — {new Date(lease.startDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Owner info (auto-populated) */}
+            {selectedLease && (
+              <div className="p-3 rounded-lg bg-muted flex items-center gap-3">
+                <div className="flex size-8 items-center justify-center rounded-full bg-brand-50 shrink-0">
+                  <User className="size-4 text-brand-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Propriétaire</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {selectedLease.owner.firstName} {selectedLease.owner.lastName}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Star rating */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Votre note</Label>
+              <div className="flex items-center gap-3">
+                <InteractiveStars value={ratingScore} onChange={setRatingScore} />
+                {ratingScore > 0 && (
+                  <span className="text-sm font-semibold text-foreground">{ratingScore}/5</span>
+                )}
+              </div>
+              {ratingScore > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {ratingScore === 1 && 'Très insatisfait'}
+                  {ratingScore === 2 && 'Insatisfait'}
+                  {ratingScore === 3 && 'Neutre'}
+                  {ratingScore === 4 && 'Satisfait'}
+                  {ratingScore === 5 && 'Très satisfait'}
+                </p>
+              )}
+            </div>
+
+            {/* Comment */}
+            <div className="space-y-2">
+              <Label htmlFor="review-comment" className="text-sm font-medium">
+                Commentaire <span className="text-muted-foreground font-normal">(optionnel)</span>
+              </Label>
+              <Textarea
+                id="review-comment"
+                placeholder="Décrivez votre expérience locative..."
+                value={ratingComment}
+                onChange={(e) => setRatingComment(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowReviewDialog(false)
+                setSelectedLeaseId('')
+                setRatingScore(0)
+                setRatingComment('')
+              }}
+              disabled={submitting}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleSubmitReview}
+              disabled={submitting || !selectedLeaseId || ratingScore === 0}
+              className="gap-2 bg-brand-500 hover:bg-brand-600 text-white disabled:opacity-50"
+            >
+              {submitting ? 'Envoi...' : 'Envoyer l\'avis'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

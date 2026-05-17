@@ -1,13 +1,22 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Eye, Calendar, Clock, MapPin, Building2, User, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Eye, Calendar, Clock, MapPin, Building2, MessageSquare, XCircle, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { toast } from 'sonner'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface VisitItem {
@@ -36,7 +45,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   REJECTED: { label: 'Rejeté', color: 'bg-red-50 text-red-700 border-red-200', icon: Eye, description: 'Le propriétaire a décliné votre demande de visite.' },
   COUNTER_PROPOSED: { label: 'Contre-proposition', color: 'bg-brand-50 text-brand-700 border-brand-200', icon: Calendar, description: 'Le propriétaire propose une autre date pour la visite.' },
   COMPLETED: { label: 'Complété', color: 'bg-muted text-foreground border-border', icon: Eye, description: 'La visite a été effectuée.' },
-  CANCELLED: { label: 'Annulé', color: 'bg-muted text-muted-foreground border-border', icon: Eye, description: 'La visite a été annulée.' },
+  CANCELLED: { label: 'Annulé', color: 'bg-muted text-muted-foreground border-border', icon: XCircle, description: 'La visite a été annulée.' },
 }
 
 function formatDate(dateStr: string): string {
@@ -58,6 +67,8 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
   const [visit, setVisit] = useState<VisitItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const [showCancelDialog, setShowCancelDialog] = useState(false)
 
   const fetchVisit = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -81,6 +92,30 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
   }, [isAuthenticated, visitId])
 
   useEffect(() => { fetchVisit() }, [fetchVisit])
+
+  const handleCancel = async () => {
+    if (!visit) return
+    setCancelling(true)
+    try {
+      await authFetch(`/api/visits/${visit.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CANCELLED' }),
+      })
+      toast.success('Visite annulée avec succès')
+      setShowCancelDialog(false)
+      // Refresh data
+      setVisit((prev) => prev ? { ...prev, status: 'CANCELLED' } : null)
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message || "Erreur lors de l'annulation")
+      } else {
+        toast.error("Erreur lors de l'annulation de la visite")
+      }
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -109,6 +144,7 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
   const config = statusConfig[visit.status] || statusConfig.PENDING
   const StatusIcon = config.icon
   const property = visit.property
+  const canCancel = visit.status === 'PENDING' || visit.status === 'ACCEPTED'
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
@@ -222,6 +258,69 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Cancel Visit Button */}
+      {canCancel && (
+        <div className="pt-2">
+          <Button
+            variant="outline"
+            className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300 gap-2"
+            onClick={() => setShowCancelDialog(true)}
+          >
+            <XCircle className="size-4" />
+            Annuler la visite
+          </Button>
+        </div>
+      )}
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="size-5 text-red-500" />
+              Annuler la visite
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Êtes-vous sûr de vouloir annuler cette visite pour
+              <span className="font-semibold text-foreground"> {property?.title}</span> ?
+              Cette action est irréversible.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-3 rounded-lg bg-red-50 border border-red-100 my-2">
+            <p className="text-xs text-red-700">
+              Le propriétaire sera informé de votre annulation.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelDialog(false)}
+              disabled={cancelling}
+            >
+              Non, garder la visite
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="gap-2"
+            >
+              {cancelling ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Annulation...
+                </>
+              ) : (
+                <>
+                  <XCircle className="size-4" />
+                  Confirmer l&apos;annulation
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

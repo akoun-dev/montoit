@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Wrench, Plus, AlertTriangle, Clock, CheckCircle2, X } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Wrench, Plus, AlertTriangle, Clock, CheckCircle2, X, ImageIcon, Trash2 } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,6 +22,7 @@ interface MaintenanceItem {
   description: string
   status: string
   priority: string
+  images: string // JSON string
   resolution: string | null
   createdAt: string
   updatedAt: string
@@ -81,6 +82,25 @@ function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function parseImages(imagesJson: string): string[] {
+  try {
+    const parsed = JSON.parse(imagesJson)
+    if (Array.isArray(parsed)) return parsed.filter((url) => typeof url === 'string')
+  } catch {
+    // Invalid JSON
+  }
+  return []
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('Erreur de lecture du fichier'))
+    reader.readAsDataURL(file)
+  })
+}
+
 // ─── Animation Variants ────────────────────────────────────────────────────
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -106,6 +126,16 @@ export function Maintenance() {
   const [formDescription, setFormDescription] = useState('')
   const [formPriority, setFormPriority] = useState('MEDIUM')
   const [submitting, setSubmitting] = useState(false)
+
+  // Image upload state
+  const [formImages, setFormImages] = useState<Array<{ dataUrl: string; file: File }>>([])
+  const [imageError, setImageError] = useState<string | null>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+
+  // Cancel confirmation state
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [cancelTarget, setCancelTarget] = useState<MaintenanceItem | null>(null)
+  const [cancelling, setCancelling] = useState(false)
 
   const fetchMaintenance = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -139,9 +169,59 @@ export function Maintenance() {
     setFormTitle('')
     setFormDescription('')
     setFormPriority('MEDIUM')
+    setFormImages([])
+    setImageError(null)
     setDialogOpen(true)
     fetchLeases()
   }
+
+  // ── Image handling ─────────────────────────────────────────────────────────
+  const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+    e.target.value = ''
+
+    const remaining = 5 - formImages.length
+    if (remaining <= 0) {
+      setImageError('Maximum 5 photos autorisées')
+      return
+    }
+
+    const newImages: Array<{ dataUrl: string; file: File }> = []
+    let errorMsg = ''
+
+    Array.from(files).slice(0, remaining).forEach((file) => {
+      if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
+        errorMsg = 'Format invalide. Utilisez JPG, PNG ou WEBP.'
+        return
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        errorMsg = 'Chaque image doit faire moins de 5 Mo.'
+        return
+      }
+      const url = URL.createObjectURL(file)
+      newImages.push({ dataUrl: url, file })
+    })
+
+    if (errorMsg) {
+      setImageError(errorMsg)
+      newImages.forEach((img) => URL.revokeObjectURL(img.dataUrl))
+      return
+    }
+
+    setImageError(null)
+    setFormImages((prev) => [...prev, ...newImages])
+  }, [formImages.length])
+
+  const removeImage = useCallback((index: number) => {
+    setFormImages((prev) => {
+      const updated = [...prev]
+      URL.revokeObjectURL(updated[index].dataUrl)
+      updated.splice(index, 1)
+      return updated
+    })
+    setImageError(null)
+  }, [])
 
   const handleSubmit = async () => {
     if (!formLeaseId || !formTitle.trim() || !formDescription.trim()) {
@@ -150,6 +230,13 @@ export function Maintenance() {
     }
     setSubmitting(true)
     try {
+      // Convert images to base64 data URLs
+      const imageUrls: string[] = []
+      for (const img of formImages) {
+        const base64 = await fileToBase64(img.file)
+        imageUrls.push(base64)
+      }
+
       await authFetch('/api/maintenance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -158,10 +245,13 @@ export function Maintenance() {
           title: formTitle.trim(),
           description: formDescription.trim(),
           priority: formPriority,
+          images: imageUrls,
         }),
       })
       toast.success('Demande de maintenance créée avec succès')
       setDialogOpen(false)
+      // Clean up image object URLs
+      formImages.forEach((img) => URL.revokeObjectURL(img.dataUrl))
       fetchMaintenance()
     } catch (err) {
       if (err instanceof AuthError) {
@@ -171,6 +261,36 @@ export function Maintenance() {
       }
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // ── Cancel handling ────────────────────────────────────────────────────────
+  const handleCancelClick = (req: MaintenanceItem) => {
+    setCancelTarget(req)
+    setCancelDialogOpen(true)
+  }
+
+  const handleCancelConfirm = async () => {
+    if (!cancelTarget) return
+    setCancelling(true)
+    try {
+      await authFetch(`/api/maintenance/${cancelTarget.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CLOSED' }),
+      })
+      toast.success('Demande annulée avec succès')
+      setCancelDialogOpen(false)
+      setCancelTarget(null)
+      fetchMaintenance()
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message)
+      } else {
+        toast.error('Erreur lors de l\'annulation')
+      }
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -284,22 +404,38 @@ export function Maintenance() {
             const pConfig = priorityConfig[req.priority] || priorityConfig.MEDIUM
             const SIcon = sConfig.icon
             const property = req.lease?.property
+            const reqImages = parseImages(req.images)
 
             return (
               <motion.div key={req.id} variants={itemVariants}>
                 <Card className="border-border hover:shadow-sm transition-shadow">
                   <CardContent className="p-4">
                     <div className="flex items-start gap-4">
-                      {/* Icon */}
-                      <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
-                        req.priority === 'URGENT' ? 'bg-red-50' : 'bg-brand-50'
-                      }`}>
-                        {req.priority === 'URGENT' ? (
-                          <AlertTriangle className="size-5 text-red-500" />
-                        ) : (
-                          <Wrench className="size-5 text-brand-500" />
-                        )}
-                      </div>
+                      {/* Image thumbnail or icon */}
+                      {reqImages.length > 0 ? (
+                        <div className="relative size-10 shrink-0 rounded-lg overflow-hidden">
+                          <img
+                            src={reqImages.at(0) || ""}
+                            alt={req.title}
+                            className="size-full object-cover"
+                          />
+                          {reqImages.length > 1 && (
+                            <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-brand-500 text-[9px] font-bold text-white">
+                              {reqImages.length}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
+                          req.priority === 'URGENT' ? 'bg-red-50' : 'bg-brand-50'
+                        }`}>
+                          {req.priority === 'URGENT' ? (
+                            <AlertTriangle className="size-5 text-red-500" />
+                          ) : (
+                            <Wrench className="size-5 text-brand-500" />
+                          )}
+                        </div>
+                      )}
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
@@ -308,6 +444,12 @@ export function Maintenance() {
                             {req.title}
                           </p>
                           <div className="flex items-center gap-1.5 shrink-0">
+                            {reqImages.length > 0 && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border border-brand-200 bg-brand-50 text-brand-600">
+                                <ImageIcon className="size-3 mr-0.5" />
+                                {reqImages.length}
+                              </Badge>
+                            )}
                             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 border ${pConfig.color}`}>
                               {pConfig.label}
                             </Badge>
@@ -320,11 +462,24 @@ export function Maintenance() {
                         <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
                           {req.description}
                         </p>
-                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                          {property && (
-                            <span>{property.title} — {property.city}</span>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                            {property && (
+                              <span>{property.title} — {property.city}</span>
+                            )}
+                            <span>{formatDate(req.createdAt)}</span>
+                          </div>
+                          {req.status === 'PENDING' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 text-[10px] px-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                              onClick={() => handleCancelClick(req)}
+                            >
+                              <X className="size-3 mr-1" />
+                              Annuler
+                            </Button>
                           )}
-                          <span>{formatDate(req.createdAt)}</span>
                         </div>
                       </div>
                     </div>
@@ -410,6 +565,52 @@ export function Maintenance() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Image Upload */}
+            <div className="space-y-2">
+              <Label>Photos (max 5)</Label>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                multiple
+                className="hidden"
+                onChange={handleImageSelect}
+              />
+              <div className="flex flex-wrap gap-2">
+                {formImages.map((img, index) => (
+                  <div key={index} className="relative group size-16 rounded-lg overflow-hidden border border-border">
+                    <img
+                      src={img.dataUrl}
+                      alt={`Photo ${index + 1}`}
+                      className="size-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="size-4 text-white" />
+                    </button>
+                  </div>
+                ))}
+                {formImages.length < 5 && (
+                  <button
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    className="flex size-16 items-center justify-center rounded-lg border-2 border-dashed border-border hover:border-brand-300 hover:bg-brand-50/50 transition-colors"
+                  >
+                    <Plus className="size-5 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+              {imageError && (
+                <p className="text-xs text-red-600">{imageError}</p>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                JPG, PNG ou WEBP — 5 Mo max par photo
+              </p>
+            </div>
           </div>
 
           <DialogFooter className="gap-2">
@@ -422,6 +623,39 @@ export function Maintenance() {
               className="bg-brand-500 hover:bg-brand-600 text-white"
             >
               {submitting ? 'Envoi...' : 'Envoyer la demande'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-5 text-red-500" />
+              Annuler la demande
+            </DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir annuler cette demande de maintenance&nbsp;? Cette action est irréversible.
+            </DialogDescription>
+          </DialogHeader>
+          {cancelTarget && (
+            <div className="py-2">
+              <p className="text-sm font-medium text-foreground">{cancelTarget.title}</p>
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{cancelTarget.description}</p>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)} disabled={cancelling}>
+              Non, garder
+            </Button>
+            <Button
+              onClick={handleCancelConfirm}
+              disabled={cancelling}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {cancelling ? 'Annulation...' : 'Oui, annuler'}
             </Button>
           </DialogFooter>
         </DialogContent>

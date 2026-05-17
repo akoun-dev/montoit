@@ -703,6 +703,7 @@ export function SettingsSection() {
 
   // Security tab state
   const [passwordModalOpen, setPasswordModalOpen] = useState(false)
+  const [privacyModalOpen, setPrivacyModalOpen] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -2400,6 +2401,94 @@ export function SettingsSection() {
                     ) : (
                       <><Save className="size-3.5 mr-1.5" /> Changer le mot de passe</>
                     )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Privacy Policy card */}
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Info className="size-4 text-brand-500" />
+                  Confidentialité et données
+                </CardTitle>
+                <CardDescription>Consultez notre politique de confidentialité et la gestion de vos données</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-accent transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-9 items-center justify-center rounded-lg bg-brand-50 text-brand-500">
+                      <Shield className="size-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Politique de confidentialité</p>
+                      <p className="text-xs text-muted-foreground">
+                        Comment nous collectons, utilisons et protégeons vos données
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8 border-brand-200 text-brand-600 hover:bg-brand-50"
+                    onClick={() => setPrivacyModalOpen(true)}
+                  >
+                    Consulter
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Privacy Policy Dialog */}
+            <Dialog open={privacyModalOpen} onOpenChange={setPrivacyModalOpen}>
+              <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Shield className="size-5 text-brand-500" />
+                    Politique de Confidentialité
+                  </DialogTitle>
+                  <DialogDescription>
+                    Dernière mise à jour : Janvier 2025
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 text-sm text-muted-foreground">
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-1">1. Collecte des données</h4>
+                    <p>Mon Toit collecte les données personnelles nécessaires au fonctionnement de la plateforme : nom, prénom, email, téléphone, pièces d&apos;identité, justificatifs de revenus et informations de localisation. Ces données sont collectées lors de votre inscription et de l&apos;utilisation des services.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-1">2. Utilisation des données</h4>
+                    <p>Vos données sont utilisées pour : la vérification d&apos;identité via ONECI, la constitution des dossiers locatifs, la mise en relation entre locataires et propriétaires, le suivi des paiements et la gestion des baux, et l&apos;amélioration de nos services.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-1">3. Partage des données</h4>
+                    <p>Vos données ne sont partagées qu&apos;avec : les Tiers de Confiance pour la validation des dossiers, les propriétaires/locataires dans le cadre d&apos;une location, ONECI pour la vérification d&apos;identité, et les autorités compétentes si requis par la loi ivoirienne.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-1">4. Sécurité</h4>
+                    <p>Nous mettons en œuvre des mesures de sécurité techniques et organisationnelles pour protéger vos données : chiffrement, authentification sécurisée, contrôles d&apos;accès stricts, et audits réguliers.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-1">5. Vos droits</h4>
+                    <p>Conformément à la loi ivoirienne, vous disposez d&apos;un droit d&apos;accès, de rectification, de suppression et de portabilité de vos données. Pour exercer ces droits, contactez-nous à dpo@montoit.ci.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-1">6. Conservation des données</h4>
+                    <p>Vos données sont conservées pendant la durée nécessaire aux finalités pour lesquelles elles ont été collectées, et au maximum 5 ans après la fin de votre dernière relation contractuelle.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-1">7. Cookies</h4>
+                    <p>Nous utilisons des cookies essentiels au fonctionnement de la plateforme et des cookies analytiques (anonymisés) pour améliorer l&apos;expérience utilisateur. Vous pouvez les désactiver dans les paramètres de votre navigateur.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground mb-1">8. Contact</h4>
+                    <p>Pour toute question relative à la protection de vos données personnelles, vous pouvez nous contacter à : dpo@montoit.ci ou par courrier à ANSUT — Mon Toit, Riviera Palmeraie, Abidjan, Côte d&apos;Ivoire.</p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setPrivacyModalOpen(false)} className="text-xs">
+                    Fermer
                   </Button>
                 </DialogFooter>
               </DialogContent>
