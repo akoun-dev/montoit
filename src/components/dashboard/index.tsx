@@ -39,6 +39,9 @@ import { PropertyVerifications } from './tc/property-verifications'
 import { PropertyVerifyDetail } from './tc/property-verify-detail'
 import { InventoryReportForm } from './tc/inventory-report-form'
 import { InventoryReportsList } from './tc/inventory-reports-list'
+import { AgentsManagement } from './tc/agents'
+import { MissionsManagement } from './tc/missions'
+import { LitigesManagement } from './tc/litiges'
 import { AdminOverview } from './admin/overview'
 import { AdminUsers } from './admin/users'
 import { PropertiesModeration } from './admin/properties-moderation'
@@ -151,6 +154,9 @@ function TcDashboard({ section }: { section: string }) {
     case 'agency-validations': return <AgencyValidations />
     case 'inventory-reports': return <InventoryReportsList />
     case 'sla-monitoring': return <SlaMonitoring />
+    case 'agents': return <AgentsManagement />
+    case 'missions': return <MissionsManagement />
+    case 'litiges': return <LitigesManagement />
     case 'notifications': return <Notifications />
     case 'history': return <ActivityHistory />
     case 'settings': return <SettingsSection />

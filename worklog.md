@@ -469,3 +469,31 @@ Stage Summary:
 - Document preview works consistently across all TC views with mobile-friendly sizing
 - List/card toggle available on all list views with proper touch targets
 - All lint checks pass, dev server running clean
+---
+Task ID: 1
+Agent: Main
+Task: Add Agents, Missions, and Litiges management to Tiers de Confiance interface
+
+Work Log:
+- Updated Prisma schema: Added VerificationAgent, Mission, MissionStatus, MissionType models
+- Updated Dispute model: Added tcComment and handledById fields for TC management
+- Added User relations: verificationAgents, missions, disputesHandled
+- Added Property.missions and InventoryReport.mission relations
+- Ran `db:push` successfully to sync schema
+- Created API routes: /api/tc/agents (GET/POST/PATCH/DELETE), /api/tc/missions (GET/POST/PATCH), /api/tc/litiges (GET/PATCH)
+- Created frontend components: agents.tsx, missions.tsx, litiges.tsx
+- Updated TC sidebar: Added MISSIONS section (Agents, Missions) and Litiges in SUIVI
+- Updated TC dashboard routing in index.tsx
+- Updated TC Overview: Added agents/missions/litiges stats, quick links, recent sections
+- Removed scoring/KYC/ONECI from TC overview
+- Fixed API response format mismatches (arrays vs wrapped objects)
+- Fixed PATCH request field names (agentId→id, missionId→id, disputeId→id)
+- Lint passes clean, all API routes return 200
+
+Stage Summary:
+- Full Agents CRUD: create, edit, toggle active, soft-delete with cascade
+- Missions with calendar view: create, list, filter, status workflow (ASSIGNED→IN_PROGRESS→COMPLETED/CANCELLED)
+- Litiges management: take charge, resolve, close, with TC comments
+- All views responsive with card/list toggle
+- Custom calendar grid for missions with day detail panel
+- Brand orange (#FF6C2F) consistent throughout

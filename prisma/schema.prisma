@@ -201,6 +201,18 @@ enum RoomCondition {
   MAUVAIS
 }
 
+enum MissionStatus {
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MissionType {
+  PROPERTY_VERIFICATION
+  INVENTORY_REPORT
+}
+
 // ─── User & Authentication ────────────────────────────────────────────────────
 
 model User {
@@ -284,6 +296,12 @@ model User {
   maintenanceRequests   MaintenanceRequest[]
   // Relations — inventory reports (as TC reviewer)
   inventoryReports     InventoryReport[]
+  // Relations — verification agents created by this TC
+  verificationAgents   VerificationAgent[]
+  // Relations — missions as agent
+  missions             Mission[]
+  // Relations — disputes handled by this TC
+  disputesHandled      Dispute[]          @relation("DisputeHandler")
 
   @@index([role])
   @@index([phone])
@@ -352,6 +370,7 @@ model Property {
   leases           Lease[]
   favorites        Favorite[]
   inventoryReports InventoryReport[]
+  missions         Mission[]
 
   @@index([status])
   @@index([city])
@@ -642,6 +661,7 @@ model Dispute {
   description String
   status      DisputeStatus @default(OPEN)
   resolution  String?
+  tcComment   String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -654,9 +674,13 @@ model Dispute {
   resolvedById String?
   resolvedBy   User?    @relation("DisputeResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
 
+  handledById String?
+  handledBy   User?    @relation("DisputeHandler", fields: [handledById], references: [id], onDelete: SetNull)
+
   @@index([leaseId])
   @@index([status])
   @@index([reportedById])
+  @@index([handledById])
 }
 
 // ─── Audit Log ────────────────────────────────────────────────────────────────
@@ -815,6 +839,7 @@ model InventoryReport {
   lease   Lease?  @relation(fields: [leaseId], references: [id], onDelete: SetNull)
 
   items InventoryReportItem[]
+  mission Mission?
 
   @@index([propertyId])
   @@index([reviewerId])
@@ -860,4 +885,63 @@ model MaintenanceRequest {
   @@index([tenantId])
   @@index([status])
   @@index([createdAt])
+}
+
+// ─── Verification Agent (Agent de vérification) ────────────────────────────────
+
+model VerificationAgent {
+  id          String   @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String   @unique
+  phone       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // The TC who created this agent
+  tcId String
+  tc   User  @relation(fields: [tcId], references: [id], onDelete: Cascade)
+
+  // Missions assigned to this agent
+  missions Mission[]
+
+  @@index([tcId])
+  @@index([isActive])
+}
+
+// ─── Mission (Assignment for on-site verification) ────────────────────────────
+
+model Mission {
+  id          String        @id @default(cuid())
+  type        MissionType
+  status      MissionStatus @default(ASSIGNED)
+  notes       String?
+  reportUrl   String?                      // URL to the verification report/document
+  scheduledAt DateTime                    // When the mission is scheduled
+  completedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // The property to verify
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  // The agent assigned to this mission
+  agentId String
+  agent   VerificationAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  // The TC who created this mission
+  tcId String
+  tc   User  @relation(fields: [tcId], references: [id], onDelete: Cascade)
+
+  // Optional link to inventory report created during mission
+  inventoryReportId String? @unique
+  inventoryReport   InventoryReport? @relation(fields: [inventoryReportId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId])
+  @@index([agentId])
+  @@index([tcId])
+  @@index([status])
+  @@index([scheduledAt])
 }

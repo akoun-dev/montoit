@@ -5,7 +5,7 @@ import {
   Building2, ClipboardCheck, Users, Shield, 
   BarChart3, Settings, AlertTriangle, Clock, BadgeCheck,
   LayoutDashboard, ChevronLeft, ChevronRight,
-  Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck, UserCircle, Home
+  Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck, UserCircle, Home, MapPin, Scale
 } from 'lucide-react'
 import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
@@ -170,9 +170,17 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           ],
         },
         {
+          title: 'MISSIONS',
+          items: [
+            { id: 'agents', label: 'Agents', icon: Users },
+            { id: 'missions', label: 'Missions', icon: MapPin },
+          ],
+        },
+        {
           title: 'SUIVI',
           items: [
             { id: 'sla-monitoring', label: 'Suivi SLA', icon: Clock },
+            { id: 'litiges', label: 'Litiges', icon: Scale },
             { id: 'notifications', label: 'Notifications', icon: Bell },
           ],
         },
