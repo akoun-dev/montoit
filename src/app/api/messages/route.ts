@@ -223,6 +223,35 @@ export async function POST(req: NextRequest) {
       data: { lastMessageAt: new Date() },
     })
 
+    // Create notification for the recipient
+    const convForNotification = await db.conversation.findUnique({
+      where: { id: convId },
+      select: { participant1Id: true, participant2Id: true },
+    })
+
+    if (convForNotification) {
+      const notifRecipientId = convForNotification.participant1Id === userId
+        ? convForNotification.participant2Id
+        : convForNotification.participant1Id
+
+      const sender = await db.user.findUnique({
+        where: { id: userId },
+        select: { firstName: true, lastName: true },
+      })
+
+      if (sender && notifRecipientId) {
+        await db.notification.create({
+          data: {
+            userId: notifRecipientId,
+            type: 'MESSAGE',
+            title: 'Nouveau message',
+            message: `${sender.firstName} ${sender.lastName} vous a envoyé un message`,
+            entityId: convId,
+          },
+        })
+      }
+    }
+
     // Return the message with conversation data
     const conversation = await db.conversation.findUnique({
       where: { id: convId },

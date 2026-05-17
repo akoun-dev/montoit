@@ -684,3 +684,45 @@ Stage Summary:
 - Ownership document uploads now notify all TC users
 - Property verification submissions now notify all TC users
 - Mission assignments now notify the property owner
+
+---
+Task ID: 6
+Agent: Messaging Fix Agent
+Task: Fix messaging system — full message history, contact form, notifications, role-based search
+
+Work Log:
+- Fix 1: locataire/messages.tsx — Added full message history fetch on conversation select
+  - Added `fullMessages` and `loadingMessages` state
+  - Added useEffect that fetches `/api/messages?conversationId=${selectedId}` when selectedId changes
+  - Updated unread count in conversations list from the fetch response
+  - Replaced `selected.messages?.map(...)` with `fullMessages.map(...)` and loading spinner
+  - Simplified conversation list onClick to just `setSelectedId(conv.id)` (removed old manual mark-as-read PATCH call)
+  - Added `setFullMessages((prev) => [...prev, data.message])` in handleSendMessage
+- Fix 2: proprietaire/messages.tsx — Applied exact same changes as locataire messages
+  - Full message history fetch, loading state, simplified onClick, fullMessages for rendering, new message append
+- Fix 3: property-detail-view.tsx ContactTab — Wired up contact form to actual API
+  - Added `sending` state
+  - Replaced fake `handleSendMessage` (was just `setSent(true)`) with actual POST /api/messages call using dynamic authFetch import
+  - Sends recipientId (property.ownerId), content, and propertyId
+  - Updated button with loading spinner state ("Envoi...") while sending
+  - Button disabled when sending or message empty
+- Fix 4: /api/messages/route.ts — Added notification creation when message is sent
+  - After creating message and updating lastMessageAt, fetches conversation participants
+  - Determines recipient (the other participant, not the sender)
+  - Fetches sender name from DB
+  - Creates a MESSAGE notification for the recipient with "Nouveau message" title
+  - Used `convForNotification` and `notifRecipientId` variable names to avoid shadowing existing `conversation` and `recipientId` in the same scope
+- Fix 5: /api/users/search/route.ts — Added role-based filtering
+  - Replaced `getUserIdFromRequest` with `getUserIdAndRole` to get effectiveRole
+  - LOCATAIRE users can only search for PROPRIETAIRE and AGENCE users
+  - PROPRIETAIRE users can only search for LOCATAIRE users
+  - AGENCE and TIERS_CONFIANCE can search all roles
+  - Applied roleFilter via spread in the Prisma where clause
+- Ran `bun run lint`: All checks pass with no errors
+
+Stage Summary:
+- Message conversations now show full history instead of just the last message
+- Contact form on property detail pages actually sends messages via API
+- Message recipients get a notification ("Nouveau message") when they receive a message
+- User search filters by role: tenants see owners/agencies, owners see tenants
+- All lint checks pass, dev server running clean

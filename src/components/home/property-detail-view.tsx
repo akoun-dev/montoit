@@ -1205,13 +1205,33 @@ function ContactTab({
   const { isAuthenticated, setView } = useAuthStore()
   const [message, setMessage] = useState('')
   const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!isAuthenticated) {
       setView('login')
       return
     }
-    setSent(true)
+    if (!message.trim() || sending) return
+
+    setSending(true)
+    try {
+      const { authFetch } = await import('@/lib/auth-fetch')
+      await authFetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientId: property.ownerId,
+          content: message.trim(),
+          propertyId: property.id,
+        }),
+      })
+      setSent(true)
+    } catch (err) {
+      console.error('Send message error:', err)
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -1305,10 +1325,19 @@ function ContactTab({
             <Button
               onClick={handleSendMessage}
               className="w-full bg-brand-500 hover:bg-brand-600 text-white h-10 text-sm font-semibold"
-              disabled={!message.trim()}
+              disabled={!message.trim() || sending}
             >
-              <Send className="size-4 mr-1.5" />
-              Envoyer le message
+              {sending ? (
+                <span className="flex items-center gap-2">
+                  <span className="size-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Envoi...
+                </span>
+              ) : (
+                <>
+                  <Send className="size-4 mr-1.5" />
+                  Envoyer le message
+                </>
+              )}
             </Button>
           </div>
         )}

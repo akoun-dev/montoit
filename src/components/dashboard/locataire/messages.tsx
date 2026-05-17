@@ -101,6 +101,30 @@ export function Messages() {
 
   const selected = conversations.find((c) => c.id === selectedId)
 
+  // Fetch full message history when selecting a conversation
+  const [fullMessages, setFullMessages] = useState<Message[]>([])
+  const [loadingMessages, setLoadingMessages] = useState(false)
+
+  useEffect(() => {
+    if (!selectedId) {
+      setFullMessages([])
+      return
+    }
+    setLoadingMessages(true)
+    authFetch<{ conversation: Conversation }>(`/api/messages?conversationId=${selectedId}`)
+      .then((data) => {
+        setFullMessages(data.conversation?.messages || [])
+        // Update unread count in conversations list
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === selectedId ? { ...c, unreadCount: 0 } : c
+          )
+        )
+      })
+      .catch(() => setFullMessages([]))
+      .finally(() => setLoadingMessages(false))
+  }, [selectedId])
+
   const otherPerson = selected
     ? selected.participant1Id === user?.id ? selected.participant2 : selected.participant1
     : null
@@ -153,6 +177,9 @@ export function Messages() {
           ...prev,
         ]
       })
+
+      // Add new message to fullMessages
+      setFullMessages((prev) => [...prev, data.message])
 
       setMessageText('')
 
@@ -393,23 +420,7 @@ export function Messages() {
                   return (
                     <button
                       key={conv.id}
-                      onClick={() => {
-                        setSelectedId(conv.id)
-                        // Mark messages as read when selecting
-                        if (conv.unreadCount > 0) {
-                          authFetch(`/api/messages/${conv.id}`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ markAllRead: true, conversationId: conv.id }),
-                          }).then(() => {
-                            setConversations((prev) =>
-                              prev.map((c) =>
-                                c.id === conv.id ? { ...c, unreadCount: 0 } : c
-                              )
-                            )
-                          }).catch(() => {})
-                        }
-                      }}
+                      onClick={() => setSelectedId(conv.id)}
                       className={`w-full flex items-start gap-3 p-3 text-left hover:bg-accent transition-colors border-b border-border ${
                         selectedId === conv.id ? 'bg-brand-50' : ''
                       }`}
@@ -491,7 +502,11 @@ export function Messages() {
                   {/* Messages area */}
                   <ScrollArea className="flex-1">
                     <div className="p-4 space-y-3">
-                      {selected.messages?.map((msg) => {
+                      {loadingMessages ? (
+                        <div className="flex items-center justify-center py-8">
+                          <span className="size-5 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
+                        </div>
+                      ) : fullMessages.map((msg) => {
                         const isMe = msg.senderId === user?.id
                         return (
                           <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
