@@ -497,3 +497,28 @@ Stage Summary:
 - All views responsive with card/list toggle
 - Custom calendar grid for missions with day detail panel
 - Brand orange (#FF6C2F) consistent throughout
+
+---
+Task ID: 2
+Agent: full-stack-developer
+Task: Create TC-specific settings component
+
+Work Log:
+- Created src/components/dashboard/tc/settings.tsx with TcSettings component
+- Removed scoring/ONECI/KYC/NNI/role-switching from TC settings
+- Only 3 tabs: Mon Profil, Sécurité, Notifications (no scoring tab)
+- Profile form includes only: firstName, lastName, phone, city, gender (no NNI, no birthDate)
+- No Trust Score circle in profile header card (replaced with TC badge)
+- No profile completion summary card
+- No ONECI verification section
+- No KYC verification modal
+- No role switching button
+- No scoring fetch (doesn't call /api/scoring)
+- Keeps: avatar upload/delete, profile save, password change, session management, notification preferences
+- Updated dashboard/index.tsx: TcDashboard now uses TcSettings instead of SettingsSection
+- Lint passes with no errors
+
+Stage Summary:
+- TC settings component created without scoring/ONECI/KYC features
+- TC users see a clean settings with only relevant fields
+- Dashboard routing updated to use TcSettings for TC role

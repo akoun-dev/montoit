@@ -42,6 +42,7 @@ import { InventoryReportsList } from './tc/inventory-reports-list'
 import { AgentsManagement } from './tc/agents'
 import { MissionsManagement } from './tc/missions'
 import { LitigesManagement } from './tc/litiges'
+import { TcSettings } from './tc/settings'
 import { AdminOverview } from './admin/overview'
 import { AdminUsers } from './admin/users'
 import { PropertiesModeration } from './admin/properties-moderation'
@@ -159,7 +160,7 @@ function TcDashboard({ section }: { section: string }) {
     case 'litiges': return <LitigesManagement />
     case 'notifications': return <Notifications />
     case 'history': return <ActivityHistory />
-    case 'settings': return <SettingsSection />
+    case 'settings': return <TcSettings />
     default: return <TcOverview />
   }
 }
