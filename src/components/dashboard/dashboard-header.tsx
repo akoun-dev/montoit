@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Bell, LogOut, Home, Menu, ArrowLeftRight, Building2, User as UserIcon, Info, ArrowRight, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -9,17 +9,26 @@ import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { AnimatedSheet } from '@/components/ui/sheet'
 import { useAuthStore } from '@/lib/auth-store'
+import { authFetch } from '@/lib/auth-fetch'
 import { cn } from '@/lib/utils'
 import { SidebarContent, getRoleLabel, getRoleColor } from './sidebar'
 import { ThemeToggle, LiveClock } from '@/components/theme-toggle'
 import { toast } from 'sonner'
 
 export function DashboardHeader() {
-  const { user, logout, setView, switchRole } = useAuthStore()
+  const { user, logout, setView, switchRole, setDashboardSection } = useAuthStore()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [switchingRole, setSwitchingRole] = useState(false)
   const [roleSwitchModalOpen, setRoleSwitchModalOpen] = useState(false)
   const [pendingRole, setPendingRole] = useState<'LOCATAIRE' | 'PROPRIETAIRE' | null>(null)
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    if (!user) return
+    authFetch<{ unreadCount: number }>('/api/notifications?limit=1')
+      .then((data) => setUnreadCount(data.unreadCount || 0))
+      .catch(() => {})
+  }, [user])
 
   if (!user) return null
 
@@ -88,11 +97,13 @@ export function DashboardHeader() {
           <LiveClock />
           <ThemeToggle />
 
-          <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
+          <Button variant="ghost" size="icon" className="relative" aria-label="Notifications" onClick={() => setDashboardSection('notifications')}>
             <Bell className="size-5 text-muted-foreground" />
-            <Badge className="absolute -top-0.5 -right-0.5 size-4 p-0 flex items-center justify-center bg-brand-500 text-white text-[10px]">
-              3
-            </Badge>
+            {unreadCount > 0 && (
+              <Badge className="absolute -top-0.5 -right-0.5 size-4 p-0 flex items-center justify-center bg-brand-500 text-white text-[10px]">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Badge>
+            )}
           </Button>
 
           {/* Role Switch Button */}

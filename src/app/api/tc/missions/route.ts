@@ -184,6 +184,23 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Notify the property owner
+    const propertyOwner = await db.property.findUnique({
+      where: { id: propertyId },
+      select: { ownerId: true, title: true },
+    })
+    if (propertyOwner) {
+      await db.notification.create({
+        data: {
+          userId: propertyOwner.ownerId,
+          type: 'VERIFICATION_RESULT',
+          title: 'Vérification programmée pour votre bien',
+          message: `Une vérification sur place a été programmée pour votre bien "${propertyOwner.title}".`,
+          entityId: mission.id,
+        },
+      })
+    }
+
     return NextResponse.json(mission, { status: 201 })
   } catch (error) {
     console.error('[TC Missions POST] Error:', error)

@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     }
     const { userId, effectiveRole } = authResult
 
-    if (effectiveRole !== 'LOCATAIRE') {
+    if (effectiveRole !== 'LOCATAIRE' && effectiveRole !== 'PROPRIETAIRE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
@@ -21,8 +21,13 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get('status') || undefined
     const leaseId = searchParams.get('leaseId') || undefined
 
-    // Build where clause — only payments for this tenant
-    const where: Record<string, unknown> = { tenantId: userId }
+    // Build where clause — LOCATAIRE sees their own payments, PROPRIETAIRE sees payments for their properties
+    let where: Record<string, unknown>
+    if (effectiveRole === 'PROPRIETAIRE') {
+      where = { lease: { ownerId: userId } }
+    } else {
+      where = { tenantId: userId }
+    }
     if (status) {
       where.status = status
     }
@@ -66,9 +71,12 @@ export async function GET(req: NextRequest) {
       db.payment.count({ where }),
     ])
 
-    // Compute stats
+    // Compute stats — LOCATAIRE sees their own payments, PROPRIETAIRE sees payments for their properties
+    const allPaymentsWhere = effectiveRole === 'PROPRIETAIRE'
+      ? { lease: { ownerId: userId } }
+      : { tenantId: userId }
     const allPayments = await db.payment.findMany({
-      where: { tenantId: userId },
+      where: allPaymentsWhere,
       select: { amount: true, status: true, dueDate: true, paidAt: true },
     })
 

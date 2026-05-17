@@ -522,3 +522,165 @@ Stage Summary:
 - TC settings component created without scoring/ONECI/KYC features
 - TC users see a clean settings with only relevant fields
 - Dashboard routing updated to use TcSettings for TC role
+
+---
+Task ID: 3
+Agent: Bug Fix Agent
+Task: Fix critical bugs — add PATCH endpoint for visits, wire up frontend accept/reject, fix proprietaire rental files query
+
+Work Log:
+- Added PATCH handler to /api/visits/[id]/route.ts:
+  - PROPRIETAIRE/AGENCE can accept (ACCEPTED), reject (REJECTED with optional ownerComment), or counter-propose (COUNTER_PROPOSED with counterDate, counterTimeSlot, ownerComment)
+  - Validates visit belongs to a property owned by the authenticated user
+  - Creates a notification for the tenant on status change with French status labels
+  - Returns 400 for invalid status, 403 for wrong role, 404 for not found
+- Updated GET handler in /api/visits/[id]/route.ts:
+  - Changed from LOCATAIRE-only to allow both LOCATAIRE and PROPRIETAIRE
+  - LOCATAIRE filtered by tenantId, PROPRIETAIRE filtered by property.ownerId
+  - Added tenant info (id, firstName, lastName, phone) to PROPRIETAIRE response
+- Replaced faked handleAccept/handleReject in visit-requests.tsx:
+  - Both now make actual PATCH /api/visits/{id} API calls with authFetch
+  - On success, refreshes data via fetchData() and shows toast
+  - On error, shows error toast with message from exception
+- Fixed proprietaire dashboard rental files query in /api/dashboard/proprietaire/route.ts:
+  - Was querying ALL rental files across the platform (no owner filter)
+  - Now filters by `leases: { some: { property: { ownerId: userId } } }` to only show rental files for the owner's properties
+- All lint checks pass with no errors
+
+Stage Summary:
+- PATCH /api/visits/[id] now fully functional for accept/reject/counter-propose with notifications
+- PROPRIETAIRE can view visit request details via GET /api/visits/[id]
+- Frontend visit accept/reject buttons now make real API calls instead of faked toasts
+- Propriétaire dashboard only shows rental files for properties they own (no data leakage)
+
+---
+Task ID: 1
+Agent: Bug Fix Agent
+Task: Fix critical API role restrictions — Notifications, Payments, Maintenance
+
+Work Log:
+- Fix 1: Notifications API — Removed LOCATAIRE-only restriction from both GET and PUT handlers
+  - Removed `effectiveRole !== 'LOCATAIRE'` check in GET handler (was lines 14-16)
+  - Removed `effectiveRole !== 'LOCATAIRE'` check in PUT handler (was lines 68-70)
+  - Any authenticated user can now read and manage their own notifications (already filtered by userId)
+- Fix 2: Payments API — Added PROPRIETAIRE support to GET handler
+  - Changed role check from `effectiveRole !== 'LOCATAIRE'` to `effectiveRole !== 'LOCATAIRE' && effectiveRole !== 'PROPRIETAIRE'`
+  - PROPRIETAIRE where clause uses `{ lease: { ownerId: userId } }` instead of `{ tenantId: userId }`
+  - Stats computation also uses role-aware where clause (allPaymentsWhere)
+- Fix 3: Maintenance API — Added PROPRIETAIRE support to GET handler
+  - Changed role check to allow PROPRIETAIRE alongside LOCATAIRE
+  - PROPRIETAIRE where clause uses `{ lease: { ownerId: userId } }` for requests listing
+  - Stats groupBy uses role-aware statsWhere clause
+  - POST handler remains LOCATAIRE-only (only tenants create maintenance requests)
+- Ran `bun run lint` — all checks pass with no errors
+
+Stage Summary:
+- Notifications API now accessible by all authenticated users (not just LOCATAIRE)
+- PROPRIETAIRE users can now view payments for their properties via /api/payments
+- PROPRIETAIRE users can now view maintenance requests for their properties via /api/maintenance
+- All APIs filter by userId so users can only see their own data — no security concerns
+- Maintenance POST remains LOCATAIRE-only as intended
+
+---
+Task ID: 2
+Agent: UI Bug Fix Agent
+Task: Fix mobile bottom nav role-aware items + dashboard header real unread count + notification bell wiring
+
+Work Log:
+- Fixed `/src/components/dashboard/mobile-bottom-nav.tsx`:
+  - Added icon imports: Building2, Users, MessageSquare, ClipboardCheck, MapPin, Scale from lucide-react
+  - Added `ownerItems` array (Espace, Biens, Visites, Locataires, Messages) for PROPRIETAIRE/AGENCE roles
+  - Added `tcItems` array (Espace, Dossiers, Missions, Litiges, Agents) for TIERS_CONFIANCE role
+  - Added `user` from useAuthStore and computed `effectiveRole = user?.activeRole || user?.role`
+  - Selected `navItems` based on effectiveRole (PROPRIETAIRE/AGENCE → ownerItems, TIERS_CONFIANCE → tcItems, else → tenantItems)
+  - Expanded `detailToParent` map with Propriétaire detail views (property-detail, add-property, visit-request-detail, tenant-detail) and TC detail views (rental-file-detail, property-verifications, property-verify-detail, inventory-report-form, inventory-reports, owner-validations, agency-validations)
+  - Replaced `tenantItems` with `navItems` in the render loop
+- Fixed `/src/components/dashboard/dashboard-header.tsx`:
+  - Added `useEffect` import from React
+  - Added `authFetch` import from `@/lib/auth-fetch`
+  - Added `setDashboardSection` from useAuthStore
+  - Added `unreadCount` state initialized to 0
+  - Added useEffect to fetch unread count from `/api/notifications?limit=1` on mount (when user exists)
+  - Replaced hardcoded "3" badge with dynamic `{unreadCount > 9 ? '9+' : unreadCount}`
+  - Badge conditionally renders only when `unreadCount > 0`
+  - Added `onClick={() => setDashboardSection('notifications')}` to notification bell button
+- Ran `bun run lint`: All checks pass with no errors
+
+Stage Summary:
+- Mobile bottom nav now shows role-specific items for all 3 roles (Locataire, Propriétaire, TC)
+- Detail views from all roles correctly highlight their parent tab in the bottom nav
+- Dashboard header notification bell fetches real unread count from API
+- Badge shows "9+" for counts over 9, hides when no unread notifications
+- Clicking the bell navigates to the notifications section
+
+---
+Task ID: 4
+Agent: UI Fix Agent
+Task: Fix blue/violet color violations and wire up proprietaire property buttons
+
+Work Log:
+- Fix 1: Locataire Overview (overview.tsx) — 3 blue color violations:
+  - Changed "Dossiers locatifs" stat card from `text-blue-600 bg-blue-50` → `text-teal-600 bg-teal-50`
+  - Changed SUBMITTED status badge from `bg-blue-100 text-blue-700` → `bg-amber-100 text-amber-700`
+  - Changed COMPLETED status badge from `bg-blue-100 text-blue-700` → `bg-teal-100 text-teal-700`
+- Fix 2: Propriétaire Overview (overview.tsx) — 1 blue color violation:
+  - Changed "Biens totaux" stat card from `text-blue-600 bg-blue-50` → `text-teal-600 bg-teal-50`
+- Fix 3: Propriétaire My Properties (my-properties.tsx) — 1 blue color violation:
+  - Changed RENTED status badge from `bg-blue-100 text-blue-700` → `bg-teal-100 text-teal-700`
+- Fix 4: Propriétaire Rental Files (rental-files.tsx) — 1 blue color violation:
+  - Changed SUBMITTED status badge from `bg-blue-100 text-blue-700` → `bg-amber-100 text-amber-700`
+- Fix 5: TC Owner Validations (owner-validations.tsx) — 1 violet color violation:
+  - Changed RCCM type from `bg-violet-500/10 text-violet-700 border-violet-500/20` → `bg-teal-500/10 text-teal-700 border-teal-500/20`
+- Fix 6: Propriétaire My Properties (my-properties.tsx) — wired up unconnected buttons:
+  - Added `handleToggleStatus` async function that toggles ACTIVE↔SUSPENDED via PATCH /api/properties/{id}
+  - Added `onClick={() => handleResumeDraft(p.id)}` to "Modifier" (Edit) button
+  - Added `onClick={() => handleToggleStatus(p.id, p.status)}` to "Power" toggle button
+  - Both buttons show toast feedback on success/error
+- Ran `bun run lint` — all checks pass with no errors
+
+Stage Summary:
+- All 7 blue/violet color violations across 5 files replaced with brand-aligned colors (teal, amber)
+- No blue colors remain in Locataire Overview, Propriétaire Overview, My Properties, Rental Files, or TC Owner Validations
+- Propriétaire My Properties "Modifier" and "Power" buttons now have functional onClick handlers
+- Power button toggles property status between ACTIVE and SUSPENDED with API call and toast feedback
+
+---
+Task ID: 5
+Agent: Bug Fix Agent
+Task: Fix TC Overview hardcoded breakdown counts, add NotificationType enum values, add notification triggers for key events
+
+Work Log:
+- Fix 1: TC Overview breakdown counts hardcoded to 0
+  - Updated /api/dashboard/tc/route.ts: Added ownershipDocument.groupBy query to get PENDING doc counts by type, mapping results to docBreakdownMap
+  - Added pendingOwnerDocsByType (TITRE_FONCIER, ACTE_NOTARIE, ATTESTATION_PROPRIETE) and pendingAgencyDocsByType (AGREMENT, RCCM) to stats response
+  - Updated overview.tsx TcStats interface: Added optional pendingOwnerDocsByType and pendingAgencyDocsByType fields
+  - Updated defaultStats with zero defaults for both new fields
+  - Updated "Validations propriétaires" breakdown to use stats.pendingOwnerDocsByType?.TITRE_FONCIER and ACTE_NOTARIE instead of hardcoded 0
+  - Updated "Validations agences" breakdown to use stats.pendingAgencyDocsByType?.AGREMENT and RCCM instead of hardcoded 0
+
+- Fix 2: Added NotificationType enum values for TC-specific events
+  - Added to prisma/schema.prisma NotificationType enum: MISSION_ASSIGNED, MISSION_COMPLETED, DISPUTE_ASSIGNED, PROPERTY_VERIFICATION, VERIFICATION_RESULT
+  - Ran bun run db:push — database already in sync (Prisma client regenerated)
+
+- Fix 3a: Rental file submission notification
+  - Updated /api/rental-file/route.ts POST handler: After rental file is set to SUBMITTED status, fetches all active TC users and creates DOSSIER_UPDATE notifications for each
+  - Added notification in both code paths: updating existing draft to SUBMITTED and creating new rental file with SUBMITTED status
+
+- Fix 3b: Ownership document upload notification
+  - Updated /api/owner-file/documents/route.ts POST handler: After document creation/replacement, fetches all active TC users and creates DOSSIER_UPDATE notifications
+
+- Fix 3c: Property verification submission notification
+  - Updated /api/properties/[id]/route.ts PATCH handler: When isPublishing is true (status changed to PENDING_VERIFICATION), fetches all active TC users and creates PROPERTY_VERIFICATION notifications with property title
+
+- Fix 3d: Mission assignment notification to property owner
+  - Updated /api/tc/missions/route.ts POST handler: After mission creation, fetches property owner and creates VERIFICATION_RESULT notification about scheduled verification
+
+- Ran bun run lint: All checks pass with no errors
+
+Stage Summary:
+- TC Overview breakdown counts now use real data from the API instead of hardcoded 0 values
+- NotificationType enum expanded with 5 TC-specific types for mission, dispute, and verification events
+- Rental file submissions now notify all TC users
+- Ownership document uploads now notify all TC users
+- Property verification submissions now notify all TC users
+- Mission assignments now notify the property owner

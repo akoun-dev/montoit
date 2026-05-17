@@ -174,6 +174,25 @@ export async function POST(req: NextRequest) {
           userId,
         },
       })
+
+      // Notify all TC users when submitted
+      if (submit) {
+        const tcUsers = await db.user.findMany({
+          where: { role: 'TIERS_CONFIANCE', isActive: true },
+          select: { id: true },
+        })
+        if (tcUsers.length > 0) {
+          await db.notification.createMany({
+            data: tcUsers.map((tc) => ({
+              userId: tc.id,
+              type: 'DOSSIER_UPDATE',
+              title: 'Nouveau dossier locatif soumis',
+              message: `Un nouveau dossier locatif a été soumis et nécessite votre validation.`,
+              entityId: rentalFile.id,
+            })),
+          })
+        }
+      }
     } else {
       // Create new draft (or submitted directly)
       const status = submit ? 'SUBMITTED' : 'DRAFT'
@@ -216,6 +235,25 @@ export async function POST(req: NextRequest) {
           userId,
         },
       })
+
+      // Notify all TC users when submitted
+      if (submit) {
+        const tcUsers = await db.user.findMany({
+          where: { role: 'TIERS_CONFIANCE', isActive: true },
+          select: { id: true },
+        })
+        if (tcUsers.length > 0) {
+          await db.notification.createMany({
+            data: tcUsers.map((tc) => ({
+              userId: tc.id,
+              type: 'DOSSIER_UPDATE',
+              title: 'Nouveau dossier locatif soumis',
+              message: `Un nouveau dossier locatif a été soumis et nécessite votre validation.`,
+              entityId: rentalFile.id,
+            })),
+          })
+        }
+      }
     }
 
     return NextResponse.json({ data: rentalFile })

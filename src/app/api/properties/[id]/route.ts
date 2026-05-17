@@ -188,6 +188,25 @@ export async function PATCH(
       },
     })
 
+    // Notify all TC users when property is submitted for verification
+    if (isPublishing) {
+      const tcUsers = await db.user.findMany({
+        where: { role: 'TIERS_CONFIANCE', isActive: true },
+        select: { id: true },
+      })
+      if (tcUsers.length > 0) {
+        await db.notification.createMany({
+          data: tcUsers.map((tc) => ({
+            userId: tc.id,
+            type: 'PROPERTY_VERIFICATION',
+            title: 'Nouveau bien en attente de vérification',
+            message: `Le bien "${existing.title}" a été soumis pour vérification.`,
+            entityId: existing.id,
+          })),
+        })
+      }
+    }
+
     return NextResponse.json({ property })
   } catch (error) {
     console.error('Property update error:', error)

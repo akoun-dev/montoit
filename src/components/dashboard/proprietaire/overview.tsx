@@ -186,7 +186,7 @@ export function ProprietaireOverview() {
   }
 
   const stats = [
-    { label: 'Biens totaux', value: data.stats.totalProperties, icon: Building2, color: 'text-blue-600 bg-blue-50' },
+    { label: 'Biens totaux', value: data.stats.totalProperties, icon: Building2, color: 'text-teal-600 bg-teal-50' },
     { label: 'Biens actifs', value: data.stats.activeProperties, icon: TrendingUp, color: 'text-green-600 bg-green-50' },
     { label: 'Visites en attente', value: data.stats.pendingVisits, icon: Eye, color: 'text-amber-600 bg-amber-50' },
     { label: 'Revenus mensuels', value: `${(data.stats.totalRevenue / 1000).toFixed(0)}k`, icon: FileSignature, color: 'text-brand-600 bg-brand-50' },

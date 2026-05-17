@@ -87,7 +87,7 @@ const TYPE_COLORS: Record<DocType, string> = {
   TITRE_FONCIER: 'bg-brand-500/10 text-brand-500 border-brand-500/20',
   ACTE_NOTARIE: 'bg-amber-500/10 text-amber-700 border-amber-500/20',
   ATTESTATION_PROPRIETE: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20',
-  RCCM: 'bg-violet-500/10 text-violet-700 border-violet-500/20',
+  RCCM: 'bg-teal-500/10 text-teal-700 border-teal-500/20',
   AGREMENT: 'bg-rose-500/10 text-rose-700 border-rose-500/20',
 }
 

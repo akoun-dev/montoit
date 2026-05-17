@@ -31,7 +31,14 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: 'desc' },
       }),
       db.rentalFile.findMany({
-        where: { status: { in: ['SUBMITTED', 'TC_REVIEW', 'VALIDATED'] } },
+        where: {
+          status: { in: ['SUBMITTED', 'TC_REVIEW', 'VALIDATED'] },
+          leases: {
+            some: {
+              property: { ownerId: userId },
+            },
+          },
+        },
         include: {
           tenant: { select: { firstName: true, lastName: true, phone: true } },
           documents: true,

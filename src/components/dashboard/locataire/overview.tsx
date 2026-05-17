@@ -118,13 +118,13 @@ const itemVariants = {
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; className: string }> = {
     DRAFT: { label: 'Brouillon', className: 'bg-muted text-foreground' },
-    SUBMITTED: { label: 'Soumis', className: 'bg-blue-100 text-blue-700' },
+    SUBMITTED: { label: 'Soumis', className: 'bg-amber-100 text-amber-700' },
     TC_REVIEW: { label: 'En revue TC', className: 'bg-amber-100 text-amber-700' },
     VALIDATED: { label: 'Validé', className: 'bg-green-100 text-green-700' },
     REJECTED: { label: 'Rejeté', className: 'bg-red-100 text-red-700' },
     PENDING: { label: 'En attente', className: 'bg-amber-100 text-amber-700' },
     ACCEPTED: { label: 'Accepté', className: 'bg-green-100 text-green-700' },
-    COMPLETED: { label: 'Complété', className: 'bg-blue-100 text-blue-700' },
+    COMPLETED: { label: 'Complété', className: 'bg-teal-100 text-teal-700' },
     ACTIVE: { label: 'Actif', className: 'bg-green-100 text-green-700' },
   }
   const c = config[status] || { label: status, className: 'bg-muted text-foreground' }
@@ -228,7 +228,7 @@ export function LocataireOverview() {
   }
 
   const stats = [
-    { label: 'Dossiers locatifs', value: data.stats.totalRentalFiles, icon: FileText, color: 'text-blue-600 bg-blue-50' },
+    { label: 'Dossiers locatifs', value: data.stats.totalRentalFiles, icon: FileText, color: 'text-teal-600 bg-teal-50' },
     { label: 'Baux actifs', value: data.stats.activeLeases, icon: FileSignature, color: 'text-green-600 bg-green-50' },
     { label: 'Visites en attente', value: data.stats.pendingVisits, icon: Eye, color: 'text-amber-600 bg-amber-50' },
     { label: 'Messages non lus', value: data.stats.unreadMessages, icon: MessageSquare, color: 'text-brand-600 bg-brand-50' },

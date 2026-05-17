@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     }
     const { userId, effectiveRole } = authResult
 
-    if (effectiveRole !== 'LOCATAIRE') {
+    if (effectiveRole !== 'LOCATAIRE' && effectiveRole !== 'PROPRIETAIRE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
@@ -22,7 +22,13 @@ export async function GET(req: NextRequest) {
     const priority = searchParams.get('priority') || undefined
     const leaseId = searchParams.get('leaseId') || undefined
 
-    const where: Record<string, unknown> = { tenantId: userId }
+    // Build where clause — LOCATAIRE sees their own requests, PROPRIETAIRE sees requests for their properties
+    let where: Record<string, unknown>
+    if (effectiveRole === 'PROPRIETAIRE') {
+      where = { lease: { ownerId: userId } }
+    } else {
+      where = { tenantId: userId }
+    }
     if (status) {
       where.status = status
     }
@@ -70,9 +76,12 @@ export async function GET(req: NextRequest) {
     ])
 
     // Count by status for quick stats
+    const statsWhere = effectiveRole === 'PROPRIETAIRE'
+      ? { lease: { ownerId: userId } }
+      : { tenantId: userId }
     const statusCounts = await db.maintenanceRequest.groupBy({
       by: ['status'],
-      where: { tenantId: userId },
+      where: statsWhere,
       _count: { status: true },
     })
 

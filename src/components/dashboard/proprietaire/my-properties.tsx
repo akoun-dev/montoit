@@ -79,6 +79,21 @@ export function MyProperties() {
     }
   }
 
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'
+      await authFetch(`/api/properties/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      toast.success(newStatus === 'ACTIVE' ? 'Bien réactivé' : 'Bien suspendu')
+      fetchData()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors du changement de statut')
+    }
+  }
+
   const handleFormSuccess = () => {
     setShowAddForm(false)
     setEditingId(null)
@@ -118,7 +133,7 @@ export function MyProperties() {
     PENDING_VERIFICATION: { label: 'En attente de vérification', className: 'bg-amber-100 text-amber-700' },
     SUSPENDED: { label: 'Suspendu', className: 'bg-red-100 text-red-700' },
     CLOSED: { label: 'Fermé', className: 'bg-neutral-100 text-neutral-600' },
-    RENTED: { label: 'Loué', className: 'bg-blue-100 text-blue-700' },
+    RENTED: { label: 'Loué', className: 'bg-teal-100 text-teal-700' },
   }
 
   return (
@@ -277,10 +292,10 @@ export function MyProperties() {
                           {p.price.toLocaleString('fr-FR')} <span className="text-sm font-normal text-muted-foreground">FCFA/mois</span>
                         </p>
                         <div className="flex gap-2 mt-3">
-                          <Button variant="outline" size="sm" className="flex-1 gap-1">
+                          <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => handleResumeDraft(p.id)}>
                             <Edit className="size-3.5" /> Modifier
                           </Button>
-                          <Button variant="outline" size="sm" className="gap-1">
+                          <Button variant="outline" size="sm" className="gap-1" onClick={() => handleToggleStatus(p.id, p.status)}>
                             <Power className="size-3.5" />
                           </Button>
                         </div>

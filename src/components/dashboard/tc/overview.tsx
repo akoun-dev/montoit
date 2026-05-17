@@ -29,6 +29,15 @@ interface TcStats {
     SUBMITTED: number
     TC_REVIEW: number
   }
+  pendingOwnerDocsByType?: {
+    TITRE_FONCIER: number
+    ACTE_NOTARIE: number
+    ATTESTATION_PROPRIETE: number
+  }
+  pendingAgencyDocsByType?: {
+    AGREMENT: number
+    RCCM: number
+  }
 }
 
 interface AgentSummary {
@@ -100,6 +109,8 @@ const defaultStats: TcStats = {
   pendingAgencyDocs: 0,
   pendingOwnerDocs: 0,
   rentalFilesByStatus: { SUBMITTED: 0, TC_REVIEW: 0 },
+  pendingOwnerDocsByType: { TITRE_FONCIER: 0, ACTE_NOTARIE: 0, ATTESTATION_PROPRIETE: 0 },
+  pendingAgencyDocsByType: { AGREMENT: 0, RCCM: 0 },
 }
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } }
@@ -289,8 +300,8 @@ export function TcOverview() {
       borderColor: 'border-emerald-200',
       hoverBg: 'hover:border-emerald-300',
       breakdown: [
-        { label: 'Titre foncier', count: 0, color: 'text-emerald-600' },
-        { label: 'Acte notarié', count: 0, color: 'text-emerald-600' },
+        { label: 'Titre foncier', count: stats.pendingOwnerDocsByType?.TITRE_FONCIER ?? 0, color: 'text-emerald-600' },
+        { label: 'Acte notarié', count: stats.pendingOwnerDocsByType?.ACTE_NOTARIE ?? 0, color: 'text-emerald-600' },
       ],
     },
     {
@@ -303,8 +314,8 @@ export function TcOverview() {
       borderColor: 'border-rose-200',
       hoverBg: 'hover:border-rose-300',
       breakdown: [
-        { label: 'Agrément', count: 0, color: 'text-rose-600' },
-        { label: 'RCCM', count: 0, color: 'text-rose-600' },
+        { label: 'Agrément', count: stats.pendingAgencyDocsByType?.AGREMENT ?? 0, color: 'text-rose-600' },
+        { label: 'RCCM', count: stats.pendingAgencyDocsByType?.RCCM ?? 0, color: 'text-rose-600' },
       ],
     },
   ]

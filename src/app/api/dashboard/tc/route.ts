@@ -14,6 +14,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
+    // Ownership doc breakdown by type (for owner validations)
+    const ownershipDocBreakdown = await db.ownershipDocument.groupBy({
+      by: ['type'],
+      where: { status: 'PENDING' },
+      _count: { type: true },
+    })
+
+    const docBreakdownMap = Object.fromEntries(
+      ownershipDocBreakdown.map((d) => [d.type, d._count.type])
+    )
+
     const [
       pendingRentalFiles,
       pendingOwnershipDocs,
@@ -107,6 +118,16 @@ export async function GET(req: NextRequest) {
         rentalFilesByStatus: {
           SUBMITTED: submittedRentalCount,
           TC_REVIEW: tcReviewRentalCount,
+        },
+        // Ownership doc breakdown by type
+        pendingOwnerDocsByType: {
+          TITRE_FONCIER: docBreakdownMap['TITRE_FONCIER'] || 0,
+          ACTE_NOTARIE: docBreakdownMap['ACTE_NOTARIE'] || 0,
+          ATTESTATION_PROPRIETE: docBreakdownMap['ATTESTATION_PROPRIETE'] || 0,
+        },
+        pendingAgencyDocsByType: {
+          AGREMENT: docBreakdownMap['AGREMENT'] || 0,
+          RCCM: docBreakdownMap['RCCM'] || 0,
         },
       },
       // New: recent audit log activities for this TC user

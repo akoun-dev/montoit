@@ -53,8 +53,33 @@ export function VisitRequests() {
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 
-  const handleAccept = (id: string) => { toast.success('Visite acceptée !') }
-  const handleReject = (id: string) => { toast.error('Visite refusée') }
+  const handleAccept = async (id: string) => {
+    try {
+      await authFetch(`/api/visits/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'ACCEPTED' }),
+      })
+      toast.success('Visite acceptée !')
+      fetchData()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'acceptation')
+    }
+  }
+
+  const handleReject = async (id: string) => {
+    try {
+      await authFetch(`/api/visits/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'REJECTED' }),
+      })
+      toast.success('Visite refusée')
+      fetchData()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors du refus')
+    }
+  }
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">

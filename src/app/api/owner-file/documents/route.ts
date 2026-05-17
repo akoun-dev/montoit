@@ -75,6 +75,23 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // Notify all TC users about the new document
+    const tcUsers = await db.user.findMany({
+      where: { role: 'TIERS_CONFIANCE', isActive: true },
+      select: { id: true },
+    })
+    if (tcUsers.length > 0) {
+      await db.notification.createMany({
+        data: tcUsers.map((tc) => ({
+          userId: tc.id,
+          type: 'DOSSIER_UPDATE',
+          title: 'Nouveau document de propriété soumis',
+          message: `Un nouveau document de propriété a été soumis et nécessite votre validation.`,
+          entityId: document.id,
+        })),
+      })
+    }
+
     return NextResponse.json({ data: document })
   } catch (error) {
     console.error('Owner file document upload error:', error)

@@ -11,10 +11,6 @@ export async function GET(req: NextRequest) {
     }
     const { userId, effectiveRole } = authResult
 
-    if (effectiveRole !== 'LOCATAIRE') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    }
-
     const { searchParams } = new URL(req.url)
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')))
@@ -64,10 +60,6 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
     const { userId, effectiveRole } = authResult
-
-    if (effectiveRole !== 'LOCATAIRE') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    }
 
     const body = await req.json()
     const { notificationIds, markAllRead } = body as {

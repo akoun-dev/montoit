@@ -75,7 +75,7 @@ export function ProprietaireRentalFiles() {
                   <Badge className={
                     rf.status === 'VALIDATED' ? 'bg-green-100 text-green-700' :
                     rf.status === 'TC_REVIEW' ? 'bg-amber-100 text-amber-700' :
-                    rf.status === 'SUBMITTED' ? 'bg-blue-100 text-blue-700' :
+                    rf.status === 'SUBMITTED' ? 'bg-amber-100 text-amber-700' :
                     'bg-neutral-100 text-neutral-600'
                   }>
                     {rf.status === 'VALIDATED' ? 'Validé' : rf.status === 'TC_REVIEW' ? 'En revue TC' : rf.status === 'SUBMITTED' ? 'Soumis' : rf.status}
