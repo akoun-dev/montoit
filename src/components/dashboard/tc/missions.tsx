@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useMemo } from 'react'
 import {
   MapPin, User, Calendar, ChevronLeft, ChevronRight, Plus,
   Search, Clock, CheckCircle2, XCircle, Loader2, Home, FileText,
+  Camera, MessageSquare, AlertTriangle, Flame, CircleDot, Link2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -29,15 +30,20 @@ import { cn } from '@/lib/utils'
 
 type MissionStatus = 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 type MissionType = 'PROPERTY_VERIFICATION' | 'INVENTORY_REPORT'
+type DossierPriority = 'NORMAL' | 'HIGH' | 'URGENT'
 
 interface Mission {
   id: string
   type: MissionType
   status: MissionStatus
+  priority: DossierPriority
   scheduledAt: string
   notes: string | null
   tcComment: string | null
   completedAt: string | null
+  photoUrls: string
+  feedback: string | null
+  reportUrl: string | null
   createdAt: string
   property: {
     id: string
@@ -58,6 +64,7 @@ interface AgentOption {
   firstName: string
   lastName: string
   email: string
+  isActive?: boolean
 }
 
 interface PropertyOption {
@@ -66,8 +73,6 @@ interface PropertyOption {
   address: string
   commune: string
 }
-
-// API returns array directly
 
 interface ApiAgentsResponse {
   agents: AgentOption[]
@@ -111,6 +116,34 @@ const typeColors: Record<MissionType, string> = {
   INVENTORY_REPORT: 'bg-brand-50 text-brand-700 border-brand-200',
 }
 
+const priorityLabels: Record<DossierPriority, string> = {
+  NORMAL: 'Normale',
+  HIGH: 'Haute',
+  URGENT: 'Urgente',
+}
+
+const priorityColors: Record<DossierPriority, string> = {
+  NORMAL: 'bg-gray-100 text-gray-600',
+  HIGH: 'bg-amber-100 text-amber-700',
+  URGENT: 'bg-red-100 text-red-700',
+}
+
+const priorityIcons: Record<DossierPriority, React.ElementType> = {
+  NORMAL: CircleDot,
+  HIGH: AlertTriangle,
+  URGENT: Flame,
+}
+
+function PriorityBadge({ priority }: { priority: DossierPriority }) {
+  const Icon = priorityIcons[priority]
+  return (
+    <Badge className={cn('gap-1 text-xs', priorityColors[priority])}>
+      <Icon className="size-3" />
+      {priorityLabels[priority]}
+    </Badge>
+  )
+}
+
 // ─── Calendar Helpers ───────────────────────────────────────────────────────
 
 function getDaysInMonth(year: number, month: number): number {
@@ -151,6 +184,7 @@ export function MissionsManagement() {
   const [statusFilter, setStatusFilter] = useState<MissionStatus | 'ALL'>('ALL')
   const [agentFilter, setAgentFilter] = useState<string>('ALL')
   const [typeFilter, setTypeFilter] = useState<MissionType | 'ALL'>('ALL')
+  const [priorityFilter, setPriorityFilter] = useState<DossierPriority | 'ALL'>('ALL')
 
   // Calendar
   const today = new Date()
@@ -171,8 +205,16 @@ export function MissionsManagement() {
     type: 'PROPERTY_VERIFICATION' as MissionType,
     scheduledAt: '',
     notes: '',
+    priority: 'NORMAL' as DossierPriority,
   })
   const [creating, setCreating] = useState(false)
+
+  // Photo URL input
+  const [newPhotoUrl, setNewPhotoUrl] = useState('')
+
+  // TC Feedback
+  const [feedbackValue, setFeedbackValue] = useState('')
+  const [savingFeedback, setSavingFeedback] = useState(false)
 
   // ─── Fetch ──────────────────────────────────────────────────────────────
 
@@ -199,8 +241,8 @@ export function MissionsManagement() {
   const fetchAgents = useCallback(async () => {
     if (!isAuthenticated) return
     try {
-      const data = await authFetch<AgentOption[] | { agents: AgentOption[] }>('/api/tc/agents?isActive=true')
-      setAgents(Array.isArray(data) ? data : (data as { agents: AgentOption[] }).agents || [])
+      const data = await authFetch<AgentOption[] | ApiAgentsResponse>('/api/tc/agents?isActive=true')
+      setAgents(Array.isArray(data) ? data : (data as ApiAgentsResponse).agents || [])
     } catch {
       // Silent fail
     }
@@ -209,7 +251,7 @@ export function MissionsManagement() {
   const fetchProperties = useCallback(async () => {
     if (!isAuthenticated) return
     try {
-      const data = await authFetch<{ properties: PropertyOption[]; pagination: { total: number } }>('/api/tc/verifications')
+      const data = await authFetch<ApiPropertiesResponse>('/api/tc/verifications')
       setProperties(data.properties || [])
     } catch {
       // Silent fail
@@ -237,7 +279,6 @@ export function MissionsManagement() {
   const calendarDays = useMemo(() => {
     const daysInMonth = getDaysInMonth(calYear, calMonth)
     const firstDay = getFirstDayOfMonth(calYear, calMonth)
-    // Adjust so Monday is the first day (0=Mon, 6=Sun)
     const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1
     const days: (number | null)[] = []
     for (let i = 0; i < adjustedFirstDay; i++) days.push(null)
@@ -268,6 +309,7 @@ export function MissionsManagement() {
     if (statusFilter !== 'ALL' && m.status !== statusFilter) return false
     if (agentFilter !== 'ALL' && m.agent?.id !== agentFilter) return false
     if (typeFilter !== 'ALL' && m.type !== typeFilter) return false
+    if (priorityFilter !== 'ALL' && m.priority !== priorityFilter) return false
     if (search.trim()) {
       const q = search.toLowerCase()
       return (
@@ -288,6 +330,7 @@ export function MissionsManagement() {
       type: 'PROPERTY_VERIFICATION',
       scheduledAt: '',
       notes: '',
+      priority: 'NORMAL',
     })
     setCreateDialog(true)
   }
@@ -331,6 +374,89 @@ export function MissionsManagement() {
       toast.error(err instanceof Error ? err.message : 'Erreur')
     } finally {
       setActionLoading(null)
+    }
+  }
+
+  // ─── Priority change ──────────────────────────────────────────────────
+
+  const handlePriorityChange = async (missionId: string, priority: DossierPriority) => {
+    try {
+      await authFetch('/api/tc/missions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: missionId, priority }),
+      })
+      toast.success(`Priorité mise à jour : ${priorityLabels[priority]}`)
+      await fetchMissions()
+      setDetailDialog((prev) => {
+        if (prev.mission?.id === missionId) {
+          return { ...prev, mission: { ...prev.mission, priority } as Mission }
+        }
+        return prev
+      })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    }
+  }
+
+  // ─── Add photo URL ────────────────────────────────────────────────────
+
+  const handleAddPhoto = async () => {
+    if (!detailDialog.mission || !newPhotoUrl.trim()) return
+    setActionLoading(detailDialog.mission.id)
+    try {
+      await authFetch('/api/tc/missions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: detailDialog.mission.id,
+          photoUrls: [newPhotoUrl.trim()],
+        }),
+      })
+      toast.success('Photo ajoutée !')
+      const oldUrls: string[] = JSON.parse(detailDialog.mission.photoUrls || '[]')
+      const updatedUrls = [...oldUrls, newPhotoUrl.trim()]
+      setNewPhotoUrl('')
+      setDetailDialog((prev) => {
+        if (prev.mission) {
+          return { ...prev, mission: { ...prev.mission, photoUrls: JSON.stringify(updatedUrls) } as Mission }
+        }
+        return prev
+      })
+      await fetchMissions()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // ─── Save TC Feedback ─────────────────────────────────────────────────
+
+  const handleSaveFeedback = async () => {
+    if (!detailDialog.mission) return
+    setSavingFeedback(true)
+    try {
+      await authFetch('/api/tc/missions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: detailDialog.mission.id,
+          feedback: feedbackValue,
+        }),
+      })
+      toast.success('Retour TC sauvegardé !')
+      setDetailDialog((prev) => {
+        if (prev.mission) {
+          return { ...prev, mission: { ...prev.mission, feedback: feedbackValue } as Mission }
+        }
+        return prev
+      })
+      await fetchMissions()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setSavingFeedback(false)
     }
   }
 
@@ -399,36 +525,25 @@ export function MissionsManagement() {
                 </div>
               </CardHeader>
               <CardContent>
-                {/* Day headers */}
                 <div className="grid grid-cols-7 gap-1 mb-1">
                   {DAY_NAMES.map((d) => (
-                    <div key={d} className="text-center text-xs font-medium text-muted-foreground py-1">
-                      {d}
-                    </div>
+                    <div key={d} className="text-center text-xs font-medium text-muted-foreground py-1">{d}</div>
                   ))}
                 </div>
-                {/* Day cells */}
                 <div className="grid grid-cols-7 gap-1">
                   {calendarDays.map((day, idx) => {
-                    if (day === null) {
-                      return <div key={`empty-${idx}`} className="aspect-square" />
-                    }
+                    if (day === null) return <div key={`empty-${idx}`} className="aspect-square" />
                     const dateKey = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
                     const dayMissions = missionsByDate[dateKey] || []
                     const isToday = dateKey === todayKey
                     const isSelected = dateKey === selectedDay
-
                     return (
                       <button
                         key={dateKey}
                         onClick={() => setSelectedDay(dateKey === selectedDay ? null : dateKey)}
                         className={cn(
                           'aspect-square flex flex-col items-center justify-center rounded-lg text-sm relative transition-colors',
-                          isSelected
-                            ? 'bg-brand-500 text-white'
-                            : isToday
-                              ? 'bg-brand-50 text-brand-700 font-semibold'
-                              : 'hover:bg-muted text-foreground',
+                          isSelected ? 'bg-brand-500 text-white' : isToday ? 'bg-brand-50 text-brand-700 font-semibold' : 'hover:bg-muted text-foreground',
                           dayMissions.length > 0 && !isSelected && 'font-medium'
                         )}
                       >
@@ -436,13 +551,7 @@ export function MissionsManagement() {
                         {dayMissions.length > 0 && (
                           <div className="flex gap-0.5 mt-0.5">
                             {dayMissions.slice(0, 3).map((m, mi) => (
-                              <div
-                                key={mi}
-                                className={cn(
-                                  'size-1.5 rounded-full',
-                                  isSelected ? 'bg-white' : statusDotColors[m.status]
-                                )}
-                              />
+                              <div key={mi} className={cn('size-1.5 rounded-full', isSelected ? 'bg-white' : statusDotColors[m.status])} />
                             ))}
                             {dayMissions.length > 3 && (
                               <span className={cn('text-[8px] leading-none', isSelected ? 'text-white/70' : 'text-muted-foreground')}>
@@ -463,16 +572,10 @@ export function MissionsManagement() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold">
                   {selectedDay
-                    ? new Date(selectedDay + 'T12:00:00').toLocaleDateString('fr-FR', {
-                        weekday: 'long', day: 'numeric', month: 'long',
-                      })
+                    ? new Date(selectedDay + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
                     : 'Sélectionnez un jour'}
                 </CardTitle>
-                {selectedDay && (
-                  <CardDescription>
-                    {selectedDayMissions.length} mission(s)
-                  </CardDescription>
-                )}
+                {selectedDay && <CardDescription>{selectedDayMissions.length} mission(s)</CardDescription>}
               </CardHeader>
               <CardContent className="space-y-2 max-h-96 overflow-y-auto">
                 {!selectedDay ? (
@@ -490,15 +593,18 @@ export function MissionsManagement() {
                     <div
                       key={m.id}
                       className="p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => setDetailDialog({ open: true, mission: m })}
+                      onClick={() => {
+                        setFeedbackValue(m.feedback || '')
+                        setNewPhotoUrl('')
+                        setDetailDialog({ open: true, mission: m })
+                      }}
                     >
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <Badge className={typeColors[m.type]} variant="outline">
-                          {typeLabels[m.type]}
-                        </Badge>
-                        <Badge className={statusColors[m.status]}>
-                          {statusLabels[m.status]}
-                        </Badge>
+                        <div className="flex items-center gap-1.5">
+                          <Badge className={typeColors[m.type]} variant="outline">{typeLabels[m.type]}</Badge>
+                          <PriorityBadge priority={m.priority} />
+                        </div>
+                        <Badge className={statusColors[m.status]}>{statusLabels[m.status]}</Badge>
                       </div>
                       <p className="text-sm font-medium text-foreground truncate">{m.property.title}</p>
                       <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
@@ -525,45 +631,35 @@ export function MissionsManagement() {
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
             <div className="relative flex-1 min-w-0 sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher une mission..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
+              <Input placeholder="Rechercher une mission..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
             </div>
             <div className="flex gap-2 flex-wrap">
               <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as MissionStatus | 'ALL')}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Statut" />
-                </SelectTrigger>
+                <SelectTrigger className="w-[140px]"><SelectValue placeholder="Statut" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">Tous les statuts</SelectItem>
-                  {Object.entries(statusLabels).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
+                  {Object.entries(statusLabels).map(([k, v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}
+                </SelectContent>
+              </Select>
+              <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as DossierPriority | 'ALL')}>
+                <SelectTrigger className="w-[130px]"><SelectValue placeholder="Priorité" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Toutes priorités</SelectItem>
+                  {Object.entries(priorityLabels).map(([k, v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}
                 </SelectContent>
               </Select>
               <Select value={agentFilter} onValueChange={setAgentFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Agent" />
-                </SelectTrigger>
+                <SelectTrigger className="w-[150px]"><SelectValue placeholder="Agent" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">Tous les agents</SelectItem>
-                  {agents.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.firstName} {a.lastName}</SelectItem>
-                  ))}
+                  {agents.map((a) => (<SelectItem key={a.id} value={a.id}>{a.firstName} {a.lastName}</SelectItem>))}
                 </SelectContent>
               </Select>
               <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as MissionType | 'ALL')}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
+                <SelectTrigger className="w-[160px]"><SelectValue placeholder="Type" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">Tous les types</SelectItem>
-                  {Object.entries(typeLabels).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
+                  {Object.entries(typeLabels).map(([k, v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
@@ -579,50 +675,31 @@ export function MissionsManagement() {
               </CardContent>
             </Card>
           ) : viewMode === 'card' ? (
-            /* ─── Card View ─── */
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               <AnimatePresence mode="popLayout">
                 {filteredMissions.map((m) => (
-                  <motion.div
-                    key={m.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                  >
+                  <motion.div key={m.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.2 }}>
                     <Card className="border-border hover:shadow-md transition-shadow">
                       <CardContent className="p-4 sm:p-6">
                         {/* Header row */}
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <div className={cn(
-                              'flex size-10 items-center justify-center rounded-lg shrink-0',
-                              m.type === 'PROPERTY_VERIFICATION' ? 'bg-amber-50' : 'bg-brand-50'
-                            )}>
-                              {m.type === 'PROPERTY_VERIFICATION' ? (
-                                <Home className="size-5 text-amber-600" />
-                              ) : (
-                                <FileText className="size-5 text-brand-500" />
-                              )}
+                            <div className={cn('flex size-10 items-center justify-center rounded-lg shrink-0', m.type === 'PROPERTY_VERIFICATION' ? 'bg-amber-50' : 'bg-brand-50')}>
+                              {m.type === 'PROPERTY_VERIFICATION' ? <Home className="size-5 text-amber-600" /> : <FileText className="size-5 text-brand-500" />}
                             </div>
-                            <div className="min-w-0">
-                              <Badge className={typeColors[m.type]} variant="outline">
-                                {typeLabels[m.type]}
-                              </Badge>
+                            <div className="min-w-0 flex flex-col gap-1">
+                              <Badge className={typeColors[m.type]} variant="outline">{typeLabels[m.type]}</Badge>
+                              <PriorityBadge priority={m.priority} />
                             </div>
                           </div>
                           <Badge className={statusColors[m.status]}>{statusLabels[m.status]}</Badge>
                         </div>
 
-                        {/* Property info */}
                         <h3 className="font-semibold text-foreground truncate mb-1">{m.property.title}</h3>
                         <p className="text-sm text-muted-foreground flex items-center gap-1 mb-2">
                           <MapPin className="size-3.5 shrink-0" />
                           <span className="truncate">{m.property.address}, {m.property.commune}</span>
                         </p>
-
-                        {/* Agent + date */}
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
                           {m.agent && (
                             <div className="flex items-center gap-1">
@@ -635,13 +712,14 @@ export function MissionsManagement() {
                             <span>{new Date(m.scheduledAt).toLocaleDateString('fr-FR')}</span>
                           </div>
                         </div>
-
-                        {/* Action */}
                         <Button
-                          size="sm"
-                          variant="outline"
+                          size="sm" variant="outline"
                           className="w-full text-brand-500 border-brand-200 hover:bg-brand-50"
-                          onClick={() => setDetailDialog({ open: true, mission: m })}
+                          onClick={() => {
+                            setFeedbackValue(m.feedback || '')
+                            setNewPhotoUrl('')
+                            setDetailDialog({ open: true, mission: m })
+                          }}
                         >
                           Voir les détails
                         </Button>
@@ -652,7 +730,6 @@ export function MissionsManagement() {
               </AnimatePresence>
             </div>
           ) : (
-            /* ─── List View ─── */
             <Card className="border-border overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -661,6 +738,7 @@ export function MissionsManagement() {
                       <th className="text-left font-medium text-muted-foreground p-3">Bien</th>
                       <th className="text-left font-medium text-muted-foreground p-3 hidden md:table-cell">Agent</th>
                       <th className="text-center font-medium text-muted-foreground p-3">Type</th>
+                      <th className="text-center font-medium text-muted-foreground p-3 hidden md:table-cell">Priorité</th>
                       <th className="text-left font-medium text-muted-foreground p-3 hidden sm:table-cell">Date</th>
                       <th className="text-center font-medium text-muted-foreground p-3">Statut</th>
                       <th className="text-right font-medium text-muted-foreground p-3">Actions</th>
@@ -669,15 +747,7 @@ export function MissionsManagement() {
                   <tbody>
                     <AnimatePresence mode="popLayout">
                       {filteredMissions.map((m) => (
-                        <motion.tr
-                          key={m.id}
-                          layout
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.15 }}
-                          className="border-b border-border hover:bg-muted/30 transition-colors"
-                        >
+                        <motion.tr key={m.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="border-b border-border hover:bg-muted/30 transition-colors">
                           <td className="p-3">
                             <div className="min-w-0">
                               <p className="font-medium text-foreground truncate max-w-[180px]">{m.property.title}</p>
@@ -685,16 +755,13 @@ export function MissionsManagement() {
                             </div>
                           </td>
                           <td className="p-3 hidden md:table-cell">
-                            {m.agent ? (
-                              <span className="text-muted-foreground">{m.agent.firstName} {m.agent.lastName}</span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
+                            {m.agent ? <span className="text-muted-foreground">{m.agent.firstName} {m.agent.lastName}</span> : <span className="text-muted-foreground">—</span>}
                           </td>
                           <td className="p-3 text-center">
-                            <Badge className={typeColors[m.type]} variant="outline">
-                              {typeLabels[m.type]}
-                            </Badge>
+                            <Badge className={typeColors[m.type]} variant="outline">{typeLabels[m.type]}</Badge>
+                          </td>
+                          <td className="p-3 text-center hidden md:table-cell">
+                            <PriorityBadge priority={m.priority} />
                           </td>
                           <td className="p-3 hidden sm:table-cell text-muted-foreground">
                             {new Date(m.scheduledAt).toLocaleDateString('fr-FR')}
@@ -704,12 +771,12 @@ export function MissionsManagement() {
                           </td>
                           <td className="p-3">
                             <div className="flex items-center justify-end">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-brand-500 hover:text-brand-600 hover:bg-brand-50 h-8 px-3 text-xs"
-                                onClick={() => setDetailDialog({ open: true, mission: m })}
-                              >
+                              <Button size="sm" variant="ghost" className="text-brand-500 hover:text-brand-600 hover:bg-brand-50 h-8 px-3 text-xs"
+                                onClick={() => {
+                                  setFeedbackValue(m.feedback || '')
+                                  setNewPhotoUrl('')
+                                  setDetailDialog({ open: true, mission: m })
+                                }}>
                                 Détails
                               </Button>
                             </div>
@@ -733,98 +800,58 @@ export function MissionsManagement() {
             <DialogDescription>Planifiez une nouvelle mission de vérification terrain</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Property */}
             <div className="space-y-2">
               <Label>Bien à vérifier *</Label>
-              <Select
-                value={createForm.propertyId}
-                onValueChange={(v) => setCreateForm((prev) => ({ ...prev, propertyId: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner un bien" />
-                </SelectTrigger>
+              <Select value={createForm.propertyId} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, propertyId: v }))}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner un bien" /></SelectTrigger>
                 <SelectContent>
-                  {properties.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.title} — {p.commune}
-                    </SelectItem>
-                  ))}
+                  {properties.map((p) => (<SelectItem key={p.id} value={p.id}>{p.title} — {p.commune}</SelectItem>))}
                 </SelectContent>
               </Select>
-              {properties.length === 0 && (
-                <p className="text-xs text-muted-foreground">Aucun bien en attente de vérification</p>
-              )}
+              {properties.length === 0 && <p className="text-xs text-muted-foreground">Aucun bien en attente de vérification</p>}
             </div>
-
-            {/* Agent */}
             <div className="space-y-2">
               <Label>Agent *</Label>
-              <Select
-                value={createForm.agentId}
-                onValueChange={(v) => setCreateForm((prev) => ({ ...prev, agentId: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner un agent" />
-                </SelectTrigger>
+              <Select value={createForm.agentId} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, agentId: v }))}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner un agent" /></SelectTrigger>
                 <SelectContent>
-                  {agents.filter((a) => a.isActive !== false).map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.firstName} {a.lastName}
-                    </SelectItem>
-                  ))}
+                  {agents.filter((a) => a.isActive !== false).map((a) => (<SelectItem key={a.id} value={a.id}>{a.firstName} {a.lastName}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Type */}
             <div className="space-y-2">
               <Label>Type de mission *</Label>
-              <Select
-                value={createForm.type}
-                onValueChange={(v) => setCreateForm((prev) => ({ ...prev, type: v as MissionType }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={createForm.type} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, type: v as MissionType }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="PROPERTY_VERIFICATION">Vérification bien</SelectItem>
                   <SelectItem value="INVENTORY_REPORT">État des lieux</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Date */}
+            <div className="space-y-2">
+              <Label>Priorité</Label>
+              <Select value={createForm.priority} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, priority: v as DossierPriority }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NORMAL"><span className="flex items-center gap-1.5"><CircleDot className="size-3" /> Normale</span></SelectItem>
+                  <SelectItem value="HIGH"><span className="flex items-center gap-1.5"><AlertTriangle className="size-3" /> Haute</span></SelectItem>
+                  <SelectItem value="URGENT"><span className="flex items-center gap-1.5"><Flame className="size-3" /> Urgente</span></SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="scheduledAt">Date planifiée *</Label>
-              <Input
-                id="scheduledAt"
-                type="date"
-                value={createForm.scheduledAt}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, scheduledAt: e.target.value }))}
-              />
+              <Input id="scheduledAt" type="date" value={createForm.scheduledAt} onChange={(e) => setCreateForm((prev) => ({ ...prev, scheduledAt: e.target.value }))} />
             </div>
-
-            {/* Notes */}
             <div className="space-y-2">
               <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Instructions ou informations complémentaires..."
-                value={createForm.notes}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, notes: e.target.value }))}
-                rows={3}
-              />
+              <Textarea id="notes" placeholder="Instructions ou informations complémentaires..." value={createForm.notes} onChange={(e) => setCreateForm((prev) => ({ ...prev, notes: e.target.value }))} rows={3} />
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setCreateDialog(false)} disabled={creating}>
-              Annuler
-            </Button>
-            <Button
-              className="bg-brand-500 hover:bg-brand-600 text-white"
-              onClick={handleCreate}
-              disabled={creating || !createForm.propertyId || !createForm.agentId || !createForm.scheduledAt}
-            >
+            <Button variant="outline" onClick={() => setCreateDialog(false)} disabled={creating}>Annuler</Button>
+            <Button className="bg-brand-500 hover:bg-brand-600 text-white" onClick={handleCreate} disabled={creating || !createForm.propertyId || !createForm.agentId || !createForm.scheduledAt}>
               {creating && <Loader2 className="size-4 animate-spin mr-2" />}
               Créer la mission
             </Button>
@@ -836,24 +863,48 @@ export function MissionsManagement() {
       <Dialog
         open={detailDialog.open}
         onOpenChange={(open) => {
-          if (!open) setDetailDialog({ open: false, mission: null })
+          if (!open) {
+            setDetailDialog({ open: false, mission: null })
+            setNewPhotoUrl('')
+          }
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Détail de la mission</DialogTitle>
-            <DialogDescription>
-              {detailDialog.mission && typeLabels[detailDialog.mission.type]}
-            </DialogDescription>
+            <DialogDescription>{detailDialog.mission && typeLabels[detailDialog.mission.type]}</DialogDescription>
           </DialogHeader>
           {detailDialog.mission && (
             <div className="space-y-4 py-2">
-              {/* Status */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-muted-foreground">Statut</span>
-                <Badge className={statusColors[detailDialog.mission.status]}>
-                  {statusLabels[detailDialog.mission.status]}
-                </Badge>
+              {/* Status + Priority */}
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Badge className={statusColors[detailDialog.mission.status]}>
+                    {statusLabels[detailDialog.mission.status]}
+                  </Badge>
+                  <PriorityBadge priority={detailDialog.mission.priority} />
+                </div>
+              </div>
+
+              {/* Priority changer */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Changer priorité :</span>
+                {(['NORMAL', 'HIGH', 'URGENT'] as DossierPriority[]).map((p) => (
+                  <Button
+                    key={p}
+                    size="sm"
+                    variant={detailDialog.mission!.priority === p ? 'default' : 'outline'}
+                    className={cn(
+                      'gap-1 text-xs',
+                      detailDialog.mission!.priority === p && p === 'URGENT' && 'bg-red-600 hover:bg-red-700 text-white',
+                      detailDialog.mission!.priority === p && p === 'HIGH' && 'bg-amber-600 hover:bg-amber-700 text-white',
+                      detailDialog.mission!.priority === p && p === 'NORMAL' && 'bg-gray-600 hover:bg-gray-700 text-white',
+                    )}
+                    onClick={() => handlePriorityChange(detailDialog.mission!.id, p)}
+                  >
+                    {priorityLabels[p]}
+                  </Button>
+                ))}
               </div>
 
               {/* Property */}
@@ -885,9 +936,7 @@ export function MissionsManagement() {
                 <Calendar className="size-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Planifié le :</span>
                 <span className="font-medium text-foreground">
-                  {new Date(detailDialog.mission.scheduledAt).toLocaleDateString('fr-FR', {
-                    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-                  })}
+                  {new Date(detailDialog.mission.scheduledAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </span>
               </div>
 
@@ -918,44 +967,109 @@ export function MissionsManagement() {
                 </div>
               )}
 
+              {/* ─── Photos de vérification (US-TA-023) ──────────────────── */}
+              <div className="p-3 rounded-lg border border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <Camera className="size-4 text-muted-foreground" />
+                  <p className="text-xs font-medium text-muted-foreground">Photos de vérification</p>
+                </div>
+                {(() => {
+                  const urls: string[] = JSON.parse(detailDialog.mission.photoUrls || '[]')
+                  return (
+                    <div className="space-y-2">
+                      {urls.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          {urls.map((url, idx) => (
+                            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                              <div className="aspect-square rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden hover:border-brand-300 transition-colors">
+                                <img
+                                  src={url}
+                                  alt={`Photo ${idx + 1}`}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement
+                                    target.style.display = 'none'
+                                    target.parentElement!.innerHTML = `<div class="flex flex-col items-center justify-center text-muted-foreground"><svg class="size-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg><span class="text-[10px] mt-1">Photo ${idx + 1}</span></div>`
+                                  }}
+                                />
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Aucune photo ajoutée</p>
+                      )}
+                      {/* Add photo URL */}
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          placeholder="Ajouter une URL de photo..."
+                          value={newPhotoUrl}
+                          onChange={(e) => setNewPhotoUrl(e.target.value)}
+                          className="text-sm"
+                        />
+                        <Button
+                          size="sm"
+                          className="bg-brand-500 hover:bg-brand-600 text-white shrink-0"
+                          onClick={handleAddPhoto}
+                          disabled={!newPhotoUrl.trim() || actionLoading !== null}
+                        >
+                          <Link2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+
+              {/* ─── Retour TC (US-TA-055) ────────────────────────────────── */}
+              {detailDialog.mission.status === 'COMPLETED' && (
+                <div className="p-3 rounded-lg border border-border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MessageSquare className="size-4 text-brand-500" />
+                    <p className="text-xs font-medium text-muted-foreground">Retour TC</p>
+                  </div>
+                  <Textarea
+                    placeholder="Ajoutez votre retour sur cette mission..."
+                    value={feedbackValue}
+                    onChange={(e) => setFeedbackValue(e.target.value)}
+                    rows={3}
+                  />
+                  <div className="flex justify-end mt-2">
+                    <Button
+                      size="sm"
+                      className="bg-brand-500 hover:bg-brand-600 text-white"
+                      onClick={handleSaveFeedback}
+                      disabled={savingFeedback}
+                    >
+                      {savingFeedback && <Loader2 className="size-3.5 animate-spin mr-1" />}
+                      Sauvegarder le retour
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Status workflow buttons */}
               <div className="flex gap-2 pt-2 border-t border-border">
                 {detailDialog.mission.status === 'ASSIGNED' && (
-                  <Button
-                    className="bg-brand-500 hover:bg-brand-600 text-white gap-1 flex-1"
+                  <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-1 flex-1"
                     onClick={() => handleStatusChange(detailDialog.mission!.id, 'IN_PROGRESS')}
-                    disabled={actionLoading === detailDialog.mission.id}
-                  >
-                    {actionLoading === detailDialog.mission.id ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Clock className="size-4" />
-                    )}
+                    disabled={actionLoading === detailDialog.mission.id}>
+                    {actionLoading === detailDialog.mission.id ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
                     Démarrer
                   </Button>
                 )}
                 {detailDialog.mission.status === 'IN_PROGRESS' && (
                   <>
-                    <Button
-                      className="bg-green-600 hover:bg-green-700 text-white gap-1 flex-1"
+                    <Button className="bg-green-600 hover:bg-green-700 text-white gap-1 flex-1"
                       onClick={() => handleStatusChange(detailDialog.mission!.id, 'COMPLETED')}
-                      disabled={actionLoading === detailDialog.mission.id}
-                    >
-                      {actionLoading === detailDialog.mission.id ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="size-4" />
-                      )}
+                      disabled={actionLoading === detailDialog.mission.id}>
+                      {actionLoading === detailDialog.mission.id ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
                       Terminer
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="text-gray-600 border-gray-200 hover:bg-gray-50 gap-1"
+                    <Button variant="outline" className="text-gray-600 border-gray-200 hover:bg-gray-50 gap-1"
                       onClick={() => handleStatusChange(detailDialog.mission!.id, 'CANCELLED')}
-                      disabled={actionLoading === detailDialog.mission.id}
-                    >
-                      <XCircle className="size-4" />
-                      Annuler
+                      disabled={actionLoading === detailDialog.mission.id}>
+                      <XCircle className="size-4" /> Annuler
                     </Button>
                   </>
                 )}

@@ -29,9 +29,9 @@ const ownerItems: BottomNavItem[] = [
 const tcItems: BottomNavItem[] = [
   { id: 'overview', label: 'Espace', icon: LayoutDashboard },
   { id: 'rental-files-queue', label: 'Dossiers', icon: ClipboardCheck },
+  { id: 'messaging', label: 'Messages', icon: MessageSquare },
   { id: 'missions', label: 'Missions', icon: MapPin },
   { id: 'litiges', label: 'Litiges', icon: Scale },
-  { id: 'agents', label: 'Agents', icon: Users },
 ]
 
 // Map detail view sections to their parent tab

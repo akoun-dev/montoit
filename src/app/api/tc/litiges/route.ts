@@ -22,13 +22,16 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get('status')
   const type = searchParams.get('type')
   const mine = searchParams.get('mine') === 'true'
+  const priority = searchParams.get('priority')
+  const isEscalated = searchParams.get('isEscalated')
+  const resolved = searchParams.get('resolved') === 'true'
 
   const where: Record<string, unknown> = {}
 
-  // Two modes:
-  // Default: disputes where handledById === userId OR status === OPEN (unassigned)
-  // ?mine=true: only disputes handled by this TC
-  if (mine) {
+  // Resolved history: RESOLVED + CLOSED disputes
+  if (resolved) {
+    where.status = { in: ['RESOLVED', 'CLOSED'] }
+  } else if (mine) {
     where.handledById = userId
   } else {
     where.OR = [
@@ -37,8 +40,12 @@ export async function GET(request: NextRequest) {
     ]
   }
 
-  if (status) where.status = status
+  if (status && !resolved) where.status = status
   if (type) where.type = type
+  if (priority) where.priority = priority
+  if (isEscalated !== null && isEscalated !== undefined && isEscalated !== '') {
+    where.isEscalated = isEscalated === 'true'
+  }
 
   const disputes = await db.dispute.findMany({
     where,
@@ -56,6 +63,7 @@ export async function GET(request: NextRequest) {
               title: true,
               address: true,
               city: true,
+              commune: true,
             },
           },
           tenant: {
@@ -102,7 +110,7 @@ export async function GET(request: NextRequest) {
 }
 
 // ─── PATCH ──────────────────────────────────────────────────────────────────────
-// Update a dispute (status transitions, resolution, etc.)
+// Update a dispute (status transitions, priority, escalation, investigation notes, evidence, etc.)
 export async function PATCH(request: NextRequest) {
   const auth = await authorizeTC(request)
   if ('error' in auth) return auth.error
@@ -110,13 +118,15 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { id, status, resolution, tcComment } = body
+    const {
+      id, status, resolution, tcComment,
+      priority, escalationReason,
+      investigationNotes, evidenceUrls,
+      action,
+    } = body
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ error: "L'identifiant du litige est requis" }, { status: 400 })
-    }
-    if (!status || !['OPEN', 'IN_REVIEW', 'RESOLVED', 'CLOSED'].includes(status)) {
-      return NextResponse.json({ error: 'Statut invalide' }, { status: 400 })
     }
 
     // Fetch the dispute
@@ -141,55 +151,117 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    const currentStatus = dispute.status
+    // Build update data
+    const updateData: Record<string, unknown> = {}
 
-    // Validate status transitions
-    const validTransitions: Record<string, string[]> = {
-      OPEN: ['IN_REVIEW'],
-      IN_REVIEW: ['RESOLVED', 'OPEN'],
-      RESOLVED: ['CLOSED', 'OPEN'],
-      CLOSED: ['OPEN'],
-    }
-
-    if (!validTransitions[currentStatus]?.includes(status)) {
-      return NextResponse.json(
-        { error: `Transition de statut invalide : ${currentStatus} → ${status}` },
-        { status: 400 }
-      )
-    }
-
-    // Additional validation per transition
-    if (status === 'IN_REVIEW' && currentStatus === 'OPEN') {
-      // TC takes the case — set handledById
-    }
-
-    if (status === 'RESOLVED' && currentStatus === 'IN_REVIEW') {
-      if (!resolution || typeof resolution !== 'string' || !resolution.trim()) {
+    // ─── ESCALATE action ──────────────────────────────────────────────────
+    // Dedicated action: sets isEscalated=true, escalatedAt=now, escalationReason
+    // Only for IN_REVIEW disputes
+    if (action === 'ESCALATE') {
+      if (dispute.status !== 'IN_REVIEW') {
         return NextResponse.json(
-          { error: 'Le texte de résolution est requis pour résoudre un litige' },
+          { error: 'Seuls les litiges en cours de traitement peuvent être escaladés' },
           { status: 400 }
         )
       }
+      updateData.isEscalated = true
+      updateData.escalatedAt = new Date()
+      updateData.escalationReason = escalationReason?.trim() || null
     }
 
-    // Build update data
-    const updateData: Record<string, unknown> = { status }
+    // ─── Status transition ─────────────────────────────────────────────
+    if (status) {
+      if (!['OPEN', 'IN_REVIEW', 'RESOLVED', 'CLOSED'].includes(status)) {
+        return NextResponse.json({ error: 'Statut invalide' }, { status: 400 })
+      }
 
-    // OPEN → IN_REVIEW: assign the TC
-    if (status === 'IN_REVIEW' && currentStatus === 'OPEN') {
-      updateData.handledById = userId
+      const currentStatus = dispute.status
+      const validTransitions: Record<string, string[]> = {
+        OPEN: ['IN_REVIEW'],
+        IN_REVIEW: ['RESOLVED', 'OPEN'],
+        RESOLVED: ['CLOSED', 'OPEN'],
+        CLOSED: ['OPEN'],
+      }
+
+      if (!validTransitions[currentStatus]?.includes(status)) {
+        return NextResponse.json(
+          { error: `Transition de statut invalide : ${currentStatus} → ${status}` },
+          { status: 400 }
+        )
+      }
+
+      // Additional validation per transition
+      if (status === 'RESOLVED' && currentStatus === 'IN_REVIEW') {
+        if (!resolution || typeof resolution !== 'string' || !resolution.trim()) {
+          return NextResponse.json(
+            { error: 'Le texte de résolution est requis pour résoudre un litige' },
+            { status: 400 }
+          )
+        }
+      }
+
+      updateData.status = status
+
+      // OPEN → IN_REVIEW: assign the TC
+      if (status === 'IN_REVIEW' && currentStatus === 'OPEN') {
+        updateData.handledById = userId
+      }
+
+      // Any → OPEN (reopen): clear resolvedById and handledById
+      if (status === 'OPEN' && currentStatus !== 'OPEN') {
+        updateData.handledById = null
+      }
+
+      if (resolution !== undefined) updateData.resolution = resolution.trim()
+      if (tcComment !== undefined) updateData.tcComment = tcComment?.trim() || null
     }
 
-    // Any → OPEN (reopen): clear resolvedById and handledById
-    if (status === 'OPEN' && currentStatus !== 'OPEN') {
-      updateData.handledById = null
+    // ─── Priority update ────────────────────────────────────────────────
+    if (priority !== undefined) {
+      if (!['NORMAL', 'HIGH', 'URGENT'].includes(priority)) {
+        return NextResponse.json({ error: 'Priorité invalide (NORMAL, HIGH, URGENT)' }, { status: 400 })
+      }
+      updateData.priority = priority
     }
 
-    if (resolution !== undefined) updateData.resolution = resolution.trim()
-    if (tcComment !== undefined) updateData.tcComment = tcComment?.trim() || null
+    // ─── Investigation notes ────────────────────────────────────────────
+    if (investigationNotes !== undefined) {
+      updateData.investigationNotes = investigationNotes?.trim() || null
+    }
+
+    // ─── Evidence URLs ──────────────────────────────────────────────────
+    if (evidenceUrls !== undefined) {
+      if (Array.isArray(evidenceUrls)) {
+        // Merge with existing URLs
+        const existingUrls: string[] = JSON.parse(dispute.evidenceUrls || '[]')
+        const newUrls = evidenceUrls.filter((u: string) => !existingUrls.includes(u))
+        updateData.evidenceUrls = JSON.stringify([...existingUrls, ...newUrls])
+      } else if (typeof evidenceUrls === 'string' && evidenceUrls === 'RESET') {
+        updateData.evidenceUrls = '[]'
+      }
+    }
+
+    // ─── TC Comment (standalone update) ─────────────────────────────────
+    if (tcComment !== undefined && !status) {
+      updateData.tcComment = tcComment?.trim() || null
+    }
+
+    // ─── Resolution (standalone update) ─────────────────────────────────
+    if (resolution !== undefined && !status) {
+      updateData.resolution = resolution?.trim() || null
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'Aucune donnée à mettre à jour' }, { status: 400 })
+    }
+
+    // Determine audit action
+    let auditAction = 'DISPUTE_UPDATED'
+    if (action === 'ESCALATE') auditAction = 'DISPUTE_ESCALATED'
+    else if (status) auditAction = `DISPUTE_${status}`
 
     // Use a transaction to update the dispute and create audit log + notification
-    const [updated] = await db.$transaction([
+    const transactionOps: Promise<unknown>[] = [
       db.dispute.update({
         where: { id },
         data: updateData,
@@ -207,6 +279,7 @@ export async function PATCH(request: NextRequest) {
                   title: true,
                   address: true,
                   city: true,
+                  commune: true,
                 },
               },
               tenant: {
@@ -233,6 +306,7 @@ export async function PATCH(request: NextRequest) {
               firstName: true,
               lastName: true,
               email: true,
+              role: true,
             },
           },
           handledBy: {
@@ -241,6 +315,7 @@ export async function PATCH(request: NextRequest) {
               firstName: true,
               lastName: true,
               email: true,
+              role: true,
             },
           },
         },
@@ -249,31 +324,47 @@ export async function PATCH(request: NextRequest) {
       db.auditLog.create({
         data: {
           userId,
-          action: `DISPUTE_${status}`,
+          action: auditAction,
           entity: 'Dispute',
           entityId: id,
           details: JSON.stringify({
-            fromStatus: currentStatus,
-            toStatus: status,
+            fromStatus: dispute.status,
+            toStatus: status || dispute.status,
+            priority,
+            escalated: action === 'ESCALATE',
+            escalationReason: action === 'ESCALATE' ? escalationReason : undefined,
+            hasInvestigationNotes: !!investigationNotes,
+            hasEvidence: !!evidenceUrls,
             tcComment: tcComment?.trim() || null,
             hasResolution: !!resolution,
           }),
         },
       }),
-      // Create Notification for the dispute reporter
-      db.notification.create({
-        data: {
-          userId: dispute.reportedById,
-          type: 'DOSSIER_UPDATE',
-          title: 'Mise à jour de votre litige',
-          message: `Le statut de votre litige a été mis à jour : ${currentStatus} → ${status}${
+    ]
+
+    // Create Notification for the dispute reporter (for status changes and escalations)
+    if (status || action === 'ESCALATE') {
+      const notifMessage = action === 'ESCALATE'
+        ? `Votre litige a été escaladé. ${escalationReason ? `Raison : ${escalationReason.trim()}` : ''}`
+        : `Le statut de votre litige a été mis à jour : ${dispute.status} → ${status}${
             tcComment ? `. Commentaire TC : ${tcComment.trim()}` : ''
-          }`,
-          actionUrl: `/tc/litiges`,
-          entityId: id,
-        },
-      }),
-    ])
+          }`
+
+      transactionOps.push(
+        db.notification.create({
+          data: {
+            userId: dispute.reportedById,
+            type: 'DOSSIER_UPDATE',
+            title: action === 'ESCALATE' ? 'Litige escaladé' : 'Mise à jour de votre litige',
+            message: notifMessage,
+            actionUrl: `/tc/litiges`,
+            entityId: id,
+          },
+        })
+      )
+    }
+
+    const [updated] = await db.$transaction(transactionOps) as [typeof dispute, ...unknown[]]
 
     return NextResponse.json(updated)
   } catch (error) {

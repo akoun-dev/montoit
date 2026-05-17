@@ -51,6 +51,11 @@ import { AgentsManagement } from './tc/agents'
 import { MissionsManagement } from './tc/missions'
 import { LitigesManagement } from './tc/litiges'
 import { TcSettings } from './tc/settings'
+import { TcMessaging } from './tc/messaging'
+import { CertificationsManagement } from './tc/certifications'
+import { OneciVerification } from './tc/oneci-verification'
+import { FraudAlertsManagement } from './tc/fraud-alerts'
+import { DocumentationCenter } from './tc/documentation'
 import { AdminOverview } from './admin/overview'
 import { AdminUsers } from './admin/users'
 import { PropertiesModeration } from './admin/properties-moderation'
@@ -171,6 +176,11 @@ function TcDashboard({ section }: { section: string }) {
     case 'agents': return <AgentsManagement />
     case 'missions': return <MissionsManagement />
     case 'litiges': return <LitigesManagement />
+    case 'messaging': return <TcMessaging />
+    case 'certifications': return <CertificationsManagement />
+    case 'oneci-verification': return <OneciVerification />
+    case 'fraud-alerts': return <FraudAlertsManagement />
+    case 'documentation': return <DocumentationCenter />
     case 'notifications': return <Notifications />
     case 'history': return <ActivityHistory />
     case 'settings': return <TcSettings />

@@ -4,14 +4,31 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   Clock, AlertTriangle, CheckCircle2, TrendingUp,
   ClipboardCheck, BadgeCheck, Home, BarChart3, Activity,
+  ExternalLink,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+
+interface AuditBreakdown {
+  validated: number
+  rejected: number
+  infoRequested: number
+}
+
+interface OverdueSla {
+  id: string
+  entityType: string
+  entityId: string
+  submittedAt: string
+  deadlineAt: string
+  daysOverdue: number
+}
 
 interface TcStats {
   pendingRentalFiles: number
@@ -26,6 +43,7 @@ interface TcStats {
     SUBMITTED: number
     TC_REVIEW: number
   }
+  auditBreakdown: AuditBreakdown
 }
 
 const defaultStats: TcStats = {
@@ -38,14 +56,29 @@ const defaultStats: TcStats = {
   pendingAgencyDocs: 0,
   pendingOwnerDocs: 0,
   rentalFilesByStatus: { SUBMITTED: 0, TC_REVIEW: 0 },
+  auditBreakdown: { validated: 0, rejected: 0, infoRequested: 0 },
 }
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
+const entityTypeLabels: Record<string, string> = {
+  RENTAL_FILE: 'Dossier locataire',
+  OWNER_PROFILE: 'Profil propriétaire',
+  AGENCY: 'Agence',
+}
+
+const entityTypeColors: Record<string, string> = {
+  RENTAL_FILE: 'bg-amber-100 text-amber-700',
+  OWNER_PROFILE: 'bg-emerald-100 text-emerald-700',
+  AGENCY: 'bg-rose-100 text-rose-700',
+}
+
 export function SlaMonitoring() {
   const { isAuthenticated } = useAuthStore()
+  const { setDashboardSection } = useAuthStore()
   const [stats, setStats] = useState<TcStats>(defaultStats)
+  const [overdueList, setOverdueList] = useState<OverdueSla[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchData = useCallback(async () => {
@@ -55,8 +88,12 @@ export function SlaMonitoring() {
     }
 
     try {
-      const d = await authFetch<{ stats?: TcStats }>('/api/dashboard/tc')
+      const d = await authFetch<{
+        stats?: TcStats
+        overdueSlasList?: OverdueSla[]
+      }>('/api/dashboard/tc')
       setStats(d.stats || defaultStats)
+      setOverdueList(d.overdueSlasList || [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) {
         setStats(defaultStats)
@@ -84,6 +121,9 @@ export function SlaMonitoring() {
 
   const totalPending = stats.pendingRentalFiles + stats.pendingOwnershipDocs + stats.pendingProperties
   const approvalRate = stats.totalReviewed > 0 ? Math.round(((stats.totalReviewed - stats.overdueSlas) / stats.totalReviewed) * 100) : 100
+
+  // Audit breakdown totals
+  const totalAuditActions = stats.auditBreakdown.validated + stats.auditBreakdown.rejected + stats.auditBreakdown.infoRequested
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
@@ -188,6 +228,71 @@ export function SlaMonitoring() {
         </Card>
       </motion.div>
 
+      {/* ─── Audit Breakdown (US-TA-062) ─────────────────────────────────── */}
+      <motion.div variants={itemVariants}>
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold">Répartition des actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {totalAuditActions === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucune action enregistrée</p>
+            ) : (
+              <div className="space-y-4">
+                {/* Breakdown cards */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-center">
+                    <p className="text-2xl font-bold text-green-600">{stats.auditBreakdown.validated}</p>
+                    <p className="text-xs text-green-700 font-medium">Validés</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-center">
+                    <p className="text-2xl font-bold text-red-600">{stats.auditBreakdown.rejected}</p>
+                    <p className="text-xs text-red-700 font-medium">Rejetés</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-center">
+                    <p className="text-2xl font-bold text-amber-600">{stats.auditBreakdown.infoRequested}</p>
+                    <p className="text-xs text-amber-700 font-medium">Info demandée</p>
+                  </div>
+                </div>
+
+                {/* Stacked bar */}
+                <div className="h-4 rounded-full bg-muted overflow-hidden flex">
+                  {stats.auditBreakdown.validated > 0 && (
+                    <div
+                      className="h-full bg-green-500 transition-all"
+                      style={{ width: totalAuditActions > 0 ? `${(stats.auditBreakdown.validated / totalAuditActions) * 100}%` : '0%' }}
+                    />
+                  )}
+                  {stats.auditBreakdown.rejected > 0 && (
+                    <div
+                      className="h-full bg-red-500 transition-all"
+                      style={{ width: totalAuditActions > 0 ? `${(stats.auditBreakdown.rejected / totalAuditActions) * 100}%` : '0%' }}
+                    />
+                  )}
+                  {stats.auditBreakdown.infoRequested > 0 && (
+                    <div
+                      className="h-full bg-amber-500 transition-all"
+                      style={{ width: totalAuditActions > 0 ? `${(stats.auditBreakdown.infoRequested / totalAuditActions) * 100}%` : '0%' }}
+                    />
+                  )}
+                </div>
+                <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <div className="size-2.5 rounded-full bg-green-500" /> Validés
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <div className="size-2.5 rounded-full bg-red-500" /> Rejetés
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <div className="size-2.5 rounded-full bg-amber-500" /> Info demandée
+                  </span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* Breakdown by Category */}
       <motion.div variants={itemVariants}>
         <Card className="border-border">
@@ -208,22 +313,16 @@ export function SlaMonitoring() {
                 </div>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-amber-500 transition-all"
-                  style={{ width: totalPending > 0 ? `${(stats.pendingRentalFiles / totalPending) * 100}%` : '0%' }}
-                />
+                <div className="h-full rounded-full bg-amber-500 transition-all"
+                  style={{ width: totalPending > 0 ? `${(stats.pendingRentalFiles / totalPending) * 100}%` : '0%' }} />
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
-                  <Badge className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0">
-                    {stats.rentalFilesByStatus?.SUBMITTED ?? 0}
-                  </Badge>
+                  <Badge className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0">{stats.rentalFilesByStatus?.SUBMITTED ?? 0}</Badge>
                   Soumis
                 </span>
                 <span className="flex items-center gap-1">
-                  <Badge className="bg-orange-100 text-orange-700 text-[10px] px-1.5 py-0">
-                    {stats.rentalFilesByStatus?.TC_REVIEW ?? 0}
-                  </Badge>
+                  <Badge className="bg-orange-100 text-orange-700 text-[10px] px-1.5 py-0">{stats.rentalFilesByStatus?.TC_REVIEW ?? 0}</Badge>
                   En revue TC
                 </span>
               </div>
@@ -242,10 +341,8 @@ export function SlaMonitoring() {
                 </div>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-emerald-500 transition-all"
-                  style={{ width: totalPending > 0 ? `${(stats.pendingOwnerDocs / totalPending) * 100}%` : '0%' }}
-                />
+                <div className="h-full rounded-full bg-emerald-500 transition-all"
+                  style={{ width: totalPending > 0 ? `${(stats.pendingOwnerDocs / totalPending) * 100}%` : '0%' }} />
               </div>
             </div>
 
@@ -262,10 +359,8 @@ export function SlaMonitoring() {
                 </div>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-rose-500 transition-all"
-                  style={{ width: totalPending > 0 ? `${(stats.pendingAgencyDocs / totalPending) * 100}%` : '0%' }}
-                />
+                <div className="h-full rounded-full bg-rose-500 transition-all"
+                  style={{ width: totalPending > 0 ? `${(stats.pendingAgencyDocs / totalPending) * 100}%` : '0%' }} />
               </div>
             </div>
 
@@ -282,12 +377,80 @@ export function SlaMonitoring() {
                 </div>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-brand-500 transition-all"
-                  style={{ width: totalPending > 0 ? `${(stats.pendingProperties / totalPending) * 100}%` : '0%' }}
-                />
+                <div className="h-full rounded-full bg-brand-500 transition-all"
+                  style={{ width: totalPending > 0 ? `${(stats.pendingProperties / totalPending) * 100}%` : '0%' }} />
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ─── Overdue Dossier List (US-TA-094) ─────────────────────────────── */}
+      <motion.div variants={itemVariants}>
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <AlertTriangle className="size-4 text-red-600" />
+                Dossiers en retard SLA
+              </CardTitle>
+              <Badge className="bg-red-100 text-red-700">{overdueList.length}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {overdueList.length === 0 ? (
+              <div className="py-6 text-center">
+                <CheckCircle2 className="size-10 text-green-500/30 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Aucun dossier en retard — félicitations !</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {overdueList.map((sla) => (
+                  <div key={sla.id} className="flex items-center justify-between p-3 rounded-lg border border-red-200 bg-red-50/50 hover:bg-red-50 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex size-8 items-center justify-center rounded-lg bg-red-100 shrink-0">
+                        <AlertTriangle className="size-4 text-red-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <Badge className={cn('text-[10px] px-1.5 py-0', entityTypeColors[sla.entityType] || 'bg-gray-100 text-gray-600')}>
+                            {entityTypeLabels[sla.entityType] || sla.entityType}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>Soumis : {new Date(sla.submittedAt).toLocaleDateString('fr-FR')}</span>
+                          <span>Deadline : {new Date(sla.deadlineAt).toLocaleDateString('fr-FR')}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-red-600">{sla.daysOverdue}</p>
+                        <p className="text-[10px] text-red-500">jours</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-brand-500 hover:text-brand-600 hover:bg-brand-50 h-8 w-8 p-0"
+                        onClick={() => {
+                          // Navigate to relevant section based on entity type
+                          if (sla.entityType === 'RENTAL_FILE') {
+                            setDashboardSection('rental-files-queue')
+                          } else if (sla.entityType === 'OWNER_PROFILE') {
+                            setDashboardSection('owner-validations')
+                          } else if (sla.entityType === 'AGENCY') {
+                            setDashboardSection('agency-validations')
+                          }
+                        }}
+                        title="Aller au dossier"
+                      >
+                        <ExternalLink className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>

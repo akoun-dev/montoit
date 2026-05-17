@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
   const dateFrom = searchParams.get('dateFrom')
   const dateTo = searchParams.get('dateTo')
   const calendar = searchParams.get('calendar') === 'true'
+  const priority = searchParams.get('priority')
 
   const where: Record<string, unknown> = {
     tcId: userId,
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
   if (status) where.status = status
   if (agentId) where.agentId = agentId
   if (propertyId) where.propertyId = propertyId
+  if (priority) where.priority = priority
 
   if (dateFrom || dateTo) {
     const scheduledAt: Record<string, Date> = {}
@@ -60,6 +62,7 @@ export async function GET(request: NextRequest) {
           title: true,
           address: true,
           city: true,
+          commune: true,
           type: true,
           images: {
             select: { id: true, url: true, order: true },
@@ -102,7 +105,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { propertyId, agentId, type, scheduledAt, notes } = body
+    const { propertyId, agentId, type, scheduledAt, notes, priority } = body
 
     // Validate required fields
     if (!propertyId || typeof propertyId !== 'string') {
@@ -125,6 +128,10 @@ export async function POST(request: NextRequest) {
     if (isNaN(scheduledDate.getTime())) {
       return NextResponse.json({ error: 'Date planifiée invalide' }, { status: 400 })
     }
+
+    // Validate priority
+    const validPriority = priority && ['NORMAL', 'HIGH', 'URGENT'].includes(priority)
+      ? priority : 'NORMAL'
 
     // Verify the agent belongs to this TC and is active
     const agent = await db.verificationAgent.findUnique({
@@ -161,6 +168,7 @@ export async function POST(request: NextRequest) {
         type,
         scheduledAt: scheduledDate,
         notes: notes?.trim() || null,
+        priority: validPriority,
         tcId: userId,
       },
       include: {
@@ -209,7 +217,7 @@ export async function POST(request: NextRequest) {
 }
 
 // ─── PATCH ──────────────────────────────────────────────────────────────────────
-// Update a mission status
+// Update a mission (status, priority, photoUrls, feedback, notes, reportUrl)
 export async function PATCH(request: NextRequest) {
   const auth = await authorizeTC(request)
   if ('error' in auth) return auth.error
@@ -217,13 +225,10 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { id, status, notes, reportUrl } = body
+    const { id, status, notes, reportUrl, priority, photoUrls, feedback } = body
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ error: "L'identifiant de la mission est requis" }, { status: 400 })
-    }
-    if (!status || !['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(status)) {
-      return NextResponse.json({ error: 'Statut invalide' }, { status: 400 })
     }
 
     // Verify the mission belongs to this TC
@@ -238,41 +243,86 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    // Validate status transitions
-    const currentStatus = mission.status
-    const validTransitions: Record<string, string[]> = {
-      ASSIGNED: ['IN_PROGRESS', 'CANCELLED'],
-      IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
-      COMPLETED: [],
-      CANCELLED: [],
-    }
-
-    if (!validTransitions[currentStatus]?.includes(status)) {
-      return NextResponse.json(
-        { error: `Transition de statut invalide : ${currentStatus} → ${status}` },
-        { status: 400 }
-      )
-    }
-
     // Build update data
-    const updateData: Record<string, unknown> = { status }
-    if (notes !== undefined) updateData.notes = notes?.trim() || null
-    if (reportUrl !== undefined) updateData.reportUrl = reportUrl?.trim() || null
+    const updateData: Record<string, unknown> = {}
 
-    // When completing: set completedAt
-    if (status === 'COMPLETED') {
-      updateData.completedAt = new Date()
+    // ─── Status transition ─────────────────────────────────────────────
+    if (status) {
+      if (!['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(status)) {
+        return NextResponse.json({ error: 'Statut invalide' }, { status: 400 })
+      }
+
+      const currentStatus = mission.status
+      const validTransitions: Record<string, string[]> = {
+        ASSIGNED: ['IN_PROGRESS', 'CANCELLED'],
+        IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
+        COMPLETED: [],
+        CANCELLED: [],
+      }
+
+      if (!validTransitions[currentStatus]?.includes(status)) {
+        return NextResponse.json(
+          { error: `Transition de statut invalide : ${currentStatus} → ${status}` },
+          { status: 400 }
+        )
+      }
+
+      updateData.status = status
+
+      // When completing: set completedAt
+      if (status === 'COMPLETED') {
+        updateData.completedAt = new Date()
+      }
+
+      // When completing PROPERTY_VERIFICATION: also update property
+      if (status === 'COMPLETED' && mission.type === 'PROPERTY_VERIFICATION') {
+        await db.property.update({
+          where: { id: mission.propertyId },
+          data: {
+            isVerified: true,
+            status: 'ACTIVE',
+          },
+        })
+      }
     }
 
-    // When completing PROPERTY_VERIFICATION: also update property
-    if (status === 'COMPLETED' && mission.type === 'PROPERTY_VERIFICATION') {
-      await db.property.update({
-        where: { id: mission.propertyId },
-        data: {
-          isVerified: true,
-          status: 'ACTIVE',
-        },
-      })
+    // ─── Priority ──────────────────────────────────────────────────────
+    if (priority !== undefined) {
+      if (!['NORMAL', 'HIGH', 'URGENT'].includes(priority)) {
+        return NextResponse.json({ error: 'Priorité invalide' }, { status: 400 })
+      }
+      updateData.priority = priority
+    }
+
+    // ─── Notes ─────────────────────────────────────────────────────────
+    if (notes !== undefined) {
+      updateData.notes = notes?.trim() || null
+    }
+
+    // ─── Report URL ────────────────────────────────────────────────────
+    if (reportUrl !== undefined) {
+      updateData.reportUrl = reportUrl?.trim() || null
+    }
+
+    // ─── Photo URLs ────────────────────────────────────────────────────
+    if (photoUrls !== undefined) {
+      if (Array.isArray(photoUrls)) {
+        // Merge with existing photo URLs
+        const existingUrls: string[] = JSON.parse(mission.photoUrls || '[]')
+        const newUrls = photoUrls.filter((u: string) => !existingUrls.includes(u))
+        updateData.photoUrls = JSON.stringify([...existingUrls, ...newUrls])
+      } else if (typeof photoUrls === 'string' && photoUrls === 'RESET') {
+        updateData.photoUrls = '[]'
+      }
+    }
+
+    // ─── TC Feedback ───────────────────────────────────────────────────
+    if (feedback !== undefined) {
+      updateData.feedback = feedback?.trim() || null
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'Aucune donnée à mettre à jour' }, { status: 400 })
     }
 
     const updated = await db.mission.update({
@@ -303,6 +353,22 @@ export async function PATCH(request: NextRequest) {
             status: true,
           },
         },
+      },
+    })
+
+    // Audit log
+    await db.auditLog.create({
+      data: {
+        userId,
+        action: status ? `MISSION_${status}` : 'MISSION_UPDATED',
+        entity: 'Mission',
+        entityId: id,
+        details: JSON.stringify({
+          status,
+          priority,
+          hasPhotos: !!photoUrls,
+          hasFeedback: !!feedback,
+        }),
       },
     })
 

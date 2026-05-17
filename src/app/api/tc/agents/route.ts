@@ -40,14 +40,127 @@ export async function GET(request: NextRequest) {
     ]
   }
 
-  const agents = await db.verificationAgent.findMany({
+  const agentsRaw = await db.verificationAgent.findMany({
     where,
     include: {
+      missions: {
+        select: {
+          id: true,
+          status: true,
+          type: true,
+          scheduledAt: true,
+          completedAt: true,
+          createdAt: true,
+          reportUrl: true,
+          notes: true,
+          property: {
+            select: { id: true, title: true, address: true, city: true },
+          },
+        },
+        orderBy: { scheduledAt: 'desc' },
+      },
+      feedbacks: {
+        select: {
+          id: true,
+          rating: true,
+          comment: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      },
       _count: {
         select: { missions: true },
       },
     },
     orderBy: { createdAt: 'desc' },
+  })
+
+  // Compute enhanced data for each agent
+  const now = new Date()
+  const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+
+  const agents = agentsRaw.map((agent) => {
+    const completedMissions = agent.missions.filter((m) => m.status === 'COMPLETED')
+    const totalMissions = agent.missions.length
+    const successRate = totalMissions > 0
+      ? Math.round((completedMissions.length / totalMissions) * 100)
+      : 0
+
+    // Average completion time (hours from created to completed)
+    let avgCompletionHours = 0
+    if (completedMissions.length > 0) {
+      const totalHours = completedMissions.reduce((sum, m) => {
+        if (m.completedAt && m.createdAt) {
+          return sum + (new Date(m.completedAt).getTime() - new Date(m.createdAt).getTime()) / (1000 * 60 * 60)
+        }
+        return sum
+      }, 0)
+      avgCompletionHours = Math.round(totalHours / completedMissions.length)
+    }
+
+    // Last mission date
+    const lastMission = completedMissions.length > 0
+      ? completedMissions.sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0]
+      : null
+
+    // Upcoming missions (next 7 days)
+    const upcomingMissions = agent.missions.filter((m) => {
+      const schedDate = new Date(m.scheduledAt)
+      return schedDate >= now && schedDate <= sevenDaysFromNow && (m.status === 'ASSIGNED' || m.status === 'IN_PROGRESS')
+    })
+
+    // Average rating
+    const avgRating = agent.feedbacks.length > 0
+      ? Math.round((agent.feedbacks.reduce((sum, f) => sum + f.rating, 0) / agent.feedbacks.length) * 10) / 10
+      : 0
+
+    // Completed mission reports
+    const reports = completedMissions
+      .filter((m) => m.reportUrl)
+      .map((m) => ({
+        id: m.id,
+        reportUrl: m.reportUrl,
+        propertyTitle: m.property.title,
+        completedAt: m.completedAt,
+      }))
+
+    return {
+      id: agent.id,
+      firstName: agent.firstName,
+      lastName: agent.lastName,
+      email: agent.email,
+      phone: agent.phone,
+      isActive: agent.isActive,
+      createdAt: agent.createdAt,
+      _count: agent._count,
+      // Performance metrics (US-TA-053)
+      performance: {
+        totalMissions,
+        completedCount: completedMissions.length,
+        successRate,
+        avgCompletionHours,
+        lastMissionDate: lastMission?.completedAt || null,
+      },
+      // Feedback (US-TA-055)
+      feedbackSummary: {
+        avgRating,
+        totalFeedbacks: agent.feedbacks.length,
+        recentFeedbacks: agent.feedbacks.slice(0, 3),
+      },
+      // Availability (US-TA-056)
+      availability: {
+        upcomingMissions: upcomingMissions.map((m) => ({
+          id: m.id,
+          scheduledAt: m.scheduledAt,
+          status: m.status,
+          type: m.type,
+          propertyTitle: m.property.title,
+        })),
+        missionCountNext7Days: upcomingMissions.length,
+      },
+      // Reports (US-TA-054)
+      reports,
+    }
   })
 
   return NextResponse.json(agents)

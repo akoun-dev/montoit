@@ -18,6 +18,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
     const search = searchParams.get('search')
+    const priority = searchParams.get('priority')
+    const onHold = searchParams.get('onHold')
+    const overdue = searchParams.get('overdue') === 'true'
     const limitParam = searchParams.get('limit')
     const offsetParam = searchParams.get('offset')
 
@@ -28,8 +31,8 @@ export async function GET(req: NextRequest) {
 
     if (status) {
       where.status = status
-    } else {
-      // Default: show files that need TC attention
+    } else if (!overdue) {
+      // Default: show files that need TC attention (unless filtering overdue)
       where.status = { in: ['SUBMITTED', 'TC_REVIEW'] }
     }
 
@@ -40,6 +43,26 @@ export async function GET(req: NextRequest) {
         { tenant: { phone: { contains: search } } },
         { tenant: { email: { contains: search } } },
       ]
+    }
+
+    if (priority) {
+      where.priority = priority
+    }
+
+    if (onHold === 'true') {
+      where.onHold = true
+    } else if (onHold === 'false') {
+      where.onHold = false
+    }
+
+    // Overdue: files with SLA that is overdue and not completed
+    if (overdue) {
+      where.validationSLAs = {
+        some: {
+          isOverdue: true,
+          completedAt: null,
+        },
+      }
     }
 
     const [files, total] = await Promise.all([
@@ -67,8 +90,34 @@ export async function GET(req: NextRequest) {
       db.rentalFile.count({ where }),
     ])
 
+    // Also fetch SLA data for overdue detection
+    const fileIds = files.map((f) => f.id)
+    const slas = await db.validationSLA.findMany({
+      where: {
+        entityType: 'RENTAL_FILE',
+        entityId: { in: fileIds },
+        isOverdue: true,
+        completedAt: null,
+      },
+      select: {
+        id: true,
+        entityId: true,
+        submittedAt: true,
+        deadlineAt: true,
+        isOverdue: true,
+      },
+    })
+
+    const slaMap = new Map(slas.map((s) => [s.entityId, s]))
+
+    // Attach SLA data to files
+    const filesWithSla = files.map((f) => ({
+      ...f,
+      sla: slaMap.get(f.id) || null,
+    }))
+
     return NextResponse.json({
-      files,
+      files: filesWithSla,
       pagination: {
         total,
         limit,
@@ -82,7 +131,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PATCH /api/tc/rental-files — Validate or reject a rental file
+// PATCH /api/tc/rental-files — Validate, reject, request-info, or update priority/onHold
 export async function PATCH(req: NextRequest) {
   try {
     const authResult = await getUserIdAndRole(req)
@@ -96,9 +145,63 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { fileIds, action, comment, documentUpdates } = body
+    const { fileIds, action, comment, documentUpdates, priority, onHold, onHoldReason, id } = body
 
-    // Support both single file and batch operations
+    // ─── Single file update: priority / onHold ──────────────────────────
+    if (id && !fileIds) {
+      const file = await db.rentalFile.findUnique({ where: { id } })
+      if (!file) {
+        return NextResponse.json({ error: 'Dossier introuvable' }, { status: 404 })
+      }
+
+      const updateData: Record<string, unknown> = {}
+
+      if (priority !== undefined) {
+        if (!['NORMAL', 'HIGH', 'URGENT'].includes(priority)) {
+          return NextResponse.json({ error: 'Priorité invalide' }, { status: 400 })
+        }
+        updateData.priority = priority
+      }
+
+      if (onHold !== undefined) {
+        updateData.onHold = Boolean(onHold)
+        if (onHold) {
+          updateData.onHoldReason = onHoldReason?.trim() || null
+        } else {
+          updateData.onHoldReason = null
+        }
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        return NextResponse.json({ error: 'Aucune donnée à mettre à jour' }, { status: 400 })
+      }
+
+      const updated = await db.rentalFile.update({
+        where: { id },
+        data: updateData,
+        include: {
+          tenant: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+          documents: true,
+        },
+      })
+
+      // Audit log
+      await db.auditLog.create({
+        data: {
+          action: priority ? 'RENTAL_FILE_PRIORITY_CHANGED' : onHold ? 'RENTAL_FILE_PUT_ON_HOLD' : 'RENTAL_FILE_RESUMED',
+          entity: 'RentalFile',
+          entityId: id,
+          details: JSON.stringify({ priority, onHold, onHoldReason }),
+          userId,
+        },
+      })
+
+      return NextResponse.json({ success: true, file: updated })
+    }
+
+    // ─── Batch action: APPROVE / REJECT / REQUEST_INFO ──────────────────
     if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
       return NextResponse.json({ error: 'fileIds est requis (tableau non vide)' }, { status: 400 })
     }
@@ -141,7 +244,6 @@ export async function PATCH(req: NextRequest) {
         notificationTitle = 'Dossier rejeté'
         notificationMessage = `Votre dossier locatif a été rejeté. Raison : ${comment || 'Non spécifié'}`
       } else {
-        // REQUEST_INFO — move to TC_REVIEW and add comment
         newStatus = 'TC_REVIEW'
         auditAction = 'RENTAL_FILE_INFO_REQUESTED'
         notificationTitle = 'Documents complémentaires requis'

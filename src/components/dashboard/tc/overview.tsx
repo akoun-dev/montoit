@@ -5,6 +5,7 @@ import {
   ClipboardCheck, BadgeCheck, Clock, AlertTriangle, FileText,
   Home, ArrowRight, Shield, Building2, CheckCircle2, XCircle,
   MessageSquare, TrendingUp, User, Activity, Users, MapPin, Scale,
+  Award, ShieldAlert,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -92,6 +93,21 @@ interface RecentActivity {
   createdAt: string
 }
 
+interface CertificationStats {
+  PENDING: number
+  GRANTED: number
+  REVOKED: number
+  EXPIRED: number
+  TOTAL: number
+}
+
+interface FraudAlertStats {
+  OPEN: number
+  INVESTIGATING: number
+  CONFIRMED: number
+  DISMISSED: number
+}
+
 interface ApiTcResponse {
   stats?: TcStats
   pendingRentalFiles?: RentalFileSummary[]
@@ -112,6 +128,9 @@ const defaultStats: TcStats = {
   pendingOwnerDocsByType: { TITRE_FONCIER: 0, ACTE_NOTARIE: 0, ATTESTATION_PROPRIETE: 0 },
   pendingAgencyDocsByType: { AGREMENT: 0, RCCM: 0 },
 }
+
+const defaultCertStats: CertificationStats = { PENDING: 0, GRANTED: 0, REVOKED: 0, EXPIRED: 0, TOTAL: 0 }
+const defaultFraudStats: FraudAlertStats = { OPEN: 0, INVESTIGATING: 0, CONFIRMED: 0, DISMISSED: 0 }
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } }
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
@@ -197,6 +216,8 @@ export function TcOverview() {
   const [agents, setAgents] = useState<AgentSummary[]>([])
   const [recentMissions, setRecentMissions] = useState<MissionSummary[]>([])
   const [recentDisputes, setRecentDisputes] = useState<DisputeSummary[]>([])
+  const [certStats, setCertStats] = useState<CertificationStats>(defaultCertStats)
+  const [fraudStats, setFraudStats] = useState<FraudAlertStats>(defaultFraudStats)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -207,12 +228,14 @@ export function TcOverview() {
     }
 
     try {
-      const [d, pendingProps, agentsData, missionsData, litigesData] = await Promise.all([
+      const [d, pendingProps, agentsData, missionsData, litigesData, certData, fraudData] = await Promise.all([
         authFetch<ApiTcResponse>('/api/dashboard/tc'),
         authFetch<{ pagination: { total: number } }>('/api/tc/verifications?limit=1'),
         authFetch<AgentSummary[]>('/api/tc/agents').catch(() => [] as AgentSummary[]),
         authFetch<MissionSummary[]>('/api/tc/missions?limit=5').catch(() => [] as MissionSummary[]),
         authFetch<DisputeSummary[]>('/api/tc/litiges?limit=5').catch(() => [] as DisputeSummary[]),
+        authFetch<{ stats: CertificationStats }>('/api/tc/certifications').catch(() => ({ stats: defaultCertStats })),
+        authFetch<{ stats: FraudAlertStats }>('/api/tc/fraud-alerts').catch(() => ({ stats: defaultFraudStats })),
       ])
 
       const mergedStats: TcStats = {
@@ -228,6 +251,8 @@ export function TcOverview() {
       setAgents(Array.isArray(agentsData) ? agentsData : [])
       setRecentMissions(Array.isArray(missionsData) ? missionsData : [])
       setRecentDisputes(Array.isArray(litigesData) ? litigesData : [])
+      setCertStats(certData?.stats || defaultCertStats)
+      setFraudStats(fraudData?.stats || defaultFraudStats)
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) {
         setStats(defaultStats)
@@ -376,7 +401,7 @@ export function TcOverview() {
       </motion.div>
 
       {/* ─── Agents & Missions Row ──────────────────────────────────────────── */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         {/* Agents actifs */}
         <Card
           className="border-border cursor-pointer hover:shadow-md transition-shadow"
@@ -450,6 +475,62 @@ export function TcOverview() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Certifications */}
+        <Card
+          className="border-border cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setDashboardSection('certifications')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-orange-50">
+                <Award className="size-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{certStats.GRANTED}</p>
+                <p className="text-xs text-muted-foreground">Certifications</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Fraud alerts */}
+        {fraudStats.OPEN > 0 && (
+          <Card
+            className="border-red-200 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setDashboardSection('fraud-alerts')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-red-50">
+                  <ShieldAlert className="size-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-red-600">{fraudStats.OPEN}</p>
+                  <p className="text-xs text-muted-foreground">Alertes fraude</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {fraudStats.OPEN === 0 && (
+          <Card
+            className="border-border cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setDashboardSection('fraud-alerts')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-green-50">
+                  <ShieldAlert className="size-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-green-600">0</p>
+                  <p className="text-xs text-muted-foreground">Alertes fraude</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </motion.div>
 
       {/* ─── Two-column: Recent Missions + Recent Disputes ──────────────────── */}
@@ -578,6 +659,56 @@ export function TcOverview() {
                 className="bg-brand-500 hover:bg-brand-600 text-white shrink-0"
               >
                 Vérifier
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* ─── Fraud Alerts Quick Action ─────────────────────────────────────── */}
+      {fraudStats.OPEN > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card className="border-red-200 bg-red-50/30">
+            <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-red-500 text-white shrink-0">
+                  <ShieldAlert className="size-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{fraudStats.OPEN} alerte(s) de fraude ouverte(s)</p>
+                  <p className="text-xs text-muted-foreground">Des investigations nécessitent votre attention</p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setDashboardSection('fraud-alerts')}
+                className="bg-red-600 hover:bg-red-700 text-white shrink-0"
+              >
+                Voir les alertes
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* ─── Pending Certifications Quick Action ─────────────────────────────── */}
+      {certStats.PENDING > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card className="border-amber-200 bg-amber-50/30">
+            <CardContent className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-amber-500 text-white shrink-0">
+                  <Award className="size-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{certStats.PENDING} certification(s) en attente</p>
+                  <p className="text-xs text-muted-foreground">Des utilisateurs attendent leur certification</p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setDashboardSection('certifications')}
+                className="bg-brand-500 hover:bg-brand-600 text-white shrink-0"
+              >
+                Traiter
               </Button>
             </CardContent>
           </Card>
@@ -729,13 +860,16 @@ export function TcOverview() {
         <Card className="border-border">
           <CardContent className="p-4">
             <p className="text-sm font-semibold text-foreground mb-3">Accès rapide</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2">
               {[
                 { id: 'agents', label: 'Agents', icon: Users, color: 'bg-teal-50 text-teal-600' },
                 { id: 'missions', label: 'Missions', icon: MapPin, color: 'bg-brand-50 text-brand-600' },
                 { id: 'property-verifications', label: 'Vérification biens', icon: Home, color: 'bg-amber-50 text-amber-600' },
                 { id: 'inventory-reports', label: 'État des lieux', icon: FileText, color: 'bg-emerald-50 text-emerald-600' },
-                { id: 'litiges', label: 'Litiges', icon: Scale, color: 'bg-red-50 text-red-600' },
+                { id: 'certifications', label: 'Certifications', icon: Award, color: 'bg-orange-50 text-orange-600' },
+                { id: 'oneci-verification', label: 'Vérification ONECI', icon: BadgeCheck, color: 'bg-green-50 text-green-600' },
+                { id: 'fraud-alerts', label: 'Alertes fraude', icon: ShieldAlert, color: 'bg-red-50 text-red-600' },
+                { id: 'litiges', label: 'Litiges', icon: Scale, color: 'bg-rose-50 text-rose-600' },
                 { id: 'history', label: 'Historique', icon: Activity, color: 'bg-gray-50 text-gray-600' },
               ].map((link) => {
                 const Icon = link.icon

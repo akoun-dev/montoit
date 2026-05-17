@@ -15,6 +15,12 @@ import {
   Building2,
   Calendar,
   FileCheck,
+  Pause,
+  Play,
+  AlertTriangle,
+  Flame,
+  CircleDot,
+  Loader2,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -25,9 +31,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useAuthStore } from '@/lib/auth-store'
@@ -35,12 +46,18 @@ import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { DocumentPreviewDialog } from './document-preview-dialog'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
+
+type DossierPriority = 'NORMAL' | 'HIGH' | 'URGENT'
 
 interface RentalFile {
   id: string
   status: 'DRAFT' | 'SUBMITTED' | 'TC_REVIEW' | 'VALIDATED' | 'REJECTED' | 'EXPIRED'
+  priority: DossierPriority
+  onHold: boolean
+  onHoldReason: string | null
   tenantCategory: string | null
   monthlyIncome: number | null
   employer: string | null
@@ -68,13 +85,19 @@ interface RentalFile {
     tcComment: string | null
     createdAt: string
   }>
+  sla: {
+    id: string
+    submittedAt: string
+    deadlineAt: string
+    isOverdue: boolean
+  } | null
 }
 
 interface ApiPagination {
-  page: number
-  limit: number
   total: number
-  totalPages: number
+  limit: number
+  offset: number
+  hasMore: boolean
 }
 
 interface ApiResponse {
@@ -121,6 +144,36 @@ const filterableStatuses: RentalFile['status'][] = [
   'REJECTED',
 ]
 
+const priorityLabels: Record<DossierPriority, string> = {
+  NORMAL: 'Normale',
+  HIGH: 'Haute',
+  URGENT: 'Urgente',
+}
+
+const priorityColors: Record<DossierPriority, string> = {
+  NORMAL: 'bg-gray-100 text-gray-600',
+  HIGH: 'bg-amber-100 text-amber-700',
+  URGENT: 'bg-red-100 text-red-700',
+}
+
+const priorityIcons: Record<DossierPriority, React.ElementType> = {
+  NORMAL: CircleDot,
+  HIGH: AlertTriangle,
+  URGENT: Flame,
+}
+
+// ─── Priority Badge ─────────────────────────────────────────────────────────
+
+function PriorityBadge({ priority }: { priority: DossierPriority }) {
+  const Icon = priorityIcons[priority]
+  return (
+    <Badge className={cn('gap-1 text-xs', priorityColors[priority])}>
+      <Icon className="size-3" />
+      {priorityLabels[priority]}
+    </Badge>
+  )
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function RentalFilesQueue() {
@@ -135,6 +188,9 @@ export function RentalFilesQueue() {
   const [viewMode, setViewMode] = useState<ViewMode>('card')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<RentalFile['status'] | 'ALL'>('ALL')
+  const [priorityFilter, setPriorityFilter] = useState<DossierPriority | 'ALL'>('ALL')
+  const [onHoldFilter, setOnHoldFilter] = useState<'all' | 'active' | 'onHold'>('active')
+  const [overdueOnly, setOverdueOnly] = useState(false)
 
   // Expanded cards
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -145,6 +201,10 @@ export function RentalFilesQueue() {
     file: null,
   })
   const [requestInfoDialog, setRequestInfoDialog] = useState<{ open: boolean; file: RentalFile | null }>({
+    open: false,
+    file: null,
+  })
+  const [onHoldDialog, setOnHoldDialog] = useState<{ open: boolean; file: RentalFile | null }>({
     open: false,
     file: null,
   })
@@ -170,7 +230,10 @@ export function RentalFilesQueue() {
       const params = new URLSearchParams()
       if (statusFilter !== 'ALL') params.set('status', statusFilter)
       if (search.trim()) params.set('search', search.trim())
-      params.set('page', '1')
+      if (priorityFilter !== 'ALL') params.set('priority', priorityFilter)
+      if (onHoldFilter === 'onHold') params.set('onHold', 'true')
+      else if (onHoldFilter === 'active') params.set('onHold', 'false')
+      if (overdueOnly) params.set('overdue', 'true')
       params.set('limit', '50')
 
       const qs = params.toString()
@@ -187,7 +250,7 @@ export function RentalFilesQueue() {
     } finally {
       setLoading(false)
     }
-  }, [isAuthenticated, statusFilter, search])
+  }, [isAuthenticated, statusFilter, search, priorityFilter, onHoldFilter, overdueOnly])
 
   useEffect(() => {
     fetchData()
@@ -246,6 +309,58 @@ export function RentalFilesQueue() {
     }
   }, [requestInfoDialog.file, dialogComment, handleAction])
 
+  const handlePriorityChange = async (fileId: string, priority: DossierPriority) => {
+    try {
+      await authFetch('/api/tc/rental-files', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: fileId, priority }),
+      })
+      toast.success(`Priorité mise à jour : ${priorityLabels[priority]}`)
+      await fetchData()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    }
+  }
+
+  const handleOnHold = async () => {
+    if (!onHoldDialog.file) return
+    setActionLoading(onHoldDialog.file.id)
+    try {
+      await authFetch('/api/tc/rental-files', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: onHoldDialog.file.id,
+          onHold: true,
+          onHoldReason: dialogComment.trim(),
+        }),
+      })
+      toast.success('Dossier mis en attente')
+      setOnHoldDialog({ open: false, file: null })
+      setDialogComment('')
+      await fetchData()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleResume = async (fileId: string) => {
+    try {
+      await authFetch('/api/tc/rental-files', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: fileId, onHold: false }),
+      })
+      toast.success('Dossier repris')
+      await fetchData()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    }
+  }
+
   // ─── Toggle expand ─────────────────────────────────────────────────────
 
   const toggleExpand = (id: string) => {
@@ -262,22 +377,6 @@ export function RentalFilesQueue() {
   const openDocPreview = (doc: RentalFile['documents'][0]) => {
     setPreviewDoc({ open: true, url: doc.url, name: doc.name, type: doc.type })
   }
-
-  // ─── Filtered files (client-side search fallback) ─────────────────────
-
-  const displayedFiles = files.filter((f) => {
-    if (statusFilter !== 'ALL' && f.status !== statusFilter) return false
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      return (
-        f.tenant.firstName.toLowerCase().includes(q) ||
-        f.tenant.lastName.toLowerCase().includes(q) ||
-        f.tenant.email.toLowerCase().includes(q) ||
-        f.tenant.phone.includes(q)
-      )
-    }
-    return true
-  })
 
   // ─── Loading skeleton ──────────────────────────────────────────────────
 
@@ -320,11 +419,7 @@ export function RentalFilesQueue() {
             <Button
               size="sm"
               variant={statusFilter === 'ALL' ? 'default' : 'outline'}
-              className={
-                statusFilter === 'ALL'
-                  ? 'bg-brand-500 hover:bg-brand-600 text-white'
-                  : ''
-              }
+              className={statusFilter === 'ALL' ? 'bg-brand-500 hover:bg-brand-600 text-white' : ''}
               onClick={() => setStatusFilter('ALL')}
             >
               Tous
@@ -334,11 +429,7 @@ export function RentalFilesQueue() {
                 key={s}
                 size="sm"
                 variant={statusFilter === s ? 'default' : 'outline'}
-                className={
-                  statusFilter === s
-                    ? 'bg-brand-500 hover:bg-brand-600 text-white'
-                    : ''
-                }
+                className={statusFilter === s ? 'bg-brand-500 hover:bg-brand-600 text-white' : ''}
                 onClick={() => setStatusFilter(s)}
               >
                 {statusLabels[s]}
@@ -351,8 +442,76 @@ export function RentalFilesQueue() {
         <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
       </div>
 
+      {/* Priority + OnHold + Overdue Filters */}
+      <div className="flex gap-2 flex-wrap items-center">
+        {/* Priority filter */}
+        <Button
+          size="sm"
+          variant={priorityFilter === 'ALL' ? 'secondary' : 'ghost'}
+          className={priorityFilter === 'ALL' ? 'bg-muted' : ''}
+          onClick={() => setPriorityFilter('ALL')}
+        >
+          Toutes priorités
+        </Button>
+        {(['NORMAL', 'HIGH', 'URGENT'] as DossierPriority[]).map((p) => {
+          const PIcon = priorityIcons[p]
+          return (
+            <Button
+              key={p}
+              size="sm"
+              variant={priorityFilter === p ? 'secondary' : 'ghost'}
+              className={cn('gap-1.5', priorityFilter === p && priorityColors[p])}
+              onClick={() => setPriorityFilter(p)}
+            >
+              <PIcon className="size-3.5" />
+              {priorityLabels[p]}
+            </Button>
+          )
+        })}
+
+        <div className="border-l border-border mx-1" />
+
+        {/* OnHold filter */}
+        <Button
+          size="sm"
+          variant={onHoldFilter === 'active' ? 'secondary' : 'ghost'}
+          className={onHoldFilter === 'active' ? 'bg-muted' : ''}
+          onClick={() => setOnHoldFilter('active')}
+        >
+          En cours
+        </Button>
+        <Button
+          size="sm"
+          variant={onHoldFilter === 'onHold' ? 'secondary' : 'ghost'}
+          className={cn('gap-1.5', onHoldFilter === 'onHold' && 'bg-amber-100 text-amber-700')}
+          onClick={() => setOnHoldFilter('onHold')}
+        >
+          <Pause className="size-3.5" /> En attente
+        </Button>
+        <Button
+          size="sm"
+          variant={onHoldFilter === 'all' ? 'secondary' : 'ghost'}
+          className={onHoldFilter === 'all' ? 'bg-muted' : ''}
+          onClick={() => setOnHoldFilter('all')}
+        >
+          Tous
+        </Button>
+
+        <div className="border-l border-border mx-1" />
+
+        {/* Overdue filter */}
+        <Button
+          size="sm"
+          variant={overdueOnly ? 'destructive' : 'ghost'}
+          className={cn('gap-1.5', overdueOnly && 'bg-red-600 hover:bg-red-700 text-white')}
+          onClick={() => setOverdueOnly(!overdueOnly)}
+        >
+          <AlertTriangle className="size-3.5" /> En retard
+        </Button>
+      </div>
+
       {/* Empty state */}
-      {displayedFiles.length === 0 ? (
+      {files.length === 0 ? (
         <Card className="border-border">
           <CardContent className="py-12 text-center">
             <ClipboardCheck className="size-12 text-muted-foreground/50 mx-auto mb-4" />
@@ -363,7 +522,7 @@ export function RentalFilesQueue() {
         /* ─── Card View ──────────────────────────────────────────────── */
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           <AnimatePresence mode="popLayout">
-            {displayedFiles.map((rf) => (
+            {files.map((rf) => (
               <motion.div
                 key={rf.id}
                 layout
@@ -372,9 +531,14 @@ export function RentalFilesQueue() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
               >
-                <Card className="border-border hover:shadow-md transition-shadow">
+                <Card className={cn(
+                  'border-border hover:shadow-md transition-shadow',
+                  rf.onHold && 'border-amber-200 bg-amber-50/20',
+                  rf.sla?.isOverdue && 'border-red-200 bg-red-50/20',
+                  rf.priority === 'URGENT' && !rf.onHold && !rf.sla?.isOverdue && 'border-red-100'
+                )}>
                   <CardContent className="p-4 sm:p-6">
-                    {/* Tenant info row */}
+                    {/* Tenant info row + badges */}
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="size-10 rounded-full bg-brand-500/10 flex items-center justify-center shrink-0">
@@ -387,8 +551,36 @@ export function RentalFilesQueue() {
                           <p className="text-sm text-muted-foreground truncate">{rf.tenant.email}</p>
                         </div>
                       </div>
-                      <Badge className={statusColors[rf.status]}>{statusLabels[rf.status]}</Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge className={statusColors[rf.status]}>{statusLabels[rf.status]}</Badge>
+                        <PriorityBadge priority={rf.priority} />
+                        {rf.onHold && (
+                          <Badge className="bg-amber-100 text-amber-700 gap-1 text-xs">
+                            <Pause className="size-3" /> En attente
+                          </Badge>
+                        )}
+                        {rf.sla?.isOverdue && (
+                          <Badge className="bg-red-100 text-red-700 gap-1 text-xs">
+                            <AlertTriangle className="size-3" /> En retard
+                          </Badge>
+                        )}
+                      </div>
                     </div>
+
+                    {/* On hold reason */}
+                    {rf.onHold && rf.onHoldReason && (
+                      <div className="text-xs bg-amber-50 text-amber-700 p-2 rounded-lg mb-3">
+                        <span className="font-medium">Raison :</span> {rf.onHoldReason}
+                      </div>
+                    )}
+
+                    {/* Overdue SLA info */}
+                    {rf.sla?.isOverdue && (
+                      <div className="text-xs bg-red-50 text-red-700 p-2 rounded-lg mb-3 flex items-center gap-1">
+                        <AlertTriangle className="size-3 shrink-0" />
+                        <span>SLA dépassé — Date limite : {new Date(rf.sla.deadlineAt).toLocaleDateString('fr-FR')}</span>
+                      </div>
+                    )}
 
                     {/* Details */}
                     <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mb-3">
@@ -464,8 +656,8 @@ export function RentalFilesQueue() {
                     </Collapsible>
 
                     {/* Action buttons */}
-                    {(rf.status === 'SUBMITTED' || rf.status === 'TC_REVIEW') && (
-                      <div className="flex gap-2 pt-2 border-t border-border">
+                    {(rf.status === 'SUBMITTED' || rf.status === 'TC_REVIEW') && !rf.onHold && (
+                      <div className="flex gap-2 pt-2 border-t border-border flex-wrap">
                         <Button
                           size="sm"
                           className="bg-green-600 hover:bg-green-700 text-white gap-1 flex-1"
@@ -501,6 +693,52 @@ export function RentalFilesQueue() {
                       </div>
                     )}
 
+                    {/* On Hold / Resume / Priority actions */}
+                    <div className="flex gap-2 pt-2 flex-wrap">
+                      {(rf.status === 'SUBMITTED' || rf.status === 'TC_REVIEW') && !rf.onHold && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 gap-1"
+                          onClick={() => {
+                            setDialogComment('')
+                            setOnHoldDialog({ open: true, file: rf })
+                          }}
+                        >
+                          <Pause className="size-3.5" /> Mettre en attente
+                        </Button>
+                      )}
+                      {rf.onHold && (
+                        <Button
+                          size="sm"
+                          className="bg-brand-500 hover:bg-brand-600 text-white gap-1"
+                          onClick={() => handleResume(rf.id)}
+                        >
+                          <Play className="size-3.5" /> Reprendre
+                        </Button>
+                      )}
+                      {/* Priority dropdown */}
+                      <Select
+                        value={rf.priority}
+                        onValueChange={(v) => handlePriorityChange(rf.id, v as DossierPriority)}
+                      >
+                        <SelectTrigger className="h-7 text-xs w-auto border-0 bg-muted/50 px-2 gap-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NORMAL">
+                            <span className="flex items-center gap-1.5"><CircleDot className="size-3" /> Normale</span>
+                          </SelectItem>
+                          <SelectItem value="HIGH">
+                            <span className="flex items-center gap-1.5"><AlertTriangle className="size-3" /> Haute</span>
+                          </SelectItem>
+                          <SelectItem value="URGENT">
+                            <span className="flex items-center gap-1.5"><Flame className="size-3" /> Urgente</span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     {/* Rejection reason display */}
                     {rf.rejectionReason && (
                       <div className="mt-3 p-2 rounded-lg bg-red-50 text-sm text-red-700">
@@ -528,8 +766,8 @@ export function RentalFilesQueue() {
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th className="text-left font-medium text-muted-foreground p-3">Locataire</th>
-                  <th className="text-left font-medium text-muted-foreground p-3 hidden md:table-cell">Revenus</th>
-                  <th className="text-left font-medium text-muted-foreground p-3 hidden lg:table-cell">Employeur</th>
+                  <th className="text-center font-medium text-muted-foreground p-3 hidden md:table-cell">Priorité</th>
+                  <th className="text-left font-medium text-muted-foreground p-3 hidden lg:table-cell">Revenus</th>
                   <th className="text-center font-medium text-muted-foreground p-3">Docs</th>
                   <th className="text-center font-medium text-muted-foreground p-3">Statut</th>
                   <th className="text-left font-medium text-muted-foreground p-3 hidden sm:table-cell">Date</th>
@@ -538,7 +776,7 @@ export function RentalFilesQueue() {
               </thead>
               <tbody>
                 <AnimatePresence mode="popLayout">
-                  {displayedFiles.map((rf) => (
+                  {files.map((rf) => (
                     <motion.tr
                       key={rf.id}
                       layout
@@ -546,7 +784,11 @@ export function RentalFilesQueue() {
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.15 }}
-                      className="border-b border-border hover:bg-muted/30 transition-colors"
+                      className={cn(
+                        'border-b border-border hover:bg-muted/30 transition-colors',
+                        rf.onHold && 'bg-amber-50/30',
+                        rf.sla?.isOverdue && 'bg-red-50/30'
+                      )}
                     >
                       {/* Tenant */}
                       <td className="p-3">
@@ -559,20 +801,32 @@ export function RentalFilesQueue() {
                               {rf.tenant.firstName} {rf.tenant.lastName}
                             </p>
                             <p className="text-xs text-muted-foreground truncate">{rf.tenant.email}</p>
+                            <div className="flex gap-1 mt-0.5">
+                              {rf.onHold && (
+                                <Badge className="bg-amber-100 text-amber-700 text-[10px] px-1 py-0">
+                                  <Pause className="size-2.5" /> Attente
+                                </Badge>
+                              )}
+                              {rf.sla?.isOverdue && (
+                                <Badge className="bg-red-100 text-red-700 text-[10px] px-1 py-0">
+                                  <AlertTriangle className="size-2.5" /> Retard
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
 
+                      {/* Priority */}
+                      <td className="p-3 text-center hidden md:table-cell">
+                        <PriorityBadge priority={rf.priority} />
+                      </td>
+
                       {/* Income */}
-                      <td className="p-3 hidden md:table-cell">
+                      <td className="p-3 hidden lg:table-cell">
                         {rf.monthlyIncome != null
                           ? `${rf.monthlyIncome.toLocaleString('fr-FR')} FCFA`
                           : '—'}
-                      </td>
-
-                      {/* Employer */}
-                      <td className="p-3 hidden lg:table-cell">
-                        <span className="truncate block max-w-[140px]">{rf.employer || '—'}</span>
                       </td>
 
                       {/* Documents */}
@@ -581,28 +835,6 @@ export function RentalFilesQueue() {
                           <FileText className="size-3.5 text-muted-foreground" />
                           <span>{rf.documents.length}</span>
                         </div>
-                        {/* Document list popover-like: show docs inline as clickable badges */}
-                        {rf.documents.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1 justify-center">
-                            {rf.documents.map((doc) => (
-                              <button
-                                key={doc.id}
-                                type="button"
-                                className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-border hover:bg-muted transition-colors cursor-pointer"
-                                onClick={() => openDocPreview(doc)}
-                                title={doc.name}
-                              >
-                                <Eye className="size-3 text-brand-500" />
-                                <span className="max-w-[60px] truncate">{doc.name}</span>
-                                <Badge
-                                  className={`${docStatusColors[doc.status]} text-[10px] px-1 py-0 leading-none`}
-                                >
-                                  {docStatusLabels[doc.status]}
-                                </Badge>
-                              </button>
-                            ))}
-                          </div>
-                        )}
                       </td>
 
                       {/* Status */}
@@ -618,7 +850,7 @@ export function RentalFilesQueue() {
                       {/* Actions */}
                       <td className="p-3">
                         <div className="flex items-center justify-end gap-1">
-                          {(rf.status === 'SUBMITTED' || rf.status === 'TC_REVIEW') && (
+                          {(rf.status === 'SUBMITTED' || rf.status === 'TC_REVIEW') && !rf.onHold && (
                             <>
                               <Button
                                 size="sm"
@@ -658,10 +890,30 @@ export function RentalFilesQueue() {
                               </Button>
                             </>
                           )}
-                          {rf.rejectionReason && (
-                            <span className="text-xs text-red-600 max-w-[120px] truncate" title={rf.rejectionReason}>
-                              {rf.rejectionReason}
-                            </span>
+                          {rf.onHold && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-brand-500 hover:text-brand-600 hover:bg-brand-50 h-8 px-2"
+                              onClick={() => handleResume(rf.id)}
+                              title="Reprendre"
+                            >
+                              <Play className="size-4" />
+                            </Button>
+                          )}
+                          {!rf.onHold && (rf.status === 'SUBMITTED' || rf.status === 'TC_REVIEW') && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-amber-600 hover:text-amber-700 h-8 w-8 p-0"
+                              onClick={() => {
+                                setDialogComment('')
+                                setOnHoldDialog({ open: true, file: rf })
+                              }}
+                              title="Mettre en attente"
+                            >
+                              <Pause className="size-4" />
+                            </Button>
                           )}
                         </div>
                       </td>
@@ -773,6 +1025,65 @@ export function RentalFilesQueue() {
               onClick={handleRequestInfoConfirm}
             >
               Envoyer la demande
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── On Hold Dialog ──────────────────────────────────────────────── */}
+      <Dialog
+        open={onHoldDialog.open}
+        onOpenChange={(open) => {
+          if (!open) {
+            setOnHoldDialog({ open: false, file: null })
+            setDialogComment('')
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mettre le dossier en attente</DialogTitle>
+            <DialogDescription>
+              Le dossier sera suspendu jusqu&apos;à reprise. Indiquez la raison si nécessaire.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {onHoldDialog.file && (
+              <p className="text-sm text-muted-foreground">
+                Dossier de{' '}
+                <span className="font-semibold text-foreground">
+                  {onHoldDialog.file.tenant.firstName} {onHoldDialog.file.tenant.lastName}
+                </span>
+              </p>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="onHoldReason">Raison (optionnel)</Label>
+              <Textarea
+                id="onHoldReason"
+                placeholder="Raison de la mise en attente..."
+                value={dialogComment}
+                onChange={(e) => setDialogComment(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setOnHoldDialog({ open: false, file: null })
+                setDialogComment('')
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={handleOnHold}
+              disabled={actionLoading !== null}
+            >
+              {actionLoading !== null && <Loader2 className="size-4 animate-spin mr-2" />}
+              Mettre en attente
             </Button>
           </DialogFooter>
         </DialogContent>

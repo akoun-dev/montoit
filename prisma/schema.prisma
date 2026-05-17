@@ -139,6 +139,13 @@ enum DisputeType {
   OTHER
 }
 
+enum FraudAlertStatus {
+  OPEN
+  INVESTIGATING
+  CONFIRMED
+  DISMISSED
+}
+
 enum DisputeStatus {
   OPEN
   IN_REVIEW
@@ -211,6 +218,25 @@ enum MissionStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+
+enum DossierPriority {
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum CertificationType {
+  USER_IDENTITY
+  PROPERTY
+  AGENCY
+}
+
+enum CertificationStatus {
+  PENDING
+  GRANTED
+  REVOKED
+  EXPIRED
 }
 
 enum MissionType {
@@ -350,6 +376,16 @@ model User {
   agencyMandats        Mandat[]           @relation("MandatAgency")
   // Relations — maintenance comments
   maintenanceComments  MaintenanceComment[]
+  // Relations — certifications received
+  certifications      Certification[]
+  // Relations — certifications granted by this TC
+  grantedCertifications Certification[]     @relation("CertificationGranter")
+  // Relations — fraud alerts reported
+  fraudAlertsReported  FraudAlert[]       @relation("FraudAlertReporter")
+  // Relations — fraud alerts as suspect
+  fraudAlertsAsSuspect FraudAlert[]       @relation("FraudAlertSuspect")
+  // Relations — agent feedback given by this TC
+  agentFeedbacksGiven  AgentFeedback[]
 
   @@index([role])
   @@index([phone])
@@ -422,6 +458,7 @@ model Property {
   ratings          Rating[]
   documents        PropertyDocument[]
   mandats          Mandat[]
+  certifications   Certification[]
 
   @@index([status])
   @@index([city])
@@ -447,6 +484,9 @@ model PropertyImage {
 model RentalFile {
   id              String           @id @default(cuid())
   status          RentalFileStatus @default(DRAFT)
+  priority        DossierPriority  @default(NORMAL)
+  onHold          Boolean          @default(false)
+  onHoldReason    String?
   tenantCategory  TenantCategory?
   monthlyIncome   Float?
   employer        String?
@@ -713,14 +753,20 @@ model Rating {
 // ─── Dispute ──────────────────────────────────────────────────────────────────
 
 model Dispute {
-  id          String        @id @default(cuid())
-  type        DisputeType
-  description String
-  status      DisputeStatus @default(OPEN)
-  resolution  String?
-  tcComment   String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  type           DisputeType
+  description    String
+  status         DisputeStatus @default(OPEN)
+  priority       DossierPriority @default(NORMAL)
+  resolution     String?
+  tcComment      String?
+  investigationNotes String?    // US-TA-044: procedure documentation
+  evidenceUrls   String        @default("[]")  // JSON array of evidence file URLs
+  isEscalated    Boolean       @default(false)  // US-TA-047: escalation flag
+  escalatedAt    DateTime?                      // When it was escalated
+  escalationReason String?                      // Why it was escalated
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   leaseId String
   lease   Lease  @relation(fields: [leaseId], references: [id], onDelete: Cascade)
@@ -738,6 +784,8 @@ model Dispute {
   @@index([status])
   @@index([reportedById])
   @@index([handledById])
+  @@index([isEscalated])
+  @@index([priority])
 }
 
 // ─── Audit Log ────────────────────────────────────────────────────────────────
@@ -967,6 +1015,9 @@ model VerificationAgent {
   // Missions assigned to this agent
   missions Mission[]
 
+  // Feedback from TC
+  feedbacks AgentFeedback[]
+
   @@index([tcId])
   @@index([isActive])
 }
@@ -974,15 +1025,18 @@ model VerificationAgent {
 // ─── Mission (Assignment for on-site verification) ────────────────────────────
 
 model Mission {
-  id          String        @id @default(cuid())
+  id          String         @id @default(cuid())
   type        MissionType
-  status      MissionStatus @default(ASSIGNED)
+  status      MissionStatus  @default(ASSIGNED)
+  priority    DossierPriority @default(NORMAL)
   notes       String?
   reportUrl   String?                      // URL to the verification report/document
+  photoUrls   String         @default("[]")  // JSON array of verification photo URLs
   scheduledAt DateTime                    // When the mission is scheduled
   completedAt DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  feedback    String?                      // TC feedback on mission result
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   // The property to verify
   propertyId String
@@ -1077,6 +1131,81 @@ model MaintenanceComment {
   @@index([maintenanceRequestId])
   @@index([authorId])
   @@index([createdAt])
+}
+
+// ─── Certification (US-TA-030 to US-TA-037) ────────────────────────────────────
+
+model Certification {
+  id          String             @id @default(cuid())
+  type        CertificationType
+  status      CertificationStatus @default(PENDING)
+  notes       String?                          // US-TA-036: certification notes
+  revokedAt   DateTime?                        // US-TA-035: revocation date
+  revocationReason String?                     // Reason for revocation
+  expiresAt   DateTime?                        // Optional expiration
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  // The user being certified
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // The TC who granted/revoked
+  grantedById String
+  grantedBy   User   @relation("CertificationGranter", fields: [grantedById], references: [id], onDelete: Cascade)
+
+  // Optional property link (for PROPERTY certifications)
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([grantedById])
+  @@index([status])
+  @@index([type])
+  @@index([propertyId])
+}
+
+// ─── Fraud Alert (US-TA-110, US-TA-111) ──────────────────────────────────────
+
+model FraudAlert {
+  id          String           @id @default(cuid())
+  status      FraudAlertStatus @default(OPEN)
+  description String                          // Description of suspected fraud
+  autoDetected Boolean         @default(false) // True if auto-detected by system
+  resolution  String?                         // Resolution details
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  // The user suspected of fraud
+  suspectId String
+  suspect   User   @relation("FraudAlertSuspect", fields: [suspectId], references: [id], onDelete: Cascade)
+
+  // The TC who reported/is handling
+  reporterId String
+  reporter   User   @relation("FraudAlertReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([suspectId])
+  @@index([reporterId])
+  @@index([status])
+  @@index([autoDetected])
+}
+
+// ─── Agent Feedback (US-TA-055) ──────────────────────────────────────────────
+
+model AgentFeedback {
+  id        String   @id @default(cuid())
+  rating    Int                  // 1-5 rating
+  comment   String?              // Feedback text
+  createdAt DateTime @default(now())
+
+  agentId String
+  agent   VerificationAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  tcId String
+  tc   User  @relation(fields: [tcId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([tcId])
 }
 
 // ─── Connection Log (US-P-122) ──────────────────────────────────────────────

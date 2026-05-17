@@ -5,7 +5,8 @@ import {
   Building2, ClipboardCheck, Users, Shield, 
   BarChart3, Settings, AlertTriangle, Clock, BadgeCheck,
   LayoutDashboard, ChevronLeft, ChevronRight,
-  Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck, UserCircle, Home, MapPin, Scale, FolderOpen, Lock
+  Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck, UserCircle, Home, MapPin, Scale, FolderOpen, Lock,
+  Award, Fingerprint, ShieldAlert, GraduationCap
 } from 'lucide-react'
 import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
@@ -181,6 +182,13 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
             { id: 'rental-files-queue', label: 'Dossiers locataires', icon: ClipboardCheck },
             { id: 'owner-validations', label: 'Validations propriétaires', icon: BadgeCheck },
             { id: 'agency-validations', label: 'Validations agences', icon: Building2 },
+            { id: 'oneci-verification', label: 'Vérification ONECI', icon: Fingerprint },
+          ],
+        },
+        {
+          title: 'CERTIFICATION',
+          items: [
+            { id: 'certifications', label: 'Certifications', icon: Award },
           ],
         },
         {
@@ -197,8 +205,21 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           ],
         },
         {
+          title: 'FORMATION',
+          items: [
+            { id: 'documentation', label: 'Centre de documentation', icon: GraduationCap },
+          ],
+        },
+        {
+          title: 'SÉCURITÉ',
+          items: [
+            { id: 'fraud-alerts', label: 'Alertes fraude', icon: ShieldAlert },
+          ],
+        },
+        {
           title: 'SUIVI',
           items: [
+            { id: 'messaging', label: 'Messagerie', icon: MessageSquare },
             { id: 'sla-monitoring', label: 'Suivi SLA', icon: Clock },
             { id: 'litiges', label: 'Litiges', icon: Scale },
             { id: 'notifications', label: 'Notifications', icon: Bell },
