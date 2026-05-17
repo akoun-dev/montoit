@@ -37,18 +37,38 @@ function formatNumber(n: number): string {
 }
 
 export function Hero() {
-  const { setView } = useAuthStore()
+  const { setView, setSearchParams } = useAuthStore()
   const [stats, setStats] = useState<Stats | null>(null)
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCommune, setSelectedCommune] = useState('')
+  const [selectedType, setSelectedType] = useState('')
 
   useEffect(() => {
     fetch('/api/stats')
       .then((res) => res.json())
       .then((data) => setStats(data))
       .catch(() => {
-        // Fallback stats if API fails
         setStats({ totalProperties: 0, monthlyVisitors: 0, newToday: 0, satisfactionRate: 0, communes: [], propertyTypes: [] })
       })
   }, [])
+
+  const handleSearch = () => {
+    // Store the search params so NosBiensView can read them
+    setSearchParams({
+      query: searchQuery,
+      commune: selectedCommune,
+      propertyType: selectedType,
+    })
+    setView('nos-biens')
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch()
+    }
+  }
 
   const statItems = stats
     ? [
@@ -104,35 +124,38 @@ export function Hero() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 placeholder="Rechercher un bien..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
                 className="pl-9 h-11 bg-muted border-border focus-visible:border-brand-500 focus-visible:ring-brand-500/30"
               />
             </div>
-            <Select>
+            <Select value={selectedCommune} onValueChange={setSelectedCommune}>
               <SelectTrigger className="h-11 w-full sm:w-[180px] bg-muted border-border">
                 <MapPin className="size-4 text-muted-foreground mr-1" />
                 <SelectValue placeholder="Ville, Commune" />
               </SelectTrigger>
               <SelectContent>
                 {(stats?.communes ?? []).map((commune) => (
-                  <SelectItem key={commune} value={commune.toLowerCase()}>{commune}</SelectItem>
+                  <SelectItem key={commune} value={commune}>{commune}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Select>
+            <Select value={selectedType} onValueChange={setSelectedType}>
               <SelectTrigger className="h-11 w-full sm:w-[200px] bg-muted border-border">
                 <Building2 className="size-4 text-muted-foreground mr-1" />
                 <SelectValue placeholder="Type de bien" />
               </SelectTrigger>
               <SelectContent>
                 {(stats?.propertyTypes ?? []).map((type) => (
-                  <SelectItem key={type} value={type.toLowerCase()}>{type.charAt(0) + type.slice(1).toLowerCase()}</SelectItem>
+                  <SelectItem key={type} value={type}>{type.charAt(0) + type.slice(1).toLowerCase()}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Button
               size="lg"
               className="h-11 bg-brand-500 hover:bg-brand-600 text-white px-6 shrink-0"
-              onClick={() => setView('nos-biens')}
+              onClick={handleSearch}
             >
               <Home className="size-4 mr-2" />
               Rechercher

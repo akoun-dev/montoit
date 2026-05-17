@@ -633,7 +633,7 @@ function MapListItem({ property, onClick, isFavorite, toggleFavorite }: { proper
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export function NosBiensView() {
-  const { setView, setSelectedPropertyId } = useAuthStore()
+  const { setView, setSelectedPropertyId, searchParams, setSearchParams } = useAuthStore()
 
   // Data state
   const [properties, setProperties] = useState<Property[]>([])
@@ -648,10 +648,10 @@ export function NosBiensView() {
   const [propertyTypes, setPropertyTypes] = useState<string[]>([])
   const [communes, setCommunes] = useState<string[]>([])
 
-  // Filter state
-  const [searchQuery, setSearchQuery] = useState('')
-  const [typeFilter, setTypeFilter] = useState<string>('Tous')
-  const [communeFilter, setCommuneFilter] = useState<string>('Toutes')
+  // Filter state — initialize from search params passed from Hero
+  const [searchQuery, setSearchQuery] = useState(searchParams.query || '')
+  const [typeFilter, setTypeFilter] = useState<string>(searchParams.propertyType || 'Tous')
+  const [communeFilter, setCommuneFilter] = useState<string>(searchParams.commune || 'Toutes')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
   const [roomsMin, setRoomsMin] = useState('0')
@@ -661,6 +661,11 @@ export function NosBiensView() {
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid')
   const [sortBy, setSortBy] = useState('recent')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+
+  // Clear search params after reading them (so they don't persist on revisit)
+  useEffect(() => {
+    setSearchParams({ query: '', commune: '', propertyType: '' })
+  }, [setSearchParams])
 
   // Fetch properties and filter options from API
   useEffect(() => {

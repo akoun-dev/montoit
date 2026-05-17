@@ -5,6 +5,12 @@ export type AuthMethod = 'email' | 'sms'
 
 export type AppView = 'home' | 'nos-biens' | 'a-propos' | 'nous-contacter' | 'login' | 'register' | 'otp-verify' | 'email-verify' | 'forgot-password' | 'dashboard' | 'property-detail'
 
+export interface SearchParams {
+  query: string
+  commune: string
+  propertyType: string
+}
+
 export type OtpPurpose = 'login' | 'email_verify' | 'password_reset'
 
 export interface AuthUser {
@@ -30,6 +36,7 @@ interface PersistedAuthState {
   selectedPropertyId: string
   selectedItemId: string  // ID for detail views (payment, application, visit, lease)
   lastAuthenticatedAt: number | null  // timestamp of last successful auth
+  searchParams: SearchParams  // search parameters passed from hero to nos-biens
 }
 
 // Transient state that does NOT persist
@@ -38,6 +45,7 @@ interface TransientAuthState {
   isInitialized: boolean
   pendingPhone: string
   pendingEmail: string
+  pendingRole: string
   authMethod: AuthMethod
   devCode: string
   otpPurpose: OtpPurpose
@@ -57,9 +65,11 @@ interface AuthActions {
   setView: (view: AppView) => void
   setAuthMethod: (method: AuthMethod) => void
   setOtpPurpose: (purpose: OtpPurpose) => void
+  setPendingRole: (role: string) => void
   setDashboardSection: (section: string) => void
   setSelectedPropertyId: (id: string) => void
   setSelectedItemId: (id: string) => void
+  setSearchParams: (params: SearchParams) => void
   updateUser: (partial: Partial<AuthUser>) => void
   switchRole: (newRole: AuthUser['role']) => Promise<void>
   checkAuth: () => Promise<void>
@@ -77,6 +87,7 @@ const defaultPersisted: PersistedAuthState = {
   selectedPropertyId: '',
   selectedItemId: '',
   lastAuthenticatedAt: null,
+  searchParams: { query: '', commune: '', propertyType: '' },
 }
 
 const defaultTransient: TransientAuthState = {
@@ -84,6 +95,7 @@ const defaultTransient: TransientAuthState = {
   isInitialized: false,
   pendingPhone: '',
   pendingEmail: '',
+  pendingRole: '',
   authMethod: 'email',
   devCode: '',
   otpPurpose: 'login',
@@ -379,6 +391,7 @@ export const useAuthStore = create<AuthState>()(
             selectedPropertyId: '',
             selectedItemId: '',
             lastAuthenticatedAt: null,
+            searchParams: { query: '', commune: '', propertyType: '' },
           })
         }
       },
@@ -386,9 +399,11 @@ export const useAuthStore = create<AuthState>()(
       setView: (view) => set((state) => ({ previousView: state.currentView, currentView: view })),
       setAuthMethod: (method) => set({ authMethod: method }),
       setOtpPurpose: (purpose) => set({ otpPurpose: purpose }),
+      setPendingRole: (role) => set({ pendingRole: role }),
       setDashboardSection: (section) => set({ dashboardSection: section }),
       setSelectedPropertyId: (id) => set({ selectedPropertyId: id }),
       setSelectedItemId: (id) => set({ selectedItemId: id }),
+      setSearchParams: (params) => set({ searchParams: params }),
       updateUser: (partial) => set((state) => ({
         user: state.user ? { ...state.user, ...partial } : state.user,
       })),
@@ -488,6 +503,7 @@ export const useAuthStore = create<AuthState>()(
         selectedPropertyId: state.selectedPropertyId,
         selectedItemId: state.selectedItemId,
         lastAuthenticatedAt: state.lastAuthenticatedAt,
+        searchParams: state.searchParams,
       }),
       // After rehydration, merge with default transient state
       merge: (persistedState, currentState) => {
@@ -510,6 +526,7 @@ export const useAuthStore = create<AuthState>()(
           isInitialized: false,
           pendingPhone: '',
           pendingEmail: '',
+          pendingRole: '',
           authMethod: 'email',
           devCode: '',
           otpPurpose: 'login',

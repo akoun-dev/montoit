@@ -56,7 +56,7 @@ const slideVariants = {
 }
 
 export function RegisterForm() {
-  const { registerWithEmail, registerWithSms, pendingPhone, authMethod: storeMethod, isLoading, setView, setAuthMethod } = useAuthStore()
+  const { registerWithEmail, registerWithSms, pendingPhone, pendingRole, authMethod: storeMethod, isLoading, setView, setAuthMethod } = useAuthStore()
 
   const [step, setStep] = useState<1 | 2>(1)
   const [direction, setDirection] = useState(1)
@@ -69,7 +69,7 @@ export function RegisterForm() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [role, setRole] = useState('')
+  const [role, setRole] = useState(pendingRole || '')
   const [acceptTerms, setAcceptTerms] = useState(false)
 
   const passwordStrength = passwordRules.filter((r) => r.test(password)).length
