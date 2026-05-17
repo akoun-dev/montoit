@@ -83,52 +83,178 @@ interface PropertyInfo {
   }
 }
 
+interface ExistingReport {
+  id: string
+  propertyId: string
+  type: InventoryType
+  status: string
+  generalObservations: string | null
+  totalKeys: number | null
+  leaseId: string | null
+  items: Array<{
+    id: string
+    designation: string
+    designationOrder: number
+    kitchen: string | null
+    mainBathroom: string | null
+    otherBathroom: string | null
+    otherRoom1: string | null
+    otherRoom2: string | null
+    observations: string | null
+  }>
+  property: {
+    id: string
+    title: string
+    address: string
+    city: string
+    commune: string | null
+  }
+}
+
 const typeLabels: Record<string, string> = {
   INVENTORY_ENTRANCE: 'Entrée des lieux',
   INVENTORY_EXIT: 'Sortie des lieux',
 }
 
 export function InventoryReportForm() {
-  const { isAuthenticated, selectedItemId, setDashboardSection, setSelectedItemId } = useAuthStore()
+  const { isAuthenticated, selectedItemId, selectedPropertyId, setDashboardSection, setSelectedItemId, setSelectedPropertyId } = useAuthStore()
   const [grid, setGrid] = useState<GridState>(createDefaultGrid)
   const [inventoryType, setInventoryType] = useState<InventoryType>('INVENTORY_ENTRANCE')
   const [generalObservations, setGeneralObservations] = useState('')
   const [propertyInfo, setPropertyInfo] = useState<PropertyInfo | null>(null)
+  const [existingReport, setExistingReport] = useState<ExistingReport | null>(null)
+  const [reportId, setReportId] = useState<string | null>(null)
   const [leaseId, setLeaseId] = useState('')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
 
+  // Determine if we're editing an existing report or creating new
+  // selectedItemId could be a reportId (from inventory-reports-list) or a propertyId (from property-verify-detail)
+  // We use selectedPropertyId to know the property context
+  const effectivePropertyId = selectedPropertyId || selectedItemId
+
   const goBack = () => {
     setSelectedItemId('')
-    setDashboardSection('property-verifications')
+    setSelectedPropertyId('')
+    setDashboardSection('inventory-reports')
   }
 
-  // Fetch property info
-  const fetchProperty = useCallback(async () => {
+  // Load existing report data into the grid
+  const loadReportIntoGrid = useCallback((report: ExistingReport) => {
+    const newGrid = createDefaultGrid()
+    for (const item of report.items) {
+      const rowIdx = item.designationOrder - 1
+      if (rowIdx < 0 || rowIdx >= DESIGNATIONS.length) continue
+
+      const isKeyRow = rowIdx === 8
+      const roomFields = ['kitchen', 'mainBathroom', 'otherBathroom', 'otherRoom1', 'otherRoom2'] as const
+      const roomMapping = [0, 1, 2, 3, 4]
+
+      for (let cIdx = 0; cIdx < roomMapping.length; cIdx++) {
+        const colIdx = roomMapping[cIdx]
+        const value = item[roomFields[cIdx]]
+
+        if (isKeyRow && value) {
+          // Parse key count from string like "3 clé(s)"
+          const numMatch = value.match(/(\d+)/)
+          newGrid[rowIdx][colIdx] = {
+            ...defaultCellState(),
+            keyCount: numMatch ? parseInt(numMatch[1], 10) : null,
+            observation: item.observations || '',
+          }
+        } else {
+          newGrid[rowIdx][colIdx] = {
+            condition: (value === 'BON' || value === 'MAUVAIS') ? value : null,
+            observation: item.observations || '',
+            keyCount: null,
+          }
+        }
+      }
+    }
+    setGrid(newGrid)
+    setInventoryType(report.type)
+    setGeneralObservations(report.generalObservations || '')
+    setLeaseId(report.leaseId || '')
+    setReportId(report.id)
+  }, [])
+
+  // Fetch data on mount
+  useEffect(() => {
     if (!isAuthenticated || !selectedItemId) {
       setInitialLoading(false)
       return
     }
-    try {
-      const d = await authFetch<{ property: PropertyInfo }>(`/api/tc/verifications?propertyId=${selectedItemId}`)
-      setPropertyInfo(d.property || null)
-    } catch {
-      // Fallback: try properties API
+
+    const loadData = async () => {
+      // First, try to load as an existing report
       try {
-        const d2 = await authFetch<{ property: PropertyInfo }>(`/api/properties/${selectedItemId}`)
-        setPropertyInfo(d2.property || null)
+        const d = await authFetch<{ reports: ExistingReport[] }>(`/api/tc/inventory-reports?propertyId=${selectedItemId}`)
+        if (d.reports && d.reports.length > 0) {
+          // Check if selectedItemId matches a report ID
+          const match = d.reports.find((r: ExistingReport) => r.id === selectedItemId)
+          if (match) {
+            setExistingReport(match)
+            loadReportIntoGrid(match)
+            setPropertyInfo({
+              id: match.property.id,
+              title: match.property.title,
+              type: '',
+              commune: match.property.commune || '',
+              images: [],
+              owner: { id: '', firstName: '', lastName: '', phone: '', email: '' },
+            })
+            setInitialLoading(false)
+            return
+          }
+        }
       } catch {
-        setPropertyInfo(null)
+        // Not a report lookup, continue
       }
-    } finally {
+
+      // Try to load by report ID directly
+      try {
+        const d = await authFetch<{ reports: ExistingReport[] }>('/api/tc/inventory-reports')
+        const match = d.reports?.find((r: ExistingReport) => r.id === selectedItemId)
+        if (match) {
+          setExistingReport(match)
+          loadReportIntoGrid(match)
+          setPropertyInfo({
+            id: match.property.id,
+            title: match.property.title,
+            type: '',
+            commune: match.property.commune || '',
+            images: [],
+            owner: { id: '', firstName: '', lastName: '', phone: '', email: '' },
+          })
+          setInitialLoading(false)
+          return
+        }
+      } catch {
+        // Continue
+      }
+
+      // Otherwise, load property info for creating a new report
+      const propId = effectivePropertyId
+      if (propId) {
+        try {
+          const d = await authFetch<{ property: PropertyInfo }>(`/api/tc/verifications?propertyId=${propId}`)
+          setPropertyInfo(d.property || null)
+        } catch {
+          try {
+            const d2 = await authFetch<{ property: PropertyInfo }>(`/api/properties/${propId}`)
+            setPropertyInfo(d2.property || null)
+          } catch {
+            setPropertyInfo(null)
+          }
+        }
+      }
+
       setInitialLoading(false)
     }
-  }, [isAuthenticated, selectedItemId])
 
-  useEffect(() => {
-    fetchProperty()
-  }, [fetchProperty])
+    loadData()
+  }, [isAuthenticated, selectedItemId, effectivePropertyId, loadReportIntoGrid])
 
   const setCondition = (rowIdx: number, colIdx: number, condition: Condition) => {
     setGrid((prev) => ({
@@ -136,16 +262,6 @@ export function InventoryReportForm() {
       [rowIdx]: {
         ...prev[rowIdx],
         [colIdx]: { ...prev[rowIdx][colIdx], condition },
-      },
-    }))
-  }
-
-  const setObservation = (rowIdx: number, colIdx: number, observation: string) => {
-    setGrid((prev) => ({
-      ...prev,
-      [rowIdx]: {
-        ...prev[rowIdx],
-        [colIdx]: { ...prev[rowIdx][colIdx], observation },
       },
     }))
   }
@@ -171,19 +287,15 @@ export function InventoryReportForm() {
   })()
 
   const buildItemsPayload = () => {
-    // Create one item per designation row (9 rows)
-    // Each row maps 5 room columns to: kitchen, mainBathroom, otherBathroom, otherRoom1, otherRoom2
     const items = []
     for (let r = 0; r < DESIGNATIONS.length; r++) {
-      const isKeyRow = r === 8 // NOMBRE DE CLÉS row
-      const cell0 = grid[r]?.[0] // CUISINE → kitchen
-      const cell1 = grid[r]?.[1] // SALLE D'EAU CH. PRINCIPALE → mainBathroom
-      const cell2 = grid[r]?.[2] // SALLE D'EAU AUTRES CHAMBRES → otherBathroom
-      const cell3 = grid[r]?.[3] // AUTRE PIÈCE → otherRoom1
-      const cell4 = grid[r]?.[4] // AUTRE PIÈCE → otherRoom2
+      const isKeyRow = r === 8
+      const cell0 = grid[r]?.[0]
+      const cell1 = grid[r]?.[1]
+      const cell2 = grid[r]?.[2]
+      const cell3 = grid[r]?.[3]
+      const cell4 = grid[r]?.[4]
 
-      // For key row, store key counts as observations string
-      // For condition rows, store BON/MAUVAIS values
       items.push({
         designation: DESIGNATIONS[r],
         designationOrder: r + 1,
@@ -201,19 +313,35 @@ export function InventoryReportForm() {
   const handleSaveDraft = async () => {
     setSaving(true)
     try {
-      await authFetch('/api/tc/inventory-reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          propertyId: selectedItemId,
-          type: inventoryType,
-          leaseId: leaseId || undefined,
-          status: 'DRAFT',
-          items: buildItemsPayload(),
-          generalObservations,
-          totalKeys,
-        }),
-      })
+      if (reportId) {
+        // Update existing report
+        await authFetch('/api/tc/inventory-reports', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reportId,
+            items: buildItemsPayload(),
+            generalObservations,
+            totalKeys,
+            status: 'DRAFT',
+          }),
+        })
+      } else {
+        // Create new report
+        await authFetch('/api/tc/inventory-reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            propertyId: effectivePropertyId,
+            type: inventoryType,
+            leaseId: leaseId || undefined,
+            status: 'DRAFT',
+            items: buildItemsPayload(),
+            generalObservations,
+            totalKeys,
+          }),
+        })
+      }
       toast.success('Brouillon sauvegardé !')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde')
@@ -223,7 +351,6 @@ export function InventoryReportForm() {
   }
 
   const handleValidate = async () => {
-    // Check that at least some cells are filled
     let hasAnyCondition = false
     for (let r = 0; r < DESIGNATIONS.length; r++) {
       for (let c = 0; c < ROOM_COLUMNS.length; c++) {
@@ -242,19 +369,35 @@ export function InventoryReportForm() {
 
     setSaving(true)
     try {
-      await authFetch('/api/tc/inventory-reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          propertyId: selectedItemId,
-          type: inventoryType,
-          leaseId: leaseId || undefined,
-          status: 'COMPLETED',
-          items: buildItemsPayload(),
-          generalObservations,
-          totalKeys,
-        }),
-      })
+      if (reportId) {
+        // Update existing report and set to COMPLETED
+        await authFetch('/api/tc/inventory-reports', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reportId,
+            items: buildItemsPayload(),
+            generalObservations,
+            totalKeys,
+            status: 'COMPLETED',
+          }),
+        })
+      } else {
+        // Create new report as COMPLETED
+        await authFetch('/api/tc/inventory-reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            propertyId: effectivePropertyId,
+            type: inventoryType,
+            leaseId: leaseId || undefined,
+            status: 'COMPLETED',
+            items: buildItemsPayload(),
+            generalObservations,
+            totalKeys,
+          }),
+        })
+      }
       toast.success('État des lieux validé avec succès !')
       goBack()
     } catch (err) {
@@ -277,7 +420,7 @@ export function InventoryReportForm() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Back button */}
       <Button variant="ghost" onClick={goBack} className="gap-2 -ml-2">
-        <ArrowLeft className="size-4" /> Retour aux vérifications
+        <ArrowLeft className="size-4" /> Retour aux rapports
       </Button>
 
       {/* Header */}
@@ -287,7 +430,10 @@ export function InventoryReportForm() {
             <div>
               <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
                 <FileText className="size-5 text-brand-500" />
-                État des Lieux
+                {reportId ? 'Modifier l\'État des Lieux' : 'État des Lieux'}
+                {existingReport && (
+                  <Badge variant="outline" className="ml-2 text-xs">Brouillon</Badge>
+                )}
               </CardTitle>
               {propertyInfo && (
                 <div className="flex items-center gap-2 mt-2">
@@ -342,7 +488,6 @@ export function InventoryReportForm() {
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] border-collapse">
-              {/* Header row */}
               <thead>
                 <tr className="bg-muted/50">
                   <th className="px-3 py-3 text-left text-xs font-bold text-foreground border-b border-r border-border w-10">
@@ -365,7 +510,6 @@ export function InventoryReportForm() {
                 </tr>
               </thead>
 
-              {/* Data rows */}
               <tbody>
                 {DESIGNATIONS.map((designation, rowIdx) => {
                   const isKeyRow = rowIdx === 8
@@ -391,7 +535,6 @@ export function InventoryReportForm() {
                           className="px-2 py-2 border-b border-r border-border text-center"
                         >
                           {isKeyRow ? (
-                            /* Key count input */
                             <Input
                               type="number"
                               min={0}
@@ -404,7 +547,6 @@ export function InventoryReportForm() {
                               className="w-16 h-8 text-center text-sm mx-auto"
                             />
                           ) : (
-                            /* BON / MAUVAIS toggle */
                             <div className="flex items-center justify-center gap-1">
                               <button
                                 onClick={() => setCondition(rowIdx, colIdx, 'BON')}
@@ -439,7 +581,6 @@ export function InventoryReportForm() {
                           value={grid[rowIdx]?.[0]?.observation ?? ''}
                           onChange={(e) => {
                             const val = e.target.value
-                            // Set observation for all columns at once for simplicity
                             setGrid((prev) => {
                               const newGrid = { ...prev }
                               for (let c = 0; c < ROOM_COLUMNS.length; c++) {
@@ -459,7 +600,6 @@ export function InventoryReportForm() {
                 })}
               </tbody>
 
-              {/* Footer — Total keys */}
               <tfoot>
                 <tr className="bg-muted/50">
                   <td colSpan={2} className="px-3 py-3 text-sm font-bold text-foreground border-t border-border text-right">

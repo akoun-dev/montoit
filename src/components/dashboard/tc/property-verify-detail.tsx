@@ -64,7 +64,7 @@ const featureIcons: Record<string, React.ElementType> = {
 }
 
 export function PropertyVerifyDetail() {
-  const { isAuthenticated, selectedItemId, setDashboardSection, setSelectedItemId } = useAuthStore()
+  const { isAuthenticated, selectedItemId, setDashboardSection, setSelectedItemId, setSelectedPropertyId } = useAuthStore()
   const [property, setProperty] = useState<PropertyDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [currentImage, setCurrentImage] = useState(0)
@@ -78,6 +78,8 @@ export function PropertyVerifyDetail() {
   }
 
   const goToInventoryForm = () => {
+    setSelectedPropertyId(selectedItemId) // Pass property ID for new report
+    setSelectedItemId('') // Clear selectedItemId so form knows it's a new report
     setDashboardSection('inventory-report-form')
   }
 
@@ -91,11 +93,11 @@ export function PropertyVerifyDetail() {
       const d = await authFetch<{ property: PropertyDetail }>(`/api/tc/verifications?propertyId=${selectedItemId}`)
       setProperty(d.property || null)
     } catch (err) {
-      if (err instanceof AuthError && (err.status === 401 || err.status === 403)) {
+      if (err instanceof AuthError && err.status === 401) {
         setProperty(null)
         return
       }
-      // Try fallback via properties API (property may no longer be PENDING_VERIFICATION)
+      // Fallback via properties API — works for any property status when user is TC
       try {
         const d2 = await authFetch<{ property: PropertyDetail }>(`/api/properties/${selectedItemId}`)
         setProperty(d2.property || null)

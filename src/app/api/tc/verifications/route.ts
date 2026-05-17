@@ -53,13 +53,14 @@ export async function GET(req: NextRequest) {
     const commune = searchParams.get('commune')
     const type = searchParams.get('type')
     const search = searchParams.get('search')
+    const statusFilter = searchParams.get('status') // Allow filtering by status
 
     const limit = limitParam ? Math.min(parseInt(limitParam), 100) : 20
     const offset = offsetParam ? parseInt(offsetParam) : 0
 
-    // Build where clause — only PENDING_VERIFICATION properties
+    // Build where clause — default to PENDING_VERIFICATION, but allow override
     const where: Record<string, unknown> = {
-      status: 'PENDING_VERIFICATION',
+      status: statusFilter || 'PENDING_VERIFICATION',
     }
 
     if (commune) {

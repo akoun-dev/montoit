@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Home, Check, X, MapPin, User, Calendar, ArrowLeft, Search, Building2 } from 'lucide-react'
+import { Home, Check, X, MapPin, User, Calendar, Search, Building2, Loader2, ImageOff } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
-import { motion } from 'framer-motion'
+import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
+import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -49,10 +50,57 @@ const typeLabels: Record<string, string> = {
   LAND: 'Terrain',
 }
 
+function PropertyThumbnail({
+  images,
+  title,
+  type,
+  size = 'default',
+}: {
+  images: PendingProperty['images']
+  title: string
+  type: string
+  size?: 'default' | 'compact'
+}) {
+  const [imgError, setImgError] = useState(false)
+  const hasImage = images && images.length > 0 && !imgError
+
+  return (
+    <div
+      className={cn(
+        'relative bg-muted shrink-0 overflow-hidden',
+        size === 'default'
+          ? 'w-full sm:w-40 h-32 sm:h-auto sm:min-h-[160px]'
+          : 'w-16 h-16 rounded-lg'
+      )}
+    >
+      {hasImage ? (
+        <img
+          src={images[0].url}
+          alt={title}
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          {imgError ? (
+            <ImageOff className="size-6 text-muted-foreground/40" />
+          ) : (
+            <Building2 className={cn('text-muted-foreground/40', size === 'compact' ? 'size-5' : 'size-8')} />
+          )}
+        </div>
+      )}
+      <Badge className="absolute top-2 left-2 bg-brand-500 text-white text-[10px]">
+        {typeLabels[type] || type}
+      </Badge>
+    </div>
+  )
+}
+
 export function PropertyVerifications() {
   const { isAuthenticated, setSelectedItemId, setDashboardSection } = useAuthStore()
   const [properties, setProperties] = useState<PendingProperty[]>([])
   const [loading, setLoading] = useState(true)
+  const [viewMode, setViewMode] = useState<ViewMode>('card')
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectComment, setRejectComment] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -105,7 +153,7 @@ export function PropertyVerifications() {
       toast.success('Bien approuvé avec succès !')
       setProperties((prev) => prev.filter((p) => p.id !== id))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'approbation')
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'approbation")
     } finally {
       setActionLoading(null)
     }
@@ -131,6 +179,12 @@ export function PropertyVerifications() {
     }
   }
 
+  const closeRejectDialog = () => {
+    setRejectingId(null)
+    setRejectComment('')
+  }
+
+  /* ─── Loading skeleton ─── */
   if (loading) {
     return (
       <div className="space-y-4">
@@ -141,6 +195,19 @@ export function PropertyVerifications() {
     )
   }
 
+  /* ─── Empty state ─── */
+  const emptyState = (
+    <Card className="border-border">
+      <CardContent className="py-12 text-center">
+        <Home className="size-12 text-muted-foreground/50 mx-auto mb-4" />
+        <p className="text-muted-foreground font-medium">Aucun bien en attente de vérification</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Les biens soumis par les propriétaires apparaîtront ici
+        </p>
+      </CardContent>
+    </Card>
+  )
+
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
@@ -149,9 +216,9 @@ export function PropertyVerifications() {
         <p className="text-muted-foreground mt-1">Biens en attente de vérification par le Tiers de Confiance</p>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
+      {/* Search, filter & view toggle */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Rechercher un bien..."
@@ -160,7 +227,7 @@ export function PropertyVerifications() {
             className="pl-9"
           />
         </div>
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             placeholder="Commune"
@@ -169,6 +236,7 @@ export function PropertyVerifications() {
             className="pl-9 w-full sm:w-48"
           />
         </div>
+        <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
       </div>
 
       {/* Property count */}
@@ -178,107 +246,211 @@ export function PropertyVerifications() {
         </Badge>
       </div>
 
-      {/* Empty state */}
+      {/* Content */}
       {properties.length === 0 ? (
-        <Card className="border-border">
-          <CardContent className="py-12 text-center">
-            <Home className="size-12 text-muted-foreground/50 mx-auto mb-4" />
-            <p className="text-muted-foreground font-medium">Aucun bien en attente de vérification</p>
-            <p className="text-sm text-muted-foreground mt-1">Les biens soumis par les propriétaires apparaîtront ici</p>
-          </CardContent>
-        </Card>
-      ) : (
-        /* Property cards */
+        emptyState
+      ) : viewMode === 'card' ? (
+        /* ─── CARD VIEW ─── */
         <div className="grid gap-4 md:grid-cols-2">
-          {properties.map((property) => (
-            <motion.div
-              key={property.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Card className="border-border overflow-hidden hover:shadow-md transition-shadow">
-                <div className="flex flex-col sm:flex-row">
-                  {/* Thumbnail */}
-                  <div className="relative w-full sm:w-40 h-32 sm:h-auto bg-muted shrink-0">
-                    {property.images && property.images.length > 0 ? (
-                      <img
-                        src={property.images[0].url}
-                        alt={property.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Building2 className="size-8 text-muted-foreground/40" />
-                      </div>
-                    )}
-                    <Badge className="absolute top-2 left-2 bg-brand-500 text-white text-[10px]">
-                      {typeLabels[property.type] || property.type}
-                    </Badge>
-                  </div>
+          <AnimatePresence mode="popLayout">
+            {properties.map((property) => (
+              <motion.div
+                key={property.id}
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Card className="border-border overflow-hidden hover:shadow-md transition-shadow">
+                  <div className="flex flex-col sm:flex-row">
+                    {/* Thumbnail */}
+                    <PropertyThumbnail images={property.images} title={property.title} type={property.type} />
 
-                  {/* Content */}
-                  <CardContent className="p-4 flex-1 flex flex-col justify-between">
-                    <div>
-                      <h3 className="font-semibold text-foreground line-clamp-1">{property.title}</h3>
-                      <div className="flex items-center gap-1 mt-1">
-                        <MapPin className="size-3.5 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">{property.commune}</span>
+                    {/* Content */}
+                    <CardContent className="p-4 flex-1 flex flex-col justify-between">
+                      <div>
+                        <h3 className="font-semibold text-foreground line-clamp-1">{property.title}</h3>
+                        <div className="flex items-center gap-1 mt-1">
+                          <MapPin className="size-3.5 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">{property.commune}</span>
+                        </div>
+                        <p className="text-lg font-bold text-brand-500 mt-1">
+                          {property.price.toLocaleString('fr-FR')} FCFA
+                          <span className="text-sm font-normal text-muted-foreground">/mois</span>
+                        </p>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <User className="size-3" />
+                            {property.owner.firstName} {property.owner.lastName}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="size-3" />
+                            {new Date(property.createdAt).toLocaleDateString('fr-FR')}
+                          </span>
+                        </div>
                       </div>
-                      <p className="text-lg font-bold text-brand-500 mt-1">
-                        {property.price.toLocaleString('fr-FR')} FCFA
-                        <span className="text-sm font-normal text-muted-foreground">/mois</span>
-                      </p>
-                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
+
+                      {/* Actions */}
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          size="sm"
+                          className="bg-brand-500 hover:bg-brand-600 text-white gap-1 flex-1"
+                          onClick={() => handleVerify(property.id)}
+                          disabled={actionLoading === property.id}
+                        >
+                          Vérifier
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white gap-1"
+                          onClick={() => handleApprove(property.id)}
+                          disabled={actionLoading === property.id}
+                        >
+                          {actionLoading === property.id ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Check className="size-4" />
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 border-red-200 hover:bg-red-50 gap-1"
+                          onClick={() => setRejectingId(property.id)}
+                          disabled={actionLoading === property.id}
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      ) : (
+        /* ─── LIST VIEW ─── */
+        <Card className="border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/40">
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3">Bien</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">Commune</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3">Prix</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">Propriétaire</th>
+                  <th className="text-left font-medium text-muted-foreground px-4 py-3 hidden lg:table-cell">Date</th>
+                  <th className="text-right font-medium text-muted-foreground px-4 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <AnimatePresence mode="popLayout">
+                  {properties.map((property) => (
+                    <motion.tr
+                      key={property.id}
+                      layout
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      transition={{ duration: 0.15 }}
+                      className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                    >
+                      {/* Property info + thumbnail */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <PropertyThumbnail
+                            images={property.images}
+                            title={property.title}
+                            type={property.type}
+                            size="compact"
+                          />
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground truncate max-w-[200px]">
+                              {property.title}
+                            </p>
+                            <Badge className="bg-brand-500 text-white text-[10px] mt-0.5">
+                              {typeLabels[property.type] || property.type}
+                            </Badge>
+                          </div>
+                        </div>
+                      </td>
+                      {/* Commune */}
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <MapPin className="size-3.5" />
+                          {property.commune}
+                        </div>
+                      </td>
+                      {/* Price */}
+                      <td className="px-4 py-3">
+                        <span className="font-semibold text-brand-500">
+                          {property.price.toLocaleString('fr-FR')}
+                        </span>
+                        <span className="text-muted-foreground text-xs"> FCFA/m</span>
+                      </td>
+                      {/* Owner */}
+                      <td className="px-4 py-3 hidden sm:table-cell">
+                        <div className="flex items-center gap-1 text-muted-foreground">
                           <User className="size-3" />
                           {property.owner.firstName} {property.owner.lastName}
-                        </span>
-                        <span className="flex items-center gap-1">
+                        </div>
+                      </td>
+                      {/* Date */}
+                      <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
+                        <div className="flex items-center gap-1">
                           <Calendar className="size-3" />
                           {new Date(property.createdAt).toLocaleDateString('fr-FR')}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-2 mt-3">
-                      <Button
-                        size="sm"
-                        className="bg-brand-500 hover:bg-brand-600 text-white gap-1 flex-1"
-                        onClick={() => handleVerify(property.id)}
-                        disabled={actionLoading === property.id}
-                      >
-                        Vérifier
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white gap-1"
-                        onClick={() => handleApprove(property.id)}
-                        disabled={actionLoading === property.id}
-                      >
-                        <Check className="size-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600 border-red-200 hover:bg-red-50 gap-1"
-                        onClick={() => setRejectingId(property.id)}
-                        disabled={actionLoading === property.id}
-                      >
-                        <X className="size-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
+                        </div>
+                      </td>
+                      {/* Actions */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="bg-brand-500 hover:bg-brand-600 text-white h-8 px-3 text-xs"
+                            onClick={() => handleVerify(property.id)}
+                            disabled={actionLoading === property.id}
+                          >
+                            Vérifier
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="bg-green-600 hover:bg-green-700 text-white h-8 w-8 p-0"
+                            onClick={() => handleApprove(property.id)}
+                            disabled={actionLoading === property.id}
+                          >
+                            {actionLoading === property.id ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Check className="size-3.5" />
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-600 hover:bg-red-50 hover:text-red-700 h-8 w-8 p-0"
+                            onClick={() => setRejectingId(property.id)}
+                            disabled={actionLoading === property.id}
+                          >
+                            <X className="size-3.5" />
+                          </Button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
 
       {/* Reject Dialog */}
-      <Dialog open={rejectingId !== null} onOpenChange={(open) => { if (!open) { setRejectingId(null); setRejectComment('') } }}>
+      <Dialog open={rejectingId !== null} onOpenChange={(open) => { if (!open) closeRejectDialog() }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Rejeter le bien</DialogTitle>
@@ -295,7 +467,7 @@ export function PropertyVerifications() {
             />
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { setRejectingId(null); setRejectComment('') }}>
+            <Button variant="outline" onClick={closeRejectDialog}>
               Annuler
             </Button>
             <Button
@@ -303,6 +475,9 @@ export function PropertyVerifications() {
               onClick={handleReject}
               disabled={!rejectComment.trim() || actionLoading !== null}
             >
+              {actionLoading !== null ? (
+                <Loader2 className="size-4 animate-spin mr-2" />
+              ) : null}
               Confirmer le rejet
             </Button>
           </DialogFooter>

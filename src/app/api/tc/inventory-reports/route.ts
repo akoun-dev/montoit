@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { propertyId, type, leaseId, items, generalObservations, totalKeys } = body
+    const { propertyId, type, leaseId, items, generalObservations, totalKeys, status: requestedStatus } = body
 
     // Validate required fields
     if (!propertyId || typeof propertyId !== 'string') {
@@ -184,7 +184,8 @@ export async function POST(req: NextRequest) {
         generalObservations: generalObservations || null,
         totalKeys: totalKeys !== undefined ? Number(totalKeys) : null,
         reviewerId: userId,
-        status: 'DRAFT',
+        status: (requestedStatus && VALID_INVENTORY_STATUSES.includes(requestedStatus)) ? requestedStatus : 'DRAFT',
+        completedAt: (requestedStatus === 'COMPLETED') ? new Date() : null,
         items: {
           create: items.map((item: {
             designation: string

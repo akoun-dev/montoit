@@ -311,3 +311,37 @@ Stage Summary:
 - "Bien introuvable" issue in TC views fixed by adding propertyId support to verifications API
 - Fallback to properties API handles case where property status has changed
 - All image handling uses correct .url property from PropertyImage objects
+---
+Task ID: 1
+Agent: Main
+Task: Fix Tiers de Confiance views - real data, list/card toggle, document preview, fix "Bien introuvable" errors
+
+Work Log:
+- Explored all TC components, API routes, and Prisma schema to understand current state
+- Fixed verifications API: added status filter parameter to GET endpoint for listing properties by any status
+- Fixed inventory-reports POST: now respects the `status` field from request body (was hardcoded to DRAFT)
+- Created PATCH /api/tc/rental-files endpoint for TC to approve/reject/request-info on rental files
+- Created PATCH /api/tc/ownership-docs endpoint for TC to approve/reject/request-info on ownership documents
+- Created shared ViewModeToggle component (list/card toggle with brand orange active state)
+- Created shared DocumentPreviewDialog component (supports images, PDFs, fallback download)
+- Rewrote rental-files-queue.tsx: real API data, list/card views, document preview, real approve/reject/request-info actions
+- Rewrote owner-validations.tsx: real API data, list/card views, document preview, real actions
+- Rewrote property-verifications.tsx: list/card views, real API data
+- Rewrote inventory-reports-list.tsx: list/card views, read-only detail dialog for non-DRAFT reports, fixed edit flow (passes reportId)
+- Rewrote inventory-report-form.tsx: supports editing existing reports via reportId, loads existing data into grid
+- Rewrote agency-validations.tsx: real API data for AGREMENT/RCCM docs, list/card views, document preview
+- Rewrote overview.tsx: enhanced with SLA bar, real stats, clickable cards
+- Fixed property-verify-detail.tsx: improved fallback logic for 404, passes selectedPropertyId when navigating to inventory form
+- Fixed sidebar detailToParent mapping: inventory-report-form now maps to inventory-reports
+- Fixed SLA monitoring: removed blue colors, using emerald instead
+- Standardized ViewModeToggle props (viewMode/onViewModeChange) across all components
+- Standardized DocumentPreviewDialog props (supports both document object and separate url/name props)
+
+Stage Summary:
+- All TC views now use real API data (no mocks/stubs)
+- List/Card view toggle available on all TC list views
+- Document preview dialog available for rental files, ownership docs, agency validations
+- "Bien introuvable" errors fixed: improved fallback logic, 404 properly handled
+- Rental file and ownership doc approval/rejection now functional via PATCH APIs
+- Inventory report editing now works: loads existing data, supports PATCH updates
+- All lint checks pass

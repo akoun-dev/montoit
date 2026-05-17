@@ -89,8 +89,8 @@ export function SlaMonitoring() {
         <Card className="border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-blue-50">
-                <Clock className="size-5 text-blue-600" />
+              <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-50">
+                <Clock className="size-5 text-emerald-600" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{stats.pendingOwnershipDocs}</p>

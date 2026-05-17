@@ -258,7 +258,7 @@ const detailToParent: Record<string, string> = {
   'add-property': 'my-properties',
   'tenant-detail': 'my-tenants',
   'property-verify-detail': 'property-verifications',
-  'inventory-report-form': 'property-verifications',
+  'inventory-report-form': 'inventory-reports',
 }
 
 export function SidebarContent({ collapsed = false, onNavigate }: SidebarContentProps) {
