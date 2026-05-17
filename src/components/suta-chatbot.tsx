@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { MessageCircle, X, Send, Trash2, Bot, Sparkles } from 'lucide-react'
+import { X, Send, Trash2, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -145,7 +145,7 @@ export function SutaChatbot() {
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button — uses the SUTA logo image */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -154,14 +154,18 @@ export function SutaChatbot() {
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 20 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#FF6C2F] text-white shadow-lg hover:shadow-xl transition-shadow"
+            className="fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#FF6C2F] shadow-lg hover:shadow-xl transition-shadow sm:bottom-6 sm:right-6"
             aria-label="Ouvrir le chat SUTA"
           >
-            <div className="relative">
-              <MessageCircle className="h-6 w-6" />
-              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+            <div className="relative h-10 w-10">
+              <img
+                src="/suta-icon.png"
+                alt="SUTA"
+                className="h-full w-full rounded-full object-cover"
+              />
+              <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-white" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-400" />
               </span>
             </div>
           </motion.button>
@@ -176,60 +180,57 @@ export function SutaChatbot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed bottom-5 right-5 z-50 flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl"
+            className="fixed inset-2 z-50 flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl sm:inset-auto sm:bottom-4 sm:right-4 sm:top-auto sm:left-auto sm:h-auto sm:w-[380px]"
             style={{
-              width: 'calc(100vw - 2.5rem)',
-              maxWidth: '400px',
-              height: 'calc(100vh - 5rem)',
-              maxHeight: '600px',
+              /* On mobile: full screen minus 8px each side. On desktop: fixed height */
             }}
           >
             {/* Header */}
-            <div className="flex items-center gap-3 bg-[#FF6C2F] px-4 py-3 text-white">
-              <div className="relative">
+            <div className="flex items-center gap-2.5 border-b border-white/10 bg-[#FF6C2F] px-3 py-2.5 text-white sm:gap-3 sm:px-4 sm:py-3">
+              <div className="relative flex-shrink-0">
                 <img
                   src="/suta-avatar.jpg"
                   alt="SUTA"
-                  className="h-10 w-10 rounded-full border-2 border-white/30 object-cover"
+                  className="h-9 w-9 rounded-full border-2 border-white/30 object-cover sm:h-10 sm:w-10"
                 />
-                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#FF6C2F] bg-green-400" />
+                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#FF6C2F] bg-green-400 sm:h-3 sm:w-3" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-base leading-tight">SUTA</h3>
-                <p className="text-xs text-white/80 flex items-center gap-1">
-                  <Sparkles className="h-3 w-3" />
+                <h3 className="font-semibold text-sm leading-tight sm:text-base">SUTA</h3>
+                <p className="text-[11px] text-white/80 flex items-center gap-1 sm:text-xs">
+                  <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                   Assistant IA Mon Toit
                 </p>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5 sm:gap-1">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={clearConversation}
-                  className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/10"
+                  className="h-7 w-7 text-white/80 hover:text-white hover:bg-white/10 sm:h-8 sm:w-8"
                   title="Effacer la conversation"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setIsOpen(false)}
-                  className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/10"
+                  className="h-7 w-7 text-white/80 hover:text-white hover:bg-white/10 sm:h-8 sm:w-8"
                   title="Fermer"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             </div>
 
             {/* Messages */}
-            <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-              <div className="space-y-4">
+            <ScrollArea className="flex-1 px-3 py-3 sm:px-4 sm:py-4" ref={scrollRef}>
+              <div className="space-y-3 sm:space-y-4">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                    className={`flex gap-2 sm:gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
                   >
                     {/* Avatar */}
                     {msg.role === 'assistant' ? (
@@ -237,18 +238,18 @@ export function SutaChatbot() {
                         <img
                           src="/suta-avatar.jpg"
                           alt="SUTA"
-                          className="h-8 w-8 rounded-full object-cover"
+                          className="h-7 w-7 rounded-full object-cover sm:h-8 sm:w-8"
                         />
                       </div>
                     ) : (
-                      <div className="flex-shrink-0 h-8 w-8 rounded-full bg-neutral-200 flex items-center justify-center">
-                        <span className="text-xs font-medium text-neutral-600">Vous</span>
+                      <div className="flex-shrink-0 h-7 w-7 rounded-full bg-neutral-200 flex items-center justify-center sm:h-8 sm:w-8">
+                        <span className="text-[10px] font-medium text-neutral-600 sm:text-xs">Vous</span>
                       </div>
                     )}
 
                     {/* Bubble */}
                     <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                      className={`max-w-[82%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed sm:max-w-[80%] sm:px-4 sm:py-2.5 sm:text-sm ${
                         msg.role === 'user'
                           ? 'bg-[#FF6C2F] text-white rounded-tr-sm'
                           : 'bg-neutral-100 text-neutral-800 rounded-tl-sm'
@@ -268,17 +269,17 @@ export function SutaChatbot() {
 
                 {/* Typing indicator */}
                 {isLoading && (
-                  <div className="flex gap-2.5">
+                  <div className="flex gap-2 sm:gap-2.5">
                     <img
                       src="/suta-avatar.jpg"
                       alt="SUTA"
-                      className="h-8 w-8 rounded-full object-cover flex-shrink-0"
+                      className="h-7 w-7 rounded-full object-cover flex-shrink-0 sm:h-8 sm:w-8"
                     />
-                    <div className="bg-neutral-100 rounded-2xl rounded-tl-sm px-4 py-3">
-                      <div className="flex gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-neutral-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="h-2 w-2 rounded-full bg-neutral-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="h-2 w-2 rounded-full bg-neutral-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <div className="bg-neutral-100 rounded-2xl rounded-tl-sm px-3 py-2.5 sm:px-4 sm:py-3">
+                      <div className="flex gap-1 sm:gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-neutral-400 animate-bounce sm:h-2 sm:w-2" style={{ animationDelay: '0ms' }} />
+                        <span className="h-1.5 w-1.5 rounded-full bg-neutral-400 animate-bounce sm:h-2 sm:w-2" style={{ animationDelay: '150ms' }} />
+                        <span className="h-1.5 w-1.5 rounded-full bg-neutral-400 animate-bounce sm:h-2 sm:w-2" style={{ animationDelay: '300ms' }} />
                       </div>
                     </div>
                   </div>
@@ -287,13 +288,13 @@ export function SutaChatbot() {
 
               {/* Suggestions */}
               {showSuggestions && messages.length <= 1 && (
-                <div className="mt-4 space-y-2">
-                  <p className="text-xs text-neutral-500 font-medium px-1">Suggestions :</p>
+                <div className="mt-3 space-y-1.5 sm:mt-4 sm:space-y-2">
+                  <p className="text-[11px] text-neutral-500 font-medium px-0.5 sm:text-xs">Suggestions :</p>
                   {SUGGESTIONS.map((suggestion) => (
                     <button
                       key={suggestion}
                       onClick={() => sendMessage(suggestion)}
-                      className="w-full text-left rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700 hover:border-[#FF6C2F]/40 hover:bg-[#FF6C2F]/5 transition-colors"
+                      className="w-full text-left rounded-xl border border-neutral-200 bg-white px-2.5 py-1.5 text-[13px] text-neutral-700 hover:border-[#FF6C2F]/40 hover:bg-[#FF6C2F]/5 transition-colors sm:px-3 sm:py-2 sm:text-sm"
                     >
                       {suggestion}
                     </button>
@@ -303,7 +304,7 @@ export function SutaChatbot() {
             </ScrollArea>
 
             {/* Input */}
-            <form onSubmit={handleSubmit} className="border-t border-neutral-200 p-3">
+            <form onSubmit={handleSubmit} className="border-t border-neutral-200 px-3 py-2 sm:px-4 sm:py-3">
               <div className="flex items-center gap-2">
                 <Input
                   ref={inputRef}
@@ -311,15 +312,15 @@ export function SutaChatbot() {
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Posez votre question..."
                   disabled={isLoading}
-                  className="flex-1 rounded-full border-neutral-200 bg-neutral-50 text-sm focus:border-[#FF6C2F] focus:ring-[#FF6C2F]/20"
+                  className="flex-1 rounded-full border-neutral-200 bg-neutral-50 text-[13px] focus:border-[#FF6C2F] focus:ring-[#FF6C2F]/20 sm:text-sm"
                 />
                 <Button
                   type="submit"
                   size="icon"
                   disabled={!input.trim() || isLoading}
-                  className="h-10 w-10 rounded-full bg-[#FF6C2F] hover:bg-[#e85f26] text-white flex-shrink-0"
+                  className="h-9 w-9 rounded-full bg-[#FF6C2F] hover:bg-[#e85f26] text-white flex-shrink-0 sm:h-10 sm:w-10"
                 >
-                  <Send className="h-4 w-4" />
+                  <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             </form>
