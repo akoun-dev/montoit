@@ -22,8 +22,20 @@ export async function GET(req: NextRequest) {
     const furnished = searchParams.get('furnished')
     const all = searchParams.get('all')
     const pending = searchParams.get('pending')
+    const mine = searchParams.get('mine')
 
     const limit = limitParam ? parseInt(limitParam) : 6
+
+    // Check if user is requesting their own properties
+    let isMineRequest = false
+    let mineUserId: string | null = null
+    if (mine === 'true') {
+      const authResult = await getUserIdAndRole(req)
+      if (authResult) {
+        isMineRequest = true
+        mineUserId = authResult.userId
+      }
+    }
 
     // Check if TC user is requesting pending verification properties
     let isTCRequestingPending = false
@@ -36,9 +48,12 @@ export async function GET(req: NextRequest) {
 
     // Build where clause
     // Public listing only shows ACTIVE properties; TC with pending=true sees PENDING_VERIFICATION
-    const where: Record<string, unknown> = {
-      status: isTCRequestingPending ? 'PENDING_VERIFICATION' : 'ACTIVE',
-    }
+    // mine=true shows all statuses for the authenticated user's properties
+    const where: Record<string, unknown> = isMineRequest
+      ? { ownerId: mineUserId }
+      : {
+          status: isTCRequestingPending ? 'PENDING_VERIFICATION' : 'ACTIVE',
+        }
 
     if (type) {
       where.type = type

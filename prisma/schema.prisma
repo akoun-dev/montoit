@@ -218,6 +218,35 @@ enum MissionType {
   INVENTORY_REPORT
 }
 
+enum PropertyDocType {
+  DIAGNOSTIC_DPE
+  DIAGNOSTIC_AMIANTE
+  DIAGNOSTIC_PLOMB
+  DIAGNOSTIC_GAZ
+  DIAGNOSTIC_ELECTRICITE
+  DIAGNOSTIC_ERP
+  ASSURANCE_HABITATION
+  ASSURANCE_RC
+  PERMIS_CONSTRUIRE
+  ATTESTATION_CONFORMITE
+  PLAN_BATIMENT
+  AUTRE
+}
+
+enum MandatStatus {
+  DRAFT
+  PENDING_SIGNATURE
+  ACTIVE
+  TERMINATED
+  EXPIRED
+}
+
+enum MandatType {
+  GESTION_COMPLETE
+  GESTION_LOCATION
+  MANDAT_SIMPLE
+}
+
 // ─── User & Authentication ────────────────────────────────────────────────────
 
 model User {
@@ -245,6 +274,12 @@ model User {
   oneciVerified     Boolean   @default(false) // Vérification CNI ONECI
   oneciVerifiedAt DateTime?         // Date de vérification ONECI
   passwordUpdatedAt DateTime?       // Date de dernière modification du mot de passe
+  // Owner-specific profile fields
+  bio              String?           // Courte description / biographie
+  companyName      String?           // Nom de l'entreprise (si applicable)
+  showPhone        Boolean   @default(true)  // Visibilité du téléphone pour les candidats
+  showEmail        Boolean   @default(false) // Visibilité de l'email pour les candidats
+  twoFactorEnabled Boolean   @default(false) // Authentification à deux facteurs
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -307,6 +342,14 @@ model User {
   missions             Mission[]
   // Relations — disputes handled by this TC
   disputesHandled      Dispute[]          @relation("DisputeHandler")
+  // Relations — connection logs
+  connectionLogs       ConnectionLog[]
+  // Relations — mandats as owner
+  ownerMandats         Mandat[]           @relation("MandatOwner")
+  // Relations — mandats as agency
+  agencyMandats        Mandat[]           @relation("MandatAgency")
+  // Relations — maintenance comments
+  maintenanceComments  MaintenanceComment[]
 
   @@index([role])
   @@index([phone])
@@ -377,6 +420,8 @@ model Property {
   inventoryReports InventoryReport[]
   missions         Mission[]
   ratings          Rating[]
+  documents        PropertyDocument[]
+  mandats          Mandat[]
 
   @@index([status])
   @@index([city])
@@ -895,6 +940,8 @@ model MaintenanceRequest {
   tenantId String
   tenant   User   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  comments MaintenanceComment[]
+
   @@index([leaseId])
   @@index([tenantId])
   @@index([status])
@@ -958,4 +1005,93 @@ model Mission {
   @@index([tcId])
   @@index([status])
   @@index([scheduledAt])
+}
+
+// ─── Property Documents (US-P-050 to US-P-054) ──────────────────────────────
+
+model PropertyDocument {
+  id          String          @id @default(cuid())
+  name        String
+  type        PropertyDocType
+  url         String
+  description String?
+  expiryDate  DateTime?                       // Date d'expiration (pour les diagnostics)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([type])
+  @@index([expiryDate])
+}
+
+// ─── Mandat de Gestion (US-P-070 to US-P-075) ────────────────────────────────
+
+model Mandat {
+  id              String       @id @default(cuid())
+  type            MandatType   @default(GESTION_LOCATION)
+  status          MandatStatus @default(DRAFT)
+  commissionRate  Float        @default(0)     // Pourcentage de commission (ex: 8.5)
+  commissionType  String       @default("PERCENTAGE") // PERCENTAGE ou FIXED
+  fixedCommission Float?                       // Montant fixe si commissionType = FIXED
+  startDate       DateTime
+  endDate         DateTime
+  conditions      String?                      // Conditions particulières du mandat
+  ownerSignedAt   DateTime?
+  agencySignedAt  DateTime?
+  terminatedAt    DateTime?
+  terminationReason String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  ownerId String
+  owner   User    @relation("MandatOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  agencyId String
+  agency   User    @relation("MandatAgency", fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([ownerId])
+  @@index([agencyId])
+  @@index([status])
+}
+
+// ─── Maintenance Comments (US-P-042) ────────────────────────────────────────
+
+model MaintenanceComment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+
+  maintenanceRequestId String
+  maintenanceRequest   MaintenanceRequest @relation(fields: [maintenanceRequestId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([maintenanceRequestId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+// ─── Connection Log (US-P-122) ──────────────────────────────────────────────
+
+model ConnectionLog {
+  id        String   @id @default(cuid())
+  ipAddress String?
+  userAgent String?
+  device    String?                     // Type d'appareil détecté
+  location  String?                     // Localisation approximative
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }

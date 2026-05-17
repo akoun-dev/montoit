@@ -878,3 +878,52 @@ Stage Summary:
 - US-T-033: My Leases now shows all leases with tab toggle for active vs previous
 - New GET /api/leases endpoint for listing all user leases
 - All components use brand orange (#FF6C2F), authFetch, toast, shadcn/ui Dialogs
+
+---
+Task ID: 1
+Agent: Main
+Task: Comprehensive Propriétaire (Owner) interface audit and implementation against 48 user stories
+
+Work Log:
+- Audited all existing Propriétaire codebase (10 components, 8+ API routes, Prisma schema)
+- Identified 22 fully implemented, 4 partial, 22 missing user stories
+- Updated Prisma schema with new models: PropertyDocument, Mandat, MaintenanceComment, ConnectionLog
+- Added new enums: PropertyDocType, MandatStatus, MandatType
+- Added new User fields: bio, companyName, showPhone, showEmail, twoFactorEnabled
+- Pushed schema changes to database
+
+- Built Owner Maintenance component (US-P-040 to US-P-045): status workflow, comments, rejection, filtering
+- Built Property Documents component (US-P-050 to US-P-054): upload, organize by type, expiry tracking, delete
+- Built Owner Finances component (US-P-030 to US-P-036): revenue charts, payment reminders, commission tracking, revenue per property
+- Built Owner Analytics component (US-P-060 to US-P-065): occupancy rate, revenue trend SVG chart, per-property comparison, late payment trends
+- Built Enhanced Leases component (US-P-020 to US-P-026): 4-tab (active/pending/archived/create), OTP electronic signing, lease creation wizard
+- Built Enhanced Rental Files component (US-P-010 to US-P-016): accept/reject, tenant profile dialog, property filter, application history
+- Built Mandat Management component (US-P-070 to US-P-075): create, sign, terminate, agency search, detail view
+- Built Owner Reviews component (US-P-090 to US-P-092): reviews received with reply, reviews to give with star rating
+- Built Owner Settings component (US-P-110 to US-P-113): profile, notifications, default conditions, sorting preferences
+- Built Owner Security component (US-P-120 to US-P-123): change password, 2FA, connection history, profile view tracking
+
+- Created 15+ API endpoints:
+  - PATCH /api/maintenance/[id] (owner status updates, rejection, comments)
+  - GET/POST /api/maintenance/[id]/comments
+  - GET/POST/DELETE /api/properties/[id]/documents, /api/properties/[id]/documents/[docId]
+  - GET/POST /api/mandats, GET/PATCH /api/mandats/[id], POST /api/mandats/[id]/sign
+  - GET /api/owner/analytics, GET /api/owner/finances
+  - GET /api/owner/rental-files, POST /api/rental-files/[id]/action (accept/reject)
+  - GET /api/owner/reviews, POST /api/reviews/[id]/reply
+  - POST /api/leases/create, POST /api/leases/[id]/sign, PATCH /api/leases/[id] (modify)
+  - PATCH /api/user/profile, GET/PUT /api/user/notification-preferences
+  - GET/PUT /api/user/default-conditions, POST /api/user/change-password
+  - GET /api/user/connection-logs, POST /api/user/2fa
+  - GET /api/users?role=AGENCE (agency search for mandats)
+
+- Updated Dashboard index to wire all new components
+- Updated Sidebar for PROPRIETAIRE and AGENCE with new sections: Documents, Maintenance, Sécurité
+- All lint checks pass, dev server running without errors
+
+Stage Summary:
+- 48 user stories now covered (up from 22 fully implemented)
+- All major feature gaps closed for Propriétaire interface
+- New Prisma models: PropertyDocument, Mandat, MaintenanceComment, ConnectionLog
+- 10 new frontend components, 15+ new API endpoints
+- Full orange brand colors (#FF6C2F), responsive design, framer-motion animations

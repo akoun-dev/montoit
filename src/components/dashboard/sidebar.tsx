@@ -1,11 +1,11 @@
 'use client'
 
 import { 
-  FileText, Eye, FileSignature, MessageSquare, 
+  FileText, Eye, FileSignature, MessageSquare, ScrollText, 
   Building2, ClipboardCheck, Users, Shield, 
   BarChart3, Settings, AlertTriangle, Clock, BadgeCheck,
   LayoutDashboard, ChevronLeft, ChevronRight,
-  Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck, UserCircle, Home, MapPin, Scale
+  Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck, UserCircle, Home, MapPin, Scale, FolderOpen, Lock
 } from 'lucide-react'
 import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
@@ -75,6 +75,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           title: 'MES BIENS',
           items: [
             { id: 'my-properties', label: 'Mes biens', icon: Building2 },
+            { id: 'documents', label: 'Documents', icon: FolderOpen },
           ],
         },
         {
@@ -84,48 +85,16 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
             { id: 'visit-requests', label: 'Demandes de visite', icon: Eye },
             { id: 'rental-files', label: 'Dossiers locatifs', icon: ClipboardCheck },
             { id: 'my-leases', label: 'Mes baux', icon: FileSignature },
-            { id: 'payments', label: 'Paiements', icon: CreditCard },
-          ],
-        },
-        {
-          title: 'MESSAGES',
-          items: [
-            { id: 'messages', label: 'Messages', icon: MessageSquare },
-            { id: 'notifications', label: 'Notifications', icon: Bell },
-          ],
-        },
-        {
-          title: 'COMPTE',
-          items: [
-            { id: 'trust-score', label: 'Trust Score', icon: ShieldCheck },
-            { id: 'owner-file', label: 'Mon dossier', icon: FileText },
-            { id: 'reviews', label: 'Avis reçus', icon: Star },
+            { id: 'mandats', label: 'Mes mandats', icon: ScrollText },
             { id: 'maintenance', label: 'Maintenance', icon: Wrench },
-            { id: 'history', label: 'Historique', icon: History },
-            { id: 'settings', label: 'Paramètres', icon: Settings },
-          ],
-        },
-      ]
-    case 'AGENCE':
-      return [
-        {
-          items: [
-            { id: 'overview', label: 'Mon Espace', icon: LayoutDashboard },
-          ],
-        },
-        {
-          title: 'NOS BIENS',
-          items: [
-            { id: 'my-properties', label: 'Nos biens', icon: Building2 },
-          ],
-        },
-        {
-          title: 'LOCATION',
-          items: [
-            { id: 'visit-requests', label: 'Demandes de visite', icon: Eye },
-            { id: 'rental-files', label: 'Dossiers locatifs', icon: ClipboardCheck },
-            { id: 'my-leases', label: 'Nos baux', icon: FileSignature },
             { id: 'payments', label: 'Paiements', icon: CreditCard },
+          ],
+        },
+        {
+          title: 'FINANCES',
+          items: [
+            { id: 'finances', label: 'Mes finances', icon: BarChart3 },
+            { id: 'analytics', label: 'Analytics', icon: BarChart3 },
           ],
         },
         {
@@ -141,9 +110,60 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
             { id: 'trust-score', label: 'Trust Score', icon: ShieldCheck },
             { id: 'owner-file', label: 'Mon dossier', icon: FileText },
             { id: 'reviews', label: 'Avis', icon: Star },
-            { id: 'maintenance', label: 'Maintenance', icon: Wrench },
             { id: 'history', label: 'Historique', icon: History },
             { id: 'settings', label: 'Paramètres', icon: Settings },
+            { id: 'security', label: 'Sécurité', icon: Lock },
+          ],
+        },
+      ]
+    case 'AGENCE':
+      return [
+        {
+          items: [
+            { id: 'overview', label: 'Mon Espace', icon: LayoutDashboard },
+          ],
+        },
+        {
+          title: 'NOS BIENS',
+          items: [
+            { id: 'my-properties', label: 'Nos biens', icon: Building2 },
+            { id: 'documents', label: 'Documents', icon: FolderOpen },
+          ],
+        },
+        {
+          title: 'LOCATION',
+          items: [
+            { id: 'visit-requests', label: 'Demandes de visite', icon: Eye },
+            { id: 'rental-files', label: 'Dossiers locatifs', icon: ClipboardCheck },
+            { id: 'my-leases', label: 'Nos baux', icon: FileSignature },
+            { id: 'mandats', label: 'Nos mandats', icon: ScrollText },
+            { id: 'maintenance', label: 'Maintenance', icon: Wrench },
+            { id: 'payments', label: 'Paiements', icon: CreditCard },
+          ],
+        },
+        {
+          title: 'FINANCES',
+          items: [
+            { id: 'finances', label: 'Nos finances', icon: BarChart3 },
+            { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+          ],
+        },
+        {
+          title: 'MESSAGES',
+          items: [
+            { id: 'messages', label: 'Messages', icon: MessageSquare },
+            { id: 'notifications', label: 'Notifications', icon: Bell },
+          ],
+        },
+        {
+          title: 'COMPTE',
+          items: [
+            { id: 'trust-score', label: 'Trust Score', icon: ShieldCheck },
+            { id: 'owner-file', label: 'Mon dossier', icon: FileText },
+            { id: 'reviews', label: 'Avis', icon: Star },
+            { id: 'history', label: 'Historique', icon: History },
+            { id: 'settings', label: 'Paramètres', icon: Settings },
+            { id: 'security', label: 'Sécurité', icon: Lock },
           ],
         },
       ]

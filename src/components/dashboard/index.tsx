@@ -24,12 +24,20 @@ import { LeaseDetail } from './locataire/lease-detail'
 import { ProprietaireOverview } from './proprietaire/overview'
 import { MyProperties } from './proprietaire/my-properties'
 import { VisitRequests } from './proprietaire/visit-requests'
-import { ProprietaireRentalFiles } from './proprietaire/rental-files'
-import { ProprietaireLeases } from './proprietaire/my-leases'
+import { EnhancedRentalFiles } from './proprietaire/enhanced-rental-files'
+import { EnhancedLeases } from './proprietaire/enhanced-leases'
 import { ProprietaireMessages } from './proprietaire/messages'
 import { OwnerFileForm } from './proprietaire/owner-file'
 import { TenantsList } from './proprietaire/my-tenants'
 import { TenantDetail } from './proprietaire/tenant-detail'
+import { OwnerFinances } from './proprietaire/finances'
+import { OwnerAnalytics } from './proprietaire/analytics'
+import { ProprietaireMandats } from './proprietaire/mandats'
+import { OwnerReviews } from './proprietaire/owner-reviews'
+import { OwnerMaintenance } from './proprietaire/owner-maintenance'
+import { PropertyDocuments } from './proprietaire/property-documents'
+import { OwnerSettings } from './proprietaire/owner-settings'
+import { OwnerSecurity } from './proprietaire/security'
 import { TcOverview } from './tc/overview'
 import { RentalFilesQueue } from './tc/rental-files-queue'
 import { OwnerValidations } from './tc/owner-validations'
@@ -129,17 +137,22 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'my-tenants': return <TenantsList onDetail={goToTenantDetail} />
     case 'tenant-detail': return <TenantDetail tenantId={selectedItemId} onBack={goBackToTenants} />
     case 'visit-requests': return <VisitRequests />
-    case 'rental-files': return <ProprietaireRentalFiles />
-    case 'my-leases': return <ProprietaireLeases />
+    case 'rental-files': return <EnhancedRentalFiles />
+    case 'my-leases': return <EnhancedLeases />
+    case 'mandats': return <ProprietaireMandats />
     case 'payments': return <Payments onDetail={() => {}} />
+    case 'finances': return <OwnerFinances />
+    case 'analytics': return <OwnerAnalytics />
     case 'messages': return <ProprietaireMessages />
     case 'notifications': return <Notifications />
     case 'trust-score': return <TrustScore />
     case 'owner-file': return <OwnerFileForm />
-    case 'reviews': return <Reviews />
-    case 'maintenance': return <Maintenance />
+    case 'reviews': return <OwnerReviews />
+    case 'maintenance': return <OwnerMaintenance />
+    case 'documents': return <PropertyDocuments />
+    case 'security': return <OwnerSecurity />
     case 'history': return <ActivityHistory />
-    case 'settings': return <SettingsSection />
+    case 'settings': return <OwnerSettings />
     default: return <ProprietaireOverview />
   }
 }

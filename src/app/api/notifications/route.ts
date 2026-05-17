@@ -52,6 +52,56 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// POST /api/notifications — Create a notification (e.g. payment reminder)
+export async function POST(req: NextRequest) {
+  try {
+    const authResult = await getUserIdAndRole(req)
+    if (!authResult) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
+    const { userId, effectiveRole } = authResult
+
+    const body = await req.json()
+    const { userId: targetUserId, type, title, message, entityId, actionUrl } = body as {
+      userId?: string
+      type?: string
+      title?: string
+      message?: string
+      entityId?: string
+      actionUrl?: string
+    }
+
+    // Only PROPRIETAIRE or AGENCE can send PAYMENT_ALERT notifications to tenants
+    if (type === 'PAYMENT_ALERT') {
+      if (effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
+        return NextResponse.json({ error: 'Seuls les propriétaires peuvent envoyer des rappels de paiement' }, { status: 403 })
+      }
+      if (!targetUserId || !title || !message) {
+        return NextResponse.json({ error: 'userId, title et message sont requis' }, { status: 400 })
+      }
+
+      const notification = await db.notification.create({
+        data: {
+          userId: targetUserId,
+          type: 'PAYMENT_ALERT',
+          title,
+          message,
+          entityId: entityId || null,
+          actionUrl: actionUrl || null,
+        },
+      })
+
+      return NextResponse.json({ data: notification }, { status: 201 })
+    }
+
+    // Other notification types are not allowed via POST
+    return NextResponse.json({ error: 'Type de notification non supporté' }, { status: 400 })
+  } catch (error) {
+    console.error('Notifications POST error:', error)
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  }
+}
+
 // PUT /api/notifications — Mark notifications as read
 export async function PUT(req: NextRequest) {
   try {

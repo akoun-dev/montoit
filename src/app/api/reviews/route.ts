@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
 
-// GET /api/reviews — List ratings given and received for current tenant + stats
+// GET /api/reviews — List ratings given and received for current user + stats
+// Supports both LOCATAIRE and PROPRIETAIRE roles
 export async function GET(req: NextRequest) {
   try {
     const authResult = await getUserIdAndRole(req)
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
     }
     const { userId, effectiveRole } = authResult
 
-    if (effectiveRole !== 'LOCATAIRE') {
+    if (effectiveRole !== 'LOCATAIRE' && effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
@@ -119,7 +120,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/reviews — Create a review/rating (LOCATAIRE only)
+// POST /api/reviews — Create a review/rating (LOCATAIRE or PROPRIETAIRE)
 export async function POST(req: NextRequest) {
   try {
     const authResult = await getUserIdAndRole(req)
@@ -128,8 +129,8 @@ export async function POST(req: NextRequest) {
     }
     const { userId, effectiveRole } = authResult
 
-    if (effectiveRole !== 'LOCATAIRE') {
-      return NextResponse.json({ error: 'Seuls les locataires peuvent laisser un avis' }, { status: 403 })
+    if (effectiveRole !== 'LOCATAIRE' && effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
+      return NextResponse.json({ error: 'Seuls les locataires et propriétaires peuvent laisser un avis' }, { status: 403 })
     }
 
     const body = await req.json()
@@ -157,11 +158,17 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Validate the lease belongs to this tenant
+    // For LOCATAIRE: validate the lease belongs to this tenant
+    // For PROPRIETAIRE: validate the lease belongs to this owner
+    const leaseWhere = effectiveRole === 'LOCATAIRE'
+      ? { id: leaseId, tenantId: userId }
+      : { id: leaseId, ownerId: userId }
+
     const lease = await db.lease.findFirst({
-      where: { id: leaseId, tenantId: userId },
+      where: leaseWhere,
       include: {
         property: { select: { id: true, title: true, ownerId: true } },
+        tenant: { select: { id: true, firstName: true, lastName: true } },
         owner: { select: { id: true, firstName: true, lastName: true } },
       },
     })
@@ -173,10 +180,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Validate toUserId is the owner of this lease
-    if (lease.ownerId !== toUserId) {
+    // Validate toUserId is the other party in this lease
+    if (effectiveRole === 'LOCATAIRE' && lease.ownerId !== toUserId) {
       return NextResponse.json(
         { error: 'L\'utilisateur évalué doit être le propriétaire du bail' },
+        { status: 400 }
+      )
+    }
+    if ((effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE') && lease.tenantId !== toUserId) {
+      return NextResponse.json(
+        { error: 'L\'utilisateur évalué doit être le locataire du bail' },
         { status: 400 }
       )
     }
@@ -189,7 +202,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check if a review already exists for this lease by this tenant
+    // Check if a review already exists for this lease by this user
     const existingReview = await db.rating.findFirst({
       where: { leaseId, fromUserId: userId },
     })
@@ -224,7 +237,7 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Create notification for the rated user (owner)
+    // Create notification for the rated user
     await db.notification.create({
       data: {
         userId: toUserId,

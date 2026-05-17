@@ -223,6 +223,82 @@ export async function PATCH(
       return NextResponse.json({ data: updatedLease })
     }
 
+    // ─── Modify lease terms action ──────────────────────────────────────────
+    if (body.action === 'modify') {
+      const lease = await db.lease.findUnique({
+        where: { id },
+        include: {
+          property: { select: { id: true, title: true } },
+          owner: { select: { id: true, firstName: true, lastName: true } },
+          tenant: { select: { id: true, firstName: true, lastName: true } },
+        },
+      })
+
+      if (!lease) {
+        return NextResponse.json({ error: 'Bail introuvable' }, { status: 404 })
+      }
+
+      // Auth check: only owner can modify
+      if (lease.ownerId !== userId) {
+        return NextResponse.json({ error: 'Seul le propriétaire peut modifier le bail' }, { status: 403 })
+      }
+
+      // Only DRAFT or PENDING_SIGNATURE leases can be modified
+      if (lease.status !== 'DRAFT' && lease.status !== 'PENDING_SIGNATURE') {
+        return NextResponse.json(
+          { error: 'Ce bail ne peut pas être modifié (statut: ' + lease.status + ')' },
+          { status: 400 }
+        )
+      }
+
+      // Build update data from allowed fields
+      const updateData: Record<string, unknown> = { updatedAt: new Date() }
+      if (body.monthlyRent !== undefined) updateData.monthlyRent = parseFloat(body.monthlyRent)
+      if (body.charges !== undefined) updateData.charges = parseFloat(body.charges)
+      if (body.deposit !== undefined) updateData.deposit = parseFloat(body.deposit)
+      if (body.startDate !== undefined) updateData.startDate = new Date(body.startDate)
+      if (body.endDate !== undefined) updateData.endDate = new Date(body.endDate)
+      if (body.specialConditions !== undefined) updateData.specialConditions = body.specialConditions
+
+      const updatedLease = await db.lease.update({
+        where: { id },
+        data: updateData,
+        include: {
+          property: { select: { id: true, title: true, address: true, city: true } },
+          owner: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+          tenant: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
+        },
+      })
+
+      // Notify tenant about modification
+      await db.notification.create({
+        data: {
+          userId: lease.tenantId,
+          type: 'DOSSIER_UPDATE',
+          title: 'Bail modifié',
+          message: `Le bail pour "${lease.property.title}" a été modifié par le propriétaire. Veuillez vérifier les nouvelles conditions.`,
+          entityId: lease.id,
+        },
+      })
+
+      // Audit log
+      await db.auditLog.create({
+        data: {
+          action: 'LEASE_MODIFIED',
+          entity: 'Lease',
+          entityId: id,
+          details: JSON.stringify({
+            modifiedBy: userId,
+            fields: Object.keys(updateData).filter((k) => k !== 'updatedAt'),
+            propertyTitle: lease.property.title,
+          }),
+          userId,
+        },
+      })
+
+      return NextResponse.json({ data: updatedLease })
+    }
+
     // ─── Terminate lease action ─────────────────────────────────────────────
     if (body.action !== 'terminate') {
       return NextResponse.json({ error: 'Action non reconnue' }, { status: 400 })
