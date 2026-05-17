@@ -6,7 +6,7 @@ import {
   BarChart3, Settings, AlertTriangle, Clock, BadgeCheck,
   LayoutDashboard, ChevronLeft, ChevronRight,
   Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck, UserCircle, Home, MapPin, Scale, FolderOpen, Lock,
-  Award, Fingerprint, ShieldAlert, GraduationCap
+  Award, Fingerprint, ShieldAlert, GraduationCap, Megaphone, Flag, Activity, Database, Server
 } from 'lucide-react'
 import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
@@ -125,44 +125,40 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           ],
         },
         {
-          title: 'NOS BIENS',
+          title: 'GESTION',
           items: [
-            { id: 'my-properties', label: 'Nos biens', icon: Building2 },
-            { id: 'documents', label: 'Documents', icon: FolderOpen },
+            { id: 'portfolio', label: 'Nos biens', icon: Building2 },
+            { id: 'mandats', label: 'Mandats', icon: ScrollText },
+            { id: 'candidatures', label: 'Candidatures', icon: ClipboardCheck },
+            { id: 'visits', label: 'Visites', icon: Eye },
+            { id: 'contracts', label: 'Contrats', icon: FileSignature },
           ],
         },
         {
-          title: 'LOCATION',
+          title: 'ÉQUIPE',
           items: [
-            { id: 'visit-requests', label: 'Demandes de visite', icon: Eye },
-            { id: 'rental-files', label: 'Dossiers locatifs', icon: ClipboardCheck },
-            { id: 'my-leases', label: 'Nos baux', icon: FileSignature },
-            { id: 'mandats', label: 'Nos mandats', icon: ScrollText },
-            { id: 'maintenance', label: 'Maintenance', icon: Wrench },
-            { id: 'payments', label: 'Paiements', icon: CreditCard },
+            { id: 'team', label: 'Équipe', icon: Users },
           ],
         },
         {
           title: 'FINANCES',
           items: [
-            { id: 'finances', label: 'Nos finances', icon: BarChart3 },
+            { id: 'finances', label: 'Finances', icon: BarChart3 },
             { id: 'analytics', label: 'Analytics', icon: BarChart3 },
           ],
         },
         {
-          title: 'MESSAGES',
+          title: 'OUTILS',
           items: [
-            { id: 'messages', label: 'Messages', icon: MessageSquare },
-            { id: 'notifications', label: 'Notifications', icon: Bell },
+            { id: 'communication', label: 'Communication', icon: MessageSquare },
+            { id: 'marketing', label: 'Marketing', icon: Megaphone },
+            { id: 'client-files', label: 'Dossiers clients', icon: FolderOpen },
           ],
         },
         {
           title: 'COMPTE',
           items: [
-            { id: 'trust-score', label: 'Trust Score', icon: ShieldCheck },
-            { id: 'owner-file', label: 'Mon dossier', icon: FileText },
-            { id: 'reviews', label: 'Avis', icon: Star },
-            { id: 'history', label: 'Historique', icon: History },
+            { id: 'notifications', label: 'Notifications', icon: Bell },
             { id: 'settings', label: 'Paramètres', icon: Settings },
             { id: 'security', label: 'Sécurité', icon: Lock },
           ],
@@ -244,22 +240,31 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           title: 'GESTION',
           items: [
             { id: 'users', label: 'Utilisateurs', icon: Users },
-            { id: 'properties-moderation', label: 'Modération biens', icon: Building2 },
-            { id: 'tc-management', label: 'Gestion TC', icon: Shield },
+            { id: 'moderation', label: 'Modération contenu', icon: ClipboardCheck },
+            { id: 'trust-agents', label: 'Tiers de Confiance', icon: Shield },
           ],
         },
         {
           title: 'SUPERVISION',
           items: [
+            { id: 'signalements', label: 'Signalements', icon: Flag },
             { id: 'disputes', label: 'Litiges', icon: AlertTriangle },
-            { id: 'reports', label: 'Rapports', icon: BarChart3 },
             { id: 'notifications', label: 'Notifications', icon: Bell },
           ],
         },
         {
-          title: 'COMPTE',
+          title: 'SYSTÈME',
           items: [
-            { id: 'settings', label: 'Paramètres', icon: Settings },
+            { id: 'system', label: 'Système', icon: Activity },
+            { id: 'security', label: 'Sécurité', icon: Lock },
+            { id: 'reports', label: 'Rapports', icon: BarChart3 },
+          ],
+        },
+        {
+          title: 'CONFIGURATION',
+          items: [
+            { id: 'config', label: 'Configuration', icon: Settings },
+            { id: 'backups', label: 'Sauvegardes', icon: Database },
           ],
         },
       ]
@@ -283,7 +288,7 @@ export function getRoleColor(role: AuthUser['role']): string {
   switch (role) {
     case 'LOCATAIRE': return 'bg-amber-100 text-amber-700'
     case 'PROPRIETAIRE': return 'bg-emerald-100 text-emerald-700'
-    case 'AGENCE': return 'bg-teal-100 text-teal-700'
+    case 'AGENCE': return 'bg-orange-100 text-orange-700'
     case 'TIERS_CONFIANCE': return 'bg-orange-100 text-orange-700'
     case 'ADMIN': return 'bg-rose-100 text-rose-700'
     default: return 'bg-neutral-100 text-neutral-700'

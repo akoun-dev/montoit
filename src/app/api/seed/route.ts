@@ -9,6 +9,10 @@ export async function POST() {
     const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12)
 
     // Clean up existing data
+    await db.commission.deleteMany()
+    await db.agencyAgentProperty.deleteMany()
+    await db.agencyAgent.deleteMany()
+    await db.signalement.deleteMany()
     await db.maintenanceRequest.deleteMany()
     await db.payment.deleteMany()
     await db.notification.deleteMany()
@@ -1071,10 +1075,322 @@ export async function POST() {
       },
     })
 
+    // ─── Create Agency User ──────────────────────────────────────────────
+    const agency = await db.user.create({
+      data: {
+        phone: '+22508080808',
+        firstName: 'Immobilier',
+        lastName: 'Cocody',
+        email: 'agence@montoit.ci',
+        passwordHash,
+        role: 'AGENCE',
+        activeRole: 'AGENCE',
+        isEmailVerified: true,
+        isPhoneVerified: true,
+        isActive: true,
+        companyName: 'Immobilier Cocody SARL',
+        city: 'Abidjan',
+        address: 'Boulevard de France, Cocody',
+      },
+    })
+
+    // ─── Create Agency Agents ─────────────────────────────────────────────
+    const agent1 = await db.agencyAgent.create({
+      data: {
+        firstName: 'Aminata',
+        lastName: 'Touré',
+        email: 'aminata.toure@immococody.ci',
+        phone: '+22508111111',
+        role: 'ADMIN',
+        status: 'ACTIVE',
+        agencyId: agency.id,
+      },
+    })
+
+    const agent2 = await db.agencyAgent.create({
+      data: {
+        firstName: 'Seydou',
+        lastName: 'Konaté',
+        email: 'seydou.konate@immococody.ci',
+        phone: '+22508222222',
+        role: 'AGENT',
+        status: 'ACTIVE',
+        agencyId: agency.id,
+      },
+    })
+
+    const agent3 = await db.agencyAgent.create({
+      data: {
+        firstName: 'Marie',
+        lastName: 'Brou',
+        email: 'marie.brou@immococody.ci',
+        phone: '+22508333333',
+        role: 'AGENT',
+        status: 'ACTIVE',
+        agencyId: agency.id,
+      },
+    })
+
+    // ─── Create Agency Properties ─────────────────────────────────────────
+    const agencyProperty1 = await db.property.create({
+      data: {
+        title: 'Appartement Standing Riviera 2',
+        description: 'Appartement haut standing à Riviera 2. 3 chambres, salon double, cuisine américaine.',
+        type: 'APPARTEMENT',
+        status: 'ACTIVE',
+        price: 350000,
+        area: 120,
+        bedrooms: 3,
+        bathrooms: 2,
+        address: 'Riviera 2, Cocody',
+        city: 'Abidjan',
+        commune: 'Cocody',
+        isFurnished: true,
+        hasParking: true,
+        hasGarden: false,
+        hasPool: true,
+        isVerified: true,
+        ownerId: agency.id,
+        images: {
+          create: [
+            { url: propertyImages[0], order: 0 },
+            { url: propertyImages[1], order: 1 },
+          ],
+        },
+      },
+    })
+
+    const agencyProperty2 = await db.property.create({
+      data: {
+        title: 'Villa Familiale Bingerville',
+        description: 'Belle villa familiale avec grand jardin à Bingerville. Quartier calme et résidentiel.',
+        type: 'VILLA',
+        status: 'ACTIVE',
+        price: 400000,
+        area: 280,
+        bedrooms: 5,
+        bathrooms: 3,
+        address: 'Route de Bingerville',
+        city: 'Abidjan',
+        commune: 'Cocody',
+        isFurnished: false,
+        hasParking: true,
+        hasGarden: true,
+        hasPool: true,
+        isVerified: true,
+        ownerId: agency.id,
+        images: {
+          create: [
+            { url: propertyImages[3], order: 0 },
+          ],
+        },
+      },
+    })
+
+    const agencyProperty3 = await db.property.create({
+      data: {
+        title: 'Studio Moderne Plateau',
+        description: 'Studio moderne et fonctionnel au Plateau. Idéal cadre de travail.',
+        type: 'STUDIO',
+        status: 'PENDING_VERIFICATION',
+        price: 150000,
+        area: 40,
+        bedrooms: null,
+        bathrooms: 1,
+        address: 'Rue du Commerce, Plateau',
+        city: 'Abidjan',
+        commune: 'Plateau',
+        isFurnished: true,
+        hasParking: false,
+        hasGarden: false,
+        hasPool: false,
+        isVerified: false,
+        ownerId: agency.id,
+        images: {
+          create: [
+            { url: propertyImages[2], order: 0 },
+          ],
+        },
+      },
+    })
+
+    // ─── Assign Properties to Agents ──────────────────────────────────────
+    await db.agencyAgentProperty.createMany({
+      data: [
+        { agentId: agent1.id, propertyId: agencyProperty1.id },
+        { agentId: agent1.id, propertyId: agencyProperty2.id },
+        { agentId: agent2.id, propertyId: agencyProperty2.id },
+        { agentId: agent2.id, propertyId: agencyProperty3.id },
+        { agentId: agent3.id, propertyId: agencyProperty1.id },
+      ],
+    })
+
+    // ─── Create Mandats for Agency ────────────────────────────────────────
+    const mandat1 = await db.mandat.create({
+      data: {
+        type: 'GESTION_COMPLETE',
+        status: 'ACTIVE',
+        commissionRate: 8.5,
+        commissionType: 'PERCENTAGE',
+        startDate: new Date('2025-01-01'),
+        endDate: new Date('2027-12-31'),
+        conditions: 'Gestion complète incluant encaissement des loyers et maintenance courante.',
+        ownerSignedAt: new Date('2025-01-02'),
+        agencySignedAt: new Date('2025-01-01'),
+        propertyId: agencyProperty1.id,
+        ownerId: owner1.id,
+        agencyId: agency.id,
+      },
+    })
+
+    const mandat2 = await db.mandat.create({
+      data: {
+        type: 'GESTION_LOCATION',
+        status: 'ACTIVE',
+        commissionRate: 6.0,
+        commissionType: 'PERCENTAGE',
+        startDate: new Date('2025-03-01'),
+        endDate: new Date('2027-02-28'),
+        conditions: 'Gestion de la location uniquement. Le propriétaire conserve la gestion technique.',
+        ownerSignedAt: new Date('2025-03-02'),
+        agencySignedAt: new Date('2025-03-01'),
+        propertyId: agencyProperty2.id,
+        ownerId: owner2.id,
+        agencyId: agency.id,
+      },
+    })
+
+    const mandat3 = await db.mandat.create({
+      data: {
+        type: 'MANDAT_SIMPLE',
+        status: 'PENDING_SIGNATURE',
+        commissionRate: 5.0,
+        commissionType: 'PERCENTAGE',
+        startDate: new Date('2025-06-01'),
+        endDate: new Date('2026-05-31'),
+        conditions: 'Mandat simple de mise en relation.',
+        propertyId: agencyProperty3.id,
+        ownerId: owner1.id,
+        agencyId: agency.id,
+      },
+    })
+
+    // ─── Create Leases for Agency Properties ──────────────────────────────
+    const agencyLease1 = await db.lease.create({
+      data: {
+        propertyId: agencyProperty1.id,
+        tenantId: tenant1.id,
+        ownerId: agency.id,
+        rentalFileId: rentalFile1.id,
+        status: 'ACTIVE',
+        startDate: new Date('2025-02-01'),
+        endDate: new Date('2027-01-31'),
+        monthlyRent: 350000,
+        charges: 35000,
+        deposit: 700000,
+        ownerSignedAt: new Date('2025-02-01'),
+        tenantSignedAt: new Date('2025-02-02'),
+      },
+    })
+
+    // ─── Create Commissions for Agency ────────────────────────────────────
+    await db.commission.createMany({
+      data: [
+        {
+          agentId: agent1.id,
+          agencyId: agency.id,
+          amount: 29750,
+          rate: 8.5,
+          status: 'PAID',
+          description: 'Commission janvier 2025 - Appartement Riviera 2',
+          paidAt: new Date('2025-02-05'),
+          mandatId: mandat1.id,
+        },
+        {
+          agentId: agent1.id,
+          agencyId: agency.id,
+          amount: 29750,
+          rate: 8.5,
+          status: 'PAID',
+          description: 'Commission février 2025 - Appartement Riviera 2',
+          paidAt: new Date('2025-03-05'),
+          mandatId: mandat1.id,
+        },
+        {
+          agentId: agent2.id,
+          agencyId: agency.id,
+          amount: 24000,
+          rate: 6.0,
+          status: 'PENDING',
+          description: 'Commission mars 2025 - Villa Bingerville',
+          mandatId: mandat2.id,
+        },
+        {
+          agentId: agent3.id,
+          agencyId: agency.id,
+          amount: 29750,
+          rate: 8.5,
+          status: 'PENDING',
+          description: 'Commission mars 2025 - Appartement Riviera 2',
+          mandatId: mandat1.id,
+        },
+      ],
+    })
+
+    // ─── Create Signalements ─────────────────────────────────────────────
+    await db.signalement.createMany({
+      data: [
+        {
+          reason: 'FRAUD',
+          description: 'Suspicion de fausse annonce : le prix semble anormalement bas pour cette zone.',
+          status: 'PENDING',
+          entityType: 'PROPERTY',
+          entityId: createdProperties[3].id,
+          reporterId: tenant2.id,
+        },
+        {
+          reason: 'INAPPROPRIATE_CONTENT',
+          description: 'Photos non conformes au bien décrit dans l\'annonce.',
+          status: 'IN_REVIEW',
+          entityType: 'PROPERTY',
+          entityId: createdProperties[4].id,
+          reporterId: tenant1.id,
+          handledById: admin.id,
+        },
+      ],
+    })
+
+    // ─── Create Agency Notifications ──────────────────────────────────────
+    await db.notification.createMany({
+      data: [
+        {
+          userId: agency.id,
+          type: 'MISSION_ASSIGNED',
+          title: 'Nouveau mandat',
+          message: 'Nouveau mandat de gestion signé avec Kouadio Yao',
+          isRead: false,
+        },
+        {
+          userId: agency.id,
+          type: 'DOSSIER_UPDATE',
+          title: 'Dossier validé',
+          message: 'Le dossier de Moussa Koné a été validé par le TC',
+          isRead: true,
+        },
+        {
+          userId: agency.id,
+          type: 'PAYMENT_ALERT',
+          title: 'Paiement reçu',
+          message: 'Paiement de 350 000 FCFA reçu pour Appartement Riviera 2',
+          isRead: false,
+        },
+      ],
+    })
+
     return NextResponse.json({
       message: 'Données de démonstration créées avec succès',
       demoPassword: DEMO_PASSWORD,
-      users: { admin: admin.id, tc: tc.id, owner1: owner1.id, owner2: owner2.id, tenant1: tenant1.id, tenant2: tenant2.id, tenant3: tenant3.id },
+      users: { admin: admin.id, tc: tc.id, owner1: owner1.id, owner2: owner2.id, tenant1: tenant1.id, tenant2: tenant2.id, tenant3: tenant3.id, agency: agency.id },
     })
   } catch (error) {
     console.error('Seed error:', error)

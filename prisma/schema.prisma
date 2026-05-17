@@ -386,6 +386,14 @@ model User {
   fraudAlertsAsSuspect FraudAlert[]       @relation("FraudAlertSuspect")
   // Relations — agent feedback given by this TC
   agentFeedbacksGiven  AgentFeedback[]
+  // Relations — agency agents (if AGENCE role)
+  agencyAgents         AgencyAgent[]
+  // Relations — commissions paid by this agency
+  agencyCommissions    Commission[]
+  // Relations — signalements reported
+  signalementsReported Signalement[]
+  // Relations — signalements handled (as admin)
+  signalementsHandled  Signalement[]  @relation("SignalementHandler")
 
   @@index([role])
   @@index([phone])
@@ -459,6 +467,7 @@ model Property {
   documents        PropertyDocument[]
   mandats          Mandat[]
   certifications   Certification[]
+  assignedAgents   AgencyAgentProperty[]
 
   @@index([status])
   @@index([city])
@@ -658,6 +667,7 @@ model Lease {
   payments  Payment[]
   maintenanceRequests MaintenanceRequest[]
   inventoryReports   InventoryReport[]
+  commissions        Commission[]
 
   @@index([propertyId])
   @@index([tenantId])
@@ -1113,6 +1123,8 @@ model Mandat {
   @@index([ownerId])
   @@index([agencyId])
   @@index([status])
+
+  commissions Commission[]
 }
 
 // ─── Maintenance Comments (US-P-042) ────────────────────────────────────────
@@ -1222,5 +1234,148 @@ model ConnectionLog {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([createdAt])
+}
+
+// ─── Agency Agent (US-A-001 to US-A-007) ────────────────────────────────────
+
+enum AgencyAgentRole {
+  ADMIN
+  AGENT
+  READ_ONLY
+}
+
+enum AgencyAgentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model AgencyAgent {
+  id          String            @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String
+  phone       String?
+  role        AgencyAgentRole   @default(AGENT)
+  status      AgencyAgentStatus @default(ACTIVE)
+  avatarUrl   String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // The agency (User with AGENCE role) who manages this agent
+  agencyId String
+  agency   User    @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  // Assigned properties
+  assignedProperties AgencyAgentProperty[]
+
+  // Commissions earned
+  commissions Commission[]
+
+  @@index([agencyId])
+  @@index([status])
+  @@index([email])
+}
+
+// ─── Agency Agent Property Assignment (US-A-002) ────────────────────────────
+
+model AgencyAgentProperty {
+  id         String   @id @default(cuid())
+  assignedAt DateTime @default(now())
+
+  agentId    String
+  agent      AgencyAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  propertyId String
+  property   Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, propertyId])
+  @@index([agentId])
+  @@index([propertyId])
+}
+
+// ─── Commission (US-A-003, US-A-070 to US-A-077) ──────────────────────────────
+
+enum CommissionStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model Commission {
+  id            String           @id @default(cuid())
+  amount        Float
+  rate          Float                       // Commission rate applied (e.g. 8.5%)
+  status        CommissionStatus @default(PENDING)
+  description   String?
+  paidAt        DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  // The agent who earned this commission
+  agentId String
+  agent   AgencyAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  // The agency that pays this commission
+  agencyId String
+  agency   User       @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  // Optional link to mandat
+  mandatId String?
+  mandat   Mandat?    @relation(fields: [mandatId], references: [id], onDelete: SetNull)
+
+  // Optional link to lease
+  leaseId String?
+  lease   Lease?     @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+
+  @@index([agentId])
+  @@index([agencyId])
+  @@index([status])
+  @@index([mandatId])
+}
+
+// ─── Signalement (US-AD-080 to US-AD-085) ────────────────────────────────────
+
+enum SignalementStatus {
+  PENDING
+  IN_REVIEW
+  VALIDATED
+  REJECTED
+  ESCALATED
+  RESOLVED
+}
+
+enum SignalementReason {
+  INAPPROPRIATE_CONTENT
+  FRAUD
+  SPAM
+  HARASSMENT
+  FALSE_INFORMATION
+  OTHER
+}
+
+model Signalement {
+  id          String             @id @default(cuid())
+  reason      SignalementReason
+  description String
+  status      SignalementStatus  @default(PENDING)
+  adminNotes  String?
+  resolution  String?
+  entityType  String                        // "PROPERTY", "USER", "REVIEW", "MESSAGE"
+  entityId    String                        // ID of the reported entity
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  // User who reported
+  reporterId String
+  reporter   User    @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  // Admin who handled
+  handledById String?
+  handledBy   User?    @relation("SignalementHandler", fields: [handledById], references: [id], onDelete: SetNull)
+
+  @@index([reporterId])
+  @@index([status])
+  @@index([entityType])
   @@index([createdAt])
 }

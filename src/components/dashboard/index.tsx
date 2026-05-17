@@ -63,6 +63,28 @@ import { TcManagement } from './admin/tc-management'
 import { Disputes } from './admin/disputes'
 import { Reports } from './admin/reports'
 import { AdminSettings } from './admin/settings'
+import { AdminModeration } from './admin/moderation'
+import { AdminSignalements } from './admin/signalements'
+import { AdminTrustAgents } from './admin/trust-agents'
+import { AdminSystem } from './admin/system'
+import { AdminSecurity } from './admin/security'
+import { AdminConfig } from './admin/config'
+import { AdminBackups } from './admin/backups'
+import { AdminNotifications } from './admin/notifications'
+import { AgenceOverview } from './agence/overview'
+import { TeamManagement } from './agence/team'
+import { Portfolio } from './agence/portfolio'
+import { AgenceMandats } from './agence/mandats'
+import { Candidatures } from './agence/candidatures'
+import { AgenceFinances } from './agence/finances'
+import { AgenceVisits } from './agence/visits'
+import { AgenceAnalytics } from './agence/analytics'
+import { AgenceContracts } from './agence/contracts'
+import { AgenceCommunication } from './agence/communication'
+import { AgenceMarketing } from './agence/marketing'
+import { ClientFiles } from './agence/client-files'
+import { AgenceSettings } from './agence/settings'
+import { AgenceSecurity } from './agence/security'
 
 function LocataireDashboard({ section }: { section: string }) {
   const { selectedItemId, setDashboardSection, setSelectedItemId } = useAuthStore()
@@ -188,15 +210,42 @@ function TcDashboard({ section }: { section: string }) {
   }
 }
 
+function AgenceDashboard({ section }: { section: string }) {
+  switch (section) {
+    case 'overview': return <AgenceOverview />
+    case 'team': return <TeamManagement />
+    case 'portfolio': return <Portfolio />
+    case 'mandats': return <AgenceMandats />
+    case 'candidatures': return <Candidatures />
+    case 'finances': return <AgenceFinances />
+    case 'visits': return <AgenceVisits />
+    case 'analytics': return <AgenceAnalytics />
+    case 'contracts': return <AgenceContracts />
+    case 'communication': return <AgenceCommunication />
+    case 'marketing': return <AgenceMarketing />
+    case 'client-files': return <ClientFiles />
+    case 'settings': return <AgenceSettings />
+    case 'security': return <AgenceSecurity />
+    default: return <AgenceOverview />
+  }
+}
+
 function AdminDashboard({ section }: { section: string }) {
   switch (section) {
     case 'overview': return <AdminOverview />
     case 'users': return <AdminUsers />
     case 'properties-moderation': return <PropertiesModeration />
+    case 'moderation': return <AdminModeration />
     case 'tc-management': return <TcManagement />
+    case 'trust-agents': return <AdminTrustAgents />
+    case 'signalements': return <AdminSignalements />
     case 'disputes': return <Disputes />
+    case 'notifications': return <AdminNotifications />
     case 'reports': return <Reports />
-    case 'notifications': return <Notifications />
+    case 'system': return <AdminSystem />
+    case 'security': return <AdminSecurity />
+    case 'config': return <AdminConfig />
+    case 'backups': return <AdminBackups />
     case 'settings': return <AdminSettings />
     default: return <AdminOverview />
   }
@@ -213,7 +262,8 @@ export function Dashboard() {
   return (
     <DashboardLayout>
       {effectiveRole === 'LOCATAIRE' && <LocataireDashboard section={dashboardSection} />}
-      {(effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE') && <ProprietaireDashboard section={dashboardSection} />}
+      {effectiveRole === 'PROPRIETAIRE' && <ProprietaireDashboard section={dashboardSection} />}
+      {effectiveRole === 'AGENCE' && <AgenceDashboard section={dashboardSection} />}
       {effectiveRole === 'TIERS_CONFIANCE' && <TcDashboard section={dashboardSection} />}
       {effectiveRole === 'ADMIN' && <AdminDashboard section={dashboardSection} />}
     </DashboardLayout>

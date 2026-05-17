@@ -1,0 +1,156 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { FolderOpen, User, FileText, MessageSquare } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { motion } from 'framer-motion'
+import { toast } from 'sonner'
+
+interface OwnerClient {
+  id: string; firstName: string; lastName: string; email: string; phone: string | null
+  status: string; propertiesCount: number; lastActivity: string
+}
+
+const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }
+const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
+
+const mockClients: OwnerClient[] = [
+  { id: '1', firstName: 'Kouadio', lastName: 'Yao', email: 'kouadio@email.ci', phone: '+225 07 00 00 00', status: 'actif', propertiesCount: 3, lastActivity: '2025-05-10' },
+  { id: '2', firstName: 'Aminata', lastName: 'Diallo', email: 'aminata@email.ci', phone: '+225 05 00 00 00', status: 'actif', propertiesCount: 1, lastActivity: '2025-05-08' },
+  { id: '3', firstName: 'Jean', lastName: 'Koné', email: 'jean@email.ci', phone: null, status: 'prospect', propertiesCount: 0, lastActivity: '2025-04-20' },
+  { id: '4', firstName: 'Marie', lastName: 'Bamba', email: 'marie@email.ci', phone: '+225 01 00 00 00', status: 'inactif', propertiesCount: 2, lastActivity: '2025-03-15' },
+]
+
+const statusConfig: Record<string, { label: string; cls: string }> = {
+  actif: { label: 'Actif', cls: 'bg-green-100 text-green-700' },
+  inactif: { label: 'Inactif', cls: 'bg-neutral-100 text-neutral-500' },
+  prospect: { label: 'Prospect', cls: 'bg-amber-100 text-amber-700' },
+}
+
+export function ClientFiles() {
+  const { isAuthenticated } = useAuthStore()
+  const [clients] = useState<OwnerClient[]>(mockClients)
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [selectedClient, setSelectedClient] = useState<OwnerClient | null>(null)
+  const [note, setNote] = useState('')
+
+  const filtered = clients.filter((c) => statusFilter === 'all' || c.status === statusFilter)
+
+  return (
+    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
+      <motion.div variants={itemVariants}>
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <FolderOpen className="size-6 text-[#FF6C2F]" /> Dossiers clients
+        </h1>
+        <p className="text-muted-foreground mt-1">{clients.length} client{clients.length > 1 ? 's' : ''} · {clients.filter((c) => c.status === 'actif').length} actifs</p>
+      </motion.div>
+
+      <motion.div variants={itemVariants} className="flex items-center gap-3">
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="Statut" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous</SelectItem>
+            <SelectItem value="actif">Actif</SelectItem>
+            <SelectItem value="inactif">Inactif</SelectItem>
+            <SelectItem value="prospect">Prospect</SelectItem>
+          </SelectContent>
+        </Select>
+      </motion.div>
+
+      <motion.div variants={itemVariants} className="grid lg:grid-cols-3 gap-4">
+        {/* Client List */}
+        <Card className="border-border lg:col-span-1">
+          <CardContent className="p-2 max-h-96 overflow-y-auto space-y-1">
+            {filtered.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Aucun client trouvé</p>
+            ) : (
+              filtered.map((c) => (
+                <button key={c.id} onClick={() => setSelectedClient(c)}
+                  className={`w-full text-left p-2.5 rounded-lg hover:bg-accent/50 transition-colors ${selectedClient?.id === c.id ? 'bg-orange-50 border border-[#FF6C2F]/20' : ''}`}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">{c.firstName} {c.lastName}</p>
+                    <Badge className={statusConfig[c.status]?.cls || 'bg-neutral-100'}>{statusConfig[c.status]?.label}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{c.email}</p>
+                </button>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Client Detail */}
+        <Card className="border-border lg:col-span-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold">
+              {selectedClient ? `${selectedClient.firstName} ${selectedClient.lastName}` : 'Sélectionnez un client'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {selectedClient ? (
+              <div className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <User className="size-4 text-[#FF6C2F]" />
+                      <span className="text-sm font-medium">Informations</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Email : {selectedClient.email}</p>
+                    <p className="text-xs text-muted-foreground">Tél : {selectedClient.phone || 'Non renseigné'}</p>
+                    <p className="text-xs text-muted-foreground">Biens : {selectedClient.propertiesCount}</p>
+                  </div>
+                  <div className="p-3 rounded-lg border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="size-4 text-[#FF6C2F]" />
+                      <span className="text-sm font-medium">Documents</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">3 documents stockés</p>
+                    <Button variant="ghost" size="sm" className="text-[#FF6C2F] text-xs mt-1">Voir les documents</Button>
+                  </div>
+                </div>
+
+                {/* Activity History */}
+                <div className="p-3 rounded-lg border border-border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MessageSquare className="size-4 text-[#FF6C2F]" />
+                    <span className="text-sm font-medium">Historique d&apos;activité</span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">• Dernière activité : {new Date(selectedClient.lastActivity).toLocaleDateString('fr-FR')}</p>
+                    <p className="text-xs text-muted-foreground">• Visite planifiée le 15/06/2025</p>
+                    <p className="text-xs text-muted-foreground">• Paiement reçu le 01/05/2025</p>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="p-3 rounded-lg border border-border">
+                  <span className="text-sm font-medium mb-2 block">Notes</span>
+                  <textarea
+                    className="w-full text-xs border rounded p-2 min-h-[60px] resize-y"
+                    placeholder="Ajouter une note..."
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                  />
+                  <Button size="sm" className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white mt-2" onClick={() => { toast.success('Note sauvegardée'); setNote('') }}>
+                    Sauvegarder
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground">
+                <FolderOpen className="size-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Sélectionnez un client pour voir ses détails</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+    </motion.div>
+  )
+}
