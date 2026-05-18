@@ -283,3 +283,67 @@ Stage Summary:
 - TC verification loading fixed with proper cache bypass
 - "Historique" renamed to "Activité" in TC dashboard
 - Property detail tabs now mobile-responsive with pill style and scroll-into-view
+---
+Task ID: 1
+Agent: Main
+Task: Make "Bien à vérifier" and "Agent" fields searchable dropdowns in Nouvelle Mission form
+
+Work Log:
+- Added Check, Popover, PopoverContent, PopoverTrigger, Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList imports
+- Added combobox state variables: propertySearchOpen, agentSearchOpen, propertySearch, agentSearch
+- Replaced Select-based "Bien à vérifier" with Popover+Command searchable combobox
+  - Shows property title + address + commune in dropdown items
+  - Search filters by title, address, or commune
+  - Check icon indicates selected item
+  - Closes on selection
+- Replaced Select-based "Agent" with Popover+Command searchable combobox
+  - Shows agent name + email in dropdown items
+  - Search filters by name or email
+  - Same selection UX as property combobox
+
+Stage Summary:
+- Both "Bien à vérifier" and "Agent" fields now have searchable dropdowns with filtering
+- Uses cmdk-based Command component with Popover for the combobox pattern
+- Consistent UI with check mark indicator and auto-close on selection
+
+---
+Task ID: 2
+Agent: Main
+Task: Convert contract download from DOCX to PDF using LibreOffice
+
+Work Log:
+- Modified /api/leases/[id]/contract/route.ts to support ?format=pdf query parameter (default: pdf)
+- Added convertDocxToPdf() function using LibreOffice headless mode
+  - Writes DOCX to temp file, runs libreoffice --headless --convert-to pdf, reads PDF output
+  - Cleans up temp files after conversion
+  - Falls back to DOCX if PDF conversion fails
+- Updated locataire lease-detail.tsx download button: format=pdf, .pdf extension
+- Updated proprietaire enhanced-leases.tsx download button: format=pdf, .pdf extension
+- Default format is now 'pdf' (was 'docx'), with 'docx' available via ?format=docx
+
+Stage Summary:
+- Lease contracts are now downloaded as PDF by default
+- LibreOffice headless conversion is used server-side
+- Graceful fallback to DOCX if LibreOffice conversion fails
+- Both locataire and propriétaire download buttons updated
+
+---
+Task ID: 3
+Agent: Main
+Task: Fix "Bon/Mauvais" buttons in État des Lieux for web view
+
+Work Log:
+- Updated desktop table BON/MAUVAIS button styling
+- Changed from small text-[10px] to proper text-xs with px-3 py-1.5 padding
+- Changed rounded to rounded-md for better appearance
+- Added ring-2 ring-green-200/ring-red-200 when selected for clear visual indicator
+- Added scale-105 transform when active for subtle emphasis
+- Added transition-all for smooth state changes
+- Improved hover states: hover:border-green-300, hover:border-red-300
+- Unselected buttons: green-50/red-50 bg with darker text (green-700/red-700)
+
+Stage Summary:
+- Web view BON/MAUVAIS buttons are now larger, properly padded, and visually distinct
+- Selected state has ring + scale for clear feedback
+- Hover states are more pronounced
+- Mobile layout already had proper styling from previous fix

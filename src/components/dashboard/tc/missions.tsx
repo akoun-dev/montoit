@@ -5,6 +5,7 @@ import {
   MapPin, User, Calendar, ChevronLeft, ChevronRight, Plus,
   Search, Clock, CheckCircle2, XCircle, Loader2, Home, FileText,
   Camera, MessageSquare, AlertTriangle, Flame, CircleDot, Link2,
+  Check,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +19,10 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useAuthStore } from '@/lib/auth-store'
@@ -208,6 +213,12 @@ export function MissionsManagement() {
     priority: 'NORMAL' as DossierPriority,
   })
   const [creating, setCreating] = useState(false)
+
+  // Combobox states
+  const [propertySearchOpen, setPropertySearchOpen] = useState(false)
+  const [agentSearchOpen, setAgentSearchOpen] = useState(false)
+  const [propertySearch, setPropertySearch] = useState('')
+  const [agentSearch, setAgentSearch] = useState('')
 
   // Photo URL input
   const [newPhotoUrl, setNewPhotoUrl] = useState('')
@@ -803,41 +814,137 @@ export function MissionsManagement() {
             <DialogDescription>Planifiez une nouvelle mission de vérification terrain</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Bien à vérifier */}
+            {/* Bien à vérifier — Searchable Combobox */}
             <div className="space-y-2">
               <Label className="text-xs font-medium text-muted-foreground">Bien à vérifier *</Label>
-              <Select value={createForm.propertyId} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, propertyId: v }))}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sélectionner un bien" />
-                </SelectTrigger>
-                <SelectContent>
-                  {properties.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      <span className="truncate">{p.title} — {p.commune}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={propertySearchOpen} onOpenChange={setPropertySearchOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={propertySearchOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {createForm.propertyId
+                      ? (() => {
+                          const p = properties.find((x) => x.id === createForm.propertyId)
+                          return p ? `${p.title} — ${p.commune}` : 'Sélectionner un bien'
+                        })()
+                      : 'Rechercher un bien...'
+                    }
+                    <Search className="size-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                  <Command>
+                    <CommandInput
+                      placeholder="Rechercher par titre, adresse ou commune..."
+                      value={propertySearch}
+                      onValueChange={setPropertySearch}
+                    />
+                    <CommandList>
+                      <CommandEmpty>Aucun bien trouvé</CommandEmpty>
+                      <CommandGroup>
+                        {properties
+                          .filter((p) => {
+                            if (!propertySearch) return true
+                            const q = propertySearch.toLowerCase()
+                            return (
+                              p.title.toLowerCase().includes(q) ||
+                              p.address.toLowerCase().includes(q) ||
+                              p.commune.toLowerCase().includes(q)
+                            )
+                          })
+                          .map((p) => (
+                            <CommandItem
+                              key={p.id}
+                              value={p.id}
+                              onSelect={() => {
+                                setCreateForm((prev) => ({ ...prev, propertyId: p.id }))
+                                setPropertySearchOpen(false)
+                                setPropertySearch('')
+                              }}
+                            >
+                              <Check className={cn('size-4 shrink-0', createForm.propertyId === p.id ? 'opacity-100' : 'opacity-0')} />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium truncate">{p.title}</p>
+                                <p className="text-xs text-muted-foreground truncate">{p.address}, {p.commune}</p>
+                              </div>
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {properties.length === 0 && (
                 <p className="text-xs text-muted-foreground italic">Aucun bien en attente de vérification</p>
               )}
             </div>
 
-            {/* Agent */}
+            {/* Agent — Searchable Combobox */}
             <div className="space-y-2">
               <Label className="text-xs font-medium text-muted-foreground">Agent *</Label>
-              <Select value={createForm.agentId} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, agentId: v }))}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Sélectionner un agent" />
-                </SelectTrigger>
-                <SelectContent>
-                  {agents.filter((a) => a.isActive !== false).map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.firstName} {a.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={agentSearchOpen} onOpenChange={setAgentSearchOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={agentSearchOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {createForm.agentId
+                      ? (() => {
+                          const a = agents.find((x) => x.id === createForm.agentId)
+                          return a ? `${a.firstName} ${a.lastName}` : 'Sélectionner un agent'
+                        })()
+                      : 'Rechercher un agent...'
+                    }
+                    <Search className="size-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                  <Command>
+                    <CommandInput
+                      placeholder="Rechercher par nom ou email..."
+                      value={agentSearch}
+                      onValueChange={setAgentSearch}
+                    />
+                    <CommandList>
+                      <CommandEmpty>Aucun agent trouvé</CommandEmpty>
+                      <CommandGroup>
+                        {agents
+                          .filter((a) => a.isActive !== false)
+                          .filter((a) => {
+                            if (!agentSearch) return true
+                            const q = agentSearch.toLowerCase()
+                            return (
+                              `${a.firstName} ${a.lastName}`.toLowerCase().includes(q) ||
+                              a.email.toLowerCase().includes(q)
+                            )
+                          })
+                          .map((a) => (
+                            <CommandItem
+                              key={a.id}
+                              value={a.id}
+                              onSelect={() => {
+                                setCreateForm((prev) => ({ ...prev, agentId: a.id }))
+                                setAgentSearchOpen(false)
+                                setAgentSearch('')
+                              }}
+                            >
+                              <Check className={cn('size-4 shrink-0', createForm.agentId === a.id ? 'opacity-100' : 'opacity-0')} />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium">{a.firstName} {a.lastName}</p>
+                                <p className="text-xs text-muted-foreground">{a.email}</p>
+                              </div>
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Type + Priorité side by side on larger screens */}

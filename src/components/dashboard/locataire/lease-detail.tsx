@@ -561,7 +561,7 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
             className="w-full border-brand-200 text-brand-600 hover:bg-brand-50 hover:text-brand-700 gap-2"
             onClick={async () => {
               try {
-                const res = await fetch(`/api/leases/${lease.id}/contract`, { credentials: 'include' })
+                const res = await fetch(`/api/leases/${lease.id}/contract?format=pdf`, { credentials: 'include' })
                 if (!res.ok) {
                   const err = await res.json().catch(() => ({ error: 'Erreur' }))
                   toast.error(err.error || 'Erreur lors du téléchargement')
@@ -571,7 +571,7 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 a.href = url
-                a.download = `Bail_${lease.property?.title || 'contrat'}.docx`
+                a.download = `Bail_${lease.property?.title || 'contrat'}.pdf`
                 document.body.appendChild(a)
                 a.click()
                 document.body.removeChild(a)

@@ -547,14 +547,14 @@ export function InventoryReportForm() {
                               className="w-14 sm:w-16 h-8 text-center text-sm mx-auto"
                             />
                           ) : (
-                            <div className="flex items-center justify-center gap-1 sm:gap-1.5">
+                            <div className="flex items-center justify-center gap-1.5">
                               <button
                                 onClick={() => setCondition(rowIdx, colIdx, 'BON')}
                                 className={cn(
-                                  'px-2 sm:px-3 py-1 rounded text-[10px] sm:text-xs font-bold transition-colors',
+                                  'px-3 py-1.5 rounded-md text-xs font-bold transition-all',
                                   grid[rowIdx]?.[colIdx]?.condition === 'BON'
-                                    ? 'bg-green-500 text-white shadow-sm'
-                                    : 'bg-green-50 text-green-600 hover:bg-green-100 border border-green-200'
+                                    ? 'bg-green-500 text-white shadow-sm ring-2 ring-green-200 scale-105'
+                                    : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 hover:border-green-300'
                                 )}
                               >
                                 BON
@@ -562,10 +562,10 @@ export function InventoryReportForm() {
                               <button
                                 onClick={() => setCondition(rowIdx, colIdx, 'MAUVAIS')}
                                 className={cn(
-                                  'px-2 sm:px-3 py-1 rounded text-[10px] sm:text-xs font-bold transition-colors',
+                                  'px-3 py-1.5 rounded-md text-xs font-bold transition-all',
                                   grid[rowIdx]?.[colIdx]?.condition === 'MAUVAIS'
-                                    ? 'bg-red-500 text-white shadow-sm'
-                                    : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
+                                    ? 'bg-red-500 text-white shadow-sm ring-2 ring-red-200 scale-105'
+                                    : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 hover:border-red-300'
                                 )}
                               >
                                 MAUVAIS

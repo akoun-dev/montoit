@@ -2,8 +2,45 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
 import { generateBailContract, type BailContractData } from '@/lib/generate-bail'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+import { writeFile, readFile, unlink, mkdir } from 'fs/promises'
+import { join } from 'path'
+import { tmpdir } from 'os'
 
-// GET /api/leases/[id]/contract — Generate and download the bail contract as .docx
+const execFileAsync = promisify(execFile)
+
+async function convertDocxToPdf(docxBuffer: Buffer, filename: string): Promise<Buffer> {
+  const tmpDir = join(tmpdir(), 'mon-toit-contracts')
+  await mkdir(tmpDir, { recursive: true })
+
+  const baseName = filename.replace(/\.docx$/, '').replace(/\.pdf$/, '')
+  const docxPath = join(tmpDir, `${baseName}.docx`)
+  const pdfPath = join(tmpDir, `${baseName}.pdf`)
+
+  try {
+    // Write DOCX to temp file
+    await writeFile(docxPath, docxBuffer)
+
+    // Convert using LibreOffice headless
+    await execFileAsync('libreoffice', [
+      '--headless',
+      '--convert-to', 'pdf',
+      '--outdir', tmpDir,
+      docxPath,
+    ], { timeout: 30000 })
+
+    // Read the generated PDF
+    const pdfBuffer = await readFile(pdfPath)
+    return pdfBuffer
+  } finally {
+    // Clean up temp files
+    try { await unlink(docxPath) } catch { /* ignore */ }
+    try { await unlink(pdfPath) } catch { /* ignore */ }
+  }
+}
+
+// GET /api/leases/[id]/contract — Generate and download the bail contract as .docx or .pdf
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -16,6 +53,9 @@ export async function GET(
     const { userId } = authResult
 
     const { id } = await params
+
+    // Check format parameter
+    const format = req.nextUrl.searchParams.get('format') || 'pdf'
 
     // Fetch the lease with all related data
     const lease = await db.lease.findUnique({
@@ -161,13 +201,41 @@ export async function GET(
       generalObservations: latestReport?.generalObservations ?? undefined,
     }
 
-    // Generate the .docx
-    const buffer = await generateBailContract(contractData)
+    // Generate the .docx buffer
+    const docxBuffer = await generateBailContract(contractData)
 
-    // Return as downloadable file
-    const filename = `Bail_${prop.title.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.docx`
+    const baseFilename = `Bail_${prop.title.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}`
 
-    return new NextResponse(buffer, {
+    if (format === 'pdf') {
+      // Convert DOCX → PDF using LibreOffice headless
+      try {
+        const pdfBuffer = await convertDocxToPdf(docxBuffer, `${baseFilename}.docx`)
+        const filename = `${baseFilename}.pdf`
+
+        return new NextResponse(pdfBuffer, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+          },
+        })
+      } catch (conversionError) {
+        console.error('PDF conversion failed, falling back to DOCX:', conversionError)
+        // Fall back to DOCX if PDF conversion fails
+        const filename = `${baseFilename}.docx`
+        return new NextResponse(docxBuffer, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+          },
+        })
+      }
+    }
+
+    // Return DOCX directly
+    const filename = `${baseFilename}.docx`
+    return new NextResponse(docxBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

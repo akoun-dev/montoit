@@ -1277,7 +1277,7 @@ export function EnhancedLeases() {
                     className="gap-1.5 border-brand-200 text-brand-600 hover:bg-brand-50"
                     onClick={async () => {
                       try {
-                        const res = await fetch(`/api/leases/${detailLease.id}/contract`, { credentials: 'include' })
+                        const res = await fetch(`/api/leases/${detailLease.id}/contract?format=pdf`, { credentials: 'include' })
                         if (!res.ok) {
                           const err = await res.json().catch(() => ({ error: 'Erreur' }))
                           toast.error(err.error || 'Erreur lors du téléchargement')
@@ -1287,7 +1287,7 @@ export function EnhancedLeases() {
                         const url = URL.createObjectURL(blob)
                         const a = document.createElement('a')
                         a.href = url
-                        a.download = `Bail_${detailLease.property?.title || 'contrat'}.docx`
+                        a.download = `Bail_${detailLease.property?.title || 'contrat'}.pdf`
                         document.body.appendChild(a)
                         a.click()
                         document.body.removeChild(a)
