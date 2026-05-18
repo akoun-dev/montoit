@@ -23,6 +23,11 @@ export async function GET(req: NextRequest) {
       db.visitRequest.findMany({
         where: {
           property: { ownerId: userId },
+          tenant: {
+            rentalFiles: {
+              some: { status: 'VALIDATED' }
+            }
+          }
         },
         include: {
           tenant: { select: { firstName: true, lastName: true, phone: true } },

@@ -71,9 +71,16 @@ export async function GET(req: NextRequest) {
     // ─── Property IDs owned by agency ──────────────────────────────────────
     const propertyIds = properties.map((p) => p.id)
 
-    // ─── Visit requests for agency properties ──────────────────────────────
+    // ─── Visit requests for agency properties (only from TC-verified tenants) ─
     const visitRequests = await db.visitRequest.findMany({
-      where: { propertyId: { in: propertyIds } },
+      where: {
+        propertyId: { in: propertyIds },
+        tenant: {
+          rentalFiles: {
+            some: { status: 'VALIDATED' }
+          }
+        }
+      },
       include: {
         tenant: { select: { firstName: true, lastName: true, phone: true } },
         property: { select: { title: true, city: true } },

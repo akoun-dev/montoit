@@ -174,3 +174,29 @@ Stage Summary:
 - WebSocket notification service running on port 3003
 - Mobile bottom nav removed; hamburger menu is the only mobile navigation
 - All code linting clean, dev server and WS service running
+
+---
+Task ID: 1-4
+Agent: Main
+Task: Fix /api/payments 500, filter visits by TC verification, update messaging with contacts, remove MobileBottomNav
+
+Work Log:
+- Fixed /api/payments 500 error: root cause was stale Turbopack cache not reflecting `method` field on Payment model. Cleared .next cache and regenerated Prisma Client. Also added AGENCE role support (via mandats).
+- Updated /api/visits/route.ts: propriétaire/agence now only see visits from locataires with VALIDATED rental files (TC-verified). Before, all visit requests were shown regardless of verification status.
+- Updated /api/dashboard/proprietaire/route.ts: same TC-verified filter for visit requests in proprietaire dashboard
+- Updated /api/dashboard/agence/route.ts: same TC-verified filter for visit requests in agence dashboard
+- Created /api/messages/contacts/route.ts: new API endpoint that returns the user's messaging contacts based on their role:
+  - LOCATAIRE gets their propriétaires and agences (from active leases and mandats)
+  - PROPRIETAIRE gets their tenants (from active leases)
+  - AGENCE gets their tenants and owners (from active mandats)
+- Rewrote /src/components/dashboard/locataire/messages.tsx: replaced generic user search with contacts from /api/messages/contacts. "Nouvelle conversation" dialog now shows a list of the tenant's propriétaires/agences with role badges and property info.
+- Rewrote /src/components/dashboard/proprietaire/messages.tsx: same approach — shows tenants with property info instead of generic search.
+- Deleted /src/components/dashboard/mobile-bottom-nav.tsx (was already not imported anywhere)
+
+Stage Summary:
+- /api/payments now works (500 fixed) and supports LOCATAIRE, PROPRIETAIRE, and AGENCE roles
+- Propriétaire/Agence only see visits from TC-verified locataires (rental file status = VALIDATED)
+- Locataire messaging shows their propriétaires/agences as recipients (not generic search)
+- Propriétaire messaging shows their tenants as recipients (not generic search)
+- MobileBottomNav component deleted (hamburger menu is sole mobile navigation)
+- Lint passes, dev server compiles successfully

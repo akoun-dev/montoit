@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     }
     const { userId, effectiveRole } = authResult
 
-    if (effectiveRole !== 'LOCATAIRE' && effectiveRole !== 'PROPRIETAIRE') {
+    if (effectiveRole !== 'LOCATAIRE' && effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
@@ -22,10 +22,24 @@ export async function GET(req: NextRequest) {
     const leaseId = searchParams.get('leaseId') || undefined
     const method = searchParams.get('method') || undefined
 
-    // Build where clause — LOCATAIRE sees their own payments, PROPRIETAIRE sees payments for their properties
+    // Build where clause
+    // LOCATAIRE sees their own payments
+    // PROPRIETAIRE sees payments for their properties (owned directly)
+    // AGENCE sees payments for properties under their mandats
     let where: Record<string, unknown>
     if (effectiveRole === 'PROPRIETAIRE') {
       where = { lease: { ownerId: userId } }
+    } else if (effectiveRole === 'AGENCE') {
+      // Agence sees payments for properties where they have active mandats
+      where = {
+        lease: {
+          property: {
+            mandats: {
+              some: { agencyId: userId, status: 'ACTIVE' }
+            }
+          }
+        }
+      }
     } else {
       where = { tenantId: userId }
     }
@@ -75,10 +89,12 @@ export async function GET(req: NextRequest) {
       db.payment.count({ where }),
     ])
 
-    // Compute stats — LOCATAIRE sees their own payments, PROPRIETAIRE sees payments for their properties
+    // Compute stats
     const allPaymentsWhere = effectiveRole === 'PROPRIETAIRE'
       ? { lease: { ownerId: userId } }
-      : { tenantId: userId }
+      : effectiveRole === 'AGENCE'
+        ? { lease: { property: { mandats: { some: { agencyId: userId, status: 'ACTIVE' } } } } }
+        : { tenantId: userId }
     const allPayments = await db.payment.findMany({
       where: allPaymentsWhere,
       select: {

@@ -12,12 +12,37 @@ export async function GET(req: NextRequest) {
     const { userId, effectiveRole } = authResult
 
     // For tenants: list their visit requests
-    // For owners: list visit requests for their properties
-    const where = effectiveRole === 'LOCATAIRE'
-      ? { tenantId: userId }
-      : effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE'
-        ? { property: { ownerId: userId } }
-        : {}
+    // For owners/agences: list visit requests for their properties, ONLY from TC-verified tenants
+    let where: Record<string, unknown>
+    if (effectiveRole === 'LOCATAIRE') {
+      where = { tenantId: userId }
+    } else if (effectiveRole === 'PROPRIETAIRE') {
+      // Propriétaire sees visits for their properties, only from tenants with validated rental files (TC-verified)
+      where = {
+        property: { ownerId: userId },
+        tenant: {
+          rentalFiles: {
+            some: { status: 'VALIDATED' }
+          }
+        }
+      }
+    } else if (effectiveRole === 'AGENCE') {
+      // Agence sees visits for properties under their mandats, only from TC-verified tenants
+      where = {
+        property: {
+          mandats: {
+            some: { agencyId: userId, status: 'ACTIVE' }
+          }
+        },
+        tenant: {
+          rentalFiles: {
+            some: { status: 'VALIDATED' }
+          }
+        }
+      }
+    } else {
+      where = {}
+    }
 
     const visits = await db.visitRequest.findMany({
       where,

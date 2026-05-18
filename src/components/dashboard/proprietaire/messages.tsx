@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MessageSquare, Send, ArrowLeft, Plus, Search, X } from 'lucide-react'
+import { MessageSquare, Send, ArrowLeft, Plus, Search, X, User as UserIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -55,6 +55,17 @@ interface Conversation {
   unreadCount: number
 }
 
+interface ContactInfo {
+  id: string
+  firstName: string
+  lastName: string
+  avatarUrl: string | null
+  phone: string | null
+  email: string | null
+  role: string
+  properties?: Array<{ id: string; title: string; city: string; leaseId?: string }>
+}
+
 export function ProprietaireMessages() {
   const { user, isAuthenticated } = useAuthStore()
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -65,9 +76,9 @@ export function ProprietaireMessages() {
   const [searchQuery, setSearchQuery] = useState('')
   const [newConvOpen, setNewConvOpen] = useState(false)
   const [newRecipientId, setNewRecipientId] = useState('')
-  const [newRecipientSearch, setNewRecipientSearch] = useState('')
-  const [searchResults, setSearchResults] = useState<Array<{ id: string; firstName: string; lastName: string; avatarUrl: string | null }>>([])
-  const [searchingUsers, setSearchingUsers] = useState(false)
+  const [contactSearch, setContactSearch] = useState('')
+  const [contacts, setContacts] = useState<ContactInfo[]>([])
+  const [loadingContacts, setLoadingContacts] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const fetchConversations = useCallback(async () => {
@@ -90,18 +101,30 @@ export function ProprietaireMessages() {
     }
   }, [isAuthenticated])
 
+  const fetchContacts = useCallback(async () => {
+    if (!isAuthenticated) return
+    setLoadingContacts(true)
+    try {
+      const data = await authFetch<{ tenants?: ContactInfo[] }>('/api/messages/contacts')
+      setContacts(data.tenants || [])
+    } catch {
+      setContacts([])
+    } finally {
+      setLoadingContacts(false)
+    }
+  }, [isAuthenticated])
+
   useEffect(() => {
     fetchConversations()
-  }, [fetchConversations])
+    fetchContacts()
+  }, [fetchConversations, fetchContacts])
 
-  // Auto-scroll to bottom when selecting a conversation
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [selectedId])
 
   const selected = conversations.find((c) => c.id === selectedId)
 
-  // Fetch full message history when selecting a conversation
   const [fullMessages, setFullMessages] = useState<Message[]>([])
   const [loadingMessages, setLoadingMessages] = useState(false)
 
@@ -114,7 +137,6 @@ export function ProprietaireMessages() {
     authFetch<{ conversation: Conversation }>(`/api/messages?conversationId=${selectedId}`)
       .then((data) => {
         setFullMessages(data.conversation?.messages || [])
-        // Update unread count in conversations list
         setConversations((prev) =>
           prev.map((c) =>
             c.id === selectedId ? { ...c, unreadCount: 0 } : c
@@ -129,7 +151,6 @@ export function ProprietaireMessages() {
     ? selected.participant1Id === user?.id ? selected.participant2 : selected.participant1
     : null
 
-  // Filter conversations by search query
   const filteredConversations = conversations.filter((conv) => {
     if (!searchQuery.trim()) return true
     const other = conv.participant1Id === user?.id ? conv.participant2 : conv.participant1
@@ -137,6 +158,14 @@ export function ProprietaireMessages() {
     const propertyTitle = conv.property?.title?.toLowerCase() || ''
     const query = searchQuery.toLowerCase()
     return name.includes(query) || propertyTitle.includes(query)
+  })
+
+  const filteredContacts = contacts.filter((c) => {
+    if (!contactSearch.trim()) return true
+    const name = `${c.firstName} ${c.lastName}`.toLowerCase()
+    const query = contactSearch.toLowerCase()
+    const propertyTitles = c.properties?.map((p) => p.title.toLowerCase()).join(' ') || ''
+    return name.includes(query) || propertyTitles.includes(query)
   })
 
   const handleSendMessage = async () => {
@@ -155,7 +184,6 @@ export function ProprietaireMessages() {
         body: JSON.stringify(body),
       })
 
-      // Update conversations list
       setConversations((prev) => {
         const convIndex = prev.findIndex((c) => c.id === data.conversation.id)
         if (convIndex >= 0) {
@@ -167,7 +195,6 @@ export function ProprietaireMessages() {
           }
           return updated
         }
-        // New conversation — add it
         return [
           {
             ...data.conversation,
@@ -178,17 +205,13 @@ export function ProprietaireMessages() {
         ]
       })
 
-      // Add new message to fullMessages
       setFullMessages((prev) => [...prev, data.message])
-
       setMessageText('')
 
-      // If it was a new conversation, select it
       if (!selectedId && data.conversation.id) {
         setSelectedId(data.conversation.id)
       }
 
-      // Scroll to bottom
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
       }, 100)
@@ -230,41 +253,13 @@ export function ProprietaireMessages() {
       setMessageText('')
       setNewConvOpen(false)
       setNewRecipientId('')
-      setNewRecipientSearch('')
-      setSearchResults([])
+      setContactSearch('')
     } catch (err) {
       console.error('Start conversation error:', err)
     } finally {
       setSending(false)
     }
   }
-
-  const searchUsers = useCallback(async (query: string) => {
-    if (!query.trim() || query.length < 2) {
-      setSearchResults([])
-      return
-    }
-
-    setSearchingUsers(true)
-    try {
-      const data = await authFetch<{ users: Array<{ id: string; firstName: string; lastName: string; avatarUrl: string | null }> }>(
-        `/api/users/search?q=${encodeURIComponent(query)}`
-      )
-      setSearchResults(data.users || [])
-    } catch {
-      setSearchResults([])
-    } finally {
-      setSearchingUsers(false)
-    }
-  }, [])
-
-  // Debounce user search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      searchUsers(newRecipientSearch)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [newRecipientSearch, searchUsers])
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -280,6 +275,8 @@ export function ProprietaireMessages() {
     }
     return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
   }
+
+  const selectedContact = contacts.find((c) => c.id === newRecipientId)
 
   if (loading) {
     return (
@@ -311,56 +308,91 @@ export function ProprietaireMessages() {
             <div className="space-y-4 pt-2">
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Destinataire</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Rechercher un locataire..."
-                    value={newRecipientSearch}
-                    onChange={(e) => setNewRecipientSearch(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                {newRecipientId && (
-                  <div className="flex items-center gap-2 mt-2 p-2 bg-brand-50 rounded-lg">
-                    <Avatar className="size-6">
-                      <AvatarFallback className="bg-brand-100 text-brand-700 text-xs">
-                        {searchResults.find((r) => r.id === newRecipientId)?.firstName?.[0]}
-                        {searchResults.find((r) => r.id === newRecipientId)?.lastName?.[0]}
+
+                {selectedContact ? (
+                  <div className="flex items-center gap-2 p-2.5 bg-brand-50 rounded-lg border border-brand-200">
+                    <Avatar className="size-8">
+                      {selectedContact.avatarUrl ? (
+                        <AvatarImage src={selectedContact.avatarUrl} alt={`${selectedContact.firstName} ${selectedContact.lastName}`} />
+                      ) : null}
+                      <AvatarFallback className="bg-amber-100 text-amber-700 text-xs">
+                        {selectedContact.firstName[0]}{selectedContact.lastName[0]}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-sm">
-                      {searchResults.find((r) => r.id === newRecipientId)?.firstName}{' '}
-                      {searchResults.find((r) => r.id === newRecipientId)?.lastName}
-                    </span>
-                    <button onClick={() => setNewRecipientId('')} className="ml-auto">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{selectedContact.firstName} {selectedContact.lastName}</p>
+                      <Badge className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700">Locataire</Badge>
+                    </div>
+                    <button onClick={() => { setNewRecipientId('') }} className="shrink-0">
                       <X className="size-4 text-muted-foreground hover:text-foreground" />
                     </button>
                   </div>
-                )}
-                {searchingUsers && (
-                  <p className="text-xs text-muted-foreground mt-1">Recherche...</p>
-                )}
-                {!newRecipientId && searchResults.length > 0 && (
-                  <div className="mt-2 max-h-40 overflow-y-auto border rounded-lg divide-y">
-                    {searchResults.map((result) => (
-                      <button
-                        key={result.id}
-                        onClick={() => {
-                          setNewRecipientId(result.id)
-                          setNewRecipientSearch('')
-                          setSearchResults([])
-                        }}
-                        className="w-full flex items-center gap-2 p-2 hover:bg-accent transition-colors text-left"
-                      >
-                        <Avatar className="size-7">
-                          <AvatarFallback className="bg-brand-100 text-brand-700 text-xs">
-                            {result.firstName[0]}{result.lastName[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm">{result.firstName} {result.lastName}</span>
-                      </button>
-                    ))}
-                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Rechercher un locataire..."
+                        value={contactSearch}
+                        onChange={(e) => setContactSearch(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+
+                    <div className="mt-2 max-h-52 overflow-y-auto border rounded-lg">
+                      {loadingContacts ? (
+                        <div className="p-4 text-center">
+                          <span className="size-4 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin inline-block" />
+                          <p className="text-xs text-muted-foreground mt-1">Chargement...</p>
+                        </div>
+                      ) : filteredContacts.length === 0 ? (
+                        <div className="p-4 text-center">
+                          <MessageSquare className="size-6 text-neutral-300 mx-auto mb-1" />
+                          <p className="text-xs text-muted-foreground">
+                            {contacts.length === 0
+                              ? 'Aucun locataire trouvé. Vous devez avoir un bail actif.'
+                              : 'Aucun résultat'}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="divide-y">
+                          {filteredContacts.map((contact) => (
+                            <button
+                              key={contact.id}
+                              onClick={() => {
+                                setNewRecipientId(contact.id)
+                                setContactSearch('')
+                              }}
+                              className="w-full flex items-center gap-3 p-3 hover:bg-accent transition-colors text-left"
+                            >
+                              <Avatar className="size-9 shrink-0">
+                                {contact.avatarUrl ? (
+                                  <AvatarImage src={contact.avatarUrl} alt={`${contact.firstName} ${contact.lastName}`} />
+                                ) : null}
+                                <AvatarFallback className="bg-amber-100 text-amber-700 text-xs">
+                                  {contact.firstName[0]}{contact.lastName[0]}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-medium truncate">{contact.firstName} {contact.lastName}</p>
+                                  <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-amber-100 text-amber-700">
+                                    <UserIcon className="size-2.5 mr-0.5" />Locataire
+                                  </Badge>
+                                </div>
+                                {contact.properties && contact.properties.length > 0 && (
+                                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                    {contact.properties[0].title}
+                                    {contact.properties.length > 1 && ` (+${contact.properties.length - 1})`}
+                                  </p>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
               <div>
@@ -478,7 +510,6 @@ export function ProprietaireMessages() {
                   exit={{ opacity: 0 }}
                   className="flex flex-col h-full"
                 >
-                  {/* Chat header */}
                   <div className="flex items-center gap-3 p-3 border-b border-border shrink-0">
                     <button onClick={() => setSelectedId(null)} className="sm:hidden">
                       <ArrowLeft className="size-5 text-muted-foreground" />
@@ -499,7 +530,6 @@ export function ProprietaireMessages() {
                     </div>
                   </div>
 
-                  {/* Messages area */}
                   <ScrollArea className="flex-1">
                     <div className="p-4 space-y-3">
                       {loadingMessages ? (
@@ -536,7 +566,6 @@ export function ProprietaireMessages() {
                     </div>
                   </ScrollArea>
 
-                  {/* Message input */}
                   <div className="p-3 border-t border-border flex gap-2 shrink-0">
                     <Input
                       placeholder="Votre message..."
