@@ -143,3 +143,34 @@ Stage Summary:
 - All SelectTriggers have responsive widths (w-full sm:w-*)
 - All flex items-center justify-between patterns stack vertically on mobile
 - Lint passes cleanly, dev server compiles successfully
+---
+Task ID: 1-7
+Agent: Main
+Task: Implement payment system with 4 operators, notification system for all actors, remove bottom nav
+
+Work Log:
+- Removed MobileBottomNav from dashboard-layout.tsx, restored normal padding
+- Copied 4 payment operator logos (orange-money, mtn-momo, moov-money, wave) to /public/payment-operators/
+- Updated Prisma schema: added PaymentMethod enum (ORANGE_MONEY, MTN_MOMO, MOOV_MONEY, WAVE), PROCESSING status, method/operatorTransactionId/operatorPhoneNumber/paymentOperatorData fields on Payment model
+- Ran db:push to sync schema
+- Created /src/lib/intouch.ts: Intouch CI payment gateway utility (CASHIN + PAIEMENT APIs for all 4 operators)
+- Created /src/lib/notify.ts: Centralized notification utility with DB persistence + WebSocket push + payment-specific helpers
+- Created /src/app/api/payments/initiate/route.ts: POST endpoint for initiating payments via Intouch
+- Created /src/app/api/payments/callback/route.ts: POST+GET endpoints for Intouch payment callbacks
+- Updated /src/app/api/payments/[id]/route.ts: PROPRIETAIRE can now view payments, PUT for confirming receipt
+- Updated /src/app/api/payments/route.ts: Added method filter and processing stats
+- Created /src/components/dashboard/locataire/payment-dialog.tsx: 4-step payment dialog (select operator → phone → processing → success)
+- Rewrote /src/components/dashboard/locataire/payments.tsx: Full payment list with filters, status badges, method badges, pay buttons
+- Rewrote /src/components/dashboard/locataire/payment-detail.tsx: Payment detail with timeline, pay button, receipt download
+- Created /mini-services/notification-ws/: Socket.IO WebSocket service on port 3003 with join/notify/notify-many
+- Created /src/hooks/use-notifications.ts: Frontend hook for real-time notifications via WebSocket
+- Installed socket.io-client for frontend WebSocket connection
+
+Stage Summary:
+- Payment system fully integrated with Intouch CI API for Orange Money, MTN MoMo, Moov Money, Wave
+- 4-step payment dialog with operator selection, phone input, processing polling, and success confirmation
+- Centralized notification utility that persists to DB AND pushes via WebSocket in real-time
+- Payment notifications sent to both tenant and owner at each stage (initiated, success, failed, late)
+- WebSocket notification service running on port 3003
+- Mobile bottom nav removed; hamburger menu is the only mobile navigation
+- All code linting clean, dev server and WS service running

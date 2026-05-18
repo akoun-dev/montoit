@@ -1,12 +1,24 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CreditCard, Calendar, TrendingUp, AlertTriangle, Building2, ChevronRight } from 'lucide-react'
+import {
+  CreditCard,
+  Calendar,
+  TrendingUp,
+  AlertTriangle,
+  Building2,
+  ChevronRight,
+  Loader2,
+  Smartphone,
+} from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { PaymentDialog } from './payment-dialog'
 import { motion } from 'framer-motion'
+import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface PaymentItem {
@@ -16,6 +28,7 @@ interface PaymentItem {
   dueDate: string
   paidAt: string | null
   reference: string | null
+  paymentMethod: string | null
   createdAt: string
   lease: {
     id: string
@@ -54,10 +67,28 @@ interface PaymentsResponse {
 const statusConfig: Record<string, { label: string; color: string; dotColor: string }> = {
   PAID: { label: 'Payé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', dotColor: 'bg-emerald-500' },
   PENDING: { label: 'En attente', color: 'bg-amber-50 text-amber-700 border-amber-200', dotColor: 'bg-amber-500' },
+  PROCESSING: { label: 'En cours', color: 'bg-blue-50 text-blue-700 border-blue-200', dotColor: 'bg-blue-500' },
   LATE: { label: 'En retard', color: 'bg-red-50 text-red-700 border-red-200', dotColor: 'bg-red-500' },
   PARTIAL: { label: 'Partiel', color: 'bg-cyan-50 text-cyan-700 border-cyan-200', dotColor: 'bg-cyan-500' },
   CANCELLED: { label: 'Annulé', color: 'bg-muted text-muted-foreground border-border', dotColor: 'bg-neutral-400' },
 }
+
+const paymentMethodConfig: Record<string, { label: string; color: string }> = {
+  ORANGE_MONEY: { label: 'Orange Money', color: 'bg-orange-100 text-orange-700' },
+  MTN_MOMO: { label: 'MTN MoMo', color: 'bg-yellow-100 text-yellow-700' },
+  MOOV_MONEY: { label: 'Moov Money', color: 'bg-blue-100 text-blue-700' },
+  WAVE: { label: 'Wave', color: 'bg-indigo-100 text-indigo-700' },
+}
+
+type FilterTab = 'ALL' | 'PENDING' | 'PROCESSING' | 'PAID' | 'LATE'
+
+const filterTabs: { key: FilterTab; label: string }[] = [
+  { key: 'ALL', label: 'Tous' },
+  { key: 'PENDING', label: 'En attente' },
+  { key: 'PROCESSING', label: 'En cours' },
+  { key: 'PAID', label: 'Payés' },
+  { key: 'LATE', label: 'En retard' },
+]
 
 function formatCurrency(amount: number): string {
   return amount.toLocaleString('fr-FR') + ' FCFA'
@@ -87,6 +118,9 @@ export function Payments({ onDetail }: PaymentsProps) {
   const [stats, setStats] = useState<PaymentsResponse['stats'] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeFilter, setActiveFilter] = useState<FilterTab>('ALL')
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [selectedPayment, setSelectedPayment] = useState<PaymentItem | null>(null)
 
   const fetchPayments = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -105,6 +139,23 @@ export function Payments({ onDetail }: PaymentsProps) {
 
   useEffect(() => { fetchPayments() }, [fetchPayments])
 
+  // Filter payments based on active tab
+  const filteredPayments = payments.filter((p) => {
+    if (activeFilter === 'ALL') return true
+    if (activeFilter === 'LATE') return p.status === 'LATE'
+    return p.status === activeFilter
+  })
+
+  const handlePay = (e: React.MouseEvent, payment: PaymentItem) => {
+    e.stopPropagation()
+    setSelectedPayment(payment)
+    setDialogOpen(true)
+  }
+
+  const handlePaymentSuccess = () => {
+    fetchPayments()
+  }
+
   // ─── Loading skeleton ──────────────────────────────────────────────────
   if (loading) {
     return (
@@ -113,9 +164,14 @@ export function Payments({ onDetail }: PaymentsProps) {
           <div className="h-8 w-48 bg-muted animate-pulse rounded" />
           <div className="h-4 w-64 bg-muted animate-pulse rounded mt-2" />
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
+          ))}
+        </div>
+        <div className="flex gap-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-8 w-20 bg-muted animate-pulse rounded-full" />
           ))}
         </div>
         {[1, 2, 3].map((i) => (
@@ -149,7 +205,7 @@ export function Payments({ onDetail }: PaymentsProps) {
 
       {/* Stats Cards */}
       <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Card className="border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
@@ -182,7 +238,7 @@ export function Payments({ onDetail }: PaymentsProps) {
               ) : null}
             </CardContent>
           </Card>
-          <Card className="border-border col-span-2 lg:col-span-1">
+          <Card className="border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
                 <AlertTriangle className={`size-4 ${(stats?.latePaymentsCount ?? 0) > 0 ? 'text-red-500' : 'text-neutral-300'}`} />
@@ -196,8 +252,28 @@ export function Payments({ onDetail }: PaymentsProps) {
         </div>
       </motion.div>
 
+      {/* Filter Tabs */}
+      <motion.div variants={itemVariants}>
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {filterTabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveFilter(tab.key)}
+              className={cn(
+                'shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
+                activeFilter === tab.key
+                  ? 'bg-brand-500 text-white'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </motion.div>
+
       {/* Payments List or Empty State */}
-      {payments.length === 0 ? (
+      {filteredPayments.length === 0 ? (
         <motion.div variants={itemVariants}>
           <Card className="border-dashed border-border bg-muted/50">
             <CardContent className="py-12 flex flex-col items-center text-center">
@@ -205,19 +281,25 @@ export function Payments({ onDetail }: PaymentsProps) {
                 <CreditCard className="size-7 text-brand-500" />
               </div>
               <h3 className="text-lg font-semibold text-foreground mb-1">
-                Aucun paiement enregistré
+                {activeFilter === 'ALL'
+                  ? 'Aucun paiement enregistré'
+                  : `Aucun paiement ${filterTabs.find(t => t.key === activeFilter)?.label.toLowerCase()}`}
               </h3>
               <p className="text-sm text-muted-foreground max-w-sm">
-                {user?.firstName}, vos paiements de loyer apparaîtront ici une fois votre bail actif.
+                {activeFilter === 'ALL'
+                  ? `${user?.firstName || ''}, vos paiements de loyer apparaîtront ici une fois votre bail actif.`
+                  : 'Aucun paiement ne correspond à ce filtre.'}
               </p>
             </CardContent>
           </Card>
         </motion.div>
       ) : (
         <motion.div variants={containerVariants} className="space-y-3">
-          {payments.map((payment) => {
+          {filteredPayments.map((payment) => {
             const config = statusConfig[payment.status] || statusConfig.PENDING
             const property = payment.lease?.property
+            const owner = payment.lease?.owner
+            const methodConfig = payment.paymentMethod ? paymentMethodConfig[payment.paymentMethod] : null
 
             return (
               <motion.div key={payment.id} variants={itemVariants}>
@@ -243,17 +325,63 @@ export function Payments({ onDetail }: PaymentsProps) {
                             {config.label}
                           </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground mb-2 truncate">
-                          {property?.address}, {property?.city}
+                        <p className="text-xs text-muted-foreground mb-1 truncate">
+                          {owner ? `${owner.firstName} ${owner.lastName}` : ''}{property?.address ? ` — ${property.address}` : ''}
                         </p>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-bold text-foreground">
-                            {formatCurrency(payment.amount)}
-                          </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-foreground">
+                              {formatCurrency(payment.amount)}
+                            </p>
+                            {methodConfig && (
+                              <Badge className={cn('text-[9px] px-1.5 py-0 border-0', methodConfig.color)}>
+                                <Smartphone className="size-2.5 mr-0.5" />
+                                {methodConfig.label}
+                              </Badge>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <span>Échéance : {formatDate(payment.dueDate)}</span>
-                            <ChevronRight className="size-3.5 text-neutral-300" />
                           </div>
+                        </div>
+
+                        {/* Action area */}
+                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+                          {payment.status === 'PENDING' && (
+                            <Button
+                              size="sm"
+                              onClick={(e) => handlePay(e, payment)}
+                              className="h-7 text-xs gap-1.5"
+                            >
+                              <CreditCard className="size-3" />
+                              Payer
+                            </Button>
+                          )}
+                          {payment.status === 'PROCESSING' && (
+                            <div className="flex items-center gap-1.5 text-xs text-blue-600">
+                              <Loader2 className="size-3 animate-spin" />
+                              En cours de traitement
+                            </div>
+                          )}
+                          {payment.status === 'PAID' && (
+                            <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+                              {payment.reference && (
+                                <span className="font-mono">Réf : {payment.reference.slice(0, 8)}</span>
+                              )}
+                            </div>
+                          )}
+                          {(payment.status === 'LATE') && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={(e) => handlePay(e, payment)}
+                              className="h-7 text-xs gap-1.5"
+                            >
+                              <CreditCard className="size-3" />
+                              Payer maintenant
+                            </Button>
+                          )}
+                          <ChevronRight className="size-4 text-neutral-300" />
                         </div>
                       </div>
                     </div>
@@ -264,6 +392,14 @@ export function Payments({ onDetail }: PaymentsProps) {
           })}
         </motion.div>
       )}
+
+      {/* Payment Dialog */}
+      <PaymentDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        payment={selectedPayment}
+        onSuccess={handlePaymentSuccess}
+      />
     </motion.div>
   )
 }

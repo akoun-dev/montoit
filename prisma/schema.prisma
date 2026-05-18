@@ -165,6 +165,14 @@ enum PaymentStatus {
   LATE
   PARTIAL
   CANCELLED
+  PROCESSING
+}
+
+enum PaymentMethod {
+  ORANGE_MONEY
+  MTN_MOMO
+  MOOV_MONEY
+  WAVE
 }
 
 enum MaintenanceStatus {
@@ -915,6 +923,10 @@ model Payment {
   dueDate     DateTime
   paidAt      DateTime?
   reference   String?                        // Payment reference number
+  method      PaymentMethod?                 // Payment operator used
+  operatorTransactionId String?              // Transaction ID from Intouch API
+  operatorPhoneNumber  String?               // Phone number used for payment
+  paymentOperatorData  Json?                 // Full operator response data
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -928,6 +940,7 @@ model Payment {
   @@index([tenantId])
   @@index([status])
   @@index([dueDate])
+  @@index([method])
 }
 
 // ─── Inventory Report (État des Lieux) ────────────────────────────────────────
