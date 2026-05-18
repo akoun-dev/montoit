@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
 import crypto from 'crypto'
+import { notify } from '@/lib/notify'
 
 // POST /api/leases/create — Create a new lease from a validated rental file
 export async function POST(req: NextRequest) {
@@ -135,14 +136,13 @@ export async function POST(req: NextRequest) {
     })
 
     // ─── Send notification to tenant about new lease awaiting signature ───
-    await db.notification.create({
-      data: {
-        userId: tenantId,
-        type: 'DOSSIER_UPDATE',
-        title: 'Nouveau bail en attente de signature',
-        message: `Un nouveau bail pour "${property.title}" a été créé. Veuillez le consulter pour le signer.`,
-        entityId: lease.id,
-      },
+    await notify({
+      userId: tenantId,
+      type: 'DOSSIER_UPDATE',
+      title: 'Nouveau bail en attente de signature',
+      message: `Un nouveau bail pour "${property.title}" a été créé. Veuillez le consulter pour le signer.`,
+      actionUrl: 'my-leases',
+      entityId: lease.id,
     })
 
     // ─── Audit log ────────────────────────────────────────────────────────

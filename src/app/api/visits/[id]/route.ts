@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/visits/[id] — Get a single visit request detail
 export async function GET(
@@ -14,7 +15,7 @@ export async function GET(
     }
     const { userId, effectiveRole } = authResult
 
-    if (effectiveRole !== 'LOCATAIRE' && effectiveRole !== 'PROPRIETAIRE') {
+    if (effectiveRole !== 'LOCATAIRE' && effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
@@ -25,7 +26,13 @@ export async function GET(
     if (effectiveRole === 'LOCATAIRE') {
       where.tenantId = userId
     } else if (effectiveRole === 'PROPRIETAIRE') {
+      // Propriétaire: only see visits from TC-verified tenants
       where.property = { ownerId: userId }
+      where.tenant = { rentalFiles: { some: { status: 'VALIDATED' } } }
+    } else if (effectiveRole === 'AGENCE') {
+      // Agence: only see visits from TC-verified tenants for properties under their mandats
+      where.property = { mandats: { some: { agencyId: userId, status: 'ACTIVE' } } }
+      where.tenant = { rentalFiles: { some: { status: 'VALIDATED' } } }
     }
 
     const visit = await db.visitRequest.findFirst({
@@ -126,14 +133,13 @@ export async function PATCH(
       })
 
       // Create notification for the property owner
-      await db.notification.create({
-        data: {
-          userId: updated.property.ownerId,
-          type: 'VISIT_REMINDER',
-          title: 'Visite annulée',
-          message: `${updated.tenant.firstName} ${updated.tenant.lastName} a annulé la visite pour "${updated.property.title}".`,
-          entityId: visit.id,
-        },
+      await notify({
+        userId: updated.property.ownerId,
+        type: 'VISIT_REMINDER',
+        title: 'Visite annulée',
+        message: `${updated.tenant.firstName} ${updated.tenant.lastName} a annulé la visite pour "${updated.property.title}".`,
+        actionUrl: 'visit-requests',
+        entityId: visit.id,
       })
 
       return NextResponse.json({ data: updated })
@@ -144,9 +150,20 @@ export async function PATCH(
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    // Validate that the visit belongs to a property owned by this user
+    // Build where clause: validate ownership/mandat AND TC verification
+    const visitWhere: Record<string, unknown> = { id }
+    if (effectiveRole === 'PROPRIETAIRE') {
+      visitWhere.property = { ownerId: userId }
+      // Only allow actions on visits from TC-verified tenants
+      visitWhere.tenant = { rentalFiles: { some: { status: 'VALIDATED' } } }
+    } else if (effectiveRole === 'AGENCE') {
+      visitWhere.property = { mandats: { some: { agencyId: userId, status: 'ACTIVE' } } }
+      // Only allow actions on visits from TC-verified tenants
+      visitWhere.tenant = { rentalFiles: { some: { status: 'VALIDATED' } } }
+    }
+
     const visit = await db.visitRequest.findFirst({
-      where: { id, property: { ownerId: userId } },
+      where: visitWhere,
     })
 
     if (!visit) {
@@ -185,14 +202,13 @@ export async function PATCH(
       REJECTED: 'refusée',
       COUNTER_PROPOSED: 'contre-proposée',
     }
-    await db.notification.create({
-      data: {
-        userId: visit.tenantId,
-        type: 'VISIT_REMINDER',
-        title: 'Demande de visite ' + (statusLabels[status] || 'mise à jour'),
-        message: `Votre visite pour "${updated.property.title}" a été ${statusLabels[status] || 'mise à jour'}.`,
-        entityId: visit.id,
-      },
+    await notify({
+      userId: visit.tenantId,
+      type: 'VISIT_REMINDER',
+      title: 'Demande de visite ' + (statusLabels[status] || 'mise à jour'),
+      message: `Votre visite pour "${updated.property.title}" a été ${statusLabels[status] || 'mise à jour'}.`,
+      actionUrl: 'my-visits',
+      entityId: visit.id,
     })
 
     return NextResponse.json({ data: updated })

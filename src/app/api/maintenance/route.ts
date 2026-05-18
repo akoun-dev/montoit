@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/maintenance — List maintenance requests for current tenant
 export async function GET(req: NextRequest) {
@@ -197,6 +198,22 @@ export async function POST(req: NextRequest) {
         userId,
       },
     })
+
+    // Notify the property owner about the new maintenance request
+    const ownerNotif = await db.lease.findUnique({
+      where: { id: leaseId },
+      select: { ownerId: true, property: { select: { title: true } } },
+    })
+    if (ownerNotif) {
+      await notify({
+        userId: ownerNotif.ownerId,
+        type: 'DOSSIER_UPDATE',
+        title: 'Nouvelle demande de maintenance',
+        message: `Une demande de maintenance a été soumise pour "${ownerNotif.property.title}": ${title}`,
+        actionUrl: 'maintenance',
+        entityId: maintenanceRequest.id,
+      })
+    }
 
     return NextResponse.json({ data: maintenanceRequest }, { status: 201 })
   } catch (error) {

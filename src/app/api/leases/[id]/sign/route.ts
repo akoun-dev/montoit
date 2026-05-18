@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
 import crypto from 'crypto'
+import { notify } from '@/lib/notify'
 
 // POST /api/leases/[id]/sign — Sign a lease electronically with OTP verification
 export async function POST(
@@ -103,16 +104,15 @@ export async function POST(
       })
 
       // Notify tenant
-      await db.notification.create({
-        data: {
-          userId: lease.tenantId,
-          type: 'DOSSIER_UPDATE',
-          title: lease.tenantSignedAt ? 'Bail signé et activé' : 'Le propriétaire a signé le bail',
-          message: lease.tenantSignedAt
-            ? `Le bail pour "${lease.property.title}" est maintenant actif. Les deux parties ont signé.`
-            : `${lease.owner.firstName} ${lease.owner.lastName} a signé le bail pour "${lease.property.title}". Votre signature est attendue.`,
-          entityId: lease.id,
-        },
+      await notify({
+        userId: lease.tenantId,
+        type: 'DOSSIER_UPDATE',
+        title: lease.tenantSignedAt ? 'Bail signé et activé' : 'Le propriétaire a signé le bail',
+        message: lease.tenantSignedAt
+          ? `Le bail pour "${lease.property.title}" est maintenant actif. Les deux parties ont signé.`
+          : `${lease.owner.firstName} ${lease.owner.lastName} a signé le bail pour "${lease.property.title}". Votre signature est attendue.`,
+        actionUrl: 'my-leases',
+        entityId: lease.id,
       })
     } else {
       // Tenant signing
@@ -137,16 +137,15 @@ export async function POST(
       })
 
       // Notify owner
-      await db.notification.create({
-        data: {
-          userId: lease.ownerId,
-          type: 'DOSSIER_UPDATE',
-          title: lease.ownerSignedAt ? 'Bail signé et activé' : 'Le locataire a signé le bail',
-          message: lease.ownerSignedAt
-            ? `Le bail pour "${lease.property.title}" est maintenant actif. Les deux parties ont signé.`
-            : `${lease.tenant.firstName} ${lease.tenant.lastName} a signé le bail pour "${lease.property.title}".`,
-          entityId: lease.id,
-        },
+      await notify({
+        userId: lease.ownerId,
+        type: 'DOSSIER_UPDATE',
+        title: lease.ownerSignedAt ? 'Bail signé et activé' : 'Le locataire a signé le bail',
+        message: lease.ownerSignedAt
+          ? `Le bail pour "${lease.property.title}" est maintenant actif. Les deux parties ont signé.`
+          : `${lease.tenant.firstName} ${lease.tenant.lastName} a signé le bail pour "${lease.property.title}".`,
+        actionUrl: 'my-leases',
+        entityId: lease.id,
       })
     }
 

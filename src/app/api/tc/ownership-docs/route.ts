@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/tc/ownership-docs — List ownership documents for TC review
 export async function GET(req: NextRequest) {
@@ -177,14 +178,13 @@ export async function PATCH(req: NextRequest) {
       })
 
       // Notify the owner
-      await db.notification.create({
-        data: {
-          type: 'DOSSIER_UPDATE',
-          title: notificationTitle,
-          message: notificationMessage,
-          entityId: docId,
-          userId: doc.ownerId,
-        },
+      await notify({
+        userId: doc.ownerId,
+        type: 'DOSSIER_UPDATE',
+        title: notificationTitle,
+        message: notificationMessage,
+        actionUrl: 'owner-file',
+        entityId: docId,
       })
 
       results.push({ docId, success: true, doc: updatedDoc })

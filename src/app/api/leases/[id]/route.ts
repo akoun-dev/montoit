@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
 import crypto from 'crypto'
+import { notify } from '@/lib/notify'
 
 // GET /api/leases/[id] — Get a single lease detail (accessible by both tenant and owner)
 export async function GET(
@@ -157,16 +158,15 @@ export async function PATCH(
         })
 
         // Notify owner that tenant signed
-        await db.notification.create({
-          data: {
-            userId: lease.ownerId,
-            type: 'DOSSIER_UPDATE',
-            title: lease.ownerSignedAt ? 'Bail signé et activé' : 'Le locataire a signé le bail',
-            message: lease.ownerSignedAt
-              ? `Le bail pour "${lease.property.title}" est maintenant actif. Les deux parties ont signé.`
-              : `${lease.tenant.firstName} ${lease.tenant.lastName} a signé le bail pour "${lease.property.title}".`,
-            entityId: lease.id,
-          },
+        await notify({
+          userId: lease.ownerId,
+          type: 'LEASE_UPDATE',
+          title: lease.ownerSignedAt ? 'Bail signé et activé' : 'Le locataire a signé le bail',
+          message: lease.ownerSignedAt
+            ? `Le bail pour "${lease.property.title}" est maintenant actif. Les deux parties ont signé.`
+            : `${lease.tenant.firstName} ${lease.tenant.lastName} a signé le bail pour "${lease.property.title}".`,
+          actionUrl: 'my-leases',
+          entityId: lease.id,
         })
       } else {
         // Owner signing
@@ -190,16 +190,15 @@ export async function PATCH(
         })
 
         // Notify tenant that owner signed
-        await db.notification.create({
-          data: {
-            userId: lease.tenantId,
-            type: 'DOSSIER_UPDATE',
-            title: lease.tenantSignedAt ? 'Bail signé et activé' : 'Le propriétaire a signé le bail',
-            message: lease.tenantSignedAt
-              ? `Le bail pour "${lease.property.title}" est maintenant actif. Les deux parties ont signé.`
-              : `${lease.owner.firstName} ${lease.owner.lastName} a signé le bail pour "${lease.property.title}".`,
-            entityId: lease.id,
-          },
+        await notify({
+          userId: lease.tenantId,
+          type: 'LEASE_UPDATE',
+          title: lease.tenantSignedAt ? 'Bail signé et activé' : 'Le propriétaire a signé le bail',
+          message: lease.tenantSignedAt
+            ? `Le bail pour "${lease.property.title}" est maintenant actif. Les deux parties ont signé.`
+            : `${lease.owner.firstName} ${lease.owner.lastName} a signé le bail pour "${lease.property.title}".`,
+          actionUrl: 'my-leases',
+          entityId: lease.id,
         })
       }
 
@@ -271,14 +270,13 @@ export async function PATCH(
       })
 
       // Notify tenant about modification
-      await db.notification.create({
-        data: {
-          userId: lease.tenantId,
-          type: 'DOSSIER_UPDATE',
-          title: 'Bail modifié',
-          message: `Le bail pour "${lease.property.title}" a été modifié par le propriétaire. Veuillez vérifier les nouvelles conditions.`,
-          entityId: lease.id,
-        },
+      await notify({
+        userId: lease.tenantId,
+        type: 'LEASE_UPDATE',
+        title: 'Bail modifié',
+        message: `Le bail pour "${lease.property.title}" a été modifié par le propriétaire. Veuillez vérifier les nouvelles conditions.`,
+        actionUrl: 'my-leases',
+        entityId: lease.id,
       })
 
       // Audit log

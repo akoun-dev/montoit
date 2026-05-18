@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { ContactDialog } from '@/components/messaging/contact-dialog'
 import { motion } from 'framer-motion'
 
 interface NextPayment {
@@ -380,15 +381,22 @@ export function LocataireOverview() {
                     <span className="text-xs sm:text-sm text-muted-foreground truncate">
                       {primaryLease.owner.firstName} {primaryLease.owner.lastName}
                     </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-[11px] gap-1 ml-auto shrink-0"
-                      onClick={() => setDashboardSection('messages')}
-                    >
-                      <MessageSquare className="size-3" />
-                      <span className="hidden sm:inline">Contacter</span>
-                    </Button>
+                    <ContactDialog
+                      defaultRecipientId={primaryLease.owner.id}
+                      onMessageSent={(convId) => {
+                        setDashboardSection('messages')
+                      }}
+                      trigger={
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px] gap-1 ml-auto shrink-0"
+                        >
+                          <MessageSquare className="size-3" />
+                          <span className="hidden sm:inline">Contacter</span>
+                        </Button>
+                      }
+                    />
                   </div>
                 </div>
               </div>

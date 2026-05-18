@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // Helper: authenticate and authorize TC
 async function authorizeTC(request: NextRequest) {
@@ -198,14 +199,13 @@ export async function POST(request: NextRequest) {
       select: { ownerId: true, title: true },
     })
     if (propertyOwner) {
-      await db.notification.create({
-        data: {
-          userId: propertyOwner.ownerId,
-          type: 'VERIFICATION_RESULT',
-          title: 'Vérification programmée pour votre bien',
-          message: `Une vérification sur place a été programmée pour votre bien "${propertyOwner.title}".`,
-          entityId: mission.id,
-        },
+      await notify({
+        userId: propertyOwner.ownerId,
+        type: 'DOSSIER_UPDATE',
+        title: 'Vérification programmée pour votre bien',
+        message: `Une vérification sur place a été programmée pour votre bien "${propertyOwner.title}".`,
+        actionUrl: 'my-properties',
+        entityId: mission.id,
       })
     }
 

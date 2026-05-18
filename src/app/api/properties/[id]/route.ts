@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdFromRequest, getUserIdAndRole } from '@/lib/session'
+import { notifyMany } from '@/lib/notify'
 
 const VALID_PROPERTY_TYPES = ['APPARTEMENT', 'MAISON', 'STUDIO', 'DUPLEX', 'PENTHOUSE', 'VILLA'] as const
 const MAX_IMAGES = 10
@@ -195,14 +196,13 @@ export async function PATCH(
         select: { id: true },
       })
       if (tcUsers.length > 0) {
-        await db.notification.createMany({
-          data: tcUsers.map((tc) => ({
-            userId: tc.id,
-            type: 'PROPERTY_VERIFICATION',
-            title: 'Nouveau bien en attente de vérification',
-            message: `Le bien "${existing.title}" a été soumis pour vérification.`,
-            entityId: existing.id,
-          })),
+        await notifyMany({
+          userIds: tcUsers.map((tc) => tc.id),
+          type: 'DOSSIER_UPDATE',
+          title: 'Nouveau bien en attente de vérification',
+          message: `Le bien "${existing.title}" a été soumis pour vérification.`,
+          actionUrl: 'property-verifications',
+          entityId: existing.id,
         })
       }
     }

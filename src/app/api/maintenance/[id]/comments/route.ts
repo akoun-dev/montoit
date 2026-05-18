@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/maintenance/[id]/comments — Get comments for a maintenance request
 // Both LOCATAIRE and PROPRIETAIRE/AGENCE can view comments
@@ -164,14 +165,13 @@ export async function POST(
         : maintenanceRequest.tenantId
 
     if (notifyUserId) {
-      await db.notification.create({
-        data: {
-          userId: notifyUserId,
-          type: 'MESSAGE',
-          title: 'Nouveau commentaire sur la demande de maintenance',
-          message: `Un nouveau commentaire a été ajouté sur "${maintenanceRequest.title}".`,
-          entityId: id,
-        },
+      await notify({
+        userId: notifyUserId,
+        type: 'MAINTENANCE',
+        title: 'Nouveau commentaire sur la demande de maintenance',
+        message: `Un nouveau commentaire a été ajouté sur "${maintenanceRequest.title}".`,
+        actionUrl: 'maintenance',
+        entityId: id,
       })
     }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/tc/rental-files — List rental files for TC review
 export async function GET(req: NextRequest) {
@@ -301,14 +302,13 @@ export async function PATCH(req: NextRequest) {
       })
 
       // Notify the tenant
-      await db.notification.create({
-        data: {
-          type: 'DOSSIER_UPDATE',
-          title: notificationTitle,
-          message: notificationMessage,
-          entityId: fileId,
-          userId: file.tenantId,
-        },
+      await notify({
+        userId: file.tenantId,
+        type: 'DOSSIER_UPDATE',
+        title: notificationTitle,
+        message: notificationMessage,
+        actionUrl: 'rental-file',
+        entityId: fileId,
       })
 
       results.push({ fileId, success: true, file: updatedFile })

@@ -224,6 +224,7 @@ function AgenceDashboard({ section }: { section: string }) {
     case 'communication': return <AgenceCommunication />
     case 'marketing': return <AgenceMarketing />
     case 'client-files': return <ClientFiles />
+    case 'notifications': return <Notifications />
     case 'settings': return <AgenceSettings />
     case 'security': return <AgenceSecurity />
     default: return <AgenceOverview />

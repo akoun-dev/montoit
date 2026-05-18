@@ -67,16 +67,16 @@ const operators: OperatorInfo[] = [
     name: 'Moov Money',
     description: 'Paiement via Moov Money',
     logo: '/payment-operators/moov-money-logo.webp',
-    color: 'border-blue-200 hover:border-blue-400 hover:bg-blue-50/50',
-    selectedColor: 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/20',
+    color: 'border-sky-200 hover:border-sky-400 hover:bg-sky-50/50',
+    selectedColor: 'border-sky-500 bg-sky-50 ring-2 ring-sky-500/20',
   },
   {
     id: 'WAVE',
     name: 'Wave',
     description: 'Paiement via Wave',
     logo: '/payment-operators/wave-logo.png',
-    color: 'border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50/50',
-    selectedColor: 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20',
+    color: 'border-teal-200 hover:border-teal-400 hover:bg-teal-50/50',
+    selectedColor: 'border-teal-500 bg-teal-50 ring-2 ring-teal-500/20',
   },
 ]
 
@@ -239,23 +239,37 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
               </DialogHeader>
 
               <div className="grid grid-cols-2 gap-3 mt-4">
-                {operators.map((operator) => (
-                  <button
-                    key={operator.id}
-                    onClick={() => handleSelectOperator(operator)}
-                    className={cn(
-                      'flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all cursor-pointer',
-                      operator.color
-                    )}
-                  >
-                    <img
-                      src={operator.logo}
-                      alt={`Logo ${operator.name}`}
-                      className="size-16 object-contain"
-                    />
-                    <span className="text-sm font-medium text-foreground">{operator.name}</span>
-                  </button>
-                ))}
+                {operators.map((operator) => {
+                  const isSelected = selectedOperator?.id === operator.id
+                  return (
+                    <button
+                      key={operator.id}
+                      onClick={() => handleSelectOperator(operator)}
+                      className={cn(
+                        'relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all cursor-pointer',
+                        isSelected ? operator.selectedColor : operator.color
+                      )}
+                    >
+                      {/* Radio indicator */}
+                      <div className={cn(
+                        'absolute top-2 right-2 size-5 rounded-full border-2 flex items-center justify-center transition-colors',
+                        isSelected
+                          ? 'border-foreground bg-foreground'
+                          : 'border-muted-foreground/40 bg-background'
+                      )}>
+                        {isSelected && (
+                          <div className="size-2 rounded-full bg-white" />
+                        )}
+                      </div>
+                      <img
+                        src={operator.logo}
+                        alt={`Logo ${operator.name}`}
+                        className="size-14 sm:size-16 object-contain"
+                      />
+                      <span className="text-sm font-medium text-foreground">{operator.name}</span>
+                    </button>
+                  )
+                })}
               </div>
             </motion.div>
           )}

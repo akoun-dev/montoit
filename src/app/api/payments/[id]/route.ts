@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
 
 // GET /api/payments/[id] — Get a single payment detail
-// LOCATAIRE sees their own payments; PROPRIETAIRE sees payments for their properties
+// LOCATAIRE sees their own payments; PROPRIETAIRE sees payments for their properties; AGENCE sees payments for their mandat properties
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,16 +16,27 @@ export async function GET(
     }
     const { userId, effectiveRole } = authResult
 
-    if (effectiveRole !== 'LOCATAIRE' && effectiveRole !== 'PROPRIETAIRE') {
+    if (effectiveRole !== 'LOCATAIRE' && effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
     const { id } = await params
 
-    // Build the where clause based on role
-    let where: Record<string, unknown>
+    // Build the where clause based on role with proper Prisma typing
+    let where: Prisma.PaymentWhereInput
     if (effectiveRole === 'PROPRIETAIRE') {
       where = { id, lease: { ownerId: userId } }
+    } else if (effectiveRole === 'AGENCE') {
+      where = {
+        id,
+        lease: {
+          property: {
+            mandats: {
+              some: { agencyId: userId, status: 'ACTIVE' }
+            }
+          }
+        }
+      }
     } else {
       where = { id, tenantId: userId }
     }

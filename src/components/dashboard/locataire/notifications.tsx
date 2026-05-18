@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Bell, MessageSquare, FileText, Calendar, CreditCard, Megaphone, Settings, CheckCheck, Filter } from 'lucide-react'
+import { Bell, MessageSquare, FileText, Calendar, CreditCard, Megaphone, Settings, CheckCheck, Filter, Wrench, Home, Shield } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -33,7 +33,10 @@ const typeConfig: Record<string, { icon: typeof Bell; label: string; color: stri
   DOSSIER_UPDATE: { icon: FileText, label: 'Candidatures', color: 'bg-brand-50 text-brand-600 border-brand-200' },
   VISIT_REMINDER: { icon: Calendar, label: 'Visites', color: 'bg-amber-50 text-amber-700 border-amber-200' },
   PAYMENT_ALERT: { icon: CreditCard, label: 'Paiements', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  MAINTENANCE: { icon: Wrench, label: 'Maintenance', color: 'bg-orange-50 text-orange-700 border-orange-200' },
+  LEASE_UPDATE: { icon: Home, label: 'Baux', color: 'bg-teal-50 text-teal-700 border-teal-200' },
   PROMOTION: { icon: Megaphone, label: 'Promotions', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  SECURITY: { icon: Shield, label: 'Sécurité', color: 'bg-red-50 text-red-700 border-red-200' },
   SYSTEM: { icon: Settings, label: 'Système', color: 'bg-muted text-muted-foreground border-border' },
 }
 
@@ -43,6 +46,8 @@ const notificationCategories = [
   { type: 'DOSSIER_UPDATE', label: 'Candidatures', color: 'bg-brand-50 text-brand-600 border-brand-200' },
   { type: 'VISIT_REMINDER', label: 'Visites', color: 'bg-amber-50 text-amber-700 border-amber-200' },
   { type: 'PAYMENT_ALERT', label: 'Paiements', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { type: 'MAINTENANCE', label: 'Maintenance', color: 'bg-orange-50 text-orange-700 border-orange-200' },
+  { type: 'LEASE_UPDATE', label: 'Baux', color: 'bg-teal-50 text-teal-700 border-teal-200' },
   { type: 'SYSTEM', label: 'Système', color: 'bg-muted text-muted-foreground border-border' },
 ]
 

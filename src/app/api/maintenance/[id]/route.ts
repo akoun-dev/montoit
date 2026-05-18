@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // Valid status transitions for PROPRIETAIRE/AGENCE
 const OWNER_ALLOWED_STATUSES = ['IN_PROGRESS', 'RESOLVED', 'CLOSED'] as const
@@ -284,14 +285,13 @@ export async function PATCH(
       })
 
       // Notify tenant about the update
-      await db.notification.create({
-        data: {
-          userId: maintenanceRequest.tenantId,
-          type: 'DOSSIER_UPDATE',
-          title: 'Mise à jour de votre demande de maintenance',
-          message: `Votre demande "${maintenanceRequest.title}" a été mise à jour par le propriétaire.`,
-          entityId: id,
-        },
+      await notify({
+        userId: maintenanceRequest.tenantId,
+        type: 'DOSSIER_UPDATE',
+        title: 'Mise à jour de votre demande de maintenance',
+        message: `Votre demande "${maintenanceRequest.title}" a été mise à jour par le propriétaire.`,
+        actionUrl: 'maintenance',
+        entityId: id,
       })
 
       // Create audit log
@@ -310,14 +310,13 @@ export async function PATCH(
 
     // Notify tenant about the status change (even without comment)
     if (Object.keys(updateData).length > 0) {
-      await db.notification.create({
-        data: {
-          userId: maintenanceRequest.tenantId,
-          type: 'DOSSIER_UPDATE',
-          title: 'Mise à jour de votre demande de maintenance',
-          message: `Votre demande "${maintenanceRequest.title}" a été mise à jour par le propriétaire.`,
-          entityId: id,
-        },
+      await notify({
+        userId: maintenanceRequest.tenantId,
+        type: 'DOSSIER_UPDATE',
+        title: 'Mise à jour de votre demande de maintenance',
+        message: `Votre demande "${maintenanceRequest.title}" a été mise à jour par le propriétaire.`,
+        actionUrl: 'maintenance',
+        entityId: id,
       })
 
       // Create audit log

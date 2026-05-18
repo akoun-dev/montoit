@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // POST /api/reviews/[id]/reply — Reply to a review
 export async function POST(
@@ -87,14 +88,13 @@ export async function POST(
     })
 
     // Notify the reviewer
-    await db.notification.create({
-      data: {
-        userId: rating.fromUserId,
-        type: 'DOSSIER_UPDATE',
-        title: 'Réponse à votre avis',
-        message: `${updated.toUser.firstName} ${updated.toUser.lastName} a répondu à votre avis sur "${rating.lease?.property?.title || 'bien'}".`,
-        entityId: rating.id,
-      },
+    await notify({
+      userId: rating.fromUserId,
+      type: 'DOSSIER_UPDATE',
+      title: 'Réponse à votre avis',
+      message: `${updated.toUser.firstName} ${updated.toUser.lastName} a répondu à votre avis sur "${rating.lease?.property?.title || 'bien'}".`,
+      actionUrl: 'reviews',
+      entityId: rating.id,
     })
 
     return NextResponse.json({ data: updated })

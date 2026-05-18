@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma, PaymentStatus, PaymentMethod } from '@prisma/client'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
 
@@ -18,15 +19,15 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')))
-    const status = searchParams.get('status') || undefined
+    const statusParam = searchParams.get('status') || undefined
     const leaseId = searchParams.get('leaseId') || undefined
-    const method = searchParams.get('method') || undefined
+    const methodParam = searchParams.get('method') || undefined
 
-    // Build where clause
+    // Build where clause with proper Prisma typing
     // LOCATAIRE sees their own payments
     // PROPRIETAIRE sees payments for their properties (owned directly)
     // AGENCE sees payments for properties under their mandats
-    let where: Record<string, unknown>
+    let where: Prisma.PaymentWhereInput
     if (effectiveRole === 'PROPRIETAIRE') {
       where = { lease: { ownerId: userId } }
     } else if (effectiveRole === 'AGENCE') {
@@ -43,14 +44,16 @@ export async function GET(req: NextRequest) {
     } else {
       where = { tenantId: userId }
     }
-    if (status) {
-      where.status = status
+
+    // Add optional filters with proper enum casting
+    if (statusParam) {
+      where.status = statusParam as PaymentStatus
     }
     if (leaseId) {
       where.leaseId = leaseId
     }
-    if (method) {
-      where.method = method
+    if (methodParam) {
+      where.method = methodParam as PaymentMethod
     }
 
     const [payments, total] = await Promise.all([
@@ -90,7 +93,7 @@ export async function GET(req: NextRequest) {
     ])
 
     // Compute stats
-    const allPaymentsWhere = effectiveRole === 'PROPRIETAIRE'
+    const allPaymentsWhere: Prisma.PaymentWhereInput = effectiveRole === 'PROPRIETAIRE'
       ? { lease: { ownerId: userId } }
       : effectiveRole === 'AGENCE'
         ? { lease: { property: { mandats: { some: { agencyId: userId, status: 'ACTIVE' } } } } }

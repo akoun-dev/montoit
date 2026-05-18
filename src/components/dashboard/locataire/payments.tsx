@@ -76,8 +76,8 @@ const statusConfig: Record<string, { label: string; color: string; dotColor: str
 const paymentMethodConfig: Record<string, { label: string; color: string }> = {
   ORANGE_MONEY: { label: 'Orange Money', color: 'bg-orange-100 text-orange-700' },
   MTN_MOMO: { label: 'MTN MoMo', color: 'bg-yellow-100 text-yellow-700' },
-  MOOV_MONEY: { label: 'Moov Money', color: 'bg-blue-100 text-blue-700' },
-  WAVE: { label: 'Wave', color: 'bg-indigo-100 text-indigo-700' },
+  MOOV_MONEY: { label: 'Moov Money', color: 'bg-sky-100 text-sky-700' },
+  WAVE: { label: 'Wave', color: 'bg-teal-100 text-teal-700' },
 }
 
 type FilterTab = 'ALL' | 'PENDING' | 'PROCESSING' | 'PAID' | 'LATE'
@@ -205,7 +205,21 @@ export function Payments({ onDetail }: PaymentsProps) {
 
       {/* Stats Cards */}
       <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="size-4 text-emerald-500" />
+                <p className="text-xs text-muted-foreground">Total payé</p>
+              </div>
+              <p className="text-lg font-bold text-foreground">
+                {stats?.totalPaid ? formatCurrency(stats.totalPaid) : '0 FCFA'}
+              </p>
+              {stats?.paidCount ? (
+                <p className="text-xs text-muted-foreground mt-0.5">{stats.paidCount} paiement{stats.paidCount > 1 ? 's' : ''}</p>
+              ) : null}
+            </CardContent>
+          </Card>
           <Card className="border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
@@ -227,26 +241,28 @@ export function Payments({ onDetail }: PaymentsProps) {
           <Card className="border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
-                <TrendingUp className="size-4 text-emerald-500" />
-                <p className="text-xs text-muted-foreground">Total payé</p>
-              </div>
-              <p className="text-lg font-bold text-foreground">
-                {stats?.totalPaid ? formatCurrency(stats.totalPaid) : '0 FCFA'}
-              </p>
-              {stats?.paidCount ? (
-                <p className="text-xs text-muted-foreground mt-0.5">{stats.paidCount} paiement{stats.paidCount > 1 ? 's' : ''}</p>
-              ) : null}
-            </CardContent>
-          </Card>
-          <Card className="border-border">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-1">
                 <AlertTriangle className={`size-4 ${(stats?.latePaymentsCount ?? 0) > 0 ? 'text-red-500' : 'text-neutral-300'}`} />
                 <p className="text-xs text-muted-foreground">En retard</p>
               </div>
               <p className={`text-lg font-bold ${(stats?.latePaymentsCount ?? 0) > 0 ? 'text-red-600' : 'text-foreground'}`}>
                 {stats?.latePaymentsCount ?? 0}
               </p>
+            </CardContent>
+          </Card>
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <CreditCard className="size-4 text-amber-500" />
+                <p className="text-xs text-muted-foreground">En attente</p>
+              </div>
+              <p className={`text-lg font-bold ${(stats?.pendingCount ?? 0) > 0 ? 'text-amber-600' : 'text-foreground'}`}>
+                {stats?.pendingCount ?? 0}
+              </p>
+              {(stats?.processingCount ?? 0) > 0 && (
+                <p className="text-xs text-blue-600 mt-0.5">
+                  {stats!.processingCount} en cours
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>

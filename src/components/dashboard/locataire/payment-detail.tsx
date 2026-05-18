@@ -76,8 +76,8 @@ const statusConfig: Record<string, { label: string; color: string; dotColor: str
 const paymentMethodConfig: Record<string, { label: string; color: string; icon: string }> = {
   ORANGE_MONEY: { label: 'Orange Money', color: 'bg-orange-100 text-orange-700', icon: '/payment-operators/orange-money-logo.webp' },
   MTN_MOMO: { label: 'MTN MoMo', color: 'bg-yellow-100 text-yellow-700', icon: '/payment-operators/mtn-momo-logo.webp' },
-  MOOV_MONEY: { label: 'Moov Money', color: 'bg-blue-100 text-blue-700', icon: '/payment-operators/moov-money-logo.webp' },
-  WAVE: { label: 'Wave', color: 'bg-indigo-100 text-indigo-700', icon: '/payment-operators/wave-logo.png' },
+  MOOV_MONEY: { label: 'Moov Money', color: 'bg-sky-100 text-sky-700', icon: '/payment-operators/moov-money-logo.webp' },
+  WAVE: { label: 'Wave', color: 'bg-teal-100 text-teal-700', icon: '/payment-operators/wave-logo.png' },
 }
 
 function formatCurrency(amount: number): string {

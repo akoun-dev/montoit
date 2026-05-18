@@ -75,9 +75,12 @@ export async function GET(req: NextRequest) {
         },
         orderBy: { dueDate: 'desc' },
       }),
-      // Visit requests count per property
+      // Visit requests count per property (only from TC-verified tenants)
       db.visitRequest.findMany({
-        where: { property: { ownerId: userId } },
+        where: {
+          property: { ownerId: userId },
+          tenant: { rentalFiles: { some: { status: 'VALIDATED' } } },
+        },
         select: { propertyId: true, status: true, createdAt: true },
       }),
       // All leases (including terminated) for duration calculation

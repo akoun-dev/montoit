@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdFromRequest } from '@/lib/session'
+import { notifyMany } from '@/lib/notify'
 
 // POST /api/owner-file/documents — Upload a document to an owner file
 export async function POST(req: NextRequest) {
@@ -81,14 +82,13 @@ export async function POST(req: NextRequest) {
       select: { id: true },
     })
     if (tcUsers.length > 0) {
-      await db.notification.createMany({
-        data: tcUsers.map((tc) => ({
-          userId: tc.id,
-          type: 'DOSSIER_UPDATE',
-          title: 'Nouveau document de propriété soumis',
-          message: `Un nouveau document de propriété a été soumis et nécessite votre validation.`,
-          entityId: document.id,
-        })),
+      await notifyMany({
+        userIds: tcUsers.map((tc) => tc.id),
+        type: 'DOSSIER_UPDATE',
+        title: 'Nouveau document de propriété soumis',
+        message: `Un nouveau document de propriété a été soumis et nécessite votre validation.`,
+        actionUrl: 'owner-validations',
+        entityId: document.id,
       })
     }
 

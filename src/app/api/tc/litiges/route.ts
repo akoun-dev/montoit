@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // Helper: authenticate and authorize TC
 async function authorizeTC(request: NextRequest) {
@@ -343,6 +344,7 @@ export async function PATCH(request: NextRequest) {
     ]
 
     // Create Notification for the dispute reporter (for status changes and escalations)
+    let notifData: { userId: string; type: string; title: string; message: string; actionUrl: string; entityId: string } | null = null
     if (status || action === 'ESCALATE') {
       const notifMessage = action === 'ESCALATE'
         ? `Votre litige a été escaladé. ${escalationReason ? `Raison : ${escalationReason.trim()}` : ''}`
@@ -350,21 +352,36 @@ export async function PATCH(request: NextRequest) {
             tcComment ? `. Commentaire TC : ${tcComment.trim()}` : ''
           }`
 
+      notifData = {
+        userId: dispute.reportedById,
+        type: 'DOSSIER_UPDATE',
+        title: action === 'ESCALATE' ? 'Litige escaladé' : 'Mise à jour de votre litige',
+        message: notifMessage,
+        actionUrl: 'litiges',
+        entityId: id,
+      }
+
       transactionOps.push(
         db.notification.create({
-          data: {
-            userId: dispute.reportedById,
-            type: 'DOSSIER_UPDATE',
-            title: action === 'ESCALATE' ? 'Litige escaladé' : 'Mise à jour de votre litige',
-            message: notifMessage,
-            actionUrl: `/tc/litiges`,
-            entityId: id,
-          },
+          data: notifData,
         })
       )
     }
 
     const [updated] = await db.$transaction(transactionOps) as [typeof dispute, ...unknown[]]
+
+    // Push notification via WebSocket after transaction (best-effort)
+    if (notifData) {
+      try {
+        await fetch('http://localhost:3003/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(notifData),
+        })
+      } catch {
+        // WebSocket push is best-effort
+      }
+    }
 
     return NextResponse.json(updated)
   } catch (error) {

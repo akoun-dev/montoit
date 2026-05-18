@@ -188,3 +188,125 @@ export async function notifyLatePayment(tenantId: string, ownerId: string, amoun
     }),
   ])
 }
+
+// ─── Visit-specific notification helpers ───────────────────────────────────
+
+export async function notifyNewVisitRequest(ownerId: string, tenantName: string, propertyTitle: string, visitId: string) {
+  await notify({
+    userId: ownerId,
+    type: 'VISIT_REMINDER',
+    title: 'Nouvelle demande de visite',
+    message: `${tenantName} souhaite visiter "${propertyTitle}".`,
+    actionUrl: 'visit-requests',
+    entityId: visitId,
+  })
+}
+
+export async function notifyVisitStatusUpdate(tenantId: string, status: string, propertyTitle: string, visitId: string) {
+  const statusLabels: Record<string, string> = {
+    ACCEPTED: 'acceptée',
+    REJECTED: 'refusée',
+    COUNTER_PROPOSED: 'contre-proposée',
+    CANCELLED: 'annulée',
+  }
+  await notify({
+    userId: tenantId,
+    type: 'VISIT_REMINDER',
+    title: 'Demande de visite ' + (statusLabels[status] || 'mise à jour'),
+    message: `Votre visite pour "${propertyTitle}" a été ${statusLabels[status] || 'mise à jour'}.`,
+    actionUrl: 'my-visits',
+    entityId: visitId,
+  })
+}
+
+// ─── Lease-specific notification helpers ────────────────────────────────────
+
+export async function notifyNewLease(tenantId: string, propertyTitle: string, leaseId: string) {
+  await notify({
+    userId: tenantId,
+    type: 'LEASE_UPDATE',
+    title: 'Nouveau bail en attente de signature',
+    message: `Un nouveau bail pour "${propertyTitle}" a été créé. Veuillez le consulter pour le signer.`,
+    actionUrl: 'my-leases',
+    entityId: leaseId,
+  })
+}
+
+export async function notifyLeaseSigned(recipientId: string, signerName: string, propertyTitle: string, leaseId: string, bothSigned: boolean) {
+  await notify({
+    userId: recipientId,
+    type: 'LEASE_UPDATE',
+    title: bothSigned ? 'Bail signé et activé ✅' : 'Bail signé',
+    message: bothSigned
+      ? `Le bail pour "${propertyTitle}" est maintenant actif. Les deux parties ont signé.`
+      : `${signerName} a signé le bail pour "${propertyTitle}".`,
+    actionUrl: 'my-leases',
+    entityId: leaseId,
+  })
+}
+
+// ─── Rental file-specific notification helpers ──────────────────────────────
+
+export async function notifyRentalFileValidated(tenantId: string, propertyTitle: string, fileId: string) {
+  await notify({
+    userId: tenantId,
+    type: 'DOSSIER_UPDATE',
+    title: 'Dossier validé ✅',
+    message: `Votre dossier locatif pour "${propertyTitle}" a été validé par le Tiers de Confiance.`,
+    actionUrl: 'rental-file',
+    entityId: fileId,
+  })
+}
+
+export async function notifyRentalFileRejected(tenantId: string, reason: string, fileId: string) {
+  await notify({
+    userId: tenantId,
+    type: 'DOSSIER_UPDATE',
+    title: 'Dossier rejeté ❌',
+    message: `Votre dossier locatif a été rejeté. Raison : ${reason}`,
+    actionUrl: 'rental-file',
+    entityId: fileId,
+  })
+}
+
+// ─── Maintenance-specific notification helpers ──────────────────────────────
+
+export async function notifyNewMaintenanceRequest(ownerId: string, tenantName: string, propertyTitle: string, requestTitle: string, requestId: string) {
+  await notify({
+    userId: ownerId,
+    type: 'MAINTENANCE',
+    title: 'Nouvelle demande de maintenance 🔧',
+    message: `${tenantName} a soumis une demande pour "${propertyTitle}": ${requestTitle}`,
+    actionUrl: 'maintenance',
+    entityId: requestId,
+  })
+}
+
+export async function notifyMaintenanceUpdate(tenantId: string, requestTitle: string, status: string, requestId: string) {
+  const statusLabels: Record<string, string> = {
+    IN_PROGRESS: 'en cours',
+    RESOLVED: 'résolue',
+    CLOSED: 'clôturée',
+  }
+  await notify({
+    userId: tenantId,
+    type: 'MAINTENANCE',
+    title: 'Mise à jour de votre demande de maintenance',
+    message: `Votre demande "${requestTitle}" est maintenant ${statusLabels[status] || 'mise à jour'}.`,
+    actionUrl: 'maintenance',
+    entityId: requestId,
+  })
+}
+
+// ─── Message-specific notification helper ───────────────────────────────────
+
+export async function notifyNewMessage(recipientId: string, senderName: string, conversationId: string) {
+  await notify({
+    userId: recipientId,
+    type: 'MESSAGE',
+    title: 'Nouveau message',
+    message: `${senderName} vous a envoyé un message`,
+    actionUrl: 'messages',
+    entityId: conversationId,
+  })
+}

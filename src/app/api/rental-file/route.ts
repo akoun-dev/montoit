@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notifyMany } from '@/lib/notify'
 
 // GET /api/rental-file — List rental files for current tenant with documents
 export async function GET(req: NextRequest) {
@@ -182,14 +183,13 @@ export async function POST(req: NextRequest) {
           select: { id: true },
         })
         if (tcUsers.length > 0) {
-          await db.notification.createMany({
-            data: tcUsers.map((tc) => ({
-              userId: tc.id,
-              type: 'DOSSIER_UPDATE',
-              title: 'Nouveau dossier locatif soumis',
-              message: `Un nouveau dossier locatif a été soumis et nécessite votre validation.`,
-              entityId: rentalFile.id,
-            })),
+          await notifyMany({
+            userIds: tcUsers.map((tc) => tc.id),
+            type: 'DOSSIER_UPDATE',
+            title: 'Nouveau dossier locatif soumis',
+            message: `Un nouveau dossier locatif a été soumis et nécessite votre validation.`,
+            actionUrl: 'rental-files-queue',
+            entityId: rentalFile.id,
           })
         }
       }
@@ -243,14 +243,13 @@ export async function POST(req: NextRequest) {
           select: { id: true },
         })
         if (tcUsers.length > 0) {
-          await db.notification.createMany({
-            data: tcUsers.map((tc) => ({
-              userId: tc.id,
-              type: 'DOSSIER_UPDATE',
-              title: 'Nouveau dossier locatif soumis',
-              message: `Un nouveau dossier locatif a été soumis et nécessite votre validation.`,
-              entityId: rentalFile.id,
-            })),
+          await notifyMany({
+            userIds: tcUsers.map((tc) => tc.id),
+            type: 'DOSSIER_UPDATE',
+            title: 'Nouveau dossier locatif soumis',
+            message: `Un nouveau dossier locatif a été soumis et nécessite votre validation.`,
+            actionUrl: 'rental-files-queue',
+            entityId: rentalFile.id,
           })
         }
       }

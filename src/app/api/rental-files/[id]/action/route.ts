@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // POST /api/rental-files/[id]/action — Accept or reject a rental file
 export async function POST(
@@ -99,14 +100,13 @@ export async function POST(
       })
 
       // Notify the tenant
-      await db.notification.create({
-        data: {
-          userId: rentalFile.tenantId,
-          type: 'DOSSIER_UPDATE',
-          title: 'Dossier accepté',
-          message: `Votre dossier locatif pour "${property.title}" a été accepté par le propriétaire.`,
-          entityId: rentalFile.id,
-        },
+      await notify({
+        userId: rentalFile.tenantId,
+        type: 'DOSSIER_UPDATE',
+        title: 'Dossier accepté',
+        message: `Votre dossier locatif pour "${property.title}" a été accepté par le propriétaire.`,
+        actionUrl: 'rental-file',
+        entityId: rentalFile.id,
       })
 
       // Audit log
@@ -144,14 +144,13 @@ export async function POST(
 
       // Notify the tenant
       const property = ownerLease.property
-      await db.notification.create({
-        data: {
-          userId: rentalFile.tenantId,
-          type: 'DOSSIER_UPDATE',
-          title: 'Dossier refusé',
-          message: `Votre dossier locatif pour "${property.title}" a été refusé. Raison : ${rejectionReason.trim()}`,
-          entityId: rentalFile.id,
-        },
+      await notify({
+        userId: rentalFile.tenantId,
+        type: 'DOSSIER_UPDATE',
+        title: 'Dossier refusé',
+        message: `Votre dossier locatif pour "${property.title}" a été refusé. Raison : ${rejectionReason.trim()}`,
+        actionUrl: 'rental-file',
+        entityId: rentalFile.id,
       })
 
       // Audit log

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdFromRequest } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // POST /api/profile/share — Share profile with another user via email
 export async function POST(req: NextRequest) {
@@ -45,15 +46,12 @@ export async function POST(req: NextRequest) {
 
     // Create a notification for the target user if they exist
     if (targetUser) {
-      await db.notification.create({
-        data: {
-          userId: targetUser.id,
-          type: 'SYSTEM',
-          title: 'Profil partagé',
-          message: `${user.firstName} ${user.lastName} a partagé son profil ${roleLabel} avec vous.`,
-          actionUrl: `/dashboard?section=settings`,
-          isRead: false,
-        },
+      await notify({
+        userId: targetUser.id,
+        type: 'SYSTEM',
+        title: 'Profil partagé',
+        message: `${user.firstName} ${user.lastName} a partagé son profil ${roleLabel} avec vous.`,
+        actionUrl: 'settings',
       })
     }
 

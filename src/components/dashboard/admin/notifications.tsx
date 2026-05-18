@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Bell, AlertTriangle, Shield, Eye, Check, Mail, Settings } from 'lucide-react'
+import { Bell, AlertTriangle, Shield, Eye, Check, Mail, Settings, CheckCheck, CreditCard, MessageSquare, Calendar, FileText } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,10 +20,13 @@ interface NotificationItem {
   isRead: boolean
   createdAt: string
   actionUrl: string | null
+  entityId: string | null
 }
 
-interface NotificationsData {
-  notifications: NotificationItem[]
+interface NotificationsResponse {
+  data: NotificationItem[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
+  unreadCount: number
 }
 
 const typeIcons: Record<string, typeof AlertTriangle> = {
@@ -32,6 +35,10 @@ const typeIcons: Record<string, typeof AlertTriangle> = {
   SENSITIVE: Eye,
   SYSTEM: Settings,
   INFO: Bell,
+  PAYMENT_ALERT: CreditCard,
+  MESSAGE: MessageSquare,
+  VISIT_REMINDER: Calendar,
+  DOSSIER_UPDATE: FileText,
 }
 
 const typeColors: Record<string, string> = {
@@ -40,20 +47,32 @@ const typeColors: Record<string, string> = {
   SENSITIVE: 'bg-teal-100 text-teal-700',
   SYSTEM: 'bg-neutral-100 text-neutral-700',
   INFO: 'bg-green-100 text-green-700',
+  PAYMENT_ALERT: 'bg-emerald-100 text-emerald-700',
+  MESSAGE: 'bg-amber-100 text-amber-700',
+  VISIT_REMINDER: 'bg-amber-100 text-amber-700',
+  DOSSIER_UPDATE: 'bg-brand-50 text-brand-600',
 }
 
-const mockNotifications: NotificationItem[] = [
-  { id: 'n1', type: 'CRITICAL', title: 'Erreur critique', message: 'Le service d\'envoi d\'emails est indisponible depuis 10 minutes', isRead: false, createdAt: new Date().toISOString(), actionUrl: null },
-  { id: 'n2', type: 'SECURITY', title: 'Tentative de connexion suspecte', message: '5 tentatives de connexion échouées pour l\'utilisateur ibrahim@test.ci', isRead: false, createdAt: new Date().toISOString(), actionUrl: '/security' },
-  { id: 'n3', type: 'SENSITIVE', title: 'Action sensible', message: 'L\'admin a changé le rôle d\'un utilisateur', isRead: true, createdAt: new Date().toISOString(), actionUrl: null },
-  { id: 'n4', type: 'SYSTEM', title: 'Sauvegarde terminée', message: 'La sauvegarde automatique s\'est terminée avec succès', isRead: true, createdAt: new Date().toISOString(), actionUrl: null },
-  { id: 'n5', type: 'INFO', title: 'Nouveau signalement', message: 'Un nouveau signalement a été soumis pour le bien "Villa Cocody"', isRead: false, createdAt: new Date().toISOString(), actionUrl: '/signalements' },
-]
+function formatTimeAgo(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+  if (diffMin < 1) return "À l'instant"
+  if (diffMin < 60) return `Il y a ${diffMin} min`
+  const diffH = Math.floor(diffMin / 60)
+  if (diffH < 24) return `Il y a ${diffH}h`
+  const diffD = Math.floor(diffH / 24)
+  if (diffD < 7) return `Il y a ${diffD}j`
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+}
 
 export function AdminNotifications() {
   const { isAuthenticated } = useAuthStore()
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [markingRead, setMarkingRead] = useState(false)
   const [prefs, setPrefs] = useState({
     criticalErrors: true,
     securityAlerts: true,
@@ -66,16 +85,12 @@ export function AdminNotifications() {
     if (!isAuthenticated) { setLoading(false); return }
 
     try {
-      // Try to fetch real notifications for admin user
-      const d = await authFetch<NotificationsData>('/api/notifications').catch(() => null)
-      if (d?.notifications && d.notifications.length > 0) {
-        setNotifications(d.notifications)
-      } else {
-        setNotifications(mockNotifications)
-      }
+      const result = await authFetch<NotificationsResponse>('/api/notifications?limit=50')
+      setNotifications(result.data ?? [])
+      setUnreadCount(result.unreadCount ?? 0)
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
-      setNotifications(mockNotifications)
+      // Silently fail — don't use mock data
     } finally {
       setLoading(false)
     }
@@ -87,20 +102,37 @@ export function AdminNotifications() {
     setPrefs(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await authFetch('/api/notifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds: [id] }),
+      })
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    } catch {
+      // Silently fail
+    }
   }
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
-    toast.success('Toutes marquées comme lues')
+  const handleMarkAllAsRead = async () => {
+    setMarkingRead(true)
+    try {
+      await authFetch('/api/notifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markAllRead: true }),
+      })
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+      setUnreadCount(0)
+      toast.success('Toutes marquées comme lues')
+    } catch {
+      toast.error('Erreur lors de la mise à jour')
+    } finally {
+      setMarkingRead(false)
+    }
   }
-
-  const markAsUnread = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: false } : n))
-  }
-
-  const unreadCount = notifications.filter(n => !n.isRead).length
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 
@@ -112,8 +144,8 @@ export function AdminNotifications() {
           <p className="text-muted-foreground mt-1">{unreadCount} notification(s) non lue(s)</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1" onClick={markAllAsRead}>
-            <Check className="size-3.5" /> Tout marquer comme lu
+          <Button variant="outline" size="sm" className="gap-1" onClick={handleMarkAllAsRead} disabled={markingRead}>
+            <CheckCheck className="size-3.5" /> Tout marquer comme lu
           </Button>
         </div>
       </div>
@@ -131,14 +163,14 @@ export function AdminNotifications() {
             {notifications
               .filter((n) => {
                 if (tab === 'unread') return !n.isRead
-                if (tab === 'critical') return n.type === 'CRITICAL'
+                if (tab === 'critical') return n.type === 'CRITICAL' || n.type === 'SECURITY'
                 return true
               })
               .map((notification) => {
                 const Icon = typeIcons[notification.type] || Bell
                 const colorClass = typeColors[notification.type] || 'bg-neutral-100 text-neutral-700'
                 return (
-                  <Card key={notification.id} className={`border-border ${!notification.isRead ? 'border-l-4 border-l-[#FF6C2F]' : 'opacity-70'}`}>
+                  <Card key={notification.id} className={`border-border ${!notification.isRead ? 'border-l-4 border-l-brand-500' : 'opacity-70'}`}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         <div className={`size-9 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
@@ -147,20 +179,18 @@ export function AdminNotifications() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <p className="text-sm font-medium text-foreground">{notification.title}</p>
-                            {!notification.isRead && <div className="size-2 rounded-full bg-[#FF6C2F]" />}
+                            {!notification.isRead && <div className="size-2 rounded-full bg-brand-500" />}
                           </div>
                           <p className="text-sm text-muted-foreground">{notification.message}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{new Date(notification.createdAt).toLocaleString('fr-FR')}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{formatTimeAgo(notification.createdAt)}</p>
                         </div>
                         <div className="flex gap-1">
                           {!notification.isRead ? (
-                            <Button size="icon" variant="ghost" className="size-7" title="Marquer comme lu" onClick={() => markAsRead(notification.id)}>
+                            <Button size="icon" variant="ghost" className="size-7" title="Marquer comme lu" onClick={() => handleMarkAsRead(notification.id)}>
                               <Check className="size-3.5" />
                             </Button>
                           ) : (
-                            <Button size="icon" variant="ghost" className="size-7" title="Marquer comme non lu" onClick={() => markAsUnread(notification.id)}>
-                              <Mail className="size-3.5" />
-                            </Button>
+                            <Mail className="size-3.5 text-muted-foreground" />
                           )}
                         </div>
                       </div>
@@ -170,7 +200,7 @@ export function AdminNotifications() {
               })}
             {notifications.filter((n) => {
               if (tab === 'unread') return !n.isRead
-              if (tab === 'critical') return n.type === 'CRITICAL'
+              if (tab === 'critical') return n.type === 'CRITICAL' || n.type === 'SECURITY'
               return true
             }).length === 0 && (
               <Card className="border-border">
@@ -187,7 +217,7 @@ export function AdminNotifications() {
           <Card className="border-border">
             <CardHeader>
               <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Settings className="size-5 text-[#FF6C2F]" />
+                <Settings className="size-5 text-brand-500" />
                 Préférences de notification
               </CardTitle>
               <CardDescription>Configurer quelles notifications afficher</CardDescription>
@@ -208,7 +238,7 @@ export function AdminNotifications() {
                   <Switch checked={prefs[pref.key]} onCheckedChange={() => togglePref(pref.key)} />
                 </div>
               ))}
-              <Button className="bg-[#FF6C2F] hover:bg-[#e55f28] text-white gap-2" onClick={() => toast.success('Préférences sauvegardées')}>
+              <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2" onClick={() => toast.success('Préférences sauvegardées')}>
                 <Check className="size-4" /> Sauvegarder
               </Button>
             </CardContent>

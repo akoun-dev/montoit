@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/reviews — List ratings given and received for current user + stats
 // Supports both LOCATAIRE and PROPRIETAIRE roles
@@ -238,14 +239,13 @@ export async function POST(req: NextRequest) {
     })
 
     // Create notification for the rated user
-    await db.notification.create({
-      data: {
-        userId: toUserId,
-        type: 'DOSSIER_UPDATE',
-        title: 'Nouvel avis reçu',
-        message: `Vous avez reçu un avis de ${score}/5 pour le bail "${lease.property.title}".`,
-        entityId: rating.id,
-      },
+    await notify({
+      userId: toUserId,
+      type: 'DOSSIER_UPDATE',
+      title: 'Nouvel avis reçu',
+      message: `Vous avez reçu un avis de ${score}/5 pour le bail "${lease.property.title}".`,
+      actionUrl: 'reviews',
+      entityId: rating.id,
     })
 
     return NextResponse.json({ data: rating }, { status: 201 })

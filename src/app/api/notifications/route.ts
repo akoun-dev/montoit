@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/notifications — List notifications for current user with pagination & filters
 export async function GET(req: NextRequest) {
@@ -80,15 +81,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'userId, title et message sont requis' }, { status: 400 })
       }
 
-      const notification = await db.notification.create({
-        data: {
-          userId: targetUserId,
-          type: 'PAYMENT_ALERT',
-          title,
-          message,
-          entityId: entityId || null,
-          actionUrl: actionUrl || null,
-        },
+      const notification = await notify({
+        userId: targetUserId,
+        type: 'PAYMENT_ALERT',
+        title,
+        message,
+        entityId: entityId || undefined,
+        actionUrl: actionUrl || undefined,
       })
 
       return NextResponse.json({ data: notification }, { status: 201 })

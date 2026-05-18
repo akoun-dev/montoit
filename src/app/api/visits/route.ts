@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/visits — List visit requests for the current user
 export async function GET(req: NextRequest) {
@@ -138,10 +139,42 @@ export async function POST(req: NextRequest) {
             city: true,
             type: true,
             price: true,
+            ownerId: true,
           },
+        },
+        tenant: {
+          select: { id: true, firstName: true, lastName: true },
         },
       },
     })
+
+    // Notify the property owner about the new visit request
+    await notify({
+      userId: visit.property.ownerId,
+      type: 'VISIT_REMINDER',
+      title: 'Nouvelle demande de visite',
+      message: `${visit.tenant.firstName} ${visit.tenant.lastName} souhaite visiter "${visit.property.title}".`,
+      actionUrl: 'visit-requests',
+      entityId: visit.id,
+    })
+
+    // Also notify agency if the property is under a mandat
+    const mandats = await db.mandat.findMany({
+      where: { propertyId, status: 'ACTIVE' },
+      select: { agencyId: true },
+    })
+    for (const mandat of mandats) {
+      if (mandat.agencyId !== visit.property.ownerId) {
+        await notify({
+          userId: mandat.agencyId,
+          type: 'VISIT_REMINDER',
+          title: 'Nouvelle demande de visite',
+          message: `${visit.tenant.firstName} ${visit.tenant.lastName} souhaite visiter "${visit.property.title}".`,
+          actionUrl: 'visits',
+          entityId: visit.id,
+        })
+      }
+    }
 
     return NextResponse.json({ data: visit }, { status: 201 })
   } catch (error) {

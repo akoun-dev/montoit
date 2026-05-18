@@ -1,40 +1,40 @@
-# Task 4: Authentication System & Role-Based Dashboards
+# Task 4 - Locataire Messaging with Searchable Recipient List
 
-**Agent**: Main Agent
-**Date**: 2026-05-15
-**Status**: ✅ Completed
+## Summary
+Implemented locataire messaging feature with searchable propriétaire/agence recipient list.
 
-## What was done
+## Files Created
+1. `/src/app/api/locataire/my-recipients/route.ts` - API endpoint for fetching searchable recipients
+2. `/src/app/api/messages/send/route.ts` - API endpoint for sending messages with auto-conversation creation
+3. `/src/components/messaging/contact-dialog.tsx` - Reusable ContactDialog component
 
-Built the complete authentication system and role-based dashboards for the Mon Toit platform:
+## Files Modified
+1. `/src/components/dashboard/locataire/overview.tsx` - Replaced simple "Contacter" button with ContactDialog
+2. `/src/components/dashboard/locataire/messages.tsx` - Replaced inline "Nouvelle conversation" dialog with ContactDialog
+3. `/worklog.md` - Added task record
 
-### API Routes (11 endpoints)
-- Auth: send-otp, verify-otp, register, me, logout
-- Dashboards: locataire, proprietaire, tc, admin
-- Other: properties (with filters), seed
+## Key Implementation Details
 
-### Auth Store (Zustand)
-- `src/lib/auth-store.ts` - manages user, isAuthenticated, currentView, dashboardSection
-- Cookie-based session with httpOnly montoit-user-id cookie
+### API: GET /api/locataire/my-recipients
+- Auth required (LOCATAIRE role only)
+- Finds propriétaires via active leases (ACTIVE, PENDING_SIGNATURE)
+- Finds agences via active mandats on leased properties
+- Deduplicates recipients
+- Supports `?search=` query parameter for filtering by name/companyName
+- Respects showPhone/showEmail privacy settings
 
-### Auth Forms
-- `src/components/auth/login-form.tsx` - phone input + demo quick-login buttons + seed button
-- `src/components/auth/otp-verify-form.tsx` - OTP code entry (always 123456 for demo)
-- `src/components/auth/register-form.tsx` - name, email, role selection
+### API: POST /api/messages/send
+- Body: `{ recipientId, content, propertyId? }`
+- Creates conversation if doesn't exist (participant1/2 + optional propertyId)
+- Sends notification via `notify()` utility (DB + WebSocket)
+- Returns message and conversation data
 
-### Dashboard Components (25+ components)
-- Shared: dashboard-layout, sidebar, dashboard-header, index orchestrator
-- Locataire: overview, rental-file wizard, my-visits, my-leases, messages
-- Propriétaire: overview, my-properties, add-property, visit-requests, rental-files, my-leases, messages
-- TC: overview, rental-files-queue, owner-validations, agency-validations, sla-monitoring
-- Admin: overview, users, properties-moderation, tc-management, disputes, reports, settings
-
-### Seed Data
-7 demo users (1 admin, 1 TC, 2 propriétaires, 3 locataires) + 6 properties + rental files + visits + leases + conversations + ownership docs + SLAs
-
-### Verification
-- `bun run lint` passes
-- Dev server compiles (GET / 200)
-- All API endpoints tested
-- Seed data created successfully
-- OTP flow verified end-to-end
+### ContactDialog Component
+- Uses shadcn/ui Command/Combobox for searchable dropdown
+- 300ms debounced search
+- Groups results by type (Propriétaires / Agences)
+- Role badges (Propriétaire/Agence) with appropriate colors and icons
+- Textarea for message, Send button with loading state
+- Toast notifications for success/error
+- Props: `trigger`, `onMessageSent`, `defaultRecipientId`
+- Fully responsive on mobile

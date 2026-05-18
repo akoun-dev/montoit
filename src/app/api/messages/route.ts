@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdFromRequest } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/messages — List conversations for current user
 // Query params:
@@ -240,14 +241,13 @@ export async function POST(req: NextRequest) {
       })
 
       if (sender && notifRecipientId) {
-        await db.notification.create({
-          data: {
-            userId: notifRecipientId,
-            type: 'MESSAGE',
-            title: 'Nouveau message',
-            message: `${sender.firstName} ${sender.lastName} vous a envoyé un message`,
-            entityId: convId,
-          },
+        await notify({
+          userId: notifRecipientId,
+          type: 'MESSAGE',
+          title: 'Nouveau message',
+          message: `${sender.firstName} ${sender.lastName} vous a envoyé un message`,
+          actionUrl: 'messages',
+          entityId: convId,
         })
       }
     }

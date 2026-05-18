@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // Helper: authenticate and authorize TC
 async function authorizeTC(request: NextRequest) {
@@ -274,14 +275,13 @@ export async function POST(request: NextRequest) {
       })
 
       if (sender && notifRecipientId) {
-        await db.notification.create({
-          data: {
-            userId: notifRecipientId,
-            type: 'MESSAGE',
-            title: 'Nouveau message',
-            message: `${sender.firstName} ${sender.lastName} vous a envoyé un message`,
-            entityId: convId,
-          },
+        await notify({
+          userId: notifRecipientId,
+          type: 'MESSAGE',
+          title: 'Nouveau message',
+          message: `${sender.firstName} ${sender.lastName} vous a envoyé un message`,
+          actionUrl: 'messaging',
+          entityId: convId,
         })
       }
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/tc/verifications — List properties pending TC verification, or get a single property by ID
 export async function GET(req: NextRequest) {
@@ -198,15 +199,13 @@ export async function PATCH(req: NextRequest) {
       })
 
       // Notify the owner
-      await db.notification.create({
-        data: {
-          type: 'DOSSIER_UPDATE',
-          title: 'Annonce approuvée',
-          message: `Votre annonce "${property.title}" a été approuvée et est maintenant visible.`,
-          entityId: propertyId,
-          actionUrl: `/properties/${propertyId}`,
-          userId: property.ownerId,
-        },
+      await notify({
+        userId: property.ownerId,
+        type: 'DOSSIER_UPDATE',
+        title: 'Annonce approuvée',
+        message: `Votre annonce "${property.title}" a été approuvée et est maintenant visible.`,
+        actionUrl: 'my-properties',
+        entityId: propertyId,
       })
     } else {
       // REJECT → change status to SUSPENDED, store rejection reason
@@ -249,15 +248,13 @@ export async function PATCH(req: NextRequest) {
       })
 
       // Notify the owner
-      await db.notification.create({
-        data: {
-          type: 'DOSSIER_UPDATE',
-          title: 'Annonce rejetée',
-          message: `Votre annonce "${property.title}" a été rejetée. Raison : ${comment || 'Non spécifié'}`,
-          entityId: propertyId,
-          actionUrl: `/properties/${propertyId}`,
-          userId: property.ownerId,
-        },
+      await notify({
+        userId: property.ownerId,
+        type: 'DOSSIER_UPDATE',
+        title: 'Annonce rejetée',
+        message: `Votre annonce "${property.title}" a été rejetée. Raison : ${comment || 'Non spécifié'}`,
+        actionUrl: 'my-properties',
+        entityId: propertyId,
       })
     }
 

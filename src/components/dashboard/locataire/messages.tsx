@@ -1,16 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MessageSquare, Send, ArrowLeft, Plus, Search, X, Building2, User as UserIcon } from 'lucide-react'
+import { MessageSquare, Send, ArrowLeft, Plus, Search } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { ContactDialog } from '@/components/messaging/contact-dialog'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface Participant {
@@ -55,23 +56,6 @@ interface Conversation {
   unreadCount: number
 }
 
-interface ContactInfo {
-  id: string
-  firstName: string
-  lastName: string
-  avatarUrl: string | null
-  phone: string | null
-  email: string | null
-  role: string
-  properties?: Array<{ id: string; title: string; city: string; leaseId?: string }>
-}
-
-interface ContactsResponse {
-  owners?: ContactInfo[]
-  agences?: ContactInfo[]
-  tenants?: ContactInfo[]
-}
-
 export function Messages() {
   const { user, isAuthenticated } = useAuthStore()
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -80,11 +64,6 @@ export function Messages() {
   const [messageText, setMessageText] = useState('')
   const [sending, setSending] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [newConvOpen, setNewConvOpen] = useState(false)
-  const [newRecipientId, setNewRecipientId] = useState('')
-  const [contactSearch, setContactSearch] = useState('')
-  const [contacts, setContacts] = useState<ContactInfo[]>([])
-  const [loadingContacts, setLoadingContacts] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const fetchConversations = useCallback(async () => {
@@ -107,32 +86,9 @@ export function Messages() {
     }
   }, [isAuthenticated])
 
-  // Fetch contacts (propriétaires/agences for locataire, tenants for propriétaire/agence)
-  const fetchContacts = useCallback(async () => {
-    if (!isAuthenticated) return
-    setLoadingContacts(true)
-    try {
-      const data = await authFetch<ContactsResponse>('/api/messages/contacts')
-      const allContacts: ContactInfo[] = [
-        ...(data.owners || []),
-        ...(data.agences || []),
-        ...(data.tenants || []),
-      ]
-      // Deduplicate by id
-      const uniqueMap = new Map<string, ContactInfo>()
-      allContacts.forEach((c) => uniqueMap.set(c.id, c))
-      setContacts(Array.from(uniqueMap.values()))
-    } catch {
-      setContacts([])
-    } finally {
-      setLoadingContacts(false)
-    }
-  }, [isAuthenticated])
-
   useEffect(() => {
     fetchConversations()
-    fetchContacts()
-  }, [fetchConversations, fetchContacts])
+  }, [fetchConversations])
 
   // Auto-scroll to bottom when selecting a conversation
   useEffect(() => {
@@ -177,15 +133,6 @@ export function Messages() {
     const propertyTitle = conv.property?.title?.toLowerCase() || ''
     const query = searchQuery.toLowerCase()
     return name.includes(query) || propertyTitle.includes(query)
-  })
-
-  // Filter contacts by search
-  const filteredContacts = contacts.filter((c) => {
-    if (!contactSearch.trim()) return true
-    const name = `${c.firstName} ${c.lastName}`.toLowerCase()
-    const query = contactSearch.toLowerCase()
-    const propertyTitles = c.properties?.map((p) => p.title.toLowerCase()).join(' ') || ''
-    return name.includes(query) || propertyTitles.includes(query)
   })
 
   const handleSendMessage = async () => {
@@ -248,45 +195,6 @@ export function Messages() {
     }
   }
 
-  const handleStartConversation = async () => {
-    if (!newRecipientId || !messageText.trim() || sending) return
-
-    setSending(true)
-    try {
-      const data = await authFetch<{ message: Message; conversation: Conversation }>('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientId: newRecipientId,
-          content: messageText.trim(),
-        }),
-      })
-
-      setConversations((prev) => {
-        const exists = prev.find((c) => c.id === data.conversation.id)
-        if (exists) return prev
-        return [
-          {
-            ...data.conversation,
-            messages: [data.message],
-            unreadCount: 0,
-          },
-          ...prev,
-        ]
-      })
-
-      setSelectedId(data.conversation.id)
-      setMessageText('')
-      setNewConvOpen(false)
-      setNewRecipientId('')
-      setContactSearch('')
-    } catch (err) {
-      console.error('Start conversation error:', err)
-    } finally {
-      setSending(false)
-    }
-  }
-
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr)
     const now = new Date()
@@ -301,17 +209,6 @@ export function Messages() {
     }
     return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
   }
-
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'PROPRIETAIRE': return { label: 'Propriétaire', cls: 'bg-emerald-100 text-emerald-700' }
-      case 'AGENCE': return { label: 'Agence', cls: 'bg-orange-100 text-orange-700' }
-      case 'LOCATAIRE': return { label: 'Locataire', cls: 'bg-amber-100 text-amber-700' }
-      default: return { label: role, cls: 'bg-neutral-100 text-neutral-600' }
-    }
-  }
-
-  const selectedContact = contacts.find((c) => c.id === newRecipientId)
 
   if (loading) {
     return (
@@ -329,143 +226,19 @@ export function Messages() {
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">Messages</h1>
           <p className="text-muted-foreground mt-1">Vos conversations</p>
         </div>
-        <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
-          <DialogTrigger asChild>
+        <ContactDialog
+          onMessageSent={(convId) => {
+            // Refresh conversations list and select the new/updated conversation
+            fetchConversations()
+            setSelectedId(convId)
+          }}
+          trigger={
             <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2">
               <Plus className="size-4" />
               Nouvelle conversation
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Nouvelle conversation</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-2">
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">Destinataire</label>
-
-                {/* Selected recipient badge */}
-                {selectedContact ? (
-                  <div className="flex items-center gap-2 p-2.5 bg-brand-50 rounded-lg border border-brand-200">
-                    <Avatar className="size-8">
-                      {selectedContact.avatarUrl ? (
-                        <AvatarImage src={selectedContact.avatarUrl} alt={`${selectedContact.firstName} ${selectedContact.lastName}`} />
-                      ) : null}
-                      <AvatarFallback className="bg-brand-100 text-brand-700 text-xs">
-                        {selectedContact.firstName[0]}{selectedContact.lastName[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{selectedContact.firstName} {selectedContact.lastName}</p>
-                      <Badge className={`text-[10px] px-1.5 py-0 ${getRoleBadge(selectedContact.role).cls}`}>
-                        {getRoleBadge(selectedContact.role).label}
-                      </Badge>
-                    </div>
-                    <button onClick={() => { setNewRecipientId('') }} className="shrink-0">
-                      <X className="size-4 text-muted-foreground hover:text-foreground" />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    {/* Search through contacts */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Rechercher votre propriétaire ou agence..."
-                        value={contactSearch}
-                        onChange={(e) => setContactSearch(e.target.value)}
-                        className="pl-9"
-                      />
-                    </div>
-
-                    {/* Contacts list */}
-                    <div className="mt-2 max-h-52 overflow-y-auto border rounded-lg">
-                      {loadingContacts ? (
-                        <div className="p-4 text-center">
-                          <span className="size-4 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin inline-block" />
-                          <p className="text-xs text-muted-foreground mt-1">Chargement...</p>
-                        </div>
-                      ) : filteredContacts.length === 0 ? (
-                        <div className="p-4 text-center">
-                          <MessageSquare className="size-6 text-neutral-300 mx-auto mb-1" />
-                          <p className="text-xs text-muted-foreground">
-                            {contacts.length === 0
-                              ? 'Aucun propriétaire ou agence trouvé. Vous devez avoir un bail actif.'
-                              : 'Aucun résultat'}
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="divide-y">
-                          {filteredContacts.map((contact) => {
-                            const roleBadge = getRoleBadge(contact.role)
-                            return (
-                              <button
-                                key={contact.id}
-                                onClick={() => {
-                                  setNewRecipientId(contact.id)
-                                  setContactSearch('')
-                                }}
-                                className="w-full flex items-center gap-3 p-3 hover:bg-accent transition-colors text-left"
-                              >
-                                <Avatar className="size-9 shrink-0">
-                                  {contact.avatarUrl ? (
-                                    <AvatarImage src={contact.avatarUrl} alt={`${contact.firstName} ${contact.lastName}`} />
-                                  ) : null}
-                                  <AvatarFallback className="bg-brand-100 text-brand-700 text-xs">
-                                    {contact.firstName[0]}{contact.lastName[0]}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-sm font-medium truncate">{contact.firstName} {contact.lastName}</p>
-                                    <Badge className={`text-[9px] px-1.5 py-0 shrink-0 ${roleBadge.cls}`}>
-                                      {contact.role === 'PROPRIETAIRE' ? <Building2 className="size-2.5 mr-0.5" /> : <UserIcon className="size-2.5 mr-0.5" />}
-                                      {roleBadge.label}
-                                    </Badge>
-                                  </div>
-                                  {contact.properties && contact.properties.length > 0 && (
-                                    <p className="text-xs text-muted-foreground truncate mt-0.5">
-                                      {contact.properties[0].title}
-                                      {contact.properties.length > 1 && ` (+${contact.properties.length - 1})`}
-                                    </p>
-                                  )}
-                                </div>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">Message</label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Écrivez votre message..."
-                    value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault()
-                        handleStartConversation()
-                      }
-                    }}
-                    className="flex-1"
-                  />
-                  <Button
-                    onClick={handleStartConversation}
-                    disabled={!newRecipientId || !messageText.trim() || sending}
-                    className="bg-brand-500 hover:bg-brand-600 text-white shrink-0"
-                  >
-                    <Send className="size-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+          }
+        />
       </div>
 
       <Card className="border-border overflow-hidden">

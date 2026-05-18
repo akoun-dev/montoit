@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // Helper: authenticate and authorize TC
 async function authorizeTC(request: NextRequest) {
@@ -198,14 +199,13 @@ export async function PATCH(request: NextRequest) {
       })
 
       // Create notification for user
-      await db.notification.create({
-        data: {
-          userId: cert.userId,
-          type: 'VERIFICATION_RESULT',
-          title: 'Certification accordée',
-          message: `Votre certification ${cert.type === 'USER_IDENTITY' ? "d'identité" : cert.type === 'PROPERTY' ? 'de bien immobilier' : "d'agence"} a été accordée.`,
-          entityId: id,
-        },
+      await notify({
+        userId: cert.userId,
+        type: 'DOSSIER_UPDATE',
+        title: 'Certification accordée',
+        message: `Votre certification ${cert.type === 'USER_IDENTITY' ? "d'identité" : cert.type === 'PROPERTY' ? 'de bien immobilier' : "d'agence"} a été accordée.`,
+        actionUrl: 'certifications',
+        entityId: id,
       })
 
       return NextResponse.json(updated)
@@ -242,14 +242,13 @@ export async function PATCH(request: NextRequest) {
       })
 
       // Create notification for user
-      await db.notification.create({
-        data: {
-          userId: cert.userId,
-          type: 'VERIFICATION_RESULT',
-          title: 'Certification révoquée',
-          message: `Votre certification ${cert.type === 'USER_IDENTITY' ? "d'identité" : cert.type === 'PROPERTY' ? 'de bien immobilier' : "d'agence"} a été révoquée.${revocationReason ? ` Raison : ${revocationReason}` : ''}`,
-          entityId: id,
-        },
+      await notify({
+        userId: cert.userId,
+        type: 'DOSSIER_UPDATE',
+        title: 'Certification révoquée',
+        message: `Votre certification ${cert.type === 'USER_IDENTITY' ? "d'identité" : cert.type === 'PROPERTY' ? 'de bien immobilier' : "d'agence"} a été révoquée.${revocationReason ? ` Raison : ${revocationReason}` : ''}`,
+        actionUrl: 'certifications',
+        entityId: id,
       })
 
       return NextResponse.json(updated)

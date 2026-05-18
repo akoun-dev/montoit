@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // Helper: authenticate and authorize TC
 async function authorizeTC(request: NextRequest) {
@@ -162,16 +163,15 @@ export async function PATCH(request: NextRequest) {
 
     // Create notification for user
     const isVerified = action.startsWith('VERIFY')
-    await db.notification.create({
-      data: {
-        userId,
-        type: 'VERIFICATION_RESULT',
-        title: `Vérification ${typeLabel} ${isVerified ? 'confirmée' : 'rejetée'}`,
-        message: isVerified
-          ? `Votre vérification ${typeLabel} a été ${actionLabel}.`
-          : `Votre vérification ${typeLabel} a été rejetée.${comment ? ` Commentaire : ${comment}` : ''}`,
-        entityId: userId,
-      },
+    await notify({
+      userId,
+      type: 'DOSSIER_UPDATE',
+      title: `Vérification ${typeLabel} ${isVerified ? 'confirmée' : 'rejetée'}`,
+      message: isVerified
+        ? `Votre vérification ${typeLabel} a été ${actionLabel}.`
+        : `Votre vérification ${typeLabel} a été rejetée.${comment ? ` Commentaire : ${comment}` : ''}`,
+      actionUrl: 'trust-score',
+      entityId: userId,
     })
 
     return NextResponse.json(updated)
