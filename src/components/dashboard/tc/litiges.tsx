@@ -523,12 +523,12 @@ export function LitigesManagement() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Gestion des litiges</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Gestion des litiges</h1>
         <p className="text-muted-foreground mt-1">Traitez et résolvez les litiges signalés</p>
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <Card className="border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -536,7 +536,7 @@ export function LitigesManagement() {
                 <AlertTriangle className="size-5 text-red-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-red-600">{openCount}</p>
+                <p className="text-xl sm:text-2xl font-bold text-red-600">{openCount}</p>
                 <p className="text-xs text-muted-foreground">Ouverts</p>
               </div>
             </div>
@@ -549,7 +549,7 @@ export function LitigesManagement() {
                 <Clock className="size-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-amber-600">{inReviewCount}</p>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600">{inReviewCount}</p>
                 <p className="text-xs text-muted-foreground">En cours</p>
               </div>
             </div>
@@ -562,7 +562,7 @@ export function LitigesManagement() {
                 <CheckCircle2 className="size-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-green-600">{resolvedCount}</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">{resolvedCount}</p>
                 <p className="text-xs text-muted-foreground">Résolus</p>
               </div>
             </div>
@@ -575,7 +575,7 @@ export function LitigesManagement() {
                 <ArrowUpRight className="size-5 text-rose-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-rose-600">{escalatedCount}</p>
+                <p className="text-xl sm:text-2xl font-bold text-rose-600">{escalatedCount}</p>
                 <p className="text-xs text-muted-foreground">Escaladés</p>
               </div>
             </div>
@@ -588,7 +588,7 @@ export function LitigesManagement() {
                 <FileText className="size-5 text-brand-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{totalCount}</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{totalCount}</p>
                 <p className="text-xs text-muted-foreground">Total</p>
               </div>
             </div>

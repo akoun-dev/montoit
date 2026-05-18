@@ -154,7 +154,7 @@ export function Notifications() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Mes notifications</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes notifications</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos notifications. Veuillez réessayer.</p>
@@ -169,7 +169,7 @@ export function Notifications() {
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
             Mes notifications
             {unreadCount > 0 && (
               <Badge className="ml-2 bg-brand-500 text-white border-0 text-xs px-2 py-0.5">

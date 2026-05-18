@@ -134,7 +134,7 @@ export function TenantsList({ onDetail }: TenantsListProps) {
     return (
       <div className="space-y-4">
         <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />)}
         </div>
         {[1, 2, 3].map(i => <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />)}
@@ -145,7 +145,7 @@ export function TenantsList({ onDetail }: TenantsListProps) {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Mes locataires</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes locataires</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">{error}</p>
@@ -166,12 +166,12 @@ export function TenantsList({ onDetail }: TenantsListProps) {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Mes locataires</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes locataires</h1>
         <p className="text-muted-foreground mt-1">Gérez vos locataires et suivez leurs paiements</p>
       </motion.div>
 
       {/* Stats */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {statsCards.map(stat => {
           const Icon = stat.icon
           return (
@@ -182,7 +182,7 @@ export function TenantsList({ onDetail }: TenantsListProps) {
                     <Icon className="size-5" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">{stat.value}</p>
                     <p className="text-xs text-muted-foreground">{stat.label}</p>
                   </div>
                 </div>

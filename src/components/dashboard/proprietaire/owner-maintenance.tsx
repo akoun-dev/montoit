@@ -413,7 +413,7 @@ export function OwnerMaintenance() {
           </div>
           <div className="h-10 w-40 bg-muted animate-pulse rounded-lg" />
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />
           ))}
@@ -429,7 +429,7 @@ export function OwnerMaintenance() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Gestion Maintenance</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Gestion Maintenance</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">
@@ -452,15 +452,15 @@ export function OwnerMaintenance() {
       {/* Header */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Gestion Maintenance</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Gestion Maintenance</h1>
           <p className="text-muted-foreground mt-1">
             Suivi et gestion des demandes d&apos;intervention
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Filter className="size-4 text-muted-foreground" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px] h-9 text-sm">
+            <SelectTrigger className="w-full sm:w-[160px] h-9 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -476,22 +476,22 @@ export function OwnerMaintenance() {
 
       {/* Stats Cards */}
       <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="border-border">
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-amber-600">{pendingCount}</p>
+              <p className="text-xl sm:text-2xl font-bold text-amber-600">{pendingCount}</p>
               <p className="text-xs text-muted-foreground mt-1">En attente</p>
             </CardContent>
           </Card>
           <Card className="border-border">
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-brand-600">{inProgressCount}</p>
+              <p className="text-xl sm:text-2xl font-bold text-brand-600">{inProgressCount}</p>
               <p className="text-xs text-muted-foreground mt-1">En cours</p>
             </CardContent>
           </Card>
           <Card className="border-border">
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-emerald-600">{resolvedCount}</p>
+              <p className="text-xl sm:text-2xl font-bold text-emerald-600">{resolvedCount}</p>
               <p className="text-xs text-muted-foreground mt-1">Résolues</p>
             </CardContent>
           </Card>

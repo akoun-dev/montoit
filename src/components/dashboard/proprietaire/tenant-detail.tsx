@@ -239,7 +239,7 @@ export function TenantDetail({ tenantId, onBack }: TenantDetailProps) {
       <div className="space-y-4">
         <div className="h-8 w-48 bg-muted animate-pulse rounded" />
         <div className="h-32 bg-muted animate-pulse rounded-xl" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map(i => <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />)}
         </div>
       </div>
@@ -378,7 +378,7 @@ export function TenantDetail({ tenantId, onBack }: TenantDetailProps) {
       </Card>
 
       {/* Payment Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <Card className="border-border">
           <CardContent className="p-4 text-center">
             <div className={`inline-flex size-12 items-center justify-center rounded-full ${scoreBg} mb-2`}>

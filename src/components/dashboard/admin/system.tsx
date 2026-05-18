@@ -75,7 +75,7 @@ export function AdminSystem() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Système</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Système</h1>
         <p className="text-muted-foreground mt-1">Métriques et état du système</p>
       </div>
 
@@ -96,7 +96,7 @@ export function AdminSystem() {
                     <Icon className="size-5" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">{stat.value}</p>
                     <p className="text-xs text-muted-foreground">{stat.label}{stat.unit ? ` (${stat.unit})` : ''}</p>
                   </div>
                 </div>
@@ -115,7 +115,7 @@ export function AdminSystem() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { key: 'Base de données', value: systemHealth.database, icon: Database },
               { key: 'API', value: systemHealth.api, icon: Wifi },
@@ -185,7 +185,7 @@ export function AdminSystem() {
                 <p className="text-sm text-muted-foreground py-4 text-center">Aucune connexion récente</p>
               ) : (
                 recentConnections.map((log) => (
-                  <div key={log.id} className="flex items-center justify-between p-2 rounded border border-border text-sm">
+                  <div key={log.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded border border-border text-sm">
                     <div>
                       <p className="font-medium text-foreground">{log.user.firstName} {log.user.lastName}</p>
                       <p className="text-xs text-muted-foreground">{log.ipAddress || '—'} · {log.device || '—'}</p>
@@ -213,7 +213,7 @@ export function AdminSystem() {
                 <p className="text-sm text-muted-foreground py-4 text-center">Aucune tentative échouée</p>
               ) : (
                 recentFailedLogins.map((log) => (
-                  <div key={log.id} className="flex items-center justify-between p-2 rounded border border-red-100 bg-red-50/50 text-sm">
+                  <div key={log.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded border border-red-100 bg-red-50/50 text-sm">
                     <div>
                       <p className="font-medium text-foreground">{log.user.firstName} {log.user.lastName}</p>
                       <p className="text-xs text-muted-foreground">{log.user.email}</p>
@@ -244,7 +244,7 @@ export function AdminSystem() {
               { label: 'Disque', value: 32, color: 'bg-teal-500' },
             ].map((resource) => (
               <div key={resource.label} className="p-4 rounded-lg border border-border">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
                   <span className="text-sm font-medium text-foreground">{resource.label}</span>
                   <span className="text-sm font-bold text-foreground">{resource.value}%</span>
                 </div>

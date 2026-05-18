@@ -67,8 +67,8 @@ export function Candidatures() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <ClipboardCheck className="size-6 text-[#FF6C2F]" /> Candidatures
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+          <ClipboardCheck className="size-5 sm:size-6 text-[#FF6C2F]" /> Candidatures
         </h1>
         <p className="text-muted-foreground mt-1">{rentalFiles.length} candidature{rentalFiles.length > 1 ? 's' : ''} · Temps moyen : {avgProcessingTime}</p>
       </motion.div>

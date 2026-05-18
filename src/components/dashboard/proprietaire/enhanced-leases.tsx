@@ -405,7 +405,7 @@ export function EnhancedLeases() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Mes baux</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes baux</h1>
         <p className="text-muted-foreground mt-1">Gestion des contrats de location</p>
       </div>
 
@@ -778,7 +778,7 @@ export function EnhancedLeases() {
                   <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                     <h3 className="text-lg font-semibold mb-4">Conditions du bail</h3>
                     <div className="space-y-4 max-w-lg">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="monthlyRent">Loyer mensuel (FCFA) *</Label>
                           <Input
@@ -810,7 +810,7 @@ export function EnhancedLeases() {
                           placeholder="300000"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="startDate">Date de début *</Label>
                           <Input
@@ -1236,7 +1236,7 @@ export function EnhancedLeases() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="modRent">Loyer mensuel (FCFA)</Label>
                 <Input
@@ -1265,7 +1265,7 @@ export function EnhancedLeases() {
                 onChange={(e) => setModifyForm((p) => ({ ...p, deposit: e.target.value }))}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="modStart">Date de début</Label>
                 <Input

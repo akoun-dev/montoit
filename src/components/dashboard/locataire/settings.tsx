@@ -433,7 +433,7 @@ function KycVerificationModal({
   if (profile?.neofaceVerified) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ScanFace className="size-5 text-brand-500" />
@@ -465,7 +465,7 @@ function KycVerificationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ScanFace className="size-5 text-brand-500" />
@@ -1131,7 +1131,7 @@ export function SettingsSection() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Paramètres</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Paramètres</h1>
         <p className="text-muted-foreground mt-1">Gérez votre compte et vos préférences</p>
       </motion.div>
 
@@ -1324,7 +1324,7 @@ export function SettingsSection() {
 
             {/* Role Switch Confirmation Modal */}
             <Dialog open={roleSwitchModalOpen} onOpenChange={setRoleSwitchModalOpen}>
-              <DialogContent className="max-w-md">
+              <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <ArrowLeftRight className="size-5 text-brand-500" />
@@ -2286,7 +2286,7 @@ export function SettingsSection() {
 
             {/* Password Change Modal */}
             <Dialog open={passwordModalOpen} onOpenChange={setPasswordModalOpen}>
-              <DialogContent className="max-w-md">
+              <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <Shield className="size-5 text-brand-500" />

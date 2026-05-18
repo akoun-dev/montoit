@@ -232,7 +232,7 @@ export function DashboardHeader() {
 
       {/* Role Switch Confirmation Modal */}
       <Dialog open={roleSwitchModalOpen} onOpenChange={setRoleSwitchModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ArrowLeftRight className="size-5 text-brand-500" />

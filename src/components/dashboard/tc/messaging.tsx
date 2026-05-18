@@ -460,7 +460,7 @@ export function TcMessaging() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Messagerie</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Messagerie</h1>
           <p className="text-muted-foreground mt-1">Communiquez avec les utilisateurs de la plateforme</p>
         </div>
         <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>

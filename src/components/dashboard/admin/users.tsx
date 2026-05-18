@@ -137,15 +137,15 @@ export function AdminUsers() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Gestion des utilisateurs</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Gestion des utilisateurs</h1>
           <p className="text-muted-foreground mt-1">{stats.total} utilisateur(s) au total</p>
         </div>
         <div className="flex gap-2 items-center">
-          <div className="w-56">
+          <div className="w-full sm:w-56">
             <Input placeholder="Rechercher..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-9" />
           </div>
           <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-40 h-9">
+            <SelectTrigger className="w-full sm:w-40 h-9">
               <SelectValue placeholder="Filtrer par rôle" />
             </SelectTrigger>
             <SelectContent>
@@ -164,25 +164,25 @@ export function AdminUsers() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card className="border-border">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-foreground">{stats.total}</p>
+            <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.total}</p>
             <p className="text-xs text-muted-foreground">Total</p>
           </CardContent>
         </Card>
         <Card className="border-border">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+            <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.active}</p>
             <p className="text-xs text-muted-foreground">Actifs</p>
           </CardContent>
         </Card>
         <Card className="border-border">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-red-600">{stats.inactive}</p>
+            <p className="text-xl sm:text-2xl font-bold text-red-600">{stats.inactive}</p>
             <p className="text-xs text-muted-foreground">Inactifs</p>
           </CardContent>
         </Card>
         <Card className="border-border">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-amber-600">{Object.keys(stats.byRole).length}</p>
+            <p className="text-xl sm:text-2xl font-bold text-amber-600">{Object.keys(stats.byRole).length}</p>
             <p className="text-xs text-muted-foreground">Rôles</p>
           </CardContent>
         </Card>

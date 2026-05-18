@@ -64,10 +64,10 @@ export function AgenceAnalytics() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <BarChart3 className="size-6 text-[#FF6C2F]" /> Analytics
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <BarChart3 className="size-5 sm:size-6 text-[#FF6C2F]" /> Analytics
           </h1>
           <p className="text-muted-foreground mt-1">Performance et tendances de votre agence</p>
         </div>
@@ -152,7 +152,7 @@ export function AgenceAnalytics() {
       <motion.div variants={itemVariants}>
         <Card className="border-border">
           <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Comparaison des agents</CardTitle></CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

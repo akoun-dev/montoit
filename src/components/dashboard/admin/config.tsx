@@ -32,7 +32,7 @@ export function AdminConfig() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Configuration</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Configuration</h1>
         <p className="text-muted-foreground mt-1">Paramètres de la plateforme Mon Toit</p>
       </div>
 
@@ -96,7 +96,7 @@ export function AdminConfig() {
                 { key: 'fraudDetection' as const, label: 'Détection de fraude', desc: 'Système automatique de détection' },
                 { key: 'messaging' as const, label: 'Messagerie', desc: 'Système de messagerie entre utilisateurs' },
               ].map((feature) => (
-                <div key={feature.key} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                <div key={feature.key} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                   <div>
                     <p className="text-sm font-medium text-foreground">{feature.label}</p>
                     <p className="text-xs text-muted-foreground">{feature.desc}</p>
@@ -139,7 +139,7 @@ export function AdminConfig() {
                   <Input type="password" placeholder="••••••••" />
                 </div>
               </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                 <div>
                   <p className="text-sm font-medium text-foreground">Chiffrement TLS</p>
                   <p className="text-xs text-muted-foreground">Utiliser TLS pour les emails</p>
@@ -172,7 +172,7 @@ export function AdminConfig() {
                 { label: 'Paiements en retard', desc: 'Notification des loyers impayés' },
                 { label: 'Erreurs système', desc: 'Alertes en cas d\'erreur technique' },
               ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                <div key={item.label} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                   <div>
                     <p className="text-sm font-medium text-foreground">{item.label}</p>
                     <p className="text-xs text-muted-foreground">{item.desc}</p>
@@ -204,7 +204,7 @@ export function AdminConfig() {
                 { label: 'Rétention des données', desc: 'Suppression automatique après 36 mois' },
                 { label: 'Journal des accès', desc: 'Enregistrer tous les accès aux données personnelles' },
               ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                <div key={item.label} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                   <div>
                     <p className="text-sm font-medium text-foreground">{item.label}</p>
                     <p className="text-xs text-muted-foreground">{item.desc}</p>
@@ -246,7 +246,7 @@ export function AdminConfig() {
                   'Nouveau signalement',
                   'Rappel de paiement',
                 ].map((template) => (
-                  <div key={template} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                  <div key={template} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                     <span className="text-sm text-foreground">{template}</span>
                     <Button variant="outline" size="sm" onClick={() => toast.info('Éditeur de template à venir')}>Éditer</Button>
                   </div>

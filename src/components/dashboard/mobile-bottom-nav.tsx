@@ -1,6 +1,6 @@
 'use client'
 
-import { LayoutDashboard, Search, UserCheck, Eye, CreditCard, Building2, Users, MessageSquare, ClipboardCheck, MapPin, Scale } from 'lucide-react'
+import { LayoutDashboard, Search, UserCheck, Eye, CreditCard, Building2, Users, MessageSquare, ClipboardCheck, MapPin, Scale, AlertTriangle, Activity, Settings } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 
@@ -26,12 +26,28 @@ const ownerItems: BottomNavItem[] = [
   { id: 'messages', label: 'Messages', icon: MessageSquare },
 ]
 
+const agenceItems: BottomNavItem[] = [
+  { id: 'overview', label: 'Espace', icon: LayoutDashboard },
+  { id: 'portfolio', label: 'Biens', icon: Building2 },
+  { id: 'candidatures', label: 'Candidats', icon: ClipboardCheck },
+  { id: 'visits', label: 'Visites', icon: Eye },
+  { id: 'messages', label: 'Messages', icon: MessageSquare },
+]
+
 const tcItems: BottomNavItem[] = [
   { id: 'overview', label: 'Espace', icon: LayoutDashboard },
   { id: 'rental-files-queue', label: 'Dossiers', icon: ClipboardCheck },
   { id: 'messaging', label: 'Messages', icon: MessageSquare },
   { id: 'missions', label: 'Missions', icon: MapPin },
   { id: 'litiges', label: 'Litiges', icon: Scale },
+]
+
+const adminItems: BottomNavItem[] = [
+  { id: 'overview', label: 'Espace', icon: LayoutDashboard },
+  { id: 'users', label: 'Utilisateurs', icon: Users },
+  { id: 'signalements', label: 'Alertes', icon: AlertTriangle },
+  { id: 'system', label: 'Système', icon: Activity },
+  { id: 'settings', label: 'Config', icon: Settings },
 ]
 
 // Map detail view sections to their parent tab
@@ -46,6 +62,18 @@ const detailToParent: Record<string, string> = {
   'add-property': 'my-properties',
   'visit-request-detail': 'visit-requests',
   'tenant-detail': 'my-tenants',
+  // Agence
+  'mandats': 'portfolio',
+  'contracts': 'portfolio',
+  'team': 'overview',
+  'finances': 'overview',
+  'analytics': 'overview',
+  'communication': 'messages',
+  'marketing': 'messages',
+  'client-files': 'candidatures',
+  'settings': 'overview',
+  'security': 'overview',
+  'notifications': 'overview',
   // TC
   'rental-file-detail': 'rental-files-queue',
   'property-verifications': 'rental-files-queue',
@@ -54,17 +82,35 @@ const detailToParent: Record<string, string> = {
   'inventory-reports': 'missions',
   'owner-validations': 'rental-files-queue',
   'agency-validations': 'rental-files-queue',
+  'oneci-verification': 'rental-files-queue',
+  'certifications': 'overview',
+  'sla-monitoring': 'litiges',
+  'fraud-alerts': 'litiges',
+  'documentation': 'missions',
+  'agents': 'missions',
+  'history': 'overview',
+  // Admin
+  'moderation': 'users',
+  'trust-agents': 'users',
+  'disputes': 'signalements',
+  'reports': 'system',
+  'backups': 'system',
+  'config': 'settings',
 }
 
 export function MobileBottomNav() {
   const { dashboardSection, setDashboardSection, user } = useAuthStore()
 
   const effectiveRole = user?.activeRole || user?.role
-  const navItems = effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE'
+  const navItems = effectiveRole === 'PROPRIETAIRE'
     ? ownerItems
-    : effectiveRole === 'TIERS_CONFIANCE'
-      ? tcItems
-      : tenantItems
+    : effectiveRole === 'AGENCE'
+      ? agenceItems
+      : effectiveRole === 'TIERS_CONFIANCE'
+        ? tcItems
+        : effectiveRole === 'ADMIN'
+          ? adminItems
+          : tenantItems
 
   const handleNav = (id: string) => {
     setDashboardSection(id)
@@ -74,7 +120,7 @@ export function MobileBottomNav() {
   const activeTab = detailToParent[dashboardSection] || dashboardSection
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border safe-area-bottom">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center justify-around h-14">
         {navItems.map((item) => {
           const Icon = item.icon

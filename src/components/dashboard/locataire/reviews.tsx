@@ -240,7 +240,7 @@ export function Reviews() {
           <div className="h-8 w-32 bg-muted animate-pulse rounded" />
           <div className="h-4 w-56 bg-muted animate-pulse rounded mt-2" />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[1, 2].map((i) => (
             <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
           ))}
@@ -256,7 +256,7 @@ export function Reviews() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Mes avis</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes avis</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos avis. Veuillez réessayer.</p>
@@ -271,7 +271,7 @@ export function Reviews() {
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Mes avis</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes avis</h1>
           <p className="text-muted-foreground mt-1">Vos évaluations et commentaires</p>
         </div>
         <Button
@@ -286,7 +286,7 @@ export function Reviews() {
 
       {/* Stats Cards */}
       <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card className="border-border">
             <CardContent className="p-4 text-center">
               <p className="text-3xl font-bold text-foreground">{stats?.givenCount ?? 0}</p>
@@ -298,7 +298,7 @@ export function Reviews() {
               <div className="flex justify-center mb-1">
                 <StarsDisplay score={Math.round(stats?.averageScoreReceived ?? 0)} size="lg" />
               </div>
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-xl sm:text-2xl font-bold text-foreground">
                 {stats?.averageScoreReceived ? stats.averageScoreReceived.toFixed(1) : '—'}
               </p>
               <p className="text-xs text-muted-foreground mt-1">

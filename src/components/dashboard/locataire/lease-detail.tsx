@@ -517,7 +517,7 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
                 Un code OTP sera généré pour tracer votre signature de manière sécurisée.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               <div className="p-2 rounded bg-muted">
                 <span className="text-muted-foreground">Loyer</span>
                 <p className="font-semibold text-foreground">{formatCurrency(lease.monthlyRent)}</p>

@@ -270,7 +270,7 @@ export function SearchProperties() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Chercher un bien</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Chercher un bien</h1>
         <p className="text-muted-foreground mt-1">Trouvez votre futur logement</p>
       </motion.div>
 
@@ -299,7 +299,7 @@ export function SearchProperties() {
                 }}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Select value={propertyType} onValueChange={setPropertyType}>
                 <SelectTrigger className="h-10 w-full">
                   <SelectValue placeholder="Type de bien" />
@@ -319,7 +319,7 @@ export function SearchProperties() {
                 onChange={(e) => setCity(e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
                 placeholder="Budget min"
                 className="h-10"

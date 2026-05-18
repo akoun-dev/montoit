@@ -201,7 +201,7 @@ export function ProprietaireOverview() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos données. Veuillez réessayer.</p>
@@ -242,7 +242,7 @@ export function ProprietaireOverview() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
         <p className="text-muted-foreground mt-1">Voici un aperçu de votre espace propriétaire</p>
       </motion.div>
 
@@ -310,7 +310,7 @@ export function ProprietaireOverview() {
         </motion.div>
       )}
 
-      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
@@ -321,7 +321,7 @@ export function ProprietaireOverview() {
                     <Icon className="size-5" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">{stat.value}</p>
                     <p className="text-xs text-muted-foreground">{stat.label}</p>
                   </div>
                 </div>
@@ -337,7 +337,7 @@ export function ProprietaireOverview() {
           <Card className="border-border overflow-hidden">
             {/* Header gradient */}
             <div className="bg-gradient-to-r from-brand-500 to-brand-600 p-4 sm:p-5">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Home className="size-5 text-white" />
                   <h2 className="text-base font-semibold text-white">Mes locations en cours</h2>
@@ -386,7 +386,7 @@ export function ProprietaireOverview() {
                   </div>
 
                   {/* Bottom: Key metrics in a row */}
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="p-2 rounded-lg bg-muted/60">
                       <p className="text-[10px] text-muted-foreground mb-0.5">Loyer</p>
                       <p className="text-xs font-bold text-foreground">{lease.monthlyRent.toLocaleString('fr-FR')} <span className="text-[9px] font-normal text-muted-foreground">FCFA</span></p>
@@ -439,7 +439,7 @@ export function ProprietaireOverview() {
                 <p className="text-sm text-muted-foreground py-4 text-center">Aucun bien pour le moment</p>
               ) : (
                 data.properties.slice(0, 5).map((p) => (
-                  <div key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent">
+                  <div key={p.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-lg border border-border hover:bg-accent gap-2">
                     <div className="flex items-center gap-3">
                       {p.images?.[0] ? (
                         <img src={p.images[0].url} alt="" className="size-10 rounded-lg object-cover" />
@@ -474,7 +474,7 @@ export function ProprietaireOverview() {
                 <p className="text-sm text-muted-foreground py-4 text-center">Aucune demande</p>
               ) : (
                 data.visitRequests.slice(0, 5).map((vr) => (
-                  <div key={vr.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent">
+                  <div key={vr.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-lg border border-border hover:bg-accent gap-2">
                     <div>
                       <p className="text-sm font-medium text-foreground">{vr.tenant.firstName} {vr.tenant.lastName}</p>
                       <p className="text-xs text-muted-foreground">{vr.property.title} · {new Date(vr.requestedDate).toLocaleDateString('fr-FR')}</p>

@@ -283,13 +283,13 @@ export function DocumentationCenter() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Centre de documentation</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Centre de documentation</h1>
         <p className="text-muted-foreground mt-1">Guides, formations et ressources pour les Tiers de Confiance</p>
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue="guides" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 h-auto gap-1 bg-muted/50 p-1 rounded-lg">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto gap-1 bg-muted/50 p-1 rounded-lg">
           <TabsTrigger value="guides" className="text-xs sm:text-sm gap-1.5 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <BookOpen className="size-4 shrink-0" />
             <span className="hidden sm:inline">Guides</span>

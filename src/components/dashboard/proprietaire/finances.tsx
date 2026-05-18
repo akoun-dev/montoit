@@ -199,7 +199,7 @@ export function OwnerFinances() {
           <div className="h-8 w-48 bg-muted animate-pulse rounded" />
           <div className="h-4 w-64 bg-muted animate-pulse rounded mt-2" />
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
           ))}
@@ -214,7 +214,7 @@ export function OwnerFinances() {
   if (error || !data) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Mes Finances</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes Finances</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos données financières. Veuillez réessayer.</p>
@@ -241,13 +241,13 @@ export function OwnerFinances() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Mes Finances</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes Finances</h1>
         <p className="text-muted-foreground mt-1">Suivi des revenus, paiements et commissions</p>
       </motion.div>
 
       {/* ─── Summary Cards ──────────────────────────────────────────────────── */}
       <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Card className="border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
@@ -596,7 +596,7 @@ export function OwnerFinances() {
             <CardContent className="space-y-3">
               {data.commissionTracking.mandats.map((mandat) => (
                 <div key={mandat.mandatId} className="p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-1 gap-1">
                     <p className="text-sm font-medium text-foreground">{mandat.propertyTitle}</p>
                     <Badge className="bg-brand-50 text-brand-700 border-brand-200 text-xs">
                       {mandat.commissionType === 'FIXED' ? 'Fixe' : `${mandat.commissionRate}%`}
@@ -631,7 +631,7 @@ export function OwnerFinances() {
       <motion.div variants={itemVariants}>
         <Card className="border-border">
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
               <CardTitle className="text-base font-semibold">Derniers paiements</CardTitle>
               <p className="text-xs text-muted-foreground">{summary.propertiesCount} bien{summary.propertiesCount > 1 ? 's' : ''} · {summary.rentedPropertiesCount} loué{summary.rentedPropertiesCount > 1 ? 's' : ''}</p>
             </div>
@@ -675,7 +675,7 @@ export function OwnerFinances() {
                       <p className="text-xs text-muted-foreground mb-2 truncate">
                         {property?.title}, {property?.city}
                       </p>
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-1">
                         <p className="text-sm font-bold text-foreground">
                           {formatCurrency(payment.amount)}
                         </p>

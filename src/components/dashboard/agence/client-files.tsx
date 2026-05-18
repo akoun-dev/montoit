@@ -46,15 +46,15 @@ export function ClientFiles() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <FolderOpen className="size-6 text-[#FF6C2F]" /> Dossiers clients
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+          <FolderOpen className="size-5 sm:size-6 text-[#FF6C2F]" /> Dossiers clients
         </h1>
         <p className="text-muted-foreground mt-1">{clients.length} client{clients.length > 1 ? 's' : ''} · {clients.filter((c) => c.status === 'actif').length} actifs</p>
       </motion.div>
 
-      <motion.div variants={itemVariants} className="flex items-center gap-3">
+      <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-3">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Statut" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Statut" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous</SelectItem>
             <SelectItem value="actif">Actif</SelectItem>

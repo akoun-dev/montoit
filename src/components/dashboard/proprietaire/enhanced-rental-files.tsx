@@ -356,16 +356,16 @@ export function EnhancedRentalFiles() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dossiers locatifs</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dossiers locatifs</h1>
         <p className="text-muted-foreground mt-1">Gérez les candidatures de location pour vos biens</p>
       </div>
 
       {/* Property Filter */}
       {properties.length > 1 && (
         <div className="flex items-center gap-2">
-          <Building2 className="size-4 text-muted-foreground" />
+          <Building2 className="size-4 text-muted-foreground shrink-0" />
           <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-            <SelectTrigger className="w-[260px]">
+            <SelectTrigger className="w-full sm:w-[260px]">
               <SelectValue placeholder="Filtrer par bien" />
             </SelectTrigger>
             <SelectContent>
@@ -718,7 +718,7 @@ export function EnhancedRentalFiles() {
                     <User className="size-4 text-brand-500" />
                     Informations personnelles
                   </h4>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     {selectedTenant.tenant.phone && (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Phone className="size-3.5" />
@@ -752,7 +752,7 @@ export function EnhancedRentalFiles() {
                     <CreditCard className="size-4 text-brand-500" />
                     Situation financière
                   </h4>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     {selectedTenant.monthlyIncome && (
                       <div>
                         <p className="text-xs text-muted-foreground">Revenus mensuels</p>
@@ -801,7 +801,7 @@ export function EnhancedRentalFiles() {
                         <Shield className="size-4 text-brand-500" />
                         Garant
                       </h4>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                         <div>
                           <p className="text-xs text-muted-foreground">Nom</p>
                           <p className="font-medium text-foreground">{selectedTenant.guarantorName}</p>

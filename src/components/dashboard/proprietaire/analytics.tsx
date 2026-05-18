@@ -174,7 +174,7 @@ export function OwnerAnalytics() {
           <div className="h-8 w-56 bg-muted animate-pulse rounded" />
           <div className="h-4 w-72 bg-muted animate-pulse rounded mt-2" />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />
           ))}
@@ -189,7 +189,7 @@ export function OwnerAnalytics() {
   if (error || !data) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Analytics</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos données analytiques. Veuillez réessayer.</p>
@@ -225,13 +225,13 @@ export function OwnerAnalytics() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Analytics</h1>
         <p className="text-muted-foreground mt-1">Performance et indicateurs clés</p>
       </motion.div>
 
       {/* ─── KPI Cards (2x2 grid) ──────────────────────────────────────────── */}
       <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Occupancy Rate */}
           <Card className="border-border">
             <CardContent className="p-4 flex flex-col items-center text-center">
@@ -249,7 +249,7 @@ export function OwnerAnalytics() {
               <div className="flex size-14 items-center justify-center rounded-full bg-brand-50 mb-2">
                 <Clock className="size-7 text-brand-500" />
               </div>
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-xl sm:text-2xl font-bold text-foreground">
                 {averageLeaseDurationMonths > 0 ? averageLeaseDurationMonths : '—'}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
@@ -277,7 +277,7 @@ export function OwnerAnalytics() {
               <div className="flex size-14 items-center justify-center rounded-full bg-red-50 mb-2">
                 <AlertTriangle className={`size-7 ${totals.latePaymentsCount > 0 ? 'text-red-500' : 'text-neutral-300'}`} />
               </div>
-              <p className={`text-2xl font-bold ${totals.latePaymentsCount > 0 ? 'text-red-600' : 'text-foreground'}`}>
+              <p className={`text-xl sm:text-2xl font-bold ${totals.latePaymentsCount > 0 ? 'text-red-600' : 'text-foreground'}`}>
                 {totals.latePaymentsCount}
               </p>
               <div className="flex items-center gap-1 mt-1">
@@ -420,7 +420,7 @@ export function OwnerAnalytics() {
       <motion.div variants={itemVariants}>
         <Card className="border-border">
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <CardTitle className="text-base font-semibold">Comparaison par bien</CardTitle>
               <div className="flex items-center gap-1">
                 <Button

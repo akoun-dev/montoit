@@ -32,8 +32,8 @@ export function AgenceMarketing() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Megaphone className="size-6 text-[#FF6C2F]" /> Marketing
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+          <Megaphone className="size-5 sm:size-6 text-[#FF6C2F]" /> Marketing
         </h1>
         <p className="text-muted-foreground mt-1">Gérez vos mises en avant et promotions</p>
       </motion.div>
@@ -131,7 +131,7 @@ export function AgenceMarketing() {
             <div className="space-y-3">
               {featuredListings.map((listing) => (
                 <div key={listing.id} className="flex items-center gap-3">
-                  <span className="text-sm font-medium w-40 truncate">{listing.title}</span>
+                  <span className="text-sm font-medium min-w-0 sm:w-40 truncate">{listing.title}</span>
                   <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
                     <div className="h-full bg-[#FF6C2F] rounded-full" style={{ width: `${Math.min((listing.views / 300) * 100, 100)}%` }} />
                   </div>

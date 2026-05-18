@@ -309,7 +309,7 @@ export function Maintenance() {
           </div>
           <div className="h-10 w-40 bg-muted animate-pulse rounded-lg" />
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />
           ))}
@@ -325,7 +325,7 @@ export function Maintenance() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Maintenance</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Maintenance</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos demandes. Veuillez réessayer.</p>
@@ -340,7 +340,7 @@ export function Maintenance() {
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Maintenance</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Maintenance</h1>
           <p className="text-muted-foreground mt-1">Demandes d&apos;intervention et suivi</p>
         </div>
         <Button className="bg-brand-500 hover:bg-brand-600 text-white" onClick={handleOpenDialog}>
@@ -351,22 +351,22 @@ export function Maintenance() {
 
       {/* Status Summary */}
       <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="border-border">
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-amber-600">{pendingCount}</p>
+              <p className="text-xl sm:text-2xl font-bold text-amber-600">{pendingCount}</p>
               <p className="text-xs text-muted-foreground mt-1">En attente</p>
             </CardContent>
           </Card>
           <Card className="border-border">
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-brand-600">{inProgressCount}</p>
+              <p className="text-xl sm:text-2xl font-bold text-brand-600">{inProgressCount}</p>
               <p className="text-xs text-muted-foreground mt-1">En cours</p>
             </CardContent>
           </Card>
           <Card className="border-border">
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-emerald-600">{resolvedCount}</p>
+              <p className="text-xl sm:text-2xl font-bold text-emerald-600">{resolvedCount}</p>
               <p className="text-xs text-muted-foreground mt-1">Résolues</p>
             </CardContent>
           </Card>

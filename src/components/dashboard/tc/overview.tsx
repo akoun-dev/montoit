@@ -282,7 +282,7 @@ export function TcOverview() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos données. Veuillez réessayer.</p>
@@ -349,7 +349,7 @@ export function TcOverview() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
         <p className="text-muted-foreground mt-1">Espace Tiers de Confiance — Validation, contrôle et supervision</p>
       </motion.div>
 
@@ -401,7 +401,7 @@ export function TcOverview() {
       </motion.div>
 
       {/* ─── Agents & Missions Row ──────────────────────────────────────────── */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {/* Agents actifs */}
         <Card
           className="border-border cursor-pointer hover:shadow-md transition-shadow"
@@ -413,7 +413,7 @@ export function TcOverview() {
                 <Users className="size-5 text-teal-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{activeAgents}</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{activeAgents}</p>
                 <p className="text-xs text-muted-foreground">Agents actifs</p>
               </div>
             </div>
@@ -431,7 +431,7 @@ export function TcOverview() {
                 <MapPin className="size-5 text-brand-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{pendingMissions}</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{pendingMissions}</p>
                 <p className="text-xs text-muted-foreground">Missions en cours</p>
               </div>
             </div>
@@ -449,7 +449,7 @@ export function TcOverview() {
                 <Home className="size-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.pendingProperties}</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.pendingProperties}</p>
                 <p className="text-xs text-muted-foreground">Biens à vérifier</p>
               </div>
             </div>
@@ -467,7 +467,7 @@ export function TcOverview() {
                 <Scale className={cn('size-5', openDisputes > 0 ? 'text-red-600' : 'text-green-600')} />
               </div>
               <div>
-                <p className={cn('text-2xl font-bold', openDisputes > 0 ? 'text-red-600' : 'text-green-600')}>
+                <p className={cn('text-xl sm:text-2xl font-bold', openDisputes > 0 ? 'text-red-600' : 'text-green-600')}>
                   {openDisputes}
                 </p>
                 <p className="text-xs text-muted-foreground">Litiges ouverts</p>
@@ -487,7 +487,7 @@ export function TcOverview() {
                 <Award className="size-5 text-orange-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{certStats.GRANTED}</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{certStats.GRANTED}</p>
                 <p className="text-xs text-muted-foreground">Certifications</p>
               </div>
             </div>
@@ -506,7 +506,7 @@ export function TcOverview() {
                   <ShieldAlert className="size-5 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-red-600">{fraudStats.OPEN}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-red-600">{fraudStats.OPEN}</p>
                   <p className="text-xs text-muted-foreground">Alertes fraude</p>
                 </div>
               </div>
@@ -524,7 +524,7 @@ export function TcOverview() {
                   <ShieldAlert className="size-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-green-600">0</p>
+                  <p className="text-xl sm:text-2xl font-bold text-green-600">0</p>
                   <p className="text-xs text-muted-foreground">Alertes fraude</p>
                 </div>
               </div>
@@ -839,7 +839,7 @@ export function TcOverview() {
                 ) : (
                   <Badge className="bg-amber-100 text-amber-700">⚠ En dessous</Badge>
                 )}
-                <span className="text-2xl font-bold text-foreground">{stats.slaCompliance}%</span>
+                <span className="text-xl sm:text-2xl font-bold text-foreground">{stats.slaCompliance}%</span>
               </div>
             </div>
             <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden">

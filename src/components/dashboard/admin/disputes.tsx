@@ -60,7 +60,7 @@ export function Disputes() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Litiges</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Litiges</h1>
         <p className="text-muted-foreground mt-1">Résolution des conflits entre locataires et propriétaires</p>
       </div>
 

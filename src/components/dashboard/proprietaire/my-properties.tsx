@@ -140,7 +140,7 @@ export function MyProperties() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Mes biens</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes biens</h1>
           <p className="text-muted-foreground mt-1">{properties.length} bien(s) enregistré(s)</p>
         </div>
         <Button

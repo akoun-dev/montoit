@@ -113,3 +113,33 @@ Stage Summary:
 - Scoring breakdown: Profil (5%) + KYC (20%) + ONECI (25%) + Dossier propriétaire (50%)
 - Propriétaire overview now shows same trust score preview card as locataire
 - Both overviews use dynamic roleLabel from API
+---
+Task ID: 1-8
+Agent: Main
+Task: Ensure all views, components, modals, and forms across propriétaire, locataire, agence, TC, and admin spaces are mobile responsive
+
+Work Log:
+- Fixed base DialogContent component: added max-h-[90vh] overflow-y-auto, changed p-6 to p-4 sm:p-6, made close button sticky top-0 float-right
+- Fixed base AlertDialogContent: same max-h and padding changes
+- Integrated MobileBottomNav into dashboard-layout.tsx with pb-20 for mobile bottom padding
+- Added AGENCE and ADMIN navigation items to mobile-bottom-nav.tsx
+- Added comprehensive detailToParent mapping for Agence, TC, and Admin sections
+- Added safe-area-inset-bottom padding for iOS devices
+- Fixed dashboard-header.tsx: changed max-w-md to sm:max-w-md on role switch dialog
+- Fixed all propriétaire components: responsive grids (grid-cols-1 sm:grid-cols-2/3/4), text-xl sm:text-2xl, flex-wrap filters, responsive SelectTriggers, flex-col sm:flex-row layouts
+- Fixed all locataire components: responsive grids, text sizing, trust-score flex layout
+- Fixed all agence components: responsive grids, text sizing, table overflow-x-auto, filter flex-wrap, SelectTrigger widths, dialog form grids
+- Fixed all TC components: responsive grids, text sizing, dialog form grids, sla-monitoring grid fix
+- Fixed all admin components: responsive grids, text sizing, dialog form grids, TabsList grid-cols-2 sm:grid-cols-4, bare max-w-lg to sm:max-w-lg
+- Fixed tc/rental-files-queue.tsx syntax error: missing opening DialogHeader tags
+
+Stage Summary:
+- All 77+ dashboard view components now have mobile-responsive layouts
+- Base Dialog/AlertDialog now have built-in max-h-[90vh] overflow-y-auto and responsive padding
+- Mobile bottom navigation is now integrated and functional for all 5 roles
+- All grid layouts use mobile-first approach (grid-cols-1 sm:grid-cols-2/3/4)
+- All text-2xl headings now use text-xl sm:text-2xl
+- All filter rows have flex-wrap for mobile
+- All SelectTriggers have responsive widths (w-full sm:w-*)
+- All flex items-center justify-between patterns stack vertically on mobile
+- Lint passes cleanly, dev server compiles successfully

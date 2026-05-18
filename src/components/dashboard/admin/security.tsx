@@ -70,12 +70,12 @@ export function AdminSecurity() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Sécurité</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Sécurité</h1>
         <p className="text-muted-foreground mt-1">Gestion de la sécurité et des accès</p>
       </div>
 
       <Tabs defaultValue="failed-logins" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-muted">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-muted">
           <TabsTrigger value="failed-logins">Connexions échouées</TabsTrigger>
           <TabsTrigger value="admin-actions">Actions admin</TabsTrigger>
           <TabsTrigger value="rules">Règles</TabsTrigger>
@@ -196,7 +196,7 @@ export function AdminSecurity() {
                 <Button variant="outline" onClick={() => { toast.success('IP ajoutée à la liste blanche'); setIpWhitelist('') }}>Ajouter</Button>
               </div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between p-2 rounded border border-border">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded border border-border">
                   <span className="text-sm text-foreground">192.168.1.0/24</span>
                   <Badge className="bg-green-100 text-green-700">Actif</Badge>
                 </div>
@@ -215,7 +215,7 @@ export function AdminSecurity() {
                 <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => { toast.success('IP bloquée'); setIpBlacklist('') }}>Bloquer</Button>
               </div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between p-2 rounded border border-red-100 bg-red-50/50">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded border border-red-100 bg-red-50/50">
                   <span className="text-sm text-red-700">10.0.0.99</span>
                   <Badge className="bg-red-100 text-red-700">Bloqué</Badge>
                 </div>
@@ -236,15 +236,15 @@ export function AdminSecurity() {
         <CardContent>
           <div className="grid sm:grid-cols-3 gap-4">
             <div className="p-4 rounded-lg border border-border text-center">
-              <p className="text-2xl font-bold text-red-600">{failedLogins.length}</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-600">{failedLogins.length}</p>
               <p className="text-xs text-muted-foreground">Tentatives échouées</p>
             </div>
             <div className="p-4 rounded-lg border border-border text-center">
-              <p className="text-2xl font-bold text-amber-600">0</p>
+              <p className="text-xl sm:text-2xl font-bold text-amber-600">0</p>
               <p className="text-xs text-muted-foreground">Comptes bloqués</p>
             </div>
             <div className="p-4 rounded-lg border border-border text-center">
-              <p className="text-2xl font-bold text-green-600">1</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-600">1</p>
               <p className="text-xs text-muted-foreground">IPs bloquées</p>
             </div>
           </div>

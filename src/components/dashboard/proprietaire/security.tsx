@@ -227,7 +227,7 @@ export function OwnerSecurity() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Sécurité</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Sécurité</h1>
         <p className="text-muted-foreground mt-1">Gérez la sécurité de votre compte propriétaire</p>
       </motion.div>
 

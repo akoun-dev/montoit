@@ -79,8 +79,8 @@ export function AgenceCommunication() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <MessageSquare className="size-6 text-[#FF6C2F]" /> Communication
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+          <MessageSquare className="size-5 sm:size-6 text-[#FF6C2F]" /> Communication
         </h1>
         <p className="text-muted-foreground mt-1">{conversations.length} conversation{conversations.length > 1 ? 's' : ''}</p>
       </motion.div>

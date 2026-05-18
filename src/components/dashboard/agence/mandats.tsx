@@ -75,8 +75,8 @@ export function AgenceMandats() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <FileSignature className="size-6 text-[#FF6C2F]" /> Mandats
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <FileSignature className="size-5 sm:size-6 text-[#FF6C2F]" /> Mandats
           </h1>
           <p className="text-muted-foreground mt-1">{mandats.length} mandat{mandats.length > 1 ? 's' : ''} au total</p>
         </div>
@@ -93,12 +93,12 @@ export function AgenceMandats() {
             </CardHeader>
             <CardContent className="space-y-2">
               {expiring.map((m) => (
-                <div key={m.id} className="flex items-center justify-between p-2 bg-white rounded-lg border border-amber-200">
+                <div key={m.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2 bg-white rounded-lg border border-amber-200 gap-2">
                   <div>
                     <p className="text-sm font-medium text-foreground">{m.property.title}</p>
                     <p className="text-xs text-muted-foreground">Propriétaire : {m.owner.firstName} {m.owner.lastName}</p>
                   </div>
-                  <Badge className="bg-amber-100 text-amber-700">Expire le {new Date(m.endDate).toLocaleDateString('fr-FR')}</Badge>
+                  <Badge className="bg-amber-100 text-amber-700 shrink-0">Expire le {new Date(m.endDate).toLocaleDateString('fr-FR')}</Badge>
                 </div>
               ))}
             </CardContent>
@@ -107,10 +107,10 @@ export function AgenceMandats() {
       )}
 
       {/* Filter */}
-      <motion.div variants={itemVariants} className="flex items-center gap-3">
+      <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-3">
         <Filter className="size-4 text-muted-foreground" />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48"><SelectValue placeholder="Filtrer par statut" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Filtrer par statut" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les statuts</SelectItem>
             <SelectItem value="DRAFT">Brouillon</SelectItem>
@@ -125,7 +125,7 @@ export function AgenceMandats() {
       {/* Mandats Table */}
       <motion.div variants={itemVariants}>
         <Card className="border-border">
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

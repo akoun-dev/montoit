@@ -14,7 +14,7 @@ export function AdminSettings() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Paramètres</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Paramètres</h1>
         <p className="text-muted-foreground mt-1">Configuration de la plateforme Mon Toit</p>
       </div>
 
@@ -26,14 +26,14 @@ export function AdminSettings() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
             <div>
               <p className="text-sm font-medium text-foreground">OTP obligatoire</p>
               <p className="text-xs text-muted-foreground">Exiger un code OTP pour chaque connexion</p>
             </div>
             <Switch defaultChecked />
           </div>
-          <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
             <div>
               <p className="text-sm font-medium text-foreground">Expiration OTP (minutes)</p>
               <p className="text-xs text-muted-foreground">Durée de validité du code OTP</p>
@@ -51,14 +51,14 @@ export function AdminSettings() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
             <div>
               <p className="text-sm font-medium text-foreground">Notifications email</p>
               <p className="text-xs text-muted-foreground">Envoyer des alertes par email</p>
             </div>
             <Switch defaultChecked />
           </div>
-          <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
             <div>
               <p className="text-sm font-medium text-foreground">Notifications SMS</p>
               <p className="text-xs text-muted-foreground">Envoyer des alertes par SMS</p>

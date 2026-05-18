@@ -75,8 +75,8 @@ export function AgenceVisits() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Calendar className="size-6 text-[#FF6C2F]" /> Visites
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+          <Calendar className="size-5 sm:size-6 text-[#FF6C2F]" /> Visites
         </h1>
         <p className="text-muted-foreground mt-1">
           {pendingVisits.length} en attente · {upcomingVisits.length} à venir · {completedVisits.length} terminées
@@ -88,27 +88,27 @@ export function AgenceVisits() {
         <Card className="border-amber-200 bg-amber-50/50">
           <CardContent className="p-4 flex items-center gap-3">
             <Clock className="size-8 text-amber-500" />
-            <div><p className="text-2xl font-bold text-amber-700">{pendingVisits.length}</p><p className="text-xs text-amber-600">En attente</p></div>
+            <div><p className="text-xl sm:text-2xl font-bold text-amber-700">{pendingVisits.length}</p><p className="text-xs text-amber-600">En attente</p></div>
           </CardContent>
         </Card>
         <Card className="border-green-200 bg-green-50/50">
           <CardContent className="p-4 flex items-center gap-3">
             <CheckCircle2 className="size-8 text-green-500" />
-            <div><p className="text-2xl font-bold text-green-700">{upcomingVisits.length}</p><p className="text-xs text-green-600">Acceptées</p></div>
+            <div><p className="text-xl sm:text-2xl font-bold text-green-700">{upcomingVisits.length}</p><p className="text-xs text-green-600">Acceptées</p></div>
           </CardContent>
         </Card>
         <Card className="border-teal-200 bg-teal-50/50">
           <CardContent className="p-4 flex items-center gap-3">
             <MapPin className="size-8 text-teal-500" />
-            <div><p className="text-2xl font-bold text-teal-700">{completedVisits.length}</p><p className="text-xs text-teal-600">Terminées</p></div>
+            <div><p className="text-xl sm:text-2xl font-bold text-teal-700">{completedVisits.length}</p><p className="text-xs text-teal-600">Terminées</p></div>
           </CardContent>
         </Card>
       </motion.div>
 
       {/* Filter */}
-      <motion.div variants={itemVariants} className="flex items-center gap-3">
+      <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-3">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48"><SelectValue placeholder="Filtrer par statut" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Filtrer par statut" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous</SelectItem>
             <SelectItem value="PENDING">En attente</SelectItem>

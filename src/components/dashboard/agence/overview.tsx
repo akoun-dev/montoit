@@ -80,7 +80,7 @@ export function AgenceOverview() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4"><p className="text-sm text-amber-700">Impossible de charger vos données. Veuillez réessayer.</p></CardContent>
         </Card>
@@ -102,7 +102,7 @@ export function AgenceOverview() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
         <p className="text-muted-foreground mt-1">Voici un aperçu de votre espace agence</p>
       </motion.div>
 
@@ -118,7 +118,7 @@ export function AgenceOverview() {
                     <Icon className="size-4" />
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-foreground">{kpi.value}</p>
+                    <p className="text-lg sm:text-xl font-bold text-foreground">{kpi.value}</p>
                     <p className="text-[10px] sm:text-xs text-muted-foreground">{kpi.label}</p>
                   </div>
                 </div>

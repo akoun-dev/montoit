@@ -294,7 +294,7 @@ export function Messages() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Messages</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Messages</h1>
           <p className="text-muted-foreground mt-1">Vos conversations</p>
         </div>
         <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>

@@ -212,7 +212,7 @@ export function PropertyVerifications() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Vérification des biens</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Vérification des biens</h1>
         <p className="text-muted-foreground mt-1">Biens en attente de vérification par le Tiers de Confiance</p>
       </div>
 

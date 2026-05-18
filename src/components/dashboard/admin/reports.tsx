@@ -10,14 +10,14 @@ import { toast } from 'sonner'
 export function Reports() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Rapports & Analyses</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Rapports & Analyses</h1>
           <p className="text-muted-foreground mt-1">Statistiques détaillées de la plateforme</p>
         </div>
         <div className="flex gap-2">
           <Select defaultValue="month">
-            <SelectTrigger className="w-40 h-9">
+            <SelectTrigger className="w-full sm:w-40 h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -46,7 +46,7 @@ export function Reports() {
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">{item.title}</p>
               <div className="flex items-end gap-2 mt-1">
-                <p className="text-2xl font-bold text-foreground">{item.value}</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{item.value}</p>
                 <span className={`text-sm font-medium ${item.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>
                   {item.change}
                 </span>

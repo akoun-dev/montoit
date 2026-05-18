@@ -92,23 +92,23 @@ export function TeamManagement() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Users className="size-6 text-[#FF6C2F]" /> Gestion de l&apos;équipe
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <Users className="size-5 sm:size-6 text-[#FF6C2F]" /> Gestion de l&apos;équipe
           </h1>
           <p className="text-muted-foreground mt-1">{agents.length} agent{agents.length > 1 ? 's' : ''} dans votre équipe</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white gap-2">
+            <Button className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white gap-2 w-full sm:w-auto">
               <Plus className="size-4" /> Ajouter un agent
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Nouvel agent</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input placeholder="Prénom" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
                 <Input placeholder="Nom" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
               </div>
@@ -132,7 +132,7 @@ export function TeamManagement() {
 
       <motion.div variants={itemVariants}>
         <Card className="border-border">
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -211,7 +211,7 @@ export function TeamManagement() {
                         <p className="text-xs text-muted-foreground">{roleLabels[agent.role]}</p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                       <div><span className="text-muted-foreground">Biens :</span> <span className="font-medium">{agent.assignedPropertiesCount}</span></div>
                       <div><span className="text-muted-foreground">Commissions :</span> <span className="font-medium text-[#FF6C2F]">{agent.totalCommissions.toLocaleString('fr-FR')} FCFA</span></div>
                     </div>

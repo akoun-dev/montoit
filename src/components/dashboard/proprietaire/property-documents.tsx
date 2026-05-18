@@ -504,7 +504,7 @@ export function PropertyDocuments() {
         className="space-y-6"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
             Documents
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -554,7 +554,7 @@ export function PropertyDocuments() {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Documents</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Documents</h1>
           <p className="text-muted-foreground mt-1">
             Gérez les documents de vos biens immobiliers
           </p>
@@ -570,7 +570,7 @@ export function PropertyDocuments() {
       </motion.div>
 
       {/* ── Stats ───────────────────────────────────────────────────────────── */}
-      <motion.div variants={itemVariants} className="grid grid-cols-3 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -578,7 +578,7 @@ export function PropertyDocuments() {
                 <FileText className="size-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
+                <p className="text-xl sm:text-2xl font-bold text-foreground">
                   {stats.total}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -595,7 +595,7 @@ export function PropertyDocuments() {
                 <AlertTriangle className="size-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
+                <p className="text-xl sm:text-2xl font-bold text-foreground">
                   {stats.expiring}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -612,7 +612,7 @@ export function PropertyDocuments() {
                 <AlertTriangle className="size-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
+                <p className="text-xl sm:text-2xl font-bold text-foreground">
                   {stats.expired}
                 </p>
                 <p className="text-xs text-muted-foreground">Expirés</p>

@@ -446,9 +446,9 @@ export function ProprietaireMandats() {
       className="space-y-6"
     >
       {/* ─── Header ──────────────────────────────────────────────────────── */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Mes Mandats</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes Mandats</h1>
           <p className="text-muted-foreground mt-1">Gérez vos mandats de gestion avec les agences</p>
         </div>
         <Button
@@ -462,7 +462,7 @@ export function ProprietaireMandats() {
       </motion.div>
 
       {/* ─── Stats Cards ─────────────────────────────────────────────────── */}
-      <motion.div variants={itemVariants} className="grid grid-cols-3 gap-3 sm:gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <Card className="border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -470,7 +470,7 @@ export function ProprietaireMandats() {
                 <CheckCircle2 className="size-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.active}</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.active}</p>
                 <p className="text-xs text-muted-foreground">Actifs</p>
               </div>
             </div>
@@ -483,7 +483,7 @@ export function ProprietaireMandats() {
                 <Clock className="size-5 text-brand-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.pending}</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.pending}</p>
                 <p className="text-xs text-muted-foreground">En attente</p>
               </div>
             </div>
@@ -496,7 +496,7 @@ export function ProprietaireMandats() {
                 <Archive className="size-5 text-neutral-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.terminated}</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.terminated}</p>
                 <p className="text-xs text-muted-foreground">Terminés</p>
               </div>
             </div>
@@ -685,7 +685,7 @@ export function ProprietaireMandats() {
             </div>
 
             {/* Commission rate / fixed amount */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="commission-rate">
                   {formCommissionType === 'PERCENTAGE' ? 'Taux (%) *' : 'Taux de référence (%)'}
@@ -717,7 +717,7 @@ export function ProprietaireMandats() {
             </div>
 
             {/* Dates */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="start-date">Date de début *</Label>
                 <Input
@@ -961,7 +961,7 @@ export function ProprietaireMandats() {
               </div>
 
               {/* Details grid */}
-              <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-lg bg-muted">
                 <div>
                   <p className="text-xs text-muted-foreground">Commission</p>
                   <p className="text-sm font-semibold">
@@ -994,7 +994,7 @@ export function ProprietaireMandats() {
               <div className="p-3 rounded-lg border border-border">
                 <p className="text-xs font-medium text-muted-foreground mb-2">État des signatures</p>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-1">
                     <span className="text-sm">Votre signature</span>
                     {selectedMandat.ownerSignedAt ? (
                       <Badge className="bg-green-100 text-green-700 gap-1">
@@ -1006,7 +1006,7 @@ export function ProprietaireMandats() {
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-1">
                     <span className="text-sm">Signature agence</span>
                     {selectedMandat.agencySignedAt ? (
                       <Badge className="bg-green-100 text-green-700 gap-1">

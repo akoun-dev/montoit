@@ -361,7 +361,7 @@ export function RentalFileForm() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Dossier locatif</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dossier locatif</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger votre dossier. Veuillez réessayer.</p>
@@ -381,7 +381,7 @@ export function RentalFileForm() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dossier locatif</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dossier locatif</h1>
         <p className="text-muted-foreground mt-1">Complétez votre dossier pour postuler aux logements</p>
       </div>
 
@@ -480,7 +480,7 @@ export function RentalFileForm() {
 
               <div className="border-t border-border pt-4">
                 <p className="text-sm font-medium mb-3 text-muted-foreground">Informations personnelles</p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Prénom</Label>
                     <Input value={user?.firstName || ''} disabled />
@@ -490,7 +490,7 @@ export function RentalFileForm() {
                     <Input value={user?.lastName || ''} disabled />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                   <div className="space-y-2">
                     <Label>Téléphone</Label>
                     <Input value={user?.phone || 'Non renseigné'} disabled />

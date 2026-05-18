@@ -396,7 +396,7 @@ export function RentalFilesQueue() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dossiers à valider</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dossiers à valider</h1>
         <p className="text-muted-foreground mt-1">File d&apos;attente des dossiers locatifs</p>
       </div>
 
@@ -583,7 +583,7 @@ export function RentalFilesQueue() {
                     )}
 
                     {/* Details */}
-                    <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mb-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground mb-3">
                       {rf.monthlyIncome != null && (
                         <div className="flex items-center gap-1.5">
                           <span className="font-medium text-foreground">
@@ -936,9 +936,8 @@ export function RentalFilesQueue() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Rejeter le dossier</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {rejectDialog.file && (
@@ -988,9 +987,8 @@ export function RentalFilesQueue() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Demander des informations</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {requestInfoDialog.file && (

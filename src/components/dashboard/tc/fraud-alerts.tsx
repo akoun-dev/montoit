@@ -236,7 +236,7 @@ export function FraudAlertsManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Alertes fraude</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Alertes fraude</h1>
           <p className="text-muted-foreground mt-1">Gérez les alertes de fraude et les investigations</p>
         </div>
         <Button
@@ -248,7 +248,7 @@ export function FraudAlertsManagement() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -256,7 +256,7 @@ export function FraudAlertsManagement() {
                 <AlertTriangle className="size-5 text-red-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-red-600">{stats.OPEN}</p>
+                <p className="text-xl sm:text-2xl font-bold text-red-600">{stats.OPEN}</p>
                 <p className="text-xs text-muted-foreground">Ouvert</p>
               </div>
             </div>
@@ -269,7 +269,7 @@ export function FraudAlertsManagement() {
                 <SearchIcon className="size-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-amber-600">{stats.INVESTIGATING}</p>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600">{stats.INVESTIGATING}</p>
                 <p className="text-xs text-muted-foreground">En investigation</p>
               </div>
             </div>
@@ -282,7 +282,7 @@ export function FraudAlertsManagement() {
                 <ShieldAlert className="size-5 text-rose-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-rose-600">{stats.CONFIRMED}</p>
+                <p className="text-xl sm:text-2xl font-bold text-rose-600">{stats.CONFIRMED}</p>
                 <p className="text-xs text-muted-foreground">Fraude confirmée</p>
               </div>
             </div>
@@ -295,7 +295,7 @@ export function FraudAlertsManagement() {
                 <XCircle className="size-5 text-gray-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-500">{stats.DISMISSED}</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-500">{stats.DISMISSED}</p>
                 <p className="text-xs text-muted-foreground">Écarté</p>
               </div>
             </div>

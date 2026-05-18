@@ -479,7 +479,7 @@ export function MissionsManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Missions de vérification</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Missions de vérification</h1>
           <p className="text-muted-foreground mt-1">Planifiez et suivez les missions terrain</p>
         </div>
         <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2 shrink-0" onClick={openCreateDialog}>
@@ -978,7 +978,7 @@ export function MissionsManagement() {
                   return (
                     <div className="space-y-2">
                       {urls.length > 0 ? (
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           {urls.map((url, idx) => (
                             <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block">
                               <div className="aspect-square rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden hover:border-brand-300 transition-colors">

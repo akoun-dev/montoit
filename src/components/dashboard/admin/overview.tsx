@@ -139,7 +139,7 @@ export function AdminOverview() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Tableau de bord Admin</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Tableau de bord Admin</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger les données. Veuillez réessayer.</p>
@@ -173,7 +173,7 @@ export function AdminOverview() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Tableau de bord Admin</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Tableau de bord Admin</h1>
         <p className="text-muted-foreground mt-1">Vue d&apos;ensemble de la plateforme Mon Toit</p>
       </motion.div>
 
@@ -211,19 +211,19 @@ export function AdminOverview() {
             </CardHeader>
             <CardContent className="space-y-2">
               {data.signalements.pendingCount > 0 && (
-                <div className="flex items-center justify-between p-2 rounded-lg bg-white border border-amber-100">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded-lg bg-white border border-amber-100">
                   <span className="text-sm text-amber-700">{data.signalements.pendingCount} signalement(s) en attente de traitement</span>
                   <Button variant="outline" size="sm" className="text-amber-700 border-amber-200 hover:bg-amber-50" onClick={() => setDashboardSection('signalements')}>Voir <ArrowRight className="size-3 ml-1" /></Button>
                 </div>
               )}
               {data.stats.totalDisputes > 0 && (
-                <div className="flex items-center justify-between p-2 rounded-lg bg-white border border-amber-100">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded-lg bg-white border border-amber-100">
                   <span className="text-sm text-amber-700">{data.stats.totalDisputes} litige(s) ouvert(s)</span>
                   <Button variant="outline" size="sm" className="text-amber-700 border-amber-200 hover:bg-amber-50" onClick={() => setDashboardSection('disputes')}>Voir <ArrowRight className="size-3 ml-1" /></Button>
                 </div>
               )}
               {data.failedLogins > 5 && (
-                <div className="flex items-center justify-between p-2 rounded-lg bg-white border border-amber-100">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded-lg bg-white border border-amber-100">
                   <span className="text-sm text-amber-700">{data.failedLogins} tentatives de connexion échouées</span>
                   <Button variant="outline" size="sm" className="text-amber-700 border-amber-200 hover:bg-amber-50" onClick={() => setDashboardSection('security')}>Voir <ArrowRight className="size-3 ml-1" /></Button>
                 </div>
@@ -300,7 +300,7 @@ export function AdminOverview() {
                 <p className="text-sm text-muted-foreground py-4 text-center">Aucune donnée</p>
               ) : (
                 Object.entries(data.stats.usersByRole).map(([role, count]) => (
-                  <div key={role} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                  <div key={role} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                     <div className="flex items-center gap-3">
                       <RoleBadge role={role} />
                       <span className="text-sm text-foreground">{roleLabels[role] || role}</span>
@@ -324,7 +324,7 @@ export function AdminOverview() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {Object.entries(data.systemHealth).map(([key, value]) => (
                 <div key={key} className="flex items-center gap-3 p-3 rounded-lg border border-border">
                   <div className={`size-3 rounded-full ${value === 'OK' ? 'bg-green-500' : 'bg-red-500'}`} />

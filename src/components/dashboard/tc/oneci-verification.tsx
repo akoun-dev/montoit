@@ -145,12 +145,12 @@ export function OneciVerification() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Vérification ONECI</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Vérification ONECI</h1>
         <p className="text-muted-foreground mt-1">Vérifiez l&apos;identité des utilisateurs via ONECI et NeoFace</p>
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -158,7 +158,7 @@ export function OneciVerification() {
                 <User className="size-5 text-brand-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.totalUsers}</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.totalUsers}</p>
                 <p className="text-xs text-muted-foreground">Total utilisateurs</p>
               </div>
             </div>
@@ -171,7 +171,7 @@ export function OneciVerification() {
                 <ShieldCheck className="size-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-green-600">{stats.oneciVerified}</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.oneciVerified}</p>
                 <p className="text-xs text-muted-foreground">ONECI vérifié</p>
               </div>
             </div>
@@ -184,7 +184,7 @@ export function OneciVerification() {
                 <Fingerprint className="size-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-emerald-600">{stats.neofaceVerified}</p>
+                <p className="text-xl sm:text-2xl font-bold text-emerald-600">{stats.neofaceVerified}</p>
                 <p className="text-xs text-muted-foreground">NeoFace vérifié</p>
               </div>
             </div>
@@ -197,7 +197,7 @@ export function OneciVerification() {
                 <Clock className="size-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-amber-600">{stats.oneciPending}</p>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600">{stats.oneciPending}</p>
                 <p className="text-xs text-muted-foreground">En attente</p>
               </div>
             </div>
@@ -282,7 +282,7 @@ export function OneciVerification() {
                     </div>
 
                     {/* Contact + NNI */}
-                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground mb-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground mb-3">
                       {u.phone && (
                         <div className="flex items-center gap-1.5">
                           <span className="truncate">{u.phone}</span>

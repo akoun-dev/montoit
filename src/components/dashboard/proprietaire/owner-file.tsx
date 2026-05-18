@@ -240,7 +240,7 @@ export function OwnerFileForm() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Dossier propriétaire</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dossier propriétaire</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger votre dossier. Veuillez réessayer.</p>
@@ -256,7 +256,7 @@ export function OwnerFileForm() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dossier propriétaire</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dossier propriétaire</h1>
         <p className="text-muted-foreground mt-1">Vérifiez votre profil de propriétaire en fournissant les documents requis</p>
       </div>
 

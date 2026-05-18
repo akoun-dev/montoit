@@ -287,7 +287,7 @@ export function TrustScore() {
   if (error || !data) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Trust Score</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Trust Score</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger votre score. Veuillez réessayer.</p>
@@ -318,7 +318,7 @@ export function TrustScore() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Trust Score</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Trust Score</h1>
         <p className="text-muted-foreground mt-1">Votre score de confiance {data.roleLabel || 'locataire'}</p>
       </motion.div>
 
@@ -326,7 +326,7 @@ export function TrustScore() {
       <motion.div variants={itemVariants}>
         <Card className="border-border overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex items-center gap-6">
+            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
               {/* Score circle */}
               <ScoreCircle score={score} statusColor={statusColor} />
 

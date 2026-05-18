@@ -92,8 +92,8 @@ export function AgenceFinances() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <TrendingUp className="size-6 text-[#FF6C2F]" /> Finances
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+          <TrendingUp className="size-5 sm:size-6 text-[#FF6C2F]" /> Finances
         </h1>
         <p className="text-muted-foreground mt-1">Suivi de vos revenus et commissions</p>
       </motion.div>
@@ -183,12 +183,12 @@ export function AgenceFinances() {
             ) : (
               <div className="space-y-3">
                 {Object.entries(agentCommissions).map(([id, ac]) => (
-                  <div key={id} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                  <div key={id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-lg border border-border gap-2">
                     <div>
                       <p className="text-sm font-medium text-foreground">{ac.name}</p>
                       <p className="text-xs text-muted-foreground">Total : {ac.total.toLocaleString('fr-FR')} FCFA</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Badge className="bg-emerald-50 text-emerald-700 text-[10px]">Payé : {ac.paid.toLocaleString('fr-FR')}</Badge>
                       <Badge className="bg-amber-50 text-amber-700 text-[10px]">Attente : {ac.pending.toLocaleString('fr-FR')}</Badge>
                     </div>
@@ -211,7 +211,7 @@ export function AgenceFinances() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

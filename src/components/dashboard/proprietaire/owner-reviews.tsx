@@ -272,7 +272,7 @@ export function OwnerReviews() {
           <div className="h-8 w-32 bg-muted animate-pulse rounded" />
           <div className="h-4 w-56 bg-muted animate-pulse rounded mt-2" />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[1, 2].map((i) => (
             <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
           ))}
@@ -289,7 +289,7 @@ export function OwnerReviews() {
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Avis</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Avis</h1>
           <p className="text-muted-foreground mt-1">Gérez vos avis et évaluations</p>
         </div>
       </motion.div>
@@ -299,7 +299,7 @@ export function OwnerReviews() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card className="border-border">
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-foreground">{stats?.receivedCount ?? 0}</p>
+              <p className="text-xl sm:text-2xl font-bold text-foreground">{stats?.receivedCount ?? 0}</p>
               <p className="text-xs text-muted-foreground mt-1">Avis reçus</p>
             </CardContent>
           </Card>
@@ -308,7 +308,7 @@ export function OwnerReviews() {
               <div className="flex justify-center mb-1">
                 <StarsDisplay score={Math.round(stats?.averageScoreReceived ?? 0)} size="lg" />
               </div>
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-xl sm:text-2xl font-bold text-foreground">
                 {stats?.averageScoreReceived ? stats.averageScoreReceived.toFixed(1) : '—'}
               </p>
               <p className="text-xs text-muted-foreground mt-1">Note moyenne</p>
@@ -316,13 +316,13 @@ export function OwnerReviews() {
           </Card>
           <Card className="border-border">
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-foreground">{stats?.givenCount ?? 0}</p>
+              <p className="text-xl sm:text-2xl font-bold text-foreground">{stats?.givenCount ?? 0}</p>
               <p className="text-xs text-muted-foreground mt-1">Avis donnés</p>
             </CardContent>
           </Card>
           <Card className="border-border">
             <CardContent className="p-4 text-center">
-              <p className="text-2xl font-bold text-brand-500">{stats?.pendingReviews ?? 0}</p>
+              <p className="text-xl sm:text-2xl font-bold text-brand-500">{stats?.pendingReviews ?? 0}</p>
               <p className="text-xs text-muted-foreground mt-1">Avis à donner</p>
             </CardContent>
           </Card>

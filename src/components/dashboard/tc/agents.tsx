@@ -499,7 +499,7 @@ export function AgentsManagement() {
             <TrendingUp className="size-5 text-brand-500" />
             Performance
           </h3>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Card className="border-border">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -507,7 +507,7 @@ export function AgentsManagement() {
                     <BarChart3 className="size-5 text-brand-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-foreground">{perf?.totalMissions ?? 0}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-foreground">{perf?.totalMissions ?? 0}</p>
                     <p className="text-xs text-muted-foreground">Missions totales</p>
                   </div>
                 </div>
@@ -520,7 +520,7 @@ export function AgentsManagement() {
                     <CheckCircle2 className="size-5 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-emerald-600">{perf?.successRate ?? 0}%</p>
+                    <p className="text-xl sm:text-2xl font-bold text-emerald-600">{perf?.successRate ?? 0}%</p>
                     <p className="text-xs text-muted-foreground">Taux de réussite</p>
                   </div>
                 </div>
@@ -533,7 +533,7 @@ export function AgentsManagement() {
                     <Clock className="size-5 text-amber-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-amber-600">
+                    <p className="text-xl sm:text-2xl font-bold text-amber-600">
                       {perf?.avgCompletionHours ? formatHours(perf.avgCompletionHours) : '—'}
                     </p>
                     <p className="text-xs text-muted-foreground">Temps moyen</p>
@@ -651,7 +651,7 @@ export function AgentsManagement() {
         {/* Feedback (US-TA-055) */}
         <Card className="border-border">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <MessageSquare className="size-4 text-brand-500" />
                 Feedback
@@ -698,7 +698,7 @@ export function AgentsManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Agents de vérification</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Agents de vérification</h1>
           <p className="text-muted-foreground mt-1">Gérez vos agents de vérification terrain</p>
         </div>
         <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2 shrink-0" onClick={openCreateDialog}>
@@ -707,7 +707,7 @@ export function AgentsManagement() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -715,7 +715,7 @@ export function AgentsManagement() {
                 <Users className="size-5 text-brand-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{totalAgents}</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{totalAgents}</p>
                 <p className="text-xs text-muted-foreground">Total agents</p>
               </div>
             </div>
@@ -728,7 +728,7 @@ export function AgentsManagement() {
                 <ShieldCheck className="size-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-green-600">{activeAgents}</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">{activeAgents}</p>
                 <p className="text-xs text-muted-foreground">Actifs</p>
               </div>
             </div>
@@ -741,7 +741,7 @@ export function AgentsManagement() {
                 <Users className="size-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-amber-600">{onMission}</p>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600">{onMission}</p>
                 <p className="text-xs text-muted-foreground">En mission</p>
               </div>
             </div>
@@ -754,7 +754,7 @@ export function AgentsManagement() {
                 <ShieldCheck className="size-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-emerald-600">{completedMissions}</p>
+                <p className="text-xl sm:text-2xl font-bold text-emerald-600">{completedMissions}</p>
                 <p className="text-xs text-muted-foreground">Missions terminées</p>
               </div>
             </div>
@@ -846,7 +846,7 @@ export function AgentsManagement() {
                     </div>
 
                     {/* Performance mini-stats */}
-                    <div className="grid grid-cols-3 gap-2 text-sm text-muted-foreground mb-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground mb-3">
                       <div className="flex items-center gap-1.5">
                         <ShieldCheck className="size-3.5 shrink-0" />
                         <span>{agent.performance?.totalMissions ?? 0} missions</span>
@@ -1126,7 +1126,7 @@ export function AgentsManagement() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="firstName">Prénom *</Label>
                 <Input

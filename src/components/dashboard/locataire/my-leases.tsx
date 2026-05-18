@@ -101,7 +101,7 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Mes baux</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes baux</h1>
         <p className="text-muted-foreground mt-1">Consultez vos contrats de location</p>
       </div>
 

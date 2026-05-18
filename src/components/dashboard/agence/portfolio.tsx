@@ -68,18 +68,18 @@ export function Portfolio() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Building2 className="size-6 text-[#FF6C2F]" /> Portfolio
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+          <Building2 className="size-5 sm:size-6 text-[#FF6C2F]" /> Portfolio
         </h1>
         <p className="text-muted-foreground mt-1">{properties.length} bien{properties.length > 1 ? 's' : ''} géré{properties.length > 1 ? 's' : ''}</p>
       </motion.div>
 
       {/* Filters & View Toggle */}
       <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Filter className="size-4 text-muted-foreground" />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40"><SelectValue placeholder="Statut" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Statut" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les statuts</SelectItem>
               <SelectItem value="ACTIVE">Actif</SelectItem>
@@ -89,7 +89,7 @@ export function Portfolio() {
             </SelectContent>
           </Select>
           <Select value={communeFilter} onValueChange={setCommuneFilter}>
-            <SelectTrigger className="w-40"><SelectValue placeholder="Commune" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Commune" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Toutes les communes</SelectItem>
               {communes.map((c) => <SelectItem key={c} value={c!}>{c}</SelectItem>)}
@@ -136,7 +136,7 @@ export function Portfolio() {
           {filtered.map((p) => (
             <motion.div key={p.id} variants={itemVariants}>
               <Card className={`border-border overflow-hidden hover:shadow-md transition-shadow ${mostViewedIds.has(p.id) ? 'ring-1 ring-[#FF6C2F]/30' : ''}`}>
-                <div className="relative h-36 bg-muted">
+                <div className="relative h-40 sm:h-48 bg-muted">
                   {p.images?.[0] ? <img src={p.images[0].url} alt="" className="size-full object-cover" /> : (
                     <div className="size-full flex items-center justify-center"><Building2 className="size-8 text-muted-foreground" /></div>
                   )}

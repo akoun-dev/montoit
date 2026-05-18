@@ -300,7 +300,7 @@ export function CertificationsManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Certifications</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Certifications</h1>
           <p className="text-muted-foreground mt-1">Gérez les certifications d&apos;identité, de biens et d&apos;agences</p>
         </div>
         <Button
@@ -312,7 +312,7 @@ export function CertificationsManagement() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -320,7 +320,7 @@ export function CertificationsManagement() {
                 <Clock className="size-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-amber-600">{stats.PENDING}</p>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600">{stats.PENDING}</p>
                 <p className="text-xs text-muted-foreground">En attente</p>
               </div>
             </div>
@@ -333,7 +333,7 @@ export function CertificationsManagement() {
                 <BadgeCheck className="size-5 text-green-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-green-600">{stats.GRANTED}</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.GRANTED}</p>
                 <p className="text-xs text-muted-foreground">Certifiées</p>
               </div>
             </div>
@@ -346,7 +346,7 @@ export function CertificationsManagement() {
                 <ShieldX className="size-5 text-red-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-red-600">{stats.REVOKED}</p>
+                <p className="text-xl sm:text-2xl font-bold text-red-600">{stats.REVOKED}</p>
                 <p className="text-xs text-muted-foreground">Révoquées</p>
               </div>
             </div>
@@ -359,7 +359,7 @@ export function CertificationsManagement() {
                 <Award className="size-5 text-brand-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.TOTAL}</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.TOTAL}</p>
                 <p className="text-xs text-muted-foreground">Total</p>
               </div>
             </div>

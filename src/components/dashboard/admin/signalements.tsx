@@ -122,12 +122,12 @@ export function AdminSignalements() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Signalements</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Signalements</h1>
           <p className="text-muted-foreground mt-1">{totalSignalements} signalement(s) au total</p>
         </div>
         <div className="flex gap-2 items-center">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40 h-9">
+            <SelectTrigger className="w-full sm:w-40 h-9">
               <Filter className="size-3.5 mr-1" />
               <SelectValue placeholder="Statut" />
             </SelectTrigger>
@@ -142,7 +142,7 @@ export function AdminSignalements() {
             </SelectContent>
           </Select>
           <Select value={reasonFilter} onValueChange={setReasonFilter}>
-            <SelectTrigger className="w-44 h-9">
+            <SelectTrigger className="w-full sm:w-44 h-9">
               <SelectValue placeholder="Raison" />
             </SelectTrigger>
             <SelectContent>
@@ -264,13 +264,13 @@ export function AdminSignalements() {
 
       {/* Detail Dialog */}
       <Dialog open={detailDialog.open} onOpenChange={(open) => setDetailDialog({ ...detailDialog, open })}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Détails du signalement</DialogTitle>
           </DialogHeader>
           {detailDialog.signalement && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div><span className="text-muted-foreground">Raison:</span> <span className="font-medium">{reasonLabels[detailDialog.signalement.reason]}</span></div>
                 <div><span className="text-muted-foreground">Statut:</span> <Badge className={statusConfig[detailDialog.signalement.status]?.className}>{statusConfig[detailDialog.signalement.status]?.label}</Badge></div>
                 <div><span className="text-muted-foreground">Type d'entité:</span> <span className="font-medium">{entityTypeLabels[detailDialog.signalement.entityType]}</span></div>

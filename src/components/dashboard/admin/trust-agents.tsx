@@ -75,7 +75,7 @@ export function AdminTrustAgents() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Tiers de Confiance</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Tiers de Confiance</h1>
         <p className="text-muted-foreground mt-1">Gestion et suivi des agents TC</p>
       </div>
 
@@ -83,25 +83,25 @@ export function AdminTrustAgents() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card className="border-border">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-foreground">{agents.length}</p>
+            <p className="text-xl sm:text-2xl font-bold text-foreground">{agents.length}</p>
             <p className="text-xs text-muted-foreground">Total TC</p>
           </CardContent>
         </Card>
         <Card className="border-border">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-green-600">{activeAgents}</p>
+            <p className="text-xl sm:text-2xl font-bold text-green-600">{activeAgents}</p>
             <p className="text-xs text-muted-foreground">Actifs</p>
           </CardContent>
         </Card>
         <Card className="border-border">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-amber-600">{totalValidations}</p>
+            <p className="text-xl sm:text-2xl font-bold text-amber-600">{totalValidations}</p>
             <p className="text-xs text-muted-foreground">Validations totales</p>
           </CardContent>
         </Card>
         <Card className="border-border">
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-teal-600">{avgProcessingTime}h</p>
+            <p className="text-xl sm:text-2xl font-bold text-teal-600">{avgProcessingTime}h</p>
             <p className="text-xs text-muted-foreground">Temps moyen</p>
           </CardContent>
         </Card>
@@ -112,7 +112,7 @@ export function AdminTrustAgents() {
         {agents.map((agent) => (
           <Card key={agent.id} className={`border-border ${!agent.isActive ? 'opacity-60' : ''}`}>
             <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-3">
                   <div className="size-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-semibold">
                     {agent.firstName[0]}{agent.lastName[0]}
@@ -127,7 +127,7 @@ export function AdminTrustAgents() {
                 </Badge>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                 <div className="p-2 rounded-lg bg-muted">
                   <p className="text-lg font-bold text-foreground">{agent.stats.validationsCompleted}</p>
                   <p className="text-xs text-muted-foreground">Validations</p>
@@ -212,7 +212,7 @@ export function AdminTrustAgents() {
 
       {/* Agent Detail Dialog */}
       <Dialog open={!!selectedAgent} onOpenChange={(open) => { if (!open) setSelectedAgent(null) }}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Profil TC — {selectedAgent?.firstName} {selectedAgent?.lastName}</DialogTitle>
           </DialogHeader>
@@ -228,7 +228,7 @@ export function AdminTrustAgents() {
                   <p className="text-sm text-muted-foreground">{selectedAgent.phone || '—'}</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg border border-border">
                   <p className="text-sm text-muted-foreground">Inscrit le</p>
                   <p className="font-medium text-foreground">{new Date(selectedAgent.createdAt).toLocaleDateString('fr-FR')}</p>

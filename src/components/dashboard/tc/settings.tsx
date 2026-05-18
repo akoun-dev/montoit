@@ -368,7 +368,7 @@ export function TcSettings() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Paramètres</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Paramètres</h1>
         <p className="text-muted-foreground mt-1">Gérez votre compte Tiers de Confiance</p>
       </motion.div>
 
@@ -836,7 +836,7 @@ export function TcSettings() {
 
             {/* Password Change Modal */}
             <Dialog open={passwordModalOpen} onOpenChange={setPasswordModalOpen}>
-              <DialogContent className="max-w-md">
+              <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <Shield className="size-5 text-brand-500" />

@@ -62,8 +62,8 @@ export function AgenceContracts() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <FileText className="size-6 text-[#FF6C2F]" /> Contrats
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+          <FileText className="size-5 sm:size-6 text-[#FF6C2F]" /> Contrats
         </h1>
         <p className="text-muted-foreground mt-1">{activeLeases.length} bail{activeLeases.length > 1 ? 'x' : ''} actif{activeLeases.length > 1 ? 's' : ''}</p>
       </motion.div>
@@ -79,12 +79,12 @@ export function AgenceContracts() {
             </CardHeader>
             <CardContent className="space-y-2">
               {expiringLeases.map((l) => (
-                <div key={l.id} className="flex items-center justify-between p-2 bg-white rounded-lg border border-amber-200">
+                <div key={l.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2 bg-white rounded-lg border border-amber-200 gap-2">
                   <div>
                     <p className="text-sm font-medium">{l.tenant.firstName} {l.tenant.lastName}</p>
                     <p className="text-xs text-muted-foreground">{l.property.title}</p>
                   </div>
-                  <Badge className="bg-amber-100 text-amber-700">
+                  <Badge className="bg-amber-100 text-amber-700 shrink-0">
                     <Calendar className="size-3 mr-1" /> {new Date(l.endDate).toLocaleDateString('fr-FR')}
                   </Badge>
                 </div>
@@ -105,7 +105,7 @@ export function AgenceContracts() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

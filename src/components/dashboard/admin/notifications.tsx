@@ -108,7 +108,7 @@ export function AdminNotifications() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Centre de notifications</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Centre de notifications</h1>
           <p className="text-muted-foreground mt-1">{unreadCount} notification(s) non lue(s)</p>
         </div>
         <div className="flex gap-2">
@@ -200,7 +200,7 @@ export function AdminNotifications() {
                 { key: 'systemUpdates' as const, label: 'Mises à jour système', desc: 'Sauvegardes, maintenance, etc.' },
                 { key: 'emailDigest' as const, label: 'Résumé par email', desc: 'Recevoir un résumé quotidien' },
               ].map((pref) => (
-                <div key={pref.key} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                <div key={pref.key} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                   <div>
                     <p className="text-sm font-medium text-foreground">{pref.label}</p>
                     <p className="text-xs text-muted-foreground">{pref.desc}</p>

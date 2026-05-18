@@ -1,0 +1,641 @@
+{
+	"info": {
+		"_postman_id": "fbe95b85-cd27-4ee3-86d5-52b83fe6dd03",
+		"name": "ANSUT CI INTOUCH",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "33317465"
+	},
+	"item": [
+		{
+			"name": "CI",
+			"item": [
+				{
+					"name": "CASHIN",
+					"item": [
+						{
+							"name": "OM",
+							"protocolProfileBehavior": {
+								"followRedirects": true,
+								"disableUrlEncoding": false,
+								"disableCookies": false
+							},
+							"request": {
+								"auth": {
+									"type": "basic",
+									"basic": [
+										{
+											"key": "username",
+											"value": "8ff019758878d5cdab335d12fbc998721d319e4159e2086f9cb1f15f23896e10",
+											"type": "string"
+										},
+										{
+											"key": "password",
+											"value": "d3fd092d16747333547e340e4aac135888ff90c38e9577cadec41a052a507978",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n\t\"service_id\": \"CASHINOMCIPART2\",\n\t\"recipient_phone_number\": \"0797436603\",\n\t\"amount\": 100,\n\t\"partner_id\": \"CI300373\",\n\t\"partner_transaction_id\": \"\",\n\t\"login_api\": \"07084598370\",\n\t\"password_api\": \"G1tBPD9v\",\n\t\"call_back_url\": \"https://gutouch.com\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "https://apidist.gutouch.net/apidist/sec/ANSUT13287/cashin",
+									"protocol": "https",
+									"host": [
+										"apidist",
+										"gutouch",
+										"net"
+									],
+									"path": [
+										"apidist",
+										"sec",
+										"ANSUT13287",
+										"cashin"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "MTN",
+							"protocolProfileBehavior": {
+								"followRedirects": true,
+								"disableUrlEncoding": false,
+								"disableCookies": false
+							},
+							"request": {
+								"auth": {
+									"type": "basic",
+									"basic": [
+										{
+											"key": "username",
+											"value": "8ff019758878d5cdab335d12fbc998721d319e4159e2086f9cb1f15f23896e10",
+											"type": "string"
+										},
+										{
+											"key": "password",
+											"value": "d3fd092d16747333547e340e4aac135888ff90c38e9577cadec41a052a507978",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n\t\"service_id\": \"CASHINMTNPART2\",\n\t\"recipient_phone_number\": \"0564374596\",\n\t\"amount\": 100,\n\t\"partner_id\": \"CI300373\",\n\t\"partner_transaction_id\": \"25418\",\n\t\"login_api\": \"07084598370\",\n\t\"password_api\": \"vwGAKHRBnn\",\n\t\"call_back_url\": \"https://gutouch.com\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "https://apidist.gutouch.net/apidist/sec/ANSUT13287/cashin",
+									"protocol": "https",
+									"host": [
+										"apidist",
+										"gutouch",
+										"net"
+									],
+									"path": [
+										"apidist",
+										"sec",
+										"ANSUT13287",
+										"cashin"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "MOOV",
+							"protocolProfileBehavior": {
+								"followRedirects": true,
+								"disableUrlEncoding": false,
+								"disableCookies": false
+							},
+							"request": {
+								"auth": {
+									"type": "basic",
+									"basic": [
+										{
+											"key": "username",
+											"value": "8ff019758878d5cdab335d12fbc998721d319e4159e2086f9cb1f15f23896e10",
+											"type": "string"
+										},
+										{
+											"key": "password",
+											"value": "d3fd092d16747333547e340e4aac135888ff90c38e9577cadec41a052a507978",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n\t\"service_id\": \"CASHINMOOVPART2\",\n\t\"recipient_phone_number\": \"78993383\",\n\t\"amount\": 100,\n\t\"partner_id\": \"CI300373\",\n\t\"partner_transaction_id\": \"KJ7868\",\n\t\"login_api\": \"07084598370\",\n\t\"password_api\": \"XXX\",\n\t\"call_back_url\": \"https://gutouch.com\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "https://apidist.gutouch.net/apidist/sec/ANSUT13287/cashin",
+									"protocol": "https",
+									"host": [
+										"apidist",
+										"gutouch",
+										"net"
+									],
+									"path": [
+										"apidist",
+										"sec",
+										"ANSUT13287",
+										"cashin"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "WAVE",
+							"protocolProfileBehavior": {
+								"followRedirects": true,
+								"disableUrlEncoding": false,
+								"disableCookies": false
+							},
+							"request": {
+								"auth": {
+									"type": "basic",
+									"basic": [
+										{
+											"key": "username",
+											"value": "8ff019758878d5cdab335d12fbc998721d319e4159e2086f9cb1f15f23896e10",
+											"type": "string"
+										},
+										{
+											"key": "password",
+											"value": "d3fd092d16747333547e340e4aac135888ff90c38e9577cadec41a052a507978",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "User-Agent",
+										"value": "insomnia/2023.5.8"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n\t\"service_id\": \"CI_CASHIN_WAVE_PART\",\n\t\"recipient_phone_number\": \"78993383\",\n\t\"amount\": 100,\n\t\"partner_id\": \"CI300373\",\n\t\"partner_transaction_id\": \"KJ7868\",\n\t\"login_api\": \"07084598370\",\n\t\"password_api\": \"XXX\",\n\t\"call_back_url\": \"https://gutouch.com\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "https://apidist.gutouch.net/apidist/sec/ANSUT13287/cashin",
+									"protocol": "https",
+									"host": [
+										"apidist",
+										"gutouch",
+										"net"
+									],
+									"path": [
+										"apidist",
+										"sec",
+										"ANSUT13287",
+										"cashin"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "PAIEMENT",
+					"item": [
+						{
+							"name": "OM",
+							"protocolProfileBehavior": {
+								"followRedirects": true,
+								"disableUrlEncoding": false,
+								"disableCookies": false
+							},
+							"request": {
+								"auth": {
+									"type": "basic",
+									"basic": [
+										{
+											"key": "username",
+											"value": "8ff019758878d5cdab335d12fbc998721d319e4159e2086f9cb1f15f23896e10",
+											"type": "string"
+										},
+										{
+											"key": "password",
+											"value": "d3fd092d16747333547e340e4aac135888ff90c38e9577cadec41a052a507978",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\t\"idFromClient\": \"15487171111111669723\",\n\t\"additionnalInfos\": {\n\t\t\"recipientEmail\": \"JUNIOR@hubsocial.org\",\n\t\t\"recipientFirstName\": \"Moustapha\",\n\t\t\"recipientLastName\": \"SECK\",\n\t\t\"destinataire\": \"54791752\",\n\t\t\"otp\": \"XXX\"\n\t},\n\t\"amount\": 150,\n\t\"callback\": \"https://yourcallbacurl\",\n\t\"recipientNumber\": \"54791752\",\n\t\"serviceCode\": \"PAIEMENTMARCHANDOMPAYCIDIRECT\"\n}\n",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "https://apidist.gutouch.net/apidist/sec/touchpayapi/ANSUT13287/transaction?loginAgent=07084598370&passwordAgent=XXXXXXX",
+									"protocol": "https",
+									"host": [
+										"apidist",
+										"gutouch",
+										"net"
+									],
+									"path": [
+										"apidist",
+										"sec",
+										"touchpayapi",
+										"ANSUT13287",
+										"transaction"
+									],
+									"query": [
+										{
+											"key": "loginAgent",
+											"value": "07084598370"
+										},
+										{
+											"key": "passwordAgent",
+											"value": "XXXXXXX"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "MTN",
+							"protocolProfileBehavior": {
+								"followRedirects": true,
+								"disableUrlEncoding": false,
+								"disableCookies": false
+							},
+							"request": {
+								"auth": {
+									"type": "basic",
+									"basic": [
+										{
+											"key": "username",
+											"value": "8ff019758878d5cdab335d12fbc998721d319e4159e2086f9cb1f15f23896e10",
+											"type": "string"
+										},
+										{
+											"key": "password",
+											"value": "d3fd092d16747333547e340e4aac135888ff90c38e9577cadec41a052a507978",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\t\"idFromClient\": \"15487171111111669723\",\n\t\"additionnalInfos\": {\n\t\t\"recipientEmail\": \"JUNIOR@hubsocial.org\",\n\t\t\"recipientFirstName\": \"Moustapha\",\n\t\t\"recipientLastName\": \"SECK\",\n\t\t\"destinataire\": \"54791752\"\n\t},\n\t\"amount\": 150,\n\t\"callback\": \"https://yourcallbacurl\",\n\t\"recipientNumber\": \"54791752\",\n\t\"serviceCode\": \"PAIEMENTMARCHAND_MTN_CI\"\n}\n",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "https://apidist.gutouch.net/apidist/sec/touchpayapi/ANSUT13287/transaction?loginAgent=07084598370&passwordAgent=XXXXXXX",
+									"protocol": "https",
+									"host": [
+										"apidist",
+										"gutouch",
+										"net"
+									],
+									"path": [
+										"apidist",
+										"sec",
+										"touchpayapi",
+										"ANSUT13287",
+										"transaction"
+									],
+									"query": [
+										{
+											"key": "loginAgent",
+											"value": "07084598370"
+										},
+										{
+											"key": "passwordAgent",
+											"value": "XXXXXXX"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "MOOV",
+							"protocolProfileBehavior": {
+								"followRedirects": true,
+								"disableUrlEncoding": false,
+								"disableCookies": false
+							},
+							"request": {
+								"auth": {
+									"type": "basic",
+									"basic": [
+										{
+											"key": "username",
+											"value": "8ff019758878d5cdab335d12fbc998721d319e4159e2086f9cb1f15f23896e10",
+											"type": "string"
+										},
+										{
+											"key": "password",
+											"value": "d3fd092d16747333547e340e4aac135888ff90c38e9577cadec41a052a507978",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\t\"idFromClient\": \"15487171111111669723\",\n\t\"additionnalInfos\": {\n\t\t\"recipientEmail\": \"JUNIOR@hubsocial.org\",\n\t\t\"recipientFirstName\": \"Moustapha\",\n\t\t\"recipientLastName\": \"SECK\",\n\t\t\"destinataire\": \"54791752\"\n\t},\n\t\"amount\": 150,\n\t\"callback\": \"https://yourcallbacurl\",\n\t\"recipientNumber\": \"54791752\",\n\t\"serviceCode\": \"PAIEMENTMARCHAND_MOOV_CI\"\n}\n",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "https://apidist.gutouch.net/apidist/sec/touchpayapi/ANSUT13287/transaction?loginAgent=07084598370&passwordAgent=XXXXXXX",
+									"protocol": "https",
+									"host": [
+										"apidist",
+										"gutouch",
+										"net"
+									],
+									"path": [
+										"apidist",
+										"sec",
+										"touchpayapi",
+										"ANSUT13287",
+										"transaction"
+									],
+									"query": [
+										{
+											"key": "loginAgent",
+											"value": "07084598370"
+										},
+										{
+											"key": "passwordAgent",
+											"value": "XXXXXXX"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "WAVE",
+							"protocolProfileBehavior": {
+								"followRedirects": true,
+								"disableUrlEncoding": false,
+								"disableCookies": false
+							},
+							"request": {
+								"auth": {
+									"type": "basic",
+									"basic": [
+										{
+											"key": "username",
+											"value": "8ff019758878d5cdab335d12fbc998721d319e4159e2086f9cb1f15f23896e10",
+											"type": "string"
+										},
+										{
+											"key": "password",
+											"value": "d3fd092d16747333547e340e4aac135888ff90c38e9577cadec41a052a507978",
+											"type": "string"
+										}
+									]
+								},
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n\t\"idFromClient\": \"1651089293\",\n\t\"additionnalInfos\": {\n\t\t\"recipientEmail\": \"tester@gmail.com\",\n\t\t\"recipientFirstName\": \"Testeur\",\n\t\t\"recipientLastName\": \"lastname\",\n\t\t\"destinataire\": \"770000000\",\n\t\t\"partner_name\": \"Le nom de votre structure\",\n\t\t\"return_url\": \"https://successurl.com\",\n\t\t\"cancel_url\": \"https://failedurl.com\"\n\t},\n\t\"amount\": 100,\n\t\"callback\": \"https://callbackurl.com\",\n\t\"recipientNumber\": \"XXXXXXXXXXX\",\n\t\"serviceCode\": \"CI_PAIEMENTWAVE_TP\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "https://apidist.gutouch.net/apidist/sec/touchpayapi/ANSUT13287/transaction?loginAgent=07084598370&passwordAgent=XXXXXXX",
+									"protocol": "https",
+									"host": [
+										"apidist",
+										"gutouch",
+										"net"
+									],
+									"path": [
+										"apidist",
+										"sec",
+										"touchpayapi",
+										"ANSUT13287",
+										"transaction"
+									],
+									"query": [
+										{
+											"key": "loginAgent",
+											"value": "07084598370"
+										},
+										{
+											"key": "passwordAgent",
+											"value": "XXXXXXX"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "CHECKSTATUTS",
+					"protocolProfileBehavior": {
+						"followRedirects": true,
+						"disableUrlEncoding": false,
+						"disableCookies": false
+					},
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "username",
+									"value": "8ff019758878d5cdab335d12fbc998721d319e4159e2086f9cb1f15f23896e10",
+									"type": "string"
+								},
+								{
+									"key": "password",
+									"value": "d3fd092d16747333547e340e4aac135888ff90c38e9577cadec41a052a507978",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://apidist.gutouch.net/apidist/sec/touchpayapi/ANSUT13287/transaction/transaction_id?loginAgent=07084598370&passwordAgent=xxx",
+							"protocol": "https",
+							"host": [
+								"apidist",
+								"gutouch",
+								"net"
+							],
+							"path": [
+								"apidist",
+								"sec",
+								"touchpayapi",
+								"ANSUT13287",
+								"transaction",
+								"transaction_id"
+							],
+							"query": [
+								{
+									"key": "loginAgent",
+									"value": "07084598370"
+								},
+								{
+									"key": "passwordAgent",
+									"value": "xxx"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "GET BALANCE",
+			"protocolProfileBehavior": {
+				"followRedirects": true,
+				"disableUrlEncoding": false,
+				"disableCookies": false
+			},
+			"request": {
+				"auth": {
+					"type": "basic",
+					"basic": [
+						{
+							"key": "username",
+							"value": "8ff019758878d5cdab335d12fbc998721d319e4159e2086f9cb1f15f23896e10",
+							"type": "string"
+						},
+						{
+							"key": "password",
+							"value": "d3fd092d16747333547e340e4aac135888ff90c38e9577cadec41a052a507978",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"partner_id\": \"CI300373\",\n\t\"login_api\": \"07084598370\",\n\t\"password_api\": \"XXX\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://apidist.gutouch.net/apidist/sec/ANSUT13287/get_balance",
+					"protocol": "https",
+					"host": [
+						"apidist",
+						"gutouch",
+						"net"
+					],
+					"path": [
+						"apidist",
+						"sec",
+						"ANSUT13287",
+						"get_balance"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

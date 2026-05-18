@@ -10,9 +10,9 @@ import { toast } from 'sonner'
 export function TcManagement() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Gestion des Tiers de Confiance</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Gestion des Tiers de Confiance</h1>
           <p className="text-muted-foreground mt-1">Créez et gérez les comptes TC</p>
         </div>
         <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2" onClick={() => toast.info('Fonctionnalité à venir')}>
@@ -22,7 +22,7 @@ export function TcManagement() {
 
       <Card className="border-border">
         <CardContent className="p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-3">
               <div className="size-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-sm font-semibold">
                 TC

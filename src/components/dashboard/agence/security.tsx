@@ -29,8 +29,8 @@ export function AgenceSecurity() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Shield className="size-6 text-[#FF6C2F]" /> Sécurité
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+          <Shield className="size-5 sm:size-6 text-[#FF6C2F]" /> Sécurité
         </h1>
         <p className="text-muted-foreground mt-1">Sécurité des comptes et conformité RGPD</p>
       </motion.div>
@@ -74,7 +74,7 @@ export function AgenceSecurity() {
               <Eye className="size-4 text-[#FF6C2F]" /> Journal d&apos;activité des agents
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

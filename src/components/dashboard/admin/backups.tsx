@@ -49,7 +49,7 @@ export function AdminBackups() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Sauvegardes</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Sauvegardes</h1>
           <p className="text-muted-foreground mt-1">Gestion des sauvegardes système</p>
         </div>
         <Button className="bg-[#FF6C2F] hover:bg-[#e55f28] text-white gap-2" onClick={handleTriggerBackup} disabled={triggering}>
@@ -62,21 +62,21 @@ export function AdminBackups() {
         <Card className="border-border">
           <CardContent className="p-4 text-center">
             <CheckCircle className="size-8 text-green-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-foreground">{backups.filter(b => b.status === 'completed').length}</p>
+            <p className="text-xl sm:text-2xl font-bold text-foreground">{backups.filter(b => b.status === 'completed').length}</p>
             <p className="text-xs text-muted-foreground">Sauvegardes réussies</p>
           </CardContent>
         </Card>
         <Card className="border-border">
           <CardContent className="p-4 text-center">
             <HardDrive className="size-8 text-amber-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-foreground">{backups[0]?.size || '—'}</p>
+            <p className="text-xl sm:text-2xl font-bold text-foreground">{backups[0]?.size || '—'}</p>
             <p className="text-xs text-muted-foreground">Dernière sauvegarde</p>
           </CardContent>
         </Card>
         <Card className="border-border">
           <CardContent className="p-4 text-center">
             <AlertTriangle className="size-8 text-red-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-foreground">{backups.filter(b => b.status === 'failed').length}</p>
+            <p className="text-xl sm:text-2xl font-bold text-foreground">{backups.filter(b => b.status === 'failed').length}</p>
             <p className="text-xs text-muted-foreground">Échouées</p>
           </CardContent>
         </Card>

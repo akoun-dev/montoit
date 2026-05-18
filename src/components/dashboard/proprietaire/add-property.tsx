@@ -532,7 +532,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="area" className="text-xs font-medium">Surface (m²) <span className="text-red-400">*</span></Label>
               <Input

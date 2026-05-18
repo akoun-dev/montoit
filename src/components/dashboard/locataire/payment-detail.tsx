@@ -231,7 +231,7 @@ indiquée.
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Montant</p>
-              <p className="text-2xl font-bold text-foreground">{formatCurrency(payment.amount)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-foreground">{formatCurrency(payment.amount)}</p>
             </div>
           </div>
 

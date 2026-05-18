@@ -128,7 +128,7 @@ export function SlaMonitoring() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Suivi SLA & Statistiques</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Suivi SLA & Statistiques</h1>
         <p className="text-muted-foreground mt-1">Respect des délais de traitement et indicateurs de performance</p>
       </motion.div>
 
@@ -166,7 +166,7 @@ export function SlaMonitoring() {
       </motion.div>
 
       {/* Performance Metrics */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <Card className="border-border">
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2 sm:gap-3">
@@ -240,17 +240,17 @@ export function SlaMonitoring() {
             ) : (
               <div className="space-y-4">
                 {/* Breakdown cards */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-center">
-                    <p className="text-2xl font-bold text-green-600">{stats.auditBreakdown.validated}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.auditBreakdown.validated}</p>
                     <p className="text-xs text-green-700 font-medium">Validés</p>
                   </div>
                   <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-center">
-                    <p className="text-2xl font-bold text-red-600">{stats.auditBreakdown.rejected}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-red-600">{stats.auditBreakdown.rejected}</p>
                     <p className="text-xs text-red-700 font-medium">Rejetés</p>
                   </div>
                   <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-center">
-                    <p className="text-2xl font-bold text-amber-600">{stats.auditBreakdown.infoRequested}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-amber-600">{stats.auditBreakdown.infoRequested}</p>
                     <p className="text-xs text-amber-700 font-medium">Info demandée</p>
                   </div>
                 </div>

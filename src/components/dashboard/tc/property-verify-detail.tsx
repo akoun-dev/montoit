@@ -304,7 +304,7 @@ export function PropertyVerifyDetail() {
                     <span className="text-sm text-muted-foreground">{property.commune} — {property.address}</span>
                   </div>
                 </div>
-                <p className="text-2xl font-bold text-brand-500 shrink-0">
+                <p className="text-xl sm:text-2xl font-bold text-brand-500 shrink-0">
                   {property.price.toLocaleString('fr-FR')} <span className="text-sm font-normal text-muted-foreground">FCFA/mois</span>
                 </p>
               </div>

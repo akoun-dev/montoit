@@ -125,12 +125,12 @@ export function AdminModeration() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Modération du contenu</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Modération du contenu</h1>
         <p className="text-muted-foreground mt-1">Validation des documents et modération du contenu</p>
       </div>
 
       <Tabs defaultValue="documents" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-muted">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-muted">
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="reports">Signalements contenu</TabsTrigger>
           <TabsTrigger value="profiles">Profils signalés</TabsTrigger>
@@ -153,7 +153,7 @@ export function AdminModeration() {
                   <h4 className="text-sm font-medium text-muted-foreground mb-2">Documents de propriété</h4>
                   <div className="space-y-2">
                     {mockOwnershipDocs.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                      <div key={doc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                         <div className="flex items-center gap-3">
                           <div className="size-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
                             <FileCheck className="size-4" />
@@ -191,7 +191,7 @@ export function AdminModeration() {
                   <h4 className="text-sm font-medium text-muted-foreground mb-2">Documents dossiers locatifs</h4>
                   <div className="space-y-2">
                     {mockRentalDocs.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                      <div key={doc.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                         <div className="flex items-center gap-3">
                           <div className="size-9 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
                             <FileCheck className="size-4" />
@@ -234,7 +234,7 @@ export function AdminModeration() {
                 <div className="space-y-3">
                   {mockContentReports.map((report) => (
                     <div key={report.id} className="p-3 rounded-lg border border-border">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2">
                           <Badge className="bg-amber-100 text-amber-700">{reasonLabels[report.reason] || report.reason}</Badge>
                           <Badge variant="outline">{report.entityType}</Badge>
@@ -270,7 +270,7 @@ export function AdminModeration() {
               ) : (
                 <div className="space-y-3">
                   {mockReportedProfiles.map((profile) => (
-                    <div key={profile.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <div key={profile.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                       <div className="flex items-center gap-3">
                         <div className="size-10 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-sm font-semibold">
                           {profile.firstName[0]}{profile.lastName[0]}

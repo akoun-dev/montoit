@@ -129,7 +129,7 @@ export function Payments({ onDetail }: PaymentsProps) {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-foreground">Mes Paiements</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes Paiements</h1>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
             <p className="text-sm text-amber-700">Impossible de charger vos paiements. Veuillez réessayer.</p>
@@ -143,7 +143,7 @@ export function Payments({ onDetail }: PaymentsProps) {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-2xl font-bold text-foreground">Mes Paiements</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes Paiements</h1>
         <p className="text-muted-foreground mt-1">Historique et suivi de vos paiements</p>
       </motion.div>
 
