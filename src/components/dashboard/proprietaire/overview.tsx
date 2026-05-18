@@ -1,13 +1,27 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Building2, Eye, FileSignature, TrendingUp, FileText, ClipboardCheck, Home, User, CheckCircle2, AlertTriangle, Hourglass, CreditCard, Calendar, ChevronRight, Users } from 'lucide-react'
+import { Building2, Eye, FileSignature, TrendingUp, FileText, ClipboardCheck, Home, User, CheckCircle2, AlertTriangle, Hourglass, CreditCard, Calendar, ChevronRight, Users, ShieldCheck, ArrowRight } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+
+interface ScoringSummary {
+  score: number
+  statusLabel: string
+  statusColor: string
+  status: string
+  roleLabel: string
+  breakdown: {
+    profile: { score: number; max: number; weight: number }
+    neoface: { score: number; max: number; weight: number; verified: boolean }
+    oneci: { score: number; max: number; weight: number; verified: boolean }
+    roleSpecific: { score: number; max: number; weight: number; approved: boolean; hasFile: boolean; label: string }
+  }
+}
 
 interface ProprietaireData {
   stats: {
@@ -137,6 +151,7 @@ function PaymentStatusIndicator({ status }: { status: 'up_to_date' | 'late' | 'p
 export function ProprietaireOverview() {
   const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const [data, setData] = useState<ProprietaireData>(defaultData)
+  const [scoring, setScoring] = useState<ScoringSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -147,13 +162,24 @@ export function ProprietaireOverview() {
     }
 
     try {
-      const d = await authFetch<ApiProprietaireResponse>('/api/dashboard/proprietaire')
-      setData({
-        stats: { ...defaultData.stats, ...d.stats },
-        properties: d.properties ?? [],
-        visitRequests: d.visitRequests ?? [],
-        activeLeases: d.activeLeases ?? [],
-      })
+      const [dashboardResult, scoringResult] = await Promise.allSettled([
+        authFetch<ApiProprietaireResponse>('/api/dashboard/proprietaire'),
+        authFetch<ScoringSummary>('/api/scoring'),
+      ])
+
+      if (dashboardResult.status === 'fulfilled') {
+        const d = dashboardResult.value
+        setData({
+          stats: { ...defaultData.stats, ...d.stats },
+          properties: d.properties ?? [],
+          visitRequests: d.visitRequests ?? [],
+          activeLeases: d.activeLeases ?? [],
+        })
+      }
+
+      if (scoringResult.status === 'fulfilled') {
+        setScoring(scoringResult.value)
+      }
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) {
         setData(defaultData)
@@ -192,6 +218,24 @@ export function ProprietaireOverview() {
     { label: 'Revenus mensuels', value: `${(data.stats.totalRevenue / 1000).toFixed(0)}k`, icon: FileSignature, color: 'text-brand-600 bg-brand-50' },
   ]
 
+  // Scoring status colors
+  const scoreColor = scoring?.statusColor === 'emerald' ? '#10b981' : scoring?.statusColor === 'amber' ? '#f59e0b' : '#ef4444'
+  const scoreBgClass = scoring?.statusColor === 'emerald'
+    ? 'from-emerald-50 to-white border-emerald-100'
+    : scoring?.statusColor === 'amber'
+      ? 'from-amber-50 to-white border-amber-100'
+      : 'from-red-50/50 to-white border-red-100'
+  const scoreTextClass = scoring?.statusColor === 'emerald'
+    ? 'text-emerald-600'
+    : scoring?.statusColor === 'amber'
+      ? 'text-amber-600'
+      : 'text-red-500'
+  const scoreBadgeClass = scoring?.statusColor === 'emerald'
+    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    : scoring?.statusColor === 'amber'
+      ? 'bg-amber-50 text-amber-700 border-amber-200'
+      : 'bg-red-50 text-red-600 border-red-200'
+
   // Filter only ACTIVE leases for the "Mes locations en cours" section
   const activeLeasesOnly = data.activeLeases.filter((l) => l.status === 'ACTIVE')
 
@@ -201,6 +245,70 @@ export function ProprietaireOverview() {
         <h1 className="text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
         <p className="text-muted-foreground mt-1">Voici un aperçu de votre espace propriétaire</p>
       </motion.div>
+
+      {/* Trust Score Mini Card — prominent at top */}
+      {scoring && (
+        <motion.div variants={itemVariants}>
+          <Card className={`border bg-gradient-to-r ${scoreBgClass} cursor-pointer hover:shadow-md transition-all group`}
+            onClick={() => setDashboardSection('trust-score')}
+          >
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center gap-4">
+                {/* Mini score circle */}
+                <div className="relative size-16 shrink-0">
+                  <svg className="size-full -rotate-90" viewBox="0 0 56 56">
+                    <circle cx="28" cy="28" r="22" fill="none" stroke="#f0f0f0" strokeWidth="5" />
+                    <circle
+                      cx="28" cy="28" r="22" fill="none"
+                      stroke={scoreColor} strokeWidth="5" strokeLinecap="round"
+                      strokeDasharray={2 * Math.PI * 22}
+                      strokeDashoffset={2 * Math.PI * 22 - (scoring.score / 100) * 2 * Math.PI * 22}
+                      className="transition-all duration-1000 ease-out"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className={`text-lg font-bold ${scoreTextClass}`}>{scoring.score}</span>
+                  </div>
+                </div>
+                {/* Score info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <ShieldCheck className={`size-4 ${scoreTextClass}`} />
+                    <span className="text-sm font-semibold text-foreground">Trust Score</span>
+                    <Badge className={`border text-[10px] font-semibold px-2 py-0 ${scoreBadgeClass}`}>
+                      {scoring.statusLabel}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-2">Score de confiance {scoring.roleLabel || 'propriétaire'}</p>
+                  {/* Mini progress bars for each component */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { label: 'Profil', pct: scoring.breakdown.profile.max > 0 ? (scoring.breakdown.profile.score / scoring.breakdown.profile.max) * 100 : 0, weight: 5 },
+                      { label: 'KYC', pct: scoring.breakdown.neoface.verified ? 100 : 0, weight: 20 },
+                      { label: 'ONECI', pct: scoring.breakdown.oneci.verified ? 100 : 0, weight: 25 },
+                      { label: scoring.breakdown.roleSpecific.label || 'Dossier', pct: scoring.breakdown.roleSpecific.approved ? 100 : scoring.breakdown.roleSpecific.hasFile ? 50 : 0, weight: 50 },
+                    ].map((comp) => (
+                      <div key={comp.label}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[9px] text-muted-foreground">{comp.label}</span>
+                          <span className="text-[9px] font-semibold text-muted-foreground">{comp.weight}%</span>
+                        </div>
+                        <div className="h-1 rounded-full bg-neutral-200/60 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-700 ${comp.pct >= 100 ? 'bg-emerald-500' : comp.pct > 0 ? 'bg-amber-400' : 'bg-neutral-200'}`}
+                            style={{ width: `${comp.pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <ArrowRight className="size-5 text-neutral-300 group-hover:text-brand-400 transition-colors shrink-0" />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => {

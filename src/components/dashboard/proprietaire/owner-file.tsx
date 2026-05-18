@@ -324,7 +324,7 @@ export function OwnerFileForm() {
           {/* Step 1: Personal Info */}
           {step === 1 && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Prénom</Label>
                   <Input value={user?.firstName || ''} disabled />
@@ -334,7 +334,7 @@ export function OwnerFileForm() {
                   <Input value={user?.lastName || ''} disabled />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Téléphone</Label>
                   <Input value={user?.phone || 'Non renseigné'} disabled />

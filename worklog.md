@@ -87,3 +87,29 @@ Stage Summary:
 - Expanded Admin interface with 10 new components (US-AD-001 to US-AD-134)
 - Test account: agence@montoit.ci / demo1234
 - Lint passes with zero errors, dev server compiles successfully
+
+---
+Task ID: 6
+Agent: main
+Task: Add Trust Score system to propriétaire overview + ensure profile data shared between roles
+
+Work Log:
+- Explored existing trust-score system: API, component, Prisma schema
+- Discovered scoring API already handles propriétaire role (checks OwnerFile instead of RentalFile)
+- TrustScore component already renders for propriétaire (shared component)
+- Trust Score was already in propriétaire sidebar but missing from overview page
+- Added Trust Score mini card to propriétaire overview (same design as locataire overview)
+- Added ScoringSummary interface with roleLabel field
+- Fetches scoring data in parallel with dashboard data via Promise.allSettled
+- Card shows: score circle, status badge, 4 progress bars (Profil/KYC/ONECI/Dossier propriétaire)
+- Clicking card navigates to trust-score detail page
+- Updated locataire overview to use dynamic roleLabel instead of hardcoded "locataire"
+- Made scoring mini card progress bars responsive: grid-cols-2 on mobile, grid-cols-4 on sm+
+- Fixed owner-file grid-cols-2 → grid-cols-1 sm:grid-cols-2 for mobile
+
+Stage Summary:
+- Trust Score system fully operational for propriétaire role
+- Profile data shared between roles (same User model: firstName, lastName, phone, gender, city, neofaceVerified, oneciVerified)
+- Scoring breakdown: Profil (5%) + KYC (20%) + ONECI (25%) + Dossier propriétaire (50%)
+- Propriétaire overview now shows same trust score preview card as locataire
+- Both overviews use dynamic roleLabel from API

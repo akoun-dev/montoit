@@ -90,6 +90,7 @@ interface ScoringSummary {
   statusLabel: string
   statusColor: string
   status: string
+  roleLabel: string
   breakdown: {
     profile: { score: number; max: number; weight: number }
     neoface: { score: number; max: number; weight: number; verified: boolean }
@@ -298,9 +299,9 @@ export function LocataireOverview() {
                       {scoring.statusLabel}
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-2">Score de confiance locataire</p>
+                  <p className="text-xs text-muted-foreground mb-2">Score de confiance {scoring.roleLabel || 'locataire'}</p>
                   {/* Mini progress bars for each component */}
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
                       { label: 'Profil', pct: scoring.breakdown.profile.max > 0 ? (scoring.breakdown.profile.score / scoring.breakdown.profile.max) * 100 : 0, weight: 5 },
                       { label: 'KYC', pct: scoring.breakdown.neoface.verified ? 100 : 0, weight: 20 },
