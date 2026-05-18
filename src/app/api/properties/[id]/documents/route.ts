@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { BUCKETS, uploadFromBase64 } from '@/lib/supabase/storage'
 
 const VALID_DOC_TYPES = [
   'DIAGNOSTIC_DPE',
@@ -19,72 +20,92 @@ const VALID_DOC_TYPES = [
 
 const OWNER_ROLES = ['PROPRIETAIRE', 'AGENCE']
 
-// GET /api/properties/[id]/documents — List documents for a property (owner only)
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: propertyId } = await params
-    const auth = await getUserIdAndRole(req)
-    if (!auth) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
 
-    const { userId, effectiveRole } = auth
+    const supabase = getSupabaseAdminClient()
 
-    // Verify property exists
-    const property = await db.property.findUnique({
-      where: { id: propertyId },
-      select: { id: true, ownerId: true },
-    })
+    const { data: property, error: propError } = await supabase
+      .from('properties')
+      .select('id, owner_id')
+      .eq('id', propertyId)
+      .single()
 
-    if (!property) {
+    if (propError || !property) {
       return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
     }
 
-    // Only the owner (PROPRIETAIRE/AGENCE) can list documents
-    if (property.ownerId !== userId || !OWNER_ROLES.includes(effectiveRole)) {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    }
+    const { data: documents, error: docsError } = await supabase
+      .from('property_documents')
+      .select('*')
+      .eq('property_id', propertyId)
+      .order('created_at', { ascending: false })
 
-    const documents = await db.propertyDocument.findMany({
-      where: { propertyId },
-      orderBy: { createdAt: 'desc' },
-    })
+    const mapped = (documents || []).map((d: any) => ({
+      id: d.id,
+      propertyId: d.property_id,
+      name: d.name,
+      type: d.type,
+      url: d.url,
+      description: d.description,
+      expiryDate: d.expiry_date,
+      createdAt: d.created_at,
+      updatedAt: d.updated_at,
+    }))
 
-    return NextResponse.json({ data: documents })
+    const response = NextResponse.json({ data: mapped })
+    return applyCookies(response)
   } catch (error) {
     console.error('Property documents list error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// POST /api/properties/[id]/documents — Upload a document to a property (owner only)
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: propertyId } = await params
-    const auth = await getUserIdAndRole(req)
-    if (!auth) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
 
-    const { userId, effectiveRole } = auth
+    const supabase = getSupabaseAdminClient()
 
-    // Verify property exists and belongs to this owner
-    const property = await db.property.findUnique({
-      where: { id: propertyId },
-      select: { id: true, ownerId: true },
-    })
+    const { data: property, error: propError } = await supabase
+      .from('properties')
+      .select('id, owner_id')
+      .eq('id', propertyId)
+      .single()
 
-    if (!property) {
+    if (propError || !property) {
       return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
     }
 
-    if (property.ownerId !== userId || !OWNER_ROLES.includes(effectiveRole)) {
+    const { data: user } = await supabase
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+
+    const role = user?.active_role || user?.role
+    if (!role || !OWNER_ROLES.includes(role)) {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    }
+
+    if (property.owner_id !== userId) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
@@ -92,12 +113,11 @@ export async function POST(
     const { name, type, content, description, expiryDate } = body as {
       name: string
       type: string
-      content: string // base64 data URL
+      content: string
       description?: string
       expiryDate?: string
     }
 
-    // Validate required fields
     if (!name || !type || !content) {
       return NextResponse.json(
         { error: 'Nom, type et contenu du document requis' },
@@ -105,7 +125,6 @@ export async function POST(
       )
     }
 
-    // Validate document type
     if (!VALID_DOC_TYPES.includes(type as (typeof VALID_DOC_TYPES)[number])) {
       return NextResponse.json(
         { error: `Type de document invalide. Types valides : ${VALID_DOC_TYPES.join(', ')}` },
@@ -113,15 +132,6 @@ export async function POST(
       )
     }
 
-    // Validate content is a data URL
-    if (!content.startsWith('data:')) {
-      return NextResponse.json(
-        { error: 'Le contenu doit être une data URL (base64)' },
-        { status: 400 }
-      )
-    }
-
-    // Parse and validate expiry date if provided
     let parsedExpiryDate: Date | null = null
     if (expiryDate) {
       parsedExpiryDate = new Date(expiryDate)
@@ -133,20 +143,49 @@ export async function POST(
       }
     }
 
-    const document = await db.propertyDocument.create({
-      data: {
-        propertyId,
-        name: name.trim(),
-        type: type as (typeof VALID_DOC_TYPES)[number],
-        url: content,
-        description: description?.trim() || null,
-        expiryDate: parsedExpiryDate,
-      },
-    })
+    const ext = guessFileExt(name)
+    const filePath = `${userId}/${propertyId}/${type}_${Date.now()}.${ext}`
+    const url = await uploadFromBase64(BUCKETS.PROPERTY_DOCUMENTS, content, filePath)
 
-    return NextResponse.json({ data: document }, { status: 201 })
+    const { data: document, error: createError } = await supabase
+      .from('property_documents')
+      .insert({
+        property_id: propertyId,
+        name: name.trim(),
+        type,
+        url,
+        description: description?.trim() || null,
+        expiry_date: parsedExpiryDate?.toISOString() || null,
+      })
+      .select()
+      .single()
+
+    if (createError || !document) {
+      throw createError || new Error('Failed to create document')
+    }
+
+    const mapped = {
+      id: document.id,
+      propertyId: document.property_id,
+      name: document.name,
+      type: document.type,
+      url: document.url,
+      description: document.description,
+      expiryDate: document.expiry_date,
+      createdAt: document.created_at,
+      updatedAt: document.updated_at,
+    }
+
+    const response = NextResponse.json({ data: mapped }, { status: 201 })
+    return applyCookies(response)
   } catch (error) {
     console.error('Property document upload error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
+}
+
+function guessFileExt(name: string): string {
+  const dot = name.lastIndexOf('.')
+  if (dot !== -1) return name.slice(dot + 1)
+  return 'bin'
 }

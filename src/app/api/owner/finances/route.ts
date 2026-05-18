@@ -1,82 +1,138 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
-// GET /api/owner/finances — Return financial data for the owner
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
 
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+
+    const effectiveRole = profile?.active_role || profile?.role
     if (effectiveRole !== 'PROPRIETAIRE') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
     }
 
-    // ─── Fetch all data in parallel ──────────────────────────────────────────
-    const [
-      allPayments,
-      mandats,
-      properties,
-    ] = await Promise.all([
-      // All payments across all leases of this owner
-      db.payment.findMany({
-        where: { lease: { ownerId: userId } },
-        select: {
-          id: true,
-          amount: true,
-          status: true,
-          dueDate: true,
-          paidAt: true,
-          reference: true,
-          createdAt: true,
-          leaseId: true,
-          lease: {
-            select: {
-              monthlyRent: true,
-              propertyId: true,
-              property: { select: { id: true, title: true, city: true } },
-              tenant: { select: { id: true, firstName: true, lastName: true, phone: true } },
-            },
-          },
-        },
-        orderBy: { dueDate: 'desc' },
-      }),
-      // All mandats for commission tracking
-      db.mandat.findMany({
-        where: { ownerId: userId },
-        select: {
-          id: true,
-          type: true,
-          status: true,
-          commissionRate: true,
-          commissionType: true,
-          fixedCommission: true,
-          startDate: true,
-          endDate: true,
-          propertyId: true,
-          property: { select: { id: true, title: true, city: true } },
-          agency: { select: { id: true, firstName: true, lastName: true } },
-        },
-      }),
-      // Properties for revenue per property
-      db.property.findMany({
-        where: { ownerId: userId },
-        select: {
-          id: true,
-          title: true,
-          city: true,
-          price: true,
-          rentalStatus: true,
-        },
-      }),
+    const { data: ownerLeases } = await supabase
+      .from('leases')
+      .select('id, tenant_id, monthly_rent, property_id')
+      .eq('owner_id', userId)
+
+    const leases = ownerLeases || []
+    const leaseIds = leases.map(l => l.id)
+    const tenantIds = [...new Set(leases.map(l => l.tenant_id))]
+    const propertyIdsFromLeases = [...new Set(leases.map(l => l.property_id))]
+
+    const [paymentsRes, tenantsRes, propertiesRes, mandatsRes, agenciesRes, mandatPropsRes, ownerPropsRes] = await Promise.all([
+      leaseIds.length > 0
+        ? supabase.from('payments').select('*').in('lease_id', leaseIds).order('due_date', { ascending: false })
+        : { data: [] as any[] },
+      tenantIds.length > 0
+        ? supabase.from('users').select('id, first_name, last_name, phone').in('id', tenantIds)
+        : { data: [] as any[] },
+      propertyIdsFromLeases.length > 0
+        ? supabase.from('properties').select('id, title, city').in('id', propertyIdsFromLeases)
+        : { data: [] as any[] },
+      supabase.from('mandats').select('*').eq('owner_id', userId),
+      Promise.resolve({ data: [] as any[] }),
+      Promise.resolve({ data: [] as any[] }),
+      supabase.from('properties').select('id, title, city, price, rental_status').eq('owner_id', userId),
     ])
+
+    const tenantMap: Record<string, any> = {}
+    for (const t of (tenantsRes.data || [])) {
+      tenantMap[t.id] = { id: t.id, firstName: t.first_name, lastName: t.last_name, phone: t.phone }
+    }
+
+    const propMap: Record<string, any> = {}
+    for (const p of (propertiesRes.data || [])) {
+      propMap[p.id] = { id: p.id, title: p.title, city: p.city }
+    }
+
+    const leaseMap: Record<string, any> = {}
+    for (const l of leases) {
+      leaseMap[l.id] = {
+        monthlyRent: l.monthly_rent,
+        propertyId: l.property_id,
+        property: propMap[l.property_id] || { id: '', title: '', city: '' },
+        tenant: tenantMap[l.tenant_id] || { id: '', firstName: '', lastName: '', phone: '' },
+      }
+    }
+
+    const allPayments = (paymentsRes.data || []).map((p: any) => ({
+      id: p.id,
+      amount: p.amount,
+      status: p.status,
+      dueDate: p.due_date,
+      paidAt: p.paid_at,
+      reference: p.reference,
+      createdAt: p.created_at,
+      leaseId: p.lease_id,
+      lease: leaseMap[p.lease_id] || {
+        monthlyRent: 0, propertyId: '',
+        property: { id: '', title: '', city: '' },
+        tenant: { id: '', firstName: '', lastName: '', phone: '' },
+      },
+    }))
+
+    const rawMandats = (mandatsRes.data || []) as any[]
+    const agencyIds = [...new Set(rawMandats.map(m => m.agency_id))]
+
+    const { data: agencies } = agencyIds.length > 0
+      ? await supabase.from('users').select('id, first_name, last_name').in('id', agencyIds)
+      : { data: [] as any[] }
+
+    const agencyMap: Record<string, any> = {}
+    for (const a of (agencies || [])) {
+      agencyMap[a.id] = { id: a.id, firstName: a.first_name, lastName: a.last_name }
+    }
+
+    const mandatPropertyIds = [...new Set(rawMandats.map(m => m.property_id))]
+    const { data: mandatProps } = mandatPropertyIds.length > 0
+      ? await supabase.from('properties').select('id, title, city').in('id', mandatPropertyIds)
+      : { data: [] as any[] }
+
+    const mandatPropMap: Record<string, any> = {}
+    for (const p of (mandatProps || [])) {
+      mandatPropMap[p.id] = { id: p.id, title: p.title, city: p.city }
+    }
+
+    const mandats = rawMandats.map((m: any) => ({
+      id: m.id,
+      type: m.type,
+      status: m.status,
+      commissionRate: m.commission_rate,
+      commissionType: m.commission_type,
+      fixedCommission: m.fixed_commission,
+      startDate: m.start_date,
+      endDate: m.end_date,
+      propertyId: m.property_id,
+      property: mandatPropMap[m.property_id] || { id: '', title: '', city: '' },
+      agency: agencyMap[m.agency_id] || { id: '', firstName: '', lastName: '' },
+    }))
+
+    const ownerProps = (ownerPropsRes.data || []) as any[]
+    const properties = ownerProps.map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      city: p.city,
+      price: p.price,
+      rentalStatus: p.rental_status,
+    }))
 
     const now = new Date()
 
-    // ─── 1. Monthly Revenue History (last 12 months) ────────────────────────
     const monthlyRevenueHistory: {
       month: string
       revenue: number
@@ -90,22 +146,22 @@ export async function GET(req: NextRequest) {
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999)
       const monthLabel = monthStart.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' })
 
-      const monthPayments = allPayments.filter((p) => {
+      const monthPayments = allPayments.filter(p => {
         const dueDate = new Date(p.dueDate)
         return dueDate >= monthStart && dueDate <= monthEnd
       })
 
       const collected = monthPayments
-        .filter((p) => p.status === 'PAID')
+        .filter(p => p.status === 'PAID')
         .reduce((sum, p) => sum + p.amount, 0)
       const pending = monthPayments
-        .filter((p) => p.status === 'PENDING')
+        .filter(p => p.status === 'PENDING')
         .reduce((sum, p) => sum + p.amount, 0)
       const late = monthPayments
-        .filter((p) => p.status === 'LATE')
+        .filter(p => p.status === 'LATE')
         .reduce((sum, p) => sum + p.amount, 0)
       const partial = monthPayments
-        .filter((p) => p.status === 'PARTIAL')
+        .filter(p => p.status === 'PARTIAL')
         .reduce((sum, p) => sum + p.amount, 0)
 
       monthlyRevenueHistory.push({
@@ -117,8 +173,7 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // ─── 2. Payment Status Breakdown ────────────────────────────────────────
-    const paymentStatusBreakdown = {
+    const paymentStatusBreakdown: Record<string, { count: number; amount: number }> = {
       PAID: { count: 0, amount: 0 },
       PENDING: { count: 0, amount: 0 },
       LATE: { count: 0, amount: 0 },
@@ -134,12 +189,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ─── 3. Commission Tracking (from active mandats) ───────────────────────
-    const activeMandats = mandats.filter((m) => m.status === 'ACTIVE')
-    const commissionTracking = activeMandats.map((mandat) => {
-      // Calculate commission based on payments collected for this property
+    const activeMandats = mandats.filter(m => m.status === 'ACTIVE')
+    const commissionTracking = activeMandats.map(mandat => {
       const propertyPayments = allPayments.filter(
-        (p) => p.lease.propertyId === mandat.propertyId && p.status === 'PAID'
+        p => p.lease.propertyId === mandat.propertyId && p.status === 'PAID'
       )
       const totalCollected = propertyPayments.reduce((sum, p) => sum + p.amount, 0)
 
@@ -147,7 +200,6 @@ export async function GET(req: NextRequest) {
       if (mandat.commissionType === 'FIXED' && mandat.fixedCommission) {
         commissionAmount = mandat.fixedCommission
       } else {
-        // Percentage-based commission
         commissionAmount = totalCollected * (mandat.commissionRate / 100)
       }
 
@@ -160,34 +212,31 @@ export async function GET(req: NextRequest) {
         commissionType: mandat.commissionType,
         totalCollected,
         commissionAmount: Math.round(commissionAmount * 100) / 100,
-        period: `${mandat.startDate.toLocaleDateString('fr-FR')} - ${mandat.endDate.toLocaleDateString('fr-FR')}`,
+        period: `${new Date(mandat.startDate).toLocaleDateString('fr-FR')} - ${new Date(mandat.endDate).toLocaleDateString('fr-FR')}`,
       }
     })
 
     const totalCommissionDue = commissionTracking.reduce((sum, c) => sum + c.commissionAmount, 0)
 
-    // ─── 4. Revenue Per Property ────────────────────────────────────────────
-    const revenuePerProperty = properties.map((property) => {
-      const propertyPayments = allPayments.filter(
-        (p) => p.lease.propertyId === property.id
-      )
+    const revenuePerProperty = properties.map(property => {
+      const propertyPayments = allPayments.filter(p => p.lease.propertyId === property.id)
 
       const collected = propertyPayments
-        .filter((p) => p.status === 'PAID')
+        .filter(p => p.status === 'PAID')
         .reduce((sum, p) => sum + p.amount, 0)
       const pending = propertyPayments
-        .filter((p) => p.status === 'PENDING' || p.status === 'PARTIAL')
+        .filter(p => p.status === 'PENDING' || p.status === 'PARTIAL')
         .reduce((sum, p) => sum + p.amount, 0)
       const late = propertyPayments
-        .filter((p) => p.status === 'LATE')
+        .filter(p => p.status === 'LATE')
         .reduce((sum, p) => sum + p.amount, 0)
 
       const hasActiveMandat = mandats.some(
-        (m) => m.propertyId === property.id && m.status === 'ACTIVE'
+        m => m.propertyId === property.id && m.status === 'ACTIVE'
       )
       const mandatCommission = hasActiveMandat
         ? mandats
-            .filter((m) => m.propertyId === property.id && m.status === 'ACTIVE')
+            .filter(m => m.propertyId === property.id && m.status === 'ACTIVE')
             .reduce((sum, m) => {
               if (m.commissionType === 'FIXED' && m.fixedCommission) return sum + m.fixedCommission
               return sum + collected * (m.commissionRate / 100)
@@ -208,10 +257,9 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // ─── 5. Payment Reminders (late payments needing reminders) ─────────────
     const paymentReminders = allPayments
-      .filter((p) => p.status === 'LATE')
-      .map((p) => ({
+      .filter(p => p.status === 'LATE')
+      .map(p => ({
         paymentId: p.id,
         amount: p.amount,
         dueDate: p.dueDate,
@@ -231,20 +279,18 @@ export async function GET(req: NextRequest) {
       }))
       .sort((a, b) => b.daysLate - a.daysLate)
 
-    // ─── Summary ────────────────────────────────────────────────────────────
     const totalCollected = allPayments
-      .filter((p) => p.status === 'PAID')
+      .filter(p => p.status === 'PAID')
       .reduce((sum, p) => sum + p.amount, 0)
     const totalPendingAmount = allPayments
-      .filter((p) => p.status === 'PENDING' || p.status === 'PARTIAL')
+      .filter(p => p.status === 'PENDING' || p.status === 'PARTIAL')
       .reduce((sum, p) => sum + p.amount, 0)
     const totalLateAmount = allPayments
-      .filter((p) => p.status === 'LATE')
+      .filter(p => p.status === 'LATE')
       .reduce((sum, p) => sum + p.amount, 0)
     const netRevenue = Math.round((totalCollected - totalCommissionDue) * 100) / 100
 
-    // ─── 6. Recent Payments List (last 20) ──────────────────────────────────
-    const recentPayments = allPayments.slice(0, 20).map((p) => ({
+    const recentPayments = allPayments.slice(0, 20).map(p => ({
       id: p.id,
       amount: p.amount,
       status: p.status,
@@ -268,7 +314,7 @@ export async function GET(req: NextRequest) {
       },
     }))
 
-    return NextResponse.json({
+    const resp = NextResponse.json({
       monthlyRevenueHistory,
       paymentStatusBreakdown,
       commissionTracking: {
@@ -285,9 +331,10 @@ export async function GET(req: NextRequest) {
         totalCommissionDue: Math.round(totalCommissionDue * 100) / 100,
         netRevenue,
         propertiesCount: properties.length,
-        rentedPropertiesCount: properties.filter((p) => p.rentalStatus === 'loue').length,
+        rentedPropertiesCount: properties.filter(p => p.rentalStatus === 'loue').length,
       },
     })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Owner finances error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

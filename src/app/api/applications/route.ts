@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
-// GET /api/applications — List rental files (applications/candidatures) for current tenant
-// Focus on the status tracking view with property info
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
+
+    const profileResult = await supabase
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+    const profile = profileResult.data as { role: string; active_role: string } | null
+    const effectiveRole = profile?.active_role || profile?.role
 
     if (effectiveRole !== 'LOCATAIRE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
@@ -21,93 +29,131 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')))
 
-    const where: Record<string, unknown> = { tenantId: userId }
+    let query = supabase.from('applications').select('*', { count: 'exact' }).eq('tenant_id', userId)
     if (status) {
-      where.status = status
+      query = query.eq('status', status)
+    }
+    query = query.order('updated_at', { ascending: false }).range((page - 1) * limit, page * limit - 1)
+
+    const queryResult = await query
+    const applications = queryResult.data as any[]
+    const total = queryResult.count
+
+    const appIds = (applications ?? []).map((a: any) => a.id)
+
+    let documentsMap: Record<string, any[]> = {}
+    let leasesMap: Record<string, any[]> = {}
+    let reviewedByMap: Record<string, any> = {}
+
+    if (appIds.length > 0) {
+      const [docResult, leaseResult] = await Promise.all([
+        supabase.from('rental_file_documents').select('*').in('rental_file_id', appIds).order('created_at', { ascending: false }),
+        supabase.from('leases').select('*, property:properties!property_id(*)').in('rental_file_id', appIds),
+      ])
+
+      const docsData = (docResult.data ?? []) as any[]
+      for (const doc of docsData) {
+        if (!documentsMap[doc.rental_file_id]) documentsMap[doc.rental_file_id] = []
+        documentsMap[doc.rental_file_id].push(doc)
+      }
+
+      const leasesData = (leaseResult.data ?? []) as any[]
+      for (const lease of leasesData) {
+        if (!leasesMap[lease.rental_file_id]) leasesMap[lease.rental_file_id] = []
+        leasesMap[lease.rental_file_id].push(lease)
+      }
+
+      const propertyIds = [...new Set(leasesData.map((l: any) => l.property_id).filter(Boolean))]
+      if (propertyIds.length > 0) {
+        const propertyImagesResult = await supabase
+          .from('property_images')
+          .select('id, url, property_id')
+          .in('property_id', propertyIds)
+          .order('order', { ascending: true })
+        const propertyImages = propertyImagesResult.data as any[]
+
+        const propImageMap: Record<string, any[]> = {}
+        for (const img of propertyImages ?? []) {
+          if (!propImageMap[img.property_id]) propImageMap[img.property_id] = []
+          propImageMap[img.property_id].push(img)
+        }
+
+        for (const lease of leasesData) {
+          if (lease.property && propImageMap[lease.property_id]) {
+            lease.property.images = propImageMap[lease.property_id].slice(0, 1).map((i: any) => ({ url: i.url }))
+          }
+        }
+      }
+
+      const ownerIds = [...new Set(leasesData.map((l: any) => l.owner_id).filter(Boolean))]
+      if (ownerIds.length > 0) {
+        const ownersResult = await supabase
+          .from('users')
+          .select('id, first_name, last_name')
+          .in('id', ownerIds)
+        const owners = ownersResult.data as any[]
+        const ownerMap: Record<string, any> = {}
+        for (const o of owners ?? []) {
+          ownerMap[o.id] = o
+        }
+        for (const lease of leasesData) {
+          if (lease.property && ownerMap[lease.owner_id]) {
+            lease.property.owner = {
+              id: ownerMap[lease.owner_id].id,
+              firstName: ownerMap[lease.owner_id].first_name,
+              lastName: ownerMap[lease.owner_id].last_name,
+            }
+          }
+        }
+      }
+
+      const reviewedByIds = [...new Set((applications ?? []).map((a: any) => a.reviewed_by_id).filter(Boolean))]
+      if (reviewedByIds.length > 0) {
+        const reviewersResult = await supabase
+          .from('users')
+          .select('id, first_name, last_name')
+          .in('id', reviewedByIds)
+        const reviewers = reviewersResult.data as any[]
+        for (const r of reviewers ?? []) {
+          reviewedByMap[r.id] = { id: r.id, firstName: r.first_name, lastName: r.last_name }
+        }
+      }
     }
 
-    const [applications, total] = await Promise.all([
-      db.rentalFile.findMany({
-        where,
-        include: {
-          documents: {
-            select: {
-              id: true,
-              type: true,
-              name: true,
-              status: true,
-              createdAt: true,
-            },
-            orderBy: { createdAt: 'desc' },
-          },
-          leases: {
-            select: {
-              id: true,
-              status: true,
-              startDate: true,
-              endDate: true,
-              monthlyRent: true,
-              property: {
-                select: {
-                  id: true,
-                  title: true,
-                  address: true,
-                  city: true,
-                  type: true,
-                  price: true,
-                  currency: true,
-                  images: {
-                    orderBy: { order: 'asc' },
-                    take: 1,
-                    select: { url: true },
-                  },
-                  owner: {
-                    select: { id: true, firstName: true, lastName: true },
-                  },
-                },
-              },
-            },
-          },
-          reviewedBy: {
-            select: { id: true, firstName: true, lastName: true },
-          },
-        },
-        orderBy: { updatedAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      db.rentalFile.count({ where }),
-    ])
-
-    // Enrich each application with a computed status timeline
-    const enrichedApplications = applications.map((app) => {
-      // Determine status progression
+    const enrichedApplications = (applications ?? []).map((app: any) => {
       const statusTimeline = getStatusTimeline(app.status)
+      const linkedProperty = (leasesMap[app.id]?.[0]?.property) ? {
+        id: leasesMap[app.id][0].property.id,
+        title: leasesMap[app.id][0].property.title,
+        address: leasesMap[app.id][0].property.address,
+        city: leasesMap[app.id][0].property.city,
+        type: leasesMap[app.id][0].property.type,
+        price: leasesMap[app.id][0].property.price,
+        currency: leasesMap[app.id][0].property.currency,
+        images: leasesMap[app.id][0].property.images || [],
+        owner: leasesMap[app.id][0].property.owner || null,
+      } : null
 
-      // Get the property info from the first lease if available
-      const linkedProperty = app.leases.length > 0 ? app.leases[0].property : null
-
-      // Document validation progress
-      const totalDocs = app.documents.length
-      const validatedDocs = app.documents.filter((d) => d.status === 'VALIDATED').length
-      const rejectedDocs = app.documents.filter((d) => d.status === 'REJECTED').length
+      const docs = documentsMap[app.id] || []
+      const totalDocs = docs.length
+      const validatedDocs = docs.filter((d: any) => d.status === 'VALIDATED').length
+      const rejectedDocs = docs.filter((d: any) => d.status === 'REJECTED').length
 
       return {
         id: app.id,
         status: app.status,
-        monthlyIncome: app.monthlyIncome,
+        monthlyIncome: app.monthly_income,
         employer: app.employer,
-        employmentType: app.employmentType,
-        guarantorName: app.guarantorName,
-        guarantorPhone: app.guarantorPhone,
-        guarantorRelation: app.guarantorRelation,
-        rejectionReason: app.rejectionReason,
-        tcComment: app.tcComment,
-        reviewedAt: app.reviewedAt,
-        validUntil: app.validUntil,
-        createdAt: app.createdAt,
-        updatedAt: app.updatedAt,
-        // Computed fields
+        employmentType: app.employment_type,
+        guarantorName: app.guarantor_name,
+        guarantorPhone: app.guarantor_phone,
+        guarantorRelation: app.guarantor_relation,
+        rejectionReason: app.rejection_reason,
+        tcComment: app.tc_comment,
+        reviewedAt: app.reviewed_at,
+        validUntil: app.valid_until,
+        createdAt: app.created_at,
+        updatedAt: app.updated_at,
         statusTimeline,
         linkedProperty,
         documentProgress: {
@@ -116,43 +162,63 @@ export async function GET(req: NextRequest) {
           rejected: rejectedDocs,
           pending: totalDocs - validatedDocs - rejectedDocs,
         },
-        reviewedBy: app.reviewedBy,
-        documents: app.documents,
-        leases: app.leases,
+        reviewedBy: reviewedByMap[app.reviewed_by_id] || null,
+        documents: docs.map((d: any) => ({
+          id: d.id,
+          type: d.type,
+          name: d.name,
+          status: d.status,
+          createdAt: d.created_at,
+        })),
+        leases: (leasesMap[app.id] || []).map((l: any) => ({
+          id: l.id,
+          status: l.status,
+          startDate: l.start_date,
+          endDate: l.end_date,
+          monthlyRent: l.monthly_rent,
+          property: l.property ? {
+            id: l.property.id,
+            title: l.property.title,
+            address: l.property.address,
+            city: l.property.city,
+            type: l.property.type,
+            price: l.property.price,
+            currency: l.property.currency,
+            images: (l.property.images || []).slice(0, 1),
+            owner: l.property.owner || null,
+          } : null,
+        })),
       }
     })
 
-    // Stats
-    const statusCounts = await db.rentalFile.groupBy({
-      by: ['status'],
-      where: { tenantId: userId },
-      _count: { status: true },
-    })
+    const allStatusesResult = await supabase
+      .from('applications')
+      .select('status')
+      .eq('tenant_id', userId)
+    const allStatuses = allStatusesResult.data as any[]
 
-    const stats = Object.fromEntries(
-      statusCounts.map((s) => [s.status, s._count.status])
-    )
+    const stats: Record<string, number> = {}
+    for (const a of allStatuses ?? []) {
+      stats[a.status] = (stats[a.status] || 0) + 1
+    }
 
-    return NextResponse.json({
+    const resp = NextResponse.json({
       data: enrichedApplications,
       pagination: {
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+        total: total ?? 0,
+        totalPages: Math.ceil((total ?? 0) / limit),
       },
       stats,
     })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Applications GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-/**
- * Returns a timeline of statuses for a rental file application.
- * Each step has: status, label, completed (boolean), active (boolean)
- */
 function getStatusTimeline(currentStatus: string) {
   const steps = [
     { status: 'DRAFT', label: 'Brouillon' },

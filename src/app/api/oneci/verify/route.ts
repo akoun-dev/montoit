@@ -1,50 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
-/**
- * POST /api/oneci/verify
- *
- * Verifies the authenticity of user information against the ONECI database
- * using their NNI (Numéro National d'Identification).
- *
- * Flow:
- * 1. Authenticate with ONECI API to get a bearer token
- * 2. Call the match endpoint with NNI + user attributes
- * 3. If API returns empty response → information verified → oneciVerified = true
- * 4. If API returns errors → information doesn't match → return error details
- */
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
-    // Get user from DB
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        gender: true,
-        birthDate: true,
-        nni: true,
-        oneciVerified: true,
-      },
-    })
+    const supabase = getSupabaseAdminClient()
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, gender, birth_date, nni, oneci_verified')
+      .eq('id', userId)
+      .single()
 
     if (!user) {
       return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
     }
 
-    // Parse request body for optional overrides (nni, birthDate)
     const body = await req.json().catch(() => ({}))
     const nni = body.nni || user.nni
-    const birthDate = body.birthDate || user.birthDate
+    const birthDate = body.birthDate || user.birth_date
 
-    // Validate required fields
     if (!nni) {
       return NextResponse.json(
         { error: 'Le NNI (Numéro National d\'Identification) est requis' },
@@ -52,7 +32,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (!user.firstName || !user.lastName) {
+    if (!user.first_name || !user.last_name) {
       return NextResponse.json(
         { error: 'Votre nom et prénom doivent être renseignés dans votre profil' },
         { status: 400 }
@@ -73,18 +53,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Save NNI and birthDate to user profile if provided
     if (body.nni || body.birthDate) {
-      await db.user.update({
-        where: { id: userId },
-        data: {
-          ...(body.nni ? { nni: body.nni } : {}),
-          ...(body.birthDate ? { birthDate: new Date(body.birthDate) } : {}),
-        },
-      })
+      const updateData: Record<string, unknown> = {}
+      if (body.nni) updateData.nni = body.nni
+      if (body.birthDate) updateData.birth_date = new Date(body.birthDate).toISOString()
+      await supabase
+        .from('users')
+        .update(updateData as any)
+        .eq('id', userId)
     }
 
-    // ── Step 1: Get bearer token from ONECI ──────────────────────────────────
     const apiUrl = process.env.ONECI_API_URL || 'https://api-rnpp.verif.ci'
     const apiKey = process.env.ONECI_API_KEY
     const secretKey = process.env.ONECI_SECRET_KEY
@@ -132,23 +110,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Step 2: Call match endpoint ──────────────────────────────────────────
-    // Format birthDate as YYYY-MM-DD
     const bd = new Date(birthDate)
     const formattedBirthDate = `${bd.getFullYear()}-${String(bd.getMonth() + 1).padStart(2, '0')}-${String(bd.getDate()).padStart(2, '0')}`
 
-    // Map gender to ONECI format
     const genderMap: Record<string, string> = {
       M: 'M',
       F: 'F',
-      AUTRE: 'M', // Default fallback
+      AUTRE: 'M',
     }
     const oneciGender = genderMap[user.gender] || 'M'
 
     try {
       const formData = new FormData()
-      formData.append('FIRST_NAME', user.firstName.toUpperCase())
-      formData.append('LAST_NAME', user.lastName.toUpperCase())
+      formData.append('FIRST_NAME', user.first_name.toUpperCase())
+      formData.append('LAST_NAME', user.last_name.toUpperCase())
       formData.append('BIRTH_DATE', formattedBirthDate)
       formData.append('GENDER', oneciGender)
 
@@ -160,22 +135,18 @@ export async function POST(req: NextRequest) {
         body: formData,
       })
 
-      // ── Step 3: Process response ─────────────────────────────────────────
-      // Empty response = verified (information matches)
-      // Non-empty response with errors = not verified
       const responseText = await matchResponse.text()
 
       if (!responseText || responseText.trim() === '' || responseText.trim() === '{}') {
-        // ✅ Empty response → information verified
-        await db.user.update({
-          where: { id: userId },
-          data: {
-            oneciVerified: true,
-            oneciVerifiedAt: new Date(),
+        await supabase
+          .from('users')
+          .update({
+            oneci_verified: true,
+            oneci_verified_at: new Date().toISOString(),
             nni: nni,
-            birthDate: new Date(birthDate),
-          },
-        })
+            birth_date: new Date(birthDate).toISOString(),
+          })
+          .eq('id', userId)
 
         return NextResponse.json({
           verified: true,
@@ -183,17 +154,14 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // Try to parse the error response
       let errorData: unknown = null
       try {
         errorData = JSON.parse(responseText)
       } catch {
-        // Non-JSON response
       }
 
       console.error('ONECI match error:', matchResponse.status, responseText)
 
-      // Extract mismatch details
       const mismatchDetails = extractMismatchDetails(errorData as Record<string, unknown>)
 
       return NextResponse.json({
@@ -201,8 +169,7 @@ export async function POST(req: NextRequest) {
         error: 'Les informations fournies ne correspondent pas à votre NNI.',
         details: mismatchDetails || undefined,
         rawStatus: matchResponse.status,
-      }, { status: 200 }) // Return 200 even on mismatch — it's a valid API result
-
+      }, { status: 200 })
     } catch (err) {
       console.error('ONECI match network error:', err)
       return NextResponse.json(
@@ -216,14 +183,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/**
- * Extract mismatch details from ONECI error response
- */
 function extractMismatchDetails(data: Record<string, unknown>): string | null {
   if (!data) return null
 
-  // ONECI returns an array of mismatched attributes like:
-  // [{"AttributeName":"BIRTH_DATE","ErrorCode":"1"}]
   if (Array.isArray(data)) {
     const labels: Record<string, string> = {
       FIRST_NAME: 'Prénom',
@@ -244,7 +206,6 @@ function extractMismatchDetails(data: Record<string, unknown>): string | null {
     }
   }
 
-  // Check for attribute-level errors (alternative format)
   if (data.attributes && Array.isArray(data.attributes)) {
     const mismatched = (data.attributes as Array<Record<string, unknown>>)
       .filter((attr) => attr.match === false || attr.match === 'false')
@@ -265,7 +226,6 @@ function extractMismatchDetails(data: Record<string, unknown>): string | null {
     }
   }
 
-  // Check for errors array
   if (data.errors && Array.isArray(data.errors)) {
     return (data.errors as Array<Record<string, unknown>>)
       .map((e) => e.message || e.msg || e.error)

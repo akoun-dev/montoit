@@ -49,7 +49,7 @@ export function AdminTrustAgents() {
     if (!isAuthenticated) { setLoading(false); return }
 
     try {
-      const d = await authFetch<TrustAgentsData>('/api/admin/users?role=TIERS_CONFIANCE').catch(() => ({ users: [] }))
+      const d = await authFetch<TrustAgentsData>('/api/admin/users?role=TIERS_CONFIANCE').catch(() => ({ agents: [] }))
       if (d.agents && d.agents.length > 0) {
         setAgents(d.agents)
       } else {

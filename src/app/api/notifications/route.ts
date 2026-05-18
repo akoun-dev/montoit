@@ -1,66 +1,97 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notify'
 
-// GET /api/notifications — List notifications for current user with pagination & filters
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
-    const { userId, effectiveRole } = authResult
 
     const { searchParams } = new URL(req.url)
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')))
-    const type = searchParams.get('type') || undefined
-    const isRead = searchParams.get('isRead')
+    const type = searchParams.get('type')
+    const isReadParam = searchParams.get('isRead')
 
-    const where: Record<string, unknown> = { userId }
+    const admin = getSupabaseAdminClient()
+
+    let query = admin
+      .from('notifications')
+      .select('*', { count: 'exact' })
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range((page - 1) * limit, page * limit - 1)
+
     if (type) {
-      where.type = type
+      query = query.eq('type', type)
     }
-    if (isRead !== null && isRead !== undefined && isRead !== '') {
-      where.isRead = isRead === 'true'
+    if (isReadParam !== null && isReadParam !== undefined && isReadParam !== '') {
+      query = query.eq('is_read', isReadParam === 'true')
     }
 
-    const [notifications, total, unreadCount] = await Promise.all([
-      db.notification.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      db.notification.count({ where }),
-      db.notification.count({ where: { userId, isRead: false } }),
-    ])
+    const { data: notifications, count, error } = await query
 
-    return NextResponse.json({
-      data: notifications,
+    if (error) {
+      throw error
+    }
+
+    const { count: unreadCount, error: unreadError } = await admin
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_read', false)
+
+    if (unreadError) {
+      throw unreadError
+    }
+
+    const mapped = (notifications ?? []).map((n) => ({
+      id: n.id,
+      type: n.type,
+      title: n.title,
+      message: n.message,
+      isRead: n.is_read,
+      actionUrl: n.action_url,
+      entityId: n.entity_id,
+      createdAt: n.created_at,
+      userId: n.user_id,
+    }))
+
+    const response = NextResponse.json({
+      data: mapped,
       pagination: {
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+        total: count ?? 0,
+        totalPages: Math.ceil((count ?? 0) / limit),
       },
-      unreadCount,
+      unreadCount: unreadCount ?? 0,
     })
+    return applyCookies(response)
   } catch (error) {
     console.error('Notifications GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// POST /api/notifications — Create a notification (e.g. payment reminder)
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
-    const { userId, effectiveRole } = authResult
+
+    const admin = getSupabaseAdminClient()
+    const { data: profile } = await admin
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    const effectiveRole = profile?.role
 
     const body = await req.json()
     const { userId: targetUserId, type, title, message, entityId, actionUrl } = body as {
@@ -72,13 +103,14 @@ export async function POST(req: NextRequest) {
       actionUrl?: string
     }
 
-    // Only PROPRIETAIRE or AGENCE can send PAYMENT_ALERT notifications to tenants
     if (type === 'PAYMENT_ALERT') {
       if (effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
-        return NextResponse.json({ error: 'Seuls les propriétaires peuvent envoyer des rappels de paiement' }, { status: 403 })
+        const resp = NextResponse.json({ error: 'Seuls les propriétaires peuvent envoyer des rappels de paiement' }, { status: 403 })
+        return applyCookies(resp)
       }
       if (!targetUserId || !title || !message) {
-        return NextResponse.json({ error: 'userId, title et message sont requis' }, { status: 400 })
+        const resp = NextResponse.json({ error: 'userId, title et message sont requis' }, { status: 400 })
+        return applyCookies(resp)
       }
 
       const notification = await notify({
@@ -90,25 +122,24 @@ export async function POST(req: NextRequest) {
         actionUrl: actionUrl || undefined,
       })
 
-      return NextResponse.json({ data: notification }, { status: 201 })
+      const response = NextResponse.json({ data: notification }, { status: 201 })
+      return applyCookies(response)
     }
 
-    // Other notification types are not allowed via POST
-    return NextResponse.json({ error: 'Type de notification non supporté' }, { status: 400 })
+    const response = NextResponse.json({ error: 'Type de notification non supporté' }, { status: 400 })
+    return applyCookies(response)
   } catch (error) {
     console.error('Notifications POST error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// PUT /api/notifications — Mark notifications as read
 export async function PUT(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
-    const { userId, effectiveRole } = authResult
 
     const body = await req.json()
     const { notificationIds, markAllRead } = body as {
@@ -116,36 +147,39 @@ export async function PUT(req: NextRequest) {
       markAllRead?: boolean
     }
 
+    const admin = getSupabaseAdminClient()
+
     if (markAllRead) {
-      const result = await db.notification.updateMany({
-        where: { userId, isRead: false },
-        data: { isRead: true },
-      })
-      return NextResponse.json({
-        message: 'Toutes les notifications marquées comme lues',
-        updatedCount: result.count,
-      })
+      const { error } = await admin
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', userId)
+        .eq('is_read', false)
+
+      if (error) throw error
+
+      const response = NextResponse.json({ message: 'Toutes les notifications marquées comme lues' })
+      return applyCookies(response)
     }
 
     if (notificationIds && Array.isArray(notificationIds) && notificationIds.length > 0) {
-      // Only mark notifications that belong to this user
-      const result = await db.notification.updateMany({
-        where: {
-          id: { in: notificationIds },
-          userId, // Ensure user can only mark their own notifications
-        },
-        data: { isRead: true },
-      })
-      return NextResponse.json({
-        message: 'Notifications marquées comme lues',
-        updatedCount: result.count,
-      })
+      const { error } = await admin
+        .from('notifications')
+        .update({ is_read: true })
+        .in('id', notificationIds)
+        .eq('user_id', userId)
+
+      if (error) throw error
+
+      const response = NextResponse.json({ message: 'Notifications marquées comme lues' })
+      return applyCookies(response)
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: 'Fournir notificationIds ou markAllRead' },
       { status: 400 }
     )
+    return applyCookies(response)
   } catch (error) {
     console.error('Notifications PUT error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

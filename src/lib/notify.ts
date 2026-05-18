@@ -1,15 +1,4 @@
-/**
- * Notification utility for Mon Toit.
- *
- * Creates a notification record in the database AND pushes it in real-time
- * via the WebSocket notification service.
- *
- * Usage (server-side only):
- *   import { notify } from '@/lib/notify'
- *   await notify({ userId: 'abc', type: 'PAYMENT_ALERT', title: 'Rappel', message: 'Loyer en retard' })
- */
-
-import { db } from '@/lib/db'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 export interface NotifyParams {
   userId: string
@@ -29,10 +18,6 @@ export interface NotifyManyParams {
   entityId?: string
 }
 
-/**
- * Push a notification to the WebSocket service (best-effort, non-blocking).
- * The WebSocket service runs on port 3003.
- */
 async function pushToWebSocket(userId: string, data: Omit<NotifyParams, 'userId'>) {
   try {
     await fetch('http://localhost:3003/notify', {
@@ -41,14 +26,10 @@ async function pushToWebSocket(userId: string, data: Omit<NotifyParams, 'userId'
       body: JSON.stringify({ userId, ...data }),
     })
   } catch (e) {
-    // WebSocket push is best-effort — don't fail the main operation
     console.error('[notify] WebSocket push failed:', e)
   }
 }
 
-/**
- * Push a notification to multiple users via the WebSocket service (best-effort, non-blocking).
- */
 async function pushToWebSocketMany(userIds: string[], data: Omit<NotifyManyParams, 'userIds'>) {
   try {
     await fetch('http://localhost:3003/notify-many', {
@@ -61,60 +42,89 @@ async function pushToWebSocketMany(userIds: string[], data: Omit<NotifyManyParam
   }
 }
 
-/**
- * Create a notification for a single user:
- *  1. Persist in the database
- *  2. Push via WebSocket for real-time delivery
- */
+function makeId() {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 export async function notify(params: NotifyParams) {
   const { userId, type, title, message, actionUrl, entityId } = params
 
-  // 1. Persist to database
-  const notification = await db.notification.create({
-    data: {
-      userId,
+  const admin = getSupabaseAdminClient()
+  const { data: notification, error } = await admin
+    .from('notifications')
+    .insert({
+      id: makeId(),
+      user_id: userId,
       type,
       title,
       message,
-      actionUrl: actionUrl || null,
-      entityId: entityId || null,
-    },
-  })
+      action_url: actionUrl || null,
+      entity_id: entityId || null,
+    })
+    .select()
+    .single()
 
-  // 2. Push via WebSocket (non-blocking, best-effort)
+  if (error) {
+    throw error
+  }
+
   pushToWebSocket(userId, { type, title, message, actionUrl, entityId }).catch(() => {})
 
-  return notification
+  return notification ? mapNotification(notification) : null
 }
 
-/**
- * Create a notification for multiple users:
- *  1. Persist each one in the database
- *  2. Push via WebSocket for real-time delivery
- */
 export async function notifyMany(params: NotifyManyParams) {
   const { userIds, type, title, message, actionUrl, entityId } = params
 
-  // 1. Persist all to database
-  const notifications = await Promise.all(
-    userIds.map((userId) =>
-      db.notification.create({
-        data: {
-          userId,
-          type,
-          title,
-          message,
-          actionUrl: actionUrl || null,
-          entityId: entityId || null,
-        },
-      })
-    )
-  )
+  const admin = getSupabaseAdminClient()
+  const rows = userIds.map((userId) => ({
+    id: makeId(),
+    user_id: userId,
+    type,
+    title,
+    message,
+    action_url: actionUrl || null,
+    entity_id: entityId || null,
+  }))
 
-  // 2. Push via WebSocket (non-blocking, best-effort)
+  const { data: notifications, error } = await admin
+    .from('notifications')
+    .insert(rows)
+    .select()
+
+  if (error) {
+    throw error
+  }
+
   pushToWebSocketMany(userIds, { type, title, message, actionUrl, entityId }).catch(() => {})
 
-  return notifications
+  return (notifications ?? []).map(mapNotification)
+}
+
+type NotifRow = {
+  id: string
+  type: string
+  title: string
+  message: string
+  is_read: boolean
+  action_url: string | null
+  entity_id: string | null
+  created_at: string
+  user_id: string
+}
+
+function mapNotification(n: NotifRow) {
+  return {
+    id: n.id,
+    type: n.type,
+    title: n.title,
+    message: n.message,
+    isRead: n.is_read,
+    actionUrl: n.action_url,
+    entityId: n.entity_id,
+    createdAt: n.created_at,
+    userId: n.user_id,
+  }
 }
 
 // ─── Payment-specific notification helpers ────────────────────────────────

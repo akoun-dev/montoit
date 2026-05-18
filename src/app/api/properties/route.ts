@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest, getUserIdAndRole } from '@/lib/session'
-import { notifyNewPropertyForModeration, notifyMany } from '@/lib/notify'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { notifyMany } from '@/lib/notify'
+
+function generateId() {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
 
 const VALID_PROPERTY_TYPES = ['APPARTEMENT', 'MAISON', 'STUDIO', 'DUPLEX', 'PENTHOUSE', 'VILLA'] as const
 const MAX_IMAGES = 10
-const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024 // 50MB
+const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
 
-    // Parse query params
     const limitParam = searchParams.get('limit')
     const sort = searchParams.get('sort')
     const type = searchParams.get('type')
@@ -27,129 +30,123 @@ export async function GET(req: NextRequest) {
 
     const limit = limitParam ? parseInt(limitParam) : 6
 
-    // Check if user is requesting their own properties
     let isMineRequest = false
     let mineUserId: string | null = null
     if (mine === 'true') {
-      const authResult = await getUserIdAndRole(req)
-      if (authResult) {
+      const auth = await resolveRequestUser(req)
+      if (auth?.userId) {
         isMineRequest = true
-        mineUserId = authResult.userId
+        mineUserId = auth.userId
       }
     }
 
-    // Check if TC user is requesting pending verification properties
     let isTCRequestingPending = false
     if (pending === 'true') {
-      const authResult = await getUserIdAndRole(req)
-      if (authResult && authResult.effectiveRole === 'TIERS_CONFIANCE') {
-        isTCRequestingPending = true
+      const auth = await resolveRequestUser(req)
+      if (auth?.userId) {
+        const admin = getSupabaseAdminClient()
+        const { data: user } = await admin
+          .from('users')
+          .select('role')
+          .eq('id', auth.userId)
+          .single()
+        if (user?.role === 'TIERS_CONFIANCE') {
+          isTCRequestingPending = true
+        }
       }
     }
 
-    // Build where clause
-    // Public listing only shows ACTIVE properties; TC with pending=true sees PENDING_VERIFICATION
-    // mine=true shows all statuses for the authenticated user's properties
-    const where: Record<string, unknown> = isMineRequest
-      ? { ownerId: mineUserId }
-      : {
-          status: isTCRequestingPending ? 'PENDING_VERIFICATION' : 'ACTIVE',
-        }
+    const admin = getSupabaseAdminClient()
+
+    let query = admin.from('properties').select('*')
+
+    if (isMineRequest) {
+      query = query.eq('owner_id', mineUserId!)
+    } else if (isTCRequestingPending) {
+      query = query.eq('status', 'PENDING_VERIFICATION')
+    } else {
+      query = query.eq('status', 'ACTIVE')
+    }
 
     if (type) {
-      where.type = type
+      query = query.eq('type', type)
     }
 
     if (commune) {
-      where.commune = { contains: commune }
+      query = query.ilike('commune', `%${commune}%`)
     }
 
     if (search) {
-      where.OR = [
-        { title: { contains: search } },
-        { address: { contains: search } },
-        { commune: { contains: search } },
-      ]
+      query = query.or(
+        `title.ilike.%${search}%,address.ilike.%${search}%,commune.ilike.%${search}%`
+      )
     }
 
     if (minPrice || maxPrice) {
-      where.price = {}
-      if (minPrice) where.price.gte = parseFloat(minPrice)
-      if (maxPrice) where.price.lte = parseFloat(maxPrice)
+      if (minPrice) query = query.gte('price', parseFloat(minPrice))
+      if (maxPrice) query = query.lte('price', parseFloat(maxPrice))
     }
 
     if (minBedrooms) {
-      where.bedrooms = { gte: parseInt(minBedrooms) }
+      query = query.gte('bedrooms', parseInt(minBedrooms))
     }
 
     if (furnished === 'true') {
-      where.isFurnished = true
+      query = query.eq('is_furnished', true)
     } else if (furnished === 'false') {
-      where.isFurnished = false
+      query = query.eq('is_furnished', false)
     }
 
-    // Build order by
-    let orderBy: Record<string, string> = { createdAt: 'desc' }
-    if (sort === 'price-asc') orderBy = { price: 'asc' }
-    else if (sort === 'price-desc') orderBy = { price: 'desc' }
-    else if (sort === 'popular') orderBy = { viewsCount: 'desc' }
-    // "recent" or default → createdAt desc
+    if (sort === 'price-asc') {
+      query = query.order('price', { ascending: true })
+    } else if (sort === 'price-desc') {
+      query = query.order('price', { ascending: false })
+    } else if (sort === 'popular') {
+      query = query.order('views_count', { ascending: false })
+    } else {
+      query = query.order('created_at', { ascending: false })
+    }
 
-    // Execute query
-    const properties = await db.property.findMany({
-      where,
-      include: {
-        images: {
-          where: { order: 0 },
-          take: 1,
-        },
-        owner: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-            createdAt: true,
-          },
-        },
-      },
-      orderBy,
-      ...(all === 'true' ? {} : { take: limit }),
-    })
+    if (all !== 'true') {
+      query = query.limit(limit)
+    }
 
-    // Transform: flatten first image into `image` field
-    const result = properties.map(({ images, ...property }: { images: { url: string }[]; [key: string]: unknown }) => ({
-      ...property,
-      image: images.length > 0 ? images[0].url : null,
-    }))
+    const { data: properties, error } = await query
 
-    return NextResponse.json({ properties: result })
+    if (error) {
+      console.error('Properties error:', error)
+      return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    }
+
+    const enriched = await enrichProperties(admin, properties ?? [])
+
+    return NextResponse.json({ properties: enriched })
   } catch (error) {
     console.error('Properties error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// POST /api/properties — Create a new property (draft or published) with images and optional video
 export async function POST(req: NextRequest) {
   try {
-    // 1. Authenticate user
-    const userId = await getUserIdFromRequest(req)
-    if (!userId) {
+    const auth = await resolveRequestUser(req)
+    if (!auth || !auth.userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
+    const userId = auth.userId
 
-    // 2. Validate role (must be PROPRIETAIRE or AGENCE)
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: { role: true, activeRole: true },
-    })
+    const admin = getSupabaseAdminClient()
+
+    const { data: user } = await admin
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
     if (!user) {
       return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 })
     }
 
-    const effectiveRole = user.activeRole || user.role
+    const effectiveRole = user.active_role || user.role
     if (effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
       return NextResponse.json(
         { error: 'Seuls les propriétaires et les agences peuvent créer des annonces' },
@@ -157,7 +154,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // 3. Parse request body
     const body = await req.json()
     const {
       title,
@@ -184,12 +180,9 @@ export async function POST(req: NextRequest) {
       draft,
     } = body
 
-    // Determine status: draft=true → DRAFT, otherwise validate and create as PENDING_VERIFICATION
-    // Properties must be verified by TC before becoming ACTIVE
     const isDraft = draft === true
     const status = isDraft ? 'DRAFT' : 'PENDING_VERIFICATION'
 
-    // 4. Validate required fields only when publishing (not draft)
     if (!isDraft) {
       if (!title || typeof title !== 'string' || !title.trim()) {
         return NextResponse.json({ error: 'Le titre est requis' }, { status: 400 })
@@ -217,7 +210,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 5. Validate images
     const imageArray: string[] = Array.isArray(images) ? images : []
     if (imageArray.length > MAX_IMAGES) {
       return NextResponse.json(
@@ -234,15 +226,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 6. Validate video (virtualTourUrl) — allow any string URL, only validate size for data: URLs
     if (virtualTourUrl !== null && virtualTourUrl !== undefined && virtualTourUrl !== '') {
       if (typeof virtualTourUrl !== 'string') {
-        return NextResponse.json(
-          { error: 'Format de vidéo invalide' },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: 'Format de vidéo invalide' }, { status: 400 })
       }
-      // Only validate size for data: URLs (base64 encoded uploads)
       if (virtualTourUrl.startsWith('data:')) {
         const base64Part = virtualTourUrl.split(',')[1] || ''
         const estimatedSize = Math.ceil(base64Part.length * 0.75)
@@ -255,9 +242,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 7. Create property with images
-    const property = await db.property.create({
-      data: {
+    const propertyId = generateId()
+
+    const { data: property, error } = await admin
+      .from('properties')
+      .insert({
+        id: propertyId,
         title: title ? String(title).trim() : '',
         description: description ? String(description).trim() : '',
         type: type && VALID_PROPERTY_TYPES.includes(type) ? type : 'STUDIO',
@@ -269,73 +259,95 @@ export async function POST(req: NextRequest) {
         address: address ? String(address).trim() : '',
         city: city ? String(city).trim() : '',
         commune: commune ? String(commune).trim() : null,
-        isFurnished: Boolean(isFurnished),
-        hasParking: Boolean(hasParking),
-        hasGarden: Boolean(hasGarden),
-        hasPool: Boolean(hasPool),
-        hasGuardian: Boolean(hasGuardian),
-        hasClimate: Boolean(hasClimate),
+        is_furnished: Boolean(isFurnished),
+        has_parking: Boolean(hasParking),
+        has_garden: Boolean(hasGarden),
+        has_pool: Boolean(hasPool),
+        has_guardian: Boolean(hasGuardian),
+        has_climate: Boolean(hasClimate),
         amenities: typeof amenities === 'string' ? amenities : '[]',
-        rentalTerms: typeof rentalTerms === 'string' ? rentalTerms : '{}',
-        hideOwnerName: Boolean(hideOwnerName),
-        virtualTourUrl: virtualTourUrl || null,
-        ownerId: userId,
-        images: {
-          create: imageArray.map((url, index) => ({
-            url,
-            order: index,
-          })),
-        },
-      },
-      include: {
-        images: { orderBy: { order: 'asc' } },
-        owner: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-          },
-        },
-      },
-    })
+        rental_terms: typeof rentalTerms === 'string' ? rentalTerms : '{}',
+        hide_owner_name: Boolean(hideOwnerName),
+        virtual_tour_url: virtualTourUrl || null,
+        owner_id: userId,
+      })
+      .select()
+      .single()
 
-    // Notify admins and TC about new property needing verification (only for published, not drafts)
-    if (status === 'PENDING_VERIFICATION') {
-      const ownerName = `${property.owner.firstName} ${property.owner.lastName}`
-      // Fire-and-forget notification (don't block the response)
-      notifyNewProperty(property.id, property.title || '', ownerName).catch(() => {})
+    if (error) {
+      console.error('Property creation error:', error)
+      return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     }
 
-    return NextResponse.json({ property }, { status: 201 })
+    if (imageArray.length > 0) {
+      const imageRows = imageArray.map((url, index) => ({
+        id: generateId(),
+        url,
+        order: index,
+        property_id: propertyId,
+      }))
+      await admin.from('property_images').insert(imageRows)
+    }
+
+    const { data: owner } = await admin
+      .from('users')
+      .select('id, first_name, last_name, email, phone')
+      .eq('id', userId)
+      .single()
+
+    const { data: propertyImages } = await admin
+      .from('property_images')
+      .select('*')
+      .eq('property_id', propertyId)
+      .order('order', { ascending: true })
+
+    const result = mapProperty(property, propertyImages ?? [], owner)
+
+    if (status === 'PENDING_VERIFICATION') {
+      const ownerName = owner ? `${owner.first_name} ${owner.last_name}` : ''
+      notifyNewProperty(admin, propertyId, property.title || '', ownerName).catch(() => {})
+    }
+
+    return NextResponse.json({ property: result }, { status: 201 })
   } catch (error) {
     console.error('Property creation error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// Helper: Send notifications for newly published properties (called after successful creation/update)
-async function notifyNewProperty(propertyId: string, propertyTitle: string, ownerName: string) {
-  // Notify all admin users about the new property needing moderation
-  const adminUsers = await db.user.findMany({
-    where: { role: 'ADMIN', isActive: true },
-    select: { id: true },
-  })
-  if (adminUsers.length > 0) {
+async function notifyNewProperty(admin: ReturnType<typeof getSupabaseAdminClient>, propertyId: string, propertyTitle: string, ownerName: string) {
+  const { data: adminUsers } = await admin
+    .from('users')
+    .select('id')
+    .eq('role', 'ADMIN')
+    .eq('is_active', true)
+
+  if (adminUsers && adminUsers.length > 0) {
     await Promise.all(
-      adminUsers.map((admin) =>
-        notifyNewPropertyForModeration(admin.id, propertyTitle, ownerName, propertyId)
+      adminUsers.map((a) =>
+        fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: a.id,
+            type: 'PROPERTY_VERIFICATION',
+            title: 'Nouveau bien à vérifier',
+            message: `Le bien "${propertyTitle}" publié par ${ownerName} nécessite une vérification.`,
+            actionUrl: 'properties-moderation',
+            entityId: propertyId,
+          }),
+        }).catch(() => {})
       )
     )
   }
 
-  // Notify all TC agents about the new property needing verification
-  const tcUsers = await db.user.findMany({
-    where: { role: 'TIERS_CONFIANCE', isActive: true },
-    select: { id: true },
-  })
-  if (tcUsers.length > 0) {
+  const { data: tcUsers } = await admin
+    .from('users')
+    .select('id')
+    .eq('role', 'TIERS_CONFIANCE')
+    .eq('is_active', true)
+
+  if (tcUsers && tcUsers.length > 0) {
     await notifyMany({
       userIds: tcUsers.map((tc) => tc.id),
       type: 'PROPERTY_VERIFICATION',
@@ -345,4 +357,96 @@ async function notifyNewProperty(propertyId: string, propertyTitle: string, owne
       entityId: propertyId,
     })
   }
+}
+
+async function enrichProperties(admin: ReturnType<typeof getSupabaseAdminClient>, properties: any[]) {
+  const propertyIds = properties.map((p) => p.id)
+  const ownerIds = [...new Set(properties.map((p) => p.owner_id))]
+
+  const { data: allImages } = await admin
+    .from('property_images')
+    .select('*')
+    .in('property_id', propertyIds)
+    .order('order', { ascending: true })
+
+  const { data: owners } = await admin
+    .from('users')
+    .select('id, first_name, last_name, email, phone, created_at')
+    .in('id', ownerIds)
+
+  const imgMap = groupBy(allImages ?? [], 'property_id')
+  const ownerMap = new Map(owners?.map((o) => [o.id, o]))
+
+  return properties.map((p) => {
+    const images = imgMap.get(p.id) ?? []
+    const firstImage = images.length > 0 ? images[0] : null
+    const owner = ownerMap.get(p.owner_id)
+
+    const mapped = mapProperty(p, images, owner)
+    return {
+      ...mapped,
+      image: firstImage ? firstImage.url : null,
+    }
+  })
+}
+
+function mapProperty(p: any, images: any[], owner: any) {
+  return {
+    id: p.id,
+    title: p.title,
+    description: p.description,
+    type: p.type,
+    status: p.status,
+    rentalStatus: p.rental_status,
+    price: p.price,
+    currency: p.currency,
+    area: p.area,
+    bedrooms: p.bedrooms,
+    bathrooms: p.bathrooms,
+    address: p.address,
+    city: p.city,
+    commune: p.commune,
+    latitude: p.latitude,
+    longitude: p.longitude,
+    isFurnished: p.is_furnished,
+    isVerified: p.is_verified,
+    hasParking: p.has_parking,
+    hasGarden: p.has_garden,
+    hasPool: p.has_pool,
+    hasGuardian: p.has_guardian,
+    hasClimate: p.has_climate,
+    amenities: p.amenities,
+    rentalTerms: p.rental_terms,
+    hideOwnerName: p.hide_owner_name,
+    virtualTourUrl: p.virtual_tour_url,
+    viewsCount: p.views_count,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at,
+    ownerId: p.owner_id,
+    images: images.map((img: any) => ({
+      id: img.id,
+      url: img.url,
+      order: img.order,
+      createdAt: img.created_at,
+      propertyId: img.property_id,
+    })),
+    owner: owner ? {
+      id: owner.id,
+      firstName: owner.first_name,
+      lastName: owner.last_name,
+      email: owner.email,
+      phone: owner.phone,
+      createdAt: owner.created_at,
+    } : undefined,
+  }
+}
+
+function groupBy(arr: any[], key: string) {
+  const map = new Map<string, any[]>()
+  for (const item of arr) {
+    const k = item[key]
+    if (!map.has(k)) map.set(k, [])
+    map.get(k)!.push(item)
+  }
+  return map
 }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Send, Trash2, Sparkles } from 'lucide-react'
+import { X, Send, Trash2, Sparkles, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -43,6 +43,10 @@ export function SutaChatbot() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [showSuggestions, setShowSuggestions] = useState(true)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartPos = useRef({ x: 0, y: 0 })
+  const chatPanelRef = useRef<HTMLDivElement>(null)
 
   // Initialize session ID on client
   useEffect(() => {
@@ -62,6 +66,55 @@ export function SutaChatbot() {
       setTimeout(() => inputRef.current?.focus(), 300)
     }
   }, [isOpen])
+
+  // Reset position when chat closes
+  useEffect(() => {
+    if (!isOpen) {
+      setPosition({ x: 0, y: 0 })
+    }
+  }, [isOpen])
+
+  // Handle drag functionality
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // Only allow dragging on desktop and from header
+    if (window.innerWidth < 640) return
+
+    setIsDragging(true)
+    dragStartPos.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y,
+    }
+  }, [position])
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newX = e.clientX - dragStartPos.current.x
+      const newY = e.clientY - dragStartPos.current.y
+
+      // Constrain within viewport
+      const maxX = window.innerWidth - 380
+      const maxY = window.innerHeight - 500
+
+      setPosition({
+        x: Math.max(0, Math.min(newX, maxX)),
+        y: Math.max(0, Math.min(newY, maxY)),
+      })
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging])
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isLoading) return
@@ -83,6 +136,7 @@ export function SutaChatbot() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text.trim(), sessionId }),
+        credentials: 'include',
       })
 
       const data = await res.json()
@@ -119,7 +173,7 @@ export function SutaChatbot() {
 
   const clearConversation = async () => {
     try {
-      await fetch(`/api/suta?sessionId=${sessionId}`, { method: 'DELETE' })
+      await fetch(`/api/suta?sessionId=${sessionId}`, { method: 'DELETE', credentials: 'include' })
     } catch {
       // Ignore delete errors
     }
@@ -180,13 +234,18 @@ export function SutaChatbot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            ref={chatPanelRef}
             className="fixed inset-2 z-50 flex flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl sm:inset-auto sm:bottom-4 sm:right-4 sm:top-auto sm:left-auto sm:h-auto sm:w-[380px]"
             style={{
-              /* On mobile: full screen minus 8px each side. On desktop: fixed height */
+              transform: `translate(${position.x}px, ${position.y}px)`,
             }}
           >
             {/* Header */}
-            <div className="flex items-center gap-2.5 border-b border-white/10 bg-[#FF6C2F] px-3 py-2.5 text-white sm:gap-3 sm:px-4 sm:py-3">
+            <div
+              className="flex items-center gap-2.5 border-b border-white/10 bg-[#FF6C2F] px-3 py-2.5 text-white sm:gap-3 sm:px-4 sm:py-3 cursor-move select-none"
+              onMouseDown={handleMouseDown}
+            >
+              <GripVertical className="h-4 w-4 text-white/60 flex-shrink-0 hidden sm:block" />
               <div className="relative flex-shrink-0">
                 <img
                   src="/suta-avatar.jpg"
@@ -225,8 +284,8 @@ export function SutaChatbot() {
             </div>
 
             {/* Messages */}
-            <ScrollArea className="flex-1 px-3 py-3 sm:px-4 sm:py-4" ref={scrollRef}>
-              <div className="space-y-3 sm:space-y-4">
+            <ScrollArea className="flex-1 px-3 py-3 sm:px-4 sm:py-4">
+              <div ref={scrollRef} className="space-y-3 sm:space-y-4">
                 {messages.map((msg) => (
                   <div
                     key={msg.id}

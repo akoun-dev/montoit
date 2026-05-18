@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
 const VALID_INVENTORY_TYPES = ['INVENTORY_ENTRANCE', 'INVENTORY_EXIT'] as const
 const VALID_INVENTORY_STATUSES = ['DRAFT', 'COMPLETED', 'SIGNED_OWNER', 'SIGNED_TENANT', 'SIGNED_BOTH'] as const
 const VALID_ROOM_CONDITIONS = ['BON', 'MAUVAIS'] as const
 
-// GET /api/tc/inventory-reports — List inventory reports
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await ((supabase as any)
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single() as any)
+    const effectiveRole = profile?.active_role || profile?.role
 
     const { searchParams } = new URL(req.url)
     const propertyId = searchParams.get('propertyId')
@@ -26,93 +34,157 @@ export async function GET(req: NextRequest) {
     const limit = limitParam ? Math.min(parseInt(limitParam), 100) : 20
     const offset = offsetParam ? parseInt(offsetParam) : 0
 
-    // Build where clause
-    const where: Record<string, unknown> = {}
+    let query = supabase
+      .from('inventory_reports')
+      .select('*', { count: 'exact' })
 
-    if (propertyId) {
-      where.propertyId = propertyId
-    }
-
-    if (leaseId) {
-      where.leaseId = leaseId
-    }
-
+    if (propertyId) query = query.eq('property_id', propertyId)
+    if (leaseId) query = query.eq('lease_id', leaseId)
     if (type && VALID_INVENTORY_TYPES.includes(type as typeof VALID_INVENTORY_TYPES[number])) {
-      where.type = type
+      query = query.eq('type', type)
     }
-
     if (status && VALID_INVENTORY_STATUSES.includes(status as typeof VALID_INVENTORY_STATUSES[number])) {
-      where.status = status
+      query = query.eq('status', status)
     }
 
-    // TC can see all reports; others see only reports for their properties/leases
     if (effectiveRole !== 'TIERS_CONFIANCE' && effectiveRole !== 'ADMIN') {
-      where.OR = [
-        { property: { ownerId: userId } },
-        { lease: { tenantId: userId } },
-      ]
+      const { data: userOwnedProperties } = await ((supabase as any)
+        .from('properties')
+        .select('id')
+        .eq('owner_id', userId))
+      const { data: userLeases } = await ((supabase as any)
+        .from('leases')
+        .select('id')
+        .eq('tenant_id', userId))
+
+      const ownerPropIds = (userOwnedProperties ?? []).map((p: any) => p.id)
+      const tenantLeaseIds = (userLeases ?? []).map((l: any) => l.id)
+
+      const orConditions: string[] = []
+      if (ownerPropIds.length > 0) orConditions.push(`property_id.in.(${ownerPropIds.join(',')})`)
+      if (tenantLeaseIds.length > 0) orConditions.push(`lease_id.in.(${tenantLeaseIds.join(',')})`)
+      if (orConditions.length > 0) query = query.or(orConditions.join(','))
     }
 
-    const [reports, total] = await Promise.all([
-      db.inventoryReport.findMany({
-        where,
-        include: {
-          property: {
-            select: {
-              id: true,
-              title: true,
-              address: true,
-              city: true,
-              commune: true,
-            },
-          },
-          lease: {
-            select: {
-              id: true,
-              startDate: true,
-              endDate: true,
-              tenant: {
-                select: { id: true, firstName: true, lastName: true },
-              },
-              owner: {
-                select: { id: true, firstName: true, lastName: true },
-              },
-            },
-          },
-          items: {
-            orderBy: { designationOrder: 'asc' },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset,
-      }),
-      db.inventoryReport.count({ where }),
+    query = query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    const { data: reportsData, count: total } = await (query as any)
+    const reports = (reportsData ?? []) as any[]
+
+    const propIds = [...new Set(reports.map((r: any) => r.property_id).filter(Boolean))]
+    const leaseIds = [...new Set(reports.map((r: any) => r.lease_id).filter(Boolean))]
+    const reportIds = reports.map((r: any) => r.id)
+
+    const [{ data: propertiesData }, { data: leasesData }, { data: itemsData }] = await Promise.all([
+      propIds.length > 0
+        ? (supabase.from('properties') as any).select('id, title, address, city, commune').in('id', propIds) as any
+        : Promise.resolve({ data: [] as any[], error: null }),
+      leaseIds.length > 0
+        ? (supabase.from('leases') as any).select('*, tenant:users!tenant_id(id, first_name, last_name), owner:users!owner_id(id, first_name, last_name)').in('id', leaseIds) as any
+        : Promise.resolve({ data: [] as any[], error: null }),
+      reportIds.length > 0
+        ? (supabase.from('inventory_report_items') as any).select('*').in('report_id', reportIds).order('designation_order', { ascending: true }) as any
+        : Promise.resolve({ data: [] as any[], error: null }),
     ])
 
-    return NextResponse.json({
-      reports,
+    const propMap = new Map<string, any>((propertiesData ?? []).map((p: any) => [p.id, p]))
+    const leaseMap = new Map<string, any>((leasesData ?? []).map((l: any) => [l.id, l]))
+    const itemsByReport = new Map<string, any[]>()
+    for (const item of (itemsData ?? []) as any[]) {
+      if (!itemsByReport.has(item.report_id)) itemsByReport.set(item.report_id, [])
+      itemsByReport.get(item.report_id)!.push(item)
+    }
+
+    const enrichedReports = reports.map((r: any) => {
+      const lease = leaseMap.get(r.lease_id)
+      const items = (itemsByReport.get(r.id) ?? []).map((item: any) => ({
+        id: item.id,
+        reportId: item.report_id,
+        designation: item.designation,
+        designationOrder: item.designation_order,
+        kitchen: item.kitchen,
+        mainBathroom: item.main_bathroom,
+        otherBathroom: item.other_bathroom,
+        otherRoom1: item.other_room_1,
+        otherRoom2: item.other_room_2,
+        observations: item.observations,
+        createdAt: item.created_at,
+      }))
+
+      return {
+        id: r.id,
+        propertyId: r.property_id,
+        type: r.type,
+        leaseId: r.lease_id,
+        status: r.status,
+        generalObservations: r.general_observations,
+        totalKeys: r.total_keys,
+        reviewerId: r.reviewer_id,
+        completedAt: r.completed_at,
+        ownerSignedAt: r.owner_signed_at,
+        tenantSignedAt: r.tenant_signed_at,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+        property: propMap.get(r.property_id) ? {
+          id: propMap.get(r.property_id).id,
+          title: propMap.get(r.property_id).title,
+          address: propMap.get(r.property_id).address,
+          city: propMap.get(r.property_id).city,
+          commune: propMap.get(r.property_id).commune,
+        } : null,
+        lease: lease ? {
+          id: lease.id,
+          startDate: lease.start_date,
+          endDate: lease.end_date,
+          tenant: lease.tenant ? {
+            id: lease.tenant.id,
+            firstName: lease.tenant.first_name,
+            lastName: lease.tenant.last_name,
+          } : null,
+          owner: lease.owner ? {
+            id: lease.owner.id,
+            firstName: lease.owner.first_name,
+            lastName: lease.owner.last_name,
+          } : null,
+        } : null,
+        items,
+      }
+    })
+
+    const resp = NextResponse.json({
+      reports: enrichedReports,
       pagination: {
-        total,
+        total: total ?? 0,
         limit,
         offset,
-        hasMore: offset + limit < total,
+        hasMore: offset + limit < (total ?? 0),
       },
     })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Inventory reports GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// POST /api/tc/inventory-reports — Create an inventory report
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await ((supabase as any)
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single() as any)
+    const effectiveRole = profile?.active_role || profile?.role
 
     if (effectiveRole !== 'TIERS_CONFIANCE') {
       return NextResponse.json(
@@ -124,11 +196,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { propertyId, type, leaseId, items, generalObservations, totalKeys, status: requestedStatus } = body
 
-    // Validate required fields
     if (!propertyId || typeof propertyId !== 'string') {
       return NextResponse.json({ error: 'propertyId est requis' }, { status: 400 })
     }
-
     if (!type || !VALID_INVENTORY_TYPES.includes(type)) {
       return NextResponse.json(
         { error: `type doit être l'un des suivants : ${VALID_INVENTORY_TYPES.join(', ')}` },
@@ -136,21 +206,26 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Validate property exists
-    const property = await db.property.findUnique({ where: { id: propertyId } })
+    const { data: property } = await ((supabase as any)
+      .from('properties')
+      .select('id')
+      .eq('id', propertyId)
+      .single() as any)
     if (!property) {
       return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
     }
 
-    // Validate lease if provided
     if (leaseId) {
-      const lease = await db.lease.findUnique({ where: { id: leaseId } })
+      const { data: lease } = await ((supabase as any)
+        .from('leases')
+        .select('id')
+        .eq('id', leaseId)
+        .single() as any)
       if (!lease) {
         return NextResponse.json({ error: 'Bail introuvable' }, { status: 404 })
       }
     }
 
-    // Validate items
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Au moins un élément est requis' }, { status: 400 })
     }
@@ -163,7 +238,6 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         )
       }
-      // Validate room conditions if provided
       const conditionFields = ['kitchen', 'mainBathroom', 'otherBathroom', 'otherRoom1', 'otherRoom2'] as const
       for (const field of conditionFields) {
         if (item[field] !== undefined && item[field] !== null && !VALID_ROOM_CONDITIONS.includes(item[field])) {
@@ -175,87 +249,101 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create report with items in a transaction
-    const report = await db.inventoryReport.create({
-      data: {
-        propertyId,
+    const reportStatus = (requestedStatus && VALID_INVENTORY_STATUSES.includes(requestedStatus)) ? requestedStatus : 'DRAFT'
+
+    const { data: report } = await ((supabase as any)
+      .from('inventory_reports')
+      .insert({
+        property_id: propertyId,
         type,
-        leaseId: leaseId || null,
-        generalObservations: generalObservations || null,
-        totalKeys: totalKeys !== undefined ? Number(totalKeys) : null,
-        reviewerId: userId,
-        status: (requestedStatus && VALID_INVENTORY_STATUSES.includes(requestedStatus)) ? requestedStatus : 'DRAFT',
-        completedAt: (requestedStatus === 'COMPLETED') ? new Date() : null,
-        items: {
-          create: items.map((item: {
-            designation: string
-            designationOrder?: number
-            kitchen?: string | null
-            mainBathroom?: string | null
-            otherBathroom?: string | null
-            otherRoom1?: string | null
-            otherRoom2?: string | null
-            observations?: string | null
-          }, index: number) => ({
-            designation: item.designation,
-            designationOrder: item.designationOrder !== undefined ? Number(item.designationOrder) : index + 1,
-            kitchen: item.kitchen || null,
-            mainBathroom: item.mainBathroom || null,
-            otherBathroom: item.otherBathroom || null,
-            otherRoom1: item.otherRoom1 || null,
-            otherRoom2: item.otherRoom2 || null,
-            observations: item.observations || null,
-          })),
-        },
-      },
-      include: {
-        property: {
-          select: {
-            id: true,
-            title: true,
-            address: true,
-            city: true,
-          },
-        },
-        lease: {
-          select: {
-            id: true,
-            startDate: true,
-            endDate: true,
-          },
-        },
-        items: {
-          orderBy: { designationOrder: 'asc' },
-        },
-      },
+        lease_id: leaseId || null,
+        general_observations: generalObservations || null,
+        total_keys: totalKeys !== undefined ? Number(totalKeys) : null,
+        reviewer_id: userId,
+        status: reportStatus,
+        completed_at: reportStatus === 'COMPLETED' ? new Date().toISOString() : null,
+      })
+      .select()
+      .single() as any)
+
+    const inventoryItems = items.map((item: any, index: number) => ({
+      report_id: report.id,
+      designation: item.designation,
+      designation_order: item.designationOrder !== undefined ? Number(item.designationOrder) : index + 1,
+      kitchen: item.kitchen || null,
+      main_bathroom: item.mainBathroom || null,
+      other_bathroom: item.otherBathroom || null,
+      other_room_1: item.otherRoom1 || null,
+      other_room_2: item.otherRoom2 || null,
+      observations: item.observations || null,
+    }))
+
+    const { data: createdItems } = await ((supabase as any)
+      .from('inventory_report_items')
+      .insert(inventoryItems)
+      .select()
+      .order('designation_order', { ascending: true }))
+
+    await (supabase.from('audit_logs') as any).insert({
+      action: 'INVENTORY_REPORT_CREATED',
+      entity: 'InventoryReport',
+      entity_id: report.id,
+      details: JSON.stringify({ propertyId, type, itemCount: items.length }),
+      user_id: userId,
     })
 
-    // Create audit log
-    await db.auditLog.create({
-      data: {
-        action: 'INVENTORY_REPORT_CREATED',
-        entity: 'InventoryReport',
-        entityId: report.id,
-        details: JSON.stringify({ propertyId, type, itemCount: items.length }),
-        userId,
-      },
-    })
+    const mappedItems = (createdItems ?? []).map((item: any) => ({
+      id: item.id,
+      reportId: item.report_id,
+      designation: item.designation,
+      designationOrder: item.designation_order,
+      kitchen: item.kitchen,
+      mainBathroom: item.main_bathroom,
+      otherBathroom: item.other_bathroom,
+      otherRoom1: item.other_room_1,
+      otherRoom2: item.other_room_2,
+      observations: item.observations,
+    }))
 
-    return NextResponse.json({ report }, { status: 201 })
+    const mappedReport = {
+      ...report,
+      propertyId: report.property_id,
+      leaseId: report.lease_id,
+      generalObservations: report.general_observations,
+      totalKeys: report.total_keys,
+      reviewerId: report.reviewer_id,
+      completedAt: report.completed_at,
+      ownerSignedAt: report.owner_signed_at,
+      tenantSignedAt: report.tenant_signed_at,
+      createdAt: report.created_at,
+      updatedAt: report.updated_at,
+      items: mappedItems,
+    }
+
+    const resp = NextResponse.json({ report: mappedReport }, { status: 201 })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Inventory reports POST error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// PATCH /api/tc/inventory-reports — Update an inventory report (add items, update status, sign)
 export async function PATCH(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await ((supabase as any)
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single() as any)
+    const effectiveRole = profile?.active_role || profile?.role
 
     const body = await req.json()
     const { reportId, items, generalObservations, totalKeys, status, ownerSigned, tenantSigned } = body
@@ -264,37 +352,30 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'reportId est requis' }, { status: 400 })
     }
 
-    // Find the report
-    const report = await db.inventoryReport.findUnique({
-      where: { id: reportId },
-      include: {
-        property: { select: { ownerId: true } },
-        lease: { select: { tenantId: true } },
-      },
-    })
+    const { data: report } = await ((supabase as any)
+      .from('inventory_reports')
+      .select('*, property:properties(owner_id), lease:leases(tenant_id)')
+      .eq('id', reportId)
+      .single() as any)
 
     if (!report) {
       return NextResponse.json({ error: 'Rapport introuvable' }, { status: 404 })
     }
 
     const isTC = effectiveRole === 'TIERS_CONFIANCE'
-    const isOwner = report.property.ownerId === userId
-    const isTenant = report.lease?.tenantId === userId
+    const isOwner = report.property?.owner_id === userId
+    const isTenant = report.lease?.tenant_id === userId
 
-    // Build update data
     const updateData: Record<string, unknown> = {}
 
-    // TC can update items and observations
     if (isTC) {
       if (items !== undefined) {
         if (!Array.isArray(items)) {
           return NextResponse.json({ error: 'items doit être un tableau' }, { status: 400 })
         }
 
-        // Delete existing items and create new ones
-        await db.inventoryReportItem.deleteMany({ where: { reportId } })
+        await (supabase.from('inventory_report_items') as any).delete().eq('report_id', reportId)
 
-        // Validate new items
         for (let i = 0; i < items.length; i++) {
           const item = items[i]
           if (!item.designation || typeof item.designation !== 'string') {
@@ -314,39 +395,29 @@ export async function PATCH(req: NextRequest) {
           }
         }
 
-        updateData.items = {
-          create: items.map((item: {
-            designation: string
-            designationOrder?: number
-            kitchen?: string | null
-            mainBathroom?: string | null
-            otherBathroom?: string | null
-            otherRoom1?: string | null
-            otherRoom2?: string | null
-            observations?: string | null
-          }, index: number) => ({
-            designation: item.designation,
-            designationOrder: item.designationOrder !== undefined ? Number(item.designationOrder) : index + 1,
-            kitchen: item.kitchen || null,
-            mainBathroom: item.mainBathroom || null,
-            otherBathroom: item.otherBathroom || null,
-            otherRoom1: item.otherRoom1 || null,
-            otherRoom2: item.otherRoom2 || null,
-            observations: item.observations || null,
-          })),
-        }
+        const newItems = items.map((item: any, index: number) => ({
+          report_id: reportId,
+          designation: item.designation,
+          designation_order: item.designationOrder !== undefined ? Number(item.designationOrder) : index + 1,
+          kitchen: item.kitchen || null,
+          main_bathroom: item.mainBathroom || null,
+          other_bathroom: item.otherBathroom || null,
+          other_room_1: item.otherRoom1 || null,
+          other_room_2: item.otherRoom2 || null,
+          observations: item.observations || null,
+        }))
+
+        await (supabase.from('inventory_report_items') as any).insert(newItems)
       }
 
       if (generalObservations !== undefined) {
-        updateData.generalObservations = generalObservations
+        updateData.general_observations = generalObservations
       }
-
       if (totalKeys !== undefined) {
-        updateData.totalKeys = Number(totalKeys)
+        updateData.total_keys = Number(totalKeys)
       }
     }
 
-    // Status update
     if (status !== undefined) {
       if (!VALID_INVENTORY_STATUSES.includes(status)) {
         return NextResponse.json(
@@ -354,7 +425,6 @@ export async function PATCH(req: NextRequest) {
           { status: 400 }
         )
       }
-      // Only TC can update status (except signing which is handled below)
       if (!isTC && status !== 'SIGNED_OWNER' && status !== 'SIGNED_TENANT') {
         return NextResponse.json(
           { error: 'Seul un TC peut modifier le statut du rapport' },
@@ -364,7 +434,6 @@ export async function PATCH(req: NextRequest) {
       updateData.status = status
     }
 
-    // Owner signing
     if (ownerSigned === true) {
       if (!isOwner && !isTC) {
         return NextResponse.json(
@@ -372,16 +441,14 @@ export async function PATCH(req: NextRequest) {
           { status: 403 }
         )
       }
-      updateData.ownerSignedAt = new Date()
-      // Auto-update status
-      if (report.tenantSignedAt) {
+      updateData.owner_signed_at = new Date().toISOString()
+      if (report.tenant_signed_at) {
         updateData.status = 'SIGNED_BOTH'
       } else {
         updateData.status = 'SIGNED_OWNER'
       }
     }
 
-    // Tenant signing
     if (tenantSigned === true) {
       if (!isTenant && !isTC) {
         return NextResponse.json(
@@ -389,60 +456,72 @@ export async function PATCH(req: NextRequest) {
           { status: 403 }
         )
       }
-      updateData.tenantSignedAt = new Date()
-      // Auto-update status
-      if (report.ownerSignedAt) {
+      updateData.tenant_signed_at = new Date().toISOString()
+      if (report.owner_signed_at) {
         updateData.status = 'SIGNED_BOTH'
       } else {
         updateData.status = 'SIGNED_TENANT'
       }
     }
 
-    // Only allow update if there's something to update
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'Aucune donnée à mettre à jour' }, { status: 400 })
     }
 
-    const updatedReport = await db.inventoryReport.update({
-      where: { id: reportId },
-      data: updateData,
-      include: {
-        property: {
-          select: {
-            id: true,
-            title: true,
-            address: true,
-            city: true,
-          },
-        },
-        lease: {
-          select: {
-            id: true,
-            startDate: true,
-            endDate: true,
-          },
-        },
-        items: {
-          orderBy: { designationOrder: 'asc' },
-        },
-      },
-    })
+    const { data: updatedReport } = await ((supabase as any)
+      .from('inventory_reports')
+      .update(updateData as any)
+      .eq('id', reportId)
+      .select()
+      .single() as any)
 
-    // Create audit log
-    await db.auditLog.create({
-      data: {
-        action: 'INVENTORY_REPORT_UPDATED',
-        entity: 'InventoryReport',
-        entityId: reportId,
-        details: JSON.stringify({
-          updatedFields: Object.keys(updateData),
-          userId,
-        }),
+    const { data: refreshedItems } = await ((supabase as any)
+      .from('inventory_report_items')
+      .select('*')
+      .eq('report_id', reportId)
+      .order('designation_order', { ascending: true }))
+
+    await (supabase.from('audit_logs') as any).insert({
+      action: 'INVENTORY_REPORT_UPDATED',
+      entity: 'InventoryReport',
+      entity_id: reportId,
+      details: JSON.stringify({
+        updatedFields: Object.keys(updateData),
         userId,
-      },
+      }),
+      user_id: userId,
     })
 
-    return NextResponse.json({ report: updatedReport })
+    const mappedItems = (refreshedItems ?? []).map((item: any) => ({
+      id: item.id,
+      reportId: item.report_id,
+      designation: item.designation,
+      designationOrder: item.designation_order,
+      kitchen: item.kitchen,
+      mainBathroom: item.main_bathroom,
+      otherBathroom: item.other_bathroom,
+      otherRoom1: item.other_room_1,
+      otherRoom2: item.other_room_2,
+      observations: item.observations,
+    }))
+
+    const mappedResult = {
+      ...updatedReport,
+      propertyId: updatedReport.property_id,
+      leaseId: updatedReport.lease_id,
+      generalObservations: updatedReport.general_observations,
+      totalKeys: updatedReport.total_keys,
+      reviewerId: updatedReport.reviewer_id,
+      completedAt: updatedReport.completed_at,
+      ownerSignedAt: updatedReport.owner_signed_at,
+      tenantSignedAt: updatedReport.tenant_signed_at,
+      createdAt: updatedReport.created_at,
+      updatedAt: updatedReport.updated_at,
+      items: mappedItems,
+    }
+
+    const resp = NextResponse.json({ report: mappedResult })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Inventory reports PATCH error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

@@ -1461,6 +1461,7 @@ function VisitModal({
           timeSlot: visitTime,
           tenantMessage: visitNotes || null,
         }),
+        credentials: 'include',
       })
 
       const data = await res.json()

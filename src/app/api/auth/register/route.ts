@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 import { generateOtpCode, sendOtpEmail, sendOtpSms } from '@/lib/ansut-messaging'
-
-const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10)
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import {
+  createEmailOtp,
+  getUserProfileByEmail,
+  invalidateEmailOtps,
+  normalizeEmail,
+  SUPABASE_PASSWORD_PLACEHOLDER,
+} from '@/lib/supabase/email-auth'
+import { toAuthUser } from '@/lib/supabase/profile'
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +23,6 @@ export async function POST(req: NextRequest) {
     }
 
     if (method === 'email') {
-      // ─── Email + Password registration ─────────────────────
       if (!email || !password) {
         return NextResponse.json(
           { error: 'Email et mot de passe sont requis' },
@@ -25,86 +30,40 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Validate password strength
-      if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+      if (
+        password.length < 8
+        || !/[A-Z]/.test(password)
+        || !/[a-z]/.test(password)
+        || !/[0-9]/.test(password)
+      ) {
         return NextResponse.json(
           { error: 'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre' },
           { status: 400 }
         )
       }
 
-      // Check if user already exists with this email
-      const existingEmail = await db.user.findUnique({ where: { email } })
-      if (existingEmail) {
-        // Allow re-registration if the account is NOT verified yet
-        if (existingEmail.isEmailVerified) {
-          return NextResponse.json(
-            { error: 'Un compte vérifié existe déjà avec cet email. Essayez de vous connecter.' },
-            { status: 400 }
-          )
-        }
+      const admin = getSupabaseAdminClient()
+      const normalized = normalizeEmail(email)
+      const existingEmail = await getUserProfileByEmail(admin, normalized)
 
-        // Unverified account → update their info and re-send OTP
-        const passwordHash = await bcrypt.hash(password, 12)
-
-        const user = await db.user.update({
-          where: { id: existingEmail.id },
-          data: {
-            passwordHash,
-            firstName,
-            lastName,
-            phone: phone || existingEmail.phone,
-            role: role || existingEmail.role,
-          },
-        })
-
-        // Invalidate existing unused OTP codes for this email
-        await db.oTPCode.updateMany({
-          where: { email, isUsed: false, type: 'EMAIL_VERIFY' },
-          data: { isUsed: true },
-        })
-
-        // Generate and store new email verification OTP
-        const otpCode = generateOtpCode(6)
-        await db.oTPCode.create({
-          data: {
-            email,
-            code: otpCode,
-            type: 'EMAIL_VERIFY',
-            expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
-            userId: user.id,
-          },
-        })
-
-        // Send verification email via ANSUT
-        const emailResult = await sendOtpEmail(email, otpCode, firstName, 'email_verify')
-        if (!emailResult.success) {
-          console.warn(`[Register] Email send failed for ${email}, but OTP stored. Code: ${otpCode}`)
-        }
-
-        const isDev = process.env.NODE_ENV !== 'production'
-        return NextResponse.json({
-          user: {
-            id: user.id,
-            phone: user.phone,
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            role: user.role,
-            activeRole: user.activeRole,
-            avatarUrl: user.avatarUrl,
-            isActive: user.isActive,
-            isEmailVerified: false,
-          },
-          needsVerification: true,
-          verificationMethod: 'email',
-          ...(isDev && { devCode: otpCode }),
-        })
+      if (existingEmail?.is_email_verified) {
+        return NextResponse.json(
+          { error: 'Un compte vérifié existe déjà avec cet email. Essayez de vous connecter.' },
+          { status: 400 }
+        )
       }
 
-      // Check phone uniqueness if provided
       if (phone) {
-        const existingPhone = await db.user.findUnique({ where: { phone } })
+        const { data: existingPhone, error: phoneError } = await admin
+          .from('users')
+          .select('id')
+          .eq('phone', phone)
+          .maybeSingle()
+
+        if (phoneError) {
+          throw phoneError
+        }
+
         if (existingPhone) {
           return NextResponse.json(
             { error: 'Un compte existe déjà avec ce numéro de téléphone' },
@@ -113,63 +72,77 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const passwordHash = await bcrypt.hash(password, 12)
+      let userPayload = existingEmail
 
-      // Create user — NOT verified, NOT authenticated
-      const user = await db.user.create({
-        data: {
-          email,
-          passwordHash,
-          firstName,
-          lastName,
-          phone: phone || null,
-          role: role || 'LOCATAIRE',
-          isEmailVerified: false,  // Must verify via OTP
-          isPhoneVerified: false,
-          isActive: true,
-        },
-      })
+      if (!userPayload) {
+        const { data: authUserData, error: authError } = await admin.auth.admin.createUser({
+          email: normalized,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            firstName,
+            lastName,
+          },
+        })
 
-      // Generate and store email verification OTP
-      const otpCode = generateOtpCode(6)
-      await db.oTPCode.create({
-        data: {
-          email,
-          code: otpCode,
-          type: 'EMAIL_VERIFY',
-          expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
-          userId: user.id,
-        },
-      })
+        if (authError || !authUserData.user) {
+          return NextResponse.json(
+            { error: authError?.message || 'Impossible de créer le compte Supabase' },
+            { status: 400 }
+          )
+        }
 
-      // Send verification email via ANSUT
-      const emailResult = await sendOtpEmail(email, otpCode, firstName, 'email_verify')
-      if (!emailResult.success) {
-        console.warn(`[Register] Email send failed for ${email}, but OTP stored. Code: ${otpCode}`)
+        const { data: insertedProfile, error: insertError } = await admin
+          .from('users')
+          .insert({
+            id: authUserData.user.id,
+            email: normalized,
+            phone: phone || null,
+            password_hash: SUPABASE_PASSWORD_PLACEHOLDER,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            role: role || 'LOCATAIRE',
+            active_role: role || 'LOCATAIRE',
+            is_active: true,
+            is_email_verified: false,
+            is_phone_verified: false,
+          })
+          .select()
+          .single()
+
+        if (insertError || !insertedProfile) {
+          await admin.auth.admin.deleteUser(authUserData.user.id).catch(() => {})
+          throw insertError || new Error('Impossible de créer le profil applicatif')
+        }
+
+        userPayload = insertedProfile
       }
 
-      // Return user data WITHOUT cookie — user must verify OTP first
+      await invalidateEmailOtps(admin, normalized, 'EMAIL_VERIFY')
+
+      const otpCode = generateOtpCode(6)
+      await createEmailOtp(admin, {
+        email: normalized,
+        code: otpCode,
+        type: 'EMAIL_VERIFY',
+        userId: userPayload.id,
+      })
+
+      const emailResult = await sendOtpEmail(normalized, otpCode, userPayload.first_name, 'email_verify')
+      if (!emailResult.success) {
+        console.warn(`[Register] Email send failed for ${normalized}, but OTP stored. Code: ${otpCode}`)
+      }
+
       const isDev = process.env.NODE_ENV !== 'production'
       return NextResponse.json({
-        user: {
-          id: user.id,
-          phone: user.phone,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: user.role,
-          activeRole: user.activeRole,
-          avatarUrl: user.avatarUrl,
-          isActive: user.isActive,
-          isEmailVerified: false,
-        },
+        user: toAuthUser(userPayload),
         needsVerification: true,
         verificationMethod: 'email',
         ...(isDev && { devCode: otpCode }),
       })
+    }
 
-    } else if (method === 'sms') {
-      // ─── SMS registration (no password) ─────────────────────
+    if (method === 'sms') {
       if (!phone) {
         return NextResponse.json(
           { error: 'Numéro de téléphone requis' },
@@ -177,15 +150,22 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Find existing user by phone (could be the temp user from OTP flow)
-      const existingUser = await db.user.findUnique({ where: { phone } })
+      const supabase = getSupabaseAdminClient()
 
-      // Check email uniqueness if provided
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('phone', phone)
+        .maybeSingle()
+
       if (email) {
-        const existingEmail = await db.user.findUnique({ where: { email } })
+        const { data: existingEmail } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', email)
+          .maybeSingle()
         if (existingEmail && existingEmail.phone !== phone) {
-          // Allow if the other account is not verified
-          if (existingEmail.isEmailVerified) {
+          if (existingEmail.is_email_verified) {
             return NextResponse.json(
               { error: 'Un compte vérifié existe déjà avec cet email' },
               { status: 400 }
@@ -196,93 +176,104 @@ export async function POST(req: NextRequest) {
 
       let user
 
-      if (existingUser && existingUser.firstName === 'Temp' && existingUser.lastName === 'User') {
-        // Update the temp user with real data
-        user = await db.user.update({
-          where: { id: existingUser.id },
-          data: {
-            firstName,
-            lastName,
+      if (existingUser && existingUser.first_name === 'Temp' && existingUser.last_name === 'User') {
+        const { data: updated } = await supabase
+          .from('users')
+          .update({
+            first_name: firstName,
+            last_name: lastName,
             email: email || existingUser.email,
             role: role || 'LOCATAIRE',
-            isPhoneVerified: false,  // Must verify via OTP
-            isActive: true,
-            passwordHash: await bcrypt.hash(`sms-${Date.now()}-${Math.random()}`, 12),
-          },
-        })
-      } else if (existingUser && !existingUser.isPhoneVerified) {
-        // Unverified account → update their info and re-send OTP
-        user = await db.user.update({
-          where: { id: existingUser.id },
-          data: {
-            firstName,
-            lastName,
+            is_phone_verified: false,
+            is_active: true,
+            password_hash: await bcrypt.hash(`sms-${Date.now()}-${Math.random()}`, 12),
+          })
+          .eq('id', existingUser.id)
+          .select()
+          .single()
+        user = updated
+      } else if (existingUser && !existingUser.is_phone_verified) {
+        const { data: updated } = await supabase
+          .from('users')
+          .update({
+            first_name: firstName,
+            last_name: lastName,
             email: email || existingUser.email,
             role: role || existingUser.role,
-            isActive: true,
-          },
-        })
+            is_active: true,
+          })
+          .eq('id', existingUser.id)
+          .select()
+          .single()
+        user = updated
       } else if (existingUser) {
         return NextResponse.json(
           { error: 'Un compte vérifié existe déjà avec ce numéro. Essayez de vous connecter.' },
           { status: 400 }
         )
       } else {
-        // Create new user — NOT verified, NOT authenticated
-        user = await db.user.create({
-          data: {
+        const { data: created } = await supabase
+          .from('users')
+          .insert({
             phone,
             email: email || `sms-${Date.now()}@temp.ci`,
-            passwordHash: await bcrypt.hash(`sms-${Date.now()}-${Math.random()}`, 12),
-            firstName,
-            lastName,
-            role: role || 'LOCATAIRE',
-            isPhoneVerified: false,  // Must verify via OTP
-            isActive: true,
-          },
-        })
+            password_hash: await bcrypt.hash(`sms-${Date.now()}-${Math.random()}`, 12),
+            first_name: firstName,
+            last_name: lastName,
+            role: (role || 'LOCATAIRE') as any,
+            is_phone_verified: false,
+            is_active: true,
+          } as any)
+          .select()
+          .single()
+        user = created
       }
 
-      // Invalidate existing unused LOGIN OTP codes for this phone
-      const existingOtps = await db.oTPCode.findMany({
-        where: { phone, isUsed: false, type: 'LOGIN' },
-      })
-      for (const otp of existingOtps) {
-        await db.oTPCode.update({ where: { id: otp.id }, data: { isUsed: true } })
+      const { data: existingOtps } = await supabase
+        .from('otp_codes')
+        .select('id')
+        .eq('phone', phone)
+        .eq('is_used', false)
+        .eq('type', 'LOGIN')
+
+      if (existingOtps) {
+        for (const otp of existingOtps) {
+          await supabase
+            .from('otp_codes')
+            .update({ is_used: true })
+            .eq('id', otp.id)
+        }
       }
 
-      // Generate and store SMS verification OTP
       const otpCode = generateOtpCode(6)
-      await db.oTPCode.create({
-        data: {
+      await supabase
+        .from('otp_codes')
+        .insert({
           phone,
           code: otpCode,
           type: 'LOGIN',
-          expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
-          userId: user.id,
-        },
-      })
+          expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+          user_id: user.id,
+        })
 
-      // Send verification SMS via ANSUT
       const smsResult = await sendOtpSms(phone, otpCode, 'login')
       if (!smsResult.success) {
         console.warn(`[Register] SMS send failed for ${phone}, but OTP stored. Code: ${otpCode}`)
       }
 
-      // Return user data WITHOUT cookie — user must verify OTP first
       const isDev = process.env.NODE_ENV !== 'production'
       return NextResponse.json({
         user: {
           id: user.id,
           phone: user.phone,
           email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
+          firstName: user.first_name,
+          lastName: user.last_name,
           role: user.role,
-          activeRole: user.activeRole,
-          avatarUrl: user.avatarUrl,
-          isActive: user.isActive,
-          isEmailVerified: user.isEmailVerified,
+          activeRole: user.active_role,
+          avatarUrl: user.avatar_url,
+          isActive: user.is_active,
+          isEmailVerified: user.is_email_verified,
         },
         needsVerification: true,
         verificationMethod: 'sms',
@@ -290,7 +281,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({ error: 'Méthode d\'inscription non valide' }, { status: 400 })
+    return NextResponse.json({ error: 'Méthode d\'inscription non supportée' }, { status: 400 })
   } catch (error) {
     console.error('Register error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

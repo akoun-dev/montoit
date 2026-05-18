@@ -1,78 +1,113 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
 
-// GET /api/admin/signalements — list signalements with reporter info
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { effectiveRole } = authResult
 
-    if (effectiveRole !== 'ADMIN') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    if (!profile || profile.role !== 'ADMIN') {
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
     }
 
     const url = new URL(req.url)
     const status = url.searchParams.get('status')
     const reason = url.searchParams.get('reason')
 
-    const where: Record<string, unknown> = {}
-    if (status) where.status = status
-    if (reason) where.reason = reason
+    let query = supabase.from('signalements').select('*', { count: 'exact' })
+    if (status) query = query.eq('status', status)
+    if (reason) query = query.eq('reason', reason)
 
-    const signalements = await db.signalement.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        reporter: {
-          select: { id: true, firstName: true, lastName: true, email: true, role: true },
-        },
-        handledBy: {
-          select: { id: true, firstName: true, lastName: true },
-        },
-      },
+    const { data: signalementsData } = await query.order('created_at', { ascending: false })
+    const signalements = (signalementsData ?? []) as any[]
+
+    const reporterIds = [...new Set(signalements.map(s => s.reporter_id).filter(Boolean))]
+    const handledByIds = [...new Set(signalements.map(s => s.handled_by_id).filter(Boolean))]
+
+    const [{ data: reporters }, { data: handlers }] = await Promise.all([
+      reporterIds.length > 0
+        ? supabase.from('users').select('id, first_name, last_name, email, role').in('id', reporterIds)
+        : { data: [] as any[] },
+      handledByIds.length > 0
+        ? supabase.from('users').select('id, first_name, last_name').in('id', handledByIds)
+        : { data: [] as any[] },
+    ])
+
+    const reporterMap = new Map((reporters ?? []).map((r: any) => [r.id, r]))
+    const handlerMap = new Map((handlers ?? []).map((h: any) => [h.id, h]))
+
+    const mapped = signalements.map((s: any) => {
+      const reporter = reporterMap.get(s.reporter_id)
+      const handler = handlerMap.get(s.handled_by_id)
+      return {
+        id: s.id,
+        reason: s.reason,
+        description: s.description,
+        entityType: s.entity_type,
+        entityId: s.entity_id,
+        status: s.status,
+        adminNotes: s.admin_notes,
+        resolution: s.resolution,
+        reporterId: s.reporter_id,
+        handledById: s.handled_by_id,
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
+        reporter: reporter ? {
+          id: reporter.id,
+          firstName: reporter.first_name,
+          lastName: reporter.last_name,
+          email: reporter.email,
+          role: reporter.role,
+        } : null,
+        handledBy: handler ? {
+          id: handler.id,
+          firstName: handler.first_name,
+          lastName: handler.last_name,
+        } : null,
+      }
     })
 
-    const stats = await db.signalement.groupBy({
-      by: ['status'],
-      _count: { status: true },
-    })
+    const byStatus: Record<string, number> = {}
+    const byReason: Record<string, number> = {}
+    for (const s of signalements) {
+      byStatus[s.status] = (byStatus[s.status] || 0) + 1
+      byReason[s.reason] = (byReason[s.reason] || 0) + 1
+    }
 
-    const statsByReason = await db.signalement.groupBy({
-      by: ['reason'],
-      _count: { reason: true },
+    const resp = NextResponse.json({
+      signalements: mapped,
+      stats: { byStatus, byReason },
     })
-
-    return NextResponse.json({
-      signalements,
-      stats: {
-        byStatus: stats.reduce((acc, item) => {
-          acc[item.status] = item._count.status
-          return acc
-        }, {} as Record<string, number>),
-        byReason: statsByReason.reduce((acc, item) => {
-          acc[item.reason] = item._count.reason
-          return acc
-        }, {} as Record<string, number>),
-      },
-    })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Admin signalements GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// POST /api/admin/signalements — create new signalement
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
+
+    const supabase = getSupabaseAdminClient()
 
     const body = await req.json()
     const { reason, description, entityType, entityId, reporterId } = body
@@ -81,27 +116,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Champs requis manquants' }, { status: 400 })
     }
 
-    const signalement = await db.signalement.create({
-      data: {
+    const sGen = supabase.from('signalements') as any
+    const { data: signalement } = await sGen
+      .insert({
         reason,
         description,
-        entityType,
-        entityId,
-        reporterId,
-      },
-      include: {
-        reporter: {
-          select: { id: true, firstName: true, lastName: true, email: true, role: true },
-        },
-      },
-    })
+        entity_type: entityType,
+        entity_id: entityId,
+        reporter_id: reporterId,
+      })
+      .select()
+      .single()
 
-    // Notify all admin users about the new signalement
-    const admins = await db.user.findMany({
-      where: { role: 'ADMIN', isActive: true },
-      select: { id: true },
-    })
-    await Promise.all(admins.map((admin) =>
+    if (!signalement) {
+      return NextResponse.json({ error: 'Erreur lors de la création' }, { status: 500 })
+    }
+
+    const { data: reporter } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, email, role')
+      .eq('id', reporterId)
+      .single()
+
+    const { data: admins } = await supabase
+      .from('users')
+      .select('id')
+      .eq('role', 'ADMIN')
+      .eq('is_active', true)
+
+    await Promise.all((admins ?? []).map((admin: any) =>
       notify({
         userId: admin.id,
         type: 'SYSTEM',
@@ -112,24 +155,44 @@ export async function POST(req: NextRequest) {
       })
     ))
 
-    return NextResponse.json({ signalement }, { status: 201 })
+    const resp = NextResponse.json({
+      signalement: {
+        ...signalement,
+        reporter: reporter ? {
+          id: reporter.id,
+          firstName: reporter.first_name,
+          lastName: reporter.last_name,
+          email: reporter.email,
+          role: reporter.role,
+        } : null,
+      },
+    }, { status: 201 })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Admin signalements POST error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// PATCH /api/admin/signalements — update signalement status/notes
 export async function PATCH(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
 
-    if (effectiveRole !== 'ADMIN') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    if (!profile || profile.role !== 'ADMIN') {
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
     }
 
     const body = await req.json()
@@ -141,24 +204,31 @@ export async function PATCH(req: NextRequest) {
 
     const updateData: Record<string, unknown> = {}
     if (status) updateData.status = status
-    if (adminNotes !== undefined) updateData.adminNotes = adminNotes
+    if (adminNotes !== undefined) updateData.admin_notes = adminNotes
     if (resolution !== undefined) updateData.resolution = resolution
-    updateData.handledById = userId
+    updateData.handled_by_id = userId
 
-    const signalement = await db.signalement.update({
-      where: { id },
-      data: updateData,
-      include: {
-        reporter: {
-          select: { id: true, firstName: true, lastName: true, email: true, role: true },
-        },
-        handledBy: {
-          select: { id: true, firstName: true, lastName: true },
-        },
-      },
-    })
+    const sGen = supabase.from('signalements') as any
+    const { data: signalement } = await sGen
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single()
 
-    // Notify the reporter about the status update
+    if (!signalement) {
+      return NextResponse.json({ error: 'Signalement introuvable' }, { status: 404 })
+    }
+
+    const [{ data: reporters }, { data: handlers }] = await Promise.all([
+      supabase.from('users').select('id, first_name, last_name, email, role').eq('id', signalement.reporter_id),
+      signalement.handled_by_id
+        ? supabase.from('users').select('id, first_name, last_name').eq('id', signalement.handled_by_id)
+        : { data: [] as any[] },
+    ])
+
+    const reporter = reporters?.[0] ?? null
+    const handler = handlers?.[0] ?? null
+
     if (status) {
       const statusLabels: Record<string, string> = {
         REVIEWED: 'en cours d\'examen',
@@ -166,7 +236,7 @@ export async function PATCH(req: NextRequest) {
         DISMISSED: 'rejeté',
       }
       await notify({
-        userId: signalement.reporterId,
+        userId: signalement.reporter_id,
         type: 'SYSTEM',
         title: 'Mise à jour de votre signalement',
         message: `Votre signalement a été ${statusLabels[status] || 'mis à jour'}.${adminNotes ? ` Note : ${adminNotes}` : ''}`,
@@ -175,7 +245,24 @@ export async function PATCH(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({ signalement })
+    const resp = NextResponse.json({
+      signalement: {
+        ...signalement,
+        reporter: reporter ? {
+          id: reporter.id,
+          firstName: reporter.first_name,
+          lastName: reporter.last_name,
+          email: reporter.email,
+          role: reporter.role,
+        } : null,
+        handledBy: handler ? {
+          id: handler.id,
+          firstName: handler.first_name,
+          lastName: handler.last_name,
+        } : null,
+      },
+    })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Admin signalements PATCH error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

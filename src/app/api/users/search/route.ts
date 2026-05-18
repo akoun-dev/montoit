@@ -1,55 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
-// GET /api/users/search — Search for users by name or email
-// Query params: q=search_query
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+
+    const effectiveRole = profile?.active_role || profile?.role
 
     const { searchParams } = new URL(req.url)
     const q = searchParams.get('q') || ''
 
     if (!q || q.length < 2) {
-      return NextResponse.json({ users: [] })
+      const resp = NextResponse.json({ users: [] })
+      return applyCookies(resp)
     }
 
-    // Add role filter based on current user's role
-    let roleFilter: Record<string, unknown> = {}
+    let query = supabase
+      .from('users')
+      .select('id, first_name, last_name, avatar_url, role')
+      .eq('is_active', true)
+      .neq('id', userId)
+      .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%`)
+      .limit(10)
+
     if (effectiveRole === 'LOCATAIRE') {
-      roleFilter = { role: { in: ['PROPRIETAIRE', 'AGENCE'] } }
+      query = query.in('role', ['PROPRIETAIRE', 'AGENCE'])
     } else if (effectiveRole === 'PROPRIETAIRE') {
-      roleFilter = { role: { in: ['LOCATAIRE'] } }
+      query = query.in('role', ['LOCATAIRE'])
     }
-    // AGENCE and TC can see all roles
 
-    const users = await db.user.findMany({
-      where: {
-        isActive: true,
-        id: { not: userId }, // Don't include current user
-        ...roleFilter,
-        OR: [
-          { firstName: { contains: q } },
-          { lastName: { contains: q } },
-          { email: { contains: q } },
-        ],
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        avatarUrl: true,
-        role: true,
-      },
-      take: 10,
-    })
+    const { data: users } = await query
 
-    return NextResponse.json({ users })
+    const mapped = (users || []).map((u: any) => ({
+      id: u.id,
+      firstName: u.first_name,
+      lastName: u.last_name,
+      avatarUrl: u.avatar_url,
+      role: u.role,
+    }))
+
+    const resp = NextResponse.json({ users: mapped })
+    return applyCookies(resp)
   } catch (error) {
     console.error('User search error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

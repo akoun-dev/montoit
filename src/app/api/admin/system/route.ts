@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
-// GET /api/admin/system — return system stats
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
-    if (authResult.effectiveRole !== 'ADMIN') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    const admin = getSupabaseAdminClient()
+    const { data: profile } = await admin
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    if (!profile || profile.role !== 'ADMIN') {
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
     }
 
     const [
@@ -23,22 +30,22 @@ export async function GET(req: NextRequest) {
       connectionLogsCount,
       failedLogins,
     ] = await Promise.all([
-      db.user.count(),
-      db.property.count(),
-      db.lease.count(),
-      db.dispute.count(),
-      db.signalement.count(),
-      db.connectionLog.count(),
-      db.auditLog.count({ where: { action: 'LOGIN_FAILED' } }),
+      admin.from('users').select('id', { count: 'exact', head: true }).then(r => r.count || 0),
+      admin.from('properties').select('id', { count: 'exact', head: true }).then(r => r.count || 0),
+      admin.from('leases').select('id', { count: 'exact', head: true }).then(r => r.count || 0),
+      admin.from('disputes').select('id', { count: 'exact', head: true }).then(r => r.count || 0),
+      admin.from('signalements').select('id', { count: 'exact', head: true }).then(r => r.count || 0),
+      admin.from('connection_logs').select('id', { count: 'exact', head: true }).then(r => r.count || 0),
+      admin.from('audit_logs').select('id', { count: 'exact', head: true }).eq('action', 'LOGIN_FAILED').then(r => r.count || 0),
     ])
 
     // Revenue by month (last 6 months)
     const now = new Date()
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1)
-    const activeLeases = await db.lease.findMany({
-      where: { status: 'ACTIVE' },
-      select: { monthlyRent: true, charges: true, createdAt: true },
-    })
+    const { data: activeLeases } = await admin
+      .from('leases')
+      .select('monthly_rent, charges, created_at')
+      .eq('status', 'ACTIVE')
 
     const revenueByMonth: Record<string, number> = {}
     for (let i = 0; i < 6; i++) {
@@ -46,52 +53,45 @@ export async function GET(req: NextRequest) {
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       revenueByMonth[key] = 0
     }
-    activeLeases.forEach((lease) => {
-      const d = new Date(lease.createdAt)
+    ;(activeLeases || []).forEach((lease: any) => {
+      const d = new Date(lease.created_at)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       if (revenueByMonth[key] !== undefined) {
-        revenueByMonth[key] += lease.monthlyRent + lease.charges
+        revenueByMonth[key] += lease.monthly_rent + lease.charges
       }
     })
 
     // Recent connection logs
-    const recentConnections = await db.connectionLog.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true } },
-      },
-    })
+    const { data: recentConnections } = await admin
+      .from('connection_logs')
+      .select('*, user:users!connection_logs_user_id_fkey(id, first_name, last_name, email)')
+      .order('created_at', { ascending: false })
+      .limit(20)
 
     // Recent failed login attempts
-    const recentFailedLogins = await db.auditLog.findMany({
-      where: { action: 'LOGIN_FAILED' },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true } },
-      },
-    })
+    const { data: recentFailedLogins } = await admin
+      .from('audit_logs')
+      .select('*, user:users!audit_logs_user_id_fkey(id, first_name, last_name, email)')
+      .eq('action', 'LOGIN_FAILED')
+      .order('created_at', { ascending: false })
+      .limit(20)
 
     // Monthly new users (last 6 months)
     const monthlyNewUsers: Record<string, number> = {}
     for (let i = 0; i < 6; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1)
-      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59)
-      const count = await db.user.count({
-        where: {
-          createdAt: {
-            gte: startOfMonth,
-            lte: endOfMonth,
-          },
-        },
-      })
-      monthlyNewUsers[key] = count
+      const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1).toISOString()
+      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString()
+      const { count } = await admin
+        .from('users')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', startOfMonth)
+        .lte('created_at', endOfMonth)
+      monthlyNewUsers[key] = count || 0
     }
 
-    return NextResponse.json({
+    const resp = NextResponse.json({
       stats: {
         totalUsers,
         totalProperties,
@@ -108,11 +108,24 @@ export async function GET(req: NextRequest) {
       systemHealth: {
         database: 'OK',
         api: 'OK',
-        storage: 'OK',
+        storage: await checkStorageHealth(),
       },
     })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Admin system GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  }
+}
+
+async function checkStorageHealth(): Promise<string> {
+  try {
+    const { data } = await getSupabaseAdminClient().storage.listBuckets()
+    const hasRequiredBuckets = ['avatars', 'property-images'].every((name) =>
+      data?.some((b: any) => b.name === name && b.public)
+    )
+    return hasRequiredBuckets ? 'OK' : 'DEGRADED'
+  } catch {
+    return 'ERROR'
   }
 }

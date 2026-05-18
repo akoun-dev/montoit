@@ -1,73 +1,96 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
+
+function generateId() {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+async function getUserRole(admin: ReturnType<typeof getSupabaseAdminClient>, userId: string): Promise<string | null> {
+  const { data } = await admin
+    .from('users')
+    .select('role, active_role')
+    .eq('id', userId)
+    .single()
+  if (!data) return null
+  return data.active_role || data.role
+}
 
 // GET /api/visits — List visit requests for the current user
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
+    const auth = await resolveRequestUser(req)
+    if (!auth || !auth.userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
-    const { userId, effectiveRole } = authResult
+    const userId = auth.userId
 
-    // For tenants: list their visit requests
-    // For owners/agences: list visit requests for their properties, ONLY from TC-verified tenants
-    let where: Record<string, unknown>
-    if (effectiveRole === 'LOCATAIRE') {
-      where = { tenantId: userId }
-    } else if (effectiveRole === 'PROPRIETAIRE') {
-      // Propriétaire sees visits for their properties, only from tenants with validated rental files (TC-verified)
-      where = {
-        property: { ownerId: userId },
-        tenant: {
-          rentalFiles: {
-            some: { status: 'VALIDATED' }
-          }
-        }
-      }
-    } else if (effectiveRole === 'AGENCE') {
-      // Agence sees visits for properties under their mandats, only from TC-verified tenants
-      where = {
-        property: {
-          mandats: {
-            some: { agencyId: userId, status: 'ACTIVE' }
-          }
-        },
-        tenant: {
-          rentalFiles: {
-            some: { status: 'VALIDATED' }
-          }
-        }
-      }
-    } else {
-      where = {}
+    const admin = getSupabaseAdminClient()
+    const role = await getUserRole(admin, userId)
+    if (!role) {
+      return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 })
     }
 
-    const visits = await db.visitRequest.findMany({
-      where,
-      include: {
-        property: {
-          select: {
-            id: true,
-            title: true,
-            address: true,
-            city: true,
-            type: true,
-            price: true,
-            currency: true,
-            images: { orderBy: { order: 'asc' }, take: 1, select: { url: true } },
-          },
-        },
-        tenant: {
-          select: { id: true, firstName: true, lastName: true, phone: true, email: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    let propertyIds: string[] | null = null
+    let validatedTenantIds: string[] | null = null
 
-    return NextResponse.json({ data: visits })
+    if (role === 'PROPRIETAIRE' || role === 'AGENCE') {
+      const { data: validatedTenants } = await admin
+        .from('rental_files')
+        .select('tenant_id')
+        .eq('status', 'VALIDATED')
+      validatedTenantIds = validatedTenants?.map((r) => r.tenant_id) ?? []
+
+      if (validatedTenantIds.length === 0) {
+        return NextResponse.json({ data: [] })
+      }
+
+      if (role === 'PROPRIETAIRE') {
+        const { data: properties } = await admin
+          .from('properties')
+          .select('id')
+          .eq('owner_id', userId)
+        propertyIds = properties?.map((p) => p.id) ?? []
+
+        if (propertyIds.length === 0) {
+          return NextResponse.json({ data: [] })
+        }
+      } else if (role === 'AGENCE') {
+        const { data: mandats } = await admin
+          .from('mandats')
+          .select('property_id')
+          .eq('agency_id', userId)
+          .eq('status', 'ACTIVE')
+        propertyIds = mandats?.map((m) => m.property_id) ?? []
+
+        if (propertyIds.length === 0) {
+          return NextResponse.json({ data: [] })
+        }
+      }
+    }
+
+    let query = admin
+      .from('visit_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (role === 'LOCATAIRE') {
+      query = query.eq('tenant_id', userId)
+    } else if (propertyIds) {
+      query = query.in('property_id', propertyIds).in('tenant_id', validatedTenantIds!)
+    }
+
+    const { data: visits, error } = await query
+
+    if (error) {
+      console.error('Visits GET error:', error)
+      return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    }
+
+    const enrichedVisits = await enrichVisits(admin, visits ?? [])
+
+    return NextResponse.json({ data: enrichedVisits })
   } catch (error) {
     console.error('Visits GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
@@ -77,13 +100,19 @@ export async function GET(req: NextRequest) {
 // POST /api/visits — Create a visit request
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
+    const auth = await resolveRequestUser(req)
+    if (!auth || !auth.userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
-    const { userId, effectiveRole } = authResult
+    const userId = auth.userId
 
-    if (effectiveRole !== 'LOCATAIRE') {
+    const admin = getSupabaseAdminClient()
+    const role = await getUserRole(admin, userId)
+    if (!role) {
+      return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 })
+    }
+
+    if (role !== 'LOCATAIRE') {
       return NextResponse.json({ error: 'Seuls les locataires peuvent demander des visites' }, { status: 403 })
     }
 
@@ -94,91 +123,180 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'propertyId, requestedDate et timeSlot sont requis' }, { status: 400 })
     }
 
-    // Verify property exists and is available
-    const property = await db.property.findUnique({
-      where: { id: propertyId },
-      select: { id: true, rentalStatus: true },
-    })
+    const { data: property } = await admin
+      .from('properties')
+      .select('id, rental_status')
+      .eq('id', propertyId)
+      .single()
 
     if (!property) {
       return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
     }
 
-    if (property.rentalStatus === 'loue') {
+    if (property.rental_status === 'loue') {
       return NextResponse.json({ error: 'Ce bien est déjà loué' }, { status: 400 })
     }
 
-    // Check if tenant already has a pending visit for this property
-    const existingVisit = await db.visitRequest.findFirst({
-      where: {
-        propertyId,
-        tenantId: userId,
-        status: 'PENDING',
-      },
-    })
+    const { data: existingVisit } = await admin
+      .from('visit_requests')
+      .select('id')
+      .eq('property_id', propertyId)
+      .eq('tenant_id', userId)
+      .eq('status', 'PENDING')
+      .maybeSingle()
 
     if (existingVisit) {
       return NextResponse.json({ error: 'Vous avez déjà une demande de visite en attente pour ce bien' }, { status: 409 })
     }
 
-    const visit = await db.visitRequest.create({
-      data: {
-        propertyId,
-        tenantId: userId,
-        visitType: visitType || 'PHYSICAL',
-        requestedDate: new Date(requestedDate),
-        timeSlot,
-        tenantMessage: tenantMessage || null,
-      },
-      include: {
-        property: {
-          select: {
-            id: true,
-            title: true,
-            address: true,
-            city: true,
-            type: true,
-            price: true,
-            ownerId: true,
-          },
-        },
-        tenant: {
-          select: { id: true, firstName: true, lastName: true },
-        },
-      },
-    })
+    const visitId = generateId()
 
-    // Notify the property owner about the new visit request
-    await notify({
-      userId: visit.property.ownerId,
-      type: 'VISIT_REMINDER',
-      title: 'Nouvelle demande de visite',
-      message: `${visit.tenant.firstName} ${visit.tenant.lastName} souhaite visiter "${visit.property.title}".`,
-      actionUrl: 'visit-requests',
-      entityId: visit.id,
-    })
+    const { data: visit, error } = await admin
+      .from('visit_requests')
+      .insert({
+        id: visitId,
+        property_id: propertyId,
+        tenant_id: userId,
+        visit_type: visitType || 'PHYSICAL',
+        requested_date: new Date(requestedDate).toISOString(),
+        time_slot: timeSlot,
+        tenant_message: tenantMessage || null,
+      })
+      .select()
+      .single()
 
-    // Also notify agency if the property is under a mandat
-    const mandats = await db.mandat.findMany({
-      where: { propertyId, status: 'ACTIVE' },
-      select: { agencyId: true },
-    })
-    for (const mandat of mandats) {
-      if (mandat.agencyId !== visit.property.ownerId) {
+    if (error) {
+      console.error('Visit request POST error:', error)
+      return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    }
+
+    const { data: propInfo } = await admin
+      .from('properties')
+      .select('title, owner_id')
+      .eq('id', propertyId)
+      .single()
+
+    const { data: tenantInfo } = await admin
+      .from('users')
+      .select('first_name, last_name')
+      .eq('id', userId)
+      .single()
+
+    const ownerId = propInfo?.owner_id
+    const tenantName = tenantInfo ? `${tenantInfo.first_name} ${tenantInfo.last_name}` : ''
+
+    if (ownerId) {
+      await notify({
+        userId: ownerId,
+        type: 'VISIT_REMINDER',
+        title: 'Nouvelle demande de visite',
+        message: `${tenantName} souhaite visiter "${propInfo?.title || ''}".`,
+        actionUrl: 'visit-requests',
+        entityId: visitId,
+      })
+    }
+
+    const { data: mandats } = await admin
+      .from('mandats')
+      .select('agency_id')
+      .eq('property_id', propertyId)
+      .eq('status', 'ACTIVE')
+
+    for (const mandat of mandats ?? []) {
+      if (mandat.agency_id !== ownerId) {
         await notify({
-          userId: mandat.agencyId,
+          userId: mandat.agency_id,
           type: 'VISIT_REMINDER',
           title: 'Nouvelle demande de visite',
-          message: `${visit.tenant.firstName} ${visit.tenant.lastName} souhaite visiter "${visit.property.title}".`,
+          message: `${tenantName} souhaite visiter "${propInfo?.title || ''}".`,
           actionUrl: 'visits',
-          entityId: visit.id,
+          entityId: visitId,
         })
       }
     }
 
-    return NextResponse.json({ data: visit }, { status: 201 })
+    const enrichedVisit = await enrichVisit(admin, visit)
+
+    return NextResponse.json({ data: enrichedVisit }, { status: 201 })
   } catch (error) {
     console.error('Visit request POST error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
+}
+
+async function enrichVisits(admin: ReturnType<typeof getSupabaseAdminClient>, visits: any[]) {
+  const propertyIds = [...new Set(visits.map((v) => v.property_id))]
+  const tenantIds = [...new Set(visits.map((v) => v.tenant_id))]
+
+  const { data: properties } = await admin
+    .from('properties')
+    .select('id, title, address, city, type, price, currency')
+    .in('id', propertyIds)
+
+  const { data: propertyImages } = await admin
+    .from('property_images')
+    .select('property_id, url')
+    .in('property_id', propertyIds)
+    .order('order', { ascending: true })
+
+  const { data: tenants } = await admin
+    .from('users')
+    .select('id, first_name, last_name, phone, email')
+    .in('id', tenantIds)
+
+  const propMap = new Map(properties?.map((p) => [p.id, p]))
+  const imgMap = new Map<string, string[]>()
+  for (const img of propertyImages ?? []) {
+    const arr = imgMap.get(img.property_id) ?? []
+    arr.push(img.url)
+    imgMap.set(img.property_id, arr)
+  }
+  const tenantMap = new Map(tenants?.map((t) => [t.id, t]))
+
+  return visits.map((v) => ({
+    id: v.id,
+    visitType: v.visit_type,
+    requestedDate: v.requested_date,
+    timeSlot: v.time_slot,
+    status: v.status,
+    counterDate: v.counter_date,
+    counterTimeSlot: v.counter_time_slot,
+    ownerComment: v.owner_comment,
+    tenantMessage: v.tenant_message,
+    createdAt: v.created_at,
+    updatedAt: v.updated_at,
+    propertyId: v.property_id,
+    tenantId: v.tenant_id,
+    property: (() => {
+      const p = propMap.get(v.property_id)
+      if (!p) return undefined
+      const images = imgMap.get(v.property_id) ?? []
+      return {
+        id: p.id,
+        title: p.title,
+        address: p.address,
+        city: p.city,
+        type: p.type,
+        price: p.price,
+        currency: p.currency,
+        images: images.slice(0, 1).map((url) => ({ url })),
+      }
+    })(),
+    tenant: (() => {
+      const t = tenantMap.get(v.tenant_id)
+      if (!t) return undefined
+      return {
+        id: t.id,
+        firstName: t.first_name,
+        lastName: t.last_name,
+        phone: t.phone,
+        email: t.email,
+      }
+    })(),
+  }))
+}
+
+async function enrichVisit(admin: ReturnType<typeof getSupabaseAdminClient>, visit: any) {
+  const enriched = await enrichVisits(admin, [visit])
+  return enriched[0] ?? visit
 }

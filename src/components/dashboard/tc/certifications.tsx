@@ -188,7 +188,7 @@ export function CertificationsManagement() {
     const timer = setTimeout(async () => {
       setUserSearchLoading(true)
       try {
-        const data = await authFetch<CertificationUser[]>(
+        const data = await authFetch<{ users: CertificationUser[] }>(
           `/api/tc/oneci?search=${encodeURIComponent(userSearch.trim())}`
         )
         setUserResults(Array.isArray(data.users) ? data.users : [])

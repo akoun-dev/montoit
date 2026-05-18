@@ -114,10 +114,10 @@ export function OwnerSettings() {
         firstName: p.firstName || '',
         lastName: p.lastName || '',
         phone: p.phone || '',
-        bio: (p as Record<string, unknown>).bio as string || '',
-        companyName: (p as Record<string, unknown>).companyName as string || '',
-        showPhone: (p as Record<string, unknown>).showPhone as boolean ?? true,
-        showEmail: (p as Record<string, unknown>).showEmail as boolean ?? false,
+        bio: (p as unknown as Record<string, unknown>).bio as string || '',
+        companyName: (p as unknown as Record<string, unknown>).companyName as string || '',
+        showPhone: (p as unknown as Record<string, unknown>).showPhone as boolean ?? true,
+        showEmail: (p as unknown as Record<string, unknown>).showEmail as boolean ?? false,
       })
     } catch {
       // Silent

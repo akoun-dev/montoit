@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
-    const { userId, effectiveRole } = authResult
 
-    if (effectiveRole !== 'ADMIN') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    const admin = getSupabaseAdminClient()
+    const { data: profile } = await admin
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    if (!profile || profile.role !== 'ADMIN') {
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
     }
 
     const now = new Date()
@@ -29,100 +36,142 @@ export async function GET(req: NextRequest) {
       failedLogins,
       connectionLogsCount,
     ] = await Promise.all([
-      db.user.count(),
-      db.property.count(),
-      db.lease.count(),
-      db.dispute.count({ where: { status: { in: ['OPEN', 'IN_REVIEW'] } } }),
-      db.user.groupBy({ by: ['role'], _count: { role: true } }),
-      db.user.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-        select: { id: true, firstName: true, lastName: true, phone: true, email: true, role: true, isActive: true, createdAt: true },
+      admin.from('users').select('id', { count: 'exact', head: true }).then(r => r.count || 0),
+      admin.from('properties').select('id', { count: 'exact', head: true }).then(r => r.count || 0),
+      admin.from('leases').select('id', { count: 'exact', head: true }).then(r => r.count || 0),
+      admin.from('disputes').select('id', { count: 'exact', head: true }).in('status', ['OPEN', 'IN_REVIEW']).then(r => r.count || 0),
+      admin.from('users').select('role').then(r => {
+        const grouped: Record<string, number> = {}
+        for (const u of (r.data || [])) {
+          grouped[u.role] = (grouped[u.role] || 0) + 1
+        }
+        return grouped
       }),
-      db.property.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-        include: {
-          owner: { select: { firstName: true, lastName: true } },
-          images: { orderBy: { order: 'asc' }, take: 1 },
-        },
+      admin.from('users')
+        .select('id, first_name, last_name, phone, email, role, is_active, created_at')
+        .order('created_at', { ascending: false })
+        .limit(10)
+        .then(r => r.data || []),
+      admin.from('properties')
+        .select('*, owner:users!properties_owner_id_fkey(first_name, last_name)')
+        .order('created_at', { ascending: false })
+        .limit(10)
+        .then(r => r.data || []),
+      admin.from('disputes')
+        .select('*, reported_by:users!disputes_reported_by_id_fkey(first_name, last_name), lease:leases(id, property:properties(title))')
+        .in('status', ['OPEN', 'IN_REVIEW'])
+        .order('created_at', { ascending: false })
+        .then(r => r.data || []),
+      admin.from('signalements').select('status').then(r => {
+        const grouped: Record<string, number> = {}
+        for (const s of ((r.data || []) as any[])) {
+          grouped[s.status] = (grouped[s.status] || 0) + 1
+        }
+        return grouped
       }),
-      db.dispute.findMany({
-        where: { status: { in: ['OPEN', 'IN_REVIEW'] } },
-        include: {
-          reportedBy: { select: { firstName: true, lastName: true } },
-          lease: { include: { property: { select: { title: true } } } },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-      db.signalement.groupBy({
-        by: ['status'],
-        _count: { status: true },
-      }),
-      db.auditLog.count({ where: { action: 'LOGIN_FAILED' } }),
-      db.connectionLog.count(),
+      admin.from('audit_logs').select('id', { count: 'exact', head: true }).eq('action', 'LOGIN_FAILED').then(r => r.count || 0),
+      admin.from('connection_logs').select('id', { count: 'exact', head: true }).then(r => r.count || 0),
     ])
 
-    const activeLeases = await db.lease.findMany({
-      where: { status: 'ACTIVE' },
-    })
-    const totalRevenue = activeLeases.reduce((sum, l) => sum + l.monthlyRent, 0)
+    const { data: activeLeases } = await admin
+      .from('leases')
+      .select('monthly_rent')
+      .eq('status', 'ACTIVE')
+
+    const totalRevenue = (activeLeases || []).reduce((sum: number, l: any) => sum + l.monthly_rent, 0)
 
     // Monthly new users (last 6 months)
     const monthlyNewUsers: Array<{ month: string; count: number }> = []
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1)
-      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59)
-      const count = await db.user.count({
-        where: { createdAt: { gte: startOfMonth, lte: endOfMonth } },
-      })
-      monthlyNewUsers.push({ month: key, count })
+      const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1).toISOString()
+      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString()
+      const { count } = await admin
+        .from('users')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', startOfMonth)
+        .lte('created_at', endOfMonth)
+      monthlyNewUsers.push({ month: key, count: count || 0 })
     }
 
     // Signalements en attente count
-    const signalementsPending = await db.signalement.count({ where: { status: 'PENDING' } })
+    const { count: signalementsPending } = await admin
+      .from('signalements')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'PENDING')
 
-    // System health indicators
     const systemHealth = {
       database: 'OK' as const,
       api: 'OK' as const,
-      storage: 'OK' as const,
+      storage: await checkStorageHealth(),
     }
 
-    // Error rate (simulated: % of failed logins vs total connections)
     const errorRate = connectionLogsCount > 0 ? Math.round((failedLogins / connectionLogsCount) * 100) : 0
 
-    return NextResponse.json({
+    const mappedRecentUsers = recentUsers.map((u: any) => ({
+      id: u.id,
+      firstName: u.first_name,
+      lastName: u.last_name,
+      phone: u.phone,
+      email: u.email,
+      role: u.role,
+      isActive: u.is_active,
+      createdAt: u.created_at,
+    }))
+
+    const mappedRecentProperties = recentProperties.map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      owner: p.owner ? { firstName: p.owner.first_name, lastName: p.owner.last_name } : null,
+      createdAt: p.created_at,
+      images: p.images || [],
+    }))
+
+    const mappedDisputes = disputes.map((d: any) => ({
+      id: d.id,
+      status: d.status,
+      reportedBy: d.reported_by ? { firstName: d.reported_by.first_name, lastName: d.reported_by.last_name } : null,
+      lease: d.lease ? { property: d.lease.property ? { title: d.lease.property.title } : null } : null,
+      createdAt: d.created_at,
+    }))
+
+    const resp = NextResponse.json({
       stats: {
         totalUsers,
         totalProperties,
         totalLeases,
         totalDisputes,
         totalRevenue,
-        usersByRole: usersByRole.reduce((acc, item) => {
-          acc[item.role] = item._count.role
-          return acc
-        }, {} as Record<string, number>),
+        usersByRole,
       },
       signalements: {
-        byStatus: signalementsByStatus.reduce((acc, item) => {
-          acc[item.status] = item._count.status
-          return acc
-        }, {} as Record<string, number>),
-        pendingCount: signalementsPending,
+        byStatus: signalementsByStatus,
+        pendingCount: signalementsPending || 0,
       },
       monthlyNewUsers,
       systemHealth,
       errorRate,
       failedLogins,
-      recentUsers,
-      recentProperties,
-      disputes,
+      recentUsers: mappedRecentUsers,
+      recentProperties: mappedRecentProperties,
+      disputes: mappedDisputes,
     })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Admin dashboard error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  }
+}
+
+async function checkStorageHealth(): Promise<string> {
+  try {
+    const { data } = await getSupabaseAdminClient().storage.listBuckets()
+    const hasRequiredBuckets = ['avatars', 'property-images'].every((name) =>
+      data?.some((b: any) => b.name === name && b.public)
+    )
+    return hasRequiredBuckets ? 'OK' : 'DEGRADED'
+  } catch {
+    return 'ERROR'
   }
 }

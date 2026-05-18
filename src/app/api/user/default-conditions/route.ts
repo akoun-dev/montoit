@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
 const SETTING_KEY = 'owner_default_conditions'
 
 interface DefaultConditions {
-  depositMonths: number       // Nombre de mois de caution
-  leaseDurationMonths: number // Durée du bail en mois
-  defaultCharges: number      // Montant des charges par défaut
+  depositMonths: number
+  leaseDurationMonths: number
+  defaultCharges: number
   smokingPolicy: 'INTERDIT' | 'AUTORISE' | 'NON_SPECIFIE'
   petPolicy: 'INTERDIT' | 'AUTORISE' | 'NON_SPECIFIE'
-  minIncomeRatio: number      // Ratio revenu/loyer minimum
-  minDocuments: number        // Nombre minimum de documents
+  minIncomeRatio: number
+  minDocuments: number
   defaultSort: 'DATE' | 'REVENUE' | 'CATEGORY'
 }
 
@@ -26,21 +26,22 @@ const DEFAULT_CONDITIONS: DefaultConditions = {
   defaultSort: 'DATE',
 }
 
-/**
- * GET /api/user/default-conditions — Fetch default rental conditions for current owner
- */
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
 
-    // Use user-specific key to store conditions
+    const supabase = getSupabaseAdminClient()
+
     const userKey = `${SETTING_KEY}_${userId}`
-    const setting = await db.platformSetting.findUnique({
-      where: { key: userKey },
-    })
+    const { data: setting } = await ((supabase as any)
+      .from('default_conditions')
+      .select('*')
+      .eq('key', userKey)
+      .maybeSingle() as any)
 
     if (!setting) {
       return NextResponse.json({ conditions: DEFAULT_CONDITIONS })
@@ -58,15 +59,15 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/**
- * PUT /api/user/default-conditions — Update default rental conditions
- */
 export async function PUT(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
+
+    const supabase = getSupabaseAdminClient()
 
     const body = await req.json()
     const conditions: Partial<DefaultConditions> = {}
@@ -136,11 +137,12 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Aucune condition à mettre à jour' }, { status: 400 })
     }
 
-    // Merge with existing conditions
     const userKey = `${SETTING_KEY}_${userId}`
-    const existing = await db.platformSetting.findUnique({
-      where: { key: userKey },
-    })
+    const { data: existing } = await ((supabase as any)
+      .from('default_conditions')
+      .select('*')
+      .eq('key', userKey)
+      .maybeSingle() as any)
 
     const mergedConditions: DefaultConditions = {
       ...DEFAULT_CONDITIONS,
@@ -148,17 +150,20 @@ export async function PUT(req: NextRequest) {
       ...conditions,
     }
 
-    await db.platformSetting.upsert({
-      where: { key: userKey },
-      update: { value: JSON.stringify(mergedConditions) },
-      create: {
+    if (existing) {
+      await (supabase.from('default_conditions') as any).update({
+        value: JSON.stringify(mergedConditions),
+      }).eq('key', userKey)
+    } else {
+      await (supabase.from('default_conditions') as any).insert({
         key: userKey,
         value: JSON.stringify(mergedConditions),
         description: `Conditions locatives par défaut pour le propriétaire ${userId}`,
-      },
-    })
+      })
+    }
 
-    return NextResponse.json({ conditions: mergedConditions })
+    const resp = NextResponse.json({ conditions: mergedConditions })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Default conditions PUT error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

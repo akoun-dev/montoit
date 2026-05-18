@@ -1,150 +1,163 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifySecurityAlert } from '@/lib/notify'
 
-// GET /api/admin/users — list all users with stats
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
 
-    if (authResult.effectiveRole !== 'ADMIN') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    if (!profile || profile.role !== 'ADMIN') {
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
     }
 
     const url = new URL(req.url)
     const search = url.searchParams.get('search')
     const role = url.searchParams.get('role')
-    const sortBy = url.searchParams.get('sortBy') || 'createdAt'
+    const sortBy = url.searchParams.get('sortBy') || 'created_at'
     const sortOrder = url.searchParams.get('sortOrder') || 'desc'
 
-    const where: Record<string, unknown> = {}
-    if (role) where.role = role
+    let query = supabase.from('users').select('*', { count: 'exact' })
+    if (role) query = query.eq('role', role as any)
     if (search) {
-      where.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { email: { contains: search } },
-        { phone: { contains: search } },
-      ]
+      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
     }
 
-    const users = await db.user.findMany({
-      where,
-      orderBy: { [sortBy]: sortOrder },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        role: true,
-        activeRole: true,
-        isActive: true,
-        isEmailVerified: true,
-        createdAt: true,
-        avatarUrl: true,
-      },
-    })
+    const { data: users, count: totalUsers } = await query
+      .order(sortBy, { ascending: sortOrder === 'asc' })
 
-    const totalUsers = await db.user.count()
-    const activeUsers = await db.user.count({ where: { isActive: true } })
-    const inactiveUsers = totalUsers - activeUsers
-    const usersByRole = await db.user.groupBy({
-      by: ['role'],
-      _count: { role: true },
-    })
+    const mapped = (users ?? []).map((u: any) => ({
+      id: u.id,
+      firstName: u.first_name,
+      lastName: u.last_name,
+      email: u.email,
+      phone: u.phone,
+      role: u.role,
+      activeRole: u.active_role,
+      isActive: u.is_active,
+      isEmailVerified: u.is_email_verified,
+      createdAt: u.created_at,
+      avatarUrl: u.avatar_url,
+    }))
 
-    return NextResponse.json({
-      users,
+    // Compute stats
+    const activeCount = (users ?? []).filter((u: any) => u.is_active).length
+    const inactiveCount = (totalUsers ?? 0) - activeCount
+    const byRole: Record<string, number> = {}
+    for (const u of users ?? []) {
+      byRole[u.role] = (byRole[u.role] || 0) + 1
+    }
+
+    const resp = NextResponse.json({
+      users: mapped,
       stats: {
-        total: totalUsers,
-        active: activeUsers,
-        inactive: inactiveUsers,
-        byRole: usersByRole.reduce((acc, item) => {
-          acc[item.role] = item._count.role
-          return acc
-        }, {} as Record<string, number>),
+        total: totalUsers ?? 0,
+        active: activeCount,
+        inactive: inactiveCount,
+        byRole,
       },
     })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Admin users GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// PATCH /api/admin/users — update user (role change, ban/suspend, reactivate)
 export async function PATCH(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
 
-    if (authResult.effectiveRole !== 'ADMIN') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    if (!profile || profile.role !== 'ADMIN') {
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
     }
 
     const body = await req.json()
-    const { userId, role, isActive } = body
+    const { userId: targetUserId, role, isActive } = body
 
-    if (!userId) {
+    if (!targetUserId) {
       return NextResponse.json({ error: 'ID utilisateur requis' }, { status: 400 })
     }
 
-    // Prevent self-modification
-    if (userId === authResult.userId) {
+    if (targetUserId === userId) {
       return NextResponse.json({ error: 'Vous ne pouvez pas modifier votre propre compte' }, { status: 400 })
     }
 
     const updateData: Record<string, unknown> = {}
     if (role) {
       updateData.role = role
-      updateData.activeRole = role
+      updateData.active_role = role
     }
-    if (isActive !== undefined) updateData.isActive = isActive
+    if (isActive !== undefined) updateData.is_active = isActive
 
-    const user = await db.user.update({
-      where: { id: userId },
-      data: updateData,
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        role: true,
-        activeRole: true,
-        isActive: true,
-        createdAt: true,
-      },
-    })
+    const { data: user } = await supabase
+      .from('users')
+      .update(updateData as any)
+      .eq('id', targetUserId)
+      .select()
+      .single()
 
-    // Log the admin action
-    await db.auditLog.create({
-      data: {
-        action: isActive === false ? 'USER_BANNED' : role ? 'USER_ROLE_CHANGED' : 'USER_REACTIVATED',
-        entity: 'User',
-        entityId: userId,
-        details: JSON.stringify({ role, isActive, modifiedBy: authResult.userId }),
-        userId: authResult.userId,
-      },
-    })
+    if (!user) {
+      return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 })
+    }
 
-    // Notify the affected user about account changes
+    await supabase.from('audit_logs').insert({
+      action: isActive === false ? 'USER_BANNED' : role ? 'USER_ROLE_CHANGED' : 'USER_REACTIVATED',
+      entity: 'User',
+      entity_id: targetUserId,
+      details: JSON.stringify({ role, isActive, modifiedBy: userId }),
+      user_id: userId,
+    } as any)
+
     if (isActive === false) {
-      await notifySecurityAlert(userId, 'Compte suspendu', 'Votre compte a été suspendu par un administrateur. Contactez le support si vous pensez qu\'il s\'agit d\'une erreur.')
+      await notifySecurityAlert(targetUserId, 'Compte suspendu', 'Votre compte a été suspendu par un administrateur. Contactez le support si vous pensez qu\'il s\'agit d\'une erreur.')
     } else if (isActive === true) {
-      await notifySecurityAlert(userId, 'Compte réactivé', 'Votre compte a été réactivé par un administrateur.')
+      await notifySecurityAlert(targetUserId, 'Compte réactivé', 'Votre compte a été réactivé par un administrateur.')
     }
     if (role) {
-      await notifySecurityAlert(userId, 'Changement de rôle', `Votre rôle a été modifié par un administrateur. Nouveau rôle : ${role}.`)
+      await notifySecurityAlert(targetUserId, 'Changement de rôle', `Votre rôle a été modifié par un administrateur. Nouveau rôle : ${role}.`)
     }
 
-    return NextResponse.json({ user })
+    const resp = NextResponse.json({
+      user: {
+        id: user.id,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        activeRole: user.active_role,
+        isActive: user.is_active,
+        createdAt: user.created_at,
+      },
+    })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Admin users PATCH error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

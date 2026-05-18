@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
-// PATCH /api/messages/[id] — Mark a message as read
-// Or mark all messages in a conversation as read with body: { markAllRead: true, conversationId: "xxx" }
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
@@ -21,59 +19,78 @@ export async function PATCH(
       conversationId?: string
     }
 
-    // Mark all messages in a conversation as read
-    if (markAllRead && conversationId) {
-      const conversation = await db.conversation.findUnique({
-        where: { id: conversationId },
-      })
+    const admin = getSupabaseAdminClient()
 
-      if (!conversation) {
+    if (markAllRead && conversationId) {
+      const { data: conv } = await admin
+        .from('conversations')
+        .select('id, participant1_id, participant2_id')
+        .eq('id', conversationId)
+        .single()
+
+      if (!conv) {
         return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
       }
 
-      if (conversation.participant1Id !== userId && conversation.participant2Id !== userId) {
+      if (conv.participant1_id !== userId && conv.participant2_id !== userId) {
         return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
       }
 
-      const result = await db.message.updateMany({
-        where: {
-          conversationId,
-          isRead: false,
-          senderId: { not: userId },
-        },
-        data: { isRead: true },
-      })
+      const { error } = await admin
+        .from('messages')
+        .update({ is_read: true })
+        .eq('conversation_id', conversationId)
+        .eq('is_read', false)
+        .neq('sender_id', userId)
 
-      return NextResponse.json({
-        message: 'Messages marqués comme lus',
-        updatedCount: result.count,
-      })
+      if (error) throw error
+
+      const response = NextResponse.json({ message: 'Messages marqués comme lus' })
+      return applyCookies(response)
     }
 
-    // Mark a single message as read
-    const message = await db.message.findUnique({
-      where: { id },
-      include: { conversation: true },
-    })
+    const { data: message } = await admin
+      .from('messages')
+      .select('id, conversation_id, sender_id, is_read')
+      .eq('id', id)
+      .single()
 
     if (!message) {
       return NextResponse.json({ error: 'Message introuvable' }, { status: 404 })
     }
 
-    if (message.conversation.participant1Id !== userId && message.conversation.participant2Id !== userId) {
+    const { data: conv } = await admin
+      .from('conversations')
+      .select('participant1_id, participant2_id')
+      .eq('id', message.conversation_id)
+      .single()
+
+    if (!conv || (conv.participant1_id !== userId && conv.participant2_id !== userId)) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    if (message.senderId === userId) {
+    if (message.sender_id === userId) {
       return NextResponse.json({ error: 'Vous ne pouvez pas marquer votre propre message' }, { status: 400 })
     }
 
-    const updatedMessage = await db.message.update({
-      where: { id },
-      data: { isRead: true },
-    })
+    const { data: updated } = await admin
+      .from('messages')
+      .update({ is_read: true })
+      .eq('id', id)
+      .select()
+      .single()
 
-    return NextResponse.json({ message: updatedMessage })
+    const response = NextResponse.json({
+      message: {
+        id: updated?.id,
+        content: updated?.content,
+        isRead: updated?.is_read,
+        createdAt: updated?.created_at,
+        conversationId: updated?.conversation_id,
+        senderId: updated?.sender_id,
+      },
+    })
+    return applyCookies(response)
   } catch (error) {
     console.error('Messages PATCH error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

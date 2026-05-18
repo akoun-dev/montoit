@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
-/**
- * POST /api/user/2fa — Enable or disable two-factor authentication
- * Body: { enable: boolean, otpCode?: string }
- */
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
+
+    const supabase = getSupabaseAdminClient()
 
     const { enable } = await req.json()
 
@@ -19,70 +18,59 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Le paramètre "enable" est requis (booléen)' }, { status: 400 })
     }
 
-    // When enabling 2FA, send an OTP to the user's email for verification
     if (enable) {
-      const user = await db.user.findUnique({
-        where: { id: userId },
-        select: { email: true, isEmailVerified: true, twoFactorEnabled: true },
-      })
+      const { data: user } = await ((supabase as any)
+        .from('users')
+        .select('email, is_email_verified, two_factor_enabled')
+        .eq('id', userId)
+        .single() as any)
 
       if (!user) {
         return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
       }
 
-      if (!user.isEmailVerified) {
+      if (!user.is_email_verified) {
         return NextResponse.json({ error: 'Vous devez vérifier votre email avant d\'activer la 2FA' }, { status: 400 })
       }
 
-      if (user.twoFactorEnabled) {
+      if (user.two_factor_enabled) {
         return NextResponse.json({ error: 'La 2FA est déjà activée' }, { status: 400 })
       }
 
-      // Enable 2FA directly (simplified — in production, would verify OTP first)
-      await db.user.update({
-        where: { id: userId },
-        data: { twoFactorEnabled: true },
+      await (supabase.from('users') as any).update({ two_factor_enabled: true }).eq('id', userId)
+
+      await (supabase.from('audit_logs') as any).insert({
+        action: '2FA_ENABLED',
+        entity: 'User',
+        entity_id: userId,
+        user_id: userId,
       })
 
-      // Log the action
-      await db.auditLog.create({
-        data: {
-          action: '2FA_ENABLED',
-          entity: 'User',
-          entityId: userId,
-          userId,
-        },
-      })
-
-      return NextResponse.json({ message: 'Authentification à deux facteurs activée', enabled: true })
+      const resp = NextResponse.json({ message: 'Authentification à deux facteurs activée', enabled: true })
+      return applyCookies(resp)
     }
 
-    // Disabling 2FA
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: { twoFactorEnabled: true },
-    })
+    const { data: user } = await ((supabase as any)
+      .from('users')
+      .select('two_factor_enabled')
+      .eq('id', userId)
+      .single() as any)
 
-    if (!user?.twoFactorEnabled) {
+    if (!user?.two_factor_enabled) {
       return NextResponse.json({ error: 'La 2FA n\'est pas activée' }, { status: 400 })
     }
 
-    await db.user.update({
-      where: { id: userId },
-      data: { twoFactorEnabled: false },
+    await (supabase.from('users') as any).update({ two_factor_enabled: false }).eq('id', userId)
+
+    await (supabase.from('audit_logs') as any).insert({
+      action: '2FA_DISABLED',
+      entity: 'User',
+      entity_id: userId,
+      user_id: userId,
     })
 
-    // Log the action
-    await db.auditLog.create({
-      data: {
-        action: '2FA_DISABLED',
-        entity: 'User',
-        entityId: userId,
-        userId,
-      },
-    })
-
-    return NextResponse.json({ message: 'Authentification à deux facteurs désactivée', enabled: false })
+    const resp = NextResponse.json({ message: 'Authentification à deux facteurs désactivée', enabled: false })
+    return applyCookies(resp)
   } catch (error) {
     console.error('2FA POST error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

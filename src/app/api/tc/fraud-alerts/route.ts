@@ -1,79 +1,113 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyFraudAlert } from '@/lib/notify'
 
-// Helper: authenticate and authorize TC
 async function authorizeTC(request: NextRequest) {
-  const auth = await getUserIdAndRole(request)
-  if (!auth) return { error: NextResponse.json({ error: 'Non authentifié' }, { status: 401 }) }
-  if (auth.effectiveRole !== 'TIERS_CONFIANCE')
+  const { userId, applyCookies } = await resolveRequestUser(request)
+  if (!userId) return { error: applyCookies(NextResponse.json({ error: 'Non authentifié' }, { status: 401 })) }
+
+  const supabase = getSupabaseAdminClient()
+  const { data: profile } = await ((supabase as any)
+    .from('users')
+    .select('role, active_role')
+    .eq('id', userId)
+    .single() as any)
+
+  const effectiveRole = profile?.active_role || profile?.role
+  if (effectiveRole !== 'TIERS_CONFIANCE')
     return { error: NextResponse.json({ error: 'Accès refusé' }, { status: 403 }) }
-  return { userId: auth.userId }
+
+  return { userId, applyCookies, supabase }
 }
 
-// ─── GET ────────────────────────────────────────────────────────────────────────
-// List fraud alerts with filters
 export async function GET(request: NextRequest) {
   const auth = await authorizeTC(request)
   if ('error' in auth) return auth.error
-  const { userId } = auth
+  const { userId, applyCookies, supabase } = auth
 
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status')
   const search = searchParams.get('search')?.trim()
 
-  const where: Record<string, unknown> = {
-    reporterId: userId,
-  }
+  let query = supabase
+    .from('fraud_alerts')
+    .select('*')
+    .eq('reporter_id', userId)
 
-  if (status && status !== 'ALL') {
-    where.status = status
-  }
+  if (status && status !== 'ALL') query = query.eq('status', status)
 
   if (search) {
-    where.OR = [
-      { suspect: { firstName: { contains: search } } },
-      { suspect: { lastName: { contains: search } } },
-      { suspect: { email: { contains: search } } },
-      { description: { contains: search } },
-    ]
+    const { data: matchingUsers } = await ((supabase as any)
+      .from('users')
+      .select('id')
+      .or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`))
+    const userIds = (matchingUsers ?? []).map((u: any) => u.id)
+    if (userIds.length > 0) {
+      query = query.or(`description.ilike.%${search}%,suspect_id.in.(${userIds.join(',')})`)
+    } else {
+      query = query.ilike('description', `%${search}%`)
+    }
   }
 
-  const alerts = await db.fraudAlert.findMany({
-    where,
-    include: {
-      suspect: {
-        select: { id: true, firstName: true, lastName: true, email: true, phone: true },
-      },
-      reporter: {
-        select: { id: true, firstName: true, lastName: true },
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-  })
+  query = query.order('created_at', { ascending: false })
 
-  // Stats
-  const stats = await db.fraudAlert.groupBy({
-    by: ['status'],
-    where: { reporterId: userId },
-    _count: { status: true },
-  })
+  const { data: alertsData } = await (query)
+  const alertsRaw = (alertsData ?? []) as any[]
+
+  const allUserIds = [...new Set([
+    ...alertsRaw.map((a: any) => a.suspect_id),
+    ...alertsRaw.map((a: any) => a.reporter_id),
+  ].filter(Boolean))]
+
+  const { data: usersData } = allUserIds.length > 0
+    ? await ((supabase.from('users') as any).select('id, first_name, last_name, email, phone').in('id', allUserIds) as any)
+    : { data: [] as any[] }
+
+  const userMap = new Map<string, any>((usersData ?? []).map((u: any) => [u.id, u]))
+
+  const alerts = alertsRaw.map((a: any) => ({
+    id: a.id,
+    suspectId: a.suspect_id,
+    reporterId: a.reporter_id,
+    description: a.description,
+    autoDetected: a.auto_detected,
+    status: a.status,
+    resolution: a.resolution,
+    createdAt: a.created_at,
+    updatedAt: a.updated_at,
+    suspect: userMap.get(a.suspect_id) ? {
+      id: userMap.get(a.suspect_id).id,
+      firstName: userMap.get(a.suspect_id).first_name,
+      lastName: userMap.get(a.suspect_id).last_name,
+      email: userMap.get(a.suspect_id).email,
+      phone: userMap.get(a.suspect_id).phone,
+    } : null,
+    reporter: userMap.get(a.reporter_id) ? {
+      id: userMap.get(a.reporter_id).id,
+      firstName: userMap.get(a.reporter_id).first_name,
+      lastName: userMap.get(a.reporter_id).last_name,
+    } : null,
+  }))
+
+  const { data: allStatuses } = await ((supabase as any)
+    .from('fraud_alerts')
+    .select('status')
+    .eq('reporter_id', userId))
 
   const statsMap: Record<string, number> = { OPEN: 0, INVESTIGATING: 0, CONFIRMED: 0, DISMISSED: 0 }
-  for (const s of stats) {
-    statsMap[s.status] = s._count.status
+  for (const a of (allStatuses ?? []) as any[]) {
+    if (statsMap[a.status] !== undefined) statsMap[a.status]++
   }
 
-  return NextResponse.json({ alerts, stats: statsMap })
+  const resp = NextResponse.json({ alerts, stats: statsMap })
+  return applyCookies(resp)
 }
 
-// ─── POST ───────────────────────────────────────────────────────────────────────
-// Create a new fraud alert
 export async function POST(request: NextRequest) {
   const auth = await authorizeTC(request)
   if ('error' in auth) return auth.error
-  const { userId } = auth
+  const { userId, applyCookies, supabase } = auth
 
   try {
     const body = await request.json()
@@ -86,66 +120,83 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'La description est requise' }, { status: 400 })
     }
 
-    // Verify suspect exists
-    const suspect = await db.user.findUnique({ where: { id: suspectId } })
+    const { data: suspect } = await ((supabase as any)
+      .from('users')
+      .select('id, first_name, last_name')
+      .eq('id', suspectId)
+      .single() as any)
     if (!suspect) {
       return NextResponse.json({ error: 'Suspect introuvable' }, { status: 404 })
     }
 
-    const alert = await db.fraudAlert.create({
-      data: {
-        suspectId,
-        reporterId: userId,
+    const { data: alert } = await ((supabase as any)
+      .from('fraud_alerts')
+      .insert({
+        suspect_id: suspectId,
+        reporter_id: userId,
         description: description.trim(),
-        autoDetected: autoDetected === true,
+        auto_detected: autoDetected === true,
         status: 'OPEN',
-      },
-      include: {
-        suspect: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
-        reporter: { select: { id: true, firstName: true, lastName: true } },
-      },
+      })
+      .select()
+      .single() as any)
+
+    await (supabase.from('audit_logs') as any).insert({
+      user_id: userId,
+      action: 'FRAUD_ALERT_CREATED',
+      entity: 'FraudAlert',
+      entity_id: alert.id,
+      details: JSON.stringify({ suspectId, description: description.trim() }),
     })
 
-    // Create audit log
-    await db.auditLog.create({
-      data: {
-        userId,
-        action: 'FRAUD_ALERT_CREATED',
-        entity: 'FraudAlert',
-        entityId: alert.id,
-        details: JSON.stringify({ suspectId, description: description.trim() }),
-      },
-    })
+    const { data: tcUsers } = await ((supabase as any)
+      .from('users')
+      .select('id')
+      .eq('role', 'TIERS_CONFIANCE')
+      .eq('is_active', true)
+      .neq('id', userId))
 
-    // Notify all other TC agents about the new fraud alert
-    const tcUsers = await db.user.findMany({
-      where: {
-        role: 'TIERS_CONFIANCE',
-        isActive: true,
-        id: { not: userId },
-      },
-      select: { id: true },
-    })
-    const suspectName = `${suspect.firstName} ${suspect.lastName}`
+    const suspectName = `${suspect.first_name} ${suspect.last_name}`
     await Promise.all(
-      tcUsers.map((tc) =>
+      (tcUsers ?? []).map((tc: any) =>
         notifyFraudAlert(tc.id, suspectName, alert.id)
       )
     )
 
-    return NextResponse.json(alert, { status: 201 })
+    const { data: suspectDetail } = await ((supabase as any)
+      .from('users')
+      .select('id, first_name, last_name, email, phone')
+      .eq('id', suspectId)
+      .single() as any)
+
+    const respData = {
+      ...alert,
+      suspectId: alert.suspect_id,
+      reporterId: alert.reporter_id,
+      autoDetected: alert.auto_detected,
+      createdAt: alert.created_at,
+      updatedAt: alert.updated_at,
+      suspect: suspectDetail ? {
+        id: suspectDetail.id,
+        firstName: suspectDetail.first_name,
+        lastName: suspectDetail.last_name,
+        email: suspectDetail.email,
+        phone: suspectDetail.phone,
+      } : null,
+    }
+
+    const resp = NextResponse.json(respData, { status: 201 })
+    return applyCookies(resp)
   } catch (error) {
     console.error('[TC Fraud Alerts POST] Error:', error)
     return NextResponse.json({ error: 'Erreur interne du serveur' }, { status: 500 })
   }
 }
 
-// ─── PATCH ──────────────────────────────────────────────────────────────────────
-// Update fraud alert status (OPEN→INVESTIGATING, INVESTIGATING→CONFIRMED/DISMISSED)
 export async function PATCH(request: NextRequest) {
   const auth = await authorizeTC(request)
   if ('error' in auth) return auth.error
-  const { userId } = auth
+  const { userId, applyCookies, supabase } = auth
 
   try {
     const body = await request.json()
@@ -154,17 +205,19 @@ export async function PATCH(request: NextRequest) {
     if (!id || typeof id !== 'string') {
       return NextResponse.json({ error: "L'identifiant est requis" }, { status: 400 })
     }
-
     if (!action || !['INVESTIGATE', 'CONFIRM', 'DISMISS'].includes(action)) {
       return NextResponse.json({ error: 'Action invalide' }, { status: 400 })
     }
 
-    const alert = await db.fraudAlert.findUnique({ where: { id } })
+    const { data: alert } = await ((supabase as any)
+      .from('fraud_alerts')
+      .select('*')
+      .eq('id', id)
+      .single() as any)
     if (!alert) {
       return NextResponse.json({ error: 'Alerte introuvable' }, { status: 404 })
     }
-
-    if (alert.reporterId !== userId) {
+    if (alert.reporter_id !== userId) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
@@ -179,7 +232,6 @@ export async function PATCH(request: NextRequest) {
         newStatus = 'INVESTIGATING'
         auditAction = 'FRAUD_ALERT_INVESTIGATING'
         break
-
       case 'CONFIRM':
         if (alert.status !== 'INVESTIGATING') {
           return NextResponse.json({ error: 'Seules les alertes en investigation peuvent être confirmées' }, { status: 400 })
@@ -187,7 +239,6 @@ export async function PATCH(request: NextRequest) {
         newStatus = 'CONFIRMED'
         auditAction = 'FRAUD_ALERT_CONFIRMED'
         break
-
       case 'DISMISS':
         if (alert.status !== 'INVESTIGATING') {
           return NextResponse.json({ error: 'Seules les alertes en investigation peuvent être écartées' }, { status: 400 })
@@ -195,7 +246,6 @@ export async function PATCH(request: NextRequest) {
         newStatus = 'DISMISSED'
         auditAction = 'FRAUD_ALERT_DISMISSED'
         break
-
       default:
         return NextResponse.json({ error: 'Action non supportée' }, { status: 400 })
     }
@@ -205,27 +255,23 @@ export async function PATCH(request: NextRequest) {
       updateData.resolution = resolution.trim()
     }
 
-    const updated = await db.fraudAlert.update({
-      where: { id },
-      data: updateData,
-      include: {
-        suspect: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
-        reporter: { select: { id: true, firstName: true, lastName: true } },
-      },
+    const { data: updated } = await ((supabase as any)
+      .from('fraud_alerts')
+      .update(updateData as any)
+      .eq('id', id)
+      .select()
+      .single() as any)
+
+    await (supabase.from('audit_logs') as any).insert({
+      user_id: userId,
+      action: auditAction,
+      entity: 'FraudAlert',
+      entity_id: id,
+      details: JSON.stringify({ suspectId: alert.suspect_id, newStatus, resolution }),
     })
 
-    // Create audit log
-    await db.auditLog.create({
-      data: {
-        userId,
-        action: auditAction,
-        entity: 'FraudAlert',
-        entityId: id,
-        details: JSON.stringify({ suspectId: alert.suspectId, newStatus, resolution }),
-      },
-    })
-
-    return NextResponse.json(updated)
+    const resp = NextResponse.json(updated)
+    return applyCookies(resp)
   } catch (error) {
     console.error('[TC Fraud Alerts PATCH] Error:', error)
     return NextResponse.json({ error: 'Erreur interne du serveur' }, { status: 500 })

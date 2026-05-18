@@ -1,59 +1,102 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
 
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+
+    const effectiveRole = profile?.active_role || profile?.role
     if (effectiveRole !== 'AGENCE') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
     }
 
-    const agents = await db.agencyAgent.findMany({
-      where: { agencyId: userId },
-      include: {
-        assignedProperties: {
-          include: {
-            property: { select: { id: true, title: true, city: true, status: true } },
-          },
-        },
-        commissions: {
-          where: { status: 'PAID' },
-          select: { amount: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    const { data: agents } = await supabase
+      .from('agency_agents')
+      .select('*')
+      .eq('agency_id', userId)
+      .order('created_at', { ascending: false })
 
-    const agentsWithStats = agents.map((agent) => ({
+    const agentIds = ((agents || []) as any[]).map(a => a.id)
+
+    const [assignedPropsRes, commissionsRes] = await Promise.all([
+      agentIds.length > 0
+        ? supabase
+            .from('agency_agent_properties')
+            .select('id, agent_id, property_id, assigned_at')
+            .in('agent_id', agentIds)
+        : { data: [] as any[] },
+      agentIds.length > 0
+        ? supabase
+            .from('commissions')
+            .select('agent_id, amount')
+            .eq('status', 'PAID')
+            .in('agent_id', agentIds)
+        : { data: [] as any[] },
+    ])
+
+    const assignedProps = assignedPropsRes.data || []
+    const commissions = commissionsRes.data || []
+
+    const propertyIds = [...new Set(assignedProps.map(ap => ap.property_id).filter(Boolean))]
+    const { data: props } = propertyIds.length > 0
+      ? await supabase.from('properties').select('id, title, city, status').in('id', propertyIds)
+      : { data: [] as any[] }
+
+    const propMap: Record<string, any> = {}
+    for (const p of (props || [])) {
+      propMap[p.id] = { id: p.id, title: p.title, city: p.city, status: p.status }
+    }
+
+    const assignedByAgent: Record<string, any[]> = {}
+    for (const ap of assignedProps) {
+      if (!assignedByAgent[ap.agent_id]) assignedByAgent[ap.agent_id] = []
+      assignedByAgent[ap.agent_id].push({
+        id: ap.id,
+        propertyId: ap.property_id,
+        propertyTitle: propMap[ap.property_id]?.title,
+        propertyCity: propMap[ap.property_id]?.city,
+        propertyStatus: propMap[ap.property_id]?.status,
+        assignedAt: ap.assigned_at,
+      })
+    }
+
+    const commissionsByAgent: Record<string, number> = {}
+    for (const c of commissions) {
+      commissionsByAgent[c.agent_id] = (commissionsByAgent[c.agent_id] || 0) + c.amount
+    }
+
+    const agentsWithStats = (agents || []).map((agent: any) => ({
       id: agent.id,
-      firstName: agent.firstName,
-      lastName: agent.lastName,
+      firstName: agent.first_name,
+      lastName: agent.last_name,
       email: agent.email,
       phone: agent.phone,
       role: agent.role,
       status: agent.status,
-      avatarUrl: agent.avatarUrl,
-      createdAt: agent.createdAt,
-      updatedAt: agent.updatedAt,
-      assignedPropertiesCount: agent.assignedProperties.length,
-      assignedProperties: agent.assignedProperties.map((ap) => ({
-        id: ap.id,
-        propertyId: ap.property.id,
-        propertyTitle: ap.property.title,
-        propertyCity: ap.property.city,
-        propertyStatus: ap.property.status,
-        assignedAt: ap.assignedAt,
-      })),
-      totalCommissions: agent.commissions.reduce((sum, c) => sum + c.amount, 0),
+      avatarUrl: agent.avatar_url,
+      createdAt: agent.created_at,
+      updatedAt: agent.updated_at,
+      assignedPropertiesCount: (assignedByAgent[agent.id] || []).length,
+      assignedProperties: assignedByAgent[agent.id] || [],
+      totalCommissions: commissionsByAgent[agent.id] || 0,
     }))
 
-    return NextResponse.json({ agents: agentsWithStats })
+    const resp = NextResponse.json({ agents: agentsWithStats })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Get agents error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
@@ -62,14 +105,24 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
 
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+
+    const effectiveRole = profile?.active_role || profile?.role
     if (effectiveRole !== 'AGENCE') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
     }
 
     const body = await req.json()
@@ -79,27 +132,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Prénom, nom et email sont requis' }, { status: 400 })
     }
 
-    // Check if email already exists
-    const existing = await db.agencyAgent.findFirst({
-      where: { email, agencyId: userId },
-    })
+    const { data: existing } = await supabase
+      .from('agency_agents')
+      .select('id')
+      .eq('email', email)
+      .eq('agency_id', userId)
+      .maybeSingle()
+
     if (existing) {
       return NextResponse.json({ error: 'Un agent avec cet email existe déjà' }, { status: 409 })
     }
 
-    const agent = await db.agencyAgent.create({
-      data: {
-        firstName,
-        lastName,
+    const { data: agent } = await supabase
+      .from('agency_agents')
+      .insert({
+        first_name: firstName,
+        last_name: lastName,
         email,
         phone: phone || null,
         role: role || 'AGENT',
         status: 'ACTIVE',
-        agencyId: userId,
-      },
-    })
+        agency_id: userId,
+      } as any)
+      .select()
+      .single()
 
-    return NextResponse.json({ agent }, { status: 201 })
+    const resp = NextResponse.json({ agent }, { status: 201 })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Create agent error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

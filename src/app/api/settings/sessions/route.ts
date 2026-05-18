@@ -1,92 +1,84 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest, deleteSession, SESSION_COOKIE_NAME } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
-/**
- * GET /api/settings/sessions — List all active sessions for the current user
- */
+const SESSION_COOKIE_NAME = 'montoit-session'
+
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
 
+    const supabase = getSupabaseAdminClient()
     const currentToken = req.cookies.get(SESSION_COOKIE_NAME)?.value
 
-    // Get all active (non-expired) sessions for the user
-    const sessions = await db.session.findMany({
-      where: {
-        userId,
-        expiresAt: { gt: new Date() },
-      },
-      select: {
-        id: true,
-        token: true,
-        createdAt: true,
-        expiresAt: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    const { data: sessions } = await supabase
+      .from('sessions')
+      .select('id, token, created_at, expires_at')
+      .eq('user_id', userId)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
 
-    // Map sessions, marking the current one
-    const mapped = sessions.map((s) => ({
+    const mapped = (sessions || []).map((s: any) => ({
       id: s.id,
       isCurrent: s.token === currentToken,
-      createdAt: s.createdAt,
-      expiresAt: s.expiresAt,
+      createdAt: s.created_at,
+      expiresAt: s.expires_at,
     }))
 
-    return NextResponse.json({ sessions: mapped })
+    const resp = NextResponse.json({ sessions: mapped })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Sessions GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-/**
- * DELETE /api/settings/sessions — Revoke all other sessions (keep current)
- * Body: { sessionIds?: string[] } — if provided, only revoke those. If not, revoke all except current.
- */
 export async function DELETE(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
 
+    const supabase = getSupabaseAdminClient()
     const currentToken = req.cookies.get(SESSION_COOKIE_NAME)?.value
     const body = await req.json().catch(() => ({}))
     const { sessionIds } = body as { sessionIds?: string[] }
 
     if (sessionIds && sessionIds.length > 0) {
-      // Delete specific sessions (but never the current one)
       for (const sid of sessionIds) {
-        const session = await db.session.findUnique({ where: { id: sid } })
-        if (session && session.userId === userId && session.token !== currentToken) {
-          await deleteSession(session.token)
+        const sessionResult = await supabase
+          .from('sessions')
+          .select('id, user_id, token')
+          .eq('id', sid)
+          .maybeSingle()
+        const session = sessionResult.data as any
+
+        if (session && session.user_id === userId && session.token !== currentToken) {
+          await supabase.from('sessions').delete().eq('id', sid)
         }
       }
     } else {
-      // Delete all sessions except current
-      await db.session.deleteMany({
-        where: {
-          userId,
-          token: { not: currentToken || '___none___' },
-        },
-      })
+      await supabase
+        .from('sessions')
+        .delete()
+        .eq('user_id', userId)
+        .neq('token', currentToken || '___none___')
     }
 
-    // Log the action
-    await db.auditLog.create({
-      data: {
-        action: 'REVOKE_SESSIONS',
-        entity: 'Session',
-        userId,
-      },
+    await supabase.from('audit_logs').insert({
+      action: 'REVOKE_SESSIONS',
+      entity: 'Session',
+      user_id: userId,
     })
 
-    return NextResponse.json({ message: 'Sessions révoquées avec succès' })
+    const resp = NextResponse.json({ message: 'Sessions révoquées avec succès' })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Sessions DELETE error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

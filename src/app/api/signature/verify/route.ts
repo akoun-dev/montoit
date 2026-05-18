@@ -1,45 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserIdAndRole } from '@/lib/session'
-import { cryptoneoFetch } from '@/lib/cryptoneo'
-import type { CryptoneoVerifyResponse } from '@/lib/cryptoneo'
+import { createRouteHandlerSupabaseClient } from '@/lib/supabase/server'
 
-/**
- * POST /api/signature/verify
- * Verifies a signed batch via CRYPTONEO /sign/verifySignedBatch.
- */
 export async function POST(req: NextRequest) {
   try {
-    // Authenticate
-    const session = await getUserIdAndRole(req)
-    if (!session) {
+    const { supabase, applyCookies } = createRouteHandlerSupabaseClient(req)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+
+    if (!token) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
-    // Parse request body
     const body = await req.json()
-    const { operationId } = body as { operationId: string }
+    const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign-verify`
 
-    if (!operationId) {
-      return NextResponse.json({ error: 'operationId requis' }, { status: 400 })
-    }
-
-    // Call CRYPTONEO API to verify signed batch
-    const res = await cryptoneoFetch('/sign/verifySignedBatch', {
+    const res = await fetch(functionUrl, {
       method: 'POST',
-      body: JSON.stringify({ operationId }),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
     })
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      return NextResponse.json(
-        { error: `CRYPTONEO vérification échouée (${res.status}): ${text}` },
-        { status: 502 },
-      )
-    }
-
-    const data: CryptoneoVerifyResponse = await res.json()
-
-    return NextResponse.json({ results: data?.data?.results || data })
+    const data = await res.json()
+    return applyCookies(NextResponse.json(data, { status: res.status }))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erreur interne'
     return NextResponse.json({ error: message }, { status: 500 })

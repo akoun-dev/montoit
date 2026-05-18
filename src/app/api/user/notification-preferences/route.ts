@@ -1,44 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 const VALID_KEYS = ['messages', 'dossierUpdates', 'visitReminders', 'paymentAlerts', 'promotions'] as const
 
-/**
- * GET /api/user/notification-preferences — Fetch notification preferences for current user
- */
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
-    let prefs = await db.notificationPreference.findUnique({
-      where: { userId },
-    })
+    const admin = getSupabaseAdminClient()
 
-    // Auto-create default preferences if they don't exist
+    const { data: prefs } = await admin
+      .from('notification_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle()
+
     if (!prefs) {
-      prefs = await db.notificationPreference.create({
-        data: { userId },
-      })
+      const { data: created, error } = await admin
+        .from('notification_preferences')
+        .insert({ user_id: userId })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      const mapped = mapPrefs(created)
+      const response = NextResponse.json({ preferences: mapped })
+      return applyCookies(response)
     }
 
-    return NextResponse.json({ preferences: prefs })
+    const mapped = mapPrefs(prefs)
+    const response = NextResponse.json({ preferences: mapped })
+    return applyCookies(response)
   } catch (error) {
     console.error('Notification preferences GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-/**
- * PUT /api/user/notification-preferences — Update notification preferences
- * Body: { messages?: boolean, dossierUpdates?: boolean, visitReminders?: boolean, paymentAlerts?: boolean, promotions?: boolean }
- */
 export async function PUT(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
@@ -49,25 +55,55 @@ export async function PUT(req: NextRequest) {
     for (const key of VALID_KEYS) {
       if (body[key] !== undefined) {
         if (typeof body[key] !== 'boolean') {
-          return NextResponse.json({ error: `La valeur de ${key} doit être un booléen` }, { status: 400 })
+          const resp = NextResponse.json({ error: `La valeur de ${key} doit être un booléen` }, { status: 400 })
+          return applyCookies(resp)
         }
         updateData[key] = body[key]
       }
     }
 
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json({ error: 'Aucune préférence à mettre à jour' }, { status: 400 })
+      const resp = NextResponse.json({ error: 'Aucune préférence à mettre à jour' }, { status: 400 })
+      return applyCookies(resp)
     }
 
-    const prefs = await db.notificationPreference.upsert({
-      where: { userId },
-      update: updateData,
-      create: { userId, ...updateData },
-    })
+    const admin = getSupabaseAdminClient()
 
-    return NextResponse.json({ preferences: prefs })
+    const supabaseData: Record<string, boolean | string> = {}
+    for (const [key, val] of Object.entries(updateData)) {
+      supabaseData[kebabToSnake(key)] = val
+    }
+
+    const { data: prefs, error } = await admin
+      .from('notification_preferences')
+      .upsert({ user_id: userId, ...supabaseData })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    const response = NextResponse.json({ preferences: mapPrefs(prefs) })
+    return applyCookies(response)
   } catch (error) {
     console.error('Notification preferences PUT error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  }
+}
+
+function kebabToSnake(key: string): string {
+  return key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)
+}
+
+function mapPrefs(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    messages: row.messages,
+    dossierUpdates: row.dossier_updates,
+    visitReminders: row.visit_reminders,
+    paymentAlerts: row.payment_alerts,
+    promotions: row.promotions,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }

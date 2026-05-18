@@ -1,78 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
+
+function generateId() {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
 
 // GET /api/rental-file — List rental files for current tenant with documents
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
+    const auth = await resolveRequestUser(req)
+    if (!auth || !auth.userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
-    const { userId, effectiveRole } = authResult
+    const userId = auth.userId
 
-    if (effectiveRole !== 'LOCATAIRE') {
+    const admin = getSupabaseAdminClient()
+
+    const { data: user } = await admin
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+
+    const role = user?.active_role || user?.role
+    if (role !== 'LOCATAIRE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') || undefined
 
-    const where: Record<string, unknown> = { tenantId: userId }
+    let query = admin
+      .from('rental_files')
+      .select('*')
+      .eq('tenant_id', userId)
+      .order('updated_at', { ascending: false })
+
     if (status) {
-      where.status = status
+      query = query.eq('status', status)
     }
 
-    const rentalFiles = await db.rentalFile.findMany({
-      where,
-      include: {
-        documents: {
-          orderBy: { createdAt: 'desc' },
-        },
-        leases: {
-          select: {
-            id: true,
-            status: true,
-            startDate: true,
-            endDate: true,
-            monthlyRent: true,
-            property: {
-              select: {
-                id: true,
-                title: true,
-                address: true,
-                city: true,
-                images: {
-                  orderBy: { order: 'asc' },
-                  take: 1,
-                  select: { url: true },
-                },
-              },
-            },
-          },
-        },
-        reviewedBy: {
-          select: { id: true, firstName: true, lastName: true },
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-    })
+    const { data: rentalFiles, error } = await query
 
-    // Count by status for quick stats
-    const statusCounts = await db.rentalFile.groupBy({
-      by: ['status'],
-      where: { tenantId: userId },
-      _count: { status: true },
-    })
+    if (error) {
+      console.error('Rental file GET error:', error)
+      return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    }
 
-    const stats = Object.fromEntries(
-      statusCounts.map((s) => [s.status, s._count.status])
-    )
+    const enriched = await enrichRentalFiles(admin, rentalFiles ?? [])
+
+    const statusCounts: Record<string, number> = {}
+    for (const rf of rentalFiles ?? []) {
+      statusCounts[rf.status] = (statusCounts[rf.status] || 0) + 1
+    }
 
     return NextResponse.json({
-      data: rentalFiles,
-      stats,
+      data: enriched,
+      stats: statusCounts,
     })
   } catch (error) {
     console.error('Rental file GET error:', error)
@@ -83,13 +69,22 @@ export async function GET(req: NextRequest) {
 // POST /api/rental-file — Create or update a rental file (upsert draft)
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
+    const auth = await resolveRequestUser(req)
+    if (!auth || !auth.userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
-    const { userId, effectiveRole } = authResult
+    const userId = auth.userId
 
-    if (effectiveRole !== 'LOCATAIRE') {
+    const admin = getSupabaseAdminClient()
+
+    const { data: user } = await admin
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+
+    const role = user?.active_role || user?.role
+    if (role !== 'LOCATAIRE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
@@ -129,135 +124,237 @@ export async function POST(req: NextRequest) {
         : undefined
 
     // Check if a DRAFT rental file exists
-    const existingDraft = await db.rentalFile.findFirst({
-      where: { tenantId: userId, status: 'DRAFT' },
-    })
+    const { data: existingDraft } = await admin
+      .from('rental_files')
+      .select('*')
+      .eq('tenant_id', userId)
+      .eq('status', 'DRAFT')
+      .maybeSingle()
 
-    let rentalFile
+    let rentalFile: any
 
     if (existingDraft) {
       // Update existing draft
-      rentalFile = await db.rentalFile.update({
-        where: { id: existingDraft.id },
-        data: {
-          ...(resolvedTenantCategory && { tenantCategory: resolvedTenantCategory as 'SALARIE' | 'ENTREPRENEUR' | 'ETUDIANT' }),
-          ...(monthlyIncome !== undefined && { monthlyIncome }),
-          ...(employer !== undefined && { employer }),
-          ...(resolvedEmploymentType && { employmentType: resolvedEmploymentType as 'CDI' | 'CDD' | 'FREELANCE' | 'RETIRED' | 'OTHER' }),
-          ...(guarantorName !== undefined && { guarantorName }),
-          ...(guarantorPhone !== undefined && { guarantorPhone }),
-          ...(guarantorRelation !== undefined && { guarantorRelation }),
-          ...(submit && { status: 'SUBMITTED' }),
-        },
-        include: {
-          documents: { orderBy: { createdAt: 'desc' } },
-          leases: {
-            select: {
-              id: true,
-              status: true,
-              property: {
-                select: { id: true, title: true, address: true, city: true },
-              },
-            },
-          },
-        },
-      })
+      const updateData: any = {}
+      if (resolvedTenantCategory) updateData.tenant_category = resolvedTenantCategory
+      if (monthlyIncome !== undefined) updateData.monthly_income = monthlyIncome
+      if (employer !== undefined) updateData.employer = employer
+      if (resolvedEmploymentType) updateData.employment_type = resolvedEmploymentType
+      if (guarantorName !== undefined) updateData.guarantor_name = guarantorName
+      if (guarantorPhone !== undefined) updateData.guarantor_phone = guarantorPhone
+      if (guarantorRelation !== undefined) updateData.guarantor_relation = guarantorRelation
+      if (submit) updateData.status = 'SUBMITTED'
+
+      const { data: updated } = await admin
+        .from('rental_files')
+        .update(updateData as any)
+        .eq('id', existingDraft.id)
+        .select()
+        .single()
+
+      rentalFile = updated
 
       // Log to audit
-      await db.auditLog.create({
-        data: {
-          action: submit ? 'SUBMIT' : 'UPDATE',
-          entity: 'RentalFile',
-          entityId: rentalFile.id,
-          details: submit
-            ? 'Dossier locatif soumis pour validation'
-            : 'Dossier locatif (brouillon) mis à jour',
-          userId,
-        },
+      await admin.from('audit_logs').insert({
+        id: generateId(),
+        action: submit ? 'SUBMIT' : 'UPDATE',
+        entity: 'RentalFile',
+        entity_id: existingDraft.id,
+        details: submit
+          ? 'Dossier locatif soumis pour validation'
+          : 'Dossier locatif (brouillon) mis à jour',
+        user_id: userId,
       })
 
       // Notify all TC users when submitted
       if (submit) {
-        const tcUsers = await db.user.findMany({
-          where: { role: 'TIERS_CONFIANCE', isActive: true },
-          select: { id: true },
-        })
-        if (tcUsers.length > 0) {
-          await notifyMany({
-            userIds: tcUsers.map((tc) => tc.id),
-            type: 'DOSSIER_UPDATE',
-            title: 'Nouveau dossier locatif soumis',
-            message: `Un nouveau dossier locatif a été soumis et nécessite votre validation.`,
-            actionUrl: 'rental-files-queue',
-            entityId: rentalFile.id,
-          })
-        }
+        await notifyTcUsers(admin, 'Nouveau dossier locatif soumis', 'Un nouveau dossier locatif a été soumis et nécessite votre validation.', existingDraft.id)
       }
     } else {
       // Create new draft (or submitted directly)
       const status = submit ? 'SUBMITTED' : 'DRAFT'
 
-      rentalFile = await db.rentalFile.create({
-        data: {
-          tenantId: userId,
-          status,
-          ...(resolvedTenantCategory && { tenantCategory: resolvedTenantCategory as 'SALARIE' | 'ENTREPRENEUR' | 'ETUDIANT' }),
-          ...(monthlyIncome !== undefined && { monthlyIncome }),
-          ...(employer !== undefined && { employer }),
-          ...(resolvedEmploymentType && { employmentType: resolvedEmploymentType as 'CDI' | 'CDD' | 'FREELANCE' | 'RETIRED' | 'OTHER' }),
-          ...(guarantorName !== undefined && { guarantorName }),
-          ...(guarantorPhone !== undefined && { guarantorPhone }),
-          ...(guarantorRelation !== undefined && { guarantorRelation }),
-        },
-        include: {
-          documents: { orderBy: { createdAt: 'desc' } },
-          leases: {
-            select: {
-              id: true,
-              status: true,
-              property: {
-                select: { id: true, title: true, address: true, city: true },
-              },
-            },
-          },
-        },
-      })
+      const insertData: any = {
+        id: generateId(),
+        tenant_id: userId,
+        status,
+      }
+      if (resolvedTenantCategory) insertData.tenant_category = resolvedTenantCategory
+      if (monthlyIncome !== undefined) insertData.monthly_income = monthlyIncome
+      if (employer !== undefined) insertData.employer = employer
+      if (resolvedEmploymentType) insertData.employment_type = resolvedEmploymentType
+      if (guarantorName !== undefined) insertData.guarantor_name = guarantorName
+      if (guarantorPhone !== undefined) insertData.guarantor_phone = guarantorPhone
+      if (guarantorRelation !== undefined) insertData.guarantor_relation = guarantorRelation
+
+      const { data: created } = await admin
+        .from('rental_files')
+        .insert(insertData as any)
+        .select()
+        .single()
+
+      rentalFile = created
 
       // Log to audit
-      await db.auditLog.create({
-        data: {
-          action: submit ? 'SUBMIT' : 'CREATE',
-          entity: 'RentalFile',
-          entityId: rentalFile.id,
-          details: submit
-            ? 'Nouveau dossier locatif créé et soumis'
-            : 'Nouveau dossier locatif (brouillon) créé',
-          userId,
-        },
+      await admin.from('audit_logs').insert({
+        id: generateId(),
+        action: submit ? 'SUBMIT' : 'CREATE',
+        entity: 'RentalFile',
+        entity_id: rentalFile?.id,
+        details: submit
+          ? 'Nouveau dossier locatif créé et soumis'
+          : 'Nouveau dossier locatif (brouillon) créé',
+        user_id: userId,
       })
 
       // Notify all TC users when submitted
-      if (submit) {
-        const tcUsers = await db.user.findMany({
-          where: { role: 'TIERS_CONFIANCE', isActive: true },
-          select: { id: true },
-        })
-        if (tcUsers.length > 0) {
-          await notifyMany({
-            userIds: tcUsers.map((tc) => tc.id),
-            type: 'DOSSIER_UPDATE',
-            title: 'Nouveau dossier locatif soumis',
-            message: `Un nouveau dossier locatif a été soumis et nécessite votre validation.`,
-            actionUrl: 'rental-files-queue',
-            entityId: rentalFile.id,
-          })
-        }
+      if (submit && rentalFile) {
+        await notifyTcUsers(admin, 'Nouveau dossier locatif soumis', 'Un nouveau dossier locatif a été soumis et nécessite votre validation.', rentalFile.id)
       }
     }
 
-    return NextResponse.json({ data: rentalFile })
+    if (!rentalFile) {
+      return NextResponse.json({ error: 'Erreur lors de la création/mise à jour' }, { status: 500 })
+    }
+
+    const enriched = await enrichRentalFile(admin, rentalFile)
+
+    return NextResponse.json({ data: enriched })
   } catch (error) {
     console.error('Rental file POST error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
+}
+
+async function notifyTcUsers(admin: ReturnType<typeof getSupabaseAdminClient>, title: string, message: string, entityId: string) {
+  const { data: tcUsers } = await admin
+    .from('users')
+    .select('id')
+    .eq('role', 'TIERS_CONFIANCE')
+    .eq('is_active', true)
+
+  if (tcUsers && tcUsers.length > 0) {
+    await notifyMany({
+      userIds: tcUsers.map((tc) => tc.id),
+      type: 'DOSSIER_UPDATE',
+      title,
+      message,
+      actionUrl: 'rental-files-queue',
+      entityId,
+    })
+  }
+}
+
+async function enrichRentalFiles(admin: ReturnType<typeof getSupabaseAdminClient>, files: any[]) {
+  const fileIds = files.map((f) => f.id)
+
+  const { data: documents } = await admin
+    .from('rental_file_documents')
+    .select('*')
+    .in('rental_file_id', fileIds)
+    .order('created_at', { ascending: false })
+
+  const { data: leases } = await admin
+    .from('leases')
+    .select('id, status, start_date, end_date, monthly_rent, property_id')
+    .in('rental_file_id', fileIds)
+
+  const propertyIds = [...new Set((leases ?? []).map((l) => l.property_id))]
+  const { data: leaseProperties } = propertyIds.length > 0 ? await admin
+    .from('properties')
+    .select('id, title, address, city')
+    .in('id', propertyIds) : { data: [] }
+
+  const { data: leasePropertyImages } = propertyIds.length > 0 ? await admin
+    .from('property_images')
+    .select('property_id, url')
+    .in('property_id', propertyIds)
+    .order('order', { ascending: true }) : { data: [] }
+
+  const reviewerIds = [...new Set(files.map((f) => f.reviewed_by_id).filter(Boolean))]
+  const { data: reviewers } = reviewerIds.length > 0 ? await admin
+    .from('users')
+    .select('id, first_name, last_name')
+    .in('id', reviewerIds) : { data: [] }
+
+  const docMap = groupBy(documents ?? [], 'rental_file_id')
+  const leaseMap = groupBy(leases ?? [], 'rental_file_id')
+  const propMap = new Map((leaseProperties ?? []).map((p) => [p.id, p]))
+  const imgMap = groupBy(leasePropertyImages ?? [], 'property_id')
+  const reviewerMap = new Map((reviewers ?? []).map((r) => [r.id, r]))
+
+  return files.map((f) => ({
+    id: f.id,
+    status: f.status,
+    priority: f.priority,
+    onHold: f.on_hold,
+    onHoldReason: f.on_hold_reason,
+    tenantCategory: f.tenant_category,
+    monthlyIncome: f.monthly_income,
+    employer: f.employer,
+    employmentType: f.employment_type,
+    guarantorName: f.guarantor_name,
+    guarantorPhone: f.guarantor_phone,
+    guarantorRelation: f.guarantor_relation,
+    validUntil: f.valid_until,
+    rejectionReason: f.rejection_reason,
+    tcComment: f.tc_comment,
+    reviewedAt: f.reviewed_at,
+    createdAt: f.created_at,
+    updatedAt: f.updated_at,
+    tenantId: f.tenant_id,
+    reviewedById: f.reviewed_by_id,
+    documents: (docMap.get(f.id) ?? []).map(mapRentalFileDoc),
+    leases: (leaseMap.get(f.id) ?? []).map((l: any) => {
+      const prop = propMap.get(l.property_id)
+      const propImages = imgMap.get(l.property_id) ?? []
+      return {
+        id: l.id,
+        status: l.status,
+        startDate: l.start_date,
+        endDate: l.end_date,
+        monthlyRent: l.monthly_rent,
+        property: prop ? {
+          id: prop.id,
+          title: prop.title,
+          address: prop.address,
+          city: prop.city,
+          images: propImages.slice(0, 1).map((img: any) => ({ url: img.url })),
+        } : undefined,
+      }
+    }),
+    reviewedBy: (() => {
+      const r = reviewerMap.get(f.reviewed_by_id)
+      if (!r) return undefined
+      return { id: r.id, firstName: r.first_name, lastName: r.last_name }
+    })(),
+  }))
+}
+
+async function enrichRentalFile(admin: ReturnType<typeof getSupabaseAdminClient>, file: any) {
+  const enriched = await enrichRentalFiles(admin, [file])
+  return enriched[0] ?? file
+}
+
+function mapRentalFileDoc(d: any) {
+  return {
+    id: d.id,
+    type: d.type,
+    url: d.url,
+    name: d.name,
+    status: d.status,
+    tcComment: d.tc_comment,
+    createdAt: d.created_at,
+    rentalFileId: d.rental_file_id,
+  }
+}
+
+function groupBy(arr: any[], key: string) {
+  const map = new Map<string, any[]>()
+  for (const item of arr) {
+    const k = item[key]
+    if (!map.has(k)) map.set(k, [])
+    map.get(k)!.push(item)
+  }
+  return map
 }

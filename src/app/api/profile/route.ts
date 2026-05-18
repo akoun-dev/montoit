@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { getUserProfileById } from '@/lib/supabase/email-auth'
+import { profileSelect, toProfilePayload } from '@/lib/supabase/profile'
+import type { Database } from '@/lib/supabase/types'
 
 /**
  * GET /api/profile — Fetch current user profile (with scoring-related fields)
@@ -8,44 +11,21 @@ import { getUserIdFromRequest } from '@/lib/session'
  */
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        gender: true,
-        city: true,
-        address: true,
-        avatarUrl: true,
-        birthDate: true,
-        nni: true,
-        neofaceVerified: true,
-        neofaceVerifiedAt: true,
-        kycDocumentId: true,
-        oneciVerified: true,
-        oneciVerifiedAt: true,
-        isEmailVerified: true,
-        isPhoneVerified: true,
-        role: true,
-        activeRole: true,
-        passwordUpdatedAt: true,
-        createdAt: true,
-      },
-    })
+    const admin = getSupabaseAdminClient()
+    const user = await getUserProfileById(admin, userId)
 
     if (!user) {
-      return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
+      const response = NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
+      return applyCookies(response)
     }
 
-    return NextResponse.json({ user })
+    const response = NextResponse.json({ user: toProfilePayload(user) })
+    return applyCookies(response)
   } catch (error) {
     console.error('Profile GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
@@ -54,7 +34,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
@@ -62,26 +42,24 @@ export async function PUT(req: NextRequest) {
     const body = await req.json()
     const { firstName, lastName, phone, gender, city, address, birthDate, nni } = body
 
-    // Validate fields
-    const updateData: Record<string, unknown> = {}
+    const updateData: Database['public']['Tables']['users']['Update'] = {}
 
     if (firstName !== undefined) {
       if (typeof firstName !== 'string' || firstName.trim().length < 1) {
         return NextResponse.json({ error: 'Le prénom est requis' }, { status: 400 })
       }
-      updateData.firstName = firstName.trim()
+      updateData.first_name = firstName.trim()
     }
 
     if (lastName !== undefined) {
       if (typeof lastName !== 'string' || lastName.trim().length < 1) {
         return NextResponse.json({ error: 'Le nom est requis' }, { status: 400 })
       }
-      updateData.lastName = lastName.trim()
+      updateData.last_name = lastName.trim()
     }
 
     if (phone !== undefined) {
-      // Allow clearing phone
-      updateData.phone = phone?.trim() || null
+      updateData.phone = typeof phone === 'string' ? phone.trim() || null : null
     }
 
     if (gender !== undefined) {
@@ -93,65 +71,50 @@ export async function PUT(req: NextRequest) {
     }
 
     if (city !== undefined) {
-      updateData.city = city?.trim() || null
+      updateData.city = typeof city === 'string' ? city.trim() || null : null
     }
 
     if (address !== undefined) {
-      updateData.address = address?.trim() || null
+      updateData.address = typeof address === 'string' ? address.trim() || null : null
     }
 
     if (birthDate !== undefined) {
       if (birthDate) {
-        const d = new Date(birthDate)
-        if (isNaN(d.getTime())) {
+        const parsedDate = new Date(birthDate)
+        if (Number.isNaN(parsedDate.getTime())) {
           return NextResponse.json({ error: 'Date de naissance invalide' }, { status: 400 })
         }
-        updateData.birthDate = d
+        updateData.birth_date = parsedDate.toISOString()
       } else {
-        updateData.birthDate = null
+        updateData.birth_date = null
       }
     }
 
     if (nni !== undefined) {
-      if (nni && !/^\d{10,11}$/.test(nni.trim())) {
+      if (nni && !/^\d{10,11}$/.test(String(nni).trim())) {
         return NextResponse.json({ error: 'NNI invalide (10-11 chiffres requis)' }, { status: 400 })
       }
-      updateData.nni = nni?.trim() || null
+      updateData.nni = typeof nni === 'string' ? nni.trim() || null : null
     }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'Aucune donnée à mettre à jour' }, { status: 400 })
     }
 
-    const updatedUser = await db.user.update({
-      where: { id: userId },
-      data: updateData,
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        gender: true,
-        city: true,
-        address: true,
-        avatarUrl: true,
-        birthDate: true,
-        nni: true,
-        neofaceVerified: true,
-        neofaceVerifiedAt: true,
-        kycDocumentId: true,
-        oneciVerified: true,
-        oneciVerifiedAt: true,
-        isEmailVerified: true,
-        isPhoneVerified: true,
-        role: true,
-        activeRole: true,
-        passwordUpdatedAt: true,
-      },
-    })
+    const admin = getSupabaseAdminClient()
+    const { data: updatedUser, error } = await admin
+      .from('users')
+      .update(updateData)
+      .eq('id', userId)
+      .select(profileSelect)
+      .single()
 
-    return NextResponse.json({ user: updatedUser })
+    if (error || !updatedUser) {
+      throw error || new Error('Impossible de mettre à jour le profil')
+    }
+
+    const response = NextResponse.json({ user: toProfilePayload(updatedUser) })
+    return applyCookies(response)
   } catch (error) {
     console.error('Profile PUT error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

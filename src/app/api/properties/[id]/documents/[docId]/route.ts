@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
 const OWNER_ROLES = ['PROPRIETAIRE', 'AGENCE']
 
@@ -11,38 +11,50 @@ export async function DELETE(
 ) {
   try {
     const { id: propertyId, docId } = await params
-    const auth = await getUserIdAndRole(req)
-    if (!auth) {
+    const auth = await resolveRequestUser(req)
+    if (!auth || !auth.userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
+    const userId = auth.userId
 
-    const { userId, effectiveRole } = auth
+    const admin = getSupabaseAdminClient()
 
-    // Verify the document exists and belongs to the specified property
-    const document = await db.propertyDocument.findUnique({
-      where: { id: docId },
-      include: {
-        property: {
-          select: { id: true, ownerId: true },
-        },
-      },
-    })
+    const { data: user } = await admin
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .maybeSingle()
+
+    const role = user?.active_role || user?.role
+    if (!role || !OWNER_ROLES.includes(role)) {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    }
+
+    const { data: document } = await admin
+      .from('property_documents')
+      .select('id, property_id')
+      .eq('id', docId)
+      .single()
 
     if (!document) {
       return NextResponse.json({ error: 'Document non trouvé' }, { status: 404 })
     }
 
-    // Ensure the document belongs to the specified property
-    if (document.propertyId !== propertyId) {
+    if (document.property_id !== propertyId) {
       return NextResponse.json({ error: 'Document non trouvé' }, { status: 404 })
     }
 
-    // Verify the property belongs to this owner
-    if (document.property.ownerId !== userId || !OWNER_ROLES.includes(effectiveRole)) {
+    const { data: property } = await admin
+      .from('properties')
+      .select('owner_id')
+      .eq('id', propertyId)
+      .single()
+
+    if (!property || property.owner_id !== userId) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    await db.propertyDocument.delete({ where: { id: docId } })
+    await admin.from('property_documents').delete().eq('id', docId)
 
     return NextResponse.json({ success: true })
   } catch (error) {

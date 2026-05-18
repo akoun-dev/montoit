@@ -24,6 +24,19 @@ export interface AuthUser {
   avatarUrl: string | null
   isActive: boolean
   isEmailVerified: boolean
+  companyName?: string | null
+  city?: string | null
+  address?: string | null
+  twoFactorEnabled?: boolean
+  passwordUpdatedAt?: string | null
+}
+
+export interface VerifyEmailOtpResult {
+  valid?: boolean
+  needsRegistration?: boolean
+  requiresLogin?: boolean
+  email?: string
+  user?: AuthUser
 }
 
 // State that persists across page refreshes via localStorage
@@ -56,7 +69,11 @@ interface AuthActions {
   loginWithSms: (phone: string) => Promise<void>
   verifySmsOtp: (phone: string, code: string) => Promise<void>
   sendEmailOtp: (email: string, purpose: OtpPurpose) => Promise<void>
-  verifyEmailOtp: (email: string, code: string, purpose: OtpPurpose) => Promise<void>
+  verifyEmailOtp: (
+    email: string,
+    code: string,
+    purpose: OtpPurpose
+  ) => Promise<VerifyEmailOtpResult | undefined>
   registerWithEmail: (data: { email: string; password: string; firstName: string; lastName: string; phone?: string; role?: string }) => Promise<void>
   registerWithSms: (data: { phone: string; firstName: string; lastName: string; email?: string; role?: string }) => Promise<void>
   forgotPassword: (identifier: string, method: 'email' | 'sms') => Promise<void>
@@ -243,6 +260,16 @@ export const useAuthStore = create<AuthState>()(
 
           if (data.needsRegistration) {
             set({ isLoading: false, currentView: 'register', authMethod: 'email' })
+            return data
+          }
+
+          if (purpose === 'email_verify' && data.requiresLogin) {
+            set({
+              isLoading: false,
+              currentView: 'login',
+              pendingEmail: email,
+              devCode: '',
+            })
             return data
           }
 
@@ -520,7 +547,7 @@ export const useAuthStore = create<AuthState>()(
           ...persisted,
           // If persisted session is too old, clear auth
           isAuthenticated: isSessionStillValid ? (persisted.isAuthenticated ?? false) : false,
-          user: isSessionStillValid ? persisted.user : null,
+          user: isSessionStillValid ? (persisted.user ?? null) : null,
           // Always reset transient state on rehydration
           isLoading: false,
           isInitialized: false,

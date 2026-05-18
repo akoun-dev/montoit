@@ -1,69 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
-// GET /api/users — Search/list users with optional role filter
-// Query params: role=AGENCE, q=search_query
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
 
     const { searchParams } = new URL(req.url)
     const role = searchParams.get('role')
     const q = searchParams.get('q') || ''
 
-    // Build where clause
-    const where: Record<string, unknown> = {
-      isActive: true,
-      id: { not: userId },
-    }
+    let query = supabase
+      .from('users')
+      .select('id, first_name, last_name, email, avatar_url, role, active_role')
+      .eq('is_active', true)
+      .neq('id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20)
 
-    // Role filter
     if (role) {
-      where.OR = [
-        { role },
-        { activeRole: role },
-      ]
+      query = query.or(`role.eq.${role},active_role.eq.${role}`)
     }
 
-    // Search filter
     if (q && q.length >= 2) {
-      const searchFilter = {
-        OR: [
-          { firstName: { contains: q } },
-          { lastName: { contains: q } },
-          { email: { contains: q } },
-        ],
-      }
-
-      // Combine with role filter if both exist
-      if (role) {
-        where.AND = [searchFilter]
-      } else {
-        Object.assign(where, searchFilter)
-      }
+      query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%`)
     }
 
-    const users = await db.user.findMany({
-      where,
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        avatarUrl: true,
-        role: true,
-        activeRole: true,
-      },
-      take: 20,
-      orderBy: { createdAt: 'desc' },
-    })
+    const { data: users } = await query
 
-    return NextResponse.json({ users })
+    const mapped = (users || []).map((u: any) => ({
+      id: u.id,
+      firstName: u.first_name,
+      lastName: u.last_name,
+      email: u.email,
+      avatarUrl: u.avatar_url,
+      role: u.role,
+      activeRole: u.active_role,
+    }))
+
+    const resp = NextResponse.json({ users: mapped })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Users list error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

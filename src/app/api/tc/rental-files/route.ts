@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
 
-// GET /api/tc/rental-files — List rental files for TC review
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await ((supabase as any)
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single() as any)
+    const effectiveRole = profile?.active_role || profile?.role
 
     if (effectiveRole !== 'TIERS_CONFIANCE' && effectiveRole !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé — rôle TIERS_CONFIANCE ou ADMIN requis' }, { status: 403 })
@@ -28,118 +36,158 @@ export async function GET(req: NextRequest) {
     const limit = limitParam ? Math.min(parseInt(limitParam), 100) : 50
     const offset = offsetParam ? parseInt(offsetParam) : 0
 
-    const where: Record<string, unknown> = {}
+    let query = supabase
+      .from('rental_files')
+      .select('*', { count: 'exact' })
 
     if (status) {
-      where.status = status
+      query = query.eq('status', status)
     } else if (!overdue) {
-      // Default: show files that need TC attention (unless filtering overdue)
-      where.status = { in: ['SUBMITTED', 'TC_REVIEW'] }
+      query = query.in('status', ['SUBMITTED', 'TC_REVIEW'])
     }
 
     if (search) {
-      where.OR = [
-        { tenant: { firstName: { contains: search } } },
-        { tenant: { lastName: { contains: search } } },
-        { tenant: { phone: { contains: search } } },
-        { tenant: { email: { contains: search } } },
-      ]
-    }
-
-    if (priority) {
-      where.priority = priority
-    }
-
-    if (onHold === 'true') {
-      where.onHold = true
-    } else if (onHold === 'false') {
-      where.onHold = false
-    }
-
-    // Overdue: files with SLA that is overdue and not completed
-    if (overdue) {
-      where.validationSLAs = {
-        some: {
-          isOverdue: true,
-          completedAt: null,
-        },
+      const { data: matchingTenants } = await ((supabase as any)
+        .from('users')
+        .select('id')
+        .or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`))
+      const tenantIds = (matchingTenants ?? []).map((t: any) => t.id)
+      if (tenantIds.length > 0) {
+        query = query.in('tenant_id', tenantIds)
+      } else {
+        query = query.eq('tenant_id', '__nonexistent__')
       }
     }
 
-    const [files, total] = await Promise.all([
-      db.rentalFile.findMany({
-        where,
-        include: {
-          tenant: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              phone: true,
-              email: true,
-              avatarUrl: true,
-            },
-          },
-          documents: {
-            orderBy: { createdAt: 'asc' },
-          },
-        },
-        orderBy: { createdAt: 'asc' },
-        take: limit,
-        skip: offset,
-      }),
-      db.rentalFile.count({ where }),
+    if (priority) query = query.eq('priority', priority)
+    if (onHold === 'true') query = query.eq('on_hold', true)
+    else if (onHold === 'false') query = query.eq('on_hold', false)
+
+    if (overdue) {
+      const { data: overdueSlas } = await ((supabase as any)
+        .from('validation_slas')
+        .select('entity_id')
+        .eq('entity_type', 'RENTAL_FILE')
+        .eq('is_overdue', true)
+        .is('completed_at', null))
+      const overdueIds = (overdueSlas ?? []).map((s: any) => s.entity_id)
+      if (overdueIds.length > 0) {
+        query = query.in('id', overdueIds)
+      } else {
+        query = query.eq('id', '__nonexistent__')
+      }
+    }
+
+    query = query
+      .order('created_at', { ascending: true })
+      .range(offset, offset + limit - 1)
+
+    const { data: filesData, count: total } = await (query as any)
+    const filesRaw = (filesData ?? []) as any[]
+
+    const tenantIds = [...new Set(filesRaw.map((f: any) => f.tenant_id).filter(Boolean))]
+    const fileIds = filesRaw.map((f: any) => f.id)
+
+    const [{ data: tenantsData }, { data: documentsData }, { data: slasData }] = await Promise.all([
+      tenantIds.length > 0
+        ? (supabase.from('users') as any).select('id, first_name, last_name, phone, email, avatar_url').in('id', tenantIds) as any
+        : Promise.resolve({ data: [] as any[], error: null }),
+      fileIds.length > 0
+        ? (supabase.from('rental_file_documents') as any).select('*').in('rental_file_id', fileIds).order('created_at', { ascending: true }) as any
+        : Promise.resolve({ data: [] as any[], error: null }),
+      fileIds.length > 0
+        ? (supabase.from('validation_slas') as any).select('*').eq('entity_type', 'RENTAL_FILE').in('entity_id', fileIds).eq('is_overdue', true).is('completed_at', null) as any
+        : Promise.resolve({ data: [] as any[], error: null }),
     ])
 
-    // Also fetch SLA data for overdue detection
-    const fileIds = files.map((f) => f.id)
-    const slas = await db.validationSLA.findMany({
-      where: {
-        entityType: 'RENTAL_FILE',
-        entityId: { in: fileIds },
-        isOverdue: true,
-        completedAt: null,
-      },
-      select: {
-        id: true,
-        entityId: true,
-        submittedAt: true,
-        deadlineAt: true,
-        isOverdue: true,
-      },
+    const tenantMap = new Map<string, any>((tenantsData ?? []).map((t: any) => [t.id, t]))
+    const docByFile = new Map<string, any[]>()
+    for (const doc of (documentsData ?? []) as any[]) {
+      if (!docByFile.has(doc.rental_file_id)) docByFile.set(doc.rental_file_id, [])
+      docByFile.get(doc.rental_file_id)!.push(doc)
+    }
+    const slaMap = new Map<string, any>((slasData ?? []).map((s: any) => [s.entity_id, s]))
+
+    const filesWithSla = filesRaw.map((f: any) => {
+      const tenant = tenantMap.get(f.tenant_id)
+      const documents = (docByFile.get(f.id) ?? []).map((d: any) => ({
+        id: d.id,
+        rentalFileId: d.rental_file_id,
+        type: d.type,
+        name: d.name,
+        url: d.url,
+        status: d.status,
+        tcComment: d.tc_comment,
+        createdAt: d.created_at,
+      }))
+      const sla = slaMap.get(f.id)
+
+      return {
+        id: f.id,
+        tenantId: f.tenant_id,
+        status: f.status,
+        priority: f.priority,
+        tenantCategory: f.tenant_category,
+        rentalStatus: f.rental_status,
+        tcComment: f.tc_comment,
+        rejectionReason: f.rejection_reason,
+        reviewedById: f.reviewed_by_id,
+        reviewedAt: f.reviewed_at,
+        onHold: f.on_hold,
+        onHoldReason: f.on_hold_reason,
+        createdAt: f.created_at,
+        updatedAt: f.updated_at,
+        tenant: tenant ? {
+          id: tenant.id,
+          firstName: tenant.first_name,
+          lastName: tenant.last_name,
+          phone: tenant.phone,
+          email: tenant.email,
+          avatarUrl: tenant.avatar_url,
+        } : null,
+        documents,
+        sla: sla ? {
+          id: sla.id,
+          entityId: sla.entity_id,
+          submittedAt: sla.submitted_at,
+          deadlineAt: sla.deadline_at,
+          isOverdue: sla.is_overdue,
+        } : null,
+      }
     })
 
-    const slaMap = new Map(slas.map((s) => [s.entityId, s]))
-
-    // Attach SLA data to files
-    const filesWithSla = files.map((f) => ({
-      ...f,
-      sla: slaMap.get(f.id) || null,
-    }))
-
-    return NextResponse.json({
+    const resp = NextResponse.json({
       files: filesWithSla,
       pagination: {
-        total,
+        total: total ?? 0,
         limit,
         offset,
-        hasMore: offset + limit < total,
+        hasMore: offset + limit < (total ?? 0),
       },
     })
+    return applyCookies(resp)
   } catch (error) {
     console.error('TC rental files GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// PATCH /api/tc/rental-files — Validate, reject, request-info, or update priority/onHold
 export async function PATCH(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await ((supabase as any)
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single() as any)
+    const effectiveRole = profile?.active_role || profile?.role
 
     if (effectiveRole !== 'TIERS_CONFIANCE' && effectiveRole !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé — rôle TIERS_CONFIANCE ou ADMIN requis' }, { status: 403 })
@@ -150,7 +198,11 @@ export async function PATCH(req: NextRequest) {
 
     // ─── Single file update: priority / onHold ──────────────────────────
     if (id && !fileIds) {
-      const file = await db.rentalFile.findUnique({ where: { id } })
+      const { data: file } = await ((supabase as any)
+        .from('rental_files')
+        .select('*')
+        .eq('id', id)
+        .single() as any)
       if (!file) {
         return NextResponse.json({ error: 'Dossier introuvable' }, { status: 404 })
       }
@@ -165,11 +217,11 @@ export async function PATCH(req: NextRequest) {
       }
 
       if (onHold !== undefined) {
-        updateData.onHold = Boolean(onHold)
+        updateData.on_hold = Boolean(onHold)
         if (onHold) {
-          updateData.onHoldReason = onHoldReason?.trim() || null
+          updateData.on_hold_reason = onHoldReason?.trim() || null
         } else {
-          updateData.onHoldReason = null
+          updateData.on_hold_reason = null
         }
       }
 
@@ -177,47 +229,41 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: 'Aucune donnée à mettre à jour' }, { status: 400 })
       }
 
-      const updated = await db.rentalFile.update({
-        where: { id },
-        data: updateData,
-        include: {
-          tenant: {
-            select: { id: true, firstName: true, lastName: true, email: true },
-          },
-          documents: true,
-        },
+      const { data: updated } = await ((supabase as any)
+        .from('rental_files')
+        .update(updateData as any)
+        .eq('id', id)
+        .select()
+        .single() as any)
+
+      await (supabase.from('audit_logs') as any).insert({
+        action: priority ? 'RENTAL_FILE_PRIORITY_CHANGED' : onHold ? 'RENTAL_FILE_PUT_ON_HOLD' : 'RENTAL_FILE_RESUMED',
+        entity: 'RentalFile',
+        entity_id: id,
+        details: JSON.stringify({ priority, onHold, onHoldReason }),
+        user_id: userId,
       })
 
-      // Audit log
-      await db.auditLog.create({
-        data: {
-          action: priority ? 'RENTAL_FILE_PRIORITY_CHANGED' : onHold ? 'RENTAL_FILE_PUT_ON_HOLD' : 'RENTAL_FILE_RESUMED',
-          entity: 'RentalFile',
-          entityId: id,
-          details: JSON.stringify({ priority, onHold, onHoldReason }),
-          userId,
-        },
-      })
-
-      return NextResponse.json({ success: true, file: updated })
+      const resp = NextResponse.json({ success: true, file: updated })
+      return applyCookies(resp)
     }
 
     // ─── Batch action: APPROVE / REJECT / REQUEST_INFO ──────────────────
     if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
       return NextResponse.json({ error: 'fileIds est requis (tableau non vide)' }, { status: 400 })
     }
-
     if (!action || !['APPROVE', 'REJECT', 'REQUEST_INFO'].includes(action)) {
       return NextResponse.json({ error: 'action doit être APPROVE, REJECT ou REQUEST_INFO' }, { status: 400 })
     }
 
-    const results = []
+    const results: any[] = []
 
     for (const fileId of fileIds) {
-      const file = await db.rentalFile.findUnique({
-        where: { id: fileId },
-        include: { tenant: true, documents: true },
-      })
+      const { data: file } = await ((supabase as any)
+        .from('rental_files')
+        .select('*, tenant:users!tenant_id(*)')
+        .eq('id', fileId)
+        .single() as any)
 
       if (!file) {
         results.push({ fileId, success: false, error: 'Dossier introuvable' })
@@ -232,78 +278,70 @@ export async function PATCH(req: NextRequest) {
       let newStatus: string
       let auditAction: string
       let notificationTitle: string
-      let notificationMessage: string
 
       if (action === 'APPROVE') {
         newStatus = 'VALIDATED'
         auditAction = 'RENTAL_FILE_APPROVED'
         notificationTitle = 'Dossier validé'
-        notificationMessage = `Votre dossier locatif a été validé par le Tiers de Confiance.`
       } else if (action === 'REJECT') {
         newStatus = 'REJECTED'
         auditAction = 'RENTAL_FILE_REJECTED'
         notificationTitle = 'Dossier rejeté'
-        notificationMessage = `Votre dossier locatif a été rejeté. Raison : ${comment || 'Non spécifié'}`
       } else {
         newStatus = 'TC_REVIEW'
         auditAction = 'RENTAL_FILE_INFO_REQUESTED'
         notificationTitle = 'Documents complémentaires requis'
-        notificationMessage = `Le Tiers de Confiance demande des documents complémentaires : ${comment || 'Veuillez compléter votre dossier.'}`
       }
 
-      // Update document statuses if provided
       if (documentUpdates && Array.isArray(documentUpdates)) {
         for (const docUpdate of documentUpdates) {
           if (docUpdate.documentId && docUpdate.status) {
-            await db.rentalFileDocument.update({
-              where: { id: docUpdate.documentId },
-              data: {
+            await (supabase as any)
+              .from('rental_file_documents')
+              .update({
                 status: docUpdate.status,
-                tcComment: docUpdate.comment || null,
-              },
-            })
+                tc_comment: docUpdate.comment || null,
+              })
+              .eq('id', docUpdate.documentId)
           }
         }
       }
 
-      // Update the rental file
-      const updatedFile = await db.rentalFile.update({
-        where: { id: fileId },
-        data: {
+      const { data: updatedFile } = await ((supabase as any)
+        .from('rental_files')
+        .update({
           status: newStatus,
-          reviewedById: userId,
-          reviewedAt: new Date(),
-          tcComment: comment || null,
-          rejectionReason: action === 'REJECT' ? (comment || 'Non spécifié') : null,
-        },
-        include: {
-          tenant: {
-            select: { id: true, firstName: true, lastName: true, email: true },
-          },
-          documents: true,
-        },
+          reviewed_by_id: userId,
+          reviewed_at: new Date().toISOString(),
+          tc_comment: comment || null,
+          rejection_reason: action === 'REJECT' ? (comment || 'Non spécifié') : null,
+        })
+        .eq('id', fileId)
+        .select()
+        .single() as any)
+
+      await (supabase as any)
+        .from('validation_slas')
+        .update({ completed_at: new Date().toISOString(), is_overdue: false })
+        .eq('entity_type', 'RENTAL_FILE')
+        .eq('entity_id', fileId)
+
+      await (supabase.from('audit_logs') as any).insert({
+        action: auditAction,
+        entity: 'RentalFile',
+        entity_id: fileId,
+        details: JSON.stringify({ action, comment, reviewerId: userId }),
+        user_id: userId,
       })
 
-      // Update SLA if exists
-      await db.validationSLA.updateMany({
-        where: { entityType: 'RENTAL_FILE', entityId: fileId },
-        data: { completedAt: new Date(), isOverdue: false },
-      })
+      const notificationMessage = action === 'APPROVE'
+        ? `Votre dossier locatif a été validé par le Tiers de Confiance.`
+        : action === 'REJECT'
+          ? `Votre dossier locatif a été rejeté. Raison : ${comment || 'Non spécifié'}`
+          : `Le Tiers de Confiance demande des documents complémentaires : ${comment || 'Veuillez compléter votre dossier.'}`
 
-      // Audit log
-      await db.auditLog.create({
-        data: {
-          action: auditAction,
-          entity: 'RentalFile',
-          entityId: fileId,
-          details: JSON.stringify({ action, comment, reviewerId: userId }),
-          userId,
-        },
-      })
-
-      // Notify the tenant
       await notify({
-        userId: file.tenantId,
+        userId: file.tenant_id,
         type: 'DOSSIER_UPDATE',
         title: notificationTitle,
         message: notificationMessage,
@@ -314,7 +352,8 @@ export async function PATCH(req: NextRequest) {
       results.push({ fileId, success: true, file: updatedFile })
     }
 
-    return NextResponse.json({ results })
+    const resp = NextResponse.json({ results })
+    return applyCookies(resp)
   } catch (error) {
     console.error('TC rental files PATCH error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

@@ -1,140 +1,181 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
-// GET /api/owner/analytics — Return analytics for the owner
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
 
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+
+    const effectiveRole = profile?.active_role || profile?.role
     if (effectiveRole !== 'PROPRIETAIRE') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
     }
 
-    // ─── Fetch all data in parallel ──────────────────────────────────────────
-    const [
-      properties,
-      activeLeases,
-      allPayments,
-      visitRequests,
-      allLeases,
-    ] = await Promise.all([
-      // All properties owned by this owner
-      db.property.findMany({
-        where: { ownerId: userId },
-        select: {
-          id: true,
-          title: true,
-          city: true,
-          price: true,
-          status: true,
-          rentalStatus: true,
-          createdAt: true,
+    const { data: rawProperties } = await supabase
+      .from('properties')
+      .select('id, title, city, price, status, rental_status, created_at')
+      .eq('owner_id', userId)
+
+    if (!rawProperties) {
+      return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    }
+
+    const properties = rawProperties.map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      city: p.city,
+      price: p.price,
+      status: p.status,
+      rentalStatus: p.rental_status,
+      createdAt: p.created_at,
+    }))
+
+    const propertyIds = properties.map(p => p.id)
+
+    if (propertyIds.length === 0) {
+      const resp = NextResponse.json({
+        occupancyRate: 0,
+        monthlyRevenue: [],
+        averageLeaseDurationMonths: 0,
+        perPropertyPerformance: [],
+        latePaymentsTrend: [],
+        totals: {
+          totalRevenue: 0, totalPaid: 0, totalPending: 0,
+          latePaymentsCount: 0, totalProperties: 0, rentedProperties: 0, activeLeases: 0,
         },
-      }),
-      // Active leases for this owner
-      db.lease.findMany({
-        where: { ownerId: userId, status: 'ACTIVE' },
-        include: {
-          property: { select: { id: true, title: true, city: true, price: true } },
-          tenant: { select: { id: true, firstName: true, lastName: true } },
-          payments: {
-            select: {
-              id: true,
-              amount: true,
-              status: true,
-              dueDate: true,
-              paidAt: true,
-            },
-            orderBy: { dueDate: 'asc' },
-          },
-        },
-      }),
-      // All payments across all leases of this owner (for revenue calculations)
-      db.payment.findMany({
-        where: {
-          lease: { ownerId: userId },
-        },
-        select: {
-          id: true,
-          amount: true,
-          status: true,
-          dueDate: true,
-          paidAt: true,
-          leaseId: true,
-          lease: {
-            select: {
-              propertyId: true,
-              property: { select: { id: true, title: true } },
-            },
-          },
-        },
-        orderBy: { dueDate: 'desc' },
-      }),
-      // Visit requests count per property (only from TC-verified tenants)
-      db.visitRequest.findMany({
-        where: {
-          property: { ownerId: userId },
-          tenant: { rentalFiles: { some: { status: 'VALIDATED' } } },
-        },
-        select: { propertyId: true, status: true, createdAt: true },
-      }),
-      // All leases (including terminated) for duration calculation
-      db.lease.findMany({
-        where: { ownerId: userId },
-        select: {
-          id: true,
-          startDate: true,
-          endDate: true,
-          status: true,
-          propertyId: true,
-        },
-      }),
+      })
+      return applyCookies(resp)
+    }
+
+    const { data: rawAllLeases } = await supabase
+      .from('leases')
+      .select('*')
+      .eq('owner_id', userId)
+
+    const leasesData = rawAllLeases || []
+    const leaseIds = leasesData.map(l => l.id)
+
+    const leasePropertyMap: Record<string, string> = {}
+    for (const l of leasesData) {
+      leasePropertyMap[l.id] = l.property_id
+    }
+
+    const activeLeasesRaw = leasesData.filter(l => l.status === 'ACTIVE')
+    const activePropIds = [...new Set(activeLeasesRaw.map(l => l.property_id))]
+    const activeTenantIds = [...new Set(activeLeasesRaw.map(l => l.tenant_id))]
+
+    const [leasePropsRes, leaseTenantsRes] = await Promise.all([
+      activePropIds.length > 0
+        ? supabase.from('properties').select('id, title, city, price').in('id', activePropIds)
+        : { data: [] as any[] },
+      activeTenantIds.length > 0
+        ? supabase.from('users').select('id, first_name, last_name').in('id', activeTenantIds)
+        : { data: [] as any[] },
     ])
 
-    // ─── Occupancy Rate ─────────────────────────────────────────────────────
+    const propMap: Record<string, any> = {}
+    for (const p of (leasePropsRes.data || [])) {
+      propMap[p.id] = { id: p.id, title: p.title, city: p.city, price: p.price }
+    }
+
+    const tenantMap: Record<string, any> = {}
+    for (const t of (leaseTenantsRes.data || [])) {
+      tenantMap[t.id] = { id: t.id, firstName: t.first_name, lastName: t.last_name }
+    }
+
+    const activeLeases = activeLeasesRaw.map(l => ({
+      id: l.id,
+      ownerId: l.owner_id,
+      tenantId: l.tenant_id,
+      propertyId: l.property_id,
+      status: l.status,
+      startDate: l.start_date,
+      endDate: l.end_date,
+      monthlyRent: l.monthly_rent,
+      property: propMap[l.property_id] || { id: l.property_id, title: '', city: '', price: 0 },
+      tenant: tenantMap[l.tenant_id] || { id: l.tenant_id, firstName: '', lastName: '' },
+      payments: [],
+    }))
+
+    const { data: rawPayments } = leaseIds.length > 0
+      ? await supabase.from('payments').select('*').in('lease_id', leaseIds).order('due_date', { ascending: false })
+      : { data: [] as any[] }
+
+    const allPayments = (rawPayments || []).map((p: any) => ({
+      id: p.id,
+      amount: p.amount,
+      status: p.status,
+      dueDate: p.due_date,
+      paidAt: p.paid_at,
+      leaseId: p.lease_id,
+      lease: {
+        propertyId: leasePropertyMap[p.lease_id] || '',
+        property: {
+          id: propMap[leasePropertyMap[p.lease_id]]?.id || '',
+          title: propMap[leasePropertyMap[p.lease_id]]?.title || '',
+        },
+      },
+    }))
+
+    const { data: rawVisitReqs } = await supabase
+      .from('visit_requests')
+      .select('property_id, status, created_at')
+      .in('property_id', propertyIds)
+
+    const visitRequests = (rawVisitReqs || []).map((vr: any) => ({
+      propertyId: vr.property_id,
+      status: vr.status,
+      createdAt: vr.created_at,
+    }))
+
+    const allLeases = leasesData.map(l => ({
+      id: l.id,
+      startDate: l.start_date,
+      endDate: l.end_date,
+      status: l.status,
+      propertyId: l.property_id,
+    }))
+
     const totalProperties = properties.length
-    const rentedProperties = properties.filter((p) => p.rentalStatus === 'loue').length
+    const rentedProperties = properties.filter(p => p.rentalStatus === 'loue').length
     const occupancyRate = totalProperties > 0 ? Math.round((rentedProperties / totalProperties) * 100) : 0
 
-    // ─── Monthly Revenue for Last 12 Months ─────────────────────────────────
     const now = new Date()
-    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1)
-
     const monthlyRevenue: { month: string; revenue: number; paid: number; pending: number }[] = []
     for (let i = 11; i >= 0; i--) {
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999)
       const monthLabel = monthStart.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' })
 
-      const monthPayments = allPayments.filter((p) => {
+      const monthPayments = allPayments.filter(p => {
         const dueDate = new Date(p.dueDate)
         return dueDate >= monthStart && dueDate <= monthEnd
       })
 
       const paid = monthPayments
-        .filter((p) => p.status === 'PAID')
+        .filter(p => p.status === 'PAID')
         .reduce((sum, p) => sum + p.amount, 0)
       const pending = monthPayments
-        .filter((p) => p.status === 'PENDING' || p.status === 'LATE' || p.status === 'PARTIAL')
+        .filter(p => p.status === 'PENDING' || p.status === 'LATE' || p.status === 'PARTIAL')
         .reduce((sum, p) => sum + p.amount, 0)
 
-      monthlyRevenue.push({
-        month: monthLabel,
-        revenue: paid + pending,
-        paid,
-        pending,
-      })
+      monthlyRevenue.push({ month: monthLabel, revenue: paid + pending, paid, pending })
     }
 
-    // ─── Average Lease Duration ─────────────────────────────────────────────
-    const completedLeases = allLeases.filter(
-      (l) => l.status === 'TERMINATED' || l.status === 'EXPIRED'
-    )
+    const completedLeases = allLeases.filter(l => l.status === 'TERMINATED' || l.status === 'EXPIRED')
     let averageLeaseDurationMonths = 0
     if (completedLeases.length > 0) {
       const totalDurationDays = completedLeases.reduce((sum, l) => {
@@ -145,18 +186,17 @@ export async function GET(req: NextRequest) {
       averageLeaseDurationMonths = Math.round((totalDurationDays / completedLeases.length / 30.44) * 10) / 10
     }
 
-    // ─── Per-Property Performance ───────────────────────────────────────────
     const visitCountByProperty: Record<string, number> = {}
     for (const vr of visitRequests) {
       visitCountByProperty[vr.propertyId] = (visitCountByProperty[vr.propertyId] || 0) + 1
     }
 
-    const perPropertyPerformance = properties.map((property) => {
-      const propertyLeases = activeLeases.filter((l) => l.propertyId === property.id)
-      const propertyPayments = allPayments.filter((p) => p.lease.propertyId === property.id)
+    const perPropertyPerformance = properties.map(property => {
+      const propertyLeases = activeLeases.filter(l => l.propertyId === property.id)
+      const propertyPayments = allPayments.filter(p => p.lease.propertyId === property.id)
 
       const revenue = propertyPayments
-        .filter((p) => p.status === 'PAID')
+        .filter(p => p.status === 'PAID')
         .reduce((sum, p) => sum + p.amount, 0)
 
       const isOccupied = propertyLeases.length > 0
@@ -169,24 +209,19 @@ export async function GET(req: NextRequest) {
         occupancy: isOccupied ? 100 : 0,
         visitCount: visitCountByProperty[property.id] || 0,
         activeLeases: propertyLeases.length,
-        monthlyRent: propertyLeases.reduce((sum, l) => sum + l.monthlyRent, 0),
+        monthlyRent: propertyLeases.reduce((sum, l) => sum + (l.monthlyRent || 0), 0),
       }
     })
 
-    // ─── Late Payments Trend (last 6 months) ───────────────────────────────
     const latePaymentsTrend: { month: string; count: number; amount: number }[] = []
     for (let i = 5; i >= 0; i--) {
       const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59, 999)
       const monthLabel = monthStart.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' })
 
-      const lateThisMonth = allPayments.filter((p) => {
+      const lateThisMonth = allPayments.filter(p => {
         const dueDate = new Date(p.dueDate)
-        return (
-          p.status === 'LATE' &&
-          dueDate >= monthStart &&
-          dueDate <= monthEnd
-        )
+        return p.status === 'LATE' && dueDate >= monthStart && dueDate <= monthEnd
       })
 
       latePaymentsTrend.push({
@@ -196,20 +231,17 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // ─── Totals ─────────────────────────────────────────────────────────────
     const totalRevenue = allPayments
-      .filter((p) => p.status === 'PAID')
+      .filter(p => p.status === 'PAID')
       .reduce((sum, p) => sum + p.amount, 0)
-
-    const totalPaid = totalRevenue
 
     const totalPending = allPayments
-      .filter((p) => p.status === 'PENDING' || p.status === 'LATE' || p.status === 'PARTIAL')
+      .filter(p => p.status === 'PENDING' || p.status === 'LATE' || p.status === 'PARTIAL')
       .reduce((sum, p) => sum + p.amount, 0)
 
-    const latePaymentsCount = allPayments.filter((p) => p.status === 'LATE').length
+    const latePaymentsCount = allPayments.filter(p => p.status === 'LATE').length
 
-    return NextResponse.json({
+    const resp = NextResponse.json({
       occupancyRate,
       monthlyRevenue,
       averageLeaseDurationMonths,
@@ -217,7 +249,7 @@ export async function GET(req: NextRequest) {
       latePaymentsTrend,
       totals: {
         totalRevenue,
-        totalPaid,
+        totalPaid: totalRevenue,
         totalPending,
         latePaymentsCount,
         totalProperties,
@@ -225,6 +257,7 @@ export async function GET(req: NextRequest) {
         activeLeases: activeLeases.length,
       },
     })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Owner analytics error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

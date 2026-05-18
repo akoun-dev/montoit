@@ -1,75 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserIdAndRole } from '@/lib/session'
-import { oneciCheckSubscription, ONECI_API_KEY, ONECI_SECRET_KEY } from '@/lib/oneci'
+import { createRouteHandlerSupabaseClient } from '@/lib/supabase/server'
 
-/**
- * ONECI Subscription Check
- * GET /api/kyc/oneci/subscription
- *
- * Returns remaining API request quota for the ONECI service.
- * This endpoint is admin-only (requires ADMIN role).
- */
 export async function GET(req: NextRequest) {
   try {
-    // ─── Authentication & Authorization ──────────────────────────────────
-    const userRole = await getUserIdAndRole(req)
-    if (!userRole) {
+    const { supabase, applyCookies } = createRouteHandlerSupabaseClient(req)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+
+    if (!token) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
-    if (userRole.effectiveRole !== 'ADMIN') {
-      return NextResponse.json(
-        { error: 'Accès réservé aux administrateurs.' },
-        { status: 403 },
-      )
-    }
+    const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/oneci-subscription`
 
-    // ─── Check ONECI config ───────────────────────────────────────────────
-    if (!ONECI_API_KEY || !ONECI_SECRET_KEY) {
-      console.error('[ONECI] API credentials not configured')
-      return NextResponse.json(
-        { error: 'Service ONECI non configuré. Veuillez contacter l\'administrateur.' },
-        { status: 503 },
-      )
-    }
+    const res = await fetch(functionUrl, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
 
-    // ─── Call ONECI Subscription API ─────────────────────────────────────
-    try {
-      console.log('[ONECI] Checking subscription quota')
-      const subscriptionResult = await oneciCheckSubscription()
-
-      const remaining = subscriptionResult.remainingRequests
-        ?? subscriptionResult.data?.remainingRequests
-        ?? null
-      const total = subscriptionResult.totalRequests
-        ?? subscriptionResult.data?.totalRequests
-        ?? null
-      const used = subscriptionResult.usedRequests
-        ?? subscriptionResult.data?.usedRequests
-        ?? null
-
-      return NextResponse.json({
-        remainingRequests: remaining,
-        totalRequests: total,
-        usedRequests: used,
-      })
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        console.error('[ONECI] Subscription check timed out')
-        return NextResponse.json(
-          { error: 'Le service ONECI met trop de temps à répondre. Veuillez réessayer.' },
-          { status: 504 },
-        )
-      }
-
-      console.error('[ONECI] Subscription check API error:', err)
-      return NextResponse.json(
-        { error: 'Erreur lors de la communication avec le service ONECI. Veuillez réessayer.' },
-        { status: 502 },
-      )
-    }
+    const data = await res.json()
+    return applyCookies(NextResponse.json(data, { status: res.status }))
   } catch (error) {
-    console.error('[ONECI] subscription route error:', error)
+    console.error('[ONECI] Proxy error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }

@@ -120,6 +120,17 @@ interface ExistingReport {
   }
 }
 
+type ReportItemPayload = {
+  designation: string
+  designationOrder: number
+  kitchen: string | null
+  mainBathroom: string | null
+  otherBathroom: string | null
+  otherRoom1: string | null
+  otherRoom2: string | null
+  observations: string | null
+}
+
 const typeLabels: Record<string, string> = {
   INVENTORY_ENTRANCE: 'Entrée des lieux',
   INVENTORY_EXIT: 'Sortie des lieux',
@@ -290,7 +301,7 @@ export function InventoryReportForm() {
   })()
 
   const buildItemsPayload = () => {
-    const items = []
+    const items: ReportItemPayload[] = []
     for (let r = 0; r < DESIGNATIONS.length; r++) {
       const isKeyRow = r === 8
       const cell0 = grid[r]?.[0]

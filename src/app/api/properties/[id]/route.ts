@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest, getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
+
+function generateId() {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
 
 const VALID_PROPERTY_TYPES = ['APPARTEMENT', 'MAISON', 'STUDIO', 'DUPLEX', 'PENTHOUSE', 'VILLA'] as const
 const MAX_IMAGES = 10
-const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024 // 50MB
+const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024
 
 // PATCH /api/properties/[id] — Update a property (draft or published)
 export async function PATCH(
@@ -14,22 +18,25 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    const userId = await getUserIdFromRequest(req)
-    if (!userId) {
+    const auth = await resolveRequestUser(req)
+    if (!auth || !auth.userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
+    const userId = auth.userId
 
-    // Verify property exists and belongs to user
-    const existing = await db.property.findUnique({
-      where: { id },
-      select: { id: true, ownerId: true, status: true, title: true, description: true, price: true, area: true, address: true, city: true },
-    })
+    const admin = getSupabaseAdminClient()
+
+    const { data: existing } = await admin
+      .from('properties')
+      .select('id, owner_id, status, title, description, price, area, address, city')
+      .eq('id', id)
+      .single()
 
     if (!existing) {
       return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
     }
 
-    if (existing.ownerId !== userId) {
+    if (existing.owner_id !== userId) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
@@ -57,12 +64,8 @@ export async function PATCH(
       status,
     } = body
 
-    // Only validate required fields when explicitly publishing (status === 'ACTIVE' sent in body)
-    // Auto-saves (drafts) should never trigger publish validation
-    // Properties must be verified by TC before becoming ACTIVE
     const isPublishing = status === 'ACTIVE'
     if (isPublishing) {
-      // Merge provided values with existing data for validation
       const finalTitle = (title !== undefined ? String(title) : existing.title || '').trim()
       const finalDescription = (description !== undefined ? String(description) : existing.description || '').trim()
       const finalPrice = price !== undefined ? Number(price) : (existing.price || 0)
@@ -90,7 +93,6 @@ export async function PATCH(
       }
     }
 
-    // Validate type if provided
     if (type !== undefined && type !== null && !VALID_PROPERTY_TYPES.includes(type)) {
       return NextResponse.json(
         { error: `Le type doit être l'un des suivants : ${VALID_PROPERTY_TYPES.join(', ')}` },
@@ -98,15 +100,10 @@ export async function PATCH(
       )
     }
 
-    // Validate video if provided (allow null to clear, allow any string for flexibility)
     if (virtualTourUrl !== undefined && virtualTourUrl !== null && virtualTourUrl !== '') {
       if (typeof virtualTourUrl !== 'string') {
-        return NextResponse.json(
-          { error: 'Format de vidéo invalide' },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: 'Format de vidéo invalide' }, { status: 400 })
       }
-      // Only validate size for data: URLs (base64 encoded uploads)
       if (virtualTourUrl.startsWith('data:')) {
         const base64Part = virtualTourUrl.split(',')[1] || ''
         const estimatedSize = Math.ceil(base64Part.length * 0.75)
@@ -119,8 +116,7 @@ export async function PATCH(
       }
     }
 
-    // Build update data — sanitize numeric fields to avoid NaN
-    const updateData: Record<string, unknown> = {}
+    const updateData: any = {}
     if (title !== undefined) updateData.title = String(title).trim()
     if (description !== undefined) updateData.description = String(description).trim()
     if (type !== undefined) updateData.type = type
@@ -137,21 +133,18 @@ export async function PATCH(
     if (address !== undefined) updateData.address = String(address).trim()
     if (city !== undefined) updateData.city = String(city).trim()
     if (commune !== undefined) updateData.commune = commune ? String(commune).trim() : null
-    if (isFurnished !== undefined) updateData.isFurnished = Boolean(isFurnished)
-    if (hasParking !== undefined) updateData.hasParking = Boolean(hasParking)
-    if (hasGarden !== undefined) updateData.hasGarden = Boolean(hasGarden)
-    if (hasPool !== undefined) updateData.hasPool = Boolean(hasPool)
-    if (hasGuardian !== undefined) updateData.hasGuardian = Boolean(hasGuardian)
-    if (hasClimate !== undefined) updateData.hasClimate = Boolean(hasClimate)
-    if (hideOwnerName !== undefined) updateData.hideOwnerName = Boolean(hideOwnerName)
-    if (virtualTourUrl !== undefined) updateData.virtualTourUrl = virtualTourUrl || null
-    // Properties must be verified by TC before becoming ACTIVE
-    // Intercept ACTIVE status and change to PENDING_VERIFICATION
+    if (isFurnished !== undefined) updateData.is_furnished = Boolean(isFurnished)
+    if (hasParking !== undefined) updateData.has_parking = Boolean(hasParking)
+    if (hasGarden !== undefined) updateData.has_garden = Boolean(hasGarden)
+    if (hasPool !== undefined) updateData.has_pool = Boolean(hasPool)
+    if (hasGuardian !== undefined) updateData.has_guardian = Boolean(hasGuardian)
+    if (hasClimate !== undefined) updateData.has_climate = Boolean(hasClimate)
+    if (hideOwnerName !== undefined) updateData.hide_owner_name = Boolean(hideOwnerName)
+    if (virtualTourUrl !== undefined) updateData.virtual_tour_url = virtualTourUrl || null
     if (status !== undefined) {
       updateData.status = status === 'ACTIVE' ? 'PENDING_VERIFICATION' : status
     }
 
-    // Handle images replacement
     if (images !== undefined) {
       const imageArray: string[] = Array.isArray(images) ? images : []
       if (imageArray.length > MAX_IMAGES) {
@@ -161,41 +154,38 @@ export async function PATCH(
         )
       }
 
-      // Delete existing images and create new ones
-      await db.propertyImage.deleteMany({ where: { propertyId: id } })
-      updateData.images = {
-        create: imageArray.map((url: string, index: number) => ({
+      await admin.from('property_images').delete().eq('property_id', id)
+
+      if (imageArray.length > 0) {
+        const imageRows = imageArray.map((url: string, index: number) => ({
+          id: generateId(),
           url,
           order: index,
-        })),
+          property_id: id,
+        }))
+        await admin.from('property_images').insert(imageRows)
       }
     }
 
-    // Update the property
-    const property = await db.property.update({
-      where: { id },
-      data: updateData,
-      include: {
-        images: { orderBy: { order: 'asc' } },
-        owner: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-          },
-        },
-      },
-    })
+    const { data: property } = await admin
+      .from('properties')
+      .update(updateData as any)
+      .eq('id', id)
+      .select()
+      .single()
 
-    // Notify all TC users when property is submitted for verification
+    if (!property) {
+      return NextResponse.json({ error: 'Erreur lors de la mise à jour' }, { status: 500 })
+    }
+
     if (isPublishing) {
-      const tcUsers = await db.user.findMany({
-        where: { role: 'TIERS_CONFIANCE', isActive: true },
-        select: { id: true },
-      })
-      if (tcUsers.length > 0) {
+      const { data: tcUsers } = await admin
+        .from('users')
+        .select('id')
+        .eq('role', 'TIERS_CONFIANCE')
+        .eq('is_active', true)
+
+      if (tcUsers && tcUsers.length > 0) {
         await notifyMany({
           userIds: tcUsers.map((tc) => tc.id),
           type: 'PROPERTY_VERIFICATION',
@@ -207,7 +197,9 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ property })
+    const enriched = await enrichSingleProperty(admin, property)
+
+    return NextResponse.json({ property: enriched })
   } catch (error) {
     console.error('Property update error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
@@ -215,74 +207,56 @@ export async function PATCH(
 }
 
 // GET /api/properties/[id] — Get a single property
-// - Unauthenticated users can view ACTIVE properties (public listing detail)
-// - Authenticated owners can view their own DRAFT/any-status properties (for editing)
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const userId = await getUserIdFromRequest(req)
+    const auth = await resolveRequestUser(req)
+    const userId = auth?.userId ?? null
 
-    const property = await db.property.findUnique({
-      where: { id },
-      include: {
-        images: { orderBy: { order: 'asc' } },
-        owner: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-            avatarUrl: true,
-            createdAt: true,
-          },
-        },
-      },
-    })
+    const admin = getSupabaseAdminClient()
+
+    const { data: property } = await admin
+      .from('properties')
+      .select('*')
+      .eq('id', id)
+      .single()
 
     if (!property) {
       return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
     }
 
-    // Access control:
-    // - ACTIVE properties are publicly viewable
-    // - Non-ACTIVE properties (DRAFT, PENDING_VERIFICATION, SUSPENDED, etc.) require ownership or TC role
     if (property.status !== 'ACTIVE') {
       if (!userId) {
         return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
       }
-      // Owner can always view their own properties
-      if (property.ownerId !== userId) {
-        // TC users can view any non-ACTIVE property
-        const authResult = await getUserIdAndRole(req)
-        if (!authResult || authResult.effectiveRole !== 'TIERS_CONFIANCE') {
+      if (property.owner_id !== userId) {
+        if (!auth?.userId) {
+          return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+        }
+        const { data: user } = await admin
+          .from('users')
+          .select('role')
+          .eq('id', auth.userId)
+          .single()
+        if (user?.role !== 'TIERS_CONFIANCE') {
           return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
         }
       }
     }
 
-    // Increment views count (fire and forget, only for active properties)
     if (property.status === 'ACTIVE') {
-      db.property.update({
-        where: { id },
-        data: { viewsCount: { increment: 1 } },
-      }).catch(() => {
-        // Silently ignore increment errors
-      })
+      admin.from('properties')
+        .update({ views_count: (property.views_count || 0) + 1 } as any)
+        .eq('id', id)
+        .then(() => {}, () => {})
     }
 
-    // If the owner has hidden their name, anonymize owner data for non-owners
-    if (property.hideOwnerName && property.ownerId !== userId) {
-      property.owner.firstName = 'Propriétaire'
-      property.owner.lastName = 'anonyme'
-      property.owner.email = ''
-      property.owner.phone = null
-    }
+    const enriched = await enrichSingleProperty(admin, property, userId)
 
-    return NextResponse.json({ property })
+    return NextResponse.json({ property: enriched })
   } catch (error) {
     console.error('Property GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
@@ -296,30 +270,107 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const userId = await getUserIdFromRequest(req)
-    if (!userId) {
+    const auth = await resolveRequestUser(req)
+    if (!auth || !auth.userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
+    const userId = auth.userId
 
-    const property = await db.property.findUnique({
-      where: { id },
-      select: { id: true, ownerId: true, status: true },
-    })
+    const admin = getSupabaseAdminClient()
+
+    const { data: property } = await admin
+      .from('properties')
+      .select('id, owner_id, status')
+      .eq('id', id)
+      .single()
 
     if (!property) {
       return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
     }
 
-    if (property.ownerId !== userId) {
+    if (property.owner_id !== userId) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    // Delete the property (cascade deletes images, etc.)
-    await db.property.delete({ where: { id } })
+    await admin.from('property_images').delete().eq('property_id', id)
+    await admin.from('properties').delete().eq('id', id)
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Property DELETE error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
+}
+
+async function enrichSingleProperty(admin: ReturnType<typeof getSupabaseAdminClient>, property: any, requestingUserId?: string | null) {
+  const { data: images } = await admin
+    .from('property_images')
+    .select('*')
+    .eq('property_id', property.id)
+    .order('order', { ascending: true })
+
+  const { data: owner } = await admin
+    .from('users')
+    .select('id, first_name, last_name, email, phone, avatar_url, created_at')
+    .eq('id', property.owner_id)
+    .single()
+
+  const result = {
+    id: property.id,
+    title: property.title,
+    description: property.description,
+    type: property.type,
+    status: property.status,
+    rentalStatus: property.rental_status,
+    price: property.price,
+    currency: property.currency,
+    area: property.area,
+    bedrooms: property.bedrooms,
+    bathrooms: property.bathrooms,
+    address: property.address,
+    city: property.city,
+    commune: property.commune,
+    latitude: property.latitude,
+    longitude: property.longitude,
+    isFurnished: property.is_furnished,
+    isVerified: property.is_verified,
+    hasParking: property.has_parking,
+    hasGarden: property.has_garden,
+    hasPool: property.has_pool,
+    hasGuardian: property.has_guardian,
+    hasClimate: property.has_climate,
+    amenities: property.amenities,
+    rentalTerms: property.rental_terms,
+    hideOwnerName: property.hide_owner_name,
+    virtualTourUrl: property.virtual_tour_url,
+    viewsCount: property.views_count,
+    createdAt: property.created_at,
+    updatedAt: property.updated_at,
+    ownerId: property.owner_id,
+    images: (images ?? []).map((img: any) => ({
+      id: img.id,
+      url: img.url,
+      order: img.order,
+      createdAt: img.created_at,
+      propertyId: img.property_id,
+    })),
+    owner: owner ? {
+      id: owner.id,
+      firstName: owner.first_name,
+      lastName: owner.last_name,
+      email: owner.email,
+      phone: owner.phone,
+      avatarUrl: owner.avatar_url,
+      createdAt: owner.created_at,
+    } : undefined,
+  }
+
+  if (property.hide_owner_name && property.owner_id !== requestingUserId && result.owner) {
+    result.owner.firstName = 'Propriétaire'
+    result.owner.lastName = 'anonyme'
+    result.owner.email = ''
+    result.owner.phone = null as any
+  }
+
+  return result
 }

@@ -144,7 +144,7 @@ export function FraudAlertsManagement() {
     const timer = setTimeout(async () => {
       setUserSearchLoading(true)
       try {
-        const data = await authFetch<FraudSuspect[]>(
+        const data = await authFetch<{ users: FraudSuspect[] }>(
           `/api/tc/oneci?search=${encodeURIComponent(userSearch.trim())}`
         )
         setUserResults(Array.isArray(data.users) ? data.users : [])

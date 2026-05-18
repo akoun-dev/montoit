@@ -1,137 +1,136 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notify'
 
-// GET /api/messages — List conversations for current user
-// Query params:
-//   conversationId=xxx — get all messages for a specific conversation
 export async function GET(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
     const { searchParams } = new URL(req.url)
     const conversationId = searchParams.get('conversationId')
+    const admin = getSupabaseAdminClient()
 
-    // If conversationId is provided, return all messages for that conversation
     if (conversationId) {
-      const conversation = await db.conversation.findUnique({
-        where: { id: conversationId },
-        include: {
-          participant1: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-          participant2: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-          property: { select: { id: true, title: true, images: { orderBy: { order: 'asc' }, take: 1 } } },
-          messages: {
-            orderBy: { createdAt: 'asc' },
-            include: {
-              sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-            },
-          },
-        },
-      })
+      const { data: conv } = await admin
+        .from('conversations')
+        .select('*')
+        .eq('id', conversationId)
+        .single()
 
-      if (!conversation) {
+      if (!conv) {
         return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
       }
 
-      // Verify user is a participant
-      if (conversation.participant1Id !== userId && conversation.participant2Id !== userId) {
+      if (conv.participant1_id !== userId && conv.participant2_id !== userId) {
         return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
       }
 
-      // Mark all unread messages from the other participant as read
-      await db.message.updateMany({
-        where: {
-          conversationId,
-          isRead: false,
-          senderId: { not: userId },
-        },
-        data: { isRead: true },
-      })
+      await admin
+        .from('messages')
+        .update({ is_read: true })
+        .eq('conversation_id', conversationId)
+        .eq('is_read', false)
+        .neq('sender_id', userId)
 
-      // Re-fetch messages after marking as read (to reflect updated isRead)
-      const updatedMessages = await db.message.findMany({
-        where: { conversationId },
-        orderBy: { createdAt: 'asc' },
-        include: {
-          sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        },
-      })
+      const { data: msgRows } = await admin
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
 
-      return NextResponse.json({
+      const enriched = await enrichMessages(msgRows ?? [], admin)
+
+      const p1 = await getUserSummary(conv.participant1_id, admin)
+      const p2 = await getUserSummary(conv.participant2_id, admin)
+      const prop = conv.property_id ? await getPropertySummary(conv.property_id, admin) : null
+
+      const response = NextResponse.json({
         conversation: {
-          ...conversation,
-          messages: updatedMessages,
+          id: conv.id,
+          lastMessageAt: conv.last_message_at,
+          createdAt: conv.created_at,
+          propertyId: conv.property_id,
+          participant1Id: conv.participant1_id,
+          participant2Id: conv.participant2_id,
+          participant1: p1,
+          participant2: p2,
+          property: prop,
+          messages: enriched,
         },
       })
+      return applyCookies(response)
     }
 
-    // Otherwise, list all conversations for the current user
-    const conversations = await db.conversation.findMany({
-      where: {
-        OR: [{ participant1Id: userId }, { participant2Id: userId }],
-      },
-      include: {
-        participant1: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        participant2: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        property: { select: { id: true, title: true, images: { orderBy: { order: 'asc' }, take: 1 } } },
-        messages: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          include: {
-            sender: { select: { id: true, firstName: true, lastName: true } },
-          },
-        },
-      },
-      orderBy: { lastMessageAt: 'desc' },
-    })
+    const { data: convRows } = await admin
+      .from('conversations')
+      .select('*')
+      .or(`participant1_id.eq.${userId},participant2_id.eq.${userId}`)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
 
-    // Get unread count per conversation
-    const conversationsWithUnread = await Promise.all(
-      conversations.map(async (conv) => {
-        const unreadCount = await db.message.count({
-          where: {
-            conversationId: conv.id,
-            isRead: false,
-            senderId: { not: userId },
-          },
-        })
+    const enrichedConvs = await Promise.all(
+      (convRows ?? []).map(async (conv) => {
+        const p1 = await getUserSummary(conv.participant1_id, admin)
+        const p2 = await getUserSummary(conv.participant2_id, admin)
+        const prop = conv.property_id ? await getPropertySummary(conv.property_id, admin) : null
+
+        const { data: lastMsg } = await admin
+          .from('messages')
+          .select('*')
+          .eq('conversation_id', conv.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        const { count: unreadCount } = await admin
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('conversation_id', conv.id)
+          .eq('is_read', false)
+          .neq('sender_id', userId)
+
         return {
-          ...conv,
-          unreadCount,
+          id: conv.id,
+          lastMessageAt: conv.last_message_at,
+          createdAt: conv.created_at,
+          propertyId: conv.property_id,
+          participant1Id: conv.participant1_id,
+          participant2Id: conv.participant2_id,
+          participant1: p1,
+          participant2: p2,
+          property: prop,
+          messages: (lastMsg ?? []).map((m) => ({
+            id: m.id,
+            content: m.content,
+            isRead: m.is_read,
+            createdAt: m.created_at,
+            conversationId: m.conversation_id,
+            senderId: m.sender_id,
+          })),
+          unreadCount: unreadCount ?? 0,
         }
       })
     )
 
-    // Get total unread count
-    const totalUnread = await db.message.count({
-      where: {
-        isRead: false,
-        senderId: { not: userId },
-        conversation: {
-          OR: [{ participant1Id: userId }, { participant2Id: userId }],
-        },
-      },
-    })
+    const { count: totalUnread } = await admin
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_read', false)
+      .neq('sender_id', userId)
 
-    return NextResponse.json({
-      conversations: conversationsWithUnread,
-      totalUnread,
-    })
+    const response = NextResponse.json({ conversations: enrichedConvs, totalUnread: totalUnread ?? 0 })
+    return applyCookies(response)
   } catch (error) {
     console.error('Messages GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// POST /api/messages — Send a message
-// Body: { conversationId?: string, recipientId?: string, content: string, propertyId?: string }
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
@@ -148,126 +147,199 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Le contenu du message est requis' }, { status: 400 })
     }
 
+    const admin = getSupabaseAdminClient()
     let convId = conversationId
 
     if (convId) {
-      // Add message to existing conversation
-      const conversation = await db.conversation.findUnique({
-        where: { id: convId },
-      })
+      const { data: conv } = await admin
+        .from('conversations')
+        .select('id, participant1_id, participant2_id')
+        .eq('id', convId)
+        .single()
 
-      if (!conversation) {
+      if (!conv) {
         return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
       }
 
-      if (conversation.participant1Id !== userId && conversation.participant2Id !== userId) {
+      if (conv.participant1_id !== userId && conv.participant2_id !== userId) {
         return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
       }
     } else if (recipientId) {
-      // Create new conversation or find existing one
       if (recipientId === userId) {
         return NextResponse.json({ error: 'Vous ne pouvez pas vous envoyer un message' }, { status: 400 })
       }
 
-      // Check if recipient exists
-      const recipient = await db.user.findUnique({ where: { id: recipientId } })
+      const { data: recipient } = await admin
+        .from('users')
+        .select('id')
+        .eq('id', recipientId)
+        .maybeSingle()
+
       if (!recipient) {
         return NextResponse.json({ error: 'Destinataire introuvable' }, { status: 404 })
       }
 
-      // Find existing conversation between these two users (with optional propertyId)
-      const existingConversation = await db.conversation.findFirst({
-        where: {
-          OR: [
-            { participant1Id: userId, participant2Id: recipientId, propertyId: propertyId || null },
-            { participant1Id: recipientId, participant2Id: userId, propertyId: propertyId || null },
-          ],
-        },
-      })
+      const { data: existingConvs } = await admin
+        .from('conversations')
+        .select('id')
+        .or(`and(participant1_id.eq.${userId},participant2_id.eq.${recipientId}),and(participant1_id.eq.${recipientId},participant2_id.eq.${userId})`)
 
-      if (existingConversation) {
-        convId = existingConversation.id
+      if (existingConvs && existingConvs.length > 0) {
+        convId = existingConvs[0].id
       } else {
-        // Create new conversation
-        const newConversation = await db.conversation.create({
-          data: {
-            participant1Id: userId,
-            participant2Id: recipientId,
-            propertyId: propertyId || null,
-          },
-        })
-        convId = newConversation.id
+        const { data: newConv, error: convError } = await admin
+          .from('conversations')
+          .insert({
+            participant1_id: userId,
+            participant2_id: recipientId,
+            property_id: propertyId || null,
+          })
+          .select()
+          .single()
+
+        if (convError) throw convError
+        convId = newConv.id
       }
     } else {
-      return NextResponse.json(
+      const resp = NextResponse.json(
         { error: 'Fournissez conversationId ou recipientId' },
         { status: 400 }
       )
+      return applyCookies(resp)
     }
 
-    // Create the message
-    const message = await db.message.create({
-      data: {
+    const { data: message, error: msgError } = await admin
+      .from('messages')
+      .insert({
         content: content.trim(),
-        conversationId: convId,
-        senderId: userId,
-        isRead: false,
-      },
-      include: {
-        sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-      },
-    })
-
-    // Update conversation's lastMessageAt
-    await db.conversation.update({
-      where: { id: convId },
-      data: { lastMessageAt: new Date() },
-    })
-
-    // Create notification for the recipient
-    const convForNotification = await db.conversation.findUnique({
-      where: { id: convId },
-      select: { participant1Id: true, participant2Id: true },
-    })
-
-    if (convForNotification) {
-      const notifRecipientId = convForNotification.participant1Id === userId
-        ? convForNotification.participant2Id
-        : convForNotification.participant1Id
-
-      const sender = await db.user.findUnique({
-        where: { id: userId },
-        select: { firstName: true, lastName: true },
+        conversation_id: convId,
+        sender_id: userId,
+        is_read: false,
       })
+      .select()
+      .single()
 
-      if (sender && notifRecipientId) {
-        await notify({
-          userId: notifRecipientId,
-          type: 'MESSAGE',
-          title: 'Nouveau message',
-          message: `${sender.firstName} ${sender.lastName} vous a envoyé un message`,
-          actionUrl: 'messages',
-          entityId: convId,
-        })
+    if (msgError) throw msgError
+
+    await admin
+      .from('conversations')
+      .update({ last_message_at: new Date().toISOString() })
+      .eq('id', convId)
+
+    const { data: convData } = await admin
+      .from('conversations')
+      .select('participant1_id, participant2_id')
+      .eq('id', convId)
+      .single()
+
+    if (convData) {
+      const notifRecipientId = convData.participant1_id === userId
+        ? convData.participant2_id
+        : convData.participant1_id
+
+      if (notifRecipientId) {
+        const sender = await getUserSummary(userId, admin)
+        if (sender) {
+          await notify({
+            userId: notifRecipientId,
+            type: 'MESSAGE',
+            title: 'Nouveau message',
+            message: `${sender.firstName} ${sender.lastName} vous a envoyé un message`,
+            actionUrl: 'messages',
+            entityId: convId,
+          })
+        }
       }
     }
 
-    // Return the message with conversation data
-    const conversation = await db.conversation.findUnique({
-      where: { id: convId },
-      include: {
-        participant1: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        participant2: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        property: { select: { id: true, title: true, images: { orderBy: { order: 'asc' }, take: 1 } } },
-      },
-    })
+    const p1 = await getUserSummary(userId, admin)
+    const sender = p1 ? { id: p1.id, firstName: p1.firstName, lastName: p1.lastName, avatarUrl: p1.avatarUrl } : null
+    const enrichedMsg = {
+      id: message.id,
+      content: message.content,
+      isRead: message.is_read,
+      createdAt: message.created_at,
+      conversationId: message.conversation_id,
+      senderId: message.sender_id,
+      sender,
+    }
 
-    return NextResponse.json({
-      message,
-      conversation,
+    const p1Summary = await getUserSummary(convId ? (await admin.from('conversations').select('participant1_id').eq('id', convId).single()).data?.participant1_id ?? '' : '', admin)
+    const p2Summary = convId ? await getUserSummary((await admin.from('conversations').select('participant2_id').eq('id', convId).single()).data?.participant2_id ?? '', admin) : null
+    const propSummary = convId ? (await getPropertySummary((await admin.from('conversations').select('property_id').eq('id', convId).single()).data?.property_id ?? '', admin)) : null
+
+    const { data: finalConv } = await admin
+      .from('conversations')
+      .select('*')
+      .eq('id', convId)
+      .single()
+
+    const response = NextResponse.json({
+      message: enrichedMsg,
+      conversation: finalConv ? {
+        id: finalConv.id,
+        lastMessageAt: finalConv.last_message_at,
+        createdAt: finalConv.created_at,
+        propertyId: finalConv.property_id,
+        participant1Id: finalConv.participant1_id,
+        participant2Id: finalConv.participant2_id,
+        participant1: p1Summary,
+        participant2: p2Summary,
+        property: propSummary,
+      } : null,
     })
+    return applyCookies(response)
   } catch (error) {
     console.error('Messages POST error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
+}
+
+async function getUserSummary(userId: string, admin: ReturnType<typeof getSupabaseAdminClient>) {
+  const { data } = await admin
+    .from('users')
+    .select('id, first_name, last_name, avatar_url')
+    .eq('id', userId)
+    .single()
+  if (!data) return null
+  return { id: data.id, firstName: data.first_name, lastName: data.last_name, avatarUrl: data.avatar_url }
+}
+
+async function getPropertySummary(propertyId: string, admin: ReturnType<typeof getSupabaseAdminClient>) {
+  const { data } = await admin
+    .from('properties')
+    .select('id, title')
+    .eq('id', propertyId)
+    .single()
+  if (!data) return null
+  const { data: images } = await admin
+    .from('property_images')
+    .select('url')
+    .eq('property_id', propertyId)
+    .order('order', { ascending: true })
+    .limit(1)
+  return { id: data.id, title: data.title, images: images ?? [] }
+}
+
+async function enrichMessages(rows: Array<Record<string, unknown>>, admin: ReturnType<typeof getSupabaseAdminClient>) {
+  const senderIds = [...new Set(rows.map((r) => r.sender_id as string).filter(Boolean))]
+  const senderMap = new Map<string, { id: string; firstName: string; lastName: string; avatarUrl: string | null }>()
+  if (senderIds.length > 0) {
+    const { data: users } = await admin
+      .from('users')
+      .select('id, first_name, last_name, avatar_url')
+      .in('id', senderIds)
+    for (const u of users ?? []) {
+      senderMap.set(u.id, { id: u.id, firstName: u.first_name, lastName: u.last_name, avatarUrl: u.avatar_url })
+    }
+  }
+  return rows.map((r) => ({
+    id: r.id,
+    content: r.content,
+    isRead: r.is_read,
+    createdAt: r.created_at,
+    conversationId: r.conversation_id,
+    senderId: r.sender_id,
+    sender: senderMap.get(r.sender_id as string) ?? null,
+  }))
 }

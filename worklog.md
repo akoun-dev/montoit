@@ -468,3 +468,93 @@ Stage Summary:
 - Keep-alive script set up to auto-restart server after OOM kills
 - All 11 previously requested features verified as implemented and working
 - Server running and responding correctly on port 3000
+
+---
+Task ID: Sprint 4
+Agent: Main
+Task: Migrer toutes les routes API restantes de Prisma vers Supabase
+
+Work Log:
+- Migré tc/ (12 fichiers) : agent-feedback, agents, certifications, fraud-alerts, inventory-reports, litiges, messages, missions, oneci, ownership-docs, rental-files, verifications
+- Migré admin/ (4 fichiers) : properties-moderation, signalements, users + nettoyage partials (admin/system)
+- Migré tenants/ (2 fichiers) : route, [id]
+- Migré owner/ (4 fichiers) : analytics, finances, rental-files, reviews
+- Migré agence/ (2 fichiers) : agents, commissions
+- Migré users/ (2 fichiers) : route, search
+- Migré maintenance/ (3 fichiers) : route, [id], comments
+- Migré applications/ (2 fichiers) : route, [id]
+- Migré user/ (4 fichiers) : 2fa, connection-logs, default-conditions, profile
+- Migré auth/ partiels (5 fichiers) : forgot-password, register, reset-password, send-sms-otp, verify-sms-otp
+- Migré kyc/ (3 fichiers) : face-auth, oneci/face-auth, oneci/match
+- Migré signature/ (3 fichiers) : generate-certificate, send-otp, sign
+- Migré reviews/ (2 fichiers) : route, [id]/reply
+- Migré documents/ (3 fichiers) : owner-file, rental-file, properties/[id]
+- Migré fichiers isolés : seed, stats, history, scoring, settings, messages/contacts, oneci/verify, profile/share, rental-files/action, locataire/my-recipients
+- Nettoyé fichiers partiellement migrés : admin/system, dashboard/admin, settings/password, user/change-password
+- Dernier fichier traité : settings/sessions/route.ts (remplacé getUserIdAndRole → résolveRequestUser)
+- Créé AGENTS.md avec la structure des sprints
+- Vérifié : `rg "from '@/lib/db'" src/app/api/` → 0 matches
+- Vérifié : `npx tsc --noEmit` → 0 erreurs dans src/app/api/
+
+Stage Summary:
+- ~95 fichiers de routes API migrés de Prisma vers Supabase
+- Ancien pattern getUserIdAndRole / @/lib/session complètement éliminé
+- Nouveau pattern : resolveRequestUser + getSupabaseAdminClient + applyCookies
+- Zéro import Prisma restant dans les API routes
+- AGENTS.md créé comme plan de migration
+
+---
+Task ID: Sprint 5
+Agent: Main
+Task: Créer Supabase Edge Functions pour signature, KYC et paiements
+
+Work Log:
+- Créé _shared/ (5 fichiers) :
+  - cors.ts — Headers CORS + OPTIONS handler
+  - supabase-admin.ts — Client Supabase admin pour Deno
+  - cryptoneo.ts — Auth token caching + cryptoneoFetch (port de src/lib/cryptoneo.ts)
+  - oneci.ts — Auth + personMatch + faceAuth + checkSubscription (port de src/lib/oneci.ts)
+  - intouch.ts — Cashin initiation + generatePartnerTransactionId (port de src/lib/intouch.ts)
+- Créé signature Edge Functions (6) :
+  - signature-auth — Auth CRYPTONEO, retourne JWT token
+  - generate-certificate — Génération certificat, sauvegarde alias en DB
+  - sign-send-otp — Envoi OTP via CRYPTONEO
+  - sign — Signature batch avec validation OTP
+  - sign-verify — Vérification signature batch
+  - signed-file — Téléchargement fichier signé
+- Créé KYC Edge Functions (4) :
+  - kyc-face-auth — Upload document + match visage NeoFace
+  - oneci-match — Vérification identité via NNI
+  - oneci-face-auth — Reconnaissance faciale ONECI
+  - oneci-subscription — Consultation quota API
+- Créé payment Edge Functions (2) :
+  - payment-initiate — Initiation cashin Intouch (validation rôle, montant, téléphone)
+  - payment-callback — Callback POST/GET Intouch (success/failure/unknown)
+- Proxyfié 12 routes Next.js vers les Edge Functions :
+  - signature/auth → signature-auth
+  - signature/generate-certificate → generate-certificate
+  - signature/send-otp → sign-send-otp
+  - signature/sign → sign
+  - signature/verify → sign-verify
+  - signature/signed-file → signed-file
+  - kyc/face-auth → kyc-face-auth
+  - kyc/oneci/match → oneci-match
+  - kyc/oneci/face-auth → oneci-face-auth
+  - kyc/oneci/subscription → oneci-subscription
+  - payments/initiate → payment-initiate
+  - payments/callback → payment-callback
+- Ajouté les variables d'environnement pour NeoFace et Intouch dans .env.local et .env.local.example
+- Fixé quote manquante dans _shared/intouch.ts ligne 9
+- Nettoyé 6 secrets en dur dans src/lib/intouch.ts (fallbacks vidés → '')
+- Audit complet dashboard (85 fichiers) :
+  - Zéro Prisma, zéro ancien pattern
+  - 31 erreurs TypeScript corrigées dans 10 fichiers
+  - 1 bug critique use-notifications.ts (credentials:include ajouté)
+- Ajouté section ANSUT Messaging dans .env (SMS/Email OTP)
+
+Stage Summary:
+- 12 Edge Functions créées (1778 lignes)
+- 12 routes Next.js proxyfiées
+- Toutes les vérifications passent (tsc, eslint, rg Prisma)
+- README.md détaillé créé
+- AGENTS.md mis à jour avec le statut Sprint 5

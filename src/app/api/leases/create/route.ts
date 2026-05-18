@@ -1,20 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import crypto from 'crypto'
 import { notify } from '@/lib/notify'
 
-// POST /api/leases/create — Create a new lease from a validated rental file
+function generateId() {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function mapLease(lease: Record<string, unknown>) {
+  return {
+    id: lease.id,
+    status: lease.status,
+    propertyId: lease.property_id,
+    tenantId: lease.tenant_id,
+    ownerId: lease.owner_id,
+    rentalFileId: lease.rental_file_id,
+    monthlyRent: lease.monthly_rent,
+    charges: lease.charges,
+    deposit: lease.deposit,
+    startDate: lease.start_date,
+    endDate: lease.end_date,
+    specialConditions: lease.special_conditions,
+    ownerSignedAt: lease.owner_signed_at,
+    tenantSignedAt: lease.tenant_signed_at,
+    ownerSignOtp: lease.owner_sign_otp,
+    tenantSignOtp: lease.tenant_sign_otp,
+    ownerSignatureImage: lease.owner_signature_image,
+    tenantSignatureImage: lease.tenant_signature_image,
+    createdAt: lease.created_at,
+    updatedAt: lease.updated_at,
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+    const effectiveRole = user?.active_role || user?.role
 
     if (effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
     }
 
     const body = await req.json()
@@ -30,112 +68,109 @@ export async function POST(req: NextRequest) {
       specialConditions,
     } = body
 
-    // ─── Validate required fields ─────────────────────────────────────────
     if (!rentalFileId || !propertyId || !tenantId || !monthlyRent || !startDate || !endDate) {
-      return NextResponse.json(
+      const resp = NextResponse.json(
         { error: 'Champs requis manquants: rentalFileId, propertyId, tenantId, monthlyRent, startDate, endDate' },
         { status: 400 }
       )
+      return applyCookies(resp)
     }
 
-    // ─── Verify the owner owns the property ───────────────────────────────
-    const property = await db.property.findFirst({
-      where: { id: propertyId, ownerId: userId },
-    })
+    const { data: property } = await supabase
+      .from('properties')
+      .select('id, title, owner_id')
+      .eq('id', propertyId)
+      .eq('owner_id', userId)
+      .maybeSingle()
+
     if (!property) {
-      return NextResponse.json(
+      const resp = NextResponse.json(
         { error: 'Vous n\'êtes pas propriétaire de ce bien ou le bien n\'existe pas' },
         { status: 403 }
       )
+      return applyCookies(resp)
     }
 
-    // ─── Verify the rental file is VALIDATED ──────────────────────────────
-    const rentalFile = await db.rentalFile.findFirst({
-      where: { id: rentalFileId, status: 'VALIDATED' },
-      include: {
-        tenant: { select: { id: true, firstName: true, lastName: true, email: true } },
-      },
-    })
+    const { data: rentalFile } = await supabase
+      .from('rental_files')
+      .select('id, tenant_id, status')
+      .eq('id', rentalFileId)
+      .eq('status', 'VALIDATED')
+      .maybeSingle()
+
     if (!rentalFile) {
-      return NextResponse.json(
+      const resp = NextResponse.json(
         { error: 'Le dossier locatif n\'est pas validé ou n\'existe pas' },
         { status: 400 }
       )
+      return applyCookies(resp)
     }
 
-    // Verify the rental file belongs to the tenant
-    if (rentalFile.tenantId !== tenantId) {
-      return NextResponse.json(
+    if (rentalFile.tenant_id !== tenantId) {
+      const resp = NextResponse.json(
         { error: 'Le dossier locatif ne correspond pas au locataire sélectionné' },
         { status: 400 }
       )
+      return applyCookies(resp)
     }
 
-    // ─── Check for existing active/pending lease for same property+tenant ─
-    const existingLease = await db.lease.findFirst({
-      where: {
-        propertyId,
-        tenantId,
-        status: { in: ['DRAFT', 'PENDING_SIGNATURE', 'ACTIVE'] },
-      },
-    })
+    const { data: existingLease } = await supabase
+      .from('leases')
+      .select('id')
+      .eq('property_id', propertyId)
+      .eq('tenant_id', tenantId)
+      .in('status', ['DRAFT', 'PENDING_SIGNATURE', 'ACTIVE'])
+      .maybeSingle()
+
     if (existingLease) {
-      return NextResponse.json(
+      const resp = NextResponse.json(
         { error: 'Un bail actif ou en attente existe déjà pour ce locataire et ce bien' },
         { status: 400 }
       )
+      return applyCookies(resp)
     }
 
-    // ─── Generate OTP code for owner signature ────────────────────────────
     const otpCode = crypto.randomInt(100000, 999999).toString()
-    const otpExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+    const otpExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
-    // ─── Create the lease ─────────────────────────────────────────────────
-    const lease = await db.lease.create({
-      data: {
+    const leaseId = generateId()
+
+    const { data: lease, error: leaseError } = await supabase
+      .from('leases')
+      .insert({
+        id: leaseId,
         status: 'PENDING_SIGNATURE',
-        propertyId,
-        tenantId,
-        ownerId: userId,
-        rentalFileId,
-        monthlyRent: parseFloat(monthlyRent),
+        property_id: propertyId,
+        tenant_id: tenantId,
+        owner_id: userId,
+        rental_file_id: rentalFileId,
+        monthly_rent: parseFloat(monthlyRent),
         charges: charges ? parseFloat(charges) : 0,
         deposit: deposit ? parseFloat(deposit) : 0,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        specialConditions: specialConditions || null,
-      },
-      include: {
-        property: {
-          select: {
-            id: true,
-            title: true,
-            address: true,
-            city: true,
-            images: { orderBy: { order: 'asc' }, take: 1 },
-          },
-        },
-        tenant: {
-          select: { id: true, firstName: true, lastName: true, avatarUrl: true, email: true },
-        },
-        owner: {
-          select: { id: true, firstName: true, lastName: true, avatarUrl: true },
-        },
-      },
+        start_date: new Date(startDate).toISOString(),
+        end_date: new Date(endDate).toISOString(),
+        special_conditions: specialConditions || null,
+      })
+      .select()
+      .single()
+
+    if (leaseError) throw leaseError
+
+    const { data: rentalFileTenant } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, email')
+      .eq('id', rentalFile.tenant_id)
+      .single()
+
+    await supabase.from('otp_codes').insert({
+      id: generateId(),
+      code: otpCode,
+      type: 'BAIL_SIGNATURE',
+      email: rentalFileTenant?.email || '',
+      expires_at: otpExpiry.toISOString(),
+      user_id: userId,
     })
 
-    // ─── Create OTPCode record for owner signature ────────────────────────
-    await db.oTPCode.create({
-      data: {
-        code: otpCode,
-        type: 'BAIL_SIGNATURE',
-        email: lease.tenant.email,
-        expiresAt: otpExpiry,
-        userId,
-      },
-    })
-
-    // ─── Send notification to tenant about new lease awaiting signature ───
     await notify({
       userId: tenantId,
       type: 'LEASE_UPDATE',
@@ -145,29 +180,73 @@ export async function POST(req: NextRequest) {
       entityId: lease.id,
     })
 
-    // ─── Audit log ────────────────────────────────────────────────────────
-    await db.auditLog.create({
-      data: {
-        action: 'LEASE_CREATED',
-        entity: 'Lease',
-        entityId: lease.id,
-        details: JSON.stringify({
-          propertyId,
-          tenantId,
-          ownerId: userId,
-          monthlyRent: parseFloat(monthlyRent),
-          propertyTitle: property.title,
-        }),
-        userId,
-      },
+    await supabase.from('audit_logs').insert({
+      id: generateId(),
+      action: 'LEASE_CREATED',
+      entity: 'Lease',
+      entity_id: lease.id,
+      details: JSON.stringify({
+        propertyId,
+        tenantId,
+        ownerId: userId,
+        monthlyRent: parseFloat(monthlyRent),
+        propertyTitle: property.title,
+      }),
+      user_id: userId,
     })
 
-    return NextResponse.json({
-      data: lease,
-      otpCode, // Return OTP for the owner to sign
+    // Fetch related data for response
+    const { data: propData } = await supabase
+      .from('properties')
+      .select('id, title, address, city')
+      .eq('id', propertyId)
+      .single()
+
+    let propImages: any[] = []
+    if (propertyId) {
+      const { data: imgs } = await supabase
+        .from('property_images')
+        .select('url')
+        .eq('property_id', propertyId)
+        .order('order', { ascending: true })
+        .limit(1)
+      propImages = imgs ?? []
+    }
+
+    const userIds = [tenantId, userId].filter(Boolean)
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, avatar_url, email')
+      .in('id', userIds)
+    const userMap = new Map((users ?? []).map((u: any) => [u.id, u]))
+
+    const result = {
+      ...mapLease(lease),
+      property: propData ? {
+        id: propData.id,
+        title: propData.title,
+        address: propData.address,
+        city: propData.city,
+        images: propImages.map((img: any) => ({ url: img.url })),
+      } : undefined,
+      tenant: (() => {
+        const t = userMap.get(tenantId)
+        return t ? { id: t.id, firstName: t.first_name, lastName: t.last_name, avatarUrl: t.avatar_url, email: t.email } : undefined
+      })(),
+      owner: (() => {
+        const o = userMap.get(userId)
+        return o ? { id: o.id, firstName: o.first_name, lastName: o.last_name, avatarUrl: o.avatar_url } : undefined
+      })(),
+    }
+
+    const resp = NextResponse.json({
+      data: result,
+      otpCode,
     })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Lease create error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    const resp = NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return resp
   }
 }

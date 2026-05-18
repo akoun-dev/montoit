@@ -1,152 +1,204 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Prisma } from '@prisma/client'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
 
-// GET /api/payments/[id] — Get a single payment detail
-// LOCATAIRE sees their own payments; PROPRIETAIRE sees payments for their properties; AGENCE sees payments for their mandat properties
+function snakeToCamel(obj: any): any {
+  if (obj === null || obj === undefined || typeof obj !== 'object') return obj
+  if (Array.isArray(obj)) return obj.map(snakeToCamel)
+  return Object.keys(obj).reduce((acc, key) => {
+    const camelKey = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
+    acc[camelKey] = snakeToCamel(obj[key])
+    return acc
+  }, {} as Record<string, any>)
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      return applyCookies(NextResponse.json({ error: 'Non authentifié' }, { status: 401 }))
     }
-    const { userId, effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('active_role')
+      .eq('id', userId)
+      .single()
+
+    const effectiveRole = user?.active_role
 
     if (effectiveRole !== 'LOCATAIRE' && effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(NextResponse.json({ error: 'Accès refusé' }, { status: 403 }))
     }
 
     const { id } = await params
 
-    // Build the where clause based on role with proper Prisma typing
-    let where: Prisma.PaymentWhereInput
+    let leaseIds: string[] | null = null
+
     if (effectiveRole === 'PROPRIETAIRE') {
-      where = { id, lease: { ownerId: userId } }
+      const { data: leases } = await supabase
+        .from('leases')
+        .select('id')
+        .eq('owner_id', userId)
+      leaseIds = (leases || []).map((l: any) => l.id)
     } else if (effectiveRole === 'AGENCE') {
-      where = {
-        id,
-        lease: {
-          property: {
-            mandats: {
-              some: { agencyId: userId, status: 'ACTIVE' }
-            }
-          }
-        }
+      const { data: mandats } = await supabase
+        .from('mandats')
+        .select('property_id')
+        .eq('agency_id', userId)
+        .eq('status', 'ACTIVE')
+      const propertyIds = (mandats || []).map((m: any) => m.property_id)
+      if (propertyIds.length === 0) {
+        return applyCookies(NextResponse.json({ error: 'Paiement introuvable' }, { status: 404 }))
       }
-    } else {
-      where = { id, tenantId: userId }
+      const { data: leases } = await supabase
+        .from('leases')
+        .select('id')
+        .in('property_id', propertyIds)
+      leaseIds = (leases || []).map((l: any) => l.id)
+      if (leaseIds.length === 0) {
+        return applyCookies(NextResponse.json({ error: 'Paiement introuvable' }, { status: 404 }))
+      }
     }
 
-    const payment = await db.payment.findFirst({
-      where,
-      include: {
-        lease: {
-          select: {
-            id: true,
-            startDate: true,
-            endDate: true,
-            monthlyRent: true,
-            charges: true,
-            deposit: true,
-            specialConditions: true,
-            ownerSignedAt: true,
-            tenantSignedAt: true,
-            status: true,
-            property: {
-              select: {
-                id: true,
-                title: true,
-                address: true,
-                city: true,
-                images: {
-                  orderBy: { order: 'asc' },
-                  take: 1,
-                  select: { url: true },
-                },
-              },
-            },
-            owner: {
-              select: { id: true, firstName: true, lastName: true, phone: true },
-            },
-          },
-        },
-      },
-    })
+    let query = supabase.from('payments').select(`
+      *,
+      lease:lease_id(
+        id,
+        start_date,
+        end_date,
+        monthly_rent,
+        charges,
+        deposit,
+        special_conditions,
+        owner_signed_at,
+        tenant_signed_at,
+        status,
+        property:property_id(
+          id,
+          title,
+          address,
+          city,
+          images:property_images(url, "order")
+        ),
+        owner:owner_id(
+          id,
+          first_name,
+          last_name,
+          phone
+        )
+      )
+    `).eq('id', id)
+
+    if (effectiveRole === 'LOCATAIRE') {
+      query = query.eq('tenant_id', userId)
+    } else if (leaseIds !== null) {
+      query = query.in('lease_id', leaseIds)
+    }
+
+    const { data: payment } = await (query.maybeSingle() as any)
 
     if (!payment) {
-      return NextResponse.json({ error: 'Paiement introuvable' }, { status: 404 })
+      return applyCookies(NextResponse.json({ error: 'Paiement introuvable' }, { status: 404 }))
     }
 
-    return NextResponse.json({ data: payment })
+    const mapped = snakeToCamel(payment)
+    if (mapped.lease?.property?.images) {
+      const sorted = [...mapped.lease.property.images].sort(
+        (a: any, b: any) => (a.order || 0) - (b.order || 0)
+      )
+      mapped.lease.property.images = sorted.length > 0 ? [sorted[0]] : []
+    }
+
+    return applyCookies(NextResponse.json({ data: mapped }))
   } catch (error) {
     console.error('Payment detail GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// PUT /api/payments/[id] — Update payment (owner can mark as received / confirm)
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      return applyCookies(NextResponse.json({ error: 'Non authentifié' }, { status: 401 }))
     }
-    const { userId, effectiveRole } = authResult
 
-    // Only PROPRIETAIRE can update payment status (confirm receipt)
+    const supabase = getSupabaseAdminClient()
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('active_role')
+      .eq('id', userId)
+      .single()
+
+    const effectiveRole = user?.active_role
+
     if (effectiveRole !== 'PROPRIETAIRE') {
-      return NextResponse.json(
+      return applyCookies(NextResponse.json(
         { error: 'Seuls les propriétaires peuvent confirmer la réception d\'un paiement' },
         { status: 403 }
-      )
+      ))
     }
 
     const { id } = await params
     const body = await req.json().catch(() => ({}))
     const { action } = body as { action?: string }
 
-    // Find the payment belonging to the owner's property
-    const payment = await db.payment.findFirst({
-      where: { id, lease: { ownerId: userId } },
-    })
+    const { data: leases } = await supabase
+      .from('leases')
+      .select('id')
+      .eq('owner_id', userId)
+    const ownedLeaseIds = (leases || []).map((l: any) => l.id)
 
-    if (!payment) {
-      return NextResponse.json({ error: 'Paiement introuvable' }, { status: 404 })
+    if (ownedLeaseIds.length === 0) {
+      return applyCookies(NextResponse.json({ error: 'Paiement introuvable' }, { status: 404 }))
     }
 
-    // Handle different actions
+    const { data: payment } = await (supabase
+      .from('payments')
+      .select('*')
+      .eq('id', id)
+      .in('lease_id', ownedLeaseIds)
+      .maybeSingle() as any)
+
+    if (!payment) {
+      return applyCookies(NextResponse.json({ error: 'Paiement introuvable' }, { status: 404 }))
+    }
+
     if (action === 'confirm_receipt') {
-      // Owner confirms they received the payment
       if (payment.status !== 'PAID' && payment.status !== 'PROCESSING') {
-        return NextResponse.json(
+        return applyCookies(NextResponse.json(
           { error: `Impossible de confirmer un paiement avec le statut: ${payment.status}` },
           { status: 400 }
-        )
+        ))
       }
 
-      // Payment is already confirmed by the system — owner acknowledgment
-      const updatedPayment = await db.payment.update({
-        where: { id },
-        data: {
-          paymentOperatorData: {
-            ...(payment.paymentOperatorData as Record<string, unknown> || {}),
-            ownerConfirmedAt: new Date().toISOString(),
-            ownerConfirmedBy: userId,
-          },
-        },
-      })
+      const currentOperatorData = payment.payment_operator_data || {}
+      const updatedOperatorData = {
+        ...(typeof currentOperatorData === 'object' ? currentOperatorData : {}),
+        ownerConfirmedAt: new Date().toISOString(),
+        ownerConfirmedBy: userId,
+      }
 
-      // Notify the tenant that the owner confirmed receipt
+      const { data: updatedPayment } = await supabase
+        .from('payments')
+        .update({ payment_operator_data: updatedOperatorData })
+        .eq('id', id)
+        .select()
+        .single()
+
       await notify({
-        userId: payment.tenantId,
+        userId: payment.tenant_id,
         type: 'PAYMENT_ALERT',
         title: 'Paiement confirmé par le propriétaire ✅',
         message: `Le propriétaire a confirmé la réception de votre paiement de ${payment.amount.toLocaleString('fr-FR')} FCFA.`,
@@ -154,16 +206,16 @@ export async function PUT(
         entityId: id,
       })
 
-      return NextResponse.json({
-        data: updatedPayment,
+      return applyCookies(NextResponse.json({
+        data: updatedPayment ? snakeToCamel(updatedPayment) : null,
         message: 'Réception du paiement confirmée',
-      })
+      }))
     }
 
-    return NextResponse.json(
+    return applyCookies(NextResponse.json(
       { error: 'Action non reconnue. Actions disponibles: confirm_receipt' },
       { status: 400 }
-    )
+    ))
   } catch (error) {
     console.error('Payment PUT error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

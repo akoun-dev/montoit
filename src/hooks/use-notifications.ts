@@ -63,7 +63,7 @@ export function useNotifications() {
     socketRef.current = socket
 
     // Fetch initial unread count from REST API
-    fetch('/api/notifications?limit=1')
+    fetch('/api/notifications?limit=1', { credentials: 'include' })
       .then((r) => r.json())
       .then((data) => {
         setUnreadCount(data.unreadCount || 0)
@@ -86,6 +86,7 @@ export function useNotifications() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ notificationIds }),
+      credentials: 'include',
     })
 
     setUnreadCount((prev) => Math.max(0, prev - notificationIds.length))
@@ -101,6 +102,7 @@ export function useNotifications() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ markAllRead: true }),
+      credentials: 'include',
     })
     setUnreadCount(0)
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))

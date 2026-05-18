@@ -1,23 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyDisputeUpdate, notifyDisputeEscalated } from '@/lib/notify'
 
-// Helper: authenticate and authorize TC
 async function authorizeTC(request: NextRequest) {
-  const auth = await getUserIdAndRole(request)
-  if (!auth) return { error: NextResponse.json({ error: 'Non authentifié' }, { status: 401 }) }
-  if (auth.effectiveRole !== 'TIERS_CONFIANCE')
+  const { userId, applyCookies } = await resolveRequestUser(request)
+  if (!userId) return { error: applyCookies(NextResponse.json({ error: 'Non authentifié' }, { status: 401 })) }
+
+  const supabase = getSupabaseAdminClient()
+  const { data: profile } = await ((supabase as any)
+    .from('users')
+    .select('role, active_role')
+    .eq('id', userId)
+    .single() as any)
+
+  const effectiveRole = profile?.active_role || profile?.role
+  if (effectiveRole !== 'TIERS_CONFIANCE')
     return { error: NextResponse.json({ error: 'Accès refusé' }, { status: 403 }) }
-  return { userId: auth.userId }
+
+  return { userId, applyCookies, supabase }
 }
 
-// ─── GET ────────────────────────────────────────────────────────────────────────
-// List disputes for TC management
 export async function GET(request: NextRequest) {
   const auth = await authorizeTC(request)
   if ('error' in auth) return auth.error
-  const { userId } = auth
+  const { userId, applyCookies, supabase } = auth
 
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status')
@@ -27,95 +34,121 @@ export async function GET(request: NextRequest) {
   const isEscalated = searchParams.get('isEscalated')
   const resolved = searchParams.get('resolved') === 'true'
 
-  const where: Record<string, unknown> = {}
+  let query = (supabase.from('disputes') as any).select('*')
 
-  // Resolved history: RESOLVED + CLOSED disputes
   if (resolved) {
-    where.status = { in: ['RESOLVED', 'CLOSED'] }
+    query = query.in('status', ['RESOLVED', 'CLOSED'])
   } else if (mine) {
-    where.handledById = userId
+    query = query.eq('handled_by_id', userId)
   } else {
-    where.OR = [
-      { handledById: userId },
-      { status: 'OPEN', handledById: null },
-    ]
+    query = query.or(`handled_by_id.eq.${userId},and(status.eq.OPEN,handled_by_id.is.null)`)
   }
 
-  if (status && !resolved) where.status = status
-  if (type) where.type = type
-  if (priority) where.priority = priority
+  if (status && !resolved) query = query.eq('status', status)
+  if (type) query = query.eq('type', type)
+  if (priority) query = query.eq('priority', priority)
   if (isEscalated !== null && isEscalated !== undefined && isEscalated !== '') {
-    where.isEscalated = isEscalated === 'true'
+    query = query.eq('is_escalated', isEscalated === 'true')
   }
 
-  const disputes = await db.dispute.findMany({
-    where,
-    include: {
-      lease: {
-        select: {
-          id: true,
-          startDate: true,
-          endDate: true,
-          monthlyRent: true,
-          status: true,
-          property: {
-            select: {
-              id: true,
-              title: true,
-              address: true,
-              city: true,
-              commune: true,
-            },
-          },
-          tenant: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-          owner: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-            },
-          },
-        },
-      },
-      reportedBy: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          role: true,
-        },
-      },
-      handledBy: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          role: true,
-        },
-      },
-    },
-    orderBy: { createdAt: 'desc' },
+  query = query.order('created_at', { ascending: false })
+
+  const { data: disputesData } = await (query)
+  const disputesRaw = (disputesData ?? []) as any[]
+
+  const leaseIds = [...new Set(disputesRaw.map((d: any) => d.lease_id).filter(Boolean))]
+
+  const { data: leasesData } = leaseIds.length > 0
+    ? await ((supabase as any)
+        .from('leases')
+        .select('*, property:properties(id, title, address, city, commune), tenant:users!tenant_id(id, first_name, last_name, email), owner:users!owner_id(id, first_name, last_name, email)')
+        .in('id', leaseIds) as any)
+    : { data: [] as any[] }
+
+  const leaseMap = new Map<string, any>((leasesData ?? []).map((l: any) => [l.id, l]))
+
+  const userIds = [...new Set([
+    ...disputesRaw.map((d: any) => d.reported_by_id),
+    ...disputesRaw.map((d: any) => d.handled_by_id),
+  ].filter(Boolean))]
+
+  const { data: usersData } = userIds.length > 0
+    ? await ((supabase.from('users') as any).select('id, first_name, last_name, email, role').in('id', userIds) as any)
+    : { data: [] as any[] }
+
+  const userMap = new Map<string, any>((usersData ?? []).map((u: any) => [u.id, u]))
+
+  const disputes = disputesRaw.map((d: any) => {
+    const lease = leaseMap.get(d.lease_id)
+    return {
+      id: d.id,
+      leaseId: d.lease_id,
+      type: d.type,
+      status: d.status,
+      priority: d.priority,
+      description: d.description,
+      resolution: d.resolution,
+      tcComment: d.tc_comment,
+      isEscalated: d.is_escalated,
+      escalatedAt: d.escalated_at,
+      escalationReason: d.escalation_reason,
+      investigationNotes: d.investigation_notes,
+      evidenceUrls: d.evidence_urls,
+      reportedById: d.reported_by_id,
+      handledById: d.handled_by_id,
+      createdAt: d.created_at,
+      updatedAt: d.updated_at,
+      lease: lease ? {
+        id: lease.id,
+        startDate: lease.start_date,
+        endDate: lease.end_date,
+        monthlyRent: lease.monthly_rent,
+        status: lease.status,
+        property: lease.property ? {
+          id: lease.property.id,
+          title: lease.property.title,
+          address: lease.property.address,
+          city: lease.property.city,
+          commune: lease.property.commune,
+        } : null,
+        tenant: lease.tenant ? {
+          id: lease.tenant.id,
+          firstName: lease.tenant.first_name,
+          lastName: lease.tenant.last_name,
+          email: lease.tenant.email,
+        } : null,
+        owner: lease.owner ? {
+          id: lease.owner.id,
+          firstName: lease.owner.first_name,
+          lastName: lease.owner.last_name,
+          email: lease.owner.email,
+        } : null,
+      } : null,
+      reportedBy: userMap.get(d.reported_by_id) ? {
+        id: userMap.get(d.reported_by_id).id,
+        firstName: userMap.get(d.reported_by_id).first_name,
+        lastName: userMap.get(d.reported_by_id).last_name,
+        email: userMap.get(d.reported_by_id).email,
+        role: userMap.get(d.reported_by_id).role,
+      } : null,
+      handledBy: userMap.get(d.handled_by_id) ? {
+        id: userMap.get(d.handled_by_id).id,
+        firstName: userMap.get(d.handled_by_id).first_name,
+        lastName: userMap.get(d.handled_by_id).last_name,
+        email: userMap.get(d.handled_by_id).email,
+        role: userMap.get(d.handled_by_id).role,
+      } : null,
+    }
   })
 
-  return NextResponse.json(disputes)
+  const resp = NextResponse.json(disputes)
+  return applyCookies(resp)
 }
 
-// ─── PATCH ──────────────────────────────────────────────────────────────────────
-// Update a dispute (status transitions, priority, escalation, investigation notes, evidence, etc.)
 export async function PATCH(request: NextRequest) {
   const auth = await authorizeTC(request)
   if ('error' in auth) return auth.error
-  const { userId } = auth
+  const { userId, applyCookies, supabase } = auth
 
   try {
     const body = await request.json()
@@ -130,20 +163,19 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "L'identifiant du litige est requis" }, { status: 400 })
     }
 
-    // Fetch the dispute
-    const dispute = await db.dispute.findUnique({
-      where: { id },
-    })
+    const { data: dispute } = await ((supabase as any)
+      .from('disputes')
+      .select('*')
+      .eq('id', id)
+      .single() as any)
 
     if (!dispute) {
       return NextResponse.json({ error: 'Litige introuvable' }, { status: 404 })
     }
 
-    // If dispute is already handled by another TC and not the current user, deny access
-    // Exception: if it's OPEN and unassigned, any TC can take it
     if (
-      dispute.handledById &&
-      dispute.handledById !== userId &&
+      dispute.handled_by_id &&
+      dispute.handled_by_id !== userId &&
       dispute.status !== 'OPEN'
     ) {
       return NextResponse.json(
@@ -152,12 +184,8 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    // Build update data
     const updateData: Record<string, unknown> = {}
 
-    // ─── ESCALATE action ──────────────────────────────────────────────────
-    // Dedicated action: sets isEscalated=true, escalatedAt=now, escalationReason
-    // Only for IN_REVIEW disputes
     if (action === 'ESCALATE') {
       if (dispute.status !== 'IN_REVIEW') {
         return NextResponse.json(
@@ -165,12 +193,11 @@ export async function PATCH(request: NextRequest) {
           { status: 400 }
         )
       }
-      updateData.isEscalated = true
-      updateData.escalatedAt = new Date()
-      updateData.escalationReason = escalationReason?.trim() || null
+      updateData.is_escalated = true
+      updateData.escalated_at = new Date().toISOString()
+      updateData.escalation_reason = escalationReason?.trim() || null
     }
 
-    // ─── Status transition ─────────────────────────────────────────────
     if (status) {
       if (!['OPEN', 'IN_REVIEW', 'RESOLVED', 'CLOSED'].includes(status)) {
         return NextResponse.json({ error: 'Statut invalide' }, { status: 400 })
@@ -191,7 +218,6 @@ export async function PATCH(request: NextRequest) {
         )
       }
 
-      // Additional validation per transition
       if (status === 'RESOLVED' && currentStatus === 'IN_REVIEW') {
         if (!resolution || typeof resolution !== 'string' || !resolution.trim()) {
           return NextResponse.json(
@@ -203,21 +229,18 @@ export async function PATCH(request: NextRequest) {
 
       updateData.status = status
 
-      // OPEN → IN_REVIEW: assign the TC
       if (status === 'IN_REVIEW' && currentStatus === 'OPEN') {
-        updateData.handledById = userId
+        updateData.handled_by_id = userId
       }
 
-      // Any → OPEN (reopen): clear resolvedById and handledById
       if (status === 'OPEN' && currentStatus !== 'OPEN') {
-        updateData.handledById = null
+        updateData.handled_by_id = null
       }
 
       if (resolution !== undefined) updateData.resolution = resolution.trim()
-      if (tcComment !== undefined) updateData.tcComment = tcComment?.trim() || null
+      if (tcComment !== undefined) updateData.tc_comment = tcComment?.trim() || null
     }
 
-    // ─── Priority update ────────────────────────────────────────────────
     if (priority !== undefined) {
       if (!['NORMAL', 'HIGH', 'URGENT'].includes(priority)) {
         return NextResponse.json({ error: 'Priorité invalide (NORMAL, HIGH, URGENT)' }, { status: 400 })
@@ -225,29 +248,24 @@ export async function PATCH(request: NextRequest) {
       updateData.priority = priority
     }
 
-    // ─── Investigation notes ────────────────────────────────────────────
     if (investigationNotes !== undefined) {
-      updateData.investigationNotes = investigationNotes?.trim() || null
+      updateData.investigation_notes = investigationNotes?.trim() || null
     }
 
-    // ─── Evidence URLs ──────────────────────────────────────────────────
     if (evidenceUrls !== undefined) {
       if (Array.isArray(evidenceUrls)) {
-        // Merge with existing URLs
-        const existingUrls: string[] = JSON.parse(dispute.evidenceUrls || '[]')
+        const existingUrls: string[] = JSON.parse(dispute.evidence_urls || '[]')
         const newUrls = evidenceUrls.filter((u: string) => !existingUrls.includes(u))
-        updateData.evidenceUrls = JSON.stringify([...existingUrls, ...newUrls])
+        updateData.evidence_urls = JSON.stringify([...existingUrls, ...newUrls])
       } else if (typeof evidenceUrls === 'string' && evidenceUrls === 'RESET') {
-        updateData.evidenceUrls = '[]'
+        updateData.evidence_urls = '[]'
       }
     }
 
-    // ─── TC Comment (standalone update) ─────────────────────────────────
     if (tcComment !== undefined && !status) {
-      updateData.tcComment = tcComment?.trim() || null
+      updateData.tc_comment = tcComment?.trim() || null
     }
 
-    // ─── Resolution (standalone update) ─────────────────────────────────
     if (resolution !== undefined && !status) {
       updateData.resolution = resolution?.trim() || null
     }
@@ -256,116 +274,50 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Aucune donnée à mettre à jour' }, { status: 400 })
     }
 
-    // Determine audit action
     let auditAction = 'DISPUTE_UPDATED'
     if (action === 'ESCALATE') auditAction = 'DISPUTE_ESCALATED'
     else if (status) auditAction = `DISPUTE_${status}`
 
-    // Use a transaction to update the dispute and create audit log + notification
-    const transactionOps: Promise<unknown>[] = [
-      db.dispute.update({
-        where: { id },
-        data: updateData,
-        include: {
-          lease: {
-            select: {
-              id: true,
-              startDate: true,
-              endDate: true,
-              monthlyRent: true,
-              status: true,
-              property: {
-                select: {
-                  id: true,
-                  title: true,
-                  address: true,
-                  city: true,
-                  commune: true,
-                },
-              },
-              tenant: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                },
-              },
-              owner: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                },
-              },
-            },
-          },
-          reportedBy: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              role: true,
-            },
-          },
-          handledBy: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              role: true,
-            },
-          },
-        },
-      }),
-      // Create AuditLog entry
-      db.auditLog.create({
-        data: {
-          userId,
-          action: auditAction,
-          entity: 'Dispute',
-          entityId: id,
-          details: JSON.stringify({
-            fromStatus: dispute.status,
-            toStatus: status || dispute.status,
-            priority,
-            escalated: action === 'ESCALATE',
-            escalationReason: action === 'ESCALATE' ? escalationReason : undefined,
-            hasInvestigationNotes: !!investigationNotes,
-            hasEvidence: !!evidenceUrls,
-            tcComment: tcComment?.trim() || null,
-            hasResolution: !!resolution,
-          }),
-        },
-      }),
-    ]
+    const { data: updated } = await ((supabase as any)
+      .from('disputes')
+      .update(updateData as any)
+      .eq('id', id)
+      .select()
+      .single() as any)
 
-    // Determine if we need to send a notification after the transaction
+    await (supabase.from('audit_logs') as any).insert({
+      user_id: userId,
+      action: auditAction,
+      entity: 'Dispute',
+      entity_id: id,
+      details: JSON.stringify({
+        fromStatus: dispute.status,
+        toStatus: status || dispute.status,
+        priority,
+        escalated: action === 'ESCALATE',
+        escalationReason: action === 'ESCALATE' ? escalationReason : undefined,
+        hasInvestigationNotes: !!investigationNotes,
+        hasEvidence: !!evidenceUrls,
+        tcComment: tcComment?.trim() || null,
+        hasResolution: !!resolution,
+      }),
+    })
+
     const shouldNotify = !!(status || action === 'ESCALATE')
-    const notifyAction = action
-    const notifyStatus = status
-    const notifyTcComment = tcComment?.trim() || undefined
-    const notifyEscalationReason = escalationReason?.trim() || undefined
-
-    const [updated] = await db.$transaction(transactionOps) as [typeof dispute, ...unknown[]]
-
-    // Send notification via notify() helper (DB + WebSocket) after transaction succeeds
     if (shouldNotify) {
       try {
-        if (notifyAction === 'ESCALATE') {
-          await notifyDisputeEscalated(dispute.reportedById, id, notifyEscalationReason)
-        } else if (notifyStatus) {
-          await notifyDisputeUpdate(dispute.reportedById, id, notifyStatus, notifyTcComment)
+        if (action === 'ESCALATE') {
+          await notifyDisputeEscalated(dispute.reported_by_id, id, escalationReason?.trim())
+        } else if (status) {
+          await notifyDisputeUpdate(dispute.reported_by_id, id, status, tcComment?.trim())
         }
       } catch {
-        // Notification is best-effort — don't fail the main operation
+        // Notification is best-effort
       }
     }
 
-    return NextResponse.json(updated)
+    const resp = NextResponse.json(updated)
+    return applyCookies(resp)
   } catch (error) {
     console.error('[TC Litiges PATCH] Error:', error)
     return NextResponse.json({ error: 'Erreur interne du serveur' }, { status: 500 })

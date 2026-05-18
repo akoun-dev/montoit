@@ -1,96 +1,110 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
 
-// Helper: authenticate and authorize TC
 async function authorizeTC(request: NextRequest) {
-  const auth = await getUserIdAndRole(request)
-  if (!auth) return { error: NextResponse.json({ error: 'Non authentifié' }, { status: 401 }) }
-  if (auth.effectiveRole !== 'TIERS_CONFIANCE')
+  const { userId, applyCookies } = await resolveRequestUser(request)
+  if (!userId) return { error: applyCookies(NextResponse.json({ error: 'Non authentifié' }, { status: 401 })) }
+
+  const supabase = getSupabaseAdminClient()
+  const { data: profile } = await ((supabase as any)
+    .from('users')
+    .select('role, active_role')
+    .eq('id', userId)
+    .single() as any)
+
+  const effectiveRole = profile?.active_role || profile?.role
+  if (effectiveRole !== 'TIERS_CONFIANCE')
     return { error: NextResponse.json({ error: 'Accès refusé' }, { status: 403 }) }
-  return { userId: auth.userId }
+
+  return { userId, applyCookies, supabase }
 }
 
-// ─── GET ────────────────────────────────────────────────────────────────────────
-// List users with ONECI/NeoFace verification status
 export async function GET(request: NextRequest) {
   const auth = await authorizeTC(request)
   if ('error' in auth) return auth.error
+  const { userId, applyCookies, supabase } = auth
 
   const { searchParams } = new URL(request.url)
   const filter = searchParams.get('filter') || 'ALL'
   const search = searchParams.get('search')?.trim()
 
-  const where: Record<string, unknown> = {}
+  let query = supabase
+    .from('users')
+    .select('id, first_name, last_name, email, phone, nni, oneci_verified, oneci_verified_at, neoface_verified, neoface_verified_at, role')
+    .order('created_at', { ascending: false })
+    .limit(100)
 
   if (search) {
-    where.OR = [
-      { firstName: { contains: search } },
-      { lastName: { contains: search } },
-      { email: { contains: search } },
-    ]
+    query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`)
   }
 
   switch (filter) {
     case 'ONECI_VERIFIED':
-      where.oneciVerified = true
+      query = query.eq('oneci_verified', true)
       break
     case 'ONECI_PENDING':
-      where.oneciVerified = false
+      query = query.eq('oneci_verified', false)
       break
     case 'NEOFACE_VERIFIED':
-      where.neofaceVerified = true
+      query = query.eq('neoface_verified', true)
       break
     case 'NEOFACE_PENDING':
-      where.neofaceVerified = false
+      query = query.eq('neoface_verified', false)
       break
   }
 
-  const users = await db.user.findMany({
-    where,
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      email: true,
-      phone: true,
-      nni: true,
-      oneciVerified: true,
-      oneciVerifiedAt: true,
-      neofaceVerified: true,
-      neofaceVerifiedAt: true,
-      role: true,
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 100,
-  })
+  const { data: usersData } = await (query)
 
-  // Stats
-  const totalUsers = await db.user.count()
-  const oneciVerifiedCount = await db.user.count({ where: { oneciVerified: true } })
-  const neofaceVerifiedCount = await db.user.count({ where: { neofaceVerified: true } })
-  const oneciPendingCount = await db.user.count({ where: { oneciVerified: false } })
-  const neofacePendingCount = await db.user.count({ where: { neofaceVerified: false } })
+  const users = (usersData ?? []).map((u: any) => ({
+    id: u.id,
+    firstName: u.first_name,
+    lastName: u.last_name,
+    email: u.email,
+    phone: u.phone,
+    nni: u.nni,
+    oneciVerified: u.oneci_verified,
+    oneciVerifiedAt: u.oneci_verified_at,
+    neofaceVerified: u.neoface_verified,
+    neofaceVerifiedAt: u.neoface_verified_at,
+    role: u.role,
+  }))
 
-  return NextResponse.json({
+  const { count: totalUsers } = await supabase
+    .from('users')
+    .select('id', { count: 'exact', head: true })
+
+  const { count: oneciVerifiedCount } = await supabase
+    .from('users')
+    .select('id', { count: 'exact', head: true })
+    .eq('oneci_verified', true)
+
+  const { count: neofaceVerifiedCount } = await supabase
+    .from('users')
+    .select('id', { count: 'exact', head: true })
+    .eq('neoface_verified', true)
+
+  const oneciPendingCount = (totalUsers ?? 0) - (oneciVerifiedCount ?? 0)
+  const neofacePendingCount = (totalUsers ?? 0) - (neofaceVerifiedCount ?? 0)
+
+  const resp = NextResponse.json({
     users,
     stats: {
-      totalUsers,
-      oneciVerified: oneciVerifiedCount,
-      neofaceVerified: neofaceVerifiedCount,
-      oneciPending: oneciPendingCount,
-      neofacePending: neofacePendingCount,
+      totalUsers: totalUsers ?? 0,
+      oneciVerified: oneciVerifiedCount ?? 0,
+      neofaceVerified: neofaceVerifiedCount ?? 0,
+      oneciPending: Math.max(0, oneciPendingCount),
+      neofacePending: Math.max(0, neofacePendingCount),
     },
   })
+  return applyCookies(resp)
 }
 
-// ─── PATCH ──────────────────────────────────────────────────────────────────────
-// Verify or reject ONECI/NeoFace for a user
 export async function PATCH(request: NextRequest) {
   const auth = await authorizeTC(request)
   if ('error' in auth) return auth.error
-  const { userId: tcUserId } = auth
+  const { userId: tcUserId, applyCookies, supabase } = auth
 
   try {
     const body = await request.json()
@@ -99,12 +113,15 @@ export async function PATCH(request: NextRequest) {
     if (!userId || typeof userId !== 'string') {
       return NextResponse.json({ error: "L'identifiant utilisateur est requis" }, { status: 400 })
     }
-
     if (!action || !['VERIFY_ONECI', 'REJECT_ONECI', 'VERIFY_NEOFACE', 'REJECT_NEOFACE'].includes(action)) {
       return NextResponse.json({ error: 'Action invalide' }, { status: 400 })
     }
 
-    const user = await db.user.findUnique({ where: { id: userId } })
+    const { data: user } = await ((supabase as any)
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single() as any)
     if (!user) {
       return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 })
     }
@@ -113,55 +130,41 @@ export async function PATCH(request: NextRequest) {
 
     switch (action) {
       case 'VERIFY_ONECI':
-        updateData.oneciVerified = true
-        updateData.oneciVerifiedAt = new Date()
+        updateData.oneci_verified = true
+        updateData.oneci_verified_at = new Date().toISOString()
         break
       case 'REJECT_ONECI':
-        updateData.oneciVerified = false
-        updateData.oneciVerifiedAt = null
+        updateData.oneci_verified = false
+        updateData.oneci_verified_at = null
         break
       case 'VERIFY_NEOFACE':
-        updateData.neofaceVerified = true
-        updateData.neofaceVerifiedAt = new Date()
+        updateData.neoface_verified = true
+        updateData.neoface_verified_at = new Date().toISOString()
         break
       case 'REJECT_NEOFACE':
-        updateData.neofaceVerified = false
-        updateData.neofaceVerifiedAt = null
+        updateData.neoface_verified = false
+        updateData.neoface_verified_at = null
         break
     }
 
-    const updated = await db.user.update({
-      where: { id: userId },
-      data: updateData,
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        nni: true,
-        oneciVerified: true,
-        oneciVerifiedAt: true,
-        neofaceVerified: true,
-        neofaceVerifiedAt: true,
-        role: true,
-      },
-    })
+    const { data: updated } = await ((supabase as any)
+      .from('users')
+      .update(updateData as any)
+      .eq('id', userId)
+      .select('id, first_name, last_name, email, phone, nni, oneci_verified, oneci_verified_at, neoface_verified, neoface_verified_at, role')
+      .single() as any)
 
-    // Create audit log
     const actionLabel = action.startsWith('VERIFY') ? 'vérifiée' : 'rejetée'
     const typeLabel = action.includes('ONECI') ? 'ONECI' : 'NeoFace'
-    await db.auditLog.create({
-      data: {
-        userId: tcUserId,
-        action: `ONECI_${action}`,
-        entity: 'User',
-        entityId: userId,
-        details: JSON.stringify({ action, comment, type: typeLabel }),
-      },
+
+    await (supabase.from('audit_logs') as any).insert({
+      user_id: tcUserId,
+      action: `ONECI_${action}`,
+      entity: 'User',
+      entity_id: userId,
+      details: JSON.stringify({ action, comment, type: typeLabel }),
     })
 
-    // Create notification for user
     const isVerified = action.startsWith('VERIFY')
     await notify({
       userId,
@@ -174,7 +177,22 @@ export async function PATCH(request: NextRequest) {
       entityId: userId,
     })
 
-    return NextResponse.json(updated)
+    const respData = {
+      id: updated.id,
+      firstName: updated.first_name,
+      lastName: updated.last_name,
+      email: updated.email,
+      phone: updated.phone,
+      nni: updated.nni,
+      oneciVerified: updated.oneci_verified,
+      oneciVerifiedAt: updated.oneci_verified_at,
+      neofaceVerified: updated.neoface_verified,
+      neofaceVerifiedAt: updated.neoface_verified_at,
+      role: updated.role,
+    }
+
+    const resp = NextResponse.json(respData)
+    return applyCookies(resp)
   } catch (error) {
     console.error('[TC ONECI PATCH] Error:', error)
     return NextResponse.json({ error: 'Erreur interne du serveur' }, { status: 500 })

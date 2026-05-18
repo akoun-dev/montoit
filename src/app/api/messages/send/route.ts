@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notify'
 
-// POST /api/messages/send — Send a message to a propriétaire or agence
-// Body: { recipientId: string, content: string, propertyId?: string }
-// Creates a conversation if one doesn't exist, or adds to existing
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
@@ -32,91 +29,96 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Vous ne pouvez pas vous envoyer un message' }, { status: 400 })
     }
 
-    // Verify recipient exists
-    const recipient = await db.user.findUnique({
-      where: { id: recipientId },
-      select: { id: true, firstName: true, lastName: true, role: true },
-    })
+    const admin = getSupabaseAdminClient()
+
+    const { data: recipient } = await admin
+      .from('users')
+      .select('id')
+      .eq('id', recipientId)
+      .maybeSingle()
+
     if (!recipient) {
       return NextResponse.json({ error: 'Destinataire introuvable' }, { status: 404 })
     }
 
-    // Find existing conversation between these two users (with optional propertyId)
-    const existingConversation = await db.conversation.findFirst({
-      where: {
-        OR: [
-          { participant1Id: userId, participant2Id: recipientId, propertyId: propertyId || null },
-          { participant1Id: recipientId, participant2Id: userId, propertyId: propertyId || null },
-        ],
-      },
-    })
+    const { data: existingConvs } = await admin
+      .from('conversations')
+      .select('id')
+      .or(`and(participant1_id.eq.${userId},participant2_id.eq.${recipientId}),and(participant1_id.eq.${recipientId},participant2_id.eq.${userId})`)
 
     let convId: string
-
-    if (existingConversation) {
-      convId = existingConversation.id
+    if (existingConvs && existingConvs.length > 0) {
+      convId = existingConvs[0].id
     } else {
-      // Create new conversation
-      const newConversation = await db.conversation.create({
-        data: {
-          participant1Id: userId,
-          participant2Id: recipientId,
-          propertyId: propertyId || null,
-        },
-      })
-      convId = newConversation.id
+      const { data: newConv, error: convError } = await admin
+        .from('conversations')
+        .insert({
+          participant1_id: userId,
+          participant2_id: recipientId,
+          property_id: propertyId || null,
+        })
+        .select()
+        .single()
+
+      if (convError) throw convError
+      convId = newConv.id
     }
 
-    // Create the message
-    const message = await db.message.create({
-      data: {
+    const { data: message, error: msgError } = await admin
+      .from('messages')
+      .insert({
         content: content.trim(),
-        conversationId: convId,
-        senderId: userId,
-        isRead: false,
-      },
-      include: {
-        sender: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-      },
-    })
+        conversation_id: convId,
+        sender_id: userId,
+        is_read: false,
+      })
+      .select()
+      .single()
 
-    // Update conversation's lastMessageAt
-    await db.conversation.update({
-      where: { id: convId },
-      data: { lastMessageAt: new Date() },
-    })
+    if (msgError) throw msgError
 
-    // Send notification to recipient
-    const sender = await db.user.findUnique({
-      where: { id: userId },
-      select: { firstName: true, lastName: true },
-    })
+    await admin
+      .from('conversations')
+      .update({ last_message_at: new Date().toISOString() })
+      .eq('id', convId)
 
-    if (sender) {
+    const senderData = await admin
+      .from('users')
+      .select('first_name, last_name')
+      .eq('id', userId)
+      .single()
+
+    if (senderData.data) {
       await notify({
         userId: recipientId,
         type: 'MESSAGE',
         title: 'Nouveau message',
-        message: `${sender.firstName} ${sender.lastName} vous a envoyé un message`,
+        message: `${senderData.data.first_name} ${senderData.data.last_name} vous a envoyé un message`,
         actionUrl: 'messages',
         entityId: convId,
       })
     }
 
-    // Return the message with conversation data
-    const conversation = await db.conversation.findUnique({
-      where: { id: convId },
-      include: {
-        participant1: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        participant2: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        property: { select: { id: true, title: true, images: { orderBy: { order: 'asc' }, take: 1 } } },
+    const sender = senderData.data
+      ? { id: userId, firstName: senderData.data.first_name, lastName: senderData.data.last_name }
+      : null
+
+    const response = NextResponse.json({
+      message: {
+        id: message.id,
+        content: message.content,
+        isRead: message.is_read,
+        createdAt: message.created_at,
+        conversationId: message.conversation_id,
+        senderId: message.sender_id,
+        sender,
+      },
+      conversation: {
+        id: convId,
+        lastMessageAt: message.created_at,
       },
     })
-
-    return NextResponse.json({
-      message,
-      conversation,
-    })
+    return applyCookies(response)
   } catch (error) {
     console.error('Messages send error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

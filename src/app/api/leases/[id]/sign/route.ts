@@ -1,186 +1,259 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import crypto from 'crypto'
 import { notify, notifyLeaseActivated } from '@/lib/notify'
 
-// POST /api/leases/[id]/sign — Sign a lease electronically with OTP verification
+function generateId() {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function mapLease(lease: Record<string, unknown>) {
+  return {
+    id: lease.id,
+    status: lease.status,
+    propertyId: lease.property_id,
+    tenantId: lease.tenant_id,
+    ownerId: lease.owner_id,
+    rentalFileId: lease.rental_file_id,
+    monthlyRent: lease.monthly_rent,
+    charges: lease.charges,
+    deposit: lease.deposit,
+    startDate: lease.start_date,
+    endDate: lease.end_date,
+    specialConditions: lease.special_conditions,
+    ownerSignedAt: lease.owner_signed_at,
+    tenantSignedAt: lease.tenant_signed_at,
+    ownerSignOtp: lease.owner_sign_otp,
+    tenantSignOtp: lease.tenant_sign_otp,
+    ownerSignatureImage: lease.owner_signature_image,
+    tenantSignatureImage: lease.tenant_signature_image,
+    createdAt: lease.created_at,
+    updatedAt: lease.updated_at,
+  }
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId } = authResult
 
     const { id } = await params
     const body = await req.json()
     const { otpCode, signatureImage } = body
 
     if (!otpCode) {
-      return NextResponse.json({ error: 'Code OTP requis' }, { status: 400 })
+      const resp = NextResponse.json({ error: 'Code OTP requis' }, { status: 400 })
+      return applyCookies(resp)
     }
 
-    // ─── Find the lease ───────────────────────────────────────────────────
-    const lease = await db.lease.findUnique({
-      where: { id },
-      include: {
-        property: { select: { id: true, title: true, address: true, city: true } },
-        owner: { select: { id: true, firstName: true, lastName: true, email: true } },
-        tenant: { select: { id: true, firstName: true, lastName: true, email: true } },
-      },
-    })
+    const supabase = getSupabaseAdminClient()
+
+    const { data: lease } = await supabase
+      .from('leases')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
 
     if (!lease) {
-      return NextResponse.json({ error: 'Bail introuvable' }, { status: 404 })
+      const resp = NextResponse.json({ error: 'Bail introuvable' }, { status: 404 })
+      return applyCookies(resp)
     }
 
-    // Auth check: must be tenant or owner of this lease
-    if (lease.tenantId !== userId && lease.ownerId !== userId) {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    if (lease.tenant_id !== userId && lease.owner_id !== userId) {
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
     }
 
-    // Validate lease is PENDING_SIGNATURE
     if (lease.status !== 'PENDING_SIGNATURE') {
-      return NextResponse.json(
+      const resp = NextResponse.json(
         { error: 'Ce bail ne peut pas être signé (statut: ' + lease.status + ')' },
         { status: 400 }
       )
+      return applyCookies(resp)
     }
 
-    // ─── Verify OTP ───────────────────────────────────────────────────────
-    const otpRecord = await db.oTPCode.findFirst({
-      where: {
-        userId,
-        type: 'BAIL_SIGNATURE',
-        code: otpCode,
-        isUsed: false,
-        expiresAt: { gt: new Date() },
-      },
-    })
+    const { data: otpRecord } = await supabase
+      .from('otp_codes')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('type', 'BAIL_SIGNATURE')
+      .eq('code', otpCode)
+      .eq('is_used', false)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
     if (!otpRecord) {
-      return NextResponse.json(
+      const resp = NextResponse.json(
         { error: 'Code OTP invalide ou expiré' },
         { status: 400 }
       )
+      return applyCookies(resp)
     }
 
-    // Mark OTP as used
-    await db.oTPCode.update({
-      where: { id: otpRecord.id },
-      data: { isUsed: true },
-    })
+    await supabase.from('otp_codes').update({ is_used: true }).eq('id', otpRecord.id)
 
-    // ─── Apply signature ──────────────────────────────────────────────────
     const now = new Date()
     const signOtp = crypto.randomBytes(16).toString('hex')
 
-    let updatedLease
+    let updatedLease: any
+    const isOwner = lease.owner_id === userId
 
-    if (lease.ownerId === userId) {
-      // Owner signing
-      if (lease.ownerSignedAt) {
-        return NextResponse.json({ error: 'Vous avez déjà signé ce bail' }, { status: 400 })
+    const { data: property } = await supabase
+      .from('properties')
+      .select('id, title, address, city')
+      .eq('id', lease.property_id)
+      .maybeSingle()
+
+    const userIds = [lease.owner_id, lease.tenant_id].filter(Boolean)
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, email, avatar_url')
+      .in('id', userIds)
+    const userMap = new Map((users ?? []).map((u: any) => [u.id, u]))
+    const owner = userMap.get(lease.owner_id)
+    const tenant = userMap.get(lease.tenant_id)
+
+    if (isOwner) {
+      if (lease.owner_signed_at) {
+        const resp = NextResponse.json({ error: 'Vous avez déjà signé ce bail' }, { status: 400 })
+        return applyCookies(resp)
       }
 
-      updatedLease = await db.lease.update({
-        where: { id },
-        data: {
-          ownerSignedAt: now,
-          ownerSignOtp: signOtp,
-          ownerSignatureImage: signatureImage || null,
-          // If both parties have signed, activate the lease
-          ...(lease.tenantSignedAt ? { status: 'ACTIVE' } : {}),
-          updatedAt: now,
-        },
-        include: {
-          property: { select: { id: true, title: true, address: true, city: true, images: { orderBy: { order: 'asc' }, take: 1 } } },
-          owner: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-          tenant: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        },
-      })
+      const updateData: Record<string, unknown> = {
+        owner_signed_at: now.toISOString(),
+        owner_sign_otp: signOtp,
+        owner_signature_image: signatureImage || null,
+        updated_at: now.toISOString(),
+      }
+      if (lease.tenant_signed_at) {
+        updateData.status = 'ACTIVE'
+      }
 
-      // Notify tenant
-      await notify({
-        userId: lease.tenantId,
+      const { data: updated } = await supabase
+          .from('leases')
+          .update(updateData as any)
+          .eq('id', id)
+          .select()
+          .single()
+        updatedLease = updated
+
+        await notify({
+          userId: lease.tenant_id,
         type: 'DOSSIER_UPDATE',
-        title: lease.tenantSignedAt ? 'Bail signé et activé' : 'Le propriétaire a signé le bail',
-        message: lease.tenantSignedAt
-          ? `Le bail pour "${lease.property.title}" est maintenant actif. Les deux parties ont signé.`
-          : `${lease.owner.firstName} ${lease.owner.lastName} a signé le bail pour "${lease.property.title}". Votre signature est attendue.`,
+        title: lease.tenant_signed_at ? 'Bail signé et activé' : 'Le propriétaire a signé le bail',
+        message: lease.tenant_signed_at
+          ? `Le bail pour "${property?.title || ''}" est maintenant actif. Les deux parties ont signé.`
+          : `${owner?.first_name || ''} ${owner?.last_name || ''} a signé le bail pour "${property?.title || ''}". Votre signature est attendue.`,
         actionUrl: 'my-leases',
         entityId: lease.id,
       })
 
-      // If both parties have signed, notify the signer too that lease is active
-      if (lease.tenantSignedAt) {
-        await notifyLeaseActivated(lease.tenantId, lease.ownerId, lease.property.title, lease.id)
+      if (lease.tenant_signed_at) {
+        await notifyLeaseActivated(lease.tenant_id, lease.owner_id, property?.title || '', lease.id)
       }
     } else {
-      // Tenant signing
-      if (lease.tenantSignedAt) {
-        return NextResponse.json({ error: 'Vous avez déjà signé ce bail' }, { status: 400 })
+      if (lease.tenant_signed_at) {
+        const resp = NextResponse.json({ error: 'Vous avez déjà signé ce bail' }, { status: 400 })
+        return applyCookies(resp)
       }
 
-      updatedLease = await db.lease.update({
-        where: { id },
-        data: {
-          tenantSignedAt: now,
-          tenantSignOtp: signOtp,
-          tenantSignatureImage: signatureImage || null,
-          // If both parties have signed, activate the lease
-          ...(lease.ownerSignedAt ? { status: 'ACTIVE' } : {}),
-          updatedAt: now,
-        },
-        include: {
-          property: { select: { id: true, title: true, address: true, city: true, images: { orderBy: { order: 'asc' }, take: 1 } } },
-          owner: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-          tenant: { select: { id: true, firstName: true, lastName: true, avatarUrl: true } },
-        },
-      })
+      const updateData: Record<string, unknown> = {
+        tenant_signed_at: now.toISOString(),
+        tenant_sign_otp: signOtp,
+        tenant_signature_image: signatureImage || null,
+        updated_at: now.toISOString(),
+      }
+      if (lease.owner_signed_at) {
+        updateData.status = 'ACTIVE'
+      }
 
-      // Notify owner
-      await notify({
-        userId: lease.ownerId,
+      const { data: updated } = await supabase
+          .from('leases')
+          .update(updateData as any)
+          .eq('id', id)
+          .select()
+          .single()
+        updatedLease = updated
+
+        await notify({
+          userId: lease.owner_id,
         type: 'DOSSIER_UPDATE',
-        title: lease.ownerSignedAt ? 'Bail signé et activé' : 'Le locataire a signé le bail',
-        message: lease.ownerSignedAt
-          ? `Le bail pour "${lease.property.title}" est maintenant actif. Les deux parties ont signé.`
-          : `${lease.tenant.firstName} ${lease.tenant.lastName} a signé le bail pour "${lease.property.title}".`,
+        title: lease.owner_signed_at ? 'Bail signé et activé' : 'Le locataire a signé le bail',
+        message: lease.owner_signed_at
+          ? `Le bail pour "${property?.title || ''}" est maintenant actif. Les deux parties ont signé.`
+          : `${tenant?.first_name || ''} ${tenant?.last_name || ''} a signé le bail pour "${property?.title || ''}".`,
         actionUrl: 'my-leases',
         entityId: lease.id,
       })
 
-      // If both parties have signed, notify the signer too that lease is active
-      if (lease.ownerSignedAt) {
-        await notifyLeaseActivated(lease.tenantId, lease.ownerId, lease.property.title, lease.id)
+      if (lease.owner_signed_at) {
+        await notifyLeaseActivated(lease.tenant_id, lease.owner_id, property?.title || '', lease.id)
       }
     }
 
-    // ─── Audit log ────────────────────────────────────────────────────────
-    await db.auditLog.create({
-      data: {
-        action: lease.ownerId === userId ? 'LEASE_OWNER_SIGNED' : 'LEASE_TENANT_SIGNED',
-        entity: 'Lease',
-        entityId: id,
-        details: JSON.stringify({
-          signedBy: userId,
-          role: lease.ownerId === userId ? 'OWNER' : 'TENANT',
-          propertyTitle: lease.property.title,
-          bothSigned: !!(updatedLease.ownerSignedAt && updatedLease.tenantSignedAt),
-          newStatus: updatedLease.status,
-        }),
-        userId,
-      },
+    await supabase.from('audit_logs').insert({
+      id: generateId(),
+      action: isOwner ? 'LEASE_OWNER_SIGNED' : 'LEASE_TENANT_SIGNED',
+      entity: 'Lease',
+      entity_id: id,
+      details: JSON.stringify({
+        signedBy: userId,
+        role: isOwner ? 'OWNER' : 'TENANT',
+        propertyTitle: property?.title || '',
+        bothSigned: !!(updatedLease?.tenant_signed_at && updatedLease?.owner_signed_at),
+        newStatus: updatedLease?.status,
+      }),
+      user_id: userId,
     })
 
-    return NextResponse.json({ data: updatedLease })
+    let propImages: any[] = []
+    if (lease.property_id) {
+      const { data: imgs } = await supabase
+        .from('property_images')
+        .select('url')
+        .eq('property_id', lease.property_id)
+        .order('order', { ascending: true })
+        .limit(1)
+      propImages = imgs ?? []
+    }
+
+    const result = {
+      ...mapLease(updatedLease),
+      property: property ? {
+        id: property.id,
+        title: property.title,
+        address: property.address,
+        city: property.city,
+        images: propImages.map((img: any) => ({ url: img.url })),
+      } : undefined,
+      owner: owner ? {
+        id: owner.id,
+        firstName: owner.first_name,
+        lastName: owner.last_name,
+        avatarUrl: owner.avatar_url,
+      } : undefined,
+      tenant: tenant ? {
+        id: tenant.id,
+        firstName: tenant.first_name,
+        lastName: tenant.last_name,
+        avatarUrl: tenant.avatar_url,
+      } : undefined,
+    }
+
+    const resp = NextResponse.json({ data: result })
+    return applyCookies(resp)
   } catch (error) {
     console.error('Lease sign error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    const resp = NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return resp
   }
 }

@@ -60,6 +60,7 @@ interface PaymentsResponse {
     totalPayments: number
     paidCount: number
     pendingCount: number
+    processingCount: number
   }
 }
 

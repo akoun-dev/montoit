@@ -362,7 +362,7 @@ export function PropertyVerifyDetail() {
               {/* Amenities */}
               {(() => {
                 let amenities: string[] = []
-                try { amenities = JSON.parse((property as Record<string, unknown>).amenities as string || '[]') } catch { amenities = [] }
+                try { amenities = JSON.parse((property as unknown as Record<string, unknown>).amenities as string || '[]') } catch { amenities = [] }
                 if (amenities.length === 0) return null
                 return (
                   <div>

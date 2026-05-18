@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import {
+  findValidEmailOtp,
+  getUserProfileByEmail,
+  normalizeEmail,
+} from '@/lib/supabase/email-auth'
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,45 +15,106 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Identifiant, code et nouveau mot de passe requis' }, { status: 400 })
     }
 
-    // Validate password strength
-    if (newPassword.length < 8 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+    if (
+      newPassword.length < 8
+      || !/[A-Z]/.test(newPassword)
+      || !/[a-z]/.test(newPassword)
+      || !/[0-9]/.test(newPassword)
+    ) {
       return NextResponse.json({
         error: 'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre',
       }, { status: 400 })
     }
 
-    // Find the valid PASSWORD_RESET OTP
-    const whereClause = email
-      ? { email, code, type: 'PASSWORD_RESET' as const, isUsed: false, expiresAt: { gt: new Date() } }
-      : { phone, code, type: 'PASSWORD_RESET' as const, isUsed: false, expiresAt: { gt: new Date() } }
+    if (email) {
+      const admin = getSupabaseAdminClient()
+      const normalizedEmail = normalizeEmail(email)
 
-    const otp = await db.oTPCode.findFirst({
-      where: whereClause,
-      orderBy: { createdAt: 'desc' },
-    })
+      const otp = await findValidEmailOtp(admin, {
+        email: normalizedEmail,
+        code,
+        type: 'PASSWORD_RESET',
+      })
+
+      if (!otp) {
+        return NextResponse.json({ error: 'Code invalide ou expiré' }, { status: 400 })
+      }
+
+      const { error: markUsedError } = await admin
+        .from('otp_codes')
+        .update({ is_used: true })
+        .eq('id', otp.id)
+
+      if (markUsedError) {
+        throw markUsedError
+      }
+
+      const user = await getUserProfileByEmail(admin, normalizedEmail)
+      if (!user || !user.is_active) {
+        return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
+      }
+
+      const { error: authError } = await admin.auth.admin.updateUserById(user.id, {
+        password: newPassword,
+      })
+
+      if (authError) {
+        return NextResponse.json(
+          { error: authError.message || 'Impossible de mettre à jour le mot de passe Supabase' },
+          { status: 400 }
+        )
+      }
+
+      const { error: profileError } = await admin
+        .from('users')
+        .update({ password_updated_at: new Date().toISOString() })
+        .eq('id', user.id)
+
+      if (profileError) {
+        throw profileError
+      }
+
+      return NextResponse.json({ message: 'Mot de passe réinitialisé avec succès' })
+    }
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: otp } = await supabase
+      .from('otp_codes')
+      .select('id, user_id')
+      .eq('phone', phone)
+      .eq('code', code)
+      .eq('type', 'PASSWORD_RESET')
+      .eq('is_used', false)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
     if (!otp) {
       return NextResponse.json({ error: 'Code invalide ou expiré' }, { status: 400 })
     }
 
-    // Mark OTP as used
-    await db.oTPCode.update({ where: { id: otp.id }, data: { isUsed: true } })
+    await supabase
+      .from('otp_codes')
+      .update({ is_used: true })
+      .eq('id', otp.id)
 
-    // Find the user
-    const user = email
-      ? await db.user.findUnique({ where: { email } })
-      : await db.user.findUnique({ where: { phone: phone! } })
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, is_active')
+      .eq('phone', phone!)
+      .maybeSingle()
 
-    if (!user || !user.isActive) {
+    if (!user || !user.is_active) {
       return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
     }
 
-    // Hash new password and update
     const passwordHash = await bcrypt.hash(newPassword, 12)
-    await db.user.update({
-      where: { id: user.id },
-      data: { passwordHash },
-    })
+    await supabase
+      .from('users')
+      .update({ password_hash: passwordHash })
+      .eq('id', user.id)
 
     return NextResponse.json({ message: 'Mot de passe réinitialisé avec succès' })
   } catch (error) {

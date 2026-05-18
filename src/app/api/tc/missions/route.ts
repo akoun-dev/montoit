@@ -1,23 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify, notifyMissionAssigned } from '@/lib/notify'
 
-// Helper: authenticate and authorize TC
 async function authorizeTC(request: NextRequest) {
-  const auth = await getUserIdAndRole(request)
-  if (!auth) return { error: NextResponse.json({ error: 'Non authentifié' }, { status: 401 }) }
-  if (auth.effectiveRole !== 'TIERS_CONFIANCE')
+  const { userId, applyCookies } = await resolveRequestUser(request)
+  if (!userId) return { error: applyCookies(NextResponse.json({ error: 'Non authentifié' }, { status: 401 })) }
+
+  const supabase = getSupabaseAdminClient()
+  const { data: profile } = await ((supabase as any)
+    .from('users')
+    .select('role, active_role')
+    .eq('id', userId)
+    .single() as any)
+
+  const effectiveRole = profile?.active_role || profile?.role
+  if (effectiveRole !== 'TIERS_CONFIANCE')
     return { error: NextResponse.json({ error: 'Accès refusé' }, { status: 403 }) }
-  return { userId: auth.userId }
+
+  return { userId, applyCookies, supabase }
 }
 
-// ─── GET ────────────────────────────────────────────────────────────────────────
-// List all missions for the current TC
 export async function GET(request: NextRequest) {
   const auth = await authorizeTC(request)
   if ('error' in auth) return auth.error
-  const { userId } = auth
+  const { userId, applyCookies, supabase } = auth
 
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status')
@@ -28,62 +35,86 @@ export async function GET(request: NextRequest) {
   const calendar = searchParams.get('calendar') === 'true'
   const priority = searchParams.get('priority')
 
-  const where: Record<string, unknown> = {
-    tcId: userId,
-  }
+  let query = (supabase.from('missions') as any).select('*').eq('tc_id', userId)
 
-  if (status) where.status = status
-  if (agentId) where.agentId = agentId
-  if (propertyId) where.propertyId = propertyId
-  if (priority) where.priority = priority
+  if (status) query = query.eq('status', status)
+  if (agentId) query = query.eq('agent_id', agentId)
+  if (propertyId) query = query.eq('property_id', propertyId)
+  if (priority) query = query.eq('priority', priority)
+  if (dateFrom) query = query.gte('scheduled_at', new Date(dateFrom).toISOString())
+  if (dateTo) query = query.lte('scheduled_at', new Date(dateTo).toISOString())
 
-  if (dateFrom || dateTo) {
-    const scheduledAt: Record<string, Date> = {}
-    if (dateFrom) scheduledAt.gte = new Date(dateFrom)
-    if (dateTo) scheduledAt.lte = new Date(dateTo)
-    where.scheduledAt = scheduledAt
-  }
+  query = query.order('scheduled_at', { ascending: false })
 
-  const missions = await db.mission.findMany({
-    where,
-    include: {
-      agent: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          phone: true,
-          isActive: true,
-        },
-      },
-      property: {
-        select: {
-          id: true,
-          title: true,
-          address: true,
-          city: true,
-          commune: true,
-          type: true,
-          images: {
-            select: { id: true, url: true, order: true },
-            orderBy: { order: 'asc' },
-          },
-        },
-      },
-      inventoryReport: {
-        select: {
-          id: true,
-          type: true,
-          status: true,
-          completedAt: true,
-        },
-      },
-    },
-    orderBy: { scheduledAt: 'desc' },
-  })
+  const { data: missionsData } = await (query)
+  const missionsRaw = (missionsData ?? []) as any[]
 
-  // Calendar view: group missions by date
+  const agentIds = [...new Set(missionsRaw.map((m: any) => m.agent_id).filter(Boolean))]
+  const propIds = [...new Set(missionsRaw.map((m: any) => m.property_id).filter(Boolean))]
+  const reportIds = [...new Set(missionsRaw.map((m: any) => m.inventory_report_id).filter(Boolean))]
+
+  const [{ data: agentsData }, { data: propertiesData }, { data: reportsData }] = await Promise.all([
+    agentIds.length > 0
+      ? (supabase.from('verification_agents') as any).select('id, first_name, last_name, email, phone, is_active').in('id', agentIds) as any
+      : Promise.resolve({ data: [] as any[], error: null }),
+    propIds.length > 0
+      ? (supabase.from('properties') as any).select('*, images:property_images(id, url, order)').in('id', propIds) as any
+      : Promise.resolve({ data: [] as any[], error: null }),
+    reportIds.length > 0
+      ? (supabase.from('inventory_reports') as any).select('id, type, status, completed_at').in('id', reportIds) as any
+      : Promise.resolve({ data: [] as any[], error: null }),
+  ])
+
+  const agentMap = new Map<string, any>((agentsData ?? []).map((a: any) => [a.id, a]))
+  const propMap = new Map<string, any>((propertiesData ?? []).map((p: any) => [p.id, p]))
+  const reportMap = new Map<string, any>((reportsData ?? []).map((r: any) => [r.id, r]))
+
+  const missions = missionsRaw.map((m: any) => ({
+    id: m.id,
+    agentId: m.agent_id,
+    propertyId: m.property_id,
+    tcId: m.tc_id,
+    type: m.type,
+    status: m.status,
+    priority: m.priority,
+    scheduledAt: m.scheduled_at,
+    completedAt: m.completed_at,
+    createdAt: m.created_at,
+    updatedAt: m.updated_at,
+    notes: m.notes,
+    reportUrl: m.report_url,
+    photoUrls: m.photo_urls,
+    feedback: m.feedback,
+    inventoryReportId: m.inventory_report_id,
+    agent: agentMap.get(m.agent_id) ? {
+      id: agentMap.get(m.agent_id).id,
+      firstName: agentMap.get(m.agent_id).first_name,
+      lastName: agentMap.get(m.agent_id).last_name,
+      email: agentMap.get(m.agent_id).email,
+      phone: agentMap.get(m.agent_id).phone,
+      isActive: agentMap.get(m.agent_id).is_active,
+    } : null,
+    property: propMap.get(m.property_id) ? {
+      id: propMap.get(m.property_id).id,
+      title: propMap.get(m.property_id).title,
+      address: propMap.get(m.property_id).address,
+      city: propMap.get(m.property_id).city,
+      commune: propMap.get(m.property_id).commune,
+      type: propMap.get(m.property_id).type,
+      images: (propMap.get(m.property_id).images ?? []).map((img: any) => ({
+        id: img.id,
+        url: img.url,
+        order: img.order,
+      })),
+    } : null,
+    inventoryReport: reportMap.get(m.inventory_report_id) ? {
+      id: reportMap.get(m.inventory_report_id).id,
+      type: reportMap.get(m.inventory_report_id).type,
+      status: reportMap.get(m.inventory_report_id).status,
+      completedAt: reportMap.get(m.inventory_report_id).completed_at,
+    } : null,
+  }))
+
   if (calendar) {
     const grouped: Record<string, typeof missions> = {}
     for (const mission of missions) {
@@ -91,24 +122,23 @@ export async function GET(request: NextRequest) {
       if (!grouped[dateKey]) grouped[dateKey] = []
       grouped[dateKey].push(mission)
     }
-    return NextResponse.json({ calendar: grouped })
+    const resp = NextResponse.json({ calendar: grouped })
+    return applyCookies(resp)
   }
 
-  return NextResponse.json(missions)
+  const resp = NextResponse.json(missions)
+  return applyCookies(resp)
 }
 
-// ─── POST ───────────────────────────────────────────────────────────────────────
-// Create a new mission
 export async function POST(request: NextRequest) {
   const auth = await authorizeTC(request)
   if ('error' in auth) return auth.error
-  const { userId } = auth
+  const { userId, applyCookies, supabase } = auth
 
   try {
     const body = await request.json()
     const { propertyId, agentId, type, scheduledAt, notes, priority } = body
 
-    // Validate required fields
     if (!propertyId || typeof propertyId !== 'string') {
       return NextResponse.json({ error: "L'identifiant de la propriété est requis" }, { status: 400 })
     }
@@ -130,28 +160,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Date planifiée invalide' }, { status: 400 })
     }
 
-    // Validate priority
     const validPriority = priority && ['NORMAL', 'HIGH', 'URGENT'].includes(priority)
       ? priority : 'NORMAL'
 
-    // Verify the agent belongs to this TC and is active
-    const agent = await db.verificationAgent.findUnique({
-      where: { id: agentId },
-    })
+    const { data: agent } = await ((supabase as any)
+      .from('verification_agents')
+      .select('*')
+      .eq('id', agentId)
+      .single() as any)
     if (!agent) {
       return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
     }
-    if (agent.tcId !== userId) {
+    if (agent.tc_id !== userId) {
       return NextResponse.json({ error: 'Cet agent ne vous appartient pas' }, { status: 403 })
     }
-    if (!agent.isActive) {
+    if (!agent.is_active) {
       return NextResponse.json({ error: 'Cet agent est inactif' }, { status: 400 })
     }
 
-    // Verify the property exists and is in PENDING_VERIFICATION status
-    const property = await db.property.findUnique({
-      where: { id: propertyId },
-    })
+    const { data: property } = await ((supabase as any)
+      .from('properties')
+      .select('*')
+      .eq('id', propertyId)
+      .single() as any)
     if (!property) {
       return NextResponse.json({ error: 'Propriété introuvable' }, { status: 404 })
     }
@@ -162,45 +193,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const mission = await db.mission.create({
-      data: {
-        propertyId,
-        agentId,
+    const { data: mission } = await ((supabase as any)
+      .from('missions')
+      .insert({
+        property_id: propertyId,
+        agent_id: agentId,
         type,
-        scheduledAt: scheduledDate,
+        scheduled_at: scheduledDate.toISOString(),
         notes: notes?.trim() || null,
         priority: validPriority,
-        tcId: userId,
-      },
-      include: {
-        agent: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-          },
-        },
-        property: {
-          select: {
-            id: true,
-            title: true,
-            address: true,
-            city: true,
-          },
-        },
-      },
-    })
+        tc_id: userId,
+      })
+      .select()
+      .single() as any)
 
-    // Notify the property owner
-    const propertyOwner = await db.property.findUnique({
-      where: { id: propertyId },
-      select: { ownerId: true, title: true },
-    })
+    const { data: propertyOwner } = await ((supabase as any)
+      .from('properties')
+      .select('owner_id, title')
+      .eq('id', propertyId)
+      .single() as any)
     if (propertyOwner) {
       await notify({
-        userId: propertyOwner.ownerId,
+        userId: propertyOwner.owner_id,
         type: 'PROPERTY_VERIFICATION',
         title: 'Vérification programmée pour votre bien',
         message: `Une vérification sur place a été programmée pour votre bien "${propertyOwner.title}".`,
@@ -209,23 +223,59 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Notify the assigned TC agent about the mission
-    // VerificationAgent is not a User, so we notify the TC user who manages this agent
     await notifyMissionAssigned(userId, type, property?.title || 'Bien immobilier', mission.id)
 
-    return NextResponse.json(mission, { status: 201 })
+    const { data: missionAgent } = await ((supabase as any)
+      .from('verification_agents')
+      .select('id, first_name, last_name, email, phone')
+      .eq('id', agentId)
+      .single() as any)
+
+    const { data: missionProperty } = await ((supabase as any)
+      .from('properties')
+      .select('id, title, address, city')
+      .eq('id', propertyId)
+      .single() as any)
+
+    const respData = {
+      ...mission,
+      agentId: mission.agent_id,
+      propertyId: mission.property_id,
+      tcId: mission.tc_id,
+      scheduledAt: mission.scheduled_at,
+      completedAt: mission.completed_at,
+      createdAt: mission.created_at,
+      updatedAt: mission.updated_at,
+      reportUrl: mission.report_url,
+      photoUrls: mission.photo_urls,
+      inventoryReportId: mission.inventory_report_id,
+      agent: missionAgent ? {
+        id: missionAgent.id,
+        firstName: missionAgent.first_name,
+        lastName: missionAgent.last_name,
+        email: missionAgent.email,
+        phone: missionAgent.phone,
+      } : null,
+      property: missionProperty ? {
+        id: missionProperty.id,
+        title: missionProperty.title,
+        address: missionProperty.address,
+        city: missionProperty.city,
+      } : null,
+    }
+
+    const resp = NextResponse.json(respData, { status: 201 })
+    return applyCookies(resp)
   } catch (error) {
     console.error('[TC Missions POST] Error:', error)
     return NextResponse.json({ error: 'Erreur interne du serveur' }, { status: 500 })
   }
 }
 
-// ─── PATCH ──────────────────────────────────────────────────────────────────────
-// Update a mission (status, priority, photoUrls, feedback, notes, reportUrl)
 export async function PATCH(request: NextRequest) {
   const auth = await authorizeTC(request)
   if ('error' in auth) return auth.error
-  const { userId } = auth
+  const { userId, applyCookies, supabase } = auth
 
   try {
     const body = await request.json()
@@ -235,22 +285,21 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "L'identifiant de la mission est requis" }, { status: 400 })
     }
 
-    // Verify the mission belongs to this TC
-    const mission = await db.mission.findUnique({
-      where: { id },
-    })
+    const { data: mission } = await ((supabase as any)
+      .from('missions')
+      .select('*')
+      .eq('id', id)
+      .single() as any)
 
     if (!mission) {
       return NextResponse.json({ error: 'Mission introuvable' }, { status: 404 })
     }
-    if (mission.tcId !== userId) {
+    if (mission.tc_id !== userId) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    // Build update data
     const updateData: Record<string, unknown> = {}
 
-    // ─── Status transition ─────────────────────────────────────────────
     if (status) {
       if (!['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(status)) {
         return NextResponse.json({ error: 'Statut invalide' }, { status: 400 })
@@ -273,24 +322,21 @@ export async function PATCH(request: NextRequest) {
 
       updateData.status = status
 
-      // When completing: set completedAt
       if (status === 'COMPLETED') {
-        updateData.completedAt = new Date()
+        updateData.completed_at = new Date().toISOString()
       }
 
-      // When completing PROPERTY_VERIFICATION: also update property
       if (status === 'COMPLETED' && mission.type === 'PROPERTY_VERIFICATION') {
-        await db.property.update({
-          where: { id: mission.propertyId },
-          data: {
-            isVerified: true,
+        await (supabase as any)
+          .from('properties')
+          .update({
+            is_verified: true,
             status: 'ACTIVE',
-          },
-        })
+          })
+          .eq('id', mission.property_id)
       }
     }
 
-    // ─── Priority ──────────────────────────────────────────────────────
     if (priority !== undefined) {
       if (!['NORMAL', 'HIGH', 'URGENT'].includes(priority)) {
         return NextResponse.json({ error: 'Priorité invalide' }, { status: 400 })
@@ -298,29 +344,24 @@ export async function PATCH(request: NextRequest) {
       updateData.priority = priority
     }
 
-    // ─── Notes ─────────────────────────────────────────────────────────
     if (notes !== undefined) {
       updateData.notes = notes?.trim() || null
     }
 
-    // ─── Report URL ────────────────────────────────────────────────────
     if (reportUrl !== undefined) {
-      updateData.reportUrl = reportUrl?.trim() || null
+      updateData.report_url = reportUrl?.trim() || null
     }
 
-    // ─── Photo URLs ────────────────────────────────────────────────────
     if (photoUrls !== undefined) {
       if (Array.isArray(photoUrls)) {
-        // Merge with existing photo URLs
-        const existingUrls: string[] = JSON.parse(mission.photoUrls || '[]')
+        const existingUrls: string[] = JSON.parse(mission.photo_urls || '[]')
         const newUrls = photoUrls.filter((u: string) => !existingUrls.includes(u))
-        updateData.photoUrls = JSON.stringify([...existingUrls, ...newUrls])
+        updateData.photo_urls = JSON.stringify([...existingUrls, ...newUrls])
       } else if (typeof photoUrls === 'string' && photoUrls === 'RESET') {
-        updateData.photoUrls = '[]'
+        updateData.photo_urls = '[]'
       }
     }
 
-    // ─── TC Feedback ───────────────────────────────────────────────────
     if (feedback !== undefined) {
       updateData.feedback = feedback?.trim() || null
     }
@@ -329,54 +370,28 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Aucune donnée à mettre à jour' }, { status: 400 })
     }
 
-    const updated = await db.mission.update({
-      where: { id },
-      data: updateData,
-      include: {
-        agent: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-          },
-        },
-        property: {
-          select: {
-            id: true,
-            title: true,
-            address: true,
-            city: true,
-          },
-        },
-        inventoryReport: {
-          select: {
-            id: true,
-            type: true,
-            status: true,
-          },
-        },
-      },
+    const { data: updated } = await ((supabase as any)
+      .from('missions')
+      .update(updateData as any)
+      .eq('id', id)
+      .select()
+      .single() as any)
+
+    await (supabase.from('audit_logs') as any).insert({
+      user_id: userId,
+      action: status ? `MISSION_${status}` : 'MISSION_UPDATED',
+      entity: 'Mission',
+      entity_id: id,
+      details: JSON.stringify({
+        status,
+        priority,
+        hasPhotos: !!photoUrls,
+        hasFeedback: !!feedback,
+      }),
     })
 
-    // Audit log
-    await db.auditLog.create({
-      data: {
-        userId,
-        action: status ? `MISSION_${status}` : 'MISSION_UPDATED',
-        entity: 'Mission',
-        entityId: id,
-        details: JSON.stringify({
-          status,
-          priority,
-          hasPhotos: !!photoUrls,
-          hasFeedback: !!feedback,
-        }),
-      },
-    })
-
-    return NextResponse.json(updated)
+    const resp = NextResponse.json(updated)
+    return applyCookies(resp)
   } catch (error) {
     console.error('[TC Missions PATCH] Error:', error)
     return NextResponse.json({ error: 'Erreur interne du serveur' }, { status: 500 })

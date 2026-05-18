@@ -250,7 +250,7 @@ export function OwnerFileForm() {
     )
   }
 
-  const isReadOnly = existingFile && existingFile.status !== 'DRAFT'
+  const isReadOnly = !!(existingFile && existingFile.status !== 'DRAFT')
   const existingStatus = existingFile ? statusConfig[existingFile.status] : null
 
   return (

@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
 import bcrypt from 'bcryptjs'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { getUserProfileById } from '@/lib/supabase/email-auth'
+import { createRouteHandlerSupabaseClient } from '@/lib/supabase/server'
 
 /**
  * PUT /api/settings/password — Change password (requires current password)
  */
 export async function PUT(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, authSource, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
@@ -19,44 +21,91 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Mot de passe actuel et nouveau mot de passe requis' }, { status: 400 })
     }
 
-    // Validate new password strength
-    if (newPassword.length < 8 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+    if (
+      newPassword.length < 8
+      || !/[A-Z]/.test(newPassword)
+      || !/[a-z]/.test(newPassword)
+      || !/[0-9]/.test(newPassword)
+    ) {
       return NextResponse.json({
         error: 'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre',
       }, { status: 400 })
     }
 
-    // Get user with password hash
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: { id: true, passwordHash: true },
-    })
+    const admin = getSupabaseAdminClient()
+
+    if (authSource === 'supabase') {
+      const profile = await getUserProfileById(admin, userId)
+
+      if (!profile) {
+        const response = NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
+        return applyCookies(response)
+      }
+
+      const { supabase } = createRouteHandlerSupabaseClient(req)
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: profile.email,
+        password: currentPassword,
+      })
+
+      if (signInError || !signInData.user) {
+        const response = NextResponse.json({ error: 'Mot de passe actuel incorrect' }, { status: 400 })
+        return applyCookies(response)
+      }
+
+      const { error: authError } = await admin.auth.admin.updateUserById(userId, {
+        password: newPassword,
+      })
+      if (authError) {
+        throw authError
+      }
+
+      const { error: profileError } = await admin
+        .from('users')
+        .update({ password_updated_at: new Date().toISOString() })
+        .eq('id', userId)
+
+      if (profileError) {
+        throw profileError
+      }
+
+      await admin.from('audit_logs').insert({
+        action: 'PASSWORD_CHANGE',
+        entity: 'User',
+        entity_id: userId,
+        user_id: userId,
+      })
+
+      const response = NextResponse.json({ message: 'Mot de passe mis à jour avec succès' })
+      return applyCookies(response)
+    }
+
+    const { data: user } = await admin
+      .from('users')
+      .select('id, password_hash')
+      .eq('id', userId)
+      .single()
 
     if (!user) {
       return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
     }
 
-    // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash)
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash)
     if (!isCurrentPasswordValid) {
       return NextResponse.json({ error: 'Mot de passe actuel incorrect' }, { status: 400 })
     }
 
-    // Hash and save new password
     const newPasswordHash = await bcrypt.hash(newPassword, 12)
-    await db.user.update({
-      where: { id: userId },
-      data: { passwordHash: newPasswordHash, passwordUpdatedAt: new Date() },
-    })
+    await admin
+      .from('users')
+      .update({ password_hash: newPasswordHash, password_updated_at: new Date().toISOString() })
+      .eq('id', userId)
 
-    // Log the password change in audit log
-    await db.auditLog.create({
-      data: {
-        action: 'PASSWORD_CHANGE',
-        entity: 'User',
-        entityId: userId,
-        userId,
-      },
+    await admin.from('audit_logs').insert({
+      action: 'PASSWORD_CHANGE',
+      entity: 'User',
+      entity_id: userId,
+      user_id: userId,
     })
 
     return NextResponse.json({ message: 'Mot de passe mis à jour avec succès' })

@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { getUserProfileById } from '@/lib/supabase/email-auth'
+import { toAuthUser } from '@/lib/supabase/profile'
+import {
+  BUCKETS,
+  deleteFromStorage,
+  extractBucketAndPath,
+  uploadFromBase64,
+} from '@/lib/supabase/storage'
 
-/**
- * POST /api/profile/avatar — Upload avatar image
- * Body: { avatar: "<base64-encoded-image>" }
- * Accepts JPEG/PNG/WEBP, max 2MB after base64 decode
- * Stores as data URL in user.avatarUrl
- */
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
@@ -22,7 +24,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Image requise' }, { status: 400 })
     }
 
-    // Validate base64 data URL format
     const dataUrlRegex = /^data:image\/(jpeg|jpg|png|webp);base64,/
     if (!dataUrlRegex.test(avatar)) {
       return NextResponse.json(
@@ -31,15 +32,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Extract base64 payload and check size
     const base64Payload = avatar.split(',')[1]
     if (!base64Payload) {
       return NextResponse.json({ error: 'Image invalide' }, { status: 400 })
     }
 
-    // Estimate decoded size (base64 is ~33% larger than raw)
     const estimatedSizeBytes = (base64Payload.length * 3) / 4
-    const MAX_SIZE = 2 * 1024 * 1024 // 2MB
+    const MAX_SIZE = 2 * 1024 * 1024
     if (estimatedSizeBytes > MAX_SIZE) {
       return NextResponse.json(
         { error: 'L\'image est trop volumineuse (max 2 Mo).' },
@@ -47,57 +46,69 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Update user avatar
-    const updatedUser = await db.user.update({
-      where: { id: userId },
-      data: { avatarUrl: avatar },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        role: true,
-        avatarUrl: true,
-        isActive: true,
-        isEmailVerified: true,
-      },
-    })
+    const extMatch = avatar.match(/^data:image\/(jpeg|jpg|png|webp);/)
+    const ext = extMatch?.[1] === 'jpeg' ? 'jpg' : extMatch?.[1] || 'png'
+    const filePath = `${userId}/avatar.${ext}`
+    const publicUrl = await uploadFromBase64(BUCKETS.AVATARS, avatar, filePath)
 
-    return NextResponse.json({ user: updatedUser })
+    const admin = getSupabaseAdminClient()
+    const { error } = await admin
+      .from('users')
+      .update({ avatar_url: publicUrl })
+      .eq('id', userId)
+
+    if (error) {
+      throw error
+    }
+
+    const updatedUser = await getUserProfileById(admin, userId)
+    if (!updatedUser) {
+      const response = NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
+      return applyCookies(response)
+    }
+
+    const response = NextResponse.json({ user: toAuthUser(updatedUser) })
+    return applyCookies(response)
   } catch (error) {
     console.error('Avatar upload error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-/**
- * DELETE /api/profile/avatar — Remove avatar image
- */
 export async function DELETE(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
-    const updatedUser = await db.user.update({
-      where: { id: userId },
-      data: { avatarUrl: null },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
-        role: true,
-        avatarUrl: true,
-        isActive: true,
-        isEmailVerified: true,
-      },
-    })
+    const admin = getSupabaseAdminClient()
+    const current = await getUserProfileById(admin, userId)
 
-    return NextResponse.json({ user: updatedUser })
+    if (current?.avatar_url) {
+      const parsed = extractBucketAndPath(current.avatar_url)
+      if (parsed?.bucket === BUCKETS.AVATARS) {
+        await deleteFromStorage(BUCKETS.AVATARS, parsed.path).catch(() => {})
+      }
+    }
+
+    const { error } = await admin
+      .from('users')
+      .update({ avatar_url: null })
+      .eq('id', userId)
+
+    if (error) {
+      throw error
+    }
+
+    const updatedUser = await getUserProfileById(admin, userId)
+    if (!updatedUser) {
+      const response = NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
+      return applyCookies(response)
+    }
+
+    const response = NextResponse.json({ user: toAuthUser(updatedUser) })
+    return applyCookies(response)
   } catch (error) {
     console.error('Avatar delete error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

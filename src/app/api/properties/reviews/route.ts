@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(req: NextRequest) {
   try {
@@ -10,46 +10,53 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'propertyId est requis' }, { status: 400 })
     }
 
-    // Get all leases for this property that are ACTIVE or EXPIRED (completed rentals)
-    const leases = await db.lease.findMany({
-      where: {
-        propertyId,
-        status: { in: ['ACTIVE', 'EXPIRED'] },
-      },
-      select: { id: true },
-    })
+    const admin = getSupabaseAdminClient()
 
-    const leaseIds = leases.map((l) => l.id)
+    const { data: leases } = await admin
+      .from('leases')
+      .select('id')
+      .eq('property_id', propertyId)
+      .in('status', ['ACTIVE', 'EXPIRED'])
 
-    if (leaseIds.length === 0) {
+    if (!leases || leases.length === 0) {
       return NextResponse.json({ reviews: [], avgRating: 0, totalReviews: 0 })
     }
 
-    // Get ratings for these leases, with reviewer info
-    const ratings = await db.rating.findMany({
-      where: { leaseId: { in: leaseIds } },
-      include: {
-        fromUser: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            avatarUrl: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    const leaseIds = leases.map((l) => l.id)
 
-    const reviews = ratings.map((r) => ({
-      id: r.id,
-      name: `${r.fromUser.firstName} ${r.fromUser.lastName}`,
-      avatar: `${r.fromUser.firstName.charAt(0)}${r.fromUser.lastName.charAt(0)}`,
-      rating: r.score,
-      date: r.createdAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
-      comment: r.comment || '',
-      verified: true, // Reviews from completed leases are verified
-    }))
+    const { data: ratings } = await admin
+      .from('ratings')
+      .select('*')
+      .in('lease_id', leaseIds)
+      .order('created_at', { ascending: false })
+
+    if (!ratings || ratings.length === 0) {
+      return NextResponse.json({ reviews: [], avgRating: 0, totalReviews: 0 })
+    }
+
+    const fromUserIds = [...new Set(ratings.map((r) => r.from_user_id))]
+
+    const { data: fromUsers } = await admin
+      .from('users')
+      .select('id, first_name, last_name, avatar_url')
+      .in('id', fromUserIds)
+
+    const userMap = new Map(fromUsers?.map((u) => [u.id, u]))
+
+    const reviews = ratings.map((r) => {
+      const user = userMap.get(r.from_user_id)
+      const firstName = user?.first_name || ''
+      const lastName = user?.last_name || ''
+      return {
+        id: r.id,
+        name: `${firstName} ${lastName}`,
+        avatar: `${firstName.charAt(0)}${lastName.charAt(0)}`,
+        rating: r.score,
+        date: new Date(r.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }),
+        comment: r.comment || '',
+        verified: true,
+      }
+    })
 
     const totalReviews = reviews.length
     const avgRating = totalReviews > 0

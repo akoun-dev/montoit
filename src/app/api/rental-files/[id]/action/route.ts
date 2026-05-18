@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
 
 // POST /api/rental-files/[id]/action — Accept or reject a rental file
@@ -9,14 +9,24 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
 
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+
+    const effectiveRole = profile?.active_role || profile?.role
     if (effectiveRole !== 'PROPRIETAIRE' && effectiveRole !== 'AGENCE') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
     }
 
     const { id } = await params
@@ -33,29 +43,23 @@ export async function POST(
       )
     }
 
-    // Find the rental file
-    const rentalFile = await db.rentalFile.findUnique({
-      where: { id },
-      include: {
-        tenant: { select: { id: true, firstName: true, lastName: true } },
-        leases: {
-          include: {
-            property: { select: { id: true, ownerId: true, title: true } },
-          },
-        },
-      },
-    })
+    const { data: rentalFile, error: rentalError } = await supabase
+      .from('rental_files')
+      .select('*, tenant:users!rental_files_tenant_id_fkey(id, first_name, last_name), leases:leases(id, property:properties(id, owner_id, title))')
+      .eq('id', id)
+      .single()
 
-    if (!rentalFile) {
+    if (rentalError || !rentalFile) {
       return NextResponse.json(
         { error: 'Dossier locatif introuvable' },
         { status: 404 }
       )
     }
 
-    // Verify the owner owns at least one property linked via leases
-    const ownerLease = rentalFile.leases.find(
-      (l) => l.property.ownerId === userId
+    const rFile = rentalFile as any
+
+    const ownerLease = (rFile.leases || []).find(
+      (l: any) => l.property?.owner_id === userId
     )
     if (!ownerLease) {
       return NextResponse.json(
@@ -64,8 +68,7 @@ export async function POST(
       )
     }
 
-    // Check current status — can only act on VALIDATED (by TC) files
-    if (rentalFile.status !== 'VALIDATED' && rentalFile.status !== 'SUBMITTED' && rentalFile.status !== 'TC_REVIEW') {
+    if (rFile.status !== 'VALIDATED' && rFile.status !== 'SUBMITTED' && rFile.status !== 'TC_REVIEW') {
       return NextResponse.json(
         { error: 'Ce dossier ne peut plus être traité' },
         { status: 400 }
@@ -73,55 +76,79 @@ export async function POST(
     }
 
     if (action === 'accept') {
-      // Accept the rental file — set status to VALIDATED if not already
-      // and create a lease draft
-      const updatedFile = await db.rentalFile.update({
-        where: { id },
-        data: {
-          status: 'VALIDATED',
-        },
-      })
+      const { data: updatedFile } = await supabase
+        .from('rental_files')
+        .update({ status: 'VALIDATED' })
+        .eq('id', id)
+        .select()
+        .single()
 
-      // Create a lease draft linked to this rental file
       const property = ownerLease.property
-      const lease = await db.lease.create({
-        data: {
+
+      const { data: lease, error: leaseError } = await supabase
+        .from('leases')
+        .insert({
           status: 'DRAFT',
-          startDate: new Date(),
-          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year default
-          monthlyRent: 0, // Owner will fill this in
+          start_date: new Date().toISOString(),
+          end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          monthly_rent: 0,
           charges: 0,
           deposit: 0,
-          propertyId: property.id,
-          tenantId: rentalFile.tenantId,
-          ownerId: userId,
-          rentalFileId: rentalFile.id,
-        },
-      })
+          property_id: property.id,
+          tenant_id: rFile.tenant_id,
+          owner_id: userId,
+          rental_file_id: rFile.id,
+        })
+        .select()
+        .single()
 
-      // Notify the tenant
+      if (leaseError || !lease) {
+        throw leaseError || new Error('Failed to create lease')
+      }
+
       await notify({
-        userId: rentalFile.tenantId,
+        userId: rFile.tenant_id,
         type: 'DOSSIER_UPDATE',
         title: 'Dossier accepté',
         message: `Votre dossier locatif pour "${property.title}" a été accepté par le propriétaire.`,
         actionUrl: 'rental-file',
-        entityId: rentalFile.id,
+        entityId: rFile.id,
       })
 
-      // Audit log
-      await db.auditLog.create({
-        data: {
-          action: 'ACCEPT_RENTAL_FILE',
-          entity: 'RentalFile',
-          entityId: rentalFile.id,
-          details: `Dossier accepté par le propriétaire ${userId}. Bail brouillon créé: ${lease.id}`,
-          userId,
-        },
+      await supabase.from('audit_logs').insert({
+        action: 'ACCEPT_RENTAL_FILE',
+        entity: 'RentalFile',
+        entity_id: rFile.id,
+        details: `Dossier accepté par le propriétaire ${userId}. Bail brouillon créé: ${lease.id}`,
+        user_id: userId,
       })
+
+      const mappedFile = updatedFile ? {
+        id: updatedFile.id,
+        tenantId: updatedFile.tenant_id,
+        status: updatedFile.status,
+        createdAt: updatedFile.created_at,
+        updatedAt: updatedFile.updated_at,
+      } : null
+
+      const mappedLease = {
+        id: lease.id,
+        status: lease.status,
+        startDate: lease.start_date,
+        endDate: lease.end_date,
+        monthlyRent: lease.monthly_rent,
+        charges: lease.charges,
+        deposit: lease.deposit,
+        propertyId: lease.property_id,
+        tenantId: lease.tenant_id,
+        ownerId: lease.owner_id,
+        rentalFileId: lease.rental_file_id,
+        createdAt: lease.created_at,
+        updatedAt: lease.updated_at,
+      }
 
       return NextResponse.json({
-        data: { rentalFile: updatedFile, lease },
+        data: { rentalFile: mappedFile, lease: mappedLease },
         message: 'Dossier accepté et brouillon de bail créé',
       })
     }
@@ -134,38 +161,46 @@ export async function POST(
         )
       }
 
-      const updatedFile = await db.rentalFile.update({
-        where: { id },
-        data: {
+      const { data: updatedFile } = await supabase
+        .from('rental_files')
+        .update({
           status: 'REJECTED',
-          rejectionReason: rejectionReason.trim(),
-        },
-      })
+          rejection_reason: rejectionReason.trim(),
+        })
+        .eq('id', id)
+        .select()
+        .single()
 
-      // Notify the tenant
       const property = ownerLease.property
+
       await notify({
-        userId: rentalFile.tenantId,
+        userId: rFile.tenant_id,
         type: 'DOSSIER_UPDATE',
         title: 'Dossier refusé',
         message: `Votre dossier locatif pour "${property.title}" a été refusé. Raison : ${rejectionReason.trim()}`,
         actionUrl: 'rental-file',
-        entityId: rentalFile.id,
+        entityId: rFile.id,
       })
 
-      // Audit log
-      await db.auditLog.create({
-        data: {
-          action: 'REJECT_RENTAL_FILE',
-          entity: 'RentalFile',
-          entityId: rentalFile.id,
-          details: `Dossier refusé par le propriétaire ${userId}. Raison: ${rejectionReason.trim()}`,
-          userId,
-        },
+      await supabase.from('audit_logs').insert({
+        action: 'REJECT_RENTAL_FILE',
+        entity: 'RentalFile',
+        entity_id: rFile.id,
+        details: `Dossier refusé par le propriétaire ${userId}. Raison: ${rejectionReason.trim()}`,
+        user_id: userId,
       })
+
+      const mappedFile = updatedFile ? {
+        id: updatedFile.id,
+        tenantId: updatedFile.tenant_id,
+        status: updatedFile.status,
+        rejectionReason: updatedFile.rejection_reason,
+        createdAt: updatedFile.created_at,
+        updatedAt: updatedFile.updated_at,
+      } : null
 
       return NextResponse.json({
-        data: { rentalFile: updatedFile },
+        data: { rentalFile: mappedFile },
         message: 'Dossier refusé',
       })
     }

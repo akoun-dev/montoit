@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
 
-// GET /api/tc/ownership-docs — List ownership documents for TC review
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await ((supabase as any)
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single() as any)
+    const effectiveRole = profile?.active_role || profile?.role
 
     if (effectiveRole !== 'TIERS_CONFIANCE' && effectiveRole !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé — rôle TIERS_CONFIANCE ou ADMIN requis' }, { status: 403 })
@@ -25,70 +33,95 @@ export async function GET(req: NextRequest) {
     const limit = limitParam ? Math.min(parseInt(limitParam), 100) : 50
     const offset = offsetParam ? parseInt(offsetParam) : 0
 
-    const where: Record<string, unknown> = {}
+    let query = supabase
+      .from('ownership_documents')
+      .select('*', { count: 'exact' })
 
     if (status) {
-      where.status = status
+      query = query.eq('status', status)
     } else {
-      where.status = 'PENDING'
+      query = query.eq('status', 'PENDING')
     }
 
     if (type) {
-      where.type = type
+      query = query.eq('type', type)
     }
 
-    const [docs, total] = await Promise.all([
-      db.ownershipDocument.findMany({
-        where,
-        include: {
-          owner: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              phone: true,
-              email: true,
-              avatarUrl: true,
-            },
-          },
-          reviewedBy: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-        },
-        orderBy: { createdAt: 'asc' },
-        take: limit,
-        skip: offset,
-      }),
-      db.ownershipDocument.count({ where }),
-    ])
+    query = query
+      .order('created_at', { ascending: true })
+      .range(offset, offset + limit - 1)
 
-    return NextResponse.json({
+    const { data: docsData, count: total } = await (query as any)
+    const docsRaw = (docsData ?? []) as any[]
+
+    const ownerIds = [...new Set(docsRaw.map((d: any) => d.owner_id).filter(Boolean))]
+    const reviewerIds = [...new Set(docsRaw.map((d: any) => d.reviewed_by_id).filter(Boolean))]
+    const allUserIds = [...new Set([...ownerIds, ...reviewerIds])]
+
+    const { data: usersData } = allUserIds.length > 0
+      ? await ((supabase.from('users') as any).select('id, first_name, last_name, phone, email, avatar_url').in('id', allUserIds))
+      : { data: [] as any[] }
+
+    const userMap = new Map<string, any>((usersData ?? []).map((u: any) => [u.id, u]))
+
+    const docs = docsRaw.map((d: any) => ({
+      id: d.id,
+      ownerId: d.owner_id,
+      name: d.name,
+      type: d.type,
+      url: d.url,
+      status: d.status,
+      tcComment: d.tc_comment,
+      reviewedById: d.reviewed_by_id,
+      createdAt: d.created_at,
+      updatedAt: d.updated_at,
+      owner: userMap.get(d.owner_id) ? {
+        id: userMap.get(d.owner_id).id,
+        firstName: userMap.get(d.owner_id).first_name,
+        lastName: userMap.get(d.owner_id).last_name,
+        phone: userMap.get(d.owner_id).phone,
+        email: userMap.get(d.owner_id).email,
+        avatarUrl: userMap.get(d.owner_id).avatar_url,
+      } : null,
+      reviewedBy: userMap.get(d.reviewed_by_id) ? {
+        id: userMap.get(d.reviewed_by_id).id,
+        firstName: userMap.get(d.reviewed_by_id).first_name,
+        lastName: userMap.get(d.reviewed_by_id).last_name,
+      } : null,
+    }))
+
+    const resp = NextResponse.json({
       docs,
       pagination: {
-        total,
+        total: total ?? 0,
         limit,
         offset,
-        hasMore: offset + limit < total,
+        hasMore: offset + limit < (total ?? 0),
       },
     })
+    return applyCookies(resp)
   } catch (error) {
     console.error('TC ownership docs GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// PATCH /api/tc/ownership-docs — Validate or reject ownership documents
 export async function PATCH(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await ((supabase as any)
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single() as any)
+    const effectiveRole = profile?.active_role || profile?.role
 
     if (effectiveRole !== 'TIERS_CONFIANCE' && effectiveRole !== 'ADMIN') {
       return NextResponse.json({ error: 'Accès refusé — rôle TIERS_CONFIANCE ou ADMIN requis' }, { status: 403 })
@@ -100,18 +133,18 @@ export async function PATCH(req: NextRequest) {
     if (!docIds || !Array.isArray(docIds) || docIds.length === 0) {
       return NextResponse.json({ error: 'docIds est requis (tableau non vide)' }, { status: 400 })
     }
-
     if (!action || !['APPROVE', 'REJECT', 'REQUEST_INFO'].includes(action)) {
       return NextResponse.json({ error: 'action doit être APPROVE, REJECT ou REQUEST_INFO' }, { status: 400 })
     }
 
-    const results = []
+    const results: any[] = []
 
     for (const docId of docIds) {
-      const doc = await db.ownershipDocument.findUnique({
-        where: { id: docId },
-        include: { owner: true },
-      })
+      const { data: doc } = await ((supabase as any)
+        .from('ownership_documents')
+        .select('*, owner:users!owner_id(*)')
+        .eq('id', docId)
+        .single() as any)
 
       if (!doc) {
         results.push({ docId, success: false, error: 'Document introuvable' })
@@ -126,60 +159,54 @@ export async function PATCH(req: NextRequest) {
       let newStatus: string
       let auditAction: string
       let notificationTitle: string
-      let notificationMessage: string
 
       if (action === 'APPROVE') {
         newStatus = 'VALIDATED'
         auditAction = 'OWNERSHIP_DOC_APPROVED'
         notificationTitle = 'Document de propriété validé'
-        notificationMessage = `Votre document "${doc.name}" a été validé par le Tiers de Confiance.`
       } else if (action === 'REJECT') {
         newStatus = 'REJECTED'
         auditAction = 'OWNERSHIP_DOC_REJECTED'
         notificationTitle = 'Document de propriété rejeté'
-        notificationMessage = `Votre document "${doc.name}" a été rejeté. Raison : ${comment || 'Non spécifié'}`
       } else {
-        // REQUEST_INFO — keep as PENDING but add comment
         newStatus = 'PENDING'
         auditAction = 'OWNERSHIP_DOC_INFO_REQUESTED'
         notificationTitle = 'Document complémentaire requis'
-        notificationMessage = `Le Tiers de Confiance demande un complément pour "${doc.name}" : ${comment || 'Veuillez fournir un document plus lisible.'}`
       }
 
-      const updatedDoc = await db.ownershipDocument.update({
-        where: { id: docId },
-        data: {
+      const { data: updatedDoc } = await ((supabase as any)
+        .from('ownership_documents')
+        .update({
           status: newStatus,
-          reviewedById: userId,
-          tcComment: comment || null,
-        },
-        include: {
-          owner: {
-            select: { id: true, firstName: true, lastName: true, email: true },
-          },
-        },
+          reviewed_by_id: userId,
+          tc_comment: comment || null,
+        })
+        .eq('id', docId)
+        .select('*, owner:users!owner_id(id, first_name, last_name, email)')
+        .single() as any)
+
+      await (supabase as any)
+        .from('validation_slas')
+        .update({ completed_at: new Date().toISOString(), is_overdue: false })
+        .eq('entity_type', 'OWNER_PROFILE')
+        .eq('entity_id', docId)
+
+      await (supabase.from('audit_logs') as any).insert({
+        action: auditAction,
+        entity: 'OwnershipDocument',
+        entity_id: docId,
+        details: JSON.stringify({ action, comment, reviewerId: userId }),
+        user_id: userId,
       })
 
-      // Update SLA if exists
-      await db.validationSLA.updateMany({
-        where: { entityType: 'OWNER_PROFILE', entityId: docId },
-        data: { completedAt: new Date(), isOverdue: false },
-      })
+      const notificationMessage = action === 'APPROVE'
+        ? `Votre document "${doc.name}" a été validé par le Tiers de Confiance.`
+        : action === 'REJECT'
+          ? `Votre document "${doc.name}" a été rejeté. Raison : ${comment || 'Non spécifié'}`
+          : `Le Tiers de Confiance demande un complément pour "${doc.name}" : ${comment || 'Veuillez fournir un document plus lisible.'}`
 
-      // Audit log
-      await db.auditLog.create({
-        data: {
-          action: auditAction,
-          entity: 'OwnershipDocument',
-          entityId: docId,
-          details: JSON.stringify({ action, comment, reviewerId: userId }),
-          userId,
-        },
-      })
-
-      // Notify the owner
       await notify({
-        userId: doc.ownerId,
+        userId: doc.owner_id,
         type: 'DOSSIER_UPDATE',
         title: notificationTitle,
         message: notificationMessage,
@@ -190,7 +217,8 @@ export async function PATCH(req: NextRequest) {
       results.push({ docId, success: true, doc: updatedDoc })
     }
 
-    return NextResponse.json({ results })
+    const resp = NextResponse.json({ results })
+    return applyCookies(resp)
   } catch (error) {
     console.error('TC ownership docs PATCH error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

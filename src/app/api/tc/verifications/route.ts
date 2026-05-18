@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
 
-// GET /api/tc/verifications — List properties pending TC verification, or get a single property by ID
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await ((supabase as any)
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single() as any)
+    const effectiveRole = profile?.active_role || profile?.role
 
     if (effectiveRole !== 'TIERS_CONFIANCE') {
       return NextResponse.json({ error: 'Accès refusé — rôle TIERS_CONFIANCE requis' }, { status: 403 })
@@ -19,116 +27,138 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const propertyId = searchParams.get('propertyId')
 
-    // Single property lookup by ID
     if (propertyId) {
-      const property = await db.property.findUnique({
-        where: { id: propertyId },
-        include: {
-          owner: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phone: true,
-              avatarUrl: true,
-              createdAt: true,
-            },
-          },
-          images: {
-            orderBy: { order: 'asc' },
-          },
-        },
-      })
+      const { data: property } = await ((supabase as any)
+        .from('properties')
+        .select('*, owner:users!owner_id(id, first_name, last_name, email, phone, avatar_url, created_at), images:property_images(id, url, order)')
+        .eq('id', propertyId)
+        .order('order', { foreignTable: 'property_images', ascending: true })
+        .single() as any)
 
       if (!property) {
         return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
       }
 
-      return NextResponse.json({ property })
+      const mappedProperty = {
+        id: property.id,
+        title: property.title,
+        address: property.address,
+        city: property.city,
+        commune: property.commune,
+        type: property.type,
+        status: property.status,
+        isVerified: property.is_verified,
+        ownerId: property.owner_id,
+        createdAt: property.created_at,
+        updatedAt: property.updated_at,
+        owner: property.owner ? {
+          id: property.owner.id,
+          firstName: property.owner.first_name,
+          lastName: property.owner.last_name,
+          email: property.owner.email,
+          phone: property.owner.phone,
+          avatarUrl: property.owner.avatar_url,
+          createdAt: property.owner.created_at,
+        } : null,
+        images: (property.images ?? []).map((img: any) => ({
+          id: img.id,
+          url: img.url,
+          order: img.order,
+        })),
+      }
+
+      const resp = NextResponse.json({ property: mappedProperty })
+      return applyCookies(resp)
     }
 
-    // List all pending properties
     const limitParam = searchParams.get('limit')
     const offsetParam = searchParams.get('offset')
     const commune = searchParams.get('commune')
     const type = searchParams.get('type')
     const search = searchParams.get('search')
-    const statusFilter = searchParams.get('status') // Allow filtering by status
+    const statusFilter = searchParams.get('status')
 
     const limit = limitParam ? Math.min(parseInt(limitParam), 100) : 20
     const offset = offsetParam ? parseInt(offsetParam) : 0
 
-    // Build where clause — default to PENDING_VERIFICATION, but allow override
-    const where: Record<string, unknown> = {
-      status: statusFilter || 'PENDING_VERIFICATION',
-    }
+    let query = supabase
+      .from('properties')
+      .select('*, owner:users!owner_id(id, first_name, last_name, email, phone, avatar_url, created_at), images:property_images(id, url, order)', { count: 'exact' })
+      .eq('status', statusFilter || 'PENDING_VERIFICATION')
 
-    if (commune) {
-      where.commune = { contains: commune }
-    }
-
-    if (type) {
-      where.type = type
-    }
-
+    if (commune) query = query.ilike('commune', `%${commune}%`)
+    if (type) query = query.eq('type', type)
     if (search) {
-      where.OR = [
-        { title: { contains: search } },
-        { commune: { contains: search } },
-        { address: { contains: search } },
-      ]
+      query = query.or(`title.ilike.%${search}%,commune.ilike.%${search}%,address.ilike.%${search}%`)
     }
 
-    const [properties, total] = await Promise.all([
-      db.property.findMany({
-        where,
-        include: {
-          owner: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phone: true,
-              avatarUrl: true,
-              createdAt: true,
-            },
-          },
-          images: {
-            orderBy: { order: 'asc' },
-          },
-        },
-        orderBy: { createdAt: 'asc' },
-        take: limit,
-        skip: offset,
-      }),
-      db.property.count({ where }),
-    ])
+    query = query
+      .order('created_at', { ascending: true })
+      .range(offset, offset + limit - 1)
+      .order('order', { foreignTable: 'property_images', ascending: true })
 
-    return NextResponse.json({
+    const { data: propertiesData, count: total } = await (query as any)
+
+    const properties = ((propertiesData ?? []) as any[]).map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      address: p.address,
+      city: p.city,
+      commune: p.commune,
+      type: p.type,
+      status: p.status,
+      isVerified: p.is_verified,
+      ownerId: p.owner_id,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+      owner: p.owner ? {
+        id: p.owner.id,
+        firstName: p.owner.first_name,
+        lastName: p.owner.last_name,
+        email: p.owner.email,
+        phone: p.owner.phone,
+        avatarUrl: p.owner.avatar_url,
+        createdAt: p.owner.created_at,
+      } : null,
+      images: (p.images ?? []).map((img: any) => ({
+        id: img.id,
+        url: img.url,
+        order: img.order,
+      })),
+    }))
+
+    const resp = NextResponse.json({
       properties,
       pagination: {
-        total,
+        total: total ?? 0,
         limit,
         offset,
-        hasMore: offset + limit < total,
+        hasMore: offset + limit < (total ?? 0),
       },
     })
+    return applyCookies(resp)
   } catch (error) {
     console.error('TC verifications GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// PATCH /api/tc/verifications — Verify or reject a property
 export async function PATCH(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await ((supabase as any)
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single() as any)
+    const effectiveRole = profile?.active_role || profile?.role
 
     if (effectiveRole !== 'TIERS_CONFIANCE') {
       return NextResponse.json({ error: 'Accès refusé — rôle TIERS_CONFIANCE requis' }, { status: 403 })
@@ -140,20 +170,19 @@ export async function PATCH(req: NextRequest) {
     if (!propertyId || typeof propertyId !== 'string') {
       return NextResponse.json({ error: 'propertyId est requis' }, { status: 400 })
     }
-
     if (!action || !['APPROVE', 'REJECT'].includes(action)) {
       return NextResponse.json({ error: 'action doit être APPROVE ou REJECT' }, { status: 400 })
     }
 
-    // Find the property
-    const property = await db.property.findUnique({
-      where: { id: propertyId },
-    })
+    const { data: property } = await ((supabase as any)
+      .from('properties')
+      .select('*')
+      .eq('id', propertyId)
+      .single() as any)
 
     if (!property) {
       return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
     }
-
     if (property.status !== 'PENDING_VERIFICATION') {
       return NextResponse.json(
         { error: 'Ce bien n\'est pas en attente de vérification' },
@@ -164,43 +193,28 @@ export async function PATCH(req: NextRequest) {
     let updatedProperty
 
     if (action === 'APPROVE') {
-      // APPROVE → change status to ACTIVE, set isVerified to true
-      updatedProperty = await db.property.update({
-        where: { id: propertyId },
-        data: {
+      const { data: updated } = await ((supabase as any)
+        .from('properties')
+        .update({
           status: 'ACTIVE',
-          isVerified: true,
-        },
-        include: {
-          owner: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phone: true,
-            },
-          },
-          images: {
-            orderBy: { order: 'asc' },
-          },
-        },
+          is_verified: true,
+        })
+        .eq('id', propertyId)
+        .select('*, owner:users!owner_id(id, first_name, last_name, email, phone), images:property_images(id, url, order)')
+        .order('order', { foreignTable: 'property_images', ascending: true })
+        .single() as any)
+      updatedProperty = updated
+
+      await (supabase.from('audit_logs') as any).insert({
+        action: 'PROPERTY_APPROVED',
+        entity: 'Property',
+        entity_id: propertyId,
+        details: JSON.stringify({ comment: comment || null, reviewerId: userId }),
+        user_id: userId,
       })
 
-      // Create audit log
-      await db.auditLog.create({
-        data: {
-          action: 'PROPERTY_APPROVED',
-          entity: 'Property',
-          entityId: propertyId,
-          details: JSON.stringify({ comment: comment || null, reviewerId: userId }),
-          userId,
-        },
-      })
-
-      // Notify the owner
       await notify({
-        userId: property.ownerId,
+        userId: property.owner_id,
         type: 'DOSSIER_UPDATE',
         title: 'Annonce approuvée',
         message: `Votre annonce "${property.title}" a été approuvée et est maintenant visible.`,
@@ -208,48 +222,37 @@ export async function PATCH(req: NextRequest) {
         entityId: propertyId,
       })
     } else {
-      // REJECT → change status to SUSPENDED, store rejection reason
-      updatedProperty = await db.property.update({
-        where: { id: propertyId },
-        data: {
+      const existingTerms = property.rental_terms
+        ? (typeof property.rental_terms === 'string' ? JSON.parse(property.rental_terms) : property.rental_terms)
+        : {}
+
+      const { data: updated } = await ((supabase as any)
+        .from('properties')
+        .update({
           status: 'SUSPENDED',
-          rentalTerms: JSON.stringify({
-            ...(property.rentalTerms ? JSON.parse(typeof property.rentalTerms === 'string' ? property.rentalTerms : '{}') : {}),
+          rental_terms: JSON.stringify({
+            ...existingTerms,
             rejectionReason: comment || 'Non spécifié',
             rejectedAt: new Date().toISOString(),
             rejectedBy: userId,
           }),
-        },
-        include: {
-          owner: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phone: true,
-            },
-          },
-          images: {
-            orderBy: { order: 'asc' },
-          },
-        },
+        })
+        .eq('id', propertyId)
+        .select('*, owner:users!owner_id(id, first_name, last_name, email, phone), images:property_images(id, url, order)')
+        .order('order', { foreignTable: 'property_images', ascending: true })
+        .single() as any)
+      updatedProperty = updated
+
+      await (supabase.from('audit_logs') as any).insert({
+        action: 'PROPERTY_REJECTED',
+        entity: 'Property',
+        entity_id: propertyId,
+        details: JSON.stringify({ comment: comment || null, reviewerId: userId }),
+        user_id: userId,
       })
 
-      // Create audit log
-      await db.auditLog.create({
-        data: {
-          action: 'PROPERTY_REJECTED',
-          entity: 'Property',
-          entityId: propertyId,
-          details: JSON.stringify({ comment: comment || null, reviewerId: userId }),
-          userId,
-        },
-      })
-
-      // Notify the owner
       await notify({
-        userId: property.ownerId,
+        userId: property.owner_id,
         type: 'DOSSIER_UPDATE',
         title: 'Annonce rejetée',
         message: `Votre annonce "${property.title}" a été rejetée. Raison : ${comment || 'Non spécifié'}`,
@@ -258,7 +261,34 @@ export async function PATCH(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({ property: updatedProperty })
+    const mappedProperty = {
+      id: updatedProperty.id,
+      title: updatedProperty.title,
+      address: updatedProperty.address,
+      city: updatedProperty.city,
+      commune: updatedProperty.commune,
+      type: updatedProperty.type,
+      status: updatedProperty.status,
+      isVerified: updatedProperty.is_verified,
+      ownerId: updatedProperty.owner_id,
+      createdAt: updatedProperty.created_at,
+      updatedAt: updatedProperty.updated_at,
+      owner: updatedProperty.owner ? {
+        id: updatedProperty.owner.id,
+        firstName: updatedProperty.owner.first_name,
+        lastName: updatedProperty.owner.last_name,
+        email: updatedProperty.owner.email,
+        phone: updatedProperty.owner.phone,
+      } : null,
+      images: (updatedProperty.images ?? []).map((img: any) => ({
+        id: img.id,
+        url: img.url,
+        order: img.order,
+      })),
+    }
+
+    const resp = NextResponse.json({ property: mappedProperty })
+    return applyCookies(resp)
   } catch (error) {
     console.error('TC verifications PATCH error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

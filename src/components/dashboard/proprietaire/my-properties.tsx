@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import { AddProperty } from './add-property'
 
 interface PropertyItem {
-  id: string; title: string; type: string; price: number; city: string; commune: string | null; status: string
+  id: string; title: string; description: string; type: string; price: number; city: string; address: string; commune: string | null; status: string
   bedrooms: number | null; bathrooms: number | null; area: number; isFurnished: boolean; hasParking: boolean; hasGarden: boolean; hasPool: boolean
   images: Array<{ url: string; order: number }>
 }

@@ -6,18 +6,18 @@
 const INTOUCH_BASE_URL =
   process.env.INTOUCH_BASE_URL || 'https://apidist.gutouch.net/apidist/sec/'
 const INTOUCH_USERNAME =
-  process.env.INTOUCH_USERNAME || '8ff019758878d5cdab335d12fbc998721d319e4159e2086f9cb1f15f23896e10'
+  process.env.INTOUCH_USERNAME || ''
 const INTOUCH_PASSWORD =
-  process.env.INTOUCH_PASSWORD || 'd3fd092d16747333547e340e4aac135888ff90c38e9577cadec41a052a507978'
+  process.env.INTOUCH_PASSWORD || ''
 const INTOUCH_PARTNER_ID = process.env.INTOUCH_PARTNER_ID || 'CI300373'
 const INTOUCH_LOGIN_API = process.env.INTOUCH_LOGIN_API || '07084598370'
 
 // Per-operator passwords for CASHIN
 const CASHIN_PASSWORDS: Record<PaymentOperator, string> = {
-  ORANGE_MONEY: process.env.INTOUCH_CASHIN_OM_PASSWORD || 'G1tBPD9v',
-  MTN_MOMO: process.env.INTOUCH_CASHIN_MTN_PASSWORD || 'vwGAKHRBnn',
-  MOOV_MONEY: process.env.INTOUCH_CASHIN_MOOV_PASSWORD || 'XXX',
-  WAVE: process.env.INTOUCH_CASHIN_WAVE_PASSWORD || 'XXX',
+  ORANGE_MONEY: process.env.INTOUCH_CASHIN_OM_PASSWORD || '',
+  MTN_MOMO: process.env.INTOUCH_CASHIN_MTN_PASSWORD || '',
+  MOOV_MONEY: process.env.INTOUCH_CASHIN_MOOV_PASSWORD || '',
+  WAVE: process.env.INTOUCH_CASHIN_WAVE_PASSWORD || '',
 }
 
 // Service IDs for CASHIN per operator

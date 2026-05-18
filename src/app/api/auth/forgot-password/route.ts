@@ -1,87 +1,105 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
 import { generateOtpCode, sendOtpEmail, sendOtpSms } from '@/lib/ansut-messaging'
-
-const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10)
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import {
+  createEmailOtp,
+  getUserProfileByEmail,
+  invalidateEmailOtps,
+} from '@/lib/supabase/email-auth'
 
 export async function POST(req: NextRequest) {
   try {
-    const { identifier, method } = await req.json()
-    // identifier = email or phone number
+    const { identifier } = await req.json()
 
     if (!identifier || typeof identifier !== 'string') {
       return NextResponse.json({ error: 'Email ou numéro de téléphone requis' }, { status: 400 })
     }
 
-    // Determine if identifier is email or phone
     const isEmail = identifier.includes('@')
 
-    let user = null
-
     if (isEmail) {
-      user = await db.user.findUnique({ where: { email: identifier } })
-    } else {
-      user = await db.user.findUnique({ where: { phone: identifier } })
-    }
+      const admin = getSupabaseAdminClient()
+      const user = await getUserProfileByEmail(admin, identifier)
 
-    // Always return a generic success message to prevent user enumeration
-    if (!user) {
-      // Still return success to avoid revealing whether account exists
-      return NextResponse.json({
-        message: 'Si un compte existe avec ces informations, un code de réinitialisation sera envoyé',
-      })
-    }
+      if (!user || !user.is_active) {
+        return NextResponse.json({
+          message: 'Si un compte existe avec ces informations, un code de réinitialisation sera envoyé',
+        })
+      }
 
-    if (!user.isActive) {
-      return NextResponse.json({
-        message: 'Si un compte existe avec ces informations, un code de réinitialisation sera envoyé',
-      })
-    }
+      await invalidateEmailOtps(admin, user.email, 'PASSWORD_RESET')
 
-    // Invalidate existing unused PASSWORD_RESET OTP codes
-    const whereClause = isEmail
-      ? { email: identifier, isUsed: false, type: 'PASSWORD_RESET' as const }
-      : { phone: identifier, isUsed: false, type: 'PASSWORD_RESET' as const }
-
-    const existingOtps = await db.oTPCode.findMany({ where: whereClause })
-    for (const otp of existingOtps) {
-      await db.oTPCode.update({ where: { id: otp.id }, data: { isUsed: true } })
-    }
-
-    // Generate OTP code
-    const otpCode = generateOtpCode(6)
-
-    // Store OTP in database
-    await db.oTPCode.create({
-      data: {
-        email: isEmail ? identifier : user.email,
-        phone: !isEmail ? identifier : user.phone,
+      const otpCode = generateOtpCode(6)
+      await createEmailOtp(admin, {
+        email: user.email,
         code: otpCode,
         type: 'PASSWORD_RESET',
-        expiresAt: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000),
         userId: user.id,
-      },
-    })
+      })
 
-    // Send OTP via the appropriate channel
-    if (isEmail) {
-      const emailResult = await sendOtpEmail(identifier, otpCode, user.firstName, 'password_reset')
+      const emailResult = await sendOtpEmail(user.email, otpCode, user.first_name, 'password_reset')
       if (!emailResult.success) {
-        console.warn(`[Forgot Password] Email send failed for ${identifier}, but OTP stored. Code: ${otpCode}`)
+        console.warn(`[Forgot Password] Email send failed for ${user.email}, but OTP stored. Code: ${otpCode}`)
       }
-    } else {
-      const smsResult = await sendOtpSms(identifier, otpCode, 'password_reset')
-      if (!smsResult.success) {
-        console.warn(`[Forgot Password] SMS send failed for ${identifier}, but OTP stored. Code: ${otpCode}`)
+
+      const isDev = process.env.NODE_ENV !== 'production'
+      return NextResponse.json({
+        message: 'Si un compte existe avec ces informations, un code de réinitialisation sera envoyé',
+        ...(isDev && { devCode: otpCode }),
+      })
+    }
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, email, first_name, is_active')
+      .eq('phone', identifier)
+      .maybeSingle()
+
+    if (!user || !user.is_active) {
+      return NextResponse.json({
+        message: 'Si un compte existe avec ces informations, un code de réinitialisation sera envoyé',
+      })
+    }
+
+    const { data: existingOtps } = await supabase
+      .from('otp_codes')
+      .select('id')
+      .eq('phone', identifier)
+      .eq('is_used', false)
+      .eq('type', 'PASSWORD_RESET')
+
+    if (existingOtps) {
+      for (const otp of existingOtps) {
+        await supabase
+          .from('otp_codes')
+          .update({ is_used: true })
+          .eq('id', otp.id)
       }
     }
 
-    // In development, include the OTP code in response for testing
-    const isDev = process.env.NODE_ENV !== 'production'
+    const otpCode = generateOtpCode(6)
+    await supabase
+      .from('otp_codes')
+      .insert({
+        email: user.email,
+        phone: identifier,
+        code: otpCode,
+        type: 'PASSWORD_RESET',
+        expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        user_id: user.id,
+      })
 
+    const smsResult = await sendOtpSms(identifier, otpCode, 'password_reset')
+    if (!smsResult.success) {
+      console.warn(`[Forgot Password] SMS send failed for ${identifier}, but OTP stored. Code: ${otpCode}`)
+    }
+
+    const isDev = process.env.NODE_ENV !== 'production'
     return NextResponse.json({
       message: 'Si un compte existe avec ces informations, un code de réinitialisation sera envoyé',
-      ...(isDev && { devCode: otpCode }), // Only in development
+      ...(isDev && { devCode: otpCode }),
     })
   } catch (error) {
     console.error('Forgot password error:', error)

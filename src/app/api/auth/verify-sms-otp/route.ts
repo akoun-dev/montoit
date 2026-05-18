@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSession, SESSION_COOKIE_NAME, SESSION_COOKIE_OPTIONS } from '@/lib/session'
 
 export async function POST(req: NextRequest) {
@@ -10,29 +10,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Numéro et code requis' }, { status: 400 })
     }
 
-    // Determine OTP type based on purpose
+    const supabase = getSupabaseAdminClient()
     const otpType = purpose === 'password_reset' ? 'PASSWORD_RESET' : 'LOGIN'
 
-    // Find valid OTP
-    const otp = await db.oTPCode.findFirst({
-      where: {
-        phone,
-        code,
-        type: otpType,
-        isUsed: false,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+    const { data: otp } = await supabase
+      .from('otp_codes')
+      .select('id, user_id')
+      .eq('phone', phone)
+      .eq('code', code)
+      .eq('type', otpType)
+      .eq('is_used', false)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
     if (!otp) {
       return NextResponse.json({ error: 'Code invalide ou expiré' }, { status: 400 })
     }
 
-    // Mark OTP as used
-    await db.oTPCode.update({ where: { id: otp.id }, data: { isUsed: true } })
+    await supabase
+      .from('otp_codes')
+      .update({ is_used: true })
+      .eq('id', otp.id)
 
-    // ─── PASSWORD_RESET: just confirm the code is valid ──────────────────
     if (otpType === 'PASSWORD_RESET') {
       return NextResponse.json({
         valid: true,
@@ -40,45 +41,41 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // ─── LOGIN flow ──────────────────────────────────────────────────────
-    // Find the user by phone
-    const user = await db.user.findUnique({
-      where: { phone },
-    })
+    const { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .eq('phone', phone)
+      .maybeSingle()
 
-    // If temp user (SMS registration flow) → needs registration
-    if (user && user.firstName === 'Temp' && user.lastName === 'User' && !user.isPhoneVerified) {
+    if (user && user.first_name === 'Temp' && user.last_name === 'User' && !user.is_phone_verified) {
       return NextResponse.json({
         needsRegistration: true,
         phone,
       })
     }
 
-    // If real verified user → log them in
-    if (user && user.isActive) {
-      // Mark phone as verified
-      if (!user.isPhoneVerified) {
-        await db.user.update({
-          where: { id: user.id },
-          data: { isPhoneVerified: true },
-        })
+    if (user && user.is_active) {
+      if (!user.is_phone_verified) {
+        await supabase
+          .from('users')
+          .update({ is_phone_verified: true })
+          .eq('id', user.id)
       }
 
-      // Create session
-      const { token: sessionToken, expiresAt } = await createSession(user.id)
+      const { token: sessionToken, expiresAt } = await createSession(supabase, user.id)
 
       const response = NextResponse.json({
         user: {
           id: user.id,
           phone: user.phone,
           email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
+          firstName: user.first_name,
+          lastName: user.last_name,
           role: user.role,
-          activeRole: user.activeRole,
-          avatarUrl: user.avatarUrl,
-          isActive: user.isActive,
-          isEmailVerified: user.isEmailVerified,
+          activeRole: user.active_role,
+          avatarUrl: user.avatar_url,
+          isActive: user.is_active,
+          isEmailVerified: user.is_email_verified,
         },
       })
 
@@ -90,7 +87,6 @@ export async function POST(req: NextRequest) {
       return response
     }
 
-    // No active user found → needs registration
     return NextResponse.json({ needsRegistration: true, phone })
   } catch (error) {
     console.error('Verify SMS OTP error:', error)

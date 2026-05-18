@@ -1,76 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
 // GET /api/locataire/my-recipients — Get propriétaires and agences for a locataire
 // Query params: search (filter by name)
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId, effectiveRole } = authResult
 
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+
+    const effectiveRole = profile?.active_role || profile?.role
     if (effectiveRole !== 'LOCATAIRE') {
-      return NextResponse.json({ error: 'Accès réservé aux locataires' }, { status: 403 })
+      const resp = NextResponse.json({ error: 'Accès réservé aux locataires' }, { status: 403 })
+      return applyCookies(resp)
     }
 
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search')?.trim() || ''
 
-    // Find all active leases for this tenant
-    const leases = await db.lease.findMany({
-      where: {
-        tenantId: userId,
-        status: { in: ['ACTIVE', 'PENDING_SIGNATURE'] },
-      },
-      select: {
-        id: true,
-        propertyId: true,
-        property: {
-          select: {
-            id: true,
-            title: true,
-            city: true,
-            images: { orderBy: { order: 'asc' }, take: 1, select: { url: true } },
-            mandats: {
-              where: { status: 'ACTIVE' },
-              select: {
-                agency: {
-                  select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    role: true,
-                    companyName: true,
-                    phone: true,
-                    email: true,
-                    showPhone: true,
-                    showEmail: true,
-                    avatarUrl: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        owner: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-            companyName: true,
-            phone: true,
-            email: true,
-            showPhone: true,
-            showEmail: true,
-            avatarUrl: true,
-          },
-        },
-      },
-    })
+    const { data: leases } = await supabase
+      .from('leases')
+      .select(`
+        id, property_id, tenant_id, owner_id,
+        property:properties(
+          id, title, city,
+          images:property_images(order, url),
+          mandats:mandats(
+            status,
+            agency:users!mandats_agency_id_fkey(
+              id, first_name, last_name, role, company_name, phone, email, show_phone, show_email, avatar_url
+            )
+          )
+        ),
+        owner:users!leases_owner_id_fkey(
+          id, first_name, last_name, role, company_name, phone, email, show_phone, show_email, avatar_url
+        )
+      `)
+      .eq('tenant_id', userId)
+      .in('status', ['ACTIVE', 'PENDING_SIGNATURE'])
 
     // Build deduplicated map of propriétaires
     const ownerMap = new Map<string, {
@@ -86,26 +64,27 @@ export async function GET(req: NextRequest) {
       properties: Array<{ id: string; title: string; city: string }>
     }>()
 
-    leases.forEach((lease) => {
+    ;(leases || []).forEach((lease: any) => {
       const owner = lease.owner
+      if (!owner) return
       if (!ownerMap.has(owner.id)) {
         ownerMap.set(owner.id, {
           id: owner.id,
-          firstName: owner.firstName,
-          lastName: owner.lastName,
+          firstName: owner.first_name,
+          lastName: owner.last_name,
           role: owner.role,
-          companyName: owner.companyName,
-          phone: owner.showPhone ? owner.phone : null,
-          email: owner.showEmail ? owner.email : null,
-          avatarUrl: owner.avatarUrl,
+          companyName: owner.company_name,
+          phone: owner.show_phone ? owner.phone : null,
+          email: owner.show_email ? owner.email : null,
+          avatarUrl: owner.avatar_url,
           type: 'PROPRIETAIRE',
           properties: [],
         })
       }
       ownerMap.get(owner.id)!.properties.push({
-        id: lease.property.id,
-        title: lease.property.title,
-        city: lease.property.city,
+        id: lease.property?.id || '',
+        title: lease.property?.title || '',
+        city: lease.property?.city || '',
       })
     })
 
@@ -123,30 +102,32 @@ export async function GET(req: NextRequest) {
       properties: Array<{ id: string; title: string; city: string }>
     }>()
 
-    leases.forEach((lease) => {
-      lease.property.mandats.forEach((mandat) => {
+    ;(leases || []).forEach((lease: any) => {
+      if (!lease.property?.mandats) return
+      lease.property.mandats.forEach((mandat: any) => {
+        if (mandat.status !== 'ACTIVE') return
         const agency = mandat.agency
+        if (!agency) return
         if (!agenceMap.has(agency.id)) {
           agenceMap.set(agency.id, {
             id: agency.id,
-            firstName: agency.firstName,
-            lastName: agency.lastName,
+            firstName: agency.first_name,
+            lastName: agency.last_name,
             role: agency.role,
-            companyName: agency.companyName,
-            phone: agency.showPhone ? agency.phone : null,
-            email: agency.showEmail ? agency.email : null,
-            avatarUrl: agency.avatarUrl,
+            companyName: agency.company_name,
+            phone: agency.show_phone ? agency.phone : null,
+            email: agency.show_email ? agency.email : null,
+            avatarUrl: agency.avatar_url,
             type: 'AGENCE',
             properties: [],
           })
         }
-        // Avoid duplicate properties for same agency
         const existing = agenceMap.get(agency.id)!.properties
-        if (!existing.find((p) => p.id === lease.property.id)) {
-          agenceMap.get(agency.id)!.properties.push({
-            id: lease.property.id,
-            title: lease.property.title,
-            city: lease.property.city,
+        if (!existing.find((p) => p.id === lease.property?.id)) {
+          existing.push({
+            id: lease.property?.id || '',
+            title: lease.property?.title || '',
+            city: lease.property?.city || '',
           })
         }
       })
@@ -168,7 +149,8 @@ export async function GET(req: NextRequest) {
         })
       : allRecipients
 
-    return NextResponse.json({ recipients: filtered })
+    const response = NextResponse.json({ recipients: filtered })
+    return applyCookies(response)
   } catch (error) {
     console.error('my-recipients GET error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

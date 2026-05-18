@@ -51,8 +51,8 @@ import { cn } from '@/lib/utils'
 
 const navLinks: { label: string; view: AppView; icon: React.ElementType }[] = [
   { label: 'Accueil', view: 'home', icon: Home },
-  { label: 'Nos Biens', view: 'nos-biens', icon: Search },
-  { label: 'À Propos', view: 'a-propos', icon: Building2 },
+  { label: 'Nos iens', view: 'nos-biens', icon: Search },
+  { label: 'À propos', view: 'a-propos', icon: Building2 },
   { label: 'FAQ', view: 'faq', icon: HelpCircle },
   { label: 'Nous Contacter', view: 'nous-contacter', icon: MessageSquare },
 ]
@@ -120,7 +120,7 @@ function getUserMenuItems(role: AuthUser['role']): UserMenuItem[] {
       ]
     case 'AGENCE':
       return [
-        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
+        { id: 'dashboard', label: 'Mon espace', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
         { id: 'properties', label: 'Nos biens', icon: Building2, section: 'my-properties', group: 'NOS BIENS' },
         { id: 'add-property', label: 'Ajouter un bien', icon: PlusCircle, section: 'add-property', group: 'NOS BIENS' },
         { id: 'visits', label: 'Demandes de visite', icon: Eye, section: 'visit-requests', group: 'LOCATION' },

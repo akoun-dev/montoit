@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdAndRole } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 import { generateBailContract, type BailContractData } from '@/lib/generate-bail'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
@@ -19,22 +19,16 @@ async function convertDocxToPdf(docxBuffer: Buffer, filename: string): Promise<B
   const pdfPath = join(tmpDir, `${baseName}.pdf`)
 
   try {
-    // Write DOCX to temp file
     await writeFile(docxPath, docxBuffer)
-
-    // Convert using LibreOffice headless
     await execFileAsync('libreoffice', [
       '--headless',
       '--convert-to', 'pdf',
       '--outdir', tmpDir,
       docxPath,
     ], { timeout: 30000 })
-
-    // Read the generated PDF
     const pdfBuffer = await readFile(pdfPath)
     return pdfBuffer
   } finally {
-    // Clean up temp files
     try { await unlink(docxPath) } catch { /* ignore */ }
     try { await unlink(pdfPath) } catch { /* ignore */ }
   }
@@ -46,173 +40,167 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await getUserIdAndRole(req)
-    if (!authResult) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
-    const { userId } = authResult
 
     const { id } = await params
-
-    // Check format parameter
     const format = req.nextUrl.searchParams.get('format') || 'pdf'
 
-    // Fetch the lease with all related data
-    const lease = await db.lease.findUnique({
-      where: { id },
-      include: {
-        property: {
-          select: {
-            id: true,
-            title: true,
-            address: true,
-            city: true,
-            commune: true,
-            description: true,
-            type: true,
-            area: true,
-            bedrooms: true,
-            bathrooms: true,
-            owner: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-                address: true,
-              },
-            },
-          },
-        },
-        owner: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-            address: true,
-          },
-        },
-        tenant: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-          },
-        },
-        inventoryReports: {
-          include: {
-            items: {
-              orderBy: { designationOrder: 'asc' },
-            },
-          },
-          take: 1,
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    })
+    const supabase = getSupabaseAdminClient()
+
+    const { data: lease } = await supabase
+      .from('leases')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
 
     if (!lease) {
-      return NextResponse.json({ error: 'Bail introuvable' }, { status: 404 })
+      const resp = NextResponse.json({ error: 'Bail introuvable' }, { status: 404 })
+      return applyCookies(resp)
     }
 
-    // Authorization: must be owner, tenant, or TC
-    if (lease.ownerId !== userId && lease.tenantId !== userId) {
-      const auth = await getUserIdAndRole(req)
-      if (!auth || auth.effectiveRole !== 'TIERS_CONFIANCE') {
-        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    if (lease.owner_id !== userId && lease.tenant_id !== userId) {
+      const auth = await resolveRequestUser(req)
+      if (!auth?.userId) {
+        const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+        return applyCookies(resp)
+      }
+      const { data: user } = await supabase
+        .from('users')
+        .select('role, active_role')
+        .eq('id', auth.userId)
+        .single()
+      const effectiveRole = user?.active_role || user?.role
+      if (effectiveRole !== 'TIERS_CONFIANCE') {
+        const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+        return applyCookies(resp)
       }
     }
 
-    // Must be signed by at least one party
-    if (!lease.ownerSignedAt && !lease.tenantSignedAt) {
-      return NextResponse.json(
+    if (!lease.owner_signed_at && !lease.tenant_signed_at) {
+      const resp = NextResponse.json(
         { error: 'Le bail doit être signé par au moins une partie pour télécharger le contrat' },
         { status: 400 }
       )
+      return applyCookies(resp)
+    }
+
+    // Fetch related data
+    const [propRes, usersRes] = await Promise.all([
+      supabase.from('properties').select('*').eq('id', lease.property_id).maybeSingle(),
+      supabase.from('users').select('*').in('id', [lease.owner_id, lease.tenant_id].filter(Boolean)),
+    ])
+
+    const property = (propRes as any).data
+    const userMap = new Map((usersRes.data ?? []).map((u: any) => [u.id, u]))
+    const leaseOwner = userMap.get(lease.owner_id)
+    const leaseTenant = userMap.get(lease.tenant_id)
+
+    // Fetch property owner (may differ from lease owner)
+    let propOwner: Record<string, any> | undefined
+    if (property?.owner_id && property.owner_id !== lease.owner_id) {
+      const { data: po } = await supabase
+        .from('users')
+        .select('id, first_name, last_name, email, phone, address')
+        .eq('id', property.owner_id)
+        .single()
+      propOwner = po ?? undefined
+    } else {
+      propOwner = leaseOwner
+    }
+
+    // Fetch inventory reports
+    const { data: invReports } = await (supabase
+      .from('inventory_reports')
+      .select('*')
+      .eq('lease_id', id)
+      .order('created_at', { ascending: false })
+      .limit(1) as any)
+
+    let inventoryItems: any[] = []
+    const latestReport = invReports?.[0]
+    if (latestReport) {
+      const { data: items } = await (supabase
+          .from('inventory_items')
+          .select('*')
+          .eq('inventory_report_id', latestReport.id)
+          .order('designation_order', { ascending: true }) as any)
+        inventoryItems = items ?? []
     }
 
     // Build property description
-    const prop = lease.property
     const descParts: string[] = []
-    if (prop.type) descParts.push(prop.type.toLowerCase())
-    if (prop.bedrooms) descParts.push(`${prop.bedrooms} chambre${prop.bedrooms > 1 ? 's' : ''}`)
-    if (prop.area) descParts.push(`${prop.area} m²`)
+    if (property?.type) descParts.push(property.type.toLowerCase())
+    if (property?.bedrooms) descParts.push(`${property.bedrooms} chambre${property.bedrooms > 1 ? 's' : ''}`)
+    if (property?.area) descParts.push(`${property.area} m²`)
     const propertyDescription = descParts.length > 0
       ? `un logement composé de ${descParts.join(', ')}`
-      : prop.description || prop.title
+      : property?.description || property?.title || ''
 
-    // Build inventory items
-    const latestReport = lease.inventoryReports?.[0]
-    const inventoryItems = latestReport?.items?.map((item) => ({
+    const mappedItems = inventoryItems.map((item: any) => ({
       designation: item.designation,
       kitchen: item.kitchen,
-      mainBathroom: item.mainBathroom,
-      otherBathroom: item.otherBathroom,
-      otherRoom1: item.otherRoom1,
-      otherRoom2: item.otherRoom2,
+      mainBathroom: item.main_bathroom,
+      otherBathroom: item.other_bathroom,
+      otherRoom1: item.other_room_1,
+      otherRoom2: item.other_room_2,
       observations: item.observations,
     }))
 
-    // Build contract data
     const contractData: BailContractData = {
-      ownerFirstName: lease.owner.firstName,
-      ownerLastName: lease.owner.lastName,
+      ownerFirstName: propOwner?.first_name || leaseOwner?.first_name || '',
+      ownerLastName: propOwner?.last_name || leaseOwner?.last_name || '',
       ownerIdRef: '',
-      ownerPhone: lease.owner.phone || '',
-      ownerEmail: lease.owner.email,
-      ownerAddress: lease.owner.address || prop.address || '',
+      ownerPhone: propOwner?.phone || leaseOwner?.phone || '',
+      ownerEmail: propOwner?.email || leaseOwner?.email || '',
+      ownerAddress: propOwner?.address || property?.address || '',
 
-      tenantFirstName: lease.tenant.firstName,
-      tenantLastName: lease.tenant.lastName,
+      tenantFirstName: leaseTenant?.first_name || '',
+      tenantLastName: leaseTenant?.last_name || '',
       tenantIdRef: '',
       tenantProfession: '',
-      tenantPhone: lease.tenant.phone || '',
-      tenantEmail: lease.tenant.email || '',
+      tenantPhone: leaseTenant?.phone || '',
+      tenantEmail: leaseTenant?.email || '',
 
-      propertyTitle: prop.title,
-      propertyAddress: prop.address || '',
-      propertyCity: prop.city || '',
+      propertyTitle: property?.title || '',
+      propertyAddress: property?.address || '',
+      propertyCity: property?.city || '',
       propertyDescription,
 
-      monthlyRent: lease.monthlyRent,
+      monthlyRent: lease.monthly_rent,
       deposit: lease.deposit || 0,
       advanceRent: 0,
       advanceRentMonths: '',
 
       leaseDuration: String(Math.max(1, Math.round(
-        (new Date(lease.endDate).getTime() - new Date(lease.startDate).getTime()) /
+        (new Date(lease.end_date).getTime() - new Date(lease.start_date).getTime()) /
         (365.25 * 24 * 60 * 60 * 1000)
       ))),
-      startDate: lease.startDate.toISOString(),
-      endDate: lease.endDate.toISOString(),
+      startDate: lease.start_date,
+      endDate: lease.end_date,
 
-      ownerSignatureImage: lease.ownerSignatureImage || undefined,
-      tenantSignatureImage: lease.tenantSignatureImage || undefined,
-      ownerSignedAt: lease.ownerSignedAt?.toISOString(),
-      tenantSignedAt: lease.tenantSignedAt?.toISOString(),
+      ownerSignatureImage: lease.owner_signature_image || undefined,
+      tenantSignatureImage: lease.tenant_signature_image || undefined,
+      ownerSignedAt: lease.owner_signed_at || undefined,
+      tenantSignedAt: lease.tenant_signed_at || undefined,
 
-      inventoryItems,
-      totalKeys: latestReport?.totalKeys ?? undefined,
-      generalObservations: latestReport?.generalObservations ?? undefined,
+      inventoryItems: mappedItems,
+      totalKeys: latestReport?.total_keys ?? undefined,
+      generalObservations: latestReport?.general_observations ?? undefined,
     }
 
-    // Generate the .docx buffer
     const docxBuffer = await generateBailContract(contractData)
 
-    const baseFilename = `Bail_${prop.title.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}`
+    const baseFilename = `Bail_${(property?.title || '').replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}`
 
     if (format === 'pdf') {
-      // Convert DOCX → PDF using LibreOffice headless
       try {
         const pdfBuffer = await convertDocxToPdf(docxBuffer, `${baseFilename}.docx`)
         const filename = `${baseFilename}.pdf`
-
-        return new NextResponse(pdfBuffer, {
+        return new NextResponse(new Uint8Array(pdfBuffer), {
           status: 200,
           headers: {
             'Content-Type': 'application/pdf',
@@ -221,9 +209,8 @@ export async function GET(
         })
       } catch (conversionError) {
         console.error('PDF conversion failed, falling back to DOCX:', conversionError)
-        // Fall back to DOCX if PDF conversion fails
         const filename = `${baseFilename}.docx`
-        return new NextResponse(docxBuffer, {
+        return new NextResponse(new Uint8Array(docxBuffer), {
           status: 200,
           headers: {
             'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -233,9 +220,8 @@ export async function GET(
       }
     }
 
-    // Return DOCX directly
     const filename = `${baseFilename}.docx`
-    return new NextResponse(docxBuffer, {
+    return new NextResponse(new Uint8Array(docxBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -244,6 +230,7 @@ export async function GET(
     })
   } catch (error) {
     console.error('Contract generation error:', error)
-    return NextResponse.json({ error: 'Erreur lors de la génération du contrat' }, { status: 500 })
+    const resp = NextResponse.json({ error: 'Erreur lors de la génération du contrat' }, { status: 500 })
+    return resp
   }
 }

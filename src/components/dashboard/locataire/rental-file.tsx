@@ -372,7 +372,7 @@ export function RentalFileForm() {
   }
 
   // Check if existing file is already submitted (not DRAFT)
-  const isReadOnly = existingFile && existingFile.status !== 'DRAFT'
+  const isReadOnly = !!(existingFile && existingFile.status !== 'DRAFT')
   const existingStatus = existingFile ? statusConfig[existingFile.status] : null
   const currentCategory = formData.tenantCategory || existingFile?.tenantCategory
   const requiredDocs = currentCategory ? documentRequirements[currentCategory] : []

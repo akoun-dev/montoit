@@ -1,33 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { getUserIdFromRequest } from '@/lib/session'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { BUCKETS, deleteFromStorage, extractBucketAndPath, uploadFromBase64 } from '@/lib/supabase/storage'
 
-// POST /api/rental-file/documents — Upload a document to a rental file
 export async function POST(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
+
+    const supabase = getSupabaseAdminClient()
 
     const body = await req.json()
     const { rentalFileId, type, name, content } = body as {
       rentalFileId: string
       type: string
       name: string
-      content: string // base64 encoded file content
+      content: string
     }
 
     if (!rentalFileId || !type || !name) {
       return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
     }
 
-    // Verify the rental file belongs to this user
-    const rentalFile = await db.rentalFile.findFirst({
-      where: { id: rentalFileId, tenantId: userId },
-    })
+    const { data: rentalFile, error: fileError } = await supabase
+      .from('rental_files')
+      .select('id, tenant_id, status')
+      .eq('id', rentalFileId)
+      .eq('tenant_id', userId)
+      .single()
 
-    if (!rentalFile) {
+    if (fileError || !rentalFile) {
       return NextResponse.json({ error: 'Dossier locatif non trouvé' }, { status: 404 })
     }
 
@@ -35,7 +40,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Le dossier n\'est plus modifiable' }, { status: 400 })
     }
 
-    // Validate document type
     const validTypes = [
       'ID_CARD', 'PASSPORT', 'PAY_SLIP', 'EMPLOYMENT_CONTRACT',
       'WORK_CERTIFICATE', 'BANK_STATEMENT', 'GUARANTOR_ID',
@@ -49,50 +53,74 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Type de document invalide' }, { status: 400 })
     }
 
-    // Check if a document of this type already exists (replace it)
-    const existingDoc = await db.rentalFileDocument.findFirst({
-      where: { rentalFileId, type: type as never },
-    })
+    const { data: existingDoc } = await (supabase
+      .from('rental_file_documents')
+      .select('id, url')
+      .eq('rental_file_id', rentalFileId)
+      .eq('type', type)
+      .maybeSingle() as any)
 
-    let document
-    if (existingDoc) {
-      // Replace existing document
-      document = await db.rentalFileDocument.update({
-        where: { id: existingDoc.id },
-        data: {
-          name,
-          url: content || existingDoc.url,
-          status: 'PENDING',
-          tcComment: null,
-        },
-      })
-    } else {
-      // Create new document
-      document = await db.rentalFileDocument.create({
-        data: {
-          rentalFileId,
-          type: type as never,
-          name,
-          url: content || '',
-          status: 'PENDING',
-        },
-      })
+    let url = existingDoc?.url || ''
+    if (content) {
+      const ext = guessFileExt(name)
+      const filePath = `${userId}/${rentalFileId}/${type}_${Date.now()}.${ext}`
+      url = await uploadFromBase64(BUCKETS.RENTAL_DOCUMENTS, content, filePath)
+
+      if (existingDoc?.url && isStorageUrl(existingDoc.url)) {
+        const parsed = extractBucketAndPath(existingDoc.url)
+        if (parsed) {
+          await deleteFromStorage(parsed.bucket, parsed.path).catch(() => {})
+        }
+      }
     }
 
-    return NextResponse.json({ data: document })
+    let document: any
+    if (existingDoc) {
+      const { data: updated } = await (supabase
+        .from('rental_file_documents')
+        .update({ name, url, status: 'PENDING', tc_comment: null } as any)
+        .eq('id', existingDoc.id)
+        .select()
+        .single() as any)
+      document = updated
+    } else {
+      const { data: created } = await (supabase
+        .from('rental_file_documents')
+        .insert({ rental_file_id: rentalFileId, type, name, url, status: 'PENDING' } as any)
+        .select()
+        .single() as any)
+      document = created
+    }
+
+    const mapped = {
+      id: document.id,
+      rentalFileId: document.rental_file_id,
+      type: document.type,
+      name: document.name,
+      url: document.url,
+      status: document.status,
+      tcComment: document.tc_comment,
+      createdAt: document.created_at,
+      updatedAt: document.updated_at,
+    }
+
+    const response = NextResponse.json({ data: mapped })
+    return applyCookies(response)
   } catch (error) {
     console.error('Rental file document upload error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
-// DELETE /api/rental-file/documents — Delete a document from a rental file
 export async function DELETE(req: NextRequest) {
   try {
-    const userId = await getUserIdFromRequest(req)
+    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
     }
+
+    const supabase = getSupabaseAdminClient()
 
     const { searchParams } = new URL(req.url)
     const docId = searchParams.get('docId')
@@ -101,25 +129,48 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'ID du document manquant' }, { status: 400 })
     }
 
-    // Verify the document belongs to a rental file of this user
-    const doc = await db.rentalFileDocument.findFirst({
-      where: { id: docId },
-      include: { rentalFile: { select: { tenantId: true, status: true } } },
-    })
+    const { data: doc, error: docError } = await (supabase
+      .from('rental_file_documents')
+      .select('id, url, rental_file:rental_files!rental_file_documents_rental_file_id_fkey(tenant_id, status)')
+      .eq('id', docId)
+      .single() as any)
 
-    if (!doc || doc.rentalFile.tenantId !== userId) {
+    if (docError || !doc) {
       return NextResponse.json({ error: 'Document non trouvé' }, { status: 404 })
     }
 
-    if (doc.rentalFile.status !== 'DRAFT') {
+    const rentalFile = (doc as any).rental_file
+    if (rentalFile?.tenant_id !== userId) {
+      return NextResponse.json({ error: 'Document non trouvé' }, { status: 404 })
+    }
+
+    if (rentalFile?.status !== 'DRAFT') {
       return NextResponse.json({ error: 'Le dossier n\'est plus modifiable' }, { status: 400 })
     }
 
-    await db.rentalFileDocument.delete({ where: { id: docId } })
+    if (doc.url && isStorageUrl(doc.url)) {
+      const parsed = extractBucketAndPath(doc.url)
+      if (parsed) {
+        await deleteFromStorage(parsed.bucket, parsed.path).catch(() => {})
+      }
+    }
 
-    return NextResponse.json({ success: true })
+    await (supabase.from('rental_file_documents').delete().eq('id', docId) as any)
+
+    const response = NextResponse.json({ success: true })
+    return applyCookies(response)
   } catch (error) {
     console.error('Rental file document delete error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
+}
+
+function guessFileExt(name: string): string {
+  const dot = name.lastIndexOf('.')
+  if (dot !== -1) return name.slice(dot + 1)
+  return 'bin'
+}
+
+function isStorageUrl(url: string): boolean {
+  return url.startsWith('http') && url.includes('/storage/v1/object/public/')
 }
