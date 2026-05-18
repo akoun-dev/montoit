@@ -310,3 +310,169 @@ export async function notifyNewMessage(recipientId: string, senderName: string, 
     entityId: conversationId,
   })
 }
+
+// ─── Dispute notification helpers ──────────────────────────────────────────
+
+export async function notifyDisputeUpdate(reportedById: string, disputeId: string, status: string, comment?: string) {
+  const statusLabels: Record<string, string> = {
+    OPEN: 'réouvert',
+    IN_REVIEW: 'en cours de traitement',
+    RESOLVED: 'résolu',
+    CLOSED: 'clôturé',
+  }
+  await notify({
+    userId: reportedById,
+    type: 'DISPUTE_UPDATE',
+    title: 'Mise à jour de votre litige',
+    message: `Votre litige a été ${statusLabels[status] || 'mis à jour'}.${comment ? ` Commentaire : ${comment}` : ''}`,
+    actionUrl: 'litiges',
+    entityId: disputeId,
+  })
+}
+
+export async function notifyDisputeEscalated(reportedById: string, disputeId: string, reason?: string) {
+  await notify({
+    userId: reportedById,
+    type: 'DISPUTE_UPDATE',
+    title: 'Litige escaladé ⚠️',
+    message: `Votre litige a été escaladé.${reason ? ` Raison : ${reason}` : ''}`,
+    actionUrl: 'litiges',
+    entityId: disputeId,
+  })
+}
+
+// ─── Application notification helper ────────────────────────────────────────
+
+export async function notifyNewApplication(ownerId: string, tenantName: string, propertyTitle: string, applicationId: string) {
+  await notify({
+    userId: ownerId,
+    type: 'APPLICATION',
+    title: 'Nouvelle candidature',
+    message: `${tenantName} a postulé pour "${propertyTitle}".`,
+    actionUrl: 'rental-files',
+    entityId: applicationId,
+  })
+}
+
+// ─── Review notification helper ─────────────────────────────────────────────
+
+export async function notifyNewReview(toUserId: string, fromUserName: string, propertyTitle: string, rating: number, reviewId: string) {
+  await notify({
+    userId: toUserId,
+    type: 'REVIEW',
+    title: 'Nouvel avis',
+    message: `${fromUserName} a laissé un avis (${rating}/5) sur "${propertyTitle}".`,
+    actionUrl: 'reviews',
+    entityId: reviewId,
+  })
+}
+
+// ─── Mission assigned notification ──────────────────────────────────────────
+
+export async function notifyMissionAssigned(agentTcId: string, missionType: string, propertyTitle: string, missionId: string) {
+  const typeLabels: Record<string, string> = {
+    PROPERTY_VERIFICATION: 'Vérification de propriété',
+    INVENTORY_REPORT: 'État des lieux',
+  }
+  await notify({
+    userId: agentTcId,
+    type: 'MISSION_ASSIGNED',
+    title: 'Nouvelle mission assignée',
+    message: `Vous avez été assigné à une mission de ${typeLabels[missionType] || missionType} pour "${propertyTitle}".`,
+    actionUrl: 'missions',
+    entityId: missionId,
+  })
+}
+
+// ─── Certification notification ─────────────────────────────────────────────
+
+export async function notifyCertificationGranted(userId: string, certType: string, certId: string) {
+  await notify({
+    userId,
+    type: 'CERTIFICATION',
+    title: 'Certification accordée ✅',
+    message: `Votre certification de type "${certType}" a été accordée.`,
+    actionUrl: 'certifications',
+    entityId: certId,
+  })
+}
+
+// ─── Fraud alert notification ───────────────────────────────────────────────
+
+export async function notifyFraudAlert(tcId: string, suspectName: string, alertId: string) {
+  await notify({
+    userId: tcId,
+    type: 'FRAUD_ALERT',
+    title: 'Alerte de fraude 🚨',
+    message: `Une alerte de fraude a été signalée concernant ${suspectName}.`,
+    actionUrl: 'fraud-alerts',
+    entityId: alertId,
+  })
+}
+
+// ─── New property notification (for admin moderation) ───────────────────────
+
+export async function notifyNewPropertyForModeration(adminId: string, propertyTitle: string, ownerName: string, propertyId: string) {
+  await notify({
+    userId: adminId,
+    type: 'PROPERTY_VERIFICATION',
+    title: 'Nouveau bien à vérifier',
+    message: `Le bien "${propertyTitle}" publié par ${ownerName} nécessite une vérification.`,
+    actionUrl: 'properties-moderation',
+    entityId: propertyId,
+  })
+}
+
+// ─── Mandat notification ────────────────────────────────────────────────────
+
+export async function notifyMandatStatusUpdate(ownerId: string, status: string, propertyTitle: string, mandatId: string) {
+  const statusLabels: Record<string, string> = {
+    PENDING_SIGNATURE: 'en attente de signature',
+    ACTIVE: 'actif',
+    TERMINATED: 'terminé',
+    EXPIRED: 'expiré',
+  }
+  await notify({
+    userId: ownerId,
+    type: 'LEASE_UPDATE',
+    title: 'Mise à jour de mandat',
+    message: `Le mandat pour "${propertyTitle}" est maintenant ${statusLabels[status] || status}.`,
+    actionUrl: 'mandats',
+    entityId: mandatId,
+  })
+}
+
+// ─── Owner file review notification ─────────────────────────────────────────
+
+export async function notifyOwnerFileValidated(ownerId: string, fileId: string) {
+  await notify({
+    userId: ownerId,
+    type: 'DOSSIER_UPDATE',
+    title: 'Dossier propriétaire validé ✅',
+    message: 'Votre dossier propriétaire a été validé par le Tiers de Confiance.',
+    actionUrl: 'owner-file',
+    entityId: fileId,
+  })
+}
+
+export async function notifyOwnerFileRejected(ownerId: string, reason: string, fileId: string) {
+  await notify({
+    userId: ownerId,
+    type: 'DOSSIER_UPDATE',
+    title: 'Dossier propriétaire rejeté ❌',
+    message: `Votre dossier propriétaire a été rejeté. Raison : ${reason}`,
+    actionUrl: 'owner-file',
+    entityId: fileId,
+  })
+}
+
+// ─── Security alert notification ────────────────────────────────────────────
+
+export async function notifySecurityAlert(userId: string, title: string, message: string) {
+  await notify({
+    userId,
+    type: 'SECURITY',
+    title,
+    message,
+  })
+}

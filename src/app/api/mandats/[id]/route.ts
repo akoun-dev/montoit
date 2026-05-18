@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/mandats/[id] — Get mandat details
 export async function GET(
@@ -120,6 +121,16 @@ export async function PATCH(
           agency: { select: { id: true, firstName: true, lastName: true, email: true } },
           owner: { select: { id: true, firstName: true, lastName: true, email: true } },
         },
+      })
+
+      // Notify the agency about the termination
+      await notify({
+        userId: mandat.agencyId,
+        type: 'LEASE_UPDATE',
+        title: 'Mandat résilié',
+        message: `Le mandat pour "${updated.property.title}" a été résilié par le propriétaire. Raison : ${terminationReason}`,
+        actionUrl: 'mandats',
+        entityId: id,
       })
 
       return NextResponse.json({ mandat: updated })

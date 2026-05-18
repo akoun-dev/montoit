@@ -158,6 +158,16 @@ function ProprietaireDashboard({ section }: { section: string }) {
     setDashboardSection('my-tenants')
   }
 
+  const goToPaymentDetail = (id: string) => {
+    setSelectedItemId(id)
+    setDashboardSection('payment-detail')
+  }
+
+  const goBackToPayments = () => {
+    setSelectedItemId('')
+    setDashboardSection('payments')
+  }
+
   switch (section) {
     case 'overview': return <ProprietaireOverview />
     case 'my-properties': return <MyProperties />
@@ -167,7 +177,8 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'rental-files': return <EnhancedRentalFiles />
     case 'my-leases': return <EnhancedLeases />
     case 'mandats': return <ProprietaireMandats />
-    case 'payments': return <Payments onDetail={() => {}} />
+    case 'payments': return <Payments onDetail={goToPaymentDetail} />
+    case 'payment-detail': return <PaymentDetail paymentId={selectedItemId} onBack={goBackToPayments} />
     case 'finances': return <OwnerFinances />
     case 'analytics': return <OwnerAnalytics />
     case 'messages': return <ProprietaireMessages />

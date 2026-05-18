@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/admin/signalements — list signalements with reporter info
 export async function GET(req: NextRequest) {
@@ -95,6 +96,22 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // Notify all admin users about the new signalement
+    const admins = await db.user.findMany({
+      where: { role: 'ADMIN', isActive: true },
+      select: { id: true },
+    })
+    await Promise.all(admins.map((admin) =>
+      notify({
+        userId: admin.id,
+        type: 'SYSTEM',
+        title: 'Nouveau signalement',
+        message: `Un signalement a été déposé : ${reason}`,
+        actionUrl: 'signalements',
+        entityId: signalement.id,
+      })
+    ))
+
     return NextResponse.json({ signalement }, { status: 201 })
   } catch (error) {
     console.error('Admin signalements POST error:', error)
@@ -140,6 +157,23 @@ export async function PATCH(req: NextRequest) {
         },
       },
     })
+
+    // Notify the reporter about the status update
+    if (status) {
+      const statusLabels: Record<string, string> = {
+        REVIEWED: 'en cours d\'examen',
+        RESOLVED: 'résolu',
+        DISMISSED: 'rejeté',
+      }
+      await notify({
+        userId: signalement.reporterId,
+        type: 'SYSTEM',
+        title: 'Mise à jour de votre signalement',
+        message: `Votre signalement a été ${statusLabels[status] || 'mis à jour'}.${adminNotes ? ` Note : ${adminNotes}` : ''}`,
+        actionUrl: 'history',
+        entityId: id,
+      })
+    }
 
     return NextResponse.json({ signalement })
   } catch (error) {

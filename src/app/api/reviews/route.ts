@@ -241,7 +241,7 @@ export async function POST(req: NextRequest) {
     // Create notification for the rated user
     await notify({
       userId: toUserId,
-      type: 'DOSSIER_UPDATE',
+      type: 'REVIEW',
       title: 'Nouvel avis reçu',
       message: `Vous avez reçu un avis de ${score}/5 pour le bail "${lease.property.title}".`,
       actionUrl: 'reviews',

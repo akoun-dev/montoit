@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
     if (ownerNotif) {
       await notify({
         userId: ownerNotif.ownerId,
-        type: 'DOSSIER_UPDATE',
+        type: 'MAINTENANCE',
         title: 'Nouvelle demande de maintenance',
         message: `Une demande de maintenance a été soumise pour "${ownerNotif.property.title}": ${title}`,
         actionUrl: 'maintenance',

@@ -42,6 +42,7 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
   const { isAuthenticated } = useAuthStore()
   const [data, setData] = useState<VisitData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -57,6 +58,7 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
         setData(null)
         return
       }
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
       setData(null)
     } finally {
       setLoading(false)
@@ -69,6 +71,22 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
 
   if (loading) {
     return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />)}</div>
+  }
+
+  if (error) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes visites</h1>
+          <p className="text-muted-foreground mt-1">Suivez vos demandes de visite</p>
+        </div>
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-4">
+            <p className="text-sm text-amber-700">Impossible de charger vos visites. Veuillez réessayer.</p>
+          </CardContent>
+        </Card>
+      </motion.div>
+    )
   }
 
   return (

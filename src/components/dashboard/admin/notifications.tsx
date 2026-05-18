@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Bell, AlertTriangle, Shield, Eye, Check, Mail, Settings, CheckCheck, CreditCard, MessageSquare, Calendar, FileText } from 'lucide-react'
+import { Bell, AlertTriangle, Shield, Eye, Check, Mail, Settings, CheckCheck, CreditCard, MessageSquare, Calendar, FileText, Scale, Star, Target, CheckCircle, Award, BadgeCheck, Wrench, Home } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -39,11 +39,24 @@ const typeIcons: Record<string, typeof AlertTriangle> = {
   MESSAGE: MessageSquare,
   VISIT_REMINDER: Calendar,
   DOSSIER_UPDATE: FileText,
+  MAINTENANCE: Wrench,
+  LEASE_UPDATE: Home,
+  DISPUTE_UPDATE: Scale,
+  DISPUTE_ASSIGNED: Scale,
+  APPLICATION: FileText,
+  REVIEW: Star,
+  MISSION_ASSIGNED: Target,
+  MISSION_COMPLETED: CheckCircle,
+  FRAUD_ALERT: AlertTriangle,
+  CERTIFICATION: Award,
+  PROPERTY_VERIFICATION: BadgeCheck,
+  VERIFICATION_RESULT: BadgeCheck,
+  PROMOTION: Bell,
 }
 
 const typeColors: Record<string, string> = {
   CRITICAL: 'bg-red-100 text-red-700',
-  SECURITY: 'bg-amber-100 text-amber-700',
+  SECURITY: 'bg-red-100 text-red-700',
   SENSITIVE: 'bg-teal-100 text-teal-700',
   SYSTEM: 'bg-neutral-100 text-neutral-700',
   INFO: 'bg-green-100 text-green-700',
@@ -51,6 +64,19 @@ const typeColors: Record<string, string> = {
   MESSAGE: 'bg-amber-100 text-amber-700',
   VISIT_REMINDER: 'bg-amber-100 text-amber-700',
   DOSSIER_UPDATE: 'bg-brand-50 text-brand-600',
+  MAINTENANCE: 'bg-orange-100 text-orange-700',
+  LEASE_UPDATE: 'bg-teal-100 text-teal-700',
+  DISPUTE_UPDATE: 'bg-rose-100 text-rose-700',
+  DISPUTE_ASSIGNED: 'bg-rose-100 text-rose-700',
+  APPLICATION: 'bg-indigo-100 text-indigo-700',
+  REVIEW: 'bg-yellow-100 text-yellow-700',
+  MISSION_ASSIGNED: 'bg-violet-100 text-violet-700',
+  MISSION_COMPLETED: 'bg-violet-100 text-violet-700',
+  FRAUD_ALERT: 'bg-red-100 text-red-700',
+  CERTIFICATION: 'bg-sky-100 text-sky-700',
+  PROPERTY_VERIFICATION: 'bg-teal-100 text-teal-700',
+  VERIFICATION_RESULT: 'bg-teal-100 text-teal-700',
+  PROMOTION: 'bg-purple-100 text-purple-700',
 }
 
 function formatTimeAgo(dateStr: string): string {

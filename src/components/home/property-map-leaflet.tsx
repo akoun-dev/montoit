@@ -32,6 +32,8 @@ interface MapProperty {
 interface PropertyMapLeafletProps {
   properties: MapProperty[]
   onPropertyClick?: (property: MapProperty) => void
+  userLocation?: { lat: number; lng: number } | null
+  searchRadius?: number | null
 }
 
 // ── Helper ──────────────────────────────────────────────────────────────────
@@ -129,7 +131,7 @@ function LeafletPopupCard({ property, onVoirClick }: { property: MapProperty; on
 
 // ── Main Leaflet Map Component ──────────────────────────────────────────────
 
-export default function PropertyMapLeaflet({ properties, onPropertyClick }: PropertyMapLeafletProps) {
+export default function PropertyMapLeaflet({ properties, onPropertyClick, userLocation, searchRadius }: PropertyMapLeafletProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
   const [selectedProperty, setSelectedProperty] = useState<MapProperty | null>(null)
@@ -282,6 +284,62 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick }: Prop
         })
       }
 
+      // ── User location marker ────────────────────────────────────────────
+
+      const userMarkerLayer = L.layerGroup().addTo(map)
+
+      function renderUserLocation() {
+        userMarkerLayer.clearLayers()
+        if (!userLocation) return
+
+        // Pulsing blue dot
+        const userIcon = L.divIcon({
+          className: 'user-location-marker',
+          html: `
+            <div style="position: relative; width: 24px; height: 24px;">
+              <div style="
+                position: absolute;
+                top: 50%; left: 50%;
+                transform: translate(-50%, -50%);
+                width: 24px; height: 24px;
+                border-radius: 50%;
+                background: rgba(59, 130, 246, 0.2);
+                animation: userPulse 2s ease-in-out infinite;
+              "></div>
+              <div style="
+                position: absolute;
+                top: 50%; left: 50%;
+                transform: translate(-50%, -50%);
+                width: 14px; height: 14px;
+                border-radius: 50%;
+                background: #3B82F6;
+                border: 3px solid white;
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+              "></div>
+            </div>
+          `,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        })
+
+        const userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon, zIndexOffset: 1000 })
+        userMarker.addTo(userMarkerLayer)
+
+        // Radius circle
+        if (searchRadius) {
+          const circle = L.circle([userLocation.lat, userLocation.lng], {
+            radius: searchRadius * 1000, // Convert km to meters
+            color: '#3B82F6',
+            fillColor: '#3B82F6',
+            fillOpacity: 0.06,
+            weight: 2,
+            dashArray: '6 4',
+            opacity: 0.4,
+          })
+          circle.addTo(userMarkerLayer)
+        }
+      }
+
       // ── Render markers based on zoom level ──────────────────────────────
 
       const markersLayer = L.layerGroup().addTo(map)
@@ -331,6 +389,7 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick }: Prop
 
       // Initial render
       renderMarkers()
+      renderUserLocation()
 
       // Re-render on zoom change
       map.on('zoomend', () => {
@@ -362,7 +421,7 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick }: Prop
         mapInstanceRef.current = null
       }
     }
-  }, [properties, communeGroups])
+  }, [properties, communeGroups, userLocation, searchRadius])
 
   // Update markers when properties change
   useEffect(() => {
@@ -401,9 +460,14 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick }: Prop
           display: none !important;
         }
         .custom-price-marker,
-        .custom-cluster-marker {
+        .custom-cluster-marker,
+        .user-location-marker {
           background: none !important;
           border: none !important;
+        }
+        @keyframes userPulse {
+          0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+          50% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
         }
       `}</style>
 

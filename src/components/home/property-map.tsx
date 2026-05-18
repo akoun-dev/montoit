@@ -28,11 +28,13 @@ interface MapProperty {
 interface PropertyMapProps {
   properties: MapProperty[]
   onPropertyClick?: (property: MapProperty) => void
+  userLocation?: { lat: number; lng: number } | null
+  searchRadius?: number | null
 }
 
 // ── Leaflet-based Map (loaded dynamically) ──────────────────────────────────
 
-export function PropertyMapLeaflet({ properties, onPropertyClick }: PropertyMapProps) {
+export function PropertyMapLeaflet({ properties, onPropertyClick, userLocation, searchRadius }: PropertyMapProps) {
   const [MapComponent, setMapComponent] = useState<React.ComponentType<PropertyMapProps> | null>(null)
 
   useEffect(() => {
@@ -71,5 +73,5 @@ export function PropertyMapLeaflet({ properties, onPropertyClick }: PropertyMapP
     )
   }
 
-  return <MapComponent properties={properties} onPropertyClick={onPropertyClick} />
+  return <MapComponent properties={properties} onPropertyClick={onPropertyClick} userLocation={userLocation} searchRadius={searchRadius} />
 }

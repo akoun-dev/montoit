@@ -20,6 +20,7 @@ export function VisitRequests() {
     property: { title: string; city: string }
   }>>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -41,6 +42,7 @@ export function VisitRequests() {
         setData([])
         return
       }
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
       setData([])
     } finally {
       setLoading(false)
@@ -52,6 +54,22 @@ export function VisitRequests() {
   }, [fetchData])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
+
+  if (error) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Demandes de visite</h1>
+          <p className="text-muted-foreground mt-1">Gérez les demandes de visite de vos biens</p>
+        </div>
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="p-4">
+            <p className="text-sm text-amber-700">Impossible de charger les demandes de visite. Veuillez réessayer.</p>
+          </CardContent>
+        </Card>
+      </motion.div>
+    )
+  }
 
   const handleAccept = async (id: string) => {
     try {

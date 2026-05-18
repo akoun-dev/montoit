@@ -19,6 +19,8 @@ import {
   X,
   ArrowRight,
   Loader2,
+  Navigation,
+  LocateFixed,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -36,6 +38,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { AnimatedSheet } from '@/components/ui/sheet'
+import { toast } from 'sonner'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -77,6 +80,16 @@ const sortOptions = [
   { label: 'Prix croissant', value: 'price-asc' },
   { label: 'Prix décroissant', value: 'price-desc' },
   { label: 'Plus populaire', value: 'popular' },
+  { label: 'Plus proche', value: 'nearest' },
+]
+
+const radiusOptions = [
+  { label: '1 km', value: '1' },
+  { label: '3 km', value: '3' },
+  { label: '5 km', value: '5' },
+  { label: '10 km', value: '10' },
+  { label: '20 km', value: '20' },
+  { label: '50 km', value: '50' },
 ]
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -94,6 +107,25 @@ function getPropertyLocation(property: Property): string {
     return `${property.address}, ${property.commune}`
   }
   return property.address
+}
+
+function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371 // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
+function formatDistance(km: number): string {
+  if (km < 1) {
+    return `${Math.round(km * 1000)} m`
+  }
+  return `${km.toFixed(1)} km`
 }
 
 // ── Skeleton ────────────────────────────────────────────────────────────────
@@ -153,6 +185,9 @@ interface FilterSidebarProps {
   resetFilters: () => void
   propertyTypes: string[]
   communes: string[]
+  userLocation: { lat: number; lng: number } | null
+  radiusFilter: string
+  setRadiusFilter: (v: string) => void
 }
 
 function FilterSidebar({
@@ -173,6 +208,9 @@ function FilterSidebar({
   resetFilters,
   propertyTypes,
   communes,
+  userLocation,
+  radiusFilter,
+  setRadiusFilter,
 }: FilterSidebarProps) {
   return (
     <div className="space-y-5">
@@ -314,6 +352,42 @@ function FilterSidebar({
         />
       </div>
 
+      {/* Rayon (only shown when user location is available) */}
+      {userLocation && (
+        <div className="space-y-2">
+          <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Navigation className="size-3 text-brand-500" />
+            Rayon de recherche
+          </Label>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setRadiusFilter('0')}
+              className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                radiusFilter === '0'
+                  ? 'bg-brand-500 text-white shadow-sm'
+                  : 'bg-muted text-muted-foreground hover:bg-accent border border-border'
+              }`
+              }
+            >
+              Tous
+            </button>
+            {radiusOptions.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setRadiusFilter(opt.value)}
+                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  radiusFilter === opt.value
+                    ? 'bg-brand-500 text-white shadow-sm'
+                    : 'bg-muted text-muted-foreground hover:bg-accent border border-border'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="h-px bg-border" />
 
       {/* Reset button */}
@@ -337,7 +411,7 @@ function FilterSidebar({
 
 // ── Property Card ───────────────────────────────────────────────────────────
 
-function PropertyCard({ property, onClick, isFavorite, toggleFavorite }: { property: Property; onClick: () => void; isFavorite: (id: string) => boolean; toggleFavorite: (id: string) => Promise<boolean> }) {
+function PropertyCard({ property, onClick, isFavorite, toggleFavorite, distance }: { property: Property; onClick: () => void; isFavorite: (id: string) => boolean; toggleFavorite: (id: string) => Promise<boolean>; distance?: number | null }) {
   const { isAuthenticated, setView } = useAuthStore()
 
   const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
@@ -419,6 +493,12 @@ function PropertyCard({ property, onClick, isFavorite, toggleFavorite }: { prope
         <div className="flex items-center gap-1 text-muted-foreground text-xs mb-3">
           <MapPin className="size-3 shrink-0" />
           <span className="line-clamp-1">{location}</span>
+          {distance != null && (
+            <span className="ml-auto shrink-0 text-brand-500 font-semibold flex items-center gap-0.5">
+              <Navigation className="size-3" />
+              {formatDistance(distance)}
+            </span>
+          )}
         </div>
 
         {/* Features */}
@@ -452,7 +532,7 @@ function PropertyCard({ property, onClick, isFavorite, toggleFavorite }: { prope
 
 // ── Property List Item ──────────────────────────────────────────────────────
 
-function PropertyListItem({ property, onClick, isFavorite, toggleFavorite }: { property: Property; onClick: () => void; isFavorite: (id: string) => boolean; toggleFavorite: (id: string) => Promise<boolean> }) {
+function PropertyListItem({ property, onClick, isFavorite, toggleFavorite, distance }: { property: Property; onClick: () => void; isFavorite: (id: string) => boolean; toggleFavorite: (id: string) => Promise<boolean>; distance?: number | null }) {
   const { isAuthenticated, setView } = useAuthStore()
 
   const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
@@ -505,6 +585,12 @@ function PropertyListItem({ property, onClick, isFavorite, toggleFavorite }: { p
           <div className="flex items-center gap-1 text-muted-foreground text-xs mb-2">
             <MapPin className="size-3 shrink-0" />
             <span className="line-clamp-1">{location}</span>
+            {distance != null && (
+              <span className="ml-auto shrink-0 text-brand-500 font-semibold flex items-center gap-0.5">
+                <Navigation className="size-3" />
+                {formatDistance(distance)}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 sm:gap-3 text-xs text-muted-foreground mb-2 flex-wrap">
             {property.bedrooms !== null && (
@@ -551,7 +637,7 @@ function PropertyListItem({ property, onClick, isFavorite, toggleFavorite }: { p
 
 // ── Map List Item (compact card for map sidebar) ────────────────────────────
 
-function MapListItem({ property, onClick, isFavorite, toggleFavorite }: { property: Property; onClick: () => void; isFavorite: (id: string) => boolean; toggleFavorite: (id: string) => Promise<boolean> }) {
+function MapListItem({ property, onClick, isFavorite, toggleFavorite, distance }: { property: Property; onClick: () => void; isFavorite: (id: string) => boolean; toggleFavorite: (id: string) => Promise<boolean>; distance?: number | null }) {
   const { isAuthenticated, setView } = useAuthStore()
 
   const statusConfig: Record<PropertyStatus, { label: string; className: string }> = {
@@ -595,6 +681,12 @@ function MapListItem({ property, onClick, isFavorite, toggleFavorite }: { proper
             <div className="flex items-center gap-1 text-muted-foreground text-[10px] mb-1">
               <MapPin className="size-2.5 shrink-0" />
               <span className="line-clamp-1">{location}</span>
+              {distance != null && (
+                <span className="ml-auto shrink-0 text-brand-500 font-semibold flex items-center gap-0.5">
+                  <Navigation className="size-2.5" />
+                  {formatDistance(distance)}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
               {property.bedrooms !== null && (
@@ -657,10 +749,57 @@ export function NosBiensView() {
   const [roomsMin, setRoomsMin] = useState('0')
   const [meubleOnly, setMeubleOnly] = useState(false)
 
+  // Geolocation state
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [isGettingLocation, setIsGettingLocation] = useState(false)
+  const [radiusFilter, setRadiusFilter] = useState('0')
+
   // View state
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid')
   const [sortBy, setSortBy] = useState('recent')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+
+  // Request user geolocation
+  const requestGeolocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Géolocalisation non disponible', {
+        description: 'Votre navigateur ne supporte pas la géolocalisation.',
+      })
+      return
+    }
+    if (userLocation) {
+      // Toggle off
+      setUserLocation(null)
+      setRadiusFilter('0')
+      if (sortBy === 'nearest') setSortBy('recent')
+      return
+    }
+    setIsGettingLocation(true)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        })
+        setIsGettingLocation(false)
+        toast.success('Position détectée', {
+          description: 'Les biens sont désormais triés par distance.',
+        })
+      },
+      (err) => {
+        setIsGettingLocation(false)
+        const messages: Record<number, string> = {
+          1: 'Vous avez refusé l\'accès à votre position. Activez-la dans les paramètres du navigateur.',
+          2: 'Impossible de déterminer votre position. Vérifiez votre connexion GPS.',
+          3: 'La demande de géolocalisation a expiré. Réessayez.',
+        }
+        toast.error('Géolocalisation impossible', {
+          description: messages[err.code] || 'Une erreur inconnue est survenue.',
+        })
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    )
+  }
 
   // Clear search params after reading them (so they don't persist on revisit)
   useEffect(() => {
@@ -698,6 +837,18 @@ export function NosBiensView() {
     setView('property-detail')
   }
 
+  // Compute distances for each property relative to user location
+  const propertyDistances = useMemo(() => {
+    if (!userLocation) return new Map<string, number>()
+    const dists = new Map<string, number>()
+    properties.forEach((p) => {
+      if (p.latitude !== null && p.longitude !== null) {
+        dists.set(p.id, getDistanceKm(userLocation.lat, userLocation.lng, p.latitude, p.longitude))
+      }
+    })
+    return dists
+  }, [properties, userLocation])
+
   // Filter logic
   const filteredProperties = useMemo(() => {
     let result = properties.filter((p) => {
@@ -724,6 +875,11 @@ export function NosBiensView() {
       if (roomsMin !== '0' && p.bedrooms !== null && p.bedrooms < Number(roomsMin)) return false
       // Meuble
       if (meubleOnly && !p.isFurnished) return false
+      // Radius filter
+      if (userLocation && radiusFilter !== '0') {
+        const dist = propertyDistances.get(p.id)
+        if (dist === undefined || dist > Number(radiusFilter)) return false
+      }
       return true
     })
 
@@ -738,13 +894,22 @@ export function NosBiensView() {
       case 'popular':
         result = [...result].sort((a, b) => b.viewsCount - a.viewsCount)
         break
+      case 'nearest':
+        if (userLocation) {
+          result = [...result].sort((a, b) => {
+            const distA = propertyDistances.get(a.id) ?? Infinity
+            const distB = propertyDistances.get(b.id) ?? Infinity
+            return distA - distB
+          })
+        }
+        break
       default:
         // recent — default order
         break
     }
 
     return result
-  }, [properties, searchQuery, typeFilter, communeFilter, priceMin, priceMax, roomsMin, meubleOnly, sortBy])
+  }, [properties, searchQuery, typeFilter, communeFilter, priceMin, priceMax, roomsMin, meubleOnly, sortBy, userLocation, radiusFilter, propertyDistances])
 
   // Map-compatible properties (only those with coordinates)
   const mappableProperties = useMemo(() => (
@@ -757,7 +922,8 @@ export function NosBiensView() {
     priceMin !== '' ||
     priceMax !== '' ||
     roomsMin !== '0' ||
-    meubleOnly
+    meubleOnly ||
+    radiusFilter !== '0'
 
   const resetFilters = () => {
     setTypeFilter('Tous')
@@ -767,6 +933,7 @@ export function NosBiensView() {
     setRoomsMin('0')
     setMeubleOnly(false)
     setSearchQuery('')
+    setRadiusFilter('0')
   }
 
   const filterSidebarProps = {
@@ -787,6 +954,9 @@ export function NosBiensView() {
     resetFilters,
     propertyTypes,
     communes,
+    userLocation,
+    radiusFilter,
+    setRadiusFilter,
   }
 
   // Loading state
@@ -881,6 +1051,26 @@ export function NosBiensView() {
                 </button>
               )}
             </div>
+
+            {/* Autour de moi button */}
+            <Button
+              variant={userLocation ? 'default' : 'outline'}
+              size="sm"
+              className={`h-11 rounded-xl text-xs shadow-sm gap-1.5 shrink-0 ${
+                userLocation
+                  ? 'bg-brand-500 hover:bg-brand-600 text-white border-brand-500'
+                  : 'text-muted-foreground border-border hover:bg-accent'
+              }`}
+              onClick={requestGeolocation}
+              disabled={isGettingLocation}
+            >
+              {isGettingLocation ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <LocateFixed className="size-4" />
+              )}
+              <span className="hidden sm:inline">{userLocation ? 'Autour de moi' : 'Autour de moi'}</span>
+            </Button>
 
             {/* Sort - desktop/tablet */}
             <Select value={sortBy} onValueChange={setSortBy}>
@@ -1037,6 +1227,7 @@ export function NosBiensView() {
                       onClick={() => openDetail(property.id)}
                       isFavorite={isFavorite}
                       toggleFavorite={toggleFavorite}
+                      distance={userLocation ? propertyDistances.get(property.id) ?? null : null}
                     />
                   ))
                 ) : (
@@ -1054,6 +1245,8 @@ export function NosBiensView() {
                   <PropertyMapLeaflet
                     properties={mappableProperties}
                     onPropertyClick={(p) => openDetail(p.id)}
+                    userLocation={userLocation}
+                    searchRadius={radiusFilter !== '0' ? Number(radiusFilter) : null}
                   />
                 ) : (
                   <div className="w-full h-full bg-muted rounded-xl flex items-center justify-center">
@@ -1074,6 +1267,7 @@ export function NosBiensView() {
                         onClick={() => openDetail(property.id)}
                         isFavorite={isFavorite}
                         toggleFavorite={toggleFavorite}
+                        distance={userLocation ? propertyDistances.get(property.id) ?? null : null}
                       />
                     </div>
                   ))}
@@ -1123,6 +1317,7 @@ export function NosBiensView() {
                           onClick={() => openDetail(property.id)}
                           isFavorite={isFavorite}
                           toggleFavorite={toggleFavorite}
+                          distance={userLocation ? propertyDistances.get(property.id) ?? null : null}
                         />
                       </motion.div>
                     ))}
@@ -1147,6 +1342,7 @@ export function NosBiensView() {
                           onClick={() => openDetail(property.id)}
                           isFavorite={isFavorite}
                           toggleFavorite={toggleFavorite}
+                          distance={userLocation ? propertyDistances.get(property.id) ?? null : null}
                         />
                       </motion.div>
                     ))}

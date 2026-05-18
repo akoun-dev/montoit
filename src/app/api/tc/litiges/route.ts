@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
-import { notify } from '@/lib/notify'
+import { notifyDisputeUpdate, notifyDisputeEscalated } from '@/lib/notify'
 
 // Helper: authenticate and authorize TC
 async function authorizeTC(request: NextRequest) {
@@ -343,43 +343,25 @@ export async function PATCH(request: NextRequest) {
       }),
     ]
 
-    // Create Notification for the dispute reporter (for status changes and escalations)
-    let notifData: { userId: string; type: string; title: string; message: string; actionUrl: string; entityId: string } | null = null
-    if (status || action === 'ESCALATE') {
-      const notifMessage = action === 'ESCALATE'
-        ? `Votre litige a été escaladé. ${escalationReason ? `Raison : ${escalationReason.trim()}` : ''}`
-        : `Le statut de votre litige a été mis à jour : ${dispute.status} → ${status}${
-            tcComment ? `. Commentaire TC : ${tcComment.trim()}` : ''
-          }`
-
-      notifData = {
-        userId: dispute.reportedById,
-        type: 'DOSSIER_UPDATE',
-        title: action === 'ESCALATE' ? 'Litige escaladé' : 'Mise à jour de votre litige',
-        message: notifMessage,
-        actionUrl: 'litiges',
-        entityId: id,
-      }
-
-      transactionOps.push(
-        db.notification.create({
-          data: notifData,
-        })
-      )
-    }
+    // Determine if we need to send a notification after the transaction
+    const shouldNotify = !!(status || action === 'ESCALATE')
+    const notifyAction = action
+    const notifyStatus = status
+    const notifyTcComment = tcComment?.trim() || undefined
+    const notifyEscalationReason = escalationReason?.trim() || undefined
 
     const [updated] = await db.$transaction(transactionOps) as [typeof dispute, ...unknown[]]
 
-    // Push notification via WebSocket after transaction (best-effort)
-    if (notifData) {
+    // Send notification via notify() helper (DB + WebSocket) after transaction succeeds
+    if (shouldNotify) {
       try {
-        await fetch('http://localhost:3003/notify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(notifData),
-        })
+        if (notifyAction === 'ESCALATE') {
+          await notifyDisputeEscalated(dispute.reportedById, id, notifyEscalationReason)
+        } else if (notifyStatus) {
+          await notifyDisputeUpdate(dispute.reportedById, id, notifyStatus, notifyTcComment)
+        }
       } catch {
-        // WebSocket push is best-effort
+        // Notification is best-effort — don't fail the main operation
       }
     }
 

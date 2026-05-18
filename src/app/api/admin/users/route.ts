@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notifySecurityAlert } from '@/lib/notify'
 
 // GET /api/admin/users — list all users with stats
 export async function GET(req: NextRequest) {
@@ -132,6 +133,16 @@ export async function PATCH(req: NextRequest) {
         userId: authResult.userId,
       },
     })
+
+    // Notify the affected user about account changes
+    if (isActive === false) {
+      await notifySecurityAlert(userId, 'Compte suspendu', 'Votre compte a été suspendu par un administrateur. Contactez le support si vous pensez qu\'il s\'agit d\'une erreur.')
+    } else if (isActive === true) {
+      await notifySecurityAlert(userId, 'Compte réactivé', 'Votre compte a été réactivé par un administrateur.')
+    }
+    if (role) {
+      await notifySecurityAlert(userId, 'Changement de rôle', `Votre rôle a été modifié par un administrateur. Nouveau rôle : ${role}.`)
+    }
 
     return NextResponse.json({ user })
   } catch (error) {

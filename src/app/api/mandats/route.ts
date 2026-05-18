@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/mandats — List mandats for the authenticated owner (or agency)
 export async function GET(req: NextRequest) {
@@ -184,6 +185,16 @@ export async function POST(req: NextRequest) {
           },
         },
       },
+    })
+
+    // Notify the agency about the new mandat
+    await notify({
+      userId: agencyId,
+      type: 'LEASE_UPDATE',
+      title: 'Nouveau mandat reçu',
+      message: `Le propriétaire a créé un mandat de gestion pour "${mandat.property.title}". En attente de votre signature.`,
+      actionUrl: 'mandats',
+      entityId: mandat.id,
     })
 
     return NextResponse.json({ mandat }, { status: 201 })

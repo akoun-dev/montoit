@@ -287,7 +287,7 @@ export async function PATCH(
       // Notify tenant about the update
       await notify({
         userId: maintenanceRequest.tenantId,
-        type: 'DOSSIER_UPDATE',
+        type: 'MAINTENANCE',
         title: 'Mise à jour de votre demande de maintenance',
         message: `Votre demande "${maintenanceRequest.title}" a été mise à jour par le propriétaire.`,
         actionUrl: 'maintenance',
@@ -312,7 +312,7 @@ export async function PATCH(
     if (Object.keys(updateData).length > 0) {
       await notify({
         userId: maintenanceRequest.tenantId,
-        type: 'DOSSIER_UPDATE',
+        type: 'MAINTENANCE',
         title: 'Mise à jour de votre demande de maintenance',
         message: `Votre demande "${maintenanceRequest.title}" a été mise à jour par le propriétaire.`,
         actionUrl: 'maintenance',

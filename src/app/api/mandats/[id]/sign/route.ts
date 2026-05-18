@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // POST /api/mandats/[id]/sign — Sign a mandat
 // Owner signing: sets ownerSignedAt, changes status to ACTIVE if both signed, else PENDING_SIGNATURE
@@ -77,6 +78,18 @@ export async function POST(
         },
       })
 
+      // Notify the agency about the owner's signature
+      await notify({
+        userId: mandat.agencyId,
+        type: 'LEASE_UPDATE',
+        title: bothSigned ? 'Mandat activé ✅' : 'Mandat signé par le propriétaire',
+        message: bothSigned
+          ? `Le mandat pour "${updated.property.title}" est maintenant actif. Les deux parties ont signé.`
+          : `Le propriétaire a signé le mandat pour "${updated.property.title}". En attente de votre signature.`,
+        actionUrl: 'mandats',
+        entityId: id,
+      })
+
       return NextResponse.json({
         mandat: updated,
         signedAs: 'owner',
@@ -102,6 +115,18 @@ export async function POST(
           agency: { select: { id: true, firstName: true, lastName: true, email: true } },
           owner: { select: { id: true, firstName: true, lastName: true, email: true } },
         },
+      })
+
+      // Notify the owner about the agency's signature
+      await notify({
+        userId: mandat.ownerId,
+        type: 'LEASE_UPDATE',
+        title: bothSigned ? 'Mandat activé ✅' : 'Mandat signé par l\'agence',
+        message: bothSigned
+          ? `Le mandat pour "${updated.property.title}" est maintenant actif. Les deux parties ont signé.`
+          : `L'agence a signé le mandat pour "${updated.property.title}". En attente de votre signature.`,
+        actionUrl: 'mandats',
+        entityId: id,
       })
 
       return NextResponse.json({

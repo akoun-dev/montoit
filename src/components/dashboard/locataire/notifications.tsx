@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Bell, MessageSquare, FileText, Calendar, CreditCard, Megaphone, Settings, CheckCheck, Filter, Wrench, Home, Shield } from 'lucide-react'
+import { Bell, MessageSquare, FileText, Calendar, CreditCard, Megaphone, Settings, CheckCheck, Filter, Wrench, Home, Shield, Scale, Star, Target, CheckCircle, AlertTriangle, Award, BadgeCheck } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -38,6 +38,16 @@ const typeConfig: Record<string, { icon: typeof Bell; label: string; color: stri
   PROMOTION: { icon: Megaphone, label: 'Promotions', color: 'bg-purple-50 text-purple-700 border-purple-200' },
   SECURITY: { icon: Shield, label: 'Sécurité', color: 'bg-red-50 text-red-700 border-red-200' },
   SYSTEM: { icon: Settings, label: 'Système', color: 'bg-muted text-muted-foreground border-border' },
+  DISPUTE_UPDATE: { icon: Scale, label: 'Litiges', color: 'bg-rose-50 text-rose-700 border-rose-200' },
+  DISPUTE_ASSIGNED: { icon: Scale, label: 'Litiges', color: 'bg-rose-50 text-rose-700 border-rose-200' },
+  APPLICATION: { icon: FileText, label: 'Candidatures', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  REVIEW: { icon: Star, label: 'Avis', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  MISSION_ASSIGNED: { icon: Target, label: 'Missions', color: 'bg-violet-50 text-violet-700 border-violet-200' },
+  MISSION_COMPLETED: { icon: CheckCircle, label: 'Missions', color: 'bg-violet-50 text-violet-700 border-violet-200' },
+  FRAUD_ALERT: { icon: AlertTriangle, label: 'Fraude', color: 'bg-red-50 text-red-700 border-red-200' },
+  CERTIFICATION: { icon: Award, label: 'Certifications', color: 'bg-sky-50 text-sky-700 border-sky-200' },
+  PROPERTY_VERIFICATION: { icon: BadgeCheck, label: 'Vérifications', color: 'bg-teal-50 text-teal-700 border-teal-200' },
+  VERIFICATION_RESULT: { icon: BadgeCheck, label: 'Vérifications', color: 'bg-teal-50 text-teal-700 border-teal-200' },
 }
 
 const notificationCategories = [
@@ -48,6 +58,13 @@ const notificationCategories = [
   { type: 'PAYMENT_ALERT', label: 'Paiements', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   { type: 'MAINTENANCE', label: 'Maintenance', color: 'bg-orange-50 text-orange-700 border-orange-200' },
   { type: 'LEASE_UPDATE', label: 'Baux', color: 'bg-teal-50 text-teal-700 border-teal-200' },
+  { type: 'DISPUTE_UPDATE', label: 'Litiges', color: 'bg-rose-50 text-rose-700 border-rose-200' },
+  { type: 'APPLICATION', label: 'Candidatures', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  { type: 'REVIEW', label: 'Avis', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+  { type: 'MISSION_ASSIGNED', label: 'Missions', color: 'bg-violet-50 text-violet-700 border-violet-200' },
+  { type: 'FRAUD_ALERT', label: 'Fraude', color: 'bg-red-50 text-red-700 border-red-200' },
+  { type: 'CERTIFICATION', label: 'Certifications', color: 'bg-sky-50 text-sky-700 border-sky-200' },
+  { type: 'SECURITY', label: 'Sécurité', color: 'bg-red-50 text-red-700 border-red-200' },
   { type: 'SYSTEM', label: 'Système', color: 'bg-muted text-muted-foreground border-border' },
 ]
 
