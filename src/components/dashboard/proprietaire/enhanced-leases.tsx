@@ -1270,16 +1270,39 @@ export function EnhancedLeases() {
 
               {/* Actions */}
               <div className="flex flex-wrap gap-2 pt-2">
+                {(detailLease.ownerSignedAt || detailLease.tenantSignedAt) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 border-brand-200 text-brand-600 hover:bg-brand-50"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`/api/leases/${detailLease.id}/contract`, { credentials: 'include' })
+                        if (!res.ok) {
+                          const err = await res.json().catch(() => ({ error: 'Erreur' }))
+                          toast.error(err.error || 'Erreur lors du téléchargement')
+                          return
+                        }
+                        const blob = await res.blob()
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `Bail_${detailLease.property?.title || 'contrat'}.docx`
+                        document.body.appendChild(a)
+                        a.click()
+                        document.body.removeChild(a)
+                        URL.revokeObjectURL(url)
+                        toast.success('Contrat téléchargé')
+                      } catch {
+                        toast.error('Erreur lors du téléchargement')
+                      }
+                    }}
+                  >
+                    <Download className="size-3.5" /> Télécharger le contrat
+                  </Button>
+                )}
                 {detailLease.status === 'ACTIVE' && (
                   <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5"
-                      onClick={() => { toast.info('Fonctionnalité PDF à venir') }}
-                    >
-                      <Download className="size-3.5" /> Télécharger PDF
-                    </Button>
                     <Button
                       size="sm"
                       variant="destructive"

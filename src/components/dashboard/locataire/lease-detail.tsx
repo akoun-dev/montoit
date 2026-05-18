@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, FileSignature, Building2, User, MapPin, FileText, CreditCard, Wrench, AlertTriangle, Loader2, PenTool, CheckCircle2, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, FileSignature, Building2, User, MapPin, FileText, CreditCard, Wrench, AlertTriangle, Loader2, PenTool, CheckCircle2, ShieldCheck, Download } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -549,6 +549,41 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
           >
             <PenTool className="size-4" />
             Signer le bail
+          </Button>
+        </div>
+      )}
+
+      {/* ─── Download Contract Button ────────────────────────────────────── */}
+      {(lease.ownerSignedAt || lease.tenantSignedAt) && (
+        <div className="pt-2">
+          <Button
+            variant="outline"
+            className="w-full border-brand-200 text-brand-600 hover:bg-brand-50 hover:text-brand-700 gap-2"
+            onClick={async () => {
+              try {
+                const res = await fetch(`/api/leases/${lease.id}/contract`, { credentials: 'include' })
+                if (!res.ok) {
+                  const err = await res.json().catch(() => ({ error: 'Erreur' }))
+                  toast.error(err.error || 'Erreur lors du téléchargement')
+                  return
+                }
+                const blob = await res.blob()
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `Bail_${lease.property?.title || 'contrat'}.docx`
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+                URL.revokeObjectURL(url)
+                toast.success('Contrat téléchargé avec succès')
+              } catch {
+                toast.error('Erreur lors du téléchargement du contrat')
+              }
+            }}
+          >
+            <Download className="size-4" />
+            Télécharger le contrat
           </Button>
         </div>
       )}

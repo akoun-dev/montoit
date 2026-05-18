@@ -794,65 +794,133 @@ export function MissionsManagement() {
 
       {/* ─── Create Mission Dialog ──────────────────────────────────────── */}
       <Dialog open={createDialog} onOpenChange={setCreateDialog}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Nouvelle mission</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="size-5 text-brand-500" />
+              Nouvelle mission
+            </DialogTitle>
             <DialogDescription>Planifiez une nouvelle mission de vérification terrain</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* Bien à vérifier */}
             <div className="space-y-2">
-              <Label>Bien à vérifier *</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Bien à vérifier *</Label>
               <Select value={createForm.propertyId} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, propertyId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner un bien" /></SelectTrigger>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sélectionner un bien" />
+                </SelectTrigger>
                 <SelectContent>
-                  {properties.map((p) => (<SelectItem key={p.id} value={p.id}>{p.title} — {p.commune}</SelectItem>))}
+                  {properties.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <span className="truncate">{p.title} — {p.commune}</span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {properties.length === 0 && <p className="text-xs text-muted-foreground">Aucun bien en attente de vérification</p>}
+              {properties.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">Aucun bien en attente de vérification</p>
+              )}
             </div>
+
+            {/* Agent */}
             <div className="space-y-2">
-              <Label>Agent *</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Agent *</Label>
               <Select value={createForm.agentId} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, agentId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner un agent" /></SelectTrigger>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sélectionner un agent" />
+                </SelectTrigger>
                 <SelectContent>
-                  {agents.filter((a) => a.isActive !== false).map((a) => (<SelectItem key={a.id} value={a.id}>{a.firstName} {a.lastName}</SelectItem>))}
+                  {agents.filter((a) => a.isActive !== false).map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.firstName} {a.lastName}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Type de mission *</Label>
-              <Select value={createForm.type} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, type: v as MissionType }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PROPERTY_VERIFICATION">Vérification bien</SelectItem>
-                  <SelectItem value="INVENTORY_REPORT">État des lieux</SelectItem>
-                </SelectContent>
-              </Select>
+
+            {/* Type + Priorité side by side on larger screens */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground">Type de mission *</Label>
+                <Select value={createForm.type} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, type: v as MissionType }))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PROPERTY_VERIFICATION">Vérification bien</SelectItem>
+                    <SelectItem value="INVENTORY_REPORT">État des lieux</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground">Priorité</Label>
+                <Select value={createForm.priority} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, priority: v as DossierPriority }))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NORMAL"><span className="flex items-center gap-1.5"><CircleDot className="size-3" /> Normale</span></SelectItem>
+                    <SelectItem value="HIGH"><span className="flex items-center gap-1.5"><AlertTriangle className="size-3" /> Haute</span></SelectItem>
+                    <SelectItem value="URGENT"><span className="flex items-center gap-1.5"><Flame className="size-3" /> Urgente</span></SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {/* Date planifiée */}
             <div className="space-y-2">
-              <Label>Priorité</Label>
-              <Select value={createForm.priority} onValueChange={(v) => setCreateForm((prev) => ({ ...prev, priority: v as DossierPriority }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NORMAL"><span className="flex items-center gap-1.5"><CircleDot className="size-3" /> Normale</span></SelectItem>
-                  <SelectItem value="HIGH"><span className="flex items-center gap-1.5"><AlertTriangle className="size-3" /> Haute</span></SelectItem>
-                  <SelectItem value="URGENT"><span className="flex items-center gap-1.5"><Flame className="size-3" /> Urgente</span></SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="scheduledAt" className="text-xs font-medium text-muted-foreground">Date planifiée *</Label>
+              <Input
+                id="scheduledAt"
+                type="date"
+                value={createForm.scheduledAt}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, scheduledAt: e.target.value }))}
+                className="w-full"
+              />
             </div>
+
+            {/* Notes */}
             <div className="space-y-2">
-              <Label htmlFor="scheduledAt">Date planifiée *</Label>
-              <Input id="scheduledAt" type="date" value={createForm.scheduledAt} onChange={(e) => setCreateForm((prev) => ({ ...prev, scheduledAt: e.target.value }))} />
+              <Label htmlFor="notes" className="text-xs font-medium text-muted-foreground">Notes</Label>
+              <Textarea
+                id="notes"
+                placeholder="Instructions ou informations complémentaires..."
+                value={createForm.notes}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, notes: e.target.value }))}
+                rows={3}
+                className="resize-none"
+              />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea id="notes" placeholder="Instructions ou informations complémentaires..." value={createForm.notes} onChange={(e) => setCreateForm((prev) => ({ ...prev, notes: e.target.value }))} rows={3} />
-            </div>
+
+            {/* Quick summary */}
+            {createForm.propertyId && createForm.agentId && createForm.scheduledAt && (
+              <div className="p-3 rounded-lg bg-brand-50 border border-brand-100">
+                <p className="text-xs text-brand-700 font-medium mb-1">Récapitulatif</p>
+                <div className="space-y-1 text-xs text-brand-600">
+                  <p>• Bien : {properties.find(p => p.id === createForm.propertyId)?.title || '—'}</p>
+                  <p>• Agent : {agents.find(a => a.id === createForm.agentId)?.firstName || '—'} {agents.find(a => a.id === createForm.agentId)?.lastName || ''}</p>
+                  <p>• Date : {new Date(createForm.scheduledAt).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                </div>
+              </div>
+            )}
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setCreateDialog(false)} disabled={creating}>Annuler</Button>
-            <Button className="bg-brand-500 hover:bg-brand-600 text-white" onClick={handleCreate} disabled={creating || !createForm.propertyId || !createForm.agentId || !createForm.scheduledAt}>
-              {creating && <Loader2 className="size-4 animate-spin mr-2" />}
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCreateDialog(false)}
+              disabled={creating}
+              className="w-full sm:w-auto"
+            >
+              Annuler
+            </Button>
+            <Button
+              className="bg-brand-500 hover:bg-brand-600 text-white gap-2 w-full sm:w-auto"
+              onClick={handleCreate}
+              disabled={creating || !createForm.propertyId || !createForm.agentId || !createForm.scheduledAt}
+            >
+              {creating && <Loader2 className="size-4 animate-spin" />}
               Créer la mission
             </Button>
           </DialogFooter>
