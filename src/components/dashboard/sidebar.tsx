@@ -224,7 +224,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
         {
           title: 'COMPTE',
           items: [
-            { id: 'history', label: 'Historique', icon: History },
+            { id: 'history', label: 'Activité', icon: History },
             { id: 'settings', label: 'Paramètres', icon: Settings },
           ],
         },

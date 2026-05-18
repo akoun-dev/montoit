@@ -500,7 +500,6 @@ export function InventoryReportForm() {
                       key={i}
                       className="px-1 sm:px-2 py-3 text-center text-[9px] sm:text-[10px] font-bold text-foreground border-b border-r border-border min-w-[80px] sm:min-w-[110px] leading-tight"
                     >
-                      {/* Show short labels on mobile, full labels on desktop */}
                       <span className="sm:hidden">{ROOM_COLUMNS_SHORT[i]}</span>
                       <span className="hidden sm:inline">{col}</span>
                     </th>
@@ -621,50 +620,67 @@ export function InventoryReportForm() {
         </CardContent>
       </Card>
 
-      {/* Mobile Card Layout */}
-      <div className="sm:hidden space-y-3">
+      {/* Mobile Card Layout — fully responsive per designation card */}
+      <div className="sm:hidden space-y-4">
         {DESIGNATIONS.map((designation, rowIdx) => {
           const isKeyRow = rowIdx === 8
           return (
-            <Card key={rowIdx} className={cn('border-border', isKeyRow && 'border-amber-200 bg-amber-50/30')}>
-              <CardContent className="p-3">
-                {/* Designation header */}
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="size-6 rounded-full bg-brand-50 text-brand-500 flex items-center justify-center text-[10px] font-bold shrink-0">
-                    {rowIdx + 1}
-                  </span>
-                  <span className="text-sm font-semibold text-foreground">
-                    {isKeyRow && <Key className="size-3.5 inline mr-1 text-brand-500" />}
-                    {designation}
-                  </span>
-                </div>
+            <Card key={rowIdx} className={cn('border-border overflow-hidden', isKeyRow && 'border-amber-200 bg-amber-50/30')}>
+              {/* Designation header */}
+              <div className={cn(
+                'flex items-center gap-2.5 px-4 py-3 border-b border-border',
+                isKeyRow ? 'bg-amber-50' : 'bg-muted/40'
+              )}>
+                <span className="size-7 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center text-xs font-bold shrink-0">
+                  {rowIdx + 1}
+                </span>
+                <span className="text-sm font-semibold text-foreground leading-tight">
+                  {isKeyRow && <Key className="size-3.5 inline mr-1.5 text-brand-500" />}
+                  {designation}
+                </span>
+              </div>
 
-                {/* Room columns */}
-                <div className="space-y-2">
-                  {ROOM_COLUMNS.map((_, colIdx) => (
-                    <div key={colIdx} className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground w-24 shrink-0">{ROOM_COLUMNS_SHORT[colIdx]}</span>
+              <div className="p-3 space-y-1">
+                {/* Room rows */}
+                {ROOM_COLUMNS.map((_, colIdx) => (
+                  <div
+                    key={colIdx}
+                    className={cn(
+                      'flex items-center gap-2.5 px-2 py-2 rounded-lg',
+                      colIdx % 2 === 0 ? 'bg-muted/20' : 'bg-transparent'
+                    )}
+                  >
+                    {/* Room label */}
+                    <span className="text-xs text-muted-foreground w-[5.5rem] shrink-0 leading-tight">
+                      {ROOM_COLUMNS_SHORT[colIdx]}
+                    </span>
+
+                    {/* Condition or key count */}
+                    <div className="flex-1 flex items-center">
                       {isKeyRow ? (
-                        <Input
-                          type="number"
-                          min={0}
-                          placeholder="—"
-                          value={grid[rowIdx]?.[colIdx]?.keyCount ?? ''}
-                          onChange={(e) => {
-                            const val = e.target.value
-                            setKeyCount(rowIdx, colIdx, val === '' ? null : parseInt(val, 10))
-                          }}
-                          className="w-16 h-8 text-center text-sm"
-                        />
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            type="number"
+                            min={0}
+                            placeholder="—"
+                            value={grid[rowIdx]?.[colIdx]?.keyCount ?? ''}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              setKeyCount(rowIdx, colIdx, val === '' ? null : parseInt(val, 10))
+                            }}
+                            className="w-16 h-9 text-center text-sm"
+                          />
+                          <span className="text-xs text-muted-foreground">clé(s)</span>
+                        </div>
                       ) : (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={() => setCondition(rowIdx, colIdx, 'BON')}
                             className={cn(
-                              'px-2 py-0.5 rounded text-[11px] font-bold transition-colors',
+                              'min-h-[36px] min-w-[52px] px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95',
                               grid[rowIdx]?.[colIdx]?.condition === 'BON'
-                                ? 'bg-green-500 text-white shadow-sm'
-                                : 'bg-green-50 text-green-600 hover:bg-green-100 border border-green-200'
+                                ? 'bg-green-500 text-white shadow-sm ring-2 ring-green-300'
+                                : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
                             )}
                           >
                             BON
@@ -672,22 +688,25 @@ export function InventoryReportForm() {
                           <button
                             onClick={() => setCondition(rowIdx, colIdx, 'MAUVAIS')}
                             className={cn(
-                              'px-2 py-0.5 rounded text-[11px] font-bold transition-colors',
+                              'min-h-[36px] min-w-[52px] px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95',
                               grid[rowIdx]?.[colIdx]?.condition === 'MAUVAIS'
-                                ? 'bg-red-500 text-white shadow-sm'
-                                : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
+                                ? 'bg-red-500 text-white shadow-sm ring-2 ring-red-300'
+                                : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
                             )}
                           >
-                            M
+                            MAUVAIS
                           </button>
                         </div>
                       )}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
 
                 {/* Observation */}
-                <div className="mt-2 pt-2 border-t border-border">
+                <div className="mt-2 pt-2 border-t border-border px-2">
+                  <label className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mb-1 block">
+                    Observation
+                  </label>
                   <Input
                     placeholder="Observation..."
                     value={grid[rowIdx]?.[0]?.observation ?? ''}
@@ -704,17 +723,17 @@ export function InventoryReportForm() {
                         return newGrid
                       })
                     }}
-                    className="h-8 text-xs"
+                    className="h-9 text-xs"
                   />
                 </div>
-              </CardContent>
+              </div>
             </Card>
           )
         })}
 
         {/* Total keys */}
         <Card className="border-border">
-          <CardContent className="p-3 flex items-center justify-between">
+          <CardContent className="p-4 flex items-center justify-between">
             <span className="text-sm font-bold text-foreground">TOTAL CLÉS</span>
             <div className="flex items-center gap-1.5">
               <Key className="size-4 text-brand-500" />

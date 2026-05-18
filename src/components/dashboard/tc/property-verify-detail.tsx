@@ -108,23 +108,29 @@ export function PropertyVerifyDetail() {
 
     setLoading(true)
     setNotFound(false)
+    setProperty(null)
 
     try {
       // Primary: fetch via TC verifications API (works for any property status)
-      const d = await authFetch<{ property: PropertyDetail }>(`/api/tc/verifications?propertyId=${selectedItemId}`)
+      const d = await authFetch<{ property: PropertyDetail }>(`/api/tc/verifications?propertyId=${selectedItemId}`, { cacheTtl: 0 })
       if (d.property) {
         setProperty(d.property)
+        setLoading(false)
         return
       }
-    } catch {
-      // Primary failed, try fallback
+    } catch (err) {
+      // Primary failed, try fallback — but only if it's not an auth error
+      if (err instanceof AuthError && (err.status === 401 || err.status === 403)) {
+        // Auth error on primary — still try fallback with properties API
+      }
     }
 
     try {
       // Fallback: properties API (also handles TC role access for non-ACTIVE properties)
-      const d2 = await authFetch<{ property: PropertyDetail }>(`/api/properties/${selectedItemId}`)
+      const d2 = await authFetch<{ property: PropertyDetail }>(`/api/properties/${selectedItemId}`, { cacheTtl: 0 })
       if (d2.property) {
         setProperty(d2.property)
+        setLoading(false)
         return
       }
     } catch {
@@ -133,10 +139,11 @@ export function PropertyVerifyDetail() {
 
     setNotFound(true)
     setProperty(null)
+    setLoading(false)
   }, [isAuthenticated, selectedItemId])
 
   useEffect(() => {
-    fetchProperty().finally(() => setLoading(false))
+    fetchProperty()
   }, [fetchProperty])
 
   const handleApprove = async () => {

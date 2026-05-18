@@ -741,21 +741,32 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
               transition={{ duration: 0.3, delay: 0.2 }}
               className="border-b border-border mb-6 -mx-4 sm:mx-0"
             >
-              <div className="flex gap-0 -mb-px overflow-x-auto scrollbar-hide px-4 sm:px-0">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`flex items-center gap-1 px-2.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                      activeTab === tab.key
-                        ? 'border-brand-500 text-brand-500'
-                        : 'border-transparent text-muted-foreground hover:text-muted-foreground hover:border-border'
-                    }`}
-                  >
-                    <tab.icon className="size-3.5 sm:size-4" />
-                    {tab.label}
-                  </button>
-                ))}
+              <div className="relative">
+                <div
+                  className="flex gap-0 -mb-px overflow-x-auto scrollbar-hide px-4 sm:px-0"
+                  style={{
+                    WebkitOverflowScrolling: 'touch',
+                    scrollSnapType: 'x mandatory',
+                  }}
+                >
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`flex items-center gap-0.5 sm:gap-1 px-2 sm:px-4 py-2.5 sm:py-3 text-[11px] sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                        activeTab === tab.key
+                          ? 'border-brand-500 text-brand-500'
+                          : 'border-transparent text-muted-foreground hover:text-muted-foreground hover:border-border'
+                      }`}
+                      style={{ scrollSnapAlign: 'start' }}
+                    >
+                      <tab.icon className="size-3.5 sm:size-4 shrink-0" />
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                {/* Gradient fade on right edge (mobile only) to indicate more tabs */}
+                <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden" />
               </div>
             </motion.div>
 

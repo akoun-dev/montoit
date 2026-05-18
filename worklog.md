@@ -168,3 +168,92 @@ Stage Summary:
 - Dashboard data cached for 30s, property details 2min, reviews 5min, notifications 15s
 - TanStack Query available for components that want more sophisticated caching
 - clearCache() available for manual invalidation after mutations
+---
+Task ID: 1
+Agent: main
+Task: Fix État des Lieux mobile responsiveness
+
+Work Log:
+- Analyzed uploaded screenshot showing mobile layout issues
+- Redesigned the mobile card layout for each designation row
+- Added better visual hierarchy: designation header with bg color, room rows with alternating bg
+- Increased touch targets: min-h-[36px], min-w-[52px] for BON/MAUVAIS buttons
+- Changed MAUVAIS from "M" to "MAUVAIS" on mobile for clarity
+- Added active:scale-95 press feedback and ring indicators for selected conditions
+- Added proper observation section with label and better spacing
+- Room labels use consistent w-[5.5rem] width for alignment
+- Added "clé(s)" suffix next to key count inputs
+
+Stage Summary:
+- Mobile État des Lieux cards are now fully responsive with proper touch targets, visual hierarchy, and spacing
+- Desktop table layout unchanged
+
+---
+Task ID: 2
+Agent: main
+Task: Fix TC verification loading issue
+
+Work Log:
+- Analyzed fetchProperty flow in property-verify-detail.tsx
+- Fixed loading state management: explicitly set setLoading(false) in all code paths
+- Added cacheTtl: 0 to bypass cached responses for verification API calls
+- Added setProperty(null) before fetching to clear stale data
+- Removed .finally() pattern in favor of explicit setLoading(false) calls
+- Added AuthError handling for primary API failure
+
+Stage Summary:
+- TC verification no longer gets stuck on loading
+- Cache bypass ensures fresh data when verifying properties
+
+---
+Task ID: 3
+Agent: subagent (full-stack-developer)
+Task: Fix details view tab section mobile responsiveness
+
+Work Log:
+- Wrapped tab scroll container in relative div for gradient overlay
+- Added -webkit-overflow-scrolling: touch for iOS smooth scrolling
+- Added scroll-snap-type: x mandatory with scrollSnapAlign: 'start' on buttons
+- Made tabs more compact on mobile: gap-0.5, px-2, text-[11px]
+- Added shrink-0 to icon to prevent squishing
+- Added gradient fade overlay on right edge (sm:hidden) to indicate scrollable content
+
+Stage Summary:
+- Tab section now scrolls smoothly on mobile with snap points
+- Visual indicator shows when more tabs are available
+- Compact layout prevents overflow issues
+
+---
+Task ID: 4
+Agent: subagent (full-stack-developer)
+Task: Rename Historique to Activité in TC sidebar
+
+Work Log:
+- Changed sidebar.tsx line 227: label from 'Historique' to 'Activité' for TC role only
+- LOCATAIRE and PROPRIETAIRE sections still use 'Historique'
+
+Stage Summary:
+- TC dashboard sidebar now shows "Activité" instead of "Historique"
+
+---
+Task ID: 5
+Agent: main
+Task: Add caching to reduce unnecessary reloads
+
+Work Log:
+- Enhanced auth-fetch.ts with stale-while-revalidate pattern
+- Increased default TTL from 30s to 60s with 2-minute grace period
+- Added route-specific TTL overrides for 16+ API patterns
+- Added revalidateInBackground() for stale data auto-refresh
+- Added autoInvalidateOnMutation() — POST/PATCH/PUT/DELETE clears related caches
+- Added invalidateCache() helper for manual cache invalidation by entity type
+- Added clearCache() with prefix matching for broader cache invalidation
+- Created useCachedFetch hook with auto-refresh, skipCache, and deps options
+- Created usePaginatedFetch hook for infinite scroll with cached pagination
+- Increased cache max size from 100 to 200 entries
+
+Stage Summary:
+- Caching system now uses stale-while-revalidate for instant UI updates
+- Route-specific TTLs optimize cache duration per data type
+- Mutations auto-invalidate related cache entries
+- New React hooks (useCachedFetch, usePaginatedFetch) available for components
