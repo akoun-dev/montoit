@@ -421,3 +421,26 @@ Stage Summary:
 - Locataire messaging with searchable recipient list implemented
 - Payment frontend enhanced with proper operator colors and 4 stats cards
 - Notification system working for all 5 roles with real-time WebSocket
+
+---
+Task ID: 1b
+Agent: Main Coordinator
+Task: Fix services stopping on their own (502 Bad Gateway)
+
+Work Log:
+- Diagnosed root causes of server crashes:
+  1. Prisma query logging (`log: ['query']`) was generating massive output that filled buffers
+  2. The `| tee dev.log` pipe in package.json dev script caused SIGPIPE signals when buffer filled
+  3. Process was not fully detached from parent shell, so it got killed when shell session ended
+- Fixed db.ts: Changed `log: ['query']` to `log: ['warn', 'error']` to eliminate query spam
+- Fixed package.json: Removed `| tee dev.log` from dev script to prevent SIGPIPE
+- Created keep-alive.sh with double-fork approach for full process detachment
+- Server now runs stably with fast response times (38-58ms per request)
+- Dev log is clean (no more prisma:query spam)
+
+Stage Summary:
+- Root cause identified: Prisma query logging + pipe buffer overflow
+- Two key fixes: reduced Prisma logging, removed tee pipe from dev script
+- Server now persists with double-fork process detachment
+- Response times improved from seconds to milliseconds
+- All APIs confirmed working: payments (401 not 500), recipients, notifications, WebSocket
