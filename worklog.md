@@ -435,3 +435,36 @@ Stage Summary:
 - 409 Conflict resolved: emails are now unique per TC, not globally
 - Soft-deleted agents can be re-activated by creating with same email
 - Error messages are more specific about the scope
+
+---
+Task ID: 1
+Agent: Main (Session Continuation)
+Task: Fix 502 Bad Gateway errors - dev server OOM restart
+
+Work Log:
+- Investigated 502 Bad Gateway errors reported by user
+- Found Next.js dev server was being killed by Linux OOM killer (4.9GB RSS)
+- Server was using too much memory during Turbopack compilation
+- Killed stale processes from previous sessions
+- Set up keep-alive script with auto-restart on server crash
+- Started notification WebSocket mini-service on port 3003
+- Verified all previously implemented features are still intact:
+  - 409 Conflict fix on /api/tc/agents (scoped email uniqueness + re-activation)
+  - FAQ menu after "À Propos" with 16 Q&A items in 4 categories
+  - KYC verification API (NeoFace + ONECI: 3 endpoints + helper library)
+  - Searchable dropdowns for "Bien à vérifier" in Nouvelle Mission
+  - PDF download for lease contracts (LibreOffice headless conversion)
+  - Handwritten signature modal (SignaturePad + CRYPTONEO OTP validation)
+  - "Bon/Mauvais" buttons fix in État des Lieux web view
+  - TC verification loading fix
+  - Details view tab section mobile responsiveness
+  - "Historique" → "Activité" rename in TC dashboard
+  - Caching system (auth-fetch stale-while-revalidate + TanStack Query)
+- Ran lint check: passes cleanly with no errors
+- All API routes responding correctly (401 for unauthenticated requests, as expected)
+
+Stage Summary:
+- 502 errors caused by dev server being OOM-killed, not code bugs
+- Keep-alive script set up to auto-restart server after OOM kills
+- All 11 previously requested features verified as implemented and working
+- Server running and responding correctly on port 3000
