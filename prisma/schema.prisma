@@ -1037,7 +1037,7 @@ model VerificationAgent {
   id          String   @id @default(cuid())
   firstName   String
   lastName    String
-  email       String   @unique
+  email       String
   phone       String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -1053,6 +1053,7 @@ model VerificationAgent {
   // Feedback from TC
   feedbacks AgentFeedback[]
 
+  @@unique([tcId, email])
   @@index([tcId])
   @@index([isActive])
 }

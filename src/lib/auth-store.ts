@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 
 export type AuthMethod = 'email' | 'sms'
 
-export type AppView = 'home' | 'nos-biens' | 'a-propos' | 'nous-contacter' | 'login' | 'register' | 'otp-verify' | 'email-verify' | 'forgot-password' | 'dashboard' | 'property-detail'
+export type AppView = 'home' | 'nos-biens' | 'a-propos' | 'faq' | 'nous-contacter' | 'login' | 'register' | 'otp-verify' | 'email-verify' | 'forgot-password' | 'dashboard' | 'property-detail'
 
 export interface SearchParams {
   query: string

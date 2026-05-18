@@ -347,3 +347,91 @@ Stage Summary:
 - Selected state has ring + scale for clear feedback
 - Hover states are more pronounced
 - Mobile layout already had proper styling from previous fix
+
+---
+Task ID: 3
+Agent: ONECI KYC Agent
+Task: Implement ONECI KYC verification API integration
+
+Work Log:
+- Created `src/lib/oneci.ts` — ONECI helper module following the existing `cryptoneo.ts` pattern
+  - JWT token caching with 30-minute TTL and 60s safety margin
+  - Auto-retry on 401 (clears cached token and retries once)
+  - TypeScript interfaces for all 4 response types: OneciAuthResponse, OneciPersonMatchResponse, OneciSubscriptionResponse, OneciFaceAuthResponse
+  - fetchWithTimeout helper with 15s AbortController timeout
+  - High-level API helpers: oneciPersonMatch(), oneciFaceAuth(), oneciCheckSubscription()
+  - Environment variables: ONECI_API_BASE, ONECI_API_KEY, ONECI_SECRET_KEY
+- Created `src/app/api/kyc/oneci/match/route.ts` — Person match verification endpoint
+  - POST /api/kyc/oneci/match with body: { nni, firstName, lastName, birthDate, gender }
+  - Validates all required fields, checks birthDate format (YYYY-MM-DD)
+  - Falls back to user profile data for firstName/lastName/gender if not provided
+  - On successful match: updates user.oneciVerified=true, oneciVerifiedAt=now, nni, gender, birthDate
+  - French error messages matching existing NeoFace KYC route patterns
+- Created `src/app/api/kyc/oneci/face-auth/route.ts` — Face authentication endpoint
+  - POST /api/kyc/oneci/face-auth with body: { nni, faceImage }
+  - Validates faceImage is a non-trivial base64 string (>100 chars)
+  - Falls back to user.nni if not provided in request
+  - On successful auth: updates user.oneciVerified=true, oneciVerifiedAt=now, nni
+  - Same timeout/error handling as NeoFace route
+- Created `src/app/api/kyc/oneci/subscription/route.ts` — Subscription check endpoint
+  - GET /api/kyc/oneci/subscription — admin-only (checks effectiveRole === ADMIN)
+  - Returns remainingRequests, totalRequests, usedRequests
+  - Handles nested data structure from ONECI API response
+- Added ONECI environment variables to `.env`:
+  - ONECI_API_BASE=https://api-rnpp.verif.ci
+  - ONECI_API_KEY=95d5eff0-3d4e-4a47-9732-c591f66c2e69
+  - ONECI_SECRET_KEY=o9mE#KJBLEKSHPL
+- Lint passes cleanly with no errors
+
+Stage Summary:
+- Full ONECI KYC API integration available server-side with 3 endpoints
+- Token caching prevents unnecessary auth calls (30min TTL)
+- Auto-retry on 401 ensures resilience against token expiration
+- 15-second timeout on all ONECI API calls via AbortController
+- Consistent French error messages across all routes
+- User verification status updated in database on successful ONECI verification
+
+---
+Task ID: 2
+Agent: FAQ Menu Agent
+Task: Add FAQ menu after "A propos" with content
+
+Work Log:
+- Added `'faq'` to AppView type in `src/lib/auth-store.ts` (after `'a-propos'`)
+- Added `HelpCircle` import to `src/components/home/header.tsx` and added FAQ nav link after "À Propos"
+- Added `{ label: 'FAQ', view: 'faq' }` to platformLinks in `src/components/home/footer.tsx` after À Propos
+- Removed `{ label: 'FAQ', href: '#' }` from resourceLinks in footer (moved to platform nav)
+- Created `src/components/home/faq.tsx` with comprehensive FAQ component:
+  - Header section with HelpCircle icon, title "Foire Aux Questions", and subtitle
+  - Category tabs: Général, Locataire, Propriétaire, Sécurité & Vérification (pill-style buttons)
+  - Accordion FAQ items with framer-motion AnimatePresence for smooth expand/collapse
+  - ChevronDown rotation animation when item is opened
+  - 4 questions per category (16 total), all in French
+  - "Still have questions?" CTA card linking to Nous Contacter
+  - Responsive design with mobile-first approach
+- Added FAQ import and view rendering in `src/app/page.tsx` after the a-propos case
+- Lint passes cleanly with no errors
+
+Stage Summary:
+- FAQ is now a proper navigation item in header, footer, and routing
+- Full FAQ page with 4 categories and 16 Q&A items
+- Accordion UI with smooth animations
+- FAQ moved from footer resourceLinks to platformLinks as a proper nav link
+
+---
+Task ID: 1
+Agent: Main
+Task: Fix 409 Conflict on POST /api/tc/agents - scope email uniqueness to TC's agents
+
+Work Log:
+- Changed Prisma schema: removed `@unique` from VerificationAgent.email, added `@@unique([tcId, email])` to scope uniqueness per TC
+- Ran `bun run db:push --accept-data-loss` to apply schema change
+- Updated POST handler in /api/tc/agents/route.ts: changed email uniqueness check from global (`findUnique`) to scoped per TC (`findFirst({ where: { tcId, email } })`)
+- Added re-activation logic: if existing agent is soft-deleted (isActive: false), re-activate with new data instead of returning 409
+- Updated PATCH handler: scoped email uniqueness check to same TC, excluding current agent ID
+- Changed error message from "Un agent avec cet email existe déjà" to "Un agent avec cet email existe déjà dans votre équipe" for clarity
+
+Stage Summary:
+- 409 Conflict resolved: emails are now unique per TC, not globally
+- Soft-deleted agents can be re-activated by creating with same email
+- Error messages are more specific about the scope

@@ -23,6 +23,7 @@ import {
   Clock,
   Home,
   Search,
+  HelpCircle,
   CreditCard,
   Star,
   Wrench,
@@ -52,6 +53,7 @@ const navLinks: { label: string; view: AppView; icon: React.ElementType }[] = [
   { label: 'Accueil', view: 'home', icon: Home },
   { label: 'Nos Biens', view: 'nos-biens', icon: Search },
   { label: 'À Propos', view: 'a-propos', icon: Building2 },
+  { label: 'FAQ', view: 'faq', icon: HelpCircle },
   { label: 'Nous Contacter', view: 'nous-contacter', icon: MessageSquare },
 ]
 

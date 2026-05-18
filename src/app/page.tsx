@@ -10,6 +10,7 @@ import { HowItWorks } from '@/components/home/how-it-works'
 import { Roles } from '@/components/home/roles'
 import { Trust } from '@/components/home/trust'
 import { About } from '@/components/home/about'
+import { FAQ } from '@/components/home/faq'
 import { Contact } from '@/components/home/contact'
 import { Footer } from '@/components/home/footer'
 import { LoginForm } from '@/components/auth/login-form'
@@ -105,6 +106,15 @@ export default function Home() {
     return (
       <PageShell>
         <About />
+      </PageShell>
+    )
+  }
+
+  // FAQ — full page view
+  if (currentView === 'faq') {
+    return (
+      <PageShell>
+        <FAQ />
       </PageShell>
     )
   }

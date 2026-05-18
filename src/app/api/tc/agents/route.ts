@@ -192,13 +192,27 @@ export async function POST(request: NextRequest) {
     const trimmedFirstName = firstName.trim()
     const trimmedLastName = lastName.trim()
 
-    // Check email uniqueness
-    const existing = await db.verificationAgent.findUnique({
-      where: { email: trimmedEmail },
+    // Check email uniqueness scoped to this TC (tcId + email unique constraint)
+    const existing = await db.verificationAgent.findFirst({
+      where: { tcId: userId, email: trimmedEmail },
     })
+
     if (existing) {
+      // If the existing agent is soft-deleted, re-activate it with new data
+      if (!existing.isActive) {
+        const reactivated = await db.verificationAgent.update({
+          where: { id: existing.id },
+          data: {
+            firstName: trimmedFirstName,
+            lastName: trimmedLastName,
+            phone: phone?.trim() || null,
+            isActive: true,
+          },
+        })
+        return NextResponse.json(reactivated, { status: 201 })
+      }
       return NextResponse.json(
-        { error: 'Un agent avec cet email existe déjà' },
+        { error: 'Un agent avec cet email existe déjà dans votre équipe' },
         { status: 409 }
       )
     }
@@ -248,14 +262,18 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    // If email is being changed, check uniqueness
+    // If email is being changed, check uniqueness scoped to this TC
     if (email && email.trim().toLowerCase() !== agent.email) {
-      const existing = await db.verificationAgent.findUnique({
-        where: { email: email.trim().toLowerCase() },
+      const existing = await db.verificationAgent.findFirst({
+        where: {
+          tcId: userId,
+          email: email.trim().toLowerCase(),
+          id: { not: id },
+        },
       })
       if (existing) {
         return NextResponse.json(
-          { error: 'Un agent avec cet email existe déjà' },
+          { error: 'Un agent avec cet email existe déjà dans votre équipe' },
           { status: 409 }
         )
       }

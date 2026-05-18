@@ -8,6 +8,7 @@ const platformLinks: { label: string; view: AppView }[] = [
   { label: 'Accueil', view: 'home' },
   { label: 'Nos Biens', view: 'nos-biens' },
   { label: 'À Propos', view: 'a-propos' },
+  { label: 'FAQ', view: 'faq' },
   { label: 'Nous Contacter', view: 'nous-contacter' },
 ]
 
@@ -15,7 +16,6 @@ const resourceLinks = [
   { label: "Centre d'aide", href: '#' },
   { label: 'CGU', href: '#' },
   { label: 'Politique de confidentialité', href: '#' },
-  { label: 'FAQ', href: '#' },
 ]
 
 const socialLinks = [
