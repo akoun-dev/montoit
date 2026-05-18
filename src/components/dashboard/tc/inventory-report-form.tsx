@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Save, CheckCircle2, FileText, Building2, Key, Info } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle2, FileText, Building2, Key } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -427,17 +427,17 @@ export function InventoryReportForm() {
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
+              <CardTitle className="text-lg sm:text-xl font-bold text-foreground flex items-center flex-wrap gap-2">
                 <FileText className="size-5 text-brand-500" />
-                {reportId ? 'Modifier l\'État des Lieux' : 'État des Lieux'}
+                <span>{reportId ? 'Modifier l\'État des Lieux' : 'État des Lieux'}</span>
                 {existingReport && (
-                  <Badge variant="outline" className="ml-2 text-xs">Brouillon</Badge>
+                  <Badge variant="outline" className="text-xs">Brouillon</Badge>
                 )}
               </CardTitle>
               {propertyInfo && (
-                <div className="flex items-center gap-2 mt-2">
-                  <Building2 className="size-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">{propertyInfo.title} — {propertyInfo.commune}</span>
+                <div className="flex items-center gap-2 mt-2 min-w-0">
+                  <Building2 className="size-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm text-muted-foreground truncate">{propertyInfo.title} — {propertyInfo.commune}</span>
                 </div>
               )}
             </div>
@@ -476,20 +476,14 @@ export function InventoryReportForm() {
               placeholder="ID du bail..."
               value={leaseId}
               onChange={(e) => setLeaseId(e.target.value)}
-              className="mt-1 max-w-xs"
+              className="mt-1 w-full sm:max-w-xs"
             />
           </div>
         </CardHeader>
       </Card>
 
-      {/* Mobile hint */}
-      <div className="sm:hidden flex items-center gap-2 px-1 text-xs text-muted-foreground">
-        <Info className="size-3.5 shrink-0" />
-        Faites défiler horizontalement pour voir toutes les colonnes
-      </div>
-
-      {/* The Table */}
-      <Card className="border-border overflow-hidden">
+      {/* Desktop Table */}
+      <Card className="hidden sm:block border-border overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
             <table className="w-full min-w-[800px] sm:min-w-[900px] border-collapse">
@@ -626,6 +620,110 @@ export function InventoryReportForm() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Mobile Card Layout */}
+      <div className="sm:hidden space-y-3">
+        {DESIGNATIONS.map((designation, rowIdx) => {
+          const isKeyRow = rowIdx === 8
+          return (
+            <Card key={rowIdx} className={cn('border-border', isKeyRow && 'border-amber-200 bg-amber-50/30')}>
+              <CardContent className="p-3">
+                {/* Designation header */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="size-6 rounded-full bg-brand-50 text-brand-500 flex items-center justify-center text-[10px] font-bold shrink-0">
+                    {rowIdx + 1}
+                  </span>
+                  <span className="text-sm font-semibold text-foreground">
+                    {isKeyRow && <Key className="size-3.5 inline mr-1 text-brand-500" />}
+                    {designation}
+                  </span>
+                </div>
+
+                {/* Room columns */}
+                <div className="space-y-2">
+                  {ROOM_COLUMNS.map((_, colIdx) => (
+                    <div key={colIdx} className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-24 shrink-0">{ROOM_COLUMNS_SHORT[colIdx]}</span>
+                      {isKeyRow ? (
+                        <Input
+                          type="number"
+                          min={0}
+                          placeholder="—"
+                          value={grid[rowIdx]?.[colIdx]?.keyCount ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setKeyCount(rowIdx, colIdx, val === '' ? null : parseInt(val, 10))
+                          }}
+                          className="w-16 h-8 text-center text-sm"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setCondition(rowIdx, colIdx, 'BON')}
+                            className={cn(
+                              'px-2 py-0.5 rounded text-[11px] font-bold transition-colors',
+                              grid[rowIdx]?.[colIdx]?.condition === 'BON'
+                                ? 'bg-green-500 text-white shadow-sm'
+                                : 'bg-green-50 text-green-600 hover:bg-green-100 border border-green-200'
+                            )}
+                          >
+                            BON
+                          </button>
+                          <button
+                            onClick={() => setCondition(rowIdx, colIdx, 'MAUVAIS')}
+                            className={cn(
+                              'px-2 py-0.5 rounded text-[11px] font-bold transition-colors',
+                              grid[rowIdx]?.[colIdx]?.condition === 'MAUVAIS'
+                                ? 'bg-red-500 text-white shadow-sm'
+                                : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
+                            )}
+                          >
+                            M
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Observation */}
+                <div className="mt-2 pt-2 border-t border-border">
+                  <Input
+                    placeholder="Observation..."
+                    value={grid[rowIdx]?.[0]?.observation ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setGrid((prev) => {
+                        const newGrid = { ...prev }
+                        for (let c = 0; c < ROOM_COLUMNS.length; c++) {
+                          newGrid[rowIdx] = {
+                            ...newGrid[rowIdx],
+                            [c]: { ...newGrid[rowIdx]?.[c], observation: val },
+                          }
+                        }
+                        return newGrid
+                      })
+                    }}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+
+        {/* Total keys */}
+        <Card className="border-border">
+          <CardContent className="p-3 flex items-center justify-between">
+            <span className="text-sm font-bold text-foreground">TOTAL CLÉS</span>
+            <div className="flex items-center gap-1.5">
+              <Key className="size-4 text-brand-500" />
+              <span className="text-xl font-bold text-brand-500">{totalKeys}</span>
+              <span className="text-xs text-muted-foreground">clé(s)</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* General Observations */}
       <Card className="border-border">

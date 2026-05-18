@@ -410,6 +410,8 @@ model User {
   signalementsReported Signalement[]
   // Relations — signalements handled (as admin)
   signalementsHandled  Signalement[]  @relation("SignalementHandler")
+  // Relations — signature alias (CRYPTONEO)
+  signatureAlias       SignatureAlias?
 
   @@index([role])
   @@index([phone])
@@ -1399,4 +1401,29 @@ model Signalement {
   @@index([status])
   @@index([entityType])
   @@index([createdAt])
+}
+
+// ─── Electronic Signature (CRYPTONEO / ANSUT) ────────────────────────────────
+
+model SignatureAlias {
+  id                String   @id @default(cuid())
+  aliasCertificat   String   @unique              // Certificate alias from CRYPTONEO (e.g. "7NRJO4SPQEORTSX")
+  firstName         String                        // First name used for certificate
+  lastName          String                        // Last name used for certificate
+  gender            String?                       // Gender used for certificate
+  email             String                        // Email used for certificate
+  phone             String?                       // Phone used for certificate
+  organisation      String?                       // Organisation used for certificate
+  typePiece         String   @default("CNI")      // Type of ID piece
+  hashPiece         String?                       // Hash of the ID piece
+  certificateData   String?                       // Full certificate response JSON for reference
+  isActive          Boolean  @default(true)        // Whether this alias is currently active
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  userId String @unique  // One alias per user
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([aliasCertificat])
+  @@index([userId])
 }

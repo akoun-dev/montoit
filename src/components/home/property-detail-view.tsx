@@ -115,7 +115,7 @@ export interface PropertyDetail {
   }
 }
 
-type TabKey = 'details' | 'commodites' | 'modalites' | 'contact' | 'visit' | 'reviews'
+type TabKey = 'details' | 'commodites' | 'modalites' | 'contact' | 'reviews'
 
 // ── Parsed extras derived from API data ────────────────────────────────────
 
@@ -440,6 +440,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   const [authGateAction, setAuthGateAction] = useState('')
   const [applyDialogOpen, setApplyDialogOpen] = useState(false)
   const [applySubmitted, setApplySubmitted] = useState(false)
+  const [visitModalOpen, setVisitModalOpen] = useState(false)
 
   // API data state
   const [property, setProperty] = useState<PropertyDetail | null>(null)
@@ -577,12 +578,11 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
     { key: 'commodites', label: 'Commodités', icon: Lamp },
     { key: 'modalites', label: 'Modalités', icon: FileText },
     { key: 'contact', label: 'Contacter', icon: Phone },
-    { key: 'visit', label: 'Visiter', icon: Calendar },
     { key: 'reviews', label: `Avis (${totalReviews})`, icon: Star },
   ]
 
   return (
-    <section className="bg-muted min-h-screen">
+    <section className="bg-muted min-h-screen overflow-x-hidden">
       {/* Auth Gate Dialog */}
       <AuthGateDialog open={authGateOpen} onOpenChange={setAuthGateOpen} action={authGateAction} />
 
@@ -772,7 +772,6 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                 {activeTab === 'commodites' && <CommoditesTab amenities={extras.amenities} />}
                 {activeTab === 'modalites' && <ModalitesTab extras={extras} price={property.price} />}
                 {activeTab === 'contact' && <ContactTab property={property} extras={extras} />}
-                {activeTab === 'visit' && <VisitTab property={property} requireAuth={requireAuth} />}
                 {activeTab === 'reviews' && <ReviewsTab avgRating={avgRating} reviews={reviews} totalReviews={totalReviews} />}
               </motion.div>
             </AnimatePresence>
@@ -814,7 +813,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                 </div>
                 <Button
                   className="w-full bg-brand-500 hover:bg-brand-600 text-white h-11 text-sm font-semibold mb-2"
-                  onClick={() => requireAuth('planifier une visite', () => setActiveTab('visit'))}
+                  onClick={() => requireAuth('planifier une visite', () => setVisitModalOpen(true))}
                 >
                   <Calendar className="size-4 mr-1.5" />
                   Planifier une visite
@@ -863,7 +862,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
             </div>
             <Button
               className="bg-brand-500 hover:bg-brand-600 text-white h-11 min-w-[5.5rem] text-sm font-semibold shadow-sm"
-              onClick={() => requireAuth('planifier une visite', () => setActiveTab('visit'))}
+              onClick={() => requireAuth('planifier une visite', () => setVisitModalOpen(true))}
             >
               <Calendar className="size-4 mr-1.5" />
               Visiter
@@ -887,6 +886,13 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
           </div>
         </div>
       </div>
+
+      {/* Visit Modal */}
+      <VisitModal
+        property={property}
+        open={visitModalOpen}
+        onOpenChange={setVisitModalOpen}
+      />
     </section>
   )
 }
@@ -925,7 +931,7 @@ function DetailsTab({
       {/* Description */}
       <div>
         <h3 className="text-sm font-semibold text-foreground mb-2">Description</h3>
-        <p className="text-sm text-muted-foreground leading-relaxed">{extras.description}</p>
+        <p className="text-sm text-muted-foreground leading-relaxed break-words">{extras.description}</p>
       </div>
 
       {/* Localisation with map */}
@@ -938,7 +944,7 @@ function DetailsTab({
           <div className="flex items-start gap-3">
             <MapPin className="size-5 text-brand-500 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-foreground">{property.address}</p>
+              <p className="text-sm font-medium text-foreground break-words">{property.address}</p>
               <p className="text-xs text-muted-foreground">{commune}, {property.city}, Côte d&apos;Ivoire</p>
             </div>
           </div>
@@ -1346,14 +1352,16 @@ function ContactTab({
   )
 }
 
-// ── Visit Tab ───────────────────────────────────────────────────────────────
+// ── Visit Modal ──────────────────────────────────────────────────────────────
 
-function VisitTab({
+function VisitModal({
   property,
-  requireAuth,
+  open,
+  onOpenChange,
 }: {
   property: PropertyDetail
-  requireAuth: (action: string, callback: () => void) => void
+  open: boolean
+  onOpenChange: (v: boolean) => void
 }) {
   const { isAuthenticated, user } = useAuthStore()
   const [visitType, setVisitType] = useState<'PHYSICAL' | 'VIRTUAL'>('PHYSICAL')
@@ -1364,16 +1372,25 @@ function VisitTab({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const timeSlots = [
-    '08:00', '09:00', '10:00', '11:00',
-    '14:00', '15:00', '16:00', '17:00',
-  ]
-
-  const hasVirtualTour = !!property.virtualTourUrl
+  // Reset form when modal closes
+  const handleOpenChange = (v: boolean) => {
+    if (!v) {
+      // Reset on close
+      setTimeout(() => {
+        setSubmitted(false)
+        setVisitDate('')
+        setVisitTime('')
+        setVisitNotes('')
+        setError('')
+      }, 200)
+    }
+    onOpenChange(v)
+  }
 
   const handleSubmit = async () => {
     if (!isAuthenticated || !user) {
-      requireAuth('planifier une visite', () => {})
+      onOpenChange(false)
+      // The parent component should handle auth gating
       return
     }
 
@@ -1408,232 +1425,137 @@ function VisitTab({
     }
   }
 
-  if (submitted) {
-    return (
-      <div className="pb-24 lg:pb-6">
-        <div className="bg-card rounded-xl border border-border p-8 text-center shadow-sm">
-          <div className="size-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="size-8 text-emerald-500" />
-          </div>
-          <h3 className="text-lg font-bold text-foreground mb-2">Demande de visite envoyée !</h3>
-          <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
-            Votre demande de visite {visitType === 'PHYSICAL' ? 'physique' : 'virtuelle'} pour le {visitDate} à {visitTime} a été transmise au propriétaire.
-            Vous recevrez une confirmation sous 24h.
-          </p>
-          <div className="bg-muted rounded-lg p-4 max-w-sm mx-auto text-left space-y-2 mb-5">
-            <div className="flex items-center gap-2 text-sm">
-              <Building2 className="size-4 text-muted-foreground" />
-              <span className="text-muted-foreground">{property.title}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Calendar className="size-4 text-muted-foreground" />
-              <span className="text-muted-foreground">{visitDate} à {visitTime}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              {visitType === 'PHYSICAL' ? <MapPin className="size-4 text-muted-foreground" /> : <Video className="size-4 text-muted-foreground" />}
-              <span className="text-muted-foreground">Visite {visitType === 'PHYSICAL' ? 'physique' : 'virtuelle'}</span>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => { setSubmitted(false); setVisitDate(''); setVisitTime(''); setVisitNotes('') }}
-            className="text-brand-500 border-brand-200 hover:bg-brand-50"
-          >
-            Planifier une autre visite
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-6 pb-24 lg:pb-6">
-      {/* Auth notice */}
-      {!isAuthenticated && (
-        <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 flex items-start gap-3">
-          <LogIn className="size-5 text-brand-500 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-xs font-semibold text-brand-700 mb-0.5">Connexion requise</p>
-            <p className="text-[11px] text-brand-600">Vous devez être connecté pour planifier une visite. Remplissez le formulaire puis connectez-vous lors de la confirmation.</p>
-          </div>
-        </div>
-      )}
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Calendar className="size-5 text-brand-500" />
+            Planifier une visite
+          </DialogTitle>
+          <DialogDescription>
+            Choisissez le type de visite et la date qui vous conviennent.
+          </DialogDescription>
+        </DialogHeader>
 
-      {/* Virtual Tour Preview - if owner has uploaded a 3D video */}
-      {hasVirtualTour && (
-        <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Video className="size-4 text-brand-500" />
-            Visite virtuelle 3D disponible
-          </h3>
-          <div className="relative rounded-lg overflow-hidden bg-neutral-900 aspect-video">
-            {property.virtualTourUrl!.startsWith('data:video') || property.virtualTourUrl!.startsWith('data:') ? (
-              <video
-                src={property.virtualTourUrl!}
-                controls
-                className="w-full h-full object-contain"
-                title="Visite virtuelle 3D"
-              >
-                Votre navigateur ne supporte pas la lecture vidéo.
-              </video>
-            ) : (
-              <iframe
-                src={property.virtualTourUrl!}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                title="Visite virtuelle 3D"
-              />
-            )}
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-2">
-            Visionnez la visite virtuelle 3D du bien, ou planifiez une visite physique ci-dessous.
-          </p>
-        </div>
-      )}
-
-      {/* Visit type selection */}
-      <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Calendar className="size-4 text-brand-500" />
-          Type de visite
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <button
-            onClick={() => setVisitType('PHYSICAL')}
-            className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-              visitType === 'PHYSICAL'
-                ? 'border-brand-500 bg-brand-50/50'
-                : 'border-border hover:border-brand-300'
-            }`}
-          >
-            {visitType === 'PHYSICAL' && (
-              <div className="absolute top-2 right-2">
-                <CheckCircle2 className="size-4 text-brand-500" />
-              </div>
-            )}
-            <MapPin className={`size-6 ${visitType === 'PHYSICAL' ? 'text-brand-500' : 'text-muted-foreground'}`} />
-            <span className={`text-sm font-medium ${visitType === 'PHYSICAL' ? 'text-brand-600' : 'text-muted-foreground'}`}>
-              Visite physique
-            </span>
-            <span className="text-[11px] text-muted-foreground text-center">Déplacement sur place avec le propriétaire ou son représentant</span>
-          </button>
-          <button
-            onClick={() => setVisitType('VIRTUAL')}
-            className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-              visitType === 'VIRTUAL'
-                ? 'border-brand-500 bg-brand-50/50'
-                : 'border-border hover:border-brand-300'
-            }`}
-          >
-            {visitType === 'VIRTUAL' && (
-              <div className="absolute top-2 right-2">
-                <CheckCircle2 className="size-4 text-brand-500" />
-              </div>
-            )}
-            <Video className={`size-6 ${visitType === 'VIRTUAL' ? 'text-brand-500' : 'text-muted-foreground'}`} />
-            <span className={`text-sm font-medium ${visitType === 'VIRTUAL' ? 'text-brand-600' : 'text-muted-foreground'}`}>
-              Visite virtuelle
-            </span>
-            <span className="text-[11px] text-muted-foreground text-center">Visioconférence en direct avec le propriétaire</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Visit type info */}
-      {visitType === 'PHYSICAL' ? (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
-          <MapPin className="size-5 text-emerald-600 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-xs font-semibold text-emerald-800 mb-0.5">Visite physique</p>
-            <p className="text-[11px] text-emerald-700">Vous vous rendrez sur place à l&apos;adresse du bien. Le propriétaire ou son représentant vous accueillera pour la visite.</p>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 flex items-start gap-3">
-          <Video className="size-5 text-sky-600 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-xs font-semibold text-sky-800 mb-0.5">Visite virtuelle</p>
-            <p className="text-[11px] text-sky-700">
-              Le propriétaire vous enverra un lien de visioconférence (Zoom, Google Meet, etc.) à l&apos;heure convenue.
-              {hasVirtualTour && ' Vous pouvez aussi visionner la visite 3D pré-enregistrée en haut de cette page.'}
+        {submitted ? (
+          <div className="text-center py-6">
+            <div className="size-14 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+              <CheckCircle2 className="size-7 text-emerald-500" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground mb-2">Demande envoyée !</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Votre demande de visite {visitType === 'PHYSICAL' ? 'physique' : 'virtuelle'} pour le {visitDate} à {visitTime} a été transmise au propriétaire.
             </p>
+            <div className="bg-muted rounded-lg p-3 text-left space-y-1.5 mb-4">
+              <div className="flex items-center gap-2 text-sm">
+                <Building2 className="size-4 text-muted-foreground" />
+                <span className="text-muted-foreground">{property.title}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar className="size-4 text-muted-foreground" />
+                <span className="text-muted-foreground">{visitDate} à {visitTime}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                {visitType === 'PHYSICAL' ? <MapPin className="size-4 text-muted-foreground" /> : <Video className="size-4 text-muted-foreground" />}
+                <span className="text-muted-foreground">Visite {visitType === 'PHYSICAL' ? 'physique' : 'virtuelle'}</span>
+              </div>
+            </div>
+            <Button variant="outline" onClick={() => handleOpenChange(false)} className="text-brand-500 border-brand-200">
+              Fermer
+            </Button>
           </div>
-        </div>
-      )}
-
-      {/* Date & Time */}
-      <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Clock3 className="size-4 text-brand-500" />
-          Date et créneau horaire
-        </h3>
-        <div className="space-y-4">
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1">Date souhaitée</Label>
-            <Input
-              type="date"
-              value={visitDate}
-              onChange={(e) => setVisitDate(e.target.value)}
-              className="h-10 bg-card border-border text-sm"
-              min={new Date().toISOString().split('T')[0]}
-            />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground mb-2">Créneau horaire</Label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {timeSlots.map((slot) => (
+        ) : (
+          <div className="space-y-4 mt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {/* Visit type */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2">Type de visite</Label>
+              <div className="grid grid-cols-2 gap-2">
                 <button
-                  key={slot}
-                  onClick={() => setVisitTime(slot)}
-                  className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition-all ${
-                    visitTime === slot
-                      ? 'border-brand-500 bg-brand-50 text-brand-600'
-                      : 'border-border text-muted-foreground hover:border-brand-300 hover:bg-accent'
+                  onClick={() => setVisitType('PHYSICAL')}
+                  className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-left ${
+                    visitType === 'PHYSICAL' ? 'border-brand-500 bg-brand-50/50' : 'border-border hover:border-brand-300'
                   }`}
                 >
-                  {slot}
+                  <MapPin className={`size-4 shrink-0 ${visitType === 'PHYSICAL' ? 'text-brand-500' : 'text-muted-foreground'}`} />
+                  <div>
+                    <span className={`text-xs font-medium block ${visitType === 'PHYSICAL' ? 'text-brand-600' : 'text-muted-foreground'}`}>Physique</span>
+                    <span className="text-[10px] text-muted-foreground">Sur place</span>
+                  </div>
                 </button>
-              ))}
+                <button
+                  onClick={() => setVisitType('VIRTUAL')}
+                  className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-left ${
+                    visitType === 'VIRTUAL' ? 'border-brand-500 bg-brand-50/50' : 'border-border hover:border-brand-300'
+                  }`}
+                >
+                  <Video className={`size-4 shrink-0 ${visitType === 'VIRTUAL' ? 'text-brand-500' : 'text-muted-foreground'}`} />
+                  <div>
+                    <span className={`text-xs font-medium block ${visitType === 'VIRTUAL' ? 'text-brand-600' : 'text-muted-foreground'}`}>Virtuelle</span>
+                    <span className="text-[10px] text-muted-foreground">Visioconférence</span>
+                  </div>
+                </button>
+              </div>
             </div>
+
+            {/* Date & Time */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1">Date souhaitée</Label>
+                <Input
+                  type="date"
+                  value={visitDate}
+                  onChange={(e) => setVisitDate(e.target.value)}
+                  className="h-10 bg-card border-border text-sm"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1">Heure</Label>
+                <Input
+                  type="time"
+                  value={visitTime}
+                  onChange={(e) => setVisitTime(e.target.value)}
+                  className="h-10 bg-card border-border text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1">Message (optionnel)</Label>
+              <Textarea
+                placeholder="Précisez vos disponibilités ou posez vos questions..."
+                value={visitNotes}
+                onChange={(e) => setVisitNotes(e.target.value)}
+                className="min-h-[80px] bg-card border-border text-sm resize-none"
+              />
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 text-xs text-red-700">
+                {error}
+              </div>
+            )}
+
+            {/* Submit */}
+            <Button
+              className="w-full bg-brand-500 hover:bg-brand-600 text-white h-11 text-sm font-semibold"
+              disabled={!visitDate || !visitTime || submitting}
+              onClick={handleSubmit}
+            >
+              {submitting ? (
+                <Loader2 className="size-4 mr-1.5 animate-spin" />
+              ) : (
+                <Calendar className="size-4 mr-1.5" />
+              )}
+              {submitting ? 'Envoi en cours...' : `Confirmer la visite ${visitType === 'PHYSICAL' ? 'physique' : 'virtuelle'}`}
+            </Button>
           </div>
-        </div>
-      </div>
-
-      {/* Notes */}
-      <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-        <Label className="text-xs text-muted-foreground mb-1">Message au propriétaire (optionnel)</Label>
-        <Textarea
-          placeholder={visitType === 'PHYSICAL' 
-            ? "Précisez vos disponibilités ou posez vos questions..." 
-            : "Indiquez vos questions sur le bien pour la visioconférence..."}
-          value={visitNotes}
-          onChange={(e) => setVisitNotes(e.target.value)}
-          className="min-h-[80px] bg-card border-border text-sm resize-none"
-        />
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      {/* Submit */}
-      <Button
-        className="w-full bg-brand-500 hover:bg-brand-600 text-white h-11 text-sm font-semibold"
-        disabled={!visitDate || !visitTime || submitting}
-        onClick={handleSubmit}
-      >
-        {submitting ? (
-          <Loader2 className="size-4 mr-1.5 animate-spin" />
-        ) : (
-          <Calendar className="size-4 mr-1.5" />
         )}
-        {submitting ? 'Envoi en cours...' : `Confirmer la visite ${visitType === 'PHYSICAL' ? 'physique' : 'virtuelle'}`}
-      </Button>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
