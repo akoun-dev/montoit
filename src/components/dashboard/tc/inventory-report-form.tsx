@@ -547,11 +547,11 @@ export function InventoryReportForm() {
                               className="w-14 sm:w-16 h-8 text-center text-sm mx-auto"
                             />
                           ) : (
-                            <div className="flex items-center justify-center gap-0.5 sm:gap-1">
+                            <div className="flex items-center justify-center gap-1 sm:gap-1.5">
                               <button
                                 onClick={() => setCondition(rowIdx, colIdx, 'BON')}
                                 className={cn(
-                                  'px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-[11px] font-bold transition-colors',
+                                  'px-2 sm:px-3 py-1 rounded text-[10px] sm:text-xs font-bold transition-colors',
                                   grid[rowIdx]?.[colIdx]?.condition === 'BON'
                                     ? 'bg-green-500 text-white shadow-sm'
                                     : 'bg-green-50 text-green-600 hover:bg-green-100 border border-green-200'
@@ -562,13 +562,13 @@ export function InventoryReportForm() {
                               <button
                                 onClick={() => setCondition(rowIdx, colIdx, 'MAUVAIS')}
                                 className={cn(
-                                  'px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-[11px] font-bold transition-colors',
+                                  'px-2 sm:px-3 py-1 rounded text-[10px] sm:text-xs font-bold transition-colors',
                                   grid[rowIdx]?.[colIdx]?.condition === 'MAUVAIS'
                                     ? 'bg-red-500 text-white shadow-sm'
                                     : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
                                 )}
                               >
-                                M
+                                MAUVAIS
                               </button>
                             </div>
                           )}

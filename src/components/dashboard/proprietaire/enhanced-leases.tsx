@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   FileSignature, Building2, User, AlertTriangle, Loader2, Check, X,
   Download, Eye, PenLine, Plus, ChevronRight, ChevronLeft, Search, Clock,
-  ShieldCheck, FileText, CalendarDays, Banknote
+  ShieldCheck, FileText, CalendarDays, Banknote, PenTool, CheckCircle2
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -38,6 +38,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
+import { SignaturePad } from '@/components/ui/signature-pad'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -148,6 +149,9 @@ export function EnhancedLeases() {
   const [signLease, setSignLease] = useState<LeaseItem | null>(null)
   const [signOtp, setSignOtp] = useState('')
   const [signing, setSigning] = useState(false)
+  const [signStep, setSignStep] = useState<'signature' | 'otp'>('signature')
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
+  const [requestingOtp, setRequestingOtp] = useState(false)
 
   // Detail dialog
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
@@ -274,12 +278,14 @@ export function EnhancedLeases() {
       await authFetch(`/api/leases/${signLease.id}/sign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otpCode: signOtp }),
+        body: JSON.stringify({ otpCode: signOtp, signatureImage: signatureDataUrl }),
       })
-      toast.success('Bail signé avec succès')
+      toast.success('Bail signé et certifié avec succès')
       setSignDialogOpen(false)
       setSignLease(null)
       setSignOtp('')
+      setSignStep('signature')
+      setSignatureDataUrl(null)
       fetchData()
     } catch (err) {
       if (err instanceof AuthError) {
@@ -289,6 +295,27 @@ export function EnhancedLeases() {
       }
     } finally {
       setSigning(false)
+    }
+  }
+
+  const handleRequestSignOtp = async () => {
+    if (!signLease) return
+    setRequestingOtp(true)
+    try {
+      const result = await authFetch<{ otpCode: string }>(`/api/leases/${signLease.id}/request-sign-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      setSignOtp(result.otpCode)
+      toast.success('Code OTP généré', { description: 'Utilisez ce code pour certifier votre signature.' })
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message || 'Erreur OTP')
+      } else {
+        toast.error('Erreur lors de la génération OTP')
+      }
+    } finally {
+      setRequestingOtp(false)
     }
   }
 
@@ -983,18 +1010,24 @@ export function EnhancedLeases() {
       </Tabs>
 
       {/* ─── Sign Dialog ──────────────────────────────────────────────────── */}
-      <Dialog open={signDialogOpen} onOpenChange={(open) => { setSignDialogOpen(open); if (!open) { setSignOtp(''); setSignLease(null) } }}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={signDialogOpen} onOpenChange={(open) => {
+        setSignDialogOpen(open)
+        if (!open) { setSignOtp(''); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null) }
+      }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShieldCheck className="size-5 text-brand-500" />
-              Signature électronique
+              <PenTool className="size-5 text-brand-500" />
+              Signature du bail
             </DialogTitle>
             <DialogDescription className="pt-2">
-              Entrez le code OTP reçu pour signer le bail pour
-              <span className="font-semibold text-foreground"> {signLease?.property?.title}</span>.
+              {signStep === 'signature'
+                ? <>Dessinez votre signature manuscrite pour le bail de <span className="font-semibold text-foreground">{signLease?.property?.title}</span>.</>
+                : <>Certifiez votre signature avec un code OTP pour <span className="font-semibold text-foreground">{signLease?.property?.title}</span>.</>
+              }
             </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4 py-2">
             {/* Signature status preview */}
             <div className="p-3 rounded-lg bg-muted space-y-1.5">
@@ -1002,47 +1035,118 @@ export function EnhancedLeases() {
               <SignatureStatus signed={!!signLease?.ownerSignedAt} label="Propriétaire" />
               <SignatureStatus signed={!!signLease?.tenantSignedAt} label="Locataire" />
             </div>
-            <div>
-              <Label htmlFor="signOtp">Code OTP</Label>
-              <Input
-                id="signOtp"
-                value={signOtp}
-                onChange={(e) => setSignOtp(e.target.value)}
-                placeholder="Entrez le code OTP"
-                className="font-mono text-center text-lg tracking-widest"
-                maxLength={6}
-              />
+
+            {/* Step indicator */}
+            <div className="flex items-center gap-2">
+              {[
+                { key: 'signature', label: 'Signature' },
+                { key: 'otp', label: 'Certification' },
+              ].map((step, i) => {
+                const stepOrder = ['signature', 'otp']
+                const currentIdx = stepOrder.indexOf(signStep)
+                const stepIdx = stepOrder.indexOf(step.key)
+                const isActive = step.key === signStep
+                const isDone = stepIdx < currentIdx
+                return (
+                  <div key={step.key} className="flex items-center gap-2 flex-1">
+                    <div className={`size-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                      isDone ? 'bg-green-500 text-white' : isActive ? 'bg-brand-500 text-white' : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {isDone ? <CheckCircle2 className="size-3.5" /> : i + 1}
+                    </div>
+                    <span className={`text-xs ${isActive ? 'text-foreground font-medium' : isDone ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      {step.label}
+                    </span>
+                    {i < 1 && <div className={`flex-1 h-px ${stepIdx < currentIdx ? 'bg-green-400' : 'bg-border'}`} />}
+                  </div>
+                )
+              })}
             </div>
-            <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
-              <p className="text-xs text-amber-700">
-                En signant ce bail, vous confirmez avoir lu et accepté les conditions du contrat de location.
-                Cette signature électronique a la même valeur légale qu&apos;une signature manuscrite.
-              </p>
-            </div>
+
+            {signStep === 'signature' && (
+              <>
+                <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+                  <p className="text-xs text-blue-700">
+                    Dessinez votre signature manuscrite ci-dessous. Elle sera certifiée électroniquement via CRYPTONEO.
+                  </p>
+                </div>
+                <SignaturePad
+                  onConfirm={(dataUrl) => {
+                    setSignatureDataUrl(dataUrl)
+                    setSignStep('otp')
+                  }}
+                  onCancel={() => { setSignDialogOpen(false); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null) }}
+                  signatoryRole="Propriétaire"
+                />
+              </>
+            )}
+
+            {signStep === 'otp' && (
+              <>
+                {/* Preview of captured signature */}
+                {signatureDataUrl && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Votre signature :</p>
+                    <div className="rounded-lg border border-border bg-white p-2">
+                      <img src={signatureDataUrl} alt="Votre signature" className="h-16 w-auto mx-auto object-contain" />
+                    </div>
+                  </div>
+                )}
+                <div className="p-3 rounded-lg bg-brand-50 border border-brand-100">
+                  <p className="text-xs text-brand-700">
+                    Votre signature a été capturée. Pour la certifier électroniquement, un code OTP est requis.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleRequestSignOtp}
+                  disabled={requestingOtp}
+                  className="w-full gap-2 bg-brand-500 hover:bg-brand-600 text-white"
+                  variant="outline"
+                >
+                  {requestingOtp ? (
+                    <><Loader2 className="size-4 animate-spin" /> Génération...</>
+                  ) : (
+                    <><ShieldCheck className="size-4" /> Obtenir un code OTP</>
+                  )}
+                </Button>
+                <div>
+                  <Label htmlFor="signOtp">Code OTP</Label>
+                  <Input
+                    id="signOtp"
+                    value={signOtp}
+                    onChange={(e) => setSignOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    className="font-mono text-center text-lg tracking-widest"
+                    maxLength={6}
+                  />
+                </div>
+              </>
+            )}
           </div>
+
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => { setSignDialogOpen(false); setSignOtp(''); setSignLease(null) }}
-              disabled={signing}
-            >
-              Annuler
-            </Button>
-            <Button
-              className="bg-brand-500 hover:bg-brand-600 text-white gap-2"
-              onClick={handleSignLease}
-              disabled={signing || signOtp.length < 4}
-            >
-              {signing ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" /> Signature...
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="size-4" /> Signer le bail
-                </>
-              )}
-            </Button>
+            {signStep === 'otp' && (
+              <Button
+                variant="outline"
+                onClick={() => setSignStep('signature')}
+                disabled={signing}
+              >
+                Retour
+              </Button>
+            )}
+            {signStep === 'otp' && (
+              <Button
+                className="bg-brand-500 hover:bg-brand-600 text-white gap-2"
+                onClick={handleSignLease}
+                disabled={signing || signOtp.length < 4}
+              >
+                {signing ? (
+                  <><Loader2 className="size-4 animate-spin" /> Certification...</>
+                ) : (
+                  <><ShieldCheck className="size-4" /> Confirmer et certifier</>
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

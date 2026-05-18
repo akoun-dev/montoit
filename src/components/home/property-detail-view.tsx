@@ -436,6 +436,15 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   const { isFavorite: checkIsFavorite, toggleFavorite: apiToggleFavorite, checkSingle } = useFavorites([propertyId])
   const [currentImage, setCurrentImage] = useState(0)
   const [activeTab, setActiveTab] = useState<TabKey>('details')
+  const tabScrollRef = useRef<HTMLDivElement>(null)
+
+  // Scroll active tab into view on mobile when it changes
+  useEffect(() => {
+    if (!tabScrollRef.current) return
+    const el = tabScrollRef.current.querySelector(`[data-tab="${activeTab}"]`)
+    el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+  }, [activeTab])
+
   const [authGateOpen, setAuthGateOpen] = useState(false)
   const [authGateAction, setAuthGateAction] = useState('')
   const [applyDialogOpen, setApplyDialogOpen] = useState(false)
@@ -739,34 +748,68 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3, delay: 0.2 }}
-              className="border-b border-border mb-6 -mx-4 sm:mx-0"
+              className="mb-6 -mx-4 sm:mx-0"
             >
-              <div className="relative">
+              {/* Mobile: pill/chip style scrollable tabs */}
+              <div className="relative sm:hidden">
                 <div
-                  className="flex gap-0 -mb-px overflow-x-auto scrollbar-hide px-4 sm:px-0"
+                  ref={tabScrollRef}
+                  className="flex gap-2 overflow-x-auto scrollbar-hide px-4 py-2"
                   style={{
                     WebkitOverflowScrolling: 'touch',
                     scrollSnapType: 'x mandatory',
                   }}
                 >
+                  {tabs.map((tab) => {
+                    const isActive = activeTab === tab.key
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => {
+                          setActiveTab(tab.key)
+                          // Scroll the clicked tab into view
+                          const el = tabScrollRef.current?.querySelector(`[data-tab="${tab.key}"]`)
+                          el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+                        }}
+                        data-tab={tab.key}
+                        className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
+                          isActive
+                            ? 'bg-brand-500 text-white shadow-sm'
+                            : 'bg-card text-muted-foreground border border-border hover:bg-muted hover:text-foreground'
+                        }`}
+                        style={{ scrollSnapAlign: 'center' }}
+                      >
+                        <tab.icon className="size-3.5 shrink-0" />
+                        {tab.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                {/* Gradient fade edges to indicate scrollability */}
+                <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-muted to-transparent" />
+                <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-muted to-transparent" />
+              </div>
+
+              {/* Desktop: underline style tabs */}
+              <div className="hidden sm:block border-b border-border">
+                <div
+                  className="flex gap-0 -mb-px overflow-x-auto scrollbar-hide"
+                >
                   {tabs.map((tab) => (
                     <button
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key)}
-                      className={`flex items-center gap-0.5 sm:gap-1 px-2 sm:px-4 py-2.5 sm:py-3 text-[11px] sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      className={`flex items-center gap-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                         activeTab === tab.key
                           ? 'border-brand-500 text-brand-500'
                           : 'border-transparent text-muted-foreground hover:text-muted-foreground hover:border-border'
                       }`}
-                      style={{ scrollSnapAlign: 'start' }}
                     >
-                      <tab.icon className="size-3.5 sm:size-4 shrink-0" />
+                      <tab.icon className="size-4 shrink-0" />
                       {tab.label}
                     </button>
                   ))}
                 </div>
-                {/* Gradient fade on right edge (mobile only) to indicate more tabs */}
-                <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent sm:hidden" />
               </div>
             </motion.div>
 
@@ -1028,16 +1071,16 @@ function CommoditesTab({ amenities }: { amenities: string[] }) {
         if (categoryAmenities.length === 0) return null
 
         return (
-          <div key={category.title} className="bg-card rounded-xl border border-border p-5 shadow-sm">
+          <div key={category.title} className="bg-card rounded-xl border border-border p-3 sm:p-5 shadow-sm">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{category.title}</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
               {categoryAmenities.map((amenity) => (
-                <div key={amenity.key} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-emerald-50/50 border border-emerald-100">
-                  <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                    <amenity.icon className="size-4 text-emerald-600" />
+                <div key={amenity.key} className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-emerald-50/50 border border-emerald-100">
+                  <div className="size-7 sm:size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                    <amenity.icon className="size-3.5 sm:size-4 text-emerald-600" />
                   </div>
-                  <span className="text-xs font-medium text-muted-foreground">{amenity.label}</span>
-                  <CheckCircle2 className="size-3.5 text-emerald-500 ml-auto shrink-0" />
+                  <span className="text-[11px] sm:text-xs font-medium text-muted-foreground leading-tight">{amenity.label}</span>
+                  <CheckCircle2 className="size-3 sm:size-3.5 text-emerald-500 ml-auto shrink-0" />
                 </div>
               ))}
             </div>
@@ -1277,9 +1320,9 @@ function ContactTab({
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             <Button
-              className="bg-brand-500 hover:bg-brand-600 text-white h-11 text-xs sm:text-sm font-semibold"
+              className="bg-brand-500 hover:bg-brand-600 text-white h-11 text-sm font-semibold"
               onClick={() => { if (!isAuthenticated) { setView('login'); return; } }}
             >
               <Phone className="size-4 mr-1.5" />
@@ -1287,12 +1330,11 @@ function ContactTab({
             </Button>
             <Button
               variant="outline"
-              className="text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600 h-11 text-xs sm:text-sm"
+              className="text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600 h-11 text-sm"
               onClick={() => { if (!isAuthenticated) { setView('login'); return; } }}
             >
               <Mail className="size-4 mr-1.5" />
-              <span className="hidden sm:inline">Envoyer un email</span>
-              <span className="sm:hidden">Email</span>
+              Envoyer un email
             </Button>
           </div>
         )}

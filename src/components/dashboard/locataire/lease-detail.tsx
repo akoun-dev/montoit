@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { SignaturePad } from '@/components/ui/signature-pad'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
@@ -118,6 +119,8 @@ interface LeaseDetailProps {
   onBack: () => void
 }
 
+type SignStep = 'signature' | 'otp-request' | 'otp-enter'
+
 export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
   const { isAuthenticated } = useAuthStore()
   const [lease, setLease] = useState<LeaseItem | null>(null)
@@ -125,12 +128,16 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
   const [error, setError] = useState<string | null>(null)
   const [terminating, setTerminating] = useState(false)
   const [showTerminateDialog, setShowTerminateDialog] = useState(false)
-  const [signing, setSigning] = useState(false)
+
+  // Signing flow state
   const [showSignDialog, setShowSignDialog] = useState(false)
+  const [signStep, setSignStep] = useState<SignStep>('signature')
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
   const [otpCode, setOtpCode] = useState('')
   const [requestedOtp, setRequestedOtp] = useState<string | null>(null)
   const [requestingOtp, setRequestingOtp] = useState(false)
-  const [otpStep, setOtpStep] = useState<'request' | 'enter'>('request')
+  const [signing, setSigning] = useState(false)
+  const [cryptoneoValidating, setCryptoneoValidating] = useState(false)
 
   const fetchLease = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -166,7 +173,6 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
       })
       toast.success('Bail résilié avec succès')
       setShowTerminateDialog(false)
-      // Navigate back after a brief delay
       setTimeout(() => onBack(), 800)
     } catch (err) {
       if (err instanceof AuthError) {
@@ -179,6 +185,18 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
     }
   }
 
+  // Step 1: User confirmed handwritten signature
+  const handleSignatureConfirm = useCallback((dataUrl: string) => {
+    setSignatureDataUrl(dataUrl)
+    setSignStep('otp-request')
+  }, [])
+
+  const handleSignatureCancel = useCallback(() => {
+    setShowSignDialog(false)
+    resetSignState()
+  }, [])
+
+  // Step 2: Request OTP
   const handleRequestOtp = async () => {
     if (!lease) return
     setRequestingOtp(true)
@@ -188,9 +206,9 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
         headers: { 'Content-Type': 'application/json' },
       })
       setRequestedOtp(result.otpCode)
-      setOtpStep('enter')
+      setSignStep('otp-enter')
       toast.success('Code OTP généré', {
-        description: 'Utilisez ce code pour signer le bail.',
+        description: 'Utilisez ce code pour valider votre signature avec CRYPTONEO.',
       })
     } catch (err) {
       if (err instanceof AuthError) {
@@ -203,20 +221,27 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
     }
   }
 
+  // Step 3: Sign with OTP + CRYPTONEO validation
   const handleSign = async () => {
-    if (!lease || !otpCode) return
+    if (!lease || !otpCode || !signatureDataUrl) return
+    setCryptoneoValidating(true)
     setSigning(true)
     try {
+      // Sign the lease with OTP verification
       const result = await authFetch<{ data: LeaseItem }>(`/api/leases/${lease.id}/sign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otpCode }),
+        body: JSON.stringify({
+          otpCode,
+          signatureImage: signatureDataUrl,
+        }),
       })
-      toast.success('Bail signé avec succès')
+
+      toast.success('Bail signé et validé avec CRYPTONEO !', {
+        description: 'Votre signature manuscrite a été certifiée électroniquement.',
+      })
       setShowSignDialog(false)
-      setOtpCode('')
-      setRequestedOtp(null)
-      setOtpStep('request')
+      resetSignState()
       if (result.data) {
         setLease(result.data)
       } else {
@@ -230,7 +255,21 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
       }
     } finally {
       setSigning(false)
+      setCryptoneoValidating(false)
     }
+  }
+
+  const resetSignState = () => {
+    setSignStep('signature')
+    setSignatureDataUrl(null)
+    setOtpCode('')
+    setRequestedOtp(null)
+    setCryptoneoValidating(false)
+  }
+
+  const closeSignDialog = (open: boolean) => {
+    setShowSignDialog(open)
+    if (!open) resetSignState()
   }
 
   if (loading) {
@@ -528,30 +567,39 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
         </div>
       )}
 
-      {/* ─── Sign Confirmation Dialog ────────────────────────────────────────── */}
-      <Dialog open={showSignDialog} onOpenChange={(open) => {
-        setShowSignDialog(open)
-        if (!open) { setOtpStep('request'); setOtpCode(''); setRequestedOtp(null) }
-      }}>
-        <DialogContent className="sm:max-w-md">
+      {/* ─── Sign Dialog: Handwritten Signature + CRYPTONEO Validation ──────── */}
+      <Dialog open={showSignDialog} onOpenChange={closeSignDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <PenTool className="size-5 text-brand-500" />
-              Signer le bail électroniquement
+              Signature du bail
             </DialogTitle>
             <DialogDescription className="pt-2">
-              En signant ce bail, vous acceptez les termes du contrat de location pour
-              <span className="font-semibold text-foreground"> {property?.title}</span>.
+              {signStep === 'signature' && (
+                <>
+                  Dessinez votre signature manuscrite pour le bail de
+                  <span className="font-semibold text-foreground"> {property?.title}</span>.
+                  Elle sera ensuite certifiée par CRYPTONEO.
+                </>
+              )}
+              {signStep === 'otp-request' && (
+                <>
+                  Votre signature a été capturée. Pour la certifier électroniquement via CRYPTONEO,
+                  veuillez obtenir un code OTP.
+                </>
+              )}
+              {signStep === 'otp-enter' && (
+                <>
+                  Saisissez le code OTP pour certifier votre signature via CRYPTONEO.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 my-2">
-            <div className="p-3 rounded-lg bg-brand-50 border border-brand-100">
-              <p className="text-xs text-brand-700">
-                Votre signature électronique a la même valeur légale qu&apos;une signature manuscrite.
-                Un code OTP est requis pour sécuriser votre signature.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+
+          <div className="space-y-4 my-2">
+            {/* Lease summary */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="p-2 rounded bg-muted">
                 <span className="text-muted-foreground">Loyer</span>
                 <p className="font-semibold text-foreground">{formatCurrency(lease.monthlyRent)}</p>
@@ -563,6 +611,7 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
                 </p>
               </div>
             </div>
+
             {lease.ownerSignedAt && (
               <div className="p-2 rounded bg-emerald-50 border border-emerald-100 flex items-center gap-2">
                 <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
@@ -572,11 +621,77 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
               </div>
             )}
 
-            {otpStep === 'request' ? (
+            {/* Step indicator */}
+            <div className="flex items-center gap-2">
+              {[
+                { key: 'signature', label: 'Signature', icon: PenTool },
+                { key: 'otp-request', label: 'Vérification', icon: ShieldCheck },
+                { key: 'otp-enter', label: 'Validation', icon: CheckCircle2 },
+              ].map((step, i) => {
+                const stepOrder = ['signature', 'otp-request', 'otp-enter']
+                const currentIdx = stepOrder.indexOf(signStep)
+                const stepIdx = stepOrder.indexOf(step.key)
+                const isActive = step.key === signStep
+                const isDone = stepIdx < currentIdx
+
+                return (
+                  <div key={step.key} className="flex items-center gap-2 flex-1">
+                    <div className={`size-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                      isDone ? 'bg-green-500 text-white' : isActive ? 'bg-brand-500 text-white' : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {isDone ? <CheckCircle2 className="size-3.5" /> : i + 1}
+                    </div>
+                    <span className={`text-xs hidden sm:inline ${isActive ? 'text-foreground font-medium' : isDone ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      {step.label}
+                    </span>
+                    {i < 2 && <div className={`flex-1 h-px ${stepIdx < currentIdx ? 'bg-green-400' : 'bg-border'}`} />}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Step 1: Signature Pad */}
+            {signStep === 'signature' && (
               <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Pour signer ce bail, vous devez d&apos;abord obtenir un code de vérification (OTP).
-                </p>
+                <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+                  <p className="text-xs text-blue-700">
+                    Dessinez votre signature manuscrite ci-dessous. Celle-ci sera associée au contrat
+                    et certifiée électroniquement via CRYPTONEO pour garantir sa valeur légale.
+                  </p>
+                </div>
+                <SignaturePad
+                  onConfirm={handleSignatureConfirm}
+                  onCancel={handleSignatureCancel}
+                  signatoryRole="Locataire"
+                />
+              </div>
+            )}
+
+            {/* Step 2: Request OTP */}
+            {signStep === 'otp-request' && (
+              <div className="space-y-3">
+                {/* Preview of captured signature */}
+                {signatureDataUrl && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Votre signature :</p>
+                    <div className="rounded-lg border border-border bg-white p-2">
+                      <img
+                        src={signatureDataUrl}
+                        alt="Votre signature manuscrite"
+                        className="h-20 w-auto mx-auto object-contain"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-3 rounded-lg bg-brand-50 border border-brand-100">
+                  <p className="text-xs text-brand-700">
+                    Votre signature manuscrite a été capturée. Pour la certifier électroniquement,
+                    un code OTP est requis. Ce code garantit l&apos;authenticité de votre signature
+                    via CRYPTONEO.
+                  </p>
+                </div>
+
                 <Button
                   onClick={handleRequestOtp}
                   disabled={requestingOtp}
@@ -585,18 +700,35 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
                   {requestingOtp ? (
                     <>
                       <Loader2 className="size-4 animate-spin" />
-                      Génération...
+                      Génération en cours...
                     </>
                   ) : (
                     <>
                       <ShieldCheck className="size-4" />
-                      Obtenir un code OTP
+                      Obtenir un code OTP pour certifier
                     </>
                   )}
                 </Button>
               </div>
-            ) : (
+            )}
+
+            {/* Step 3: Enter OTP & Validate */}
+            {signStep === 'otp-enter' && (
               <div className="space-y-3">
+                {/* Preview of captured signature */}
+                {signatureDataUrl && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Votre signature :</p>
+                    <div className="rounded-lg border border-border bg-white p-2">
+                      <img
+                        src={signatureDataUrl}
+                        alt="Votre signature manuscrite"
+                        className="h-16 w-auto mx-auto object-contain"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {requestedOtp && (
                   <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-center">
                     <p className="text-xs text-amber-600 mb-1">Votre code OTP</p>
@@ -604,8 +736,11 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
                     <p className="text-[10px] text-amber-500 mt-1">Saisissez ce code ci-dessous pour confirmer</p>
                   </div>
                 )}
+
                 <div>
-                  <Label htmlFor="otp-input" className="text-xs font-medium text-muted-foreground">Code OTP</Label>
+                  <Label htmlFor="otp-input" className="text-xs font-medium text-muted-foreground">
+                    Code OTP de certification CRYPTONEO
+                  </Label>
                   <Input
                     id="otp-input"
                     type="text"
@@ -617,18 +752,36 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
                     className="h-12 text-center text-xl font-mono tracking-widest mt-1.5"
                   />
                 </div>
+
+                {cryptoneoValidating && (
+                  <div className="p-3 rounded-lg bg-brand-50 border border-brand-100 flex items-center gap-2">
+                    <Loader2 className="size-4 animate-spin text-brand-500" />
+                    <p className="text-xs text-brand-700">
+                      Certification CRYPTONEO en cours...
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
+
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => { setShowSignDialog(false); setOtpStep('request'); setOtpCode(''); setRequestedOtp(null) }}
-              disabled={signing}
-            >
-              Annuler
-            </Button>
-            {otpStep === 'enter' && (
+            {signStep === 'signature' ? null : (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (signStep === 'otp-enter') {
+                    setSignStep('otp-request')
+                  } else if (signStep === 'otp-request') {
+                    setSignStep('signature')
+                  }
+                }}
+                disabled={signing}
+              >
+                Retour
+              </Button>
+            )}
+            {signStep === 'otp-enter' && (
               <Button
                 onClick={handleSign}
                 disabled={signing || otpCode.length !== 6}
@@ -637,12 +790,12 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
                 {signing ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    Signature...
+                    Certification...
                   </>
                 ) : (
                   <>
-                    <PenTool className="size-4" />
-                    Confirmer la signature
+                    <ShieldCheck className="size-4" />
+                    Confirmer et certifier
                   </>
                 )}
               </Button>

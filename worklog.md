@@ -257,3 +257,29 @@ Stage Summary:
 - Route-specific TTLs optimize cache duration per data type
 - Mutations auto-invalidate related cache entries
 - New React hooks (useCachedFetch, usePaginatedFetch) available for components
+
+---
+Task ID: 1-6
+Agent: Main Agent
+Task: Multiple improvements - Handwritten signature modal, État des Lieux buttons fix, TC verification loading fix, Historique→Activité rename, details view tabs responsiveness, caching fix
+
+Work Log:
+- Created SignaturePad component at src/components/ui/signature-pad.tsx (canvas-based handwritten signature with touch support)
+- Updated locataire lease-detail.tsx with 3-step signing flow: signature pad → OTP request → OTP validation (CRYPTONEO)
+- Updated propriétaire enhanced-leases.tsx with same 3-step signing flow
+- Added ownerSignatureImage and tenantSignatureImage fields to Lease Prisma model
+- Updated /api/leases/[id]/sign/route.ts to accept and store signatureImage (base64 PNG)
+- Fixed État des Lieux "MAUVAIS" button in web view: changed "M" to "MAUVAIS" with proper sizing
+- Fixed TC verification loading issue: changed cacheTtl:0 to skipCache:true, fixed authFetch to treat cacheTtl===0 as skip cache read
+- Renamed "Historique" to "Activité" in TC litiges component (2 occurrences)
+- Improved property detail view tab section: mobile pill/chip style tabs, scroll-into-view, responsive grids
+- authFetch already has built-in stale-while-revalidate caching (caching task completed)
+
+Stage Summary:
+- SignaturePad component created for handwritten electronic signatures
+- Both locataire and propriétaire now use 3-step signing flow (draw → OTP → validate with CRYPTONEO)
+- Prisma schema updated with signatureImage fields for both owner and tenant
+- État des Lieux desktop table now shows full "MAUVAIS" button instead of "M"
+- TC verification loading fixed with proper cache bypass
+- "Historique" renamed to "Activité" in TC dashboard
+- Property detail tabs now mobile-responsive with pill style and scroll-into-view

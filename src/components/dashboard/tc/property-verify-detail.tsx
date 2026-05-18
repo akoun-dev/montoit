@@ -112,7 +112,7 @@ export function PropertyVerifyDetail() {
 
     try {
       // Primary: fetch via TC verifications API (works for any property status)
-      const d = await authFetch<{ property: PropertyDetail }>(`/api/tc/verifications?propertyId=${selectedItemId}`, { cacheTtl: 0 })
+      const d = await authFetch<{ property: PropertyDetail }>(`/api/tc/verifications?propertyId=${selectedItemId}`, { skipCache: true })
       if (d.property) {
         setProperty(d.property)
         setLoading(false)
@@ -127,7 +127,7 @@ export function PropertyVerifyDetail() {
 
     try {
       // Fallback: properties API (also handles TC role access for non-ACTIVE properties)
-      const d2 = await authFetch<{ property: PropertyDetail }>(`/api/properties/${selectedItemId}`, { cacheTtl: 0 })
+      const d2 = await authFetch<{ property: PropertyDetail }>(`/api/properties/${selectedItemId}`, { skipCache: true })
       if (d2.property) {
         setProperty(d2.property)
         setLoading(false)

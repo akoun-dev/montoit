@@ -197,9 +197,10 @@ export async function authFetch<T = Record<string, unknown>>(
   url: string,
   options?: RequestInit & { cacheTtl?: number; skipCache?: boolean }
 ): Promise<T> {
-  // Check cache for GET requests (unless skipCache is set)
+  // Check cache for GET requests (unless skipCache is set or cacheTtl is 0)
   const cacheKey = getCacheKey(url, options)
-  const shouldSkipCache = (options as RequestInit & { skipCache?: boolean })?.skipCache
+  const customOptions = options as RequestInit & { skipCache?: boolean; cacheTtl?: number }
+  const shouldSkipCache = customOptions?.skipCache || customOptions?.cacheTtl === 0
 
   if (cacheKey && !shouldSkipCache) {
     const cached = getCachedData<T>(cacheKey)

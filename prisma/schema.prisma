@@ -661,10 +661,12 @@ model Lease {
   charges           Float       @default(0)
   deposit           Float       @default(0)
   specialConditions String?
-  ownerSignedAt     DateTime?
-  ownerSignOtp      String?
-  tenantSignedAt    DateTime?
-  tenantSignOtp     String?
+  ownerSignedAt      DateTime?
+  ownerSignOtp       String?
+  ownerSignatureImage String?
+  tenantSignedAt     DateTime?
+  tenantSignOtp      String?
+  tenantSignatureImage String?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 

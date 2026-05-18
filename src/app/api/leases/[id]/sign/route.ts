@@ -18,7 +18,7 @@ export async function POST(
 
     const { id } = await params
     const body = await req.json()
-    const { otpCode } = body
+    const { otpCode, signatureImage } = body
 
     if (!otpCode) {
       return NextResponse.json({ error: 'Code OTP requis' }, { status: 400 })
@@ -92,6 +92,7 @@ export async function POST(
         data: {
           ownerSignedAt: now,
           ownerSignOtp: signOtp,
+          ownerSignatureImage: signatureImage || null,
           // If both parties have signed, activate the lease
           ...(lease.tenantSignedAt ? { status: 'ACTIVE' } : {}),
           updatedAt: now,
@@ -130,6 +131,7 @@ export async function POST(
         data: {
           tenantSignedAt: now,
           tenantSignOtp: signOtp,
+          tenantSignatureImage: signatureImage || null,
           // If both parties have signed, activate the lease
           ...(lease.ownerSignedAt ? { status: 'ACTIVE' } : {}),
           updatedAt: now,

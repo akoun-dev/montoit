@@ -605,7 +605,7 @@ export function LitigesManagement() {
                 En cours <Badge className="bg-brand-100 text-brand-700 text-[10px] px-1.5 py-0 ml-1">{disputes.length}</Badge>
               </TabsTrigger>
               <TabsTrigger value="resolved" className="gap-1.5">
-                Historique <Badge className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0 ml-1">{resolvedDisputes.length}</Badge>
+                Activité <Badge className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0 ml-1">{resolvedDisputes.length}</Badge>
               </TabsTrigger>
             </TabsList>
 
@@ -1350,7 +1350,7 @@ export function LitigesManagement() {
 
               {/* Timeline */}
               <div className="p-3 rounded-lg border border-border bg-muted/30">
-                <p className="text-xs font-medium text-muted-foreground mb-2">Historique</p>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Activité</p>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-xs">
                     <div className="size-2 rounded-full bg-foreground shrink-0" />
