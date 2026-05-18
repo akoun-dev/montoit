@@ -334,18 +334,23 @@ export function LocataireOverview() {
       {primaryLease && (
         <motion.div variants={itemVariants}>
           <Card className="border-border overflow-hidden">
+            {/* Header gradient */}
             <div className="bg-gradient-to-r from-brand-500 to-brand-600 p-4 sm:p-5">
-              <div className="flex items-center gap-2 mb-1">
-                <Home className="size-5 text-white" />
-                <h2 className="text-base font-semibold text-white">Ma location en cours</h2>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Home className="size-5 text-white" />
+                  <h2 className="text-base font-semibold text-white">Ma location en cours</h2>
+                </div>
+                <Badge className="bg-white/20 text-white border-0 text-xs px-2.5 py-1">
+                  {primaryLease.monthlyRent.toLocaleString('fr-FR')} FCFA/mois
+                </Badge>
               </div>
-              <p className="text-sm text-white/80">Votre bail actif</p>
             </div>
+
             <CardContent className="p-4 sm:p-5 space-y-4">
-              {/* Property + Owner info */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                {/* Property image */}
-                <div className="size-20 sm:size-24 rounded-xl bg-muted overflow-hidden shrink-0">
+              {/* Property info — horizontal on all sizes */}
+              <div className="flex gap-3 sm:gap-4">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-muted overflow-hidden shrink-0">
                   {primaryLease.property.images?.[0]?.url ? (
                     <img
                       src={primaryLease.property.images[0].url}
@@ -358,82 +363,83 @@ export function LocataireOverview() {
                     </div>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-foreground text-base truncate">{primaryLease.property.title}</h3>
-                  {(primaryLease.property.address || primaryLease.property.city) && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                      <MapPin className="size-3 shrink-0" />
-                      <span className="truncate">{primaryLease.property.address || primaryLease.property.city}</span>
-                    </p>
-                  )}
-                  {/* Owner + Contact */}
+                <div className="flex-1 min-w-0 flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{primaryLease.property.title}</h3>
+                    {(primaryLease.property.address || primaryLease.property.city) && (
+                      <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <MapPin className="size-3 shrink-0" />
+                        <span className="truncate">{primaryLease.property.address || primaryLease.property.city}</span>
+                      </p>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 mt-2">
                     <div className="flex size-7 items-center justify-center rounded-full bg-muted shrink-0">
                       <User className="size-3.5 text-muted-foreground" />
                     </div>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-xs sm:text-sm text-muted-foreground truncate">
                       {primaryLease.owner.firstName} {primaryLease.owner.lastName}
                     </span>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 text-xs gap-1 ml-auto"
+                      className="h-7 text-[11px] gap-1 ml-auto shrink-0"
                       onClick={() => setDashboardSection('messages')}
                     >
                       <MessageSquare className="size-3" />
-                      Contacter
+                      <span className="hidden sm:inline">Contacter</span>
                     </Button>
                   </div>
                 </div>
               </div>
 
-              {/* Lease details grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 rounded-lg bg-muted">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <CreditCard className="size-3.5 text-brand-500" />
-                    <span className="text-[10px] text-muted-foreground font-medium">Loyer mensuel</span>
+              {/* Key metrics — 2 rows of 2 on mobile, 1 row of 4 on desktop */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                <div className="p-2.5 sm:p-3 rounded-lg bg-muted/70">
+                  <div className="flex items-center gap-1 mb-1">
+                    <CreditCard className="size-3 text-brand-500" />
+                    <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium">Loyer</span>
                   </div>
-                  <p className="text-sm font-bold text-foreground">{primaryLease.monthlyRent.toLocaleString('fr-FR')} FCFA</p>
+                  <p className="text-xs sm:text-sm font-bold text-foreground">{primaryLease.monthlyRent.toLocaleString('fr-FR')} <span className="text-[10px] font-normal text-muted-foreground">FCFA</span></p>
                 </div>
-                <div className="p-3 rounded-lg bg-muted">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Calendar className="size-3.5 text-brand-500" />
-                    <span className="text-[10px] text-muted-foreground font-medium">Période</span>
+                <div className="p-2.5 sm:p-3 rounded-lg bg-muted/70">
+                  <div className="flex items-center gap-1 mb-1">
+                    <Calendar className="size-3 text-brand-500" />
+                    <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium">Période</span>
                   </div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {new Date(primaryLease.startDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
+                  <p className="text-xs sm:text-sm font-semibold text-foreground">
+                    {new Date(primaryLease.startDate).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    → {new Date(primaryLease.endDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
+                    → {new Date(primaryLease.endDate).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })}
                   </p>
                 </div>
-                <div className="p-3 rounded-lg bg-muted">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Clock className="size-3.5 text-brand-500" />
-                    <span className="text-[10px] text-muted-foreground font-medium">Prochain paiement</span>
+                <div className="p-2.5 sm:p-3 rounded-lg bg-muted/70">
+                  <div className="flex items-center gap-1 mb-1">
+                    <Clock className="size-3 text-brand-500" />
+                    <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium">Prochain paiement</span>
                   </div>
                   {primaryLease.nextPayment ? (
                     <>
-                      <p className="text-sm font-bold text-foreground">{primaryLease.nextPayment.amount.toLocaleString('fr-FR')} FCFA</p>
+                      <p className="text-xs sm:text-sm font-bold text-foreground">{primaryLease.nextPayment.amount.toLocaleString('fr-FR')} <span className="text-[10px] font-normal text-muted-foreground">FCFA</span></p>
                       <p className="text-[10px] text-muted-foreground">
                         {new Date(primaryLease.nextPayment.dueDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                       </p>
                     </>
                   ) : (
-                    <p className="text-sm text-muted-foreground">—</p>
+                    <p className="text-xs text-muted-foreground">—</p>
                   )}
                 </div>
-                <div className="p-3 rounded-lg bg-muted">
-                  <div className="flex items-center gap-1.5 mb-1">
+                <div className="p-2.5 sm:p-3 rounded-lg bg-muted/70">
+                  <div className="flex items-center gap-1 mb-1">
                     {primaryLease.paymentStatus === 'up_to_date' ? (
-                      <CheckCircle2 className="size-3.5 text-emerald-500" />
+                      <CheckCircle2 className="size-3 text-emerald-500" />
                     ) : primaryLease.paymentStatus === 'late' ? (
-                      <AlertTriangle className="size-3.5 text-red-500" />
+                      <AlertTriangle className="size-3 text-red-500" />
                     ) : (
-                      <Hourglass className="size-3.5 text-amber-500" />
+                      <Hourglass className="size-3 text-amber-500" />
                     )}
-                    <span className="text-[10px] text-muted-foreground font-medium">Statut paiement</span>
+                    <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium">Statut</span>
                   </div>
                   <PaymentStatusIndicator status={primaryLease.paymentStatus} />
                 </div>

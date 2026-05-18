@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Building2, Eye, FileSignature, TrendingUp, FileText, ClipboardCheck, Home, User, CheckCircle2, AlertTriangle, Hourglass, CreditCard, Calendar, ChevronRight, Users, ShieldCheck, ArrowRight } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Building2, Eye, FileSignature, TrendingUp, Home, User, CheckCircle2, AlertTriangle, Hourglass, Users, ShieldCheck, ArrowRight } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
@@ -335,37 +335,33 @@ export function ProprietaireOverview() {
       {activeLeasesOnly.length > 0 && (
         <motion.div variants={itemVariants}>
           <Card className="border-border overflow-hidden">
+            {/* Header gradient */}
             <div className="bg-gradient-to-r from-brand-500 to-brand-600 p-4 sm:p-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Home className="size-5 text-white" />
-                    <h2 className="text-base font-semibold text-white">Mes locations en cours</h2>
-                  </div>
-                  <p className="text-sm text-white/80">
-                    {activeLeasesOnly.length} bail{activeLeasesOnly.length > 1 ? 'x' : ''} actif{activeLeasesOnly.length > 1 ? 's' : ''}
-                  </p>
+                <div className="flex items-center gap-2">
+                  <Home className="size-5 text-white" />
+                  <h2 className="text-base font-semibold text-white">Mes locations en cours</h2>
                 </div>
-                <Badge className="bg-white/20 text-white border-0 text-sm px-3 py-1">
+                <Badge className="bg-white/20 text-white border-0 text-xs px-2.5 py-1">
                   {data.stats.totalRevenue.toLocaleString('fr-FR')} FCFA/mois
                 </Badge>
               </div>
             </div>
-            <CardContent className="p-4 sm:p-5 space-y-4">
+            <CardContent className="p-4 sm:p-5 space-y-3">
               {activeLeasesOnly.map((lease) => (
-                <div key={lease.id} className="flex flex-col sm:flex-row gap-4 p-4 rounded-xl border border-border hover:bg-accent/50 transition-colors">
-                  {/* Tenant info + Property image */}
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div key={lease.id} className="rounded-xl border border-border p-3 sm:p-4 hover:bg-accent/50 transition-colors space-y-3">
+                  {/* Top: Tenant + Property */}
+                  <div className="flex gap-3">
                     {/* Tenant avatar */}
                     <div className="shrink-0">
                       {lease.tenant.avatarUrl ? (
                         <img
                           src={lease.tenant.avatarUrl}
                           alt={`${lease.tenant.firstName} ${lease.tenant.lastName}`}
-                          className="size-10 rounded-full object-cover"
+                          className="size-11 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="size-10 rounded-full bg-brand-50 flex items-center justify-center">
+                        <div className="size-11 rounded-full bg-brand-50 flex items-center justify-center">
                           <User className="size-5 text-brand-500" />
                         </div>
                       )}
@@ -374,9 +370,8 @@ export function ProprietaireOverview() {
                       <p className="text-sm font-semibold text-foreground truncate">
                         {lease.tenant.firstName} {lease.tenant.lastName}
                       </p>
-                      {/* Property image + title */}
                       <div className="flex items-center gap-2 mt-1">
-                        <div className="size-8 rounded bg-muted overflow-hidden shrink-0">
+                        <div className="size-7 rounded bg-muted overflow-hidden shrink-0">
                           {lease.property.images?.[0]?.url ? (
                             <img src={lease.property.images[0].url} alt="" className="size-full object-cover" />
                           ) : (
@@ -390,42 +385,41 @@ export function ProprietaireOverview() {
                     </div>
                   </div>
 
-                  {/* Lease details */}
-                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4">
-                    <div className="flex items-center gap-1.5">
-                      <CreditCard className="size-3.5 text-brand-500 shrink-0" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Loyer</p>
-                        <p className="text-sm font-semibold text-foreground">{lease.monthlyRent.toLocaleString('fr-FR')} FCFA</p>
+                  {/* Bottom: Key metrics in a row */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="p-2 rounded-lg bg-muted/60">
+                      <p className="text-[10px] text-muted-foreground mb-0.5">Loyer</p>
+                      <p className="text-xs font-bold text-foreground">{lease.monthlyRent.toLocaleString('fr-FR')} <span className="text-[9px] font-normal text-muted-foreground">FCFA</span></p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-muted/60">
+                      <p className="text-[10px] text-muted-foreground mb-0.5">Période</p>
+                      <p className="text-[11px] font-semibold text-foreground">
+                        {new Date(lease.startDate).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })} → {new Date(lease.endDate).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })}
+                      </p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-muted/60">
+                      <p className="text-[10px] text-muted-foreground mb-0.5">Paiement</p>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <PaymentStatusIndicator status={lease.paymentStatus} />
+                        {lease.latePaymentsCount > 0 && (
+                          <Badge className="bg-red-50 text-red-600 text-[9px] px-1 py-0 leading-none">
+                            {lease.latePaymentsCount} retard{lease.latePaymentsCount > 1 ? 's' : ''}
+                          </Badge>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="size-3.5 text-muted-foreground shrink-0" />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Période</p>
-                        <p className="text-xs font-medium text-foreground">
-                          {new Date(lease.startDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })} → {new Date(lease.endDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <PaymentStatusIndicator status={lease.paymentStatus} />
-                      {lease.latePaymentsCount > 0 && (
-                        <Badge className="bg-red-50 text-red-600 text-[10px] px-1.5 py-0">
-                          {lease.latePaymentsCount} retard{lease.latePaymentsCount > 1 ? 's' : ''}
-                        </Badge>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs gap-1 text-brand-600 hover:text-brand-700 hover:bg-brand-50"
-                      onClick={() => setDashboardSection('my-tenants')}
-                    >
-                      <Users className="size-3" />
-                      Voir le locataire
-                    </Button>
                   </div>
+
+                  {/* Action */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full h-8 text-xs gap-1 text-brand-600 hover:text-brand-700 hover:bg-brand-50 border border-dashed border-brand-200"
+                    onClick={() => setDashboardSection('my-tenants')}
+                  >
+                    <Users className="size-3" />
+                    Voir le locataire
+                  </Button>
                 </div>
               ))}
             </CardContent>
