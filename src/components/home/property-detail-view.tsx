@@ -746,7 +746,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    className={`flex items-center gap-1.5 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    className={`flex items-center gap-1 px-2.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                       activeTab === tab.key
                         ? 'border-brand-500 text-brand-500'
                         : 'border-transparent text-muted-foreground hover:text-muted-foreground hover:border-border'
@@ -1019,7 +1019,7 @@ function CommoditesTab({ amenities }: { amenities: string[] }) {
         return (
           <div key={category.title} className="bg-card rounded-xl border border-border p-5 shadow-sm">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{category.title}</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {categoryAmenities.map((amenity) => (
                 <div key={amenity.key} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-emerald-50/50 border border-emerald-100">
                   <div className="size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
@@ -1092,7 +1092,7 @@ function ModalitesTab({
                 <CreditCard className="size-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Mode de paiement</span>
               </div>
-              <div className="flex flex-wrap gap-1 sm:justify-end">
+              <div className="flex flex-wrap gap-1 sm:justify-end max-w-full">
                 {m.modePaiement.map((mode) => (
                   <Badge key={mode} variant="outline" className="text-[10px] px-1.5 py-0 border-border text-muted-foreground">
                     {mode}

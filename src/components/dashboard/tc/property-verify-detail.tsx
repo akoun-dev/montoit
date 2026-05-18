@@ -136,12 +136,8 @@ export function PropertyVerifyDetail() {
   }, [isAuthenticated, selectedItemId])
 
   useEffect(() => {
-    fetchProperty()
+    fetchProperty().finally(() => setLoading(false))
   }, [fetchProperty])
-
-  useEffect(() => {
-    if (!loading) setLoading(false)
-  }, [loading])
 
   const handleApprove = async () => {
     if (!selectedItemId) return

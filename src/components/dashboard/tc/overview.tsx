@@ -775,7 +775,7 @@ export function TcOverview() {
                   <CardDescription>Vos dernières actions de vérification</CardDescription>
                 </div>
                 <Button variant="ghost" size="sm" className="text-brand-500 gap-1" onClick={() => setDashboardSection('history')}>
-                  Historique <ArrowRight className="size-3.5" />
+                  Activité <ArrowRight className="size-3.5" />
                 </Button>
               </div>
             </CardHeader>
@@ -870,7 +870,7 @@ export function TcOverview() {
                 { id: 'oneci-verification', label: 'Vérification ONECI', icon: BadgeCheck, color: 'bg-green-50 text-green-600' },
                 { id: 'fraud-alerts', label: 'Alertes fraude', icon: ShieldAlert, color: 'bg-red-50 text-red-600' },
                 { id: 'litiges', label: 'Litiges', icon: Scale, color: 'bg-rose-50 text-rose-600' },
-                { id: 'history', label: 'Historique', icon: Activity, color: 'bg-gray-50 text-gray-600' },
+                { id: 'history', label: 'Activité', icon: Activity, color: 'bg-gray-50 text-gray-600' },
               ].map((link) => {
                 const Icon = link.icon
                 return (

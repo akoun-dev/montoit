@@ -6,6 +6,7 @@
  * - If re-validation also fails, then logs the user out
  * - On 5xx errors, does NOT log out (server might be temporarily down)
  * - Returns parsed JSON on success
+ * - In-memory response cache for GET requests (bypassed for mutations)
  */
 
 import { useAuthStore } from '@/lib/auth-store'
@@ -19,11 +20,75 @@ export class AuthError extends Error {
   }
 }
 
+// ── In-memory response cache (GET requests only) ────────────────────────────────
+
+type CacheEntry = {
+  data: unknown
+  timestamp: number
+  ttl: number
+}
+
+const responseCache = new Map<string, CacheEntry>()
+
+const DEFAULT_CACHE_TTL = 30_000 // 30 seconds
+
+function getCacheKey(url: string, options?: RequestInit): string {
+  const method = options?.method?.toUpperCase() || 'GET'
+  // Only cache GET requests
+  if (method !== 'GET') return ''
+  return `${method}:${url}`
+}
+
+function getCachedData<T>(key: string): T | null {
+  if (!key) return null
+  const entry = responseCache.get(key)
+  if (!entry) return null
+  if (Date.now() - entry.timestamp > entry.ttl) {
+    responseCache.delete(key)
+    return null
+  }
+  return entry.data as T
+}
+
+function setCachedData(key: string, data: unknown, ttl: number): void {
+  if (!key) return
+  responseCache.set(key, { data, timestamp: Date.now(), ttl })
+  // Prune expired entries when cache gets large
+  if (responseCache.size > 100) {
+    const now = Date.now()
+    for (const [k, v] of responseCache) {
+      if (now - v.timestamp > v.ttl) {
+        responseCache.delete(k)
+      }
+    }
+  }
+}
+
+/**
+ * Clear the response cache. Pass a URL to clear only that entry, or omit to clear all.
+ */
+export function clearCache(url?: string): void {
+  if (url) {
+    const key = getCacheKey(url)
+    if (key) responseCache.delete(key)
+  } else {
+    responseCache.clear()
+  }
+}
+
 /**
  * Fetch wrapper that ensures cookies are sent and handles 401 gracefully.
  * Returns parsed JSON on success, throws AuthError on auth/server failure.
  */
-export async function authFetch<T = Record<string, unknown>>(url: string, options?: RequestInit): Promise<T> {
+export async function authFetch<T = Record<string, unknown>>(
+  url: string,
+  options?: RequestInit & { cacheTtl?: number }
+): Promise<T> {
+  // Check cache for GET requests
+  const cacheKey = getCacheKey(url, options)
+  const cached = getCachedData<T>(cacheKey)
+  if (cached !== null) return cached
+
   const res = await fetch(url, {
     ...options,
     credentials: 'include',
@@ -85,5 +150,12 @@ export async function authFetch<T = Record<string, unknown>>(url: string, option
     throw new AuthError(res.status, message)
   }
 
-  return res.json() as T
+  const data = await res.json() as T
+
+  // Cache successful GET responses
+  if (cacheKey) {
+    setCachedData(cacheKey, data, (options as RequestInit & { cacheTtl?: number })?.cacheTtl ?? DEFAULT_CACHE_TTL)
+  }
+
+  return data
 }
