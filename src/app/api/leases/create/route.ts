@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
     // ─── Send notification to tenant about new lease awaiting signature ───
     await notify({
       userId: tenantId,
-      type: 'DOSSIER_UPDATE',
+      type: 'LEASE_UPDATE',
       title: 'Nouveau bail en attente de signature',
       message: `Un nouveau bail pour "${property.title}" a été créé. Veuillez le consulter pour le signer.`,
       actionUrl: 'my-leases',

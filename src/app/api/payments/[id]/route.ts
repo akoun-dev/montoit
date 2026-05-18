@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // GET /api/payments/[id] — Get a single payment detail
 // LOCATAIRE sees their own payments; PROPRIETAIRE sees payments for their properties; AGENCE sees payments for their mandat properties
@@ -141,6 +142,16 @@ export async function PUT(
             ownerConfirmedBy: userId,
           },
         },
+      })
+
+      // Notify the tenant that the owner confirmed receipt
+      await notify({
+        userId: payment.tenantId,
+        type: 'PAYMENT_ALERT',
+        title: 'Paiement confirmé par le propriétaire ✅',
+        message: `Le propriétaire a confirmé la réception de votre paiement de ${payment.amount.toLocaleString('fr-FR')} FCFA.`,
+        actionUrl: 'payments',
+        entityId: id,
       })
 
       return NextResponse.json({

@@ -1,11 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, FileSignature, Building2, User, MapPin, FileText, CreditCard, Wrench, AlertTriangle, Loader2, PenTool, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, FileSignature, Building2, User, MapPin, FileText, CreditCard, Wrench, AlertTriangle, Loader2, PenTool, CheckCircle2, ShieldCheck } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
@@ -125,6 +127,10 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
   const [showTerminateDialog, setShowTerminateDialog] = useState(false)
   const [signing, setSigning] = useState(false)
   const [showSignDialog, setShowSignDialog] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [requestedOtp, setRequestedOtp] = useState<string | null>(null)
+  const [requestingOtp, setRequestingOtp] = useState(false)
+  const [otpStep, setOtpStep] = useState<'request' | 'enter'>('request')
 
   const fetchLease = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -173,22 +179,47 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
     }
   }
 
-  const handleSign = async () => {
+  const handleRequestOtp = async () => {
     if (!lease) return
+    setRequestingOtp(true)
+    try {
+      const result = await authFetch<{ otpCode: string }>(`/api/leases/${lease.id}/request-sign-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      setRequestedOtp(result.otpCode)
+      setOtpStep('enter')
+      toast.success('Code OTP généré', {
+        description: 'Utilisez ce code pour signer le bail.',
+      })
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message || 'Erreur lors de la demande OTP')
+      } else {
+        toast.error('Erreur lors de la génération du code OTP')
+      }
+    } finally {
+      setRequestingOtp(false)
+    }
+  }
+
+  const handleSign = async () => {
+    if (!lease || !otpCode) return
     setSigning(true)
     try {
-      const result = await authFetch<{ data: LeaseItem }>(`/api/leases/${lease.id}`, {
-        method: 'PATCH',
+      const result = await authFetch<{ data: LeaseItem }>(`/api/leases/${lease.id}/sign`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'sign' }),
+        body: JSON.stringify({ otpCode }),
       })
       toast.success('Bail signé avec succès')
       setShowSignDialog(false)
-      // Update local state with the signed lease
+      setOtpCode('')
+      setRequestedOtp(null)
+      setOtpStep('request')
       if (result.data) {
         setLease(result.data)
       } else {
-        // Refresh from API
         fetchLease()
       }
     } catch (err) {
@@ -498,7 +529,10 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
       )}
 
       {/* ─── Sign Confirmation Dialog ────────────────────────────────────────── */}
-      <Dialog open={showSignDialog} onOpenChange={setShowSignDialog}>
+      <Dialog open={showSignDialog} onOpenChange={(open) => {
+        setShowSignDialog(open)
+        if (!open) { setOtpStep('request'); setOtpCode(''); setRequestedOtp(null) }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -514,7 +548,7 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
             <div className="p-3 rounded-lg bg-brand-50 border border-brand-100">
               <p className="text-xs text-brand-700">
                 Votre signature électronique a la même valeur légale qu&apos;une signature manuscrite.
-                Un code OTP sera généré pour tracer votre signature de manière sécurisée.
+                Un code OTP est requis pour sécuriser votre signature.
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
@@ -537,32 +571,82 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
                 </p>
               </div>
             )}
+
+            {otpStep === 'request' ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Pour signer ce bail, vous devez d&apos;abord obtenir un code de vérification (OTP).
+                </p>
+                <Button
+                  onClick={handleRequestOtp}
+                  disabled={requestingOtp}
+                  className="w-full gap-2 bg-brand-500 hover:bg-brand-600 text-white"
+                >
+                  {requestingOtp ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Génération...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="size-4" />
+                      Obtenir un code OTP
+                    </>
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {requestedOtp && (
+                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-center">
+                    <p className="text-xs text-amber-600 mb-1">Votre code OTP</p>
+                    <p className="text-2xl font-bold font-mono tracking-widest text-amber-800">{requestedOtp}</p>
+                    <p className="text-[10px] text-amber-500 mt-1">Saisissez ce code ci-dessous pour confirmer</p>
+                  </div>
+                )}
+                <div>
+                  <Label htmlFor="otp-input" className="text-xs font-medium text-muted-foreground">Code OTP</Label>
+                  <Input
+                    id="otp-input"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="h-12 text-center text-xl font-mono tracking-widest mt-1.5"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
-              onClick={() => setShowSignDialog(false)}
+              onClick={() => { setShowSignDialog(false); setOtpStep('request'); setOtpCode(''); setRequestedOtp(null) }}
               disabled={signing}
             >
               Annuler
             </Button>
-            <Button
-              onClick={handleSign}
-              disabled={signing}
-              className="gap-2 bg-brand-500 hover:bg-brand-600 text-white"
-            >
-              {signing ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Signature...
-                </>
-              ) : (
-                <>
-                  <PenTool className="size-4" />
-                  Confirmer la signature
-                </>
-              )}
-            </Button>
+            {otpStep === 'enter' && (
+              <Button
+                onClick={handleSign}
+                disabled={signing || otpCode.length !== 6}
+                className="gap-2 bg-brand-500 hover:bg-brand-600 text-white"
+              >
+                {signing ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Signature...
+                  </>
+                ) : (
+                  <>
+                    <PenTool className="size-4" />
+                    Confirmer la signature
+                  </>
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

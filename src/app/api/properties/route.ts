@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdFromRequest, getUserIdAndRole } from '@/lib/session'
+import { notifyNewPropertyForModeration, notifyMany } from '@/lib/notify'
 
 const VALID_PROPERTY_TYPES = ['APPARTEMENT', 'MAISON', 'STUDIO', 'DUPLEX', 'PENTHOUSE', 'VILLA'] as const
 const MAX_IMAGES = 10
@@ -300,9 +301,48 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // Notify admins and TC about new property needing verification (only for published, not drafts)
+    if (status === 'PENDING_VERIFICATION') {
+      const ownerName = `${property.owner.firstName} ${property.owner.lastName}`
+      // Fire-and-forget notification (don't block the response)
+      notifyNewProperty(property.id, property.title || '', ownerName).catch(() => {})
+    }
+
     return NextResponse.json({ property }, { status: 201 })
   } catch (error) {
     console.error('Property creation error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  }
+}
+
+// Helper: Send notifications for newly published properties (called after successful creation/update)
+async function notifyNewProperty(propertyId: string, propertyTitle: string, ownerName: string) {
+  // Notify all admin users about the new property needing moderation
+  const adminUsers = await db.user.findMany({
+    where: { role: 'ADMIN', isActive: true },
+    select: { id: true },
+  })
+  if (adminUsers.length > 0) {
+    await Promise.all(
+      adminUsers.map((admin) =>
+        notifyNewPropertyForModeration(admin.id, propertyTitle, ownerName, propertyId)
+      )
+    )
+  }
+
+  // Notify all TC agents about the new property needing verification
+  const tcUsers = await db.user.findMany({
+    where: { role: 'TIERS_CONFIANCE', isActive: true },
+    select: { id: true },
+  })
+  if (tcUsers.length > 0) {
+    await notifyMany({
+      userIds: tcUsers.map((tc) => tc.id),
+      type: 'PROPERTY_VERIFICATION',
+      title: 'Nouveau bien à vérifier',
+      message: `Le bien "${propertyTitle}" nécessite une vérification sur place.`,
+      actionUrl: 'property-verifications',
+      entityId: propertyId,
+    })
   }
 }

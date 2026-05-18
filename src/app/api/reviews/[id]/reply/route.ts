@@ -90,7 +90,7 @@ export async function POST(
     // Notify the reviewer
     await notify({
       userId: rating.fromUserId,
-      type: 'DOSSIER_UPDATE',
+      type: 'REVIEW',
       title: 'Réponse à votre avis',
       message: `${updated.toUser.firstName} ${updated.toUser.lastName} a répondu à votre avis sur "${rating.lease?.property?.title || 'bien'}".`,
       actionUrl: 'reviews',

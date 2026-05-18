@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
 import crypto from 'crypto'
-import { notify } from '@/lib/notify'
+import { notify, notifyLeaseActivated } from '@/lib/notify'
 
 // GET /api/leases/[id] — Get a single lease detail (accessible by both tenant and owner)
 export async function GET(
@@ -168,6 +168,11 @@ export async function PATCH(
           actionUrl: 'my-leases',
           entityId: lease.id,
         })
+
+        // If both parties have signed, notify the signer too that lease is active
+        if (lease.ownerSignedAt) {
+          await notifyLeaseActivated(lease.tenantId, lease.ownerId, lease.property.title, lease.id)
+        }
       } else {
         // Owner signing
         if (lease.ownerSignedAt) {
@@ -200,6 +205,11 @@ export async function PATCH(
           actionUrl: 'my-leases',
           entityId: lease.id,
         })
+
+        // If both parties have signed, notify the signer too that lease is active
+        if (lease.tenantSignedAt) {
+          await notifyLeaseActivated(lease.tenantId, lease.ownerId, lease.property.title, lease.id)
+        }
       }
 
       // Audit log

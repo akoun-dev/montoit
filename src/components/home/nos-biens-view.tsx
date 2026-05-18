@@ -13,7 +13,7 @@ import {
   RotateCcw,
   LayoutGrid,
   List,
-  Map,
+  Map as MapIcon,
   Eye,
   BadgeCheck,
   X,
@@ -1107,7 +1107,7 @@ export function NosBiensView() {
                 className={`h-full px-3 transition-colors flex items-center gap-1.5 ${viewMode === 'map' ? 'bg-brand-500 text-white' : 'text-muted-foreground hover:bg-accent'}`}
                 aria-label="Vue carte"
               >
-                <Map className="size-4" />
+                <MapIcon className="size-4" />
               </button>
             </div>
 
@@ -1185,7 +1185,7 @@ export function NosBiensView() {
                 className={`h-full px-2.5 transition-colors ${viewMode === 'map' ? 'bg-brand-500 text-white' : 'text-muted-foreground hover:bg-accent'}`}
                 aria-label="Vue carte"
               >
-                <Map className="size-3.5" />
+                <MapIcon className="size-3.5" />
               </button>
             </div>
           </div>

@@ -11,17 +11,14 @@ export async function GET(req: NextRequest) {
     }
     const { userId, effectiveRole } = authResult
 
-    if (effectiveRole !== 'LOCATAIRE') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
-    }
-
     const { searchParams } = new URL(req.url)
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'))
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20')))
     const entity = searchParams.get('entity') || undefined
     const action = searchParams.get('action') || undefined
 
-    const where: Record<string, unknown> = { userId }
+    // Admin can see all logs; other roles see only their own
+    const where: Record<string, unknown> = effectiveRole === 'ADMIN' ? {} : { userId }
     if (entity) {
       where.entity = entity
     }
@@ -42,12 +39,16 @@ export async function GET(req: NextRequest) {
           entityId: true,
           details: true,
           createdAt: true,
+          user: {
+            select: { firstName: true, lastName: true },
+          },
         },
       }),
       db.auditLog.count({ where }),
     ])
 
     return NextResponse.json({
+      logs: logs,
       data: logs,
       pagination: {
         page,

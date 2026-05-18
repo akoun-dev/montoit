@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
+import { notifyFraudAlert } from '@/lib/notify'
 
 // Helper: authenticate and authorize TC
 async function authorizeTC(request: NextRequest) {
@@ -115,6 +116,22 @@ export async function POST(request: NextRequest) {
         details: JSON.stringify({ suspectId, description: description.trim() }),
       },
     })
+
+    // Notify all other TC agents about the new fraud alert
+    const tcUsers = await db.user.findMany({
+      where: {
+        role: 'TIERS_CONFIANCE',
+        isActive: true,
+        id: { not: userId },
+      },
+      select: { id: true },
+    })
+    const suspectName = `${suspect.firstName} ${suspect.lastName}`
+    await Promise.all(
+      tcUsers.map((tc) =>
+        notifyFraudAlert(tc.id, suspectName, alert.id)
+      )
+    )
 
     return NextResponse.json(alert, { status: 201 })
   } catch (error) {

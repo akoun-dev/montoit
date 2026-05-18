@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
-import { notify } from '@/lib/notify'
+import { notify, notifyCertificationGranted } from '@/lib/notify'
 
 // Helper: authenticate and authorize TC
 async function authorizeTC(request: NextRequest) {
@@ -198,15 +198,9 @@ export async function PATCH(request: NextRequest) {
         },
       })
 
-      // Create notification for user
-      await notify({
-        userId: cert.userId,
-        type: 'DOSSIER_UPDATE',
-        title: 'Certification accordée',
-        message: `Votre certification ${cert.type === 'USER_IDENTITY' ? "d'identité" : cert.type === 'PROPERTY' ? 'de bien immobilier' : "d'agence"} a été accordée.`,
-        actionUrl: 'certifications',
-        entityId: id,
-      })
+      // Notify user about certification granted
+      const certTypeLabel = cert.type === 'USER_IDENTITY' ? "d'identité" : cert.type === 'PROPERTY' ? 'de bien immobilier' : "d'agence"
+      await notifyCertificationGranted(cert.userId, certTypeLabel, id)
 
       return NextResponse.json(updated)
     }

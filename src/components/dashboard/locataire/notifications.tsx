@@ -119,15 +119,21 @@ export function Notifications() {
 
   useEffect(() => { fetchNotifications() }, [fetchNotifications])
 
-  const handleMarkAsRead = async (id: string) => {
+  const { setDashboardSection } = useAuthStore()
+
+  const handleMarkAsRead = async (notif: NotificationItem) => {
     try {
       await authFetch('/api/notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationIds: [id] }),
+        body: JSON.stringify({ notificationIds: [notif.id] }),
       })
-      setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n))
+      setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, isRead: true } : n))
       setUnreadCount((prev) => Math.max(0, prev - 1))
+      // Navigate to the relevant dashboard section if actionUrl exists
+      if (notif.actionUrl) {
+        setDashboardSection(notif.actionUrl)
+      }
     } catch {
       // Silently fail
     }
@@ -277,7 +283,7 @@ export function Notifications() {
                       ? 'border-border bg-card'
                       : 'border-brand-100 bg-brand-50/30 hover:bg-brand-50/60'
                   }`}
-                  onClick={() => { if (!notif.isRead) handleMarkAsRead(notif.id) }}
+                  onClick={() => { if (!notif.isRead || notif.actionUrl) handleMarkAsRead(notif) }}
                 >
                   <div className="flex items-start gap-4 p-4">
                     {/* Icon */}

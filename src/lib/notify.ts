@@ -245,6 +245,27 @@ export async function notifyLeaseSigned(recipientId: string, signerName: string,
   })
 }
 
+export async function notifyLeaseActivated(tenantId: string, ownerId: string, propertyTitle: string, leaseId: string) {
+  await Promise.all([
+    notify({
+      userId: tenantId,
+      type: 'LEASE_UPDATE',
+      title: 'Bail activé ✅',
+      message: `Le bail pour "${propertyTitle}" est maintenant actif. Les deux parties ont signé électroniquement.`,
+      actionUrl: 'my-leases',
+      entityId: leaseId,
+    }),
+    notify({
+      userId: ownerId,
+      type: 'LEASE_UPDATE',
+      title: 'Bail activé ✅',
+      message: `Le bail pour "${propertyTitle}" est maintenant actif. Les deux parties ont signé électroniquement.`,
+      actionUrl: 'my-leases',
+      entityId: leaseId,
+    }),
+  ])
+}
+
 // ─── Rental file-specific notification helpers ──────────────────────────────
 
 export async function notifyRentalFileValidated(tenantId: string, propertyTitle: string, fileId: string) {

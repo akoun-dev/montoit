@@ -198,7 +198,7 @@ export async function PATCH(
       if (tcUsers.length > 0) {
         await notifyMany({
           userIds: tcUsers.map((tc) => tc.id),
-          type: 'DOSSIER_UPDATE',
+          type: 'PROPERTY_VERIFICATION',
           title: 'Nouveau bien en attente de vérification',
           message: `Le bien "${existing.title}" a été soumis pour vérification.`,
           actionUrl: 'property-verifications',

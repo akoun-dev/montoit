@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
-import { notify } from '@/lib/notify'
+import { notify, notifyMissionAssigned } from '@/lib/notify'
 
 // Helper: authenticate and authorize TC
 async function authorizeTC(request: NextRequest) {
@@ -201,13 +201,17 @@ export async function POST(request: NextRequest) {
     if (propertyOwner) {
       await notify({
         userId: propertyOwner.ownerId,
-        type: 'DOSSIER_UPDATE',
+        type: 'PROPERTY_VERIFICATION',
         title: 'Vérification programmée pour votre bien',
         message: `Une vérification sur place a été programmée pour votre bien "${propertyOwner.title}".`,
         actionUrl: 'my-properties',
         entityId: mission.id,
       })
     }
+
+    // Notify the assigned TC agent about the mission
+    // VerificationAgent is not a User, so we notify the TC user who manages this agent
+    await notifyMissionAssigned(userId, type, property?.title || 'Bien immobilier', mission.id)
 
     return NextResponse.json(mission, { status: 201 })
   } catch (error) {

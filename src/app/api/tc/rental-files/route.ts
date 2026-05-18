@@ -12,8 +12,8 @@ export async function GET(req: NextRequest) {
     }
     const { effectiveRole } = authResult
 
-    if (effectiveRole !== 'TIERS_CONFIANCE') {
-      return NextResponse.json({ error: 'Accès refusé — rôle TIERS_CONFIANCE requis' }, { status: 403 })
+    if (effectiveRole !== 'TIERS_CONFIANCE' && effectiveRole !== 'ADMIN') {
+      return NextResponse.json({ error: 'Accès refusé — rôle TIERS_CONFIANCE ou ADMIN requis' }, { status: 403 })
     }
 
     const { searchParams } = new URL(req.url)
@@ -141,8 +141,8 @@ export async function PATCH(req: NextRequest) {
     }
     const { userId, effectiveRole } = authResult
 
-    if (effectiveRole !== 'TIERS_CONFIANCE') {
-      return NextResponse.json({ error: 'Accès refusé — rôle TIERS_CONFIANCE requis' }, { status: 403 })
+    if (effectiveRole !== 'TIERS_CONFIANCE' && effectiveRole !== 'ADMIN') {
+      return NextResponse.json({ error: 'Accès refusé — rôle TIERS_CONFIANCE ou ADMIN requis' }, { status: 403 })
     }
 
     const body = await req.json()

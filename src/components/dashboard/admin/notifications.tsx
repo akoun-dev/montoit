@@ -128,15 +128,21 @@ export function AdminNotifications() {
     setPrefs(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  const handleMarkAsRead = async (id: string) => {
+  const { setDashboardSection } = useAuthStore()
+
+  const handleMarkAsRead = async (notification: NotificationItem) => {
     try {
       await authFetch('/api/notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationIds: [id] }),
+        body: JSON.stringify({ notificationIds: [notification.id] }),
       })
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))
+      setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n))
       setUnreadCount(prev => Math.max(0, prev - 1))
+      // Navigate to the relevant dashboard section if actionUrl exists
+      if (notification.actionUrl) {
+        setDashboardSection(notification.actionUrl)
+      }
     } catch {
       // Silently fail
     }
@@ -196,7 +202,7 @@ export function AdminNotifications() {
                 const Icon = typeIcons[notification.type] || Bell
                 const colorClass = typeColors[notification.type] || 'bg-neutral-100 text-neutral-700'
                 return (
-                  <Card key={notification.id} className={`border-border ${!notification.isRead ? 'border-l-4 border-l-brand-500' : 'opacity-70'}`}>
+                  <Card key={notification.id} className={`border-border cursor-pointer ${!notification.isRead ? 'border-l-4 border-l-brand-500' : 'opacity-70'}`} onClick={() => { if (!notification.isRead || notification.actionUrl) handleMarkAsRead(notification) }}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
                         <div className={`size-9 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
@@ -212,11 +218,11 @@ export function AdminNotifications() {
                         </div>
                         <div className="flex gap-1">
                           {!notification.isRead ? (
-                            <Button size="icon" variant="ghost" className="size-7" title="Marquer comme lu" onClick={() => handleMarkAsRead(notification.id)}>
+                            <Button size="icon" variant="ghost" className="size-7" title="Marquer comme lu" onClick={() => handleMarkAsRead(notification)}>
                               <Check className="size-3.5" />
                             </Button>
                           ) : (
-                            <Mail className="size-3.5 text-muted-foreground" />
+                            <Mail className="size-3.5 text-muted-foreground cursor-pointer" onClick={() => { if (notification.actionUrl) handleMarkAsRead(notification) }} />
                           )}
                         </div>
                       </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdFromRequest } from '@/lib/session'
+import { notify } from '@/lib/notify'
 
 // PATCH /api/leases/[id]/terminate — Terminate a lease
 export async function PATCH(
@@ -94,6 +95,27 @@ export async function PATCH(
         userId,
       },
     })
+
+    // Notify both parties about lease termination
+    const terminatedBy = lease.tenantId === userId ? 'le locataire' : 'le propriétaire'
+    await Promise.all([
+      notify({
+        userId: lease.tenantId,
+        type: 'LEASE_UPDATE',
+        title: 'Bail résilié',
+        message: `Le bail pour "${lease.property.title}" a été résilié par ${terminatedBy}.`,
+        actionUrl: 'my-leases',
+        entityId: id,
+      }),
+      notify({
+        userId: lease.ownerId,
+        type: 'LEASE_UPDATE',
+        title: 'Bail résilié',
+        message: `Le bail pour "${lease.property.title}" a été résilié par ${terminatedBy}.`,
+        actionUrl: 'my-leases',
+        entityId: id,
+      }),
+    ])
 
     return NextResponse.json({ data: updatedLease, terminatedAt: new Date().toISOString() })
   } catch (error) {

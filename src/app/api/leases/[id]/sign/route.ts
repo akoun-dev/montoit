@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getUserIdAndRole } from '@/lib/session'
 import crypto from 'crypto'
-import { notify } from '@/lib/notify'
+import { notify, notifyLeaseActivated } from '@/lib/notify'
 
 // POST /api/leases/[id]/sign — Sign a lease electronically with OTP verification
 export async function POST(
@@ -114,6 +114,11 @@ export async function POST(
         actionUrl: 'my-leases',
         entityId: lease.id,
       })
+
+      // If both parties have signed, notify the signer too that lease is active
+      if (lease.tenantSignedAt) {
+        await notifyLeaseActivated(lease.tenantId, lease.ownerId, lease.property.title, lease.id)
+      }
     } else {
       // Tenant signing
       if (lease.tenantSignedAt) {
@@ -147,6 +152,11 @@ export async function POST(
         actionUrl: 'my-leases',
         entityId: lease.id,
       })
+
+      // If both parties have signed, notify the signer too that lease is active
+      if (lease.ownerSignedAt) {
+        await notifyLeaseActivated(lease.tenantId, lease.ownerId, lease.property.title, lease.id)
+      }
     }
 
     // ─── Audit log ────────────────────────────────────────────────────────
