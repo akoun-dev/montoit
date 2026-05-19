@@ -437,6 +437,7 @@ function PropertyCard({ property, onClick, isFavorite, toggleFavorite, distance 
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-500"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            unoptimized
           />
         ) : (
           <div className="w-full h-full bg-neutral-200 flex items-center justify-center">
@@ -558,6 +559,7 @@ function PropertyListItem({ property, onClick, isFavorite, toggleFavorite, dista
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-500"
             sizes="224px"
+            unoptimized
           />
         ) : (
           <div className="w-full h-full bg-neutral-200 flex items-center justify-center">
@@ -663,6 +665,7 @@ function MapListItem({ property, onClick, isFavorite, toggleFavorite, distance }
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
               sizes="80px"
+              unoptimized
             />
           ) : (
             <div className="w-full h-full bg-neutral-200 flex items-center justify-center rounded-md">

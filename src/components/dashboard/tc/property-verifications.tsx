@@ -276,7 +276,7 @@ export function PropertyVerifications() {
                           <span className="text-sm text-muted-foreground">{property.commune}</span>
                         </div>
                         <p className="text-lg font-bold text-brand-500 mt-1">
-                          {property.price.toLocaleString('fr-FR')} FCFA
+                          {(property.price ?? 0).toLocaleString('fr-FR')} FCFA
                           <span className="text-sm font-normal text-muted-foreground">/mois</span>
                         </p>
                         <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
@@ -386,7 +386,7 @@ export function PropertyVerifications() {
                       {/* Price */}
                       <td className="px-4 py-3">
                         <span className="font-semibold text-brand-500">
-                          {property.price.toLocaleString('fr-FR')}
+                          {(property.price ?? 0).toLocaleString('fr-FR')}
                         </span>
                         <span className="text-muted-foreground text-xs"> FCFA/m</span>
                       </td>

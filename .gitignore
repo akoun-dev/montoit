@@ -1,4 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+Ajule p# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
 node_modules
@@ -55,3 +55,5 @@ server.log
 
 # sensitive data
 data.txt
+API_NEOFACE_V2.md.txt
+API_NEOFACE_V2.md.txt

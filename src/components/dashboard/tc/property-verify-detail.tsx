@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ArrowLeft, MapPin, User, Phone, Mail, Calendar,
   Check, X, FileText, Building2, Ruler, Bed, Bath,
-  Car, Zap, Droplets, Wifi, Shield, ChevronLeft, ChevronRight
+  Car, Zap, Droplets, Wifi, Shield, ChevronLeft, ChevronRight,
+  Eye, PenLine
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +17,8 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { ReportDetailDialog, statusConfig, typeLabels as inventoryTypeLabels } from './report-detail-dialog'
+import type { InventoryReport } from './report-detail-dialog'
 
 interface PropertyDetail {
   id: string
@@ -87,6 +90,10 @@ export function PropertyVerifyDetail() {
   const [showRejectDialog, setShowRejectDialog] = useState(false)
   const [rejectComment, setRejectComment] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  const [inventoryReports, setInventoryReports] = useState<InventoryReport[]>([])
+  const [inventoryLoading, setInventoryLoading] = useState(false)
+  const [detailReport, setDetailReport] = useState<InventoryReport | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
 
   const goBack = () => {
     setSelectedItemId('')
@@ -98,6 +105,27 @@ export function PropertyVerifyDetail() {
     setSelectedItemId('')
     setDashboardSection('inventory-report-form')
   }
+
+  const fetchInventoryReports = useCallback(async () => {
+    if (!isAuthenticated || !selectedItemId) return
+    setInventoryLoading(true)
+    try {
+      const d = await authFetch<{ reports: InventoryReport[] }>(
+        `/api/tc/inventory-reports?propertyId=${selectedItemId}`
+      )
+      setInventoryReports(d.reports || [])
+    } catch {
+      setInventoryReports([])
+    } finally {
+      setInventoryLoading(false)
+    }
+  }, [isAuthenticated, selectedItemId])
+
+  useEffect(() => {
+    if (property && !loading) {
+      fetchInventoryReports()
+    }
+  }, [property, loading, fetchInventoryReports])
 
   const fetchProperty = useCallback(async () => {
     if (!isAuthenticated || !selectedItemId) {
@@ -308,7 +336,7 @@ export function PropertyVerifyDetail() {
                   </div>
                 </div>
                 <p className="text-xl sm:text-2xl font-bold text-brand-500 shrink-0">
-                  {property.price.toLocaleString('fr-FR')} <span className="text-sm font-normal text-muted-foreground">FCFA/mois</span>
+                  {(property.price ?? 0).toLocaleString('fr-FR')} <span className="text-sm font-normal text-muted-foreground">FCFA/mois</span>
                 </p>
               </div>
             </CardHeader>
@@ -381,6 +409,85 @@ export function PropertyVerifyDetail() {
                   </div>
                 )
               })()}
+            </CardContent>
+          </Card>
+
+          {/* États des lieux */}
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <FileText className="size-4 text-brand-500" />
+                États des Lieux
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {inventoryLoading ? (
+                <div className="space-y-2">
+                  <div className="h-12 rounded-lg bg-muted animate-pulse" />
+                  <div className="h-12 rounded-lg bg-muted animate-pulse" />
+                </div>
+              ) : inventoryReports.length === 0 ? (
+                <div className="text-center py-4">
+                  <FileText className="size-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Aucun état des lieux</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 gap-1.5 text-xs"
+                    onClick={goToInventoryForm}
+                  >
+                    <PenLine className="size-3.5" />
+                    Créer le premier
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {inventoryReports.slice(0, 3).map((report) => {
+                    const config = statusConfig[report.status] || statusConfig.DRAFT
+                    const StatusIcon = config.icon
+                    return (
+                      <div
+                        key={report.id}
+                        className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-border hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="outline" className="text-[10px] leading-none px-1.5 py-0.5">
+                              {inventoryTypeLabels[report.type] || report.type}
+                            </Badge>
+                            <Badge className={cn('text-[10px] leading-none px-1.5 py-0.5', config.className)}>
+                              <StatusIcon className="size-2.5 mr-0.5" />
+                              {config.label}
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            {new Date(report.createdAt).toLocaleDateString('fr-FR', {
+                              day: 'numeric', month: 'short', year: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 shrink-0 gap-1 text-xs"
+                          onClick={() => {
+                            setDetailReport(report)
+                            setDetailOpen(true)
+                          }}
+                        >
+                          <Eye className="size-3" />
+                          <span className="hidden sm:inline">Détail</span>
+                        </Button>
+                      </div>
+                    )
+                  })}
+                  {inventoryReports.length > 3 && (
+                    <p className="text-xs text-center text-muted-foreground pt-1">
+                      +{inventoryReports.length - 3} autres rapport{inventoryReports.length - 3 > 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -485,6 +592,13 @@ export function PropertyVerifyDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Inventory Report Detail Dialog */}
+      <ReportDetailDialog
+        report={detailReport}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
     </motion.div>
   )
 }

@@ -124,9 +124,9 @@ export async function GET(
     const latestReport = invReports?.[0]
     if (latestReport) {
       const { data: items } = await (supabase
-          .from('inventory_items')
+          .from('inventory_report_items')
           .select('*')
-          .eq('inventory_report_id', latestReport.id)
+          .eq('report_id', latestReport.id)
           .order('designation_order', { ascending: true }) as any)
         inventoryItems = items ?? []
     }

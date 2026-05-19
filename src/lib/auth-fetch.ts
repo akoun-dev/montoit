@@ -195,11 +195,11 @@ export function invalidateCache(entityType: string, entityId?: string): void {
  */
 export async function authFetch<T = Record<string, unknown>>(
   url: string,
-  options?: RequestInit & { cacheTtl?: number; skipCache?: boolean }
+  options?: RequestInit & { cacheTtl?: number; skipCache?: boolean; timeout?: number }
 ): Promise<T> {
   // Check cache for GET requests (unless skipCache is set or cacheTtl is 0)
   const cacheKey = getCacheKey(url, options)
-  const customOptions = options as RequestInit & { skipCache?: boolean; cacheTtl?: number }
+  const customOptions = options as RequestInit & { skipCache?: boolean; cacheTtl?: number; timeout?: number }
   const shouldSkipCache = customOptions?.skipCache || customOptions?.cacheTtl === 0
 
   if (cacheKey && !shouldSkipCache) {
@@ -214,10 +214,33 @@ export async function authFetch<T = Record<string, unknown>>(
     }
   }
 
-  const res = await fetch(url, {
-    ...options,
-    credentials: 'include',
-  })
+  // Support timeout via AbortController
+  const timeoutMs = customOptions?.timeout
+  let abortController: AbortController | null = null
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  if (timeoutMs && timeoutMs > 0) {
+    const controller = new AbortController()
+    abortController = controller
+    timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  }
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      ...options,
+      signal: abortController?.signal,
+      credentials: 'include',
+    })
+  } catch (e) {
+    if (timeoutId) clearTimeout(timeoutId)
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new AuthError(408, 'La requête a pris trop de temps. Veuillez réessayer.')
+    }
+    throw e
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId)
+  }
 
   // ─── 5xx Server Error → don't logout, just throw ────────────────────────
   if (res.status >= 500) {

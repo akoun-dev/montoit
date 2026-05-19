@@ -74,6 +74,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
   const [draftSavedAt, setDraftSavedAt] = useState<Date | null>(null)
   const [propertyId, setPropertyId] = useState<string | null>(editId || null)
   const [loading, setLoading] = useState(!!editId)
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null)
 
   // Auto-save timer ref
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -291,19 +292,38 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
 
       if (propertyId) {
         // Update existing draft — no status = stays in current status
-        await authFetch(`/api/properties/${propertyId}`, {
+        const result = await authFetch<{ property: { id: string; images: Array<{ url: string; order: number }>; virtualTourUrl: string | null } }>(`/api/properties/${propertyId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(cleanPayload),
         })
+        // Sync local state with server response to prevent re-upload on next save
+        if (result.property.images) {
+          setExistingImages(result.property.images)
+        }
+        if (result.property.virtualTourUrl) {
+          setExistingVideo(result.property.virtualTourUrl)
+          setVideoPreview(result.property.virtualTourUrl)
+          setVideoFile(null)
+        }
+        setImagePreviews([])
       } else {
         // Create new draft
-        const result = await authFetch<{ property: { id: string } }>('/api/properties', {
+        const result = await authFetch<{ property: { id: string; images: Array<{ url: string; order: number }>; virtualTourUrl: string | null } }>('/api/properties', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...cleanPayload, draft: true }),
         })
         setPropertyId(result.property.id)
+        if (result.property.images) {
+          setExistingImages(result.property.images)
+        }
+        if (result.property.virtualTourUrl) {
+          setExistingVideo(result.property.virtualTourUrl)
+          setVideoPreview(result.property.virtualTourUrl)
+          setVideoFile(null)
+        }
+        setImagePreviews([])
       }
 
       setDraftSavedAt(new Date())
@@ -334,27 +354,41 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
 
     setSubmitting(true)
     setError(null)
+    setProcessingStatus('Préparation des images...')
 
     try {
-      // Convert images to base64
+      // Convert images to base64 in PARALLEL for speed
+      const totalImages = imagePreviews.length
       const newImagesBase64: string[] = []
-      for (const img of imagePreviews) {
-        const base64 = await fileToBase64(img.file)
-        newImagesBase64.push(base64)
+
+      if (totalImages > 0) {
+        const chunkSize = 3 // Process 3 at a time to avoid memory spikes
+        for (let i = 0; i < totalImages; i += chunkSize) {
+          const chunk = imagePreviews.slice(i, i + chunkSize)
+          const results = await Promise.all(
+            chunk.map((img) => fileToBase64(img.file))
+          )
+          newImagesBase64.push(...results)
+          setProcessingStatus(
+            `Conversion des images ${Math.min(i + chunkSize, totalImages)}/${totalImages}...`
+          )
+        }
       }
+
       const allImages = [...existingImages.map((img) => img.url), ...newImagesBase64]
 
       // Convert video to base64
       let virtualTourUrl: string | null | undefined = undefined
       if (videoFile) {
+        setProcessingStatus('Compression de la vidéo...')
         virtualTourUrl = await fileToBase64(videoFile)
       } else if (existingVideo) {
-        // Keep existing video (don't re-encode it)
         virtualTourUrl = existingVideo
       } else {
-        // No video at all
         virtualTourUrl = null
       }
+
+      setProcessingStatus('Envoi au serveur...')
 
       const payload = {
         title: form.title.trim(),
@@ -377,24 +411,26 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
       }
 
       if (propertyId) {
-        // Update existing draft → publish
         await authFetch(`/api/properties/${propertyId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...payload, status: 'ACTIVE' }),
+          timeout: 120_000, // 2 min timeout for large payloads
         })
       } else {
-        // Create and publish directly
         await authFetch('/api/properties', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
+          timeout: 120_000, // 2 min timeout for large payloads
         })
       }
 
+      setProcessingStatus(null)
       toast.success('Bien soumis pour vérification ! Un Tiers de Confiance validera votre annonce.')
       onSuccess?.()
     } catch (err) {
+      setProcessingStatus(null)
       if (err instanceof AuthError) {
         setError(err.message)
       } else {
@@ -667,8 +703,10 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
             )}
           >
             <Upload className="size-6 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm font-medium text-foreground">Cliquez ou glissez vos photos ici</p>
-            <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WEBP — Max 5 Mo par image — Max 10 photos</p>
+            <p className="text-xs sm:text-sm font-medium text-foreground">Cliquez ou glissez vos photos ici</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 leading-relaxed">
+              JPG, PNG, WEBP — Max 5 Mo — 10 photos max
+            </p>
           </div>
 
           <input
@@ -758,10 +796,10 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
               onClick={() => videoInputRef.current?.click()}
               className="border-2 border-dashed border-border rounded-xl p-4 sm:p-6 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50/20 transition-colors"
             >
-              <Video className="size-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm font-medium text-foreground">Télécharger une vidéo 3D</p>
-              <p className="text-xs text-muted-foreground mt-1">MP4, MOV, AVI, WEBM — Max 50 Mo</p>
-              <p className="text-[11px] text-muted-foreground mt-2">
+              <Video className="size-6 sm:size-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-xs sm:text-sm font-medium text-foreground">Télécharger une vidéo 3D</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">MP4, MOV, WEBM — Max 50 Mo</p>
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-2 leading-relaxed px-2">
                 Les locataires pourront visionner cette vidéo avant de planifier une visite physique.
               </p>
             </div>
@@ -868,7 +906,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
           ) : (
             <Save className="size-4" />
           )}
-          {savingDraft ? 'Sauvegarde...' : 'Sauvegarder le brouillon'}
+          <span className="truncate">{savingDraft ? 'Sauvegarde...' : 'Sauvegarder le brouillon'}</span>
         </Button>
         <Button
           onClick={handlePublish}
@@ -877,12 +915,12 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
         >
           {submitting ? (
             <>
-              <Loader2 className="size-5 animate-spin" />
-              Vérification en cours...
+              <Loader2 className="size-5 animate-spin shrink-0" />
+              <span className="truncate">{processingStatus || 'Vérification en cours...'}</span>
             </>
           ) : (
             <>
-              <PlusCircle className="size-5" />
+              <PlusCircle className="size-5 shrink-0" />
               Soumettre pour vérification
             </>
           )}

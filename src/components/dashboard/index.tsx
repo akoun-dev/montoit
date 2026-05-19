@@ -56,6 +56,8 @@ import { CertificationsManagement } from './tc/certifications'
 import { OneciVerification } from './tc/oneci-verification'
 import { FraudAlertsManagement } from './tc/fraud-alerts'
 import { DocumentationCenter } from './tc/documentation'
+import { AllProperties } from './tc/all-properties'
+import { TcUsers } from './tc/users'
 import { AdminOverview } from './admin/overview'
 import { AdminUsers } from './admin/users'
 import { PropertiesModeration } from './admin/properties-moderation'
@@ -198,6 +200,8 @@ function ProprietaireDashboard({ section }: { section: string }) {
 function TcDashboard({ section }: { section: string }) {
   switch (section) {
     case 'overview': return <TcOverview />
+    case 'all-properties': return <AllProperties />
+    case 'users': return <TcUsers />
     case 'property-verifications': return <PropertyVerifications />
     case 'property-verify-detail': return <PropertyVerifyDetail />
     case 'inventory-report-form': return <InventoryReportForm />

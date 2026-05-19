@@ -60,6 +60,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -67,6 +68,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { ReportDetailDialog, statusConfig as inventoryStatusConfig, typeLabels as inventoryTypeLabels } from '@/components/dashboard/tc/report-detail-dialog'
+import type { InventoryReport } from '@/components/dashboard/tc/report-detail-dialog'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -461,6 +464,12 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   const [avgRating, setAvgRating] = useState<number>(0)
   const [totalReviews, setTotalReviews] = useState<number>(0)
 
+  // Inventory reports state
+  const [inventoryReports, setInventoryReports] = useState<InventoryReport[]>([])
+  const [inventoryLoading, setInventoryLoading] = useState(false)
+  const [detailReport, setDetailReport] = useState<InventoryReport | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+
   // Fetch property from API
   useEffect(() => {
     if (!propertyId) return
@@ -499,6 +508,27 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
       checkSingle(propertyId)
     }
   }, [propertyId, isAuthenticated, checkSingle])
+
+  // Fetch inventory reports for this property (public endpoint, returns only COMPLETED/SIGNED reports)
+  useEffect(() => {
+    if (!property || !propertyId) return
+    let cancelled = false
+    setInventoryLoading(true)
+    fetch(`/api/properties/${propertyId}/inventory-reports`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) {
+          setInventoryReports(data.reports || [])
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setInventoryReports([])
+      })
+      .finally(() => {
+        if (!cancelled) setInventoryLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [property, propertyId])
 
   // Fetch reviews from API
   useEffect(() => {
@@ -653,6 +683,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                   className="object-cover"
                   sizes="(max-width: 1024px) 100vw, 66vw"
                   priority
+                  unoptimized
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-muted">
@@ -831,6 +862,59 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
             </AnimatePresence>
           </div>
 
+          {/* États des Lieux — Mobile version (visible en dessous des onglets) */}
+          {!inventoryLoading && inventoryReports.length > 0 && (
+            <div className="lg:hidden mt-6 mb-4">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
+                <h3 className="text-xs font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <FileText className="size-3.5 text-brand-500" />
+                  États des Lieux
+                </h3>
+                <div className="space-y-2">
+                  {inventoryReports.map((report) => {
+                    const config = inventoryStatusConfig[report.status] || inventoryStatusConfig.DRAFT
+                    const StatusIcon = config.icon
+                    return (
+                      <div
+                        key={report.id}
+                        className="flex items-center justify-between gap-2 p-2 rounded-lg border border-border hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-medium text-muted-foreground">
+                              {inventoryTypeLabels[report.type] || report.type}
+                            </span>
+                            <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', config.className)}>
+                              <StatusIcon className="size-2.5 inline mr-0.5" />
+                              {config.label}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {new Date(report.createdAt).toLocaleDateString('fr-FR', {
+                              day: 'numeric', month: 'short', year: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 shrink-0 gap-0.5 text-[11px] px-1.5"
+                          onClick={() => {
+                            setDetailReport(report)
+                            setDetailOpen(true)
+                          }}
+                        >
+                          <Eye className="size-3" />
+                          Voir
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ── Right Sidebar (1/3) ─────────────────────────────────────── */}
           <motion.aside
             initial={{ opacity: 0, x: 20 }}
@@ -902,6 +986,57 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                   <li>· Signalez toute démarche suspecte</li>
                 </ul>
               </div>
+
+              {/* États des Lieux (visible si des rapports existent) */}
+              {!inventoryLoading && inventoryReports.length > 0 && (
+                <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
+                  <h3 className="text-xs font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <FileText className="size-3.5 text-brand-500" />
+                    États des Lieux
+                  </h3>
+                  <div className="space-y-2">
+                    {inventoryReports.map((report) => {
+                      const config = inventoryStatusConfig[report.status] || inventoryStatusConfig.DRAFT
+                      const StatusIcon = config.icon
+                      return (
+                        <div
+                          key={report.id}
+                          className="flex items-center justify-between gap-2 p-2 rounded-lg border border-border hover:bg-muted/30 transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] font-medium text-muted-foreground">
+                                {inventoryTypeLabels[report.type] || report.type}
+                              </span>
+                              <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', config.className)}>
+                                <StatusIcon className="size-2.5 inline mr-0.5" />
+                                {config.label}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              {new Date(report.createdAt).toLocaleDateString('fr-FR', {
+                                day: 'numeric', month: 'short', year: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 shrink-0 gap-0.5 text-[11px] px-1.5"
+                            onClick={() => {
+                              setDetailReport(report)
+                              setDetailOpen(true)
+                            }}
+                          >
+                            <Eye className="size-3" />
+                            Voir
+                          </Button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </motion.aside>
         </div>
@@ -946,6 +1081,13 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
         property={property}
         open={visitModalOpen}
         onOpenChange={setVisitModalOpen}
+      />
+
+      {/* États des Lieux Modal */}
+      <ReportDetailDialog
+        report={detailReport}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
       />
     </section>
   )
@@ -1782,6 +1924,7 @@ function ApplyDialog({
                     width={48}
                     height={48}
                     className="w-full h-full object-cover"
+                    unoptimized
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">

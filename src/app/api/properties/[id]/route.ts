@@ -150,9 +150,14 @@ export async function PATCH(
     if (hideOwnerName !== undefined) updateData.hide_owner_name = Boolean(hideOwnerName)
     if (virtualTourUrl !== undefined) {
       if (virtualTourUrl && isBase64DataUrl(virtualTourUrl)) {
-        const ext = guessExtensionFromMime(virtualTourUrl)
-        const path = `properties/${id}/video-${generateId()}.${ext}`
-        updateData.virtual_tour_url = await uploadFromBase64(BUCKETS.PROPERTY_VIDEOS, virtualTourUrl, path)
+        try {
+          const ext = guessExtensionFromMime(virtualTourUrl)
+          const path = `properties/${id}/video-${generateId()}.${ext}`
+          updateData.virtual_tour_url = await uploadFromBase64(BUCKETS.PROPERTY_VIDEOS, virtualTourUrl, path)
+        } catch (videoError) {
+          // Échec upload vidéo — on garde l'ancienne valeur en DB, on ne met pas à jour
+          console.error('Video upload failed (keeping existing):', videoError)
+        }
       } else {
         updateData.virtual_tour_url = virtualTourUrl || null
       }
@@ -170,35 +175,40 @@ export async function PATCH(
         )
       }
 
-      // Delete old images from storage
+      // Get old images to determine which to delete from storage
       const { data: oldImages } = await admin
         .from('property_images')
         .select('url')
         .eq('property_id', id)
 
+      // Only delete old storage files that are NOT in the new image set
+      // (images kept by the user keep their existing storage URL)
+      const newUrlSet = new Set(imageArray)
       if (oldImages) {
         for (const img of oldImages) {
-          const parsed = extractBucketAndPath(img.url)
-          if (parsed) {
-            await deleteFromStorage(parsed.bucket, parsed.path).catch(() => {})
+          if (!newUrlSet.has(img.url)) {
+            const parsed = extractBucketAndPath(img.url)
+            if (parsed) {
+              await deleteFromStorage(parsed.bucket, parsed.path).catch(() => {})
+            }
           }
         }
       }
 
+      // Replace all image records in DB
       await admin.from('property_images').delete().eq('property_id', id)
 
-      // Upload new images to storage
-      const uploadedUrls: string[] = []
-      for (const url of imageArray) {
-        if (isBase64DataUrl(url)) {
-          const ext = guessExtensionFromMime(url)
-          const path = `properties/${id}/${generateId()}.${ext}`
-          const publicUrl = await uploadFromBase64(BUCKETS.PROPERTY_IMAGES, url, path)
-          uploadedUrls.push(publicUrl)
-        } else {
-          uploadedUrls.push(url)
-        }
-      }
+      // Upload new base64 images to storage in parallel, keep existing URLs as-is
+      const uploadedUrls: string[] = await Promise.all(
+        imageArray.map(async (url: string) => {
+          if (isBase64DataUrl(url)) {
+            const ext = guessExtensionFromMime(url)
+            const path = `properties/${id}/${generateId()}.${ext}`
+            return await uploadFromBase64(BUCKETS.PROPERTY_IMAGES, url, path)
+          }
+          return url
+        })
+      )
 
       if (uploadedUrls.length > 0) {
         const imageRows = uploadedUrls.map((url, index) => ({

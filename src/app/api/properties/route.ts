@@ -250,19 +250,17 @@ export async function POST(req: NextRequest) {
 
     const propertyId = generateId()
 
-    // Upload images to Supabase Storage
-    const uploadedImageUrls: string[] = []
-    for (let i = 0; i < imageArray.length; i++) {
-      const url = imageArray[i]
-      if (isBase64DataUrl(url)) {
-        const ext = guessExtensionFromMime(url)
-        const path = `properties/${propertyId}/${generateId()}.${ext}`
-        const publicUrl = await uploadFromBase64(BUCKETS.PROPERTY_IMAGES, url, path)
-        uploadedImageUrls.push(publicUrl)
-      } else {
-        uploadedImageUrls.push(url)
-      }
-    }
+    // Upload images to Supabase Storage in parallel
+    const uploadedImageUrls: string[] = await Promise.all(
+      imageArray.map(async (url: string) => {
+        if (isBase64DataUrl(url)) {
+          const ext = guessExtensionFromMime(url)
+          const path = `properties/${propertyId}/${generateId()}.${ext}`
+          return await uploadFromBase64(BUCKETS.PROPERTY_IMAGES, url, path)
+        }
+        return url
+      })
+    )
 
     // Upload video to Supabase Storage
     let videoUrl: string | null = virtualTourUrl || null

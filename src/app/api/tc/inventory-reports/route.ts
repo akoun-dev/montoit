@@ -238,8 +238,10 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         )
       }
+      const isKeyRow = item.designation === 'NOMBRE DE CLÉS'
       const conditionFields = ['kitchen', 'mainBathroom', 'otherBathroom', 'otherRoom1', 'otherRoom2'] as const
       for (const field of conditionFields) {
+        if (isKeyRow) continue // key row stores strings like "3 clé(s)" instead of BON/MAUVAIS
         if (item[field] !== undefined && item[field] !== null && !VALID_ROOM_CONDITIONS.includes(item[field])) {
           return NextResponse.json(
             { error: `Élément ${i + 1} : ${field} doit être BON ou MAUVAIS` },
@@ -251,9 +253,12 @@ export async function POST(req: NextRequest) {
 
     const reportStatus = (requestedStatus && VALID_INVENTORY_STATUSES.includes(requestedStatus)) ? requestedStatus : 'DRAFT'
 
+    const reportId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+
     const { data: report } = await ((supabase as any)
       .from('inventory_reports')
       .insert({
+        id: reportId,
         property_id: propertyId,
         type,
         lease_id: leaseId || null,
@@ -384,8 +389,10 @@ export async function PATCH(req: NextRequest) {
               { status: 400 }
             )
           }
+          const isKeyRow = item.designation === 'NOMBRE DE CLÉS'
           const conditionFields = ['kitchen', 'mainBathroom', 'otherBathroom', 'otherRoom1', 'otherRoom2'] as const
           for (const field of conditionFields) {
+            if (isKeyRow) continue // key row stores strings like "3 clé(s)" instead of BON/MAUVAIS
             if (item[field] !== undefined && item[field] !== null && !VALID_ROOM_CONDITIONS.includes(item[field])) {
               return NextResponse.json(
                 { error: `Élément ${i + 1} : ${field} doit être BON ou MAUVAIS` },
