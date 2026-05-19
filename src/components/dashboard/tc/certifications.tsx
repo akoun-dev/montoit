@@ -112,7 +112,7 @@ export function CertificationsManagement() {
   const [certifications, setCertifications] = useState<Certification[]>([])
   const [stats, setStats] = useState<CertStats>({ PENDING: 0, GRANTED: 0, REVOKED: 0, EXPIRED: 0, TOTAL: 0 })
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<ViewMode>('card')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [typeFilter, setTypeFilter] = useState('ALL')

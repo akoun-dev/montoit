@@ -39,7 +39,7 @@ export function AgencyValidations() {
   const { isAuthenticated } = useAuthStore()
   const [docs, setDocs] = useState<AgencyDoc[]>([])
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<ViewMode>('card')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [search, setSearch] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 

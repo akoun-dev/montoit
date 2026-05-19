@@ -79,7 +79,7 @@ export function FraudAlertsManagement() {
   const [alerts, setAlerts] = useState<FraudAlert[]>([])
   const [stats, setStats] = useState<FraudStats>({ OPEN: 0, INVESTIGATING: 0, CONFIRMED: 0, DISMISSED: 0 })
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<ViewMode>('card')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [actionLoading, setActionLoading] = useState<string | null>(null)

@@ -100,7 +100,7 @@ export function PropertyVerifications() {
   const { isAuthenticated, setSelectedItemId, setDashboardSection } = useAuthStore()
   const [properties, setProperties] = useState<PendingProperty[]>([])
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<ViewMode>('card')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectComment, setRejectComment] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)

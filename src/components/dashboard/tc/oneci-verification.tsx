@@ -59,7 +59,7 @@ export function OneciVerification() {
   const [users, setUsers] = useState<OneciUser[]>([])
   const [stats, setStats] = useState<OneciStats>({ totalUsers: 0, oneciVerified: 0, neofaceVerified: 0, oneciPending: 0, neofacePending: 0 })
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<ViewMode>('card')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('ALL')
   const [actionLoading, setActionLoading] = useState<string | null>(null)

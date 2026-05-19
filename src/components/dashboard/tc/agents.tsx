@@ -180,7 +180,7 @@ export function AgentsManagement() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // View
-  const [viewMode, setViewMode] = useState<ViewMode>('card')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [search, setSearch] = useState('')
 
   // Agent detail

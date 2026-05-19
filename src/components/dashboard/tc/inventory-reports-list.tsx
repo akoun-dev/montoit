@@ -52,7 +52,7 @@ export function InventoryReportsList() {
     useAuthStore()
   const [reports, setReports] = useState<InventoryReport[]>([])
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<ViewMode>('card')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [filterType, setFilterType] = useState<'ALL' | 'INVENTORY_ENTRANCE' | 'INVENTORY_EXIT'>(
     'ALL'
   )

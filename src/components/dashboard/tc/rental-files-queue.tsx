@@ -185,7 +185,7 @@ export function RentalFilesQueue() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // View
-  const [viewMode, setViewMode] = useState<ViewMode>('card')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<RentalFile['status'] | 'ALL'>('ALL')
   const [priorityFilter, setPriorityFilter] = useState<DossierPriority | 'ALL'>('ALL')

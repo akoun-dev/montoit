@@ -183,7 +183,7 @@ export function MissionsManagement() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // View
-  const [viewMode, setViewMode] = useState<ViewMode>('card')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [activeTab, setActiveTab] = useState<string>('calendar')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<MissionStatus | 'ALL'>('ALL')

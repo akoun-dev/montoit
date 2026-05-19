@@ -132,7 +132,7 @@ export function OwnerValidations() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // View & filter state
-  const [viewMode, setViewMode] = useState<ViewMode>('card')
+  const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [filterType, setFilterType] = useState<DocType | 'ALL'>('ALL')
 
   // Dialog state
