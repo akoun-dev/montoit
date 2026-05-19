@@ -247,7 +247,7 @@ export function Applications({ onDetail }: ApplicationsProps) {
                           </p>
                         )}
 
-                        {/* Status Timeline - hidden on mobile, shown on sm+ */}
+                        {/* Status Timeline - full on desktop, simplified on mobile */}
                         <div className="hidden sm:flex items-center gap-1 mb-3">
                           {app.statusTimeline.map((step, i) => (
                             <div key={step.status} className="flex items-center gap-1">
@@ -273,12 +273,33 @@ export function Applications({ onDetail }: ApplicationsProps) {
                             </div>
                           ))}
                         </div>
+                        {/* Simplified mobile timeline - current step only */}
+                        <div className="sm:hidden flex items-center gap-2 mb-3">
+                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-brand-500 rounded-full transition-all"
+                              style={{
+                                width: `${app.statusTimeline.length > 0
+                                  ? ((app.statusTimeline.filter(s => s.completed).length) / app.statusTimeline.length) * 100
+                                  : 0}%`
+                              }}
+                            />
+                          </div>
+                          {(() => {
+                            const current = app.statusTimeline.find(s => s.active) || app.statusTimeline.filter(s => s.completed).pop()
+                            return current ? (
+                              <span className="text-[10px] font-medium text-brand-600 shrink-0">
+                                {current.label}
+                              </span>
+                            ) : null
+                          })()}
+                        </div>
 
                         {/* Document Progress */}
                         {dp.total > 0 && (
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                             <span className="hidden sm:inline">Documents :</span>
-                            <div className="flex-1 max-w-[160px] sm:max-w-[200px] h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className="flex-1 min-w-[80px] max-w-[160px] sm:max-w-[200px] h-1.5 bg-muted rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-emerald-500 rounded-full transition-all"
                                 style={{ width: `${dp.total > 0 ? (dp.validated / dp.total) * 100 : 0}%` }}

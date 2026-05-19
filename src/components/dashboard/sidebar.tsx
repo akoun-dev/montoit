@@ -58,7 +58,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           items: [
             { id: 'reviews', label: 'Mes avis', icon: Star },
             { id: 'maintenance', label: 'Maintenance', icon: Wrench },
-            { id: 'history', label: 'Historique', icon: History },
+            { id: 'history', label: 'Mes activités', icon: History },
             { id: 'settings', label: 'Paramètres', icon: Settings },
           ],
         },

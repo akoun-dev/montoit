@@ -62,7 +62,7 @@ const ROUTE_TTL_OVERRIDES: Array<{ pattern: RegExp; ttl: number; staleWhileReval
   // Litiges — moderate
   { pattern: /\/api\/tc\/litiges/, ttl: 60_000, staleWhileRevalidate: 120_000 },
   // Rental files — moderate
-  { pattern: /\/api\/rental-files/, ttl: 45_000, staleWhileRevalidate: 90_000 },
+  { pattern: /\/api\/rental-files?/, ttl: 45_000, staleWhileRevalidate: 90_000 },
   // Lease data — longer cache
   { pattern: /\/api\/leases/, ttl: 90_000, staleWhileRevalidate: 180_000 },
   // Payments — moderate
@@ -160,7 +160,7 @@ export function clearCache(url?: string): void {
 export function invalidateCache(entityType: string, entityId?: string): void {
   const patterns: Record<string, string[]> = {
     property: ['/api/properties', '/api/tc/verifications', '/api/dashboard/'],
-    rentalFile: ['/api/rental-files', '/api/dashboard/'],
+    rentalFile: ['/api/rental-file', '/api/rental-files', '/api/dashboard/'],
     lease: ['/api/leases', '/api/dashboard/'],
     payment: ['/api/payments', '/api/dashboard/'],
     notification: ['/api/notifications'],
@@ -333,7 +333,7 @@ function autoInvalidateOnMutation(url: string): void {
     { pattern: /\/api\/tc\/verifications/, clearPrefixes: ['/api/tc/verifications', '/api/dashboard/'] },
     { pattern: /\/api\/tc\/inventory-reports/, clearPrefixes: ['/api/tc/inventory-reports', '/api/dashboard/'] },
     { pattern: /\/api\/properties/, clearPrefixes: ['/api/properties', '/api/tc/verifications', '/api/dashboard/'] },
-    { pattern: /\/api\/rental-files/, clearPrefixes: ['/api/rental-files', '/api/dashboard/'] },
+    { pattern: /\/api\/rental-files?/, clearPrefixes: ['/api/rental-file', '/api/rental-files', '/api/dashboard/'] },
     { pattern: /\/api\/leases/, clearPrefixes: ['/api/leases', '/api/dashboard/'] },
     { pattern: /\/api\/payments/, clearPrefixes: ['/api/payments', '/api/dashboard/'] },
     { pattern: /\/api\/notifications/, clearPrefixes: ['/api/notifications'] },

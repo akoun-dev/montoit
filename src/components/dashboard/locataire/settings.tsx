@@ -863,6 +863,9 @@ export function SettingsSection() {
   const [avatarUploading, setAvatarUploading] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
+  // ONECI section ref for scroll
+  const oneciSectionRef = useRef<HTMLDivElement>(null)
+
   // Profile sharing state
   const [shareEmail, setShareEmail] = useState('')
   const [shareLoading, setShareLoading] = useState(false)
@@ -1725,120 +1728,6 @@ export function SettingsSection() {
                   </div>
                 </div>
 
-                {/* ── ONECI Identity Verification Section ──────────────────────── */}
-                <div className="pt-2">
-                  <Separator className="mb-4" />
-                  <div className="flex items-center gap-2 mb-3">
-                    <CreditCard className="size-4 text-brand-500" />
-                    <span className="text-sm font-semibold text-foreground">Vérification d&apos;identité ONECI</span>
-                    {profile?.oneciVerified ? (
-                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0 border font-semibold">
-                        <CheckCircle2 className="size-3 mr-0.5" /> Vérifié
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] px-1.5 py-0 border font-semibold">
-                        +25% Trust Score
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Renseignez votre NNI et date de naissance pour vérifier votre carte d&apos;identité nationale auprès de l&apos;ONECI.
-                  </p>
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    {/* NNI */}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="nni" className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                        NNI
-                        {(profile?.oneciVerified || profile?.neofaceVerified) && (
-                          <CheckCircle2 className="size-3 text-emerald-500" />
-                        )}
-                      </Label>
-                      <Input
-                        id="nni"
-                        value={formState.nni}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '').slice(0, 11)
-                          setFormState((prev) => ({ ...prev, nni: val }))
-                        }}
-                        placeholder="Numéro National d'Identification"
-                        className="h-9 text-sm"
-                        disabled={profile?.oneciVerified || profile?.neofaceVerified || oneciVerifying}
-                        maxLength={11}
-                      />
-                      <p className="text-[10px] text-muted-foreground">10 à 11 chiffres — requis pour la vérification ONECI</p>
-                    </div>
-                    {/* Birth Date */}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="birthDate" className="text-xs font-medium text-foreground">
-                        Date de naissance
-                        {profile?.oneciVerified && (
-                          <CheckCircle2 className="size-3 text-emerald-500 ml-1 inline" />
-                        )}
-                      </Label>
-                      <Input
-                        id="birthDate"
-                        type="date"
-                        value={formState.birthDate}
-                        onChange={(e) => setFormState((prev) => ({ ...prev, birthDate: e.target.value }))}
-                        className="h-9 text-sm"
-                        disabled={profile?.oneciVerified || oneciVerifying}
-                      />
-                    </div>
-                  </div>
-
-                  {/* ONECI verification result */}
-                  {oneciResult && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`mt-3 p-3 rounded-lg border ${
-                        oneciResult.verified
-                          ? 'bg-emerald-50 border-emerald-200'
-                          : 'bg-red-50 border-red-200'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        {oneciResult.verified ? (
-                          <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
-                        ) : (
-                          <XCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
-                        )}
-                        <div>
-                          <p className={`text-xs font-medium ${oneciResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
-                            {oneciResult.message}
-                          </p>
-                          {oneciResult.details && (
-                            <p className="text-[11px] text-muted-foreground mt-0.5">{oneciResult.details}</p>
-                          )}
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* ONECI verify button */}
-                  {!profile?.oneciVerified && (
-                    <Button
-                      onClick={handleOneciVerify}
-                      disabled={oneciVerifying || !formState.nni || !formState.birthDate || !formState.gender}
-                      className="mt-3 bg-brand-500 hover:bg-brand-600 text-white w-full sm:w-auto"
-                    >
-                      {oneciVerifying ? (
-                        <><Loader2 className="size-4 mr-2 animate-spin" /> Vérification en cours...</>
-                      ) : (
-                        <><CreditCard className="size-4 mr-2" /> Vérifier ma CNI</>
-                      )}
-                    </Button>
-                  )}
-
-                  {profile?.oneciVerified && profile?.oneciVerifiedAt && (
-                    <p className="text-[10px] text-emerald-600 mt-2 flex items-center gap-1">
-                      <CheckCircle2 className="size-3" />
-                      Vérifié le {new Date(profile.oneciVerifiedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </p>
-                  )}
-                </div>
-
                 {/* Email (read-only) */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
@@ -2063,7 +1952,7 @@ export function SettingsSection() {
                 statusColor={scoring.statusColor}
                 details="Authentification de votre carte d'identité nationale"
                 actionLabel="Vérifier ma CNI"
-                onAction={() => setActiveTab('profil')}
+                onAction={() => oneciSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
               />
               <ScoreComponentCard
                 icon={FileCheck}
@@ -2080,6 +1969,108 @@ export function SettingsSection() {
                 }}
               />
             </div>
+
+            {/* ONECI Verification form */}
+            <Card className="border-border" ref={oneciSectionRef}>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <CreditCard className="size-4 text-brand-500" />
+                  Vérification d&apos;identité ONECI
+                </CardTitle>
+                <CardDescription>
+                  Renseignez votre NNI et date de naissance pour vérifier votre carte d&apos;identité nationale auprès de l&apos;ONECI (+25% Trust Score)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {/* NNI */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="nni-scoring" className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                      NNI
+                      {(profile?.oneciVerified || profile?.neofaceVerified) && (
+                        <CheckCircle2 className="size-3 text-emerald-500" />
+                      )}
+                    </Label>
+                    <Input
+                      id="nni-scoring"
+                      value={formState.nni}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 11)
+                        setFormState((prev) => ({ ...prev, nni: val }))
+                      }}
+                      placeholder="Numéro National d'Identification"
+                      className="h-9 text-sm"
+                      disabled={profile?.oneciVerified || profile?.neofaceVerified || oneciVerifying}
+                      maxLength={11}
+                    />
+                    <p className="text-[10px] text-muted-foreground">10 à 11 chiffres — requis pour la vérification ONECI</p>
+                  </div>
+                  {/* Birth Date */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="birthDate-scoring" className="text-xs font-medium text-foreground">
+                      Date de naissance
+                      {profile?.oneciVerified && (
+                        <CheckCircle2 className="size-3 text-emerald-500 ml-1 inline" />
+                      )}
+                    </Label>
+                    <Input
+                      id="birthDate-scoring"
+                      type="date"
+                      value={formState.birthDate}
+                      onChange={(e) => setFormState((prev) => ({ ...prev, birthDate: e.target.value }))}
+                      className="h-9 text-sm"
+                      disabled={profile?.oneciVerified || oneciVerifying}
+                    />
+                  </div>
+                </div>
+
+                {/* Verify button */}
+                <div className="flex justify-end pt-2">
+                  <Button
+                    onClick={handleOneciVerify}
+                    disabled={!formState.nni || !formState.birthDate || oneciVerifying || profile?.oneciVerified}
+                    className="bg-brand-500 hover:bg-brand-600 text-white"
+                  >
+                    {oneciVerifying ? (
+                      <><Loader2 className="size-4 mr-2 animate-spin" /> Vérification...</>
+                    ) : profile?.oneciVerified ? (
+                      <><CheckCircle2 className="size-4 mr-2" /> Vérifié</>
+                    ) : (
+                      <><CreditCard className="size-4 mr-2" /> Vérifier ma CNI</>
+                    )}
+                  </Button>
+                </div>
+
+                {/* ONECI result message */}
+                {oneciResult && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`p-3 rounded-lg border ${
+                      oneciResult.verified
+                        ? 'bg-emerald-50 border-emerald-200'
+                        : 'bg-red-50 border-red-200'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {oneciResult.verified ? (
+                        <CheckCircle2 className="size-4 text-emerald-500 shrink-0 mt-0.5" />
+                      ) : (
+                        <XCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1">
+                        <p className={`text-xs font-medium ${oneciResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
+                          {oneciResult.message}
+                        </p>
+                        {oneciResult.details && (
+                          <p className="text-[11px] text-muted-foreground mt-1">{oneciResult.details}</p>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Profile field detail breakdown */}
             <Card className="border-border">
@@ -2172,7 +2163,7 @@ export function SettingsSection() {
                         onClick={() => {
                           if (rec.action === 'settings') setActiveTab('profil')
                           else if (rec.action === 'rental-file') setDashboardSection('rental-file')
-                          else if (rec.action === 'oneci') setActiveTab('profil')
+                          else if (rec.action === 'oneci') oneciSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                           else if (rec.action === 'neoface') setKycModalOpen(true)
                         }}
                       >

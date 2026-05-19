@@ -345,8 +345,8 @@ export function Payments({ onDetail }: PaymentsProps) {
                         <p className="text-xs text-muted-foreground mb-1 truncate">
                           {owner ? `${owner.firstName} ${owner.lastName}` : ''}{property?.address ? ` — ${property.address}` : ''}
                         </p>
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <p className="text-sm font-bold text-foreground">
                               {formatCurrency(payment.amount)}
                             </p>
@@ -357,9 +357,9 @@ export function Payments({ onDetail }: PaymentsProps) {
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>Échéance : {formatDate(payment.dueDate)}</span>
-                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            Échéance : {formatDate(payment.dueDate)}
+                          </span>
                         </div>
 
                         {/* Action area */}

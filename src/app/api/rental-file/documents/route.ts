@@ -76,19 +76,27 @@ export async function POST(req: NextRequest) {
 
     let document: any
     if (existingDoc) {
-      const { data: updated } = await (supabase
+      const { data: updated, error: updateError } = await (supabase
         .from('rental_file_documents')
         .update({ name, url, status: 'PENDING', tc_comment: null } as any)
         .eq('id', existingDoc.id)
         .select()
         .single() as any)
+      if (updateError) {
+        console.error('Rental file document update error:', updateError)
+        return NextResponse.json({ error: 'Erreur lors de la mise à jour du document' }, { status: 500 })
+      }
       document = updated
     } else {
-      const { data: created } = await (supabase
+      const { data: created, error: insertError } = await (supabase
         .from('rental_file_documents')
-        .insert({ rental_file_id: rentalFileId, type, name, url, status: 'PENDING' } as any)
+        .insert({ id: generateId(), rental_file_id: rentalFileId, type, name, url, status: 'PENDING' } as any)
         .select()
         .single() as any)
+      if (insertError) {
+        console.error('Rental file document insert error:', insertError)
+        return NextResponse.json({ error: "Erreur lors de la création du document" }, { status: 500 })
+      }
       document = created
     }
 
@@ -163,6 +171,10 @@ export async function DELETE(req: NextRequest) {
     console.error('Rental file document delete error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
+}
+
+function generateId() {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
 
 function guessFileExt(name: string): string {

@@ -443,7 +443,7 @@ export function Maintenance() {
                           <p className="text-sm font-semibold text-foreground truncate">
                             {req.title}
                           </p>
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                             {reqImages.length > 0 && (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 border border-brand-200 bg-brand-50 text-brand-600">
                                 <ImageIcon className="size-3 mr-0.5" />
@@ -462,8 +462,8 @@ export function Maintenance() {
                         <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
                           {req.description}
                         </p>
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
                             {property && (
                               <span>{property.title} — {property.city}</span>
                             )}
@@ -473,7 +473,7 @@ export function Maintenance() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-6 text-[10px] px-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                              className="h-6 text-[10px] px-2 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 self-start"
                               onClick={() => handleCancelClick(req)}
                             >
                               <X className="size-3 mr-1" />

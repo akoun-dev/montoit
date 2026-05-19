@@ -347,9 +347,9 @@ export function RentalFileForm() {
           <div className="h-8 w-40 bg-muted animate-pulse rounded" />
           <div className="h-4 w-56 bg-muted animate-pulse rounded mt-2" />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-8 w-24 bg-muted animate-pulse rounded-full" />
+            <div key={i} className="h-8 w-20 sm:w-24 bg-muted animate-pulse rounded-full" />
           ))}
         </div>
         <div className="h-64 rounded-xl bg-muted animate-pulse" />
@@ -398,10 +398,11 @@ export function RentalFileForm() {
                 <FileText className="size-5 text-amber-600 shrink-0" />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">
-                  Statut du dossier : <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${existingStatus.color}`}>{existingStatus.label}</Badge>
+                <p className="text-sm font-medium flex flex-wrap items-center gap-1.5">
+                  <span className="text-nowrap">Statut du dossier :</span>
+                  <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${existingStatus.color}`}>{existingStatus.label}</Badge>
                   {categoryConfig && (
-                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 ml-2 bg-muted">
+                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-muted">
                       {categoryConfig.label}
                     </Badge>
                   )}
@@ -422,24 +423,24 @@ export function RentalFileForm() {
       )}
 
       {/* Progress Steps */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto pb-1 scrollbar-none">
         {steps.map((s, i) => (
-          <div key={s.id} className="flex items-center gap-2">
+          <div key={s.id} className="flex items-center gap-1 sm:gap-2 shrink-0">
             <button
               onClick={() => !isReadOnly && setStep(s.id)}
-              className={`flex items-center justify-center size-8 rounded-full text-sm font-medium transition-colors ${
-                step >= s.id ? 'bg-brand-500 text-white' : 'bg-muted text-muted-foreground'
-              } ${!isReadOnly ? 'cursor-pointer' : ''}`}
+              className={`flex items-center justify-center size-8 sm:size-8 rounded-full text-xs sm:text-sm font-medium transition-all active:scale-95 ${
+                step >= s.id ? 'bg-brand-500 text-white shadow-sm shadow-brand-200' : 'bg-muted text-muted-foreground'
+              } ${!isReadOnly ? 'cursor-pointer hover:ring-2 hover:ring-brand-200' : 'cursor-default'}`}
             >
-              {step > s.id ? <CheckCircle2 className="size-5" /> : s.id}
+              {step > s.id ? <CheckCircle2 className="size-4 sm:size-5" /> : s.id}
             </button>
-            <span className={`text-sm hidden sm:inline ${
+            <span className={`text-xs sm:text-sm whitespace-nowrap hidden sm:inline ${
               step >= s.id ? 'text-foreground font-medium' : 'text-muted-foreground'
             }`}>
               {s.title}
             </span>
             {i < steps.length - 1 && (
-              <div className={`hidden sm:block w-8 h-0.5 ${step > s.id ? 'bg-brand-500' : 'bg-neutral-200'}`} />
+              <div className={`hidden sm:block w-6 sm:w-8 h-0.5 ${step > s.id ? 'bg-brand-500' : 'bg-neutral-200'}`} />
             )}
           </div>
         ))}
@@ -703,18 +704,18 @@ export function RentalFileForm() {
                     const isUploading = uploadingDocType === doc.type
 
                     return (
-                      <div key={doc.type} className={`rounded-xl border-2 p-4 transition-colors ${
+                      <div key={doc.type} className={`rounded-xl border-2 p-3 sm:p-4 transition-colors ${
                         existingDoc ? 'border-emerald-200 bg-emerald-50/50' : doc.required ? 'border-red-100' : 'border-border'
                       }`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0 w-full sm:w-auto">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               {existingDoc ? (
                                 <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
                               ) : (
                                 <FileText className={`size-4 shrink-0 ${doc.required ? 'text-red-400' : 'text-muted-foreground'}`} />
                               )}
-                              <span className="text-sm font-medium text-foreground">{doc.label}</span>
+                              <span className="text-sm font-medium text-foreground break-words">{doc.label}</span>
                               {doc.required && !existingDoc && (
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-red-50 text-red-600 border-red-200">
                                   Obligatoire
@@ -739,10 +740,11 @@ export function RentalFileForm() {
                               <p className="text-xs text-muted-foreground mt-1 ml-6">{doc.description}</p>
                             )}
                             {existingDoc && (
-                              <div className="flex items-center gap-2 mt-2 ml-6">
-                                <span className="text-xs text-muted-foreground truncate">{existingDoc.name}</span>
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-2 ml-6">
+                                <span className="text-xs text-muted-foreground truncate max-w-[140px] sm:max-w-[300px]">{existingDoc.name}</span>
+                                <span className="text-xs text-muted-foreground hidden sm:inline">•</span>
                                 <span className="text-xs text-muted-foreground">
-                                  • Ajouté le {new Date(existingDoc.createdAt).toLocaleDateString('fr-FR')}
+                                  Ajouté le {new Date(existingDoc.createdAt).toLocaleDateString('fr-FR')}
                                 </span>
                               </div>
                             )}
@@ -751,7 +753,7 @@ export function RentalFileForm() {
                             )}
                           </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end sm:justify-start">
                             {!isReadOnly && existingDoc && (
                               <Button
                                 variant="ghost"
@@ -827,23 +829,23 @@ export function RentalFileForm() {
           )}
 
           {/* Navigation */}
-          <div className="flex items-center justify-between pt-4 border-t border-border">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-border">
             <Button
               variant="outline"
               onClick={() => setStep(Math.max(1, step - 1))}
               disabled={step === 1}
-              className="gap-1"
+              className="gap-1 w-full sm:w-auto order-2 sm:order-1"
             >
               <ChevronLeft className="size-4" />
               Précédent
             </Button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto order-1 sm:order-2">
               {!isReadOnly && (
                 <Button
                   variant="outline"
                   onClick={handleSaveDraft}
                   disabled={saving}
-                  className="gap-1.5"
+                  className="gap-1.5 w-full sm:w-auto"
                 >
                   <Save className="size-4" />
                   {saving ? 'Sauvegarde...' : 'Sauvegarder'}
@@ -852,7 +854,7 @@ export function RentalFileForm() {
               {step < steps.length ? (
                 <Button
                   onClick={() => setStep(step + 1)}
-                  className="bg-brand-500 hover:bg-brand-600 text-white gap-1"
+                  className="bg-brand-500 hover:bg-brand-600 text-white gap-1 w-full sm:w-auto"
                   disabled={isReadOnly}
                 >
                   Suivant
@@ -863,7 +865,7 @@ export function RentalFileForm() {
                   <Button
                     onClick={handleSubmit}
                     disabled={submitting}
-                    className="bg-brand-500 hover:bg-brand-600 text-white gap-1"
+                    className="bg-brand-500 hover:bg-brand-600 text-white gap-1 w-full sm:w-auto"
                   >
                     {submitting ? (
                       'Envoi...'
