@@ -74,7 +74,6 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           title: 'MES BIENS',
           items: [
             { id: 'my-properties', label: 'Mes biens', icon: Building2 },
-            { id: 'documents', label: 'Documents', icon: FolderOpen },
           ],
         },
         {

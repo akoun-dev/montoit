@@ -67,6 +67,31 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
   const [videoUploading, setVideoUploading] = useState(false)
   const videoInputRef = useRef<HTMLInputElement>(null)
 
+  // Document upload state
+  const [newDocuments, setNewDocuments] = useState<Array<{
+    file: File; name: string; type: string; description: string; expiryDate: string
+  }>>([])
+  const [existingDocuments, setExistingDocuments] = useState<Array<{
+    id: string; name: string; type: string; description: string | null; expiryDate: string | null; url: string
+  }>>([])
+  const [docLoading, setDocLoading] = useState(false)
+  const docInputRef = useRef<HTMLInputElement>(null)
+  const [docFormOpen, setDocFormOpen] = useState(false)
+  const [docForm, setDocForm] = useState({
+    name: '', type: 'AUTRE', description: '', expiryDate: '', file: null as File | null,
+  })
+  const docTypes = [
+    { value: 'DIAGNOSTIC_DPE', label: 'Diagnostic DPE' },
+    { value: 'DIAGNOSTIC_AMIANTE', label: 'Diagnostic Amiante' },
+    { value: 'DIAGNOSTIC_PLOMB', label: 'Diagnostic Plomb' },
+    { value: 'DIAGNOSTIC_ELECTRICITE', label: 'Diagnostic Électricité' },
+    { value: 'ASSURANCE_HABITATION', label: 'Assurance Habitation' },
+    { value: 'PERMIS_CONSTRUIRE', label: 'Permis de Construire' },
+    { value: 'ATTESTATION_CONFORMITE', label: 'Attestation de Conformité' },
+    { value: 'PLAN_BATIMENT', label: 'Plan du Bâtiment' },
+    { value: 'AUTRE', label: 'Autre' },
+  ]
+
   // Form state
   const [submitting, setSubmitting] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
@@ -113,6 +138,14 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
           setVideoPreview(p.virtualTourUrl)
         }
         setPropertyId(p.id)
+
+        // Load existing documents
+        try {
+          const docRes = await authFetch<{ documents: Array<{
+            id: string; name: string; type: string; description: string | null; expiryDate: string | null; url: string
+          }> }>(`/api/properties/${editId}/documents`)
+          setExistingDocuments(docRes.documents || [])
+        } catch {}
       } catch (err) {
         toast.error('Impossible de charger le brouillon')
       } finally {
@@ -229,6 +262,48 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
     setExistingVideo(null)
   }, [videoPreview, existingVideo])
 
+  // ── Document handling ────────────────────────────────────────────────────
+  const handleDocFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Le document doit faire moins de 10 Mo.')
+      return
+    }
+    setDocForm((prev) => ({ ...prev, file }))
+  }
+
+  const addDocument = () => {
+    if (!docForm.name.trim() || !docForm.file) {
+      toast.error('Veuillez donner un nom et sélectionner un fichier.')
+      return
+    }
+    setNewDocuments((prev) => [...prev, {
+      file: docForm.file!,
+      name: docForm.name.trim(),
+      type: docForm.type,
+      description: docForm.description.trim(),
+      expiryDate: docForm.expiryDate,
+    }])
+    setDocForm({ name: '', type: 'AUTRE', description: '', expiryDate: '', file: null })
+    setDocFormOpen(false)
+  }
+
+  const removeNewDocument = (index: number) => {
+    setNewDocuments((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const deleteExistingDocument = async (docId: string, propertyId: string) => {
+    try {
+      await authFetch(`/api/properties/${propertyId}/documents/${docId}`, { method: 'DELETE' })
+      setExistingDocuments((prev) => prev.filter((d) => d.id !== docId))
+      toast.success('Document supprimé')
+    } catch {
+      toast.error('Erreur lors de la suppression')
+    }
+  }
+
   // ── Convert file to base64 ─────────────────────────────────────────────────
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -291,13 +366,12 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
       )
 
       if (propertyId) {
-        // Update existing draft — no status = stays in current status
+        // Update existing draft
         const result = await authFetch<{ property: { id: string; images: Array<{ url: string; order: number }>; virtualTourUrl: string | null } }>(`/api/properties/${propertyId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(cleanPayload),
         })
-        // Sync local state with server response to prevent re-upload on next save
         if (result.property.images) {
           setExistingImages(result.property.images)
         }
@@ -307,6 +381,21 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
           setVideoFile(null)
         }
         setImagePreviews([])
+
+        // Upload documents for existing property
+        for (const doc of newDocuments) {
+          const base64 = await fileToBase64(doc.file)
+          await authFetch(`/api/properties/${propertyId}/documents`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: doc.name, type: doc.type, content: base64,
+              description: doc.description || undefined,
+              expiryDate: doc.expiryDate || undefined,
+            }),
+          })
+        }
+        setNewDocuments([])
       } else {
         // Create new draft
         const result = await authFetch<{ property: { id: string; images: Array<{ url: string; order: number }>; virtualTourUrl: string | null } }>('/api/properties', {
@@ -410,20 +499,47 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
         images: allImages,
       }
 
-      if (propertyId) {
-        await authFetch(`/api/properties/${propertyId}`, {
+      let pid = propertyId
+      if (pid) {
+        await authFetch(`/api/properties/${pid}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...payload, status: 'ACTIVE' }),
-          timeout: 120_000, // 2 min timeout for large payloads
+          timeout: 120_000,
         })
       } else {
-        await authFetch('/api/properties', {
+        const res = await authFetch<{ property: { id: string } }>('/api/properties', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
-          timeout: 120_000, // 2 min timeout for large payloads
+          timeout: 120_000,
         })
+        pid = res.property.id
+        setPropertyId(pid)
+      }
+
+      // Upload pending documents
+      if (pid && newDocuments.length > 0) {
+        setProcessingStatus('Upload des documents...')
+        for (const doc of newDocuments) {
+          try {
+            const base64 = await fileToBase64(doc.file)
+            await authFetch(`/api/properties/${pid}/documents`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: doc.name,
+                type: doc.type,
+                content: base64,
+                description: doc.description || undefined,
+                expiryDate: doc.expiryDate || undefined,
+              }),
+            })
+          } catch {
+            toast.error(`Échec de l'upload du document: ${doc.name}`)
+          }
+        }
+        setNewDocuments([])
       }
 
       setProcessingStatus(null)
@@ -856,7 +972,168 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
         </CardContent>
       </Card>
 
-      {/* ── Section 6: Confidentialité ──────────────────────────────────────── */}
+      {/* ── Section 6: Documents ──────────────────────────────────────────── */}
+      <Card className="border-border">
+        <CardHeader className="pb-3 sm:pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="size-4 text-brand-500" />
+            Documents
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Existing documents */}
+          {existingDocuments.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Documents déjà ajoutés</p>
+              {existingDocuments.map((doc) => (
+                <div key={doc.id} className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-muted/30">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <FileText className="size-4 text-brand-500 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span>{docTypes.find((t) => t.value === doc.type)?.label || doc.type}</span>
+                        {doc.expiryDate && <span>Exp. {new Date(doc.expiryDate).toLocaleDateString('fr-FR')}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => propertyId && deleteExistingDocument(doc.id, propertyId)}
+                    className="size-7 flex items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors shrink-0 ml-2"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pending new documents */}
+          {newDocuments.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Nouveaux documents</p>
+              {newDocuments.map((doc, i) => (
+                <div key={i} className="flex items-center justify-between p-2.5 rounded-lg border border-amber-200 bg-amber-50/50">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <FileText className="size-4 text-amber-600 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {docTypes.find((t) => t.value === doc.type)?.label || doc.type}
+                        {doc.expiryDate && ` — Exp. ${new Date(doc.expiryDate).toLocaleDateString('fr-FR')}`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => removeNewDocument(i)}
+                    className="size-7 flex items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors shrink-0 ml-2"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add document form (inline toggle) */}
+          {docFormOpen ? (
+            <div className="p-3 rounded-lg border border-border bg-muted/20 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Nom du document <span className="text-red-400">*</span></Label>
+                  <Input
+                    placeholder="Ex: Diagnostic DPE"
+                    value={docForm.name}
+                    onChange={(e) => setDocForm((p) => ({ ...p, name: e.target.value }))}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Type de document</Label>
+                  <Select value={docForm.type} onValueChange={(v) => setDocForm((p) => ({ ...p, type: v }))}>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {docTypes.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">Description (optionnelle)</Label>
+                <Input
+                  placeholder="Brève description du document"
+                  value={docForm.description}
+                  onChange={(e) => setDocForm((p) => ({ ...p, description: e.target.value }))}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Date d&apos;expiration (optionnelle)</Label>
+                  <Input
+                    type="date"
+                    value={docForm.expiryDate}
+                    onChange={(e) => setDocForm((p) => ({ ...p, expiryDate: e.target.value }))}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Fichier <span className="text-red-400">*</span></Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={docInputRef}
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      onChange={handleDocFileSelect}
+                    />
+                    {docForm.file ? (
+                      <div className="flex items-center gap-2 flex-1 h-9 px-3 rounded-lg border border-border bg-card text-sm truncate">
+                        <FileText className="size-4 text-brand-500 shrink-0" />
+                        <span className="truncate text-foreground">{docForm.file.name}</span>
+                        <button onClick={() => setDocForm((p) => ({ ...p, file: null }))} className="ml-auto shrink-0 text-red-500 hover:text-red-600"><X className="size-3.5" /></button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => docInputRef.current?.click()}
+                        className="h-9 gap-1.5"
+                      >
+                        <Upload className="size-3.5" /> Choisir un fichier
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <Button variant="outline" size="sm" onClick={() => { setDocFormOpen(false); setDocForm({ name: '', type: 'AUTRE', description: '', expiryDate: '', file: null }) }}>
+                  Annuler
+                </Button>
+                <Button size="sm" onClick={addDocument} className="gap-1.5 bg-brand-500 hover:bg-brand-600 text-white">
+                  <FileText className="size-3.5" /> Ajouter le document
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => setDocFormOpen(true)}
+              className="w-full gap-2 border-dashed border-border text-muted-foreground hover:text-foreground"
+            >
+              <PlusCircle className="size-4" />
+              Ajouter un document
+            </Button>
+          )}
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Ajoutez vos diagnostics, assurances, permis et autres documents relatifs au bien. Ces documents seront visibles par les locataires et le Tiers de Confiance.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* ── Section 7: Confidentialité ──────────────────────────────────────── */}
       <Card className="border-border">
         <CardHeader className="pb-3 sm:pb-4">
           <CardTitle className="text-base flex items-center gap-2">

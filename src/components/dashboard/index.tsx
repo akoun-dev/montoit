@@ -35,7 +35,6 @@ import { OwnerAnalytics } from './proprietaire/analytics'
 import { ProprietaireMandats } from './proprietaire/mandats'
 import { OwnerReviews } from './proprietaire/owner-reviews'
 import { OwnerMaintenance } from './proprietaire/owner-maintenance'
-import { PropertyDocuments } from './proprietaire/property-documents'
 import { OwnerSettings } from './proprietaire/owner-settings'
 import { OwnerSecurity } from './proprietaire/security'
 import { TcOverview } from './tc/overview'
@@ -190,7 +189,6 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'owner-file': return <OwnerFileForm />
     case 'reviews': return <OwnerReviews />
     case 'maintenance': return <OwnerMaintenance />
-    case 'documents': return <PropertyDocuments />
     case 'security': return <OwnerSecurity />
     case 'history': return <ActivityHistory />
     case 'settings': return <OwnerSettings />
