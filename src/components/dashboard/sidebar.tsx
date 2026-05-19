@@ -82,7 +82,6 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
             { id: 'my-tenants', label: 'Mes locataires', icon: UserCircle },
             { id: 'visit-requests', label: 'Demandes de visite', icon: Eye },
             { id: 'candidatures', label: 'Mes candidatures', icon: ClipboardCheck },
-            { id: 'rental-files', label: 'Dossiers locatifs', icon: FolderOpen },
             { id: 'my-leases', label: 'Mes baux', icon: FileSignature },
             { id: 'mandats', label: 'Mes mandats', icon: ScrollText },
             { id: 'maintenance', label: 'Maintenance', icon: Wrench },
