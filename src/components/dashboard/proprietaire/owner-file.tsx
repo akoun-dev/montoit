@@ -292,7 +292,7 @@ export function OwnerFileForm() {
       )}
 
       {/* Progress Steps */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {steps.map((s, i) => (
           <div key={s.id} className="flex items-center gap-2">
             <button

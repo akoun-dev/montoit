@@ -572,7 +572,7 @@ export function OwnerMaintenance() {
                           <p className="text-sm font-semibold text-foreground truncate">
                             {req.title}
                           </p>
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                             {reqImages.length > 0 && (
                               <Badge
                                 variant="outline"

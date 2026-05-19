@@ -686,7 +686,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
 
           {/* Existing images from draft */}
           {existingImages.length > 0 && (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
               {existingImages.map((img, index) => (
                 <div
                   key={`existing-${index}`}
@@ -715,7 +715,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
 
           {/* New image previews */}
           {imagePreviews.length > 0 && (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
               {imagePreviews.map((img, index) => (
                 <div
                   key={`new-${index}`}
