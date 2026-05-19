@@ -118,7 +118,9 @@ export function VisitRequests() {
 
   // Detail modal
   const [detailVisit, setDetailVisit] = useState<VisitItem | null>(null)
+  const [detailRentalFile, setDetailRentalFile] = useState<any>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   // Action dialogs
   const [rejectOpen, setRejectOpen] = useState(false)
@@ -196,6 +198,32 @@ export function VisitRequests() {
       rf.tenant.id === visit.tenantId &&
       rf.leases.some((l) => l.property.id === visit.propertyId)
     )
+  }
+
+  // ─── Open detail modal with rental file info ────────────────────────────
+
+  const openDetail = async (visit: VisitItem) => {
+    setDetailVisit(visit)
+    setDetailOpen(true)
+    setDetailLoading(true)
+    setDetailRentalFile(null)
+
+    try {
+      const res = await authFetch<{ data: any }>(`/api/visits/${visit.id}`)
+      if (res.data?.rentalFile) {
+        setDetailRentalFile(res.data.rentalFile)
+      }
+    } catch {
+      // Rental file info unavailable — continue without it
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const closeDetail = () => {
+    setDetailOpen(false)
+    setDetailVisit(null)
+    setDetailRentalFile(null)
   }
 
   // ─── Visit actions ───────────────────────────────────────────────────────
@@ -437,7 +465,7 @@ export function VisitRequests() {
                       'border-border hover:shadow-md transition-all cursor-pointer',
                       visit.status === 'PENDING' && 'border-amber-200/50'
                     )}
-                    onClick={() => { setDetailVisit(visit); setDetailOpen(true) }}
+                    onClick={() => openDetail(visit) }
                   >
                     <CardContent className="p-4 sm:p-5">
                       <div className="flex items-start gap-4">
@@ -507,7 +535,7 @@ export function VisitRequests() {
                             <Button
                               size="sm"
                               className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
-                              onClick={(e) => { e.stopPropagation(); setDetailVisit(visit); setDetailOpen(true); setTimeout(() => handleAccept(), 100) }}
+                              onClick={(e) => { e.stopPropagation(); openDetail(visit); setTimeout(() => handleAccept(), 100) }}
                             >
                               <Check className="size-3.5" />
                               <span className="hidden lg:inline">Accepter</span>
@@ -536,12 +564,12 @@ export function VisitRequests() {
       {/* ════════════════════════════════════════════════════════════════
          DETAIL MODAL
          ════════════════════════════════════════════════════════════════ */}
-      <Dialog open={detailOpen} onOpenChange={(open) => { if (!open) { setDetailOpen(false); setDetailVisit(null) } }}>
+      <Dialog open={detailOpen} onOpenChange={(open) => { if (!open) closeDetail() }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
           {detailVisit && (() => {
             const config = statusConfig[detailVisit.status] || statusConfig.PENDING
             const StatusIcon = config.icon
-            const matchingFile = findRentalFile(detailVisit)
+            const matchingFile = detailRentalFile
             const prop = detailVisit.property
             const tenant = detailVisit.tenant
 
@@ -694,16 +722,6 @@ export function VisitRequests() {
                                 <p className="text-[11px] text-muted-foreground">Soumis le</p>
                                 <p className="font-medium text-foreground">{formatShort(matchingFile.createdAt)}</p>
                               </div>
-                              {matchingFile.tenantPaymentScore !== null && (
-                                <div>
-                                  <p className="text-[11px] text-muted-foreground">Score</p>
-                                  <p className={cn(
-                                    'font-semibold',
-                                    matchingFile.tenantPaymentScore >= 80 ? 'text-emerald-600' :
-                                    matchingFile.tenantPaymentScore >= 50 ? 'text-amber-600' : 'text-red-600'
-                                  )}>{matchingFile.tenantPaymentScore}%</p>
-                                </div>
-                              )}
                               {matchingFile.guarantorName && (
                                 <div>
                                   <p className="text-[11px] text-muted-foreground">Garant</p>

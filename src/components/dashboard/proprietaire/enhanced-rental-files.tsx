@@ -208,7 +208,7 @@ const itemVariants = {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export function EnhancedRentalFiles() {
-  const { isAuthenticated, setDashboardSection } = useAuthStore()
+  const { isAuthenticated, dashboardSection, setDashboardSection } = useAuthStore()
   const [data, setData] = useState<RentalFileItem[]>([])
   const [properties, setProperties] = useState<Array<{ id: string; title: string; city: string; address: string }>>([])
   const [stats, setStats] = useState<Record<string, number>>({})
@@ -252,6 +252,20 @@ export function EnhancedRentalFiles() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Auto-switch to first non-empty tab after data loads (defined before use below)
+  useEffect(() => {
+    if (!loading && data.length > 0) {
+      const pCount = (stats['SUBMITTED'] || 0) + (stats['TC_REVIEW'] || 0) + (stats['VALIDATED'] || 0)
+      const vCount = stats['VALIDATED'] || 0
+      const rCount = stats['REJECTED'] || 0
+      if (activeTab === 'pending' && pCount === 0) {
+        if (vCount > 0) setActiveTab('validated')
+        else if (rCount > 0) setActiveTab('rejected')
+        else setActiveTab('all')
+      }
+    }
+  }, [loading, data.length, stats, activeTab])
 
   // ─── Filter logic ────────────────────────────────────────────────────────
   const filteredData = data.filter((rf) => {
@@ -345,6 +359,12 @@ export function EnhancedRentalFiles() {
   const rejectedCount = stats['REJECTED'] || 0
   const totalCount = Object.values(stats).reduce((a, b) => a + b, 0)
 
+  const isCandidatures = dashboardSection === 'candidatures'
+  const pageTitle = isCandidatures ? 'Mes candidatures' : 'Dossiers locatifs'
+  const pageDesc = isCandidatures
+    ? 'Consultez et gérez les candidatures soumises pour vos biens'
+    : 'Gérez les candidatures de location pour vos biens'
+
   const tabs: Array<{ key: TabType; label: string; count: number }> = [
     { key: 'pending', label: 'En attente', count: pendingCount },
     { key: 'validated', label: 'Validés', count: validatedCount },
@@ -356,8 +376,8 @@ export function EnhancedRentalFiles() {
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dossiers locatifs</h1>
-        <p className="text-muted-foreground mt-1">Gérez les candidatures de location pour vos biens</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">{pageTitle}</h1>
+        <p className="text-muted-foreground mt-1">{pageDesc}</p>
       </div>
 
       {/* Property Filter */}

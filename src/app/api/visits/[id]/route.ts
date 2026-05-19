@@ -335,9 +335,54 @@ async function enrichVisitDetail(admin: ReturnType<typeof getSupabaseAdminClient
 
   const { data: tenant } = await admin
     .from('users')
-    .select('id, first_name, last_name, phone')
+    .select('id, first_name, last_name, phone, email')
     .eq('id', visit.tenant_id)
     .single()
+
+  // Fetch rental file for this tenant + property
+  let rentalFile: any = null
+  const { data: rentalFileLeases } = await admin
+    .from('leases')
+    .select('id, rental_file_id, property_id, status')
+    .eq('tenant_id', visit.tenant_id)
+    .eq('property_id', visit.property_id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  const lease = rentalFileLeases?.[0]
+  if (lease?.rental_file_id) {
+    const { data: rf } = await admin
+      .from('rental_files')
+      .select('id, tenant_id, status, tenant_category, monthly_income, employer, employment_type, guarantor_name, guarantor_phone, guarantor_relation, rejection_reason, created_at')
+      .eq('id', lease.rental_file_id)
+      .single()
+
+    if (rf) {
+      const { data: rfDocs } = await admin
+        .from('rental_file_documents')
+        .select('id, type, name, status')
+        .eq('rental_file_id', rf.id)
+        .order('created_at', { ascending: false })
+
+      rentalFile = {
+        id: rf.id,
+        status: rf.status,
+        tenantCategory: rf.tenant_category,
+        monthlyIncome: rf.monthly_income,
+        employer: rf.employer,
+        employmentType: rf.employment_type,
+        guarantorName: rf.guarantor_name,
+        guarantorPhone: rf.guarantor_phone,
+        guarantorRelation: rf.guarantor_relation,
+        rejectionReason: rf.rejection_reason,
+        createdAt: rf.created_at,
+        documents: (rfDocs || []).map((d: any) => ({
+          id: d.id, type: d.type, name: d.name, status: d.status,
+        })),
+        leaseStatus: lease.status,
+      }
+    }
+  }
 
   return {
     id: visit.id,
@@ -369,6 +414,22 @@ async function enrichVisitDetail(admin: ReturnType<typeof getSupabaseAdminClient
       firstName: tenant.first_name,
       lastName: tenant.last_name,
       phone: tenant.phone,
+      email: tenant.email,
     } : undefined,
+    rentalFile: rentalFile ? {
+      id: rentalFile.id,
+      status: rentalFile.status,
+      tenantCategory: rentalFile.tenantCategory,
+      monthlyIncome: rentalFile.monthlyIncome,
+      employer: rentalFile.employer,
+      employmentType: rentalFile.employmentType,
+      guarantorName: rentalFile.guarantorName,
+      guarantorPhone: rentalFile.guarantorPhone,
+      guarantorRelation: rentalFile.guarantorRelation,
+      rejectionReason: rentalFile.rejectionReason,
+      createdAt: rentalFile.createdAt,
+      documents: rentalFile.documents,
+      leaseStatus: rentalFile.leaseStatus,
+    } : null,
   }
 }
