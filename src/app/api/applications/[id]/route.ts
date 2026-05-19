@@ -52,12 +52,19 @@ export async function GET(
     const documents = (docResult.data ?? []) as any[]
     const leases = (leaseResult.data ?? []) as any[]
 
-    const propertyIds = [...new Set(leases.map((l: any) => l.property_id).filter(Boolean))]
-    if (propertyIds.length > 0) {
+    // Also fetch property directly from application.property_id
+    const appProps = application.property_id
+      ? (await supabase.from('properties').select('*').eq('id', application.property_id).single()).data as any
+      : null
+
+    const propIdsFromLeases = [...new Set(leases.map((l: any) => l.property_id).filter(Boolean))]
+    const allPropIds = [...new Set([...propIdsFromLeases, application.property_id].filter(Boolean))]
+
+    if (allPropIds.length > 0) {
       const propertyImagesResult = await supabase
         .from('property_images')
         .select('url, property_id')
-        .in('property_id', propertyIds)
+        .in('property_id', allPropIds)
         .order('order', { ascending: true })
       const propertyImages = propertyImagesResult.data as any[]
 
@@ -87,6 +94,11 @@ export async function GET(
         if (lease.property && ownerMap[lease.owner_id]) {
           lease.property.owner = ownerMap[lease.owner_id]
         }
+      }
+
+      // Add images to direct property
+      if (appProps && propImageMap[appProps.id]) {
+        appProps.images = propImageMap[appProps.id].slice(0, 1).map((i: any) => ({ url: i.url }))
       }
     }
 
@@ -124,6 +136,16 @@ export async function GET(
       currency: leases[0].property.currency,
       images: leases[0].property.images || [],
       owner: leases[0].property.owner || null,
+    } : appProps ? {
+      id: appProps.id,
+      title: appProps.title,
+      address: appProps.address,
+      city: appProps.city,
+      type: appProps.type,
+      price: appProps.price,
+      currency: appProps.currency,
+      images: appProps.images || [],
+      owner: null,
     } : null
 
     const totalDocs = documents.length

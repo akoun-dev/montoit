@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/lib/auth-store'
 import { useFavorites } from '@/lib/use-favorites'
+import { authFetch } from '@/lib/auth-fetch'
 import {
   MapPin,
   BedDouble,
@@ -1867,9 +1868,32 @@ function ApplyDialog({
   const [employmentType, setEmploymentType] = useState('cdi')
   const [monthlyIncome, setMonthlyIncome] = useState('')
   const [motivation, setMotivation] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
-  const handleSubmit = () => {
-    setSubmitted(true)
+  const handleSubmit = async () => {
+    setSubmitting(true)
+    setSubmitError('')
+    try {
+      const res = await authFetch<{ error?: string }>('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId: property.id,
+          motivation: motivation.trim(),
+          employmentType,
+          monthlyIncome: monthlyIncome ? parseFloat(monthlyIncome) : null,
+        }),
+      })
+      if (res.error) {
+        throw new Error(res.error)
+      }
+      setSubmitted(true)
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Erreur lors de la soumission')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleClose = () => {
@@ -2001,13 +2025,20 @@ function ApplyDialog({
             </div>
 
             {/* Submit */}
+            {submitError && (
+              <p className="text-xs text-red-500 text-center">{submitError}</p>
+            )}
             <Button
               className="w-full bg-brand-500 hover:bg-brand-600 text-white h-11 text-sm font-semibold"
-              disabled={!motivation.trim() || !monthlyIncome}
+              disabled={!motivation.trim() || !monthlyIncome || submitting}
               onClick={handleSubmit}
             >
-              <Send className="size-4 mr-1.5" />
-              Soumettre ma candidature
+              {submitting ? (
+                <Loader2 className="size-4 mr-1.5 animate-spin" />
+              ) : (
+                <Send className="size-4 mr-1.5" />
+              )}
+              {submitting ? 'Envoi en cours...' : 'Soumettre ma candidature'}
             </Button>
 
             <p className="text-[11px] text-muted-foreground text-center">

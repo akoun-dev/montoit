@@ -1,6 +1,202 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { notifyMany } from '@/lib/notify'
+
+function generateId() {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+// POST /api/applications — Create a new application (candidature)
+export async function POST(req: NextRequest) {
+  try {
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
+    }
+
+    const supabase = getSupabaseAdminClient()
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role, active_role')
+      .eq('id', userId)
+      .single()
+
+    const effectiveRole = profile?.active_role || profile?.role
+    if (effectiveRole !== 'LOCATAIRE') {
+      const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      return applyCookies(resp)
+    }
+
+    const body = await req.json()
+    const { propertyId, motivation, employmentType, monthlyIncome } = body as {
+      propertyId: string
+      motivation?: string
+      employmentType?: string
+      monthlyIncome?: number
+    }
+
+    if (!propertyId) {
+      return NextResponse.json({ error: 'propertyId requis' }, { status: 400 })
+    }
+
+    // Check property exists
+    const { data: property } = await supabase
+      .from('properties')
+      .select('id, owner_id')
+      .eq('id', propertyId)
+      .single()
+
+    if (!property) {
+      return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
+    }
+
+    // Check if tenant already applied to this property
+    const { data: existingApp } = await supabase
+      .from('applications')
+      .select('id')
+      .eq('tenant_id', userId)
+      .eq('property_id', propertyId)
+      .in('status', ['DRAFT', 'SUBMITTED', 'TC_REVIEW'])
+      .maybeSingle()
+
+    if (existingApp) {
+      return NextResponse.json({ error: 'Vous avez déjà candidaté pour ce bien' }, { status: 409 })
+    }
+
+    // Find or create a rental_file draft
+    const { data: draftRentalFile } = await supabase
+      .from('rental_files')
+      .select('*')
+      .eq('tenant_id', userId)
+      .eq('status', 'DRAFT')
+      .maybeSingle()
+
+    let rentalFile: any
+    if (draftRentalFile) {
+      rentalFile = draftRentalFile
+    } else {
+      const { data: created } = await supabase
+        .from('rental_files')
+        .insert({
+          id: generateId(),
+          tenant_id: userId,
+          status: 'DRAFT',
+        } as any)
+        .select()
+        .single()
+      rentalFile = created
+    }
+
+    // Update rental_file with provided info
+    const updateData: any = {}
+    if (employmentType) updateData.employment_type = employmentType
+    if (monthlyIncome !== undefined) updateData.monthly_income = monthlyIncome
+    await supabase
+      .from('rental_files')
+      .update(updateData as any)
+      .eq('id', rentalFile.id)
+
+    // Submit the rental_file
+    await supabase
+      .from('rental_files')
+      .update({ status: 'SUBMITTED' } as any)
+      .eq('id', rentalFile.id)
+
+    // Create application record
+    const appId = generateId()
+    const now = new Date().toISOString()
+    const { data: application, error: appError } = await supabase
+      .from('applications')
+      .insert({
+        id: appId,
+        rental_file_id: rentalFile.id,
+        property_id: propertyId,
+        tenant_id: userId,
+        status: 'SUBMITTED',
+        motivation: motivation || null,
+        employment_type: employmentType || null,
+        monthly_income: monthlyIncome ?? null,
+        created_at: now,
+        updated_at: now,
+      } as any)
+      .select()
+      .single()
+
+    if (appError) {
+      console.error('Create application error:', appError)
+      return NextResponse.json({ error: 'Erreur lors de la création de la candidature' }, { status: 500 })
+    }
+
+    const app = application as any
+
+    // Get property info for response
+    const { data: propertyInfo } = await supabase
+      .from('properties')
+      .select('id, title, address, city, type, price, currency')
+      .eq('id', propertyId)
+      .single()
+
+    const { data: propertyImages } = await supabase
+      .from('property_images')
+      .select('url')
+      .eq('property_id', propertyId)
+      .order('order', { ascending: true })
+
+    // Notify TC users
+    await notifyTcUsers(supabase, 'Nouvelle candidature soumise',
+      'Un locataire a soumis une candidature pour un bien.', rentalFile.id)
+
+    const resp = NextResponse.json({
+      data: {
+        id: app.id,
+        status: app.status,
+        rentalFileId: app.rental_file_id,
+        propertyId: app.property_id,
+        motivation: app.motivation,
+        employmentType: app.employment_type,
+        monthlyIncome: app.monthly_income,
+        createdAt: app.created_at,
+        updatedAt: app.updated_at,
+        property: propertyInfo ? {
+          id: propertyInfo.id,
+          title: propertyInfo.title,
+          address: propertyInfo.address,
+          city: propertyInfo.city,
+          type: propertyInfo.type,
+          price: propertyInfo.price,
+          currency: propertyInfo.currency,
+          images: (propertyImages || []).slice(0, 1).map(i => ({ url: i.url })),
+        } : null,
+      },
+    })
+    return applyCookies(resp)
+  } catch (error) {
+    console.error('Applications POST error:', error)
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  }
+}
+
+async function notifyTcUsers(admin: ReturnType<typeof getSupabaseAdminClient>, title: string, message: string, entityId: string) {
+  const { data: tcUsers } = await admin
+    .from('users')
+    .select('id')
+    .eq('role', 'TIERS_CONFIANCE')
+    .eq('is_active', true)
+
+  if (tcUsers && tcUsers.length > 0) {
+    await notifyMany({
+      userIds: tcUsers.map((tc) => tc.id),
+      type: 'DOSSIER_UPDATE',
+      title,
+      message,
+      actionUrl: 'rental-files-queue',
+      entityId,
+    })
+  }
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -44,6 +240,8 @@ export async function GET(req: NextRequest) {
     let documentsMap: Record<string, any[]> = {}
     let leasesMap: Record<string, any[]> = {}
     let reviewedByMap: Record<string, any> = {}
+    let appPropMap = new Map<string, any>()
+    let appOwnerMap = new Map<string, any>()
 
     if (appIds.length > 0) {
       const [docResult, leaseResult] = await Promise.all([
@@ -63,12 +261,34 @@ export async function GET(req: NextRequest) {
         leasesMap[lease.rental_file_id].push(lease)
       }
 
-      const propertyIds = [...new Set(leasesData.map((l: any) => l.property_id).filter(Boolean))]
-      if (propertyIds.length > 0) {
+      // Also fetch property details directly from applications.property_id (not just leases)
+      const appPropertyIds = [...new Set((applications ?? []).map((a: any) => a.property_id).filter(Boolean))]
+      const { data: appProperties } = appPropertyIds.length > 0
+        ? await supabase
+            .from('properties')
+            .select('*')
+            .in('id', appPropertyIds)
+        : { data: [] as any[] }
+
+      appPropMap = new Map((appProperties ?? []).map((p: any) => [p.id, p]))
+
+      // Fetch owner info for direct property references
+      const appOwnerIds = [...new Set((appProperties ?? []).map((p: any) => p.owner_id).filter(Boolean))]
+      const { data: appOwners } = appOwnerIds.length > 0
+        ? await supabase
+            .from('users')
+            .select('id, first_name, last_name')
+            .in('id', appOwnerIds)
+        : { data: [] as any[] }
+      appOwnerMap = new Map((appOwners ?? []).map((o: any) => [o.id, o]))
+
+      // Fetch images for all relevant properties
+      const allPropIds = [...new Set([...appPropertyIds])]
+      if (allPropIds.length > 0) {
         const propertyImagesResult = await supabase
           .from('property_images')
           .select('id, url, property_id')
-          .in('property_id', propertyIds)
+          .in('property_id', allPropIds)
           .order('order', { ascending: true })
         const propertyImages = propertyImagesResult.data as any[]
 
@@ -122,16 +342,35 @@ export async function GET(req: NextRequest) {
 
     const enrichedApplications = (applications ?? []).map((app: any) => {
       const statusTimeline = getStatusTimeline(app.status)
-      const linkedProperty = (leasesMap[app.id]?.[0]?.property) ? {
-        id: leasesMap[app.id][0].property.id,
-        title: leasesMap[app.id][0].property.title,
-        address: leasesMap[app.id][0].property.address,
-        city: leasesMap[app.id][0].property.city,
-        type: leasesMap[app.id][0].property.type,
-        price: leasesMap[app.id][0].property.price,
-        currency: leasesMap[app.id][0].property.currency,
-        images: leasesMap[app.id][0].property.images || [],
-        owner: leasesMap[app.id][0].property.owner || null,
+      const leaseProperty = leasesMap[app.id]?.[0]?.property
+      const directProperty = app.property_id ? appPropMap.get(app.property_id) : null
+      const directOwner = directProperty && appOwnerMap.get(directProperty.owner_id)
+
+      // Prefer lease property, fall back to direct property from applications table
+      const linkedProperty = leaseProperty ? {
+        id: leaseProperty.id,
+        title: leaseProperty.title,
+        address: leaseProperty.address,
+        city: leaseProperty.city,
+        type: leaseProperty.type,
+        price: leaseProperty.price,
+        currency: leaseProperty.currency,
+        images: leaseProperty.images || [],
+        owner: leaseProperty.owner || null,
+      } : directProperty ? {
+        id: directProperty.id,
+        title: directProperty.title,
+        address: directProperty.address,
+        city: directProperty.city,
+        type: directProperty.type,
+        price: directProperty.price,
+        currency: directProperty.currency,
+        images: [],
+        owner: directOwner ? {
+          id: directOwner.id,
+          firstName: directOwner.first_name,
+          lastName: directOwner.last_name,
+        } : null,
       } : null
 
       const docs = documentsMap[app.id] || []

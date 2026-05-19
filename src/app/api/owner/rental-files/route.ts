@@ -46,12 +46,23 @@ export async function GET(req: NextRequest) {
       return applyCookies(resp)
     }
 
+    // Get rental_file_ids from leases
     const { data: allOwnerLeases } = await supabase
       .from('leases')
       .select('id, rental_file_id, property_id')
       .in('property_id', ownerPropertyIds)
 
-    const allRentalFileIds = [...new Set((allOwnerLeases || []).map(l => l.rental_file_id).filter(Boolean))]
+    const leaseRentalFileIds = [...new Set((allOwnerLeases || []).map(l => l.rental_file_id).filter(Boolean))]
+
+    // Also get rental_file_ids from applications (candidatures without lease yet)
+    const { data: appsOnOwnerProperties } = await supabase
+      .from('applications')
+      .select('rental_file_id, property_id')
+      .in('property_id', ownerPropertyIds)
+
+    const appRentalFileIds = [...new Set((appsOnOwnerProperties || []).map((a: any) => a.rental_file_id).filter(Boolean))]
+
+    const allRentalFileIds = [...new Set([...leaseRentalFileIds, ...appRentalFileIds])]
 
     if (allRentalFileIds.length === 0) {
       const resp = NextResponse.json({ data: [], stats: {}, properties: ownerProperties })
@@ -71,7 +82,10 @@ export async function GET(req: NextRequest) {
     let filteredRentalFileIds = allRentalFileIds
     if (propertyFilter) {
       const filteredLeases = (allOwnerLeases || []).filter(l => l.property_id === propertyFilter)
-      filteredRentalFileIds = [...new Set(filteredLeases.map(l => l.rental_file_id).filter(Boolean))]
+      const leaseIds = [...new Set(filteredLeases.map(l => l.rental_file_id).filter(Boolean))]
+      const filteredApps = (appsOnOwnerProperties || []).filter((a: any) => a.property_id === propertyFilter)
+      const appIds = [...new Set(filteredApps.map((a: any) => a.rental_file_id).filter(Boolean))]
+      filteredRentalFileIds = [...new Set([...leaseIds, ...appIds])]
     }
 
     if (filteredRentalFileIds.length === 0) {
