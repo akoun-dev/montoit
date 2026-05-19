@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
     if (!prefs) {
       const { data: created, error } = await admin
         .from('notification_preferences')
-        .insert({ user_id: userId })
+        .insert({ id: crypto.randomUUID(), user_id: userId })
         .select()
         .single()
 

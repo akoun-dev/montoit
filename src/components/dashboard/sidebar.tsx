@@ -32,7 +32,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
       return [
         {
           items: [
-            { id: 'overview', label: 'Mon Espace', icon: LayoutDashboard },
+            { id: 'overview', label: 'Mon espace', icon: LayoutDashboard },
           ],
         },
         {
@@ -40,10 +40,10 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           items: [
             { id: 'search-properties', label: 'Chercher un bien', icon: Search },
             { id: 'favorites', label: 'Mes favoris', icon: Heart },
-            { id: 'applications', label: 'Mes Candidatures', icon: UserCheck },
-            { id: 'my-visits', label: 'Mes Visites', icon: Eye },
-            { id: 'my-leases', label: 'Mes Contrats', icon: FileSignature },
-            { id: 'payments', label: 'Mes Paiements', icon: CreditCard },
+            { id: 'applications', label: 'Mes candidatures', icon: UserCheck },
+            { id: 'my-visits', label: 'Mes visites', icon: Eye },
+            { id: 'my-leases', label: 'Mes contrats', icon: FileSignature },
+            { id: 'payments', label: 'Mes paiements', icon: CreditCard },
           ],
         },
         {
@@ -56,8 +56,6 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
         {
           title: 'COMPTE',
           items: [
-            { id: 'trust-score', label: 'Trust Score', icon: ShieldCheck },
-            { id: 'rental-file', label: 'Mon dossier', icon: FileText },
             { id: 'reviews', label: 'Mes avis', icon: Star },
             { id: 'maintenance', label: 'Maintenance', icon: Wrench },
             { id: 'history', label: 'Historique', icon: History },

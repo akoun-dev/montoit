@@ -1017,13 +1017,26 @@ export function SettingsSection() {
   // ── KYC verified callback ────────────────────────────────────────────────
   const handleKycVerified = useCallback(async () => {
     setKycModalOpen(false)
-    // Refresh profile and scoring
+    // Refresh profile and scoring, then pre-fill form with OCR data
     try {
       const [profileResult, scoringResult] = await Promise.allSettled([
         authFetch<{ user: ProfileData }>('/api/profile'),
         authFetch<ScoringData>('/api/scoring'),
       ])
-      if (profileResult.status === 'fulfilled') setProfile(profileResult.value.user)
+      if (profileResult.status === 'fulfilled') {
+        const p = profileResult.value.user
+        setProfile(p)
+        // Pre-fill form with OCR-extracted data (first_name, last_name, gender, nni, birth_date)
+        setFormState({
+          firstName: p.firstName || '',
+          lastName: p.lastName || '',
+          phone: p.phone || '',
+          gender: p.gender || '',
+          city: p.city || '',
+          birthDate: p.birthDate ? new Date(p.birthDate).toISOString().split('T')[0] : '',
+          nni: p.nni || '',
+        })
+      }
       if (scoringResult.status === 'fulfilled') setScoring(scoringResult.value)
     } catch {}
   }, [])
