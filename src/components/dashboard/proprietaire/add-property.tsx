@@ -622,167 +622,181 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
 
       {/* ── Document Modal ──────────────────────────────────────────── */}
       <Dialog open={docModalOpen} onOpenChange={setDocModalOpen}>
-        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <FileText className="size-4 text-brand-500" />
-              Documents du bien
-            </DialogTitle>
-            <DialogDescription>
-              Ajoutez, consultez ou supprimez les documents relatifs à ce bien (DPE, diagnostics, assurances, etc.).
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="flex flex-col w-full h-full sm:h-auto sm:max-w-xl max-h-dvh sm:max-h-[90vh] rounded-none sm:rounded-lg border-0 sm:border p-0 sm:p-6">
+          {/* Mobile drag handle */}
+          <div className="sm:hidden flex justify-center pt-2 pb-1 absolute top-0 left-0 right-0 z-10">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/20" />
+          </div>
 
-          <div className="space-y-4">
-            {/* Existing documents */}
-            {existingDocuments.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Documents déjà ajoutés</p>
-                {existingDocuments.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-muted/30">
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <FileText className="size-4 text-brand-500 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
-                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                          <span>{docTypes.find((t) => t.value === doc.type)?.label || doc.type}</span>
-                          {doc.expiryDate && <span>Exp. {new Date(doc.expiryDate).toLocaleDateString('fr-FR')}</span>}
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            {/* Sticky header */}
+            <div className="shrink-0 px-4 sm:px-0 pt-10 sm:pt-0 pb-2 sm:pb-0">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-lg">
+                  <FileText className="size-4 text-brand-500" />
+                  Documents du bien
+                </DialogTitle>
+                <DialogDescription>
+                  Ajoutez, consultez ou supprimez les documents relatifs à ce bien (DPE, diagnostics, assurances, etc.).
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto px-4 sm:px-0 pb-4">
+              <div className="space-y-4">
+                {/* Existing documents */}
+                {existingDocuments.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Documents déjà ajoutés</p>
+                    {existingDocuments.map((doc) => (
+                      <div key={doc.id} className="flex items-center justify-between p-3 sm:p-2.5 rounded-lg border border-border bg-muted/30">
+                        <div className="flex items-center gap-3 sm:gap-2.5 min-w-0 flex-1">
+                          <FileText className="size-5 sm:size-4 text-brand-500 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                              <span>{docTypes.find((t) => t.value === doc.type)?.label || doc.type}</span>
+                              {doc.expiryDate && <span>Exp. {new Date(doc.expiryDate).toLocaleDateString('fr-FR')}</span>}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => propertyId && deleteExistingDocument(doc.id, propertyId)}
-                      className="size-7 flex items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors shrink-0 ml-2"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Pending new documents */}
-            {newDocuments.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Nouveaux documents</p>
-                {newDocuments.map((doc, i) => (
-                  <div key={i} className="flex items-center justify-between p-2.5 rounded-lg border border-amber-200 bg-amber-50/50">
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <FileText className="size-4 text-amber-600 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {docTypes.find((t) => t.value === doc.type)?.label || doc.type}
-                          {doc.expiryDate && ` — Exp. ${new Date(doc.expiryDate).toLocaleDateString('fr-FR')}`}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => removeNewDocument(i)}
-                      className="size-7 flex items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors shrink-0 ml-2"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <Separator />
-
-            {/* Add document form */}
-            {docFormOpen ? (
-              <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/20">
-                <p className="text-xs font-semibold text-foreground">Nouveau document</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Nom <span className="text-red-400">*</span></Label>
-                    <Input
-                      placeholder="Ex: Diagnostic DPE"
-                      value={docForm.name}
-                      onChange={(e) => setDocForm((p) => ({ ...p, name: e.target.value }))}
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Type</Label>
-                    <Select value={docForm.type} onValueChange={(v) => setDocForm((p) => ({ ...p, type: v }))}>
-                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {docTypes.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium">Description (optionnelle)</Label>
-                  <Input
-                    placeholder="Brève description du document"
-                    value={docForm.description}
-                    onChange={(e) => setDocForm((p) => ({ ...p, description: e.target.value }))}
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Date d&apos;expiration (optionnelle)</Label>
-                    <Input
-                      type="date"
-                      value={docForm.expiryDate}
-                      onChange={(e) => setDocForm((p) => ({ ...p, expiryDate: e.target.value }))}
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium">Fichier <span className="text-red-400">*</span></Label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        ref={docInputRef}
-                        type="file"
-                        accept="image/*,application/pdf"
-                        className="hidden"
-                        onChange={handleDocFileSelect}
-                      />
-                      {docForm.file ? (
-                        <div className="flex items-center gap-2 flex-1 h-9 px-3 rounded-lg border border-border bg-card text-sm truncate">
-                          <FileText className="size-4 text-brand-500 shrink-0" />
-                          <span className="truncate text-foreground">{docForm.file.name}</span>
-                          <button onClick={() => setDocForm((p) => ({ ...p, file: null }))} className="ml-auto shrink-0 text-red-500 hover:text-red-600"><X className="size-3.5" /></button>
-                        </div>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => docInputRef.current?.click()}
-                          className="h-9 gap-1.5"
+                        <button
+                          onClick={() => propertyId && deleteExistingDocument(doc.id, propertyId)}
+                          className="size-8 sm:size-7 flex items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors shrink-0 ml-2"
                         >
-                          <Upload className="size-3.5" /> Choisir
-                        </Button>
-                      )}
+                          <X className="size-4 sm:size-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Pending new documents */}
+                {newDocuments.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Nouveaux documents</p>
+                    {newDocuments.map((doc, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 sm:p-2.5 rounded-lg border border-amber-200 bg-amber-50/50">
+                        <div className="flex items-center gap-3 sm:gap-2.5 min-w-0 flex-1">
+                          <FileText className="size-5 sm:size-4 text-amber-600 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {docTypes.find((t) => t.value === doc.type)?.label || doc.type}
+                              {doc.expiryDate && ` — Exp. ${new Date(doc.expiryDate).toLocaleDateString('fr-FR')}`}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeNewDocument(i)}
+                          className="size-8 sm:size-7 flex items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors shrink-0 ml-2"
+                        >
+                          <X className="size-4 sm:size-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Add document form */}
+                {docFormOpen ? (
+                  <div className="space-y-4 sm:space-y-3 p-4 sm:p-3 rounded-lg border border-border bg-muted/20">
+                    <p className="text-sm sm:text-xs font-semibold text-foreground">Nouveau document</p>
+                    <div className="grid grid-cols-1 gap-4 sm:gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5 sm:space-y-1">
+                        <Label className="text-sm sm:text-xs font-medium">Nom <span className="text-red-400">*</span></Label>
+                        <Input
+                          placeholder="Ex: Diagnostic DPE"
+                          value={docForm.name}
+                          onChange={(e) => setDocForm((p) => ({ ...p, name: e.target.value }))}
+                          className="h-10 sm:h-9 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5 sm:space-y-1">
+                        <Label className="text-sm sm:text-xs font-medium">Type</Label>
+                        <Select value={docForm.type} onValueChange={(v) => setDocForm((p) => ({ ...p, type: v }))}>
+                          <SelectTrigger className="h-10 sm:h-9 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {docTypes.map((t) => (
+                              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5 sm:space-y-1">
+                      <Label className="text-sm sm:text-xs font-medium">Description (optionnelle)</Label>
+                      <Input
+                        placeholder="Brève description du document"
+                        value={docForm.description}
+                        onChange={(e) => setDocForm((p) => ({ ...p, description: e.target.value }))}
+                        className="h-10 sm:h-9 text-sm"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5 sm:space-y-1">
+                        <Label className="text-sm sm:text-xs font-medium">Date d&apos;expiration (optionnelle)</Label>
+                        <Input
+                          type="date"
+                          value={docForm.expiryDate}
+                          onChange={(e) => setDocForm((p) => ({ ...p, expiryDate: e.target.value }))}
+                          className="h-10 sm:h-9 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5 sm:space-y-1">
+                        <Label className="text-sm sm:text-xs font-medium">Fichier <span className="text-red-400">*</span></Label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            ref={docInputRef}
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            onChange={handleDocFileSelect}
+                          />
+                          {docForm.file ? (
+                            <div className="flex items-center gap-2 flex-1 h-10 sm:h-9 px-3 rounded-lg border border-border bg-card text-sm truncate">
+                              <FileText className="size-4 text-brand-500 shrink-0" />
+                              <span className="truncate text-foreground">{docForm.file.name}</span>
+                              <button onClick={() => setDocForm((p) => ({ ...p, file: null }))} className="ml-auto shrink-0 text-red-500 hover:text-red-600"><X className="size-4 sm:size-3.5" /></button>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="default"
+                              onClick={() => docInputRef.current?.click()}
+                              className="flex-1 sm:flex-none h-10 sm:h-9 gap-1.5"
+                            >
+                              <Upload className="size-4 sm:size-3.5" /> Choisir
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-1">
+                      <Button variant="outline" size="default" onClick={() => { setDocFormOpen(false); setDocForm({ name: '', type: 'AUTRE', description: '', expiryDate: '', file: null }) }}
+                        className="sm:text-sm">
+                        Annuler
+                      </Button>
+                      <Button size="default" onClick={addDocument} className="gap-1.5 bg-brand-500 hover:bg-brand-600 text-white sm:text-sm">
+                        <PlusCircle className="size-4 sm:size-3.5" /> Ajouter le document
+                      </Button>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center justify-end gap-2 pt-1">
-                  <Button variant="outline" size="sm" onClick={() => { setDocFormOpen(false); setDocForm({ name: '', type: 'AUTRE', description: '', expiryDate: '', file: null }) }}>
-                    Annuler
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => setDocFormOpen(true)}
+                    className="w-full h-11 sm:h-9 gap-2 border-dashed border-border text-muted-foreground hover:text-foreground"
+                  >
+                    <PlusCircle className="size-5 sm:size-4" />
+                    Ajouter un document
                   </Button>
-                  <Button size="sm" onClick={addDocument} className="gap-1.5 bg-brand-500 hover:bg-brand-600 text-white">
-                    <PlusCircle className="size-3.5" /> Ajouter
-                  </Button>
-                </div>
+                )}
               </div>
-            ) : (
-              <Button
-                variant="outline"
-                onClick={() => setDocFormOpen(true)}
-                className="w-full gap-2 border-dashed border-border text-muted-foreground hover:text-foreground"
-              >
-                <PlusCircle className="size-4" />
-                Ajouter un document
-              </Button>
-            )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
