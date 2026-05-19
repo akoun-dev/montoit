@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
 import { getSupabaseAdminClient } from '../_shared/supabase-admin.ts'
+import { resolveUserFromRequest } from '../_shared/auth.ts'
 import { initiateCashin, generatePartnerTransactionId, getOperatorLabel, type PaymentOperator } from '../_shared/intouch.ts'
 
 interface InitiatePaymentBody {
@@ -24,8 +25,8 @@ serve(async (req) => {
       })
     }
 
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
+    const userId = await resolveUserFromRequest(req)
+    if (!userId) {
       return new Response(JSON.stringify({ error: 'Non authentifié' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -33,20 +34,11 @@ serve(async (req) => {
     }
 
     const supabase = getSupabaseAdminClient()
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
-
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Non authentifié' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
 
     const { data: profile } = await supabase
       .from('users')
       .select('active_role')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
 
     const effectiveRole = profile?.active_role
@@ -86,7 +78,7 @@ serve(async (req) => {
       .from('payments')
       .select('*, lease:lease_id(id, owner_id, owner:owner_id(id, first_name, last_name, phone))')
       .eq('id', paymentId)
-      .eq('tenant_id', user.id)
+      .eq('tenant_id', userId)
       .maybeSingle()
 
     if (paymentError || !payment) {

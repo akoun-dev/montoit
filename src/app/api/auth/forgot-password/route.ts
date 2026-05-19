@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { generateOtpCode, sendOtpEmail, sendOtpSms } from '@/lib/ansut-messaging'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import {
@@ -83,6 +84,7 @@ export async function POST(req: NextRequest) {
     await supabase
       .from('otp_codes')
       .insert({
+        id: crypto.randomUUID(),
         email: user.email,
         phone: identifier,
         code: otpCode,

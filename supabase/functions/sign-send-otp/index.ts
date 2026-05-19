@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
 import { getSupabaseAdminClient } from '../_shared/supabase-admin.ts'
+import { resolveUserFromRequest } from '../_shared/auth.ts'
 import { cryptoneoFetch } from '../_shared/cryptoneo.ts'
 
 serve(async (req) => {
@@ -15,28 +16,20 @@ serve(async (req) => {
       })
     }
 
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const supabase = getSupabaseAdminClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-
-    if (userError || !user) {
+    const userId = await resolveUserFromRequest(req)
+    if (!userId) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
+    const supabase = getSupabaseAdminClient()
+
     const { data: alias } = await supabase
       .from('signature_aliases')
       .select('alias_certificat')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('active', true)
       .maybeSingle()
 

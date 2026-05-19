@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerSupabaseClient } from '@/lib/supabase/server'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
 export async function GET(req: NextRequest) {
   try {
-    const { supabase, applyCookies } = createRouteHandlerSupabaseClient(req)
-    const { data: { session } } = await supabase.auth.getSession()
-    const token = session?.access_token
-
-    if (!token) {
+    const { userId, accessToken, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
@@ -20,11 +17,17 @@ export async function GET(req: NextRequest) {
 
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/signed-file?fileName=${encodeURIComponent(fileName)}`
 
+    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${bearerToken}`,
+    }
+    if (!accessToken) {
+      headers['x-user-id'] = userId
+    }
+
     const res = await fetch(functionUrl, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers,
     })
 
     if (!res.ok) {

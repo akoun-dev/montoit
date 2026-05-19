@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import { generateOtpCode, sendOtpEmail, sendOtpSms } from '@/lib/ansut-messaging'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import {
@@ -184,6 +185,7 @@ export async function POST(req: NextRequest) {
             last_name: lastName,
             email: email || existingUser.email,
             role: role || 'LOCATAIRE',
+            active_role: role || 'LOCATAIRE',
             is_phone_verified: false,
             is_active: true,
             password_hash: await bcrypt.hash(`sms-${Date.now()}-${Math.random()}`, 12),
@@ -200,6 +202,7 @@ export async function POST(req: NextRequest) {
             last_name: lastName,
             email: email || existingUser.email,
             role: role || existingUser.role,
+            active_role: role || existingUser.active_role,
             is_active: true,
           })
           .eq('id', existingUser.id)
@@ -215,12 +218,14 @@ export async function POST(req: NextRequest) {
         const { data: created } = await supabase
           .from('users')
           .insert({
+            id: crypto.randomUUID(),
             phone,
             email: email || `sms-${Date.now()}@temp.ci`,
             password_hash: await bcrypt.hash(`sms-${Date.now()}-${Math.random()}`, 12),
             first_name: firstName,
             last_name: lastName,
             role: (role || 'LOCATAIRE') as any,
+            active_role: (role || 'LOCATAIRE') as any,
             is_phone_verified: false,
             is_active: true,
           } as any)
@@ -249,6 +254,7 @@ export async function POST(req: NextRequest) {
       await supabase
         .from('otp_codes')
         .insert({
+          id: crypto.randomUUID(),
           phone,
           code: otpCode,
           type: 'LOGIN',

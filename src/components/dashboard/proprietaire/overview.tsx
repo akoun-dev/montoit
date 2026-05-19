@@ -453,8 +453,19 @@ export function ProprietaireOverview() {
                         <p className="text-xs text-muted-foreground">{p.city} · {p.price.toLocaleString('fr-FR')} FCFA</p>
                       </div>
                     </div>
-                    <Badge className={p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-600'}>
-                      {p.status === 'ACTIVE' ? 'Actif' : p.status}
+                    <Badge className={
+                      p.status === 'ACTIVE' ? 'bg-green-100 text-green-700'
+                      : p.status === 'PENDING_VERIFICATION' ? 'bg-amber-100 text-amber-700'
+                      : p.status === 'SUSPENDED' ? 'bg-red-100 text-red-700'
+                      : p.status === 'RENTED' ? 'bg-teal-100 text-teal-700'
+                      : 'bg-neutral-100 text-neutral-600'
+                    }>
+                      {p.status === 'ACTIVE' ? 'Actif'
+                      : p.status === 'PENDING_VERIFICATION' ? 'En cours de vérification'
+                      : p.status === 'SUSPENDED' ? 'Suspendu'
+                      : p.status === 'RENTED' ? 'Loué'
+                      : p.status === 'CLOSED' ? 'Fermé'
+                      : p.status}
                     </Badge>
                   </div>
                 ))

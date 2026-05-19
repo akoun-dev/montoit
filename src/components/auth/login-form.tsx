@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Phone, MessageSquare } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Phone, MessageSquare, CircleCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,10 +19,23 @@ export function LoginForm() {
   const [phone, setPhone] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
-  const { loginWithEmail, loginWithSms, isLoading, setView, setAuthMethod } = useAuthStore()
+  const { loginWithEmail, loginWithSms, isLoading, setView, setAuthMethod, pendingMessage, pendingEmail } = useAuthStore()
+
+  useEffect(() => {
+    if (pendingEmail) {
+      setEmail(pendingEmail)
+    }
+  }, [pendingEmail])
+
+  const clearMessage = () => {
+    if (pendingMessage) {
+      useAuthStore.setState({ pendingMessage: '' })
+    }
+  }
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    clearMessage()
     if (!email.trim()) {
       toast.error('Veuillez entrer votre adresse email')
       return
@@ -42,6 +55,7 @@ export function LoginForm() {
 
   const handleSmsSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    clearMessage()
     if (!phone.trim()) {
       toast.error('Veuillez entrer votre numéro de téléphone')
       return
@@ -56,6 +70,7 @@ export function LoginForm() {
   }
 
   const handleForgotPassword = () => {
+    clearMessage()
     setView('forgot-password')
   }
 
@@ -87,11 +102,32 @@ export function LoginForm() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Success banner after email verification */}
+            {pendingMessage && (
+              <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
+                <CircleCheck className="mt-0.5 size-5 shrink-0 text-green-600" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-800">{pendingMessage}</p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Utilisez l&apos;email et le mot de passe que vous avez choisis à l&apos;inscription.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearMessage}
+                  className="shrink-0 text-green-400 hover:text-green-600"
+                  aria-label="Fermer"
+                >
+                  <span className="text-lg leading-none">&times;</span>
+                </button>
+              </div>
+            )}
+
             {/* Method toggle */}
             <div className="flex rounded-lg border border-border p-1 bg-muted">
               <button
                 type="button"
-                onClick={() => setMethod('email')}
+                onClick={() => { clearMessage(); setMethod('email') }}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
                   method === 'email'
                     ? 'bg-background text-brand-500 shadow-sm'
@@ -103,7 +139,7 @@ export function LoginForm() {
               </button>
               <button
                 type="button"
-                onClick={() => setMethod('sms')}
+                onClick={() => { clearMessage(); setMethod('sms') }}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
                   method === 'sms'
                     ? 'bg-background text-brand-500 shadow-sm'
@@ -127,7 +163,7 @@ export function LoginForm() {
                       type="email"
                       placeholder="votre@email.ci"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => { clearMessage(); setEmail(e.target.value) }}
                       className="h-11 pl-9"
                       disabled={isLoading}
                       required
@@ -247,7 +283,7 @@ export function LoginForm() {
 
             {/* Register link */}
             <button
-              onClick={() => setView('register')}
+              onClick={() => { clearMessage(); setView('register') }}
               className="w-full text-center text-sm text-brand-600 hover:text-brand-700 hover:underline"
             >
               Pas encore de compte ? S&apos;inscrire
@@ -255,7 +291,7 @@ export function LoginForm() {
 
             {/* Back to home */}
             <button
-              onClick={() => setView('home')}
+              onClick={() => { clearMessage(); setView('home') }}
               className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
             >
               ← Retour à l&apos;accueil

@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  Settings, User, Shield, Bell, Sliders, Mail, Phone, ShieldCheck,
-  ChevronRight, CheckCircle2, XCircle, ScanFace, CreditCard, FileCheck,
+  User, Shield, Bell, Mail, Phone, ShieldCheck,
+  CheckCircle2, XCircle, ScanFace, CreditCard, FileCheck,
   Save, Loader2, MapPin, Users, ArrowRight, Lightbulb, AlertTriangle,
   Info, RefreshCw, Eye, EyeOff, Monitor, Smartphone, Trash2, LogOut,
-  Camera, Pencil, ArrowLeftRight, Building2, Share, Copy,
+  Camera, ArrowLeftRight, Building2, Share, Copy,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -157,6 +157,8 @@ function ScoreComponentCard({
   details,
   actionLabel,
   onAction,
+  redoLabel,
+  onRedo,
 }: {
   icon: React.ComponentType<{ className?: string }>
   label: string
@@ -167,6 +169,8 @@ function ScoreComponentCard({
   details: string
   actionLabel?: string
   onAction?: () => void
+  redoLabel?: string
+  onRedo?: () => void
 }) {
   const percentage = max > 0 ? Math.round((score / max) * 100) : 0
   const isComplete = score >= max
@@ -227,6 +231,17 @@ function ScoreComponentCard({
                 <ArrowRight className="size-3 ml-1" />
               </Button>
             )}
+            {redoLabel && onRedo && isComplete && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-2.5 w-full text-xs h-8 border-purple-200 text-purple-600 hover:bg-purple-50"
+                onClick={onRedo}
+              >
+                <RefreshCw className="size-3 mr-1" />
+                {redoLabel}
+              </Button>
+            )}
           </div>
         </div>
       </CardContent>
@@ -275,11 +290,26 @@ function KycVerificationModal({
   // KYC face verification state (NeoFace v2 flow)
   const [kycStep, setKycStep] = useState<'idle' | 'uploading' | 'selfie' | 'verifying' | 'done'>('idle')
   const [kycDocImage, setKycDocImage] = useState<string | null>(null)
+  const [kycDocImageVerso, setKycDocImageVerso] = useState<string | null>(null)
   const [kycDocumentId, setKycDocumentId] = useState<string | null>(null)
   const [kycSelfieUrl, setKycSelfieUrl] = useState<string | null>(null)
   const [kycResult, setKycResult] = useState<{ verified: boolean; message: string } | null>(null)
+  const [kycOcrData, setKycOcrData] = useState<{
+    typeDoc: string | null
+    nom: string | null
+    prenom: string | null
+    dateNaissance: string | null
+    sexe: string | null
+    numeroDocument: string | null
+    verso: {
+      nni: string | null
+      profession: string | null
+    } | null
+  } | null>(null)
   const [kycPollCount, setKycPollCount] = useState(0)
+
   const kycDocInputRef = useRef<HTMLInputElement>(null)
+  const kycDocVersoInputRef = useRef<HTMLInputElement>(null)
   const kycPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Reset state when modal opens
@@ -287,9 +317,11 @@ function KycVerificationModal({
     if (open && !profile?.neofaceVerified) {
       setKycStep('idle')
       setKycDocImage(null)
+      setKycDocImageVerso(null)
       setKycDocumentId(null)
       setKycSelfieUrl(null)
       setKycResult(null)
+      setKycOcrData(null)
       setKycPollCount(0)
     }
   }, [open, profile?.neofaceVerified])
@@ -314,43 +346,66 @@ function KycVerificationModal({
     }
   }, [open, kycStep])
 
-  // ── KYC: Upload ID card document ──────────────────────────────────────────
-  const handleKycDocUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ── KYC: Select recto (preview only) ─────────────────────────────────────
+  const handleKycDocSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
-    // Show preview
     const reader = new FileReader()
     reader.onload = (ev) => {
       setKycDocImage(ev.target?.result as string)
     }
     reader.readAsDataURL(file)
     e.target.value = ''
+  }, [])
 
-    // Upload to NeoFace
+  // ── KYC: Select verso (preview only) ─────────────────────────────────────
+  const handleKycDocVersoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      setKycDocImageVerso(ev.target?.result as string)
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }, [])
+
+  // ── KYC: Upload recto + verso together ───────────────────────────────────
+  const handleKycUploadBoth = useCallback(async () => {
+    if (!kycDocImage) return
+
     setKycStep('uploading')
     setKycResult(null)
 
     try {
-      // Convert file to base64
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader()
-        reader.onload = () => {
-          const result = reader.result as string
-          // Strip data URL prefix to get raw base64
-          resolve(result.replace(/^data:image\/[a-z]+;base64,/, ''))
-        }
-        reader.readAsDataURL(file)
-      })
+      // Convert files to base64 (strip data URL prefix)
+      const docFile = kycDocImage.replace(/^data:image\/[a-z]+;base64,/, '')
+      const docFileVerso = kycDocImageVerso
+        ? kycDocImageVerso.replace(/^data:image\/[a-z]+;base64,/, '')
+        : undefined
 
-      const result = await authFetch<{ documentId: string; selfieUrl: string }>('/api/kyc/face-auth', {
+      const result = await authFetch<{
+        documentId: string
+        selfieUrl: string
+        ocr: boolean
+        ocrData: {
+          typeDoc: string | null
+          nom: string | null
+          prenom: string | null
+          dateNaissance: string | null
+          sexe: string | null
+          numeroDocument: string | null
+          verso: { nni: string | null; profession: string | null } | null
+        } | null
+      }>('/api/kyc/face-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'upload', docFile: base64 }),
+        body: JSON.stringify({ mode: 'upload', docFile, docFileVerso }),
       })
 
       setKycDocumentId(result.documentId)
       setKycSelfieUrl(result.selfieUrl)
+      setKycOcrData(result.ocrData || null)
       setKycStep('selfie')
     } catch (err) {
       setKycResult({
@@ -359,7 +414,7 @@ function KycVerificationModal({
       })
       setKycStep('idle')
     }
-  }, [])
+  }, [kycDocImage, kycDocImageVerso])
 
   // ── KYC: Open selfie URL in new window ────────────────────────────────────
   const handleKycOpenSelfie = useCallback(() => {
@@ -423,16 +478,17 @@ function KycVerificationModal({
     }
     setKycStep('idle')
     setKycDocImage(null)
+    setKycDocImageVerso(null)
     setKycDocumentId(null)
     setKycSelfieUrl(null)
     setKycResult(null)
+    setKycOcrData(null)
     setKycPollCount(0)
   }, [])
 
-  // Already verified state
-  if (profile?.neofaceVerified) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {profile?.neofaceVerified ? (
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -444,11 +500,11 @@ function KycVerificationModal({
             </DialogDescription>
           </DialogHeader>
           <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
               <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shrink-0">
                 <CheckCircle2 className="size-6" />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-emerald-700">Vérification KYC réussie</p>
                 {profile.neofaceVerifiedAt && (
                   <p className="text-xs text-emerald-600 mt-0.5">
@@ -459,13 +515,8 @@ function KycVerificationModal({
             </div>
           </div>
         </DialogContent>
-      </Dialog>
-    )
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+      ) : (
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ScanFace className="size-5 text-brand-500" />
@@ -477,40 +528,72 @@ function KycVerificationModal({
         </DialogHeader>
 
         <div className="space-y-3">
-          {/* Step 1: Upload ID card */}
+          {/* Step 1: Upload ID card (recto + verso) */}
           {(kycStep === 'idle' || kycStep === 'uploading') && (
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Téléchargez une photo de votre pièce d&apos;identité (recto avec votre photo). KYC comparera votre visage en direct avec la photo du document.
+                Téléchargez le <strong>recto</strong> (face avec votre photo) et le <strong>verso</strong> de votre CNI. Nous extrayons automatiquement vos données via OCR, puis vous prendrez un selfie pour confirmer votre identité.
               </p>
 
-              {/* Upload area */}
-              <div
-                onClick={() => kycDocInputRef.current?.click()}
-                className={`relative cursor-pointer rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
-                  kycDocImage
-                    ? 'border-brand-300 bg-brand-50/30'
-                    : 'border-border hover:border-brand-400 hover:bg-brand-50/20'
-                }`}
-              >
-                {kycDocImage ? (
-                  <div className="space-y-2">
-                    <img
-                      src={kycDocImage}
-                      alt="Aperçu du document"
-                      className="mx-auto max-h-40 rounded-lg object-contain"
-                    />
-                    <p className="text-xs text-muted-foreground">Cliquer pour changer</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-muted">
-                      <CreditCard className="size-5 text-muted-foreground" />
+              {/* Two upload zones side by side */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Recto zone */}
+                <div
+                  onClick={() => kycDocInputRef.current?.click()}
+                  className={`relative cursor-pointer rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
+                    kycDocImage
+                      ? 'border-brand-300 bg-brand-50/30'
+                      : 'border-border hover:border-brand-400 hover:bg-brand-50/20'
+                  }`}
+                >
+                  {kycDocImage ? (
+                    <div className="space-y-1">
+                      <img
+                        src={kycDocImage}
+                        alt="Recto CNI"
+                        className="mx-auto max-h-28 rounded-lg object-contain"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Cliquer pour changer</p>
                     </div>
-                    <p className="text-sm font-medium text-foreground">Télécharger le recto de votre CNI</p>
-                    <p className="text-[11px] text-muted-foreground">JPG, PNG — max 10 Mo</p>
-                  </div>
-                )}
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted">
+                        <CreditCard className="size-4 text-muted-foreground" />
+                      </div>
+                      <p className="text-xs font-medium text-foreground">Recto CNI</p>
+                      <p className="text-[10px] text-muted-foreground">Photo + identité</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Verso zone */}
+                <div
+                  onClick={() => kycDocVersoInputRef.current?.click()}
+                  className={`relative cursor-pointer rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
+                    kycDocImageVerso
+                      ? 'border-brand-300 bg-brand-50/30'
+                      : 'border-border hover:border-brand-400 hover:bg-brand-50/20'
+                  }`}
+                >
+                  {kycDocImageVerso ? (
+                    <div className="space-y-1">
+                      <img
+                        src={kycDocImageVerso}
+                        alt="Verso CNI"
+                        className="mx-auto max-h-28 rounded-lg object-contain"
+                      />
+                      <p className="text-[10px] text-muted-foreground">Cliquer pour changer</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted">
+                        <FileCheck className="size-4 text-muted-foreground" />
+                      </div>
+                      <p className="text-xs font-medium text-foreground">Verso CNI</p>
+                      <p className="text-[10px] text-muted-foreground">NNI + profession</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <input
@@ -518,13 +601,33 @@ function KycVerificationModal({
                 type="file"
                 accept="image/jpeg,image/jpg,image/png"
                 className="hidden"
-                onChange={handleKycDocUpload}
+                onChange={handleKycDocSelect}
               />
+              <input
+                ref={kycDocVersoInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png"
+                className="hidden"
+                onChange={handleKycDocVersoSelect}
+              />
+
+              {/* Continuer button (disabled until recto is selected) */}
+              <Button
+                onClick={handleKycUploadBoth}
+                disabled={!kycDocImage || kycStep === 'uploading'}
+                className="w-full h-11 bg-brand-500 hover:bg-brand-600 text-white"
+              >
+                {kycStep === 'uploading' ? (
+                  <><Loader2 className="size-4 mr-2 animate-spin" /> Envoi en cours...</>
+                ) : (
+                  <><ScanFace className="size-4 mr-2" /> Continuer vers le selfie</>
+                )}
+              </Button>
 
               {kycStep === 'uploading' && (
                 <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="size-4 animate-spin" />
-                  Envoi du document en cours...
+                  Envoi et analyse du document par NeoFace...
                 </div>
               )}
             </div>
@@ -538,8 +641,24 @@ function KycVerificationModal({
                   ✅ Document envoyé avec succès
                 </p>
                 <p className="text-[11px] text-brand-600">
-                  Cliquez sur le bouton ci-dessous pour ouvrir l&apos;interface de prise de selfie. L&apos;interface détectera votre visage en direct et vérifiera votre identité.
+                  Cliquez sur le bouton ci-dessous pour ouvrir l&apos;interface de prise de selfie.
                 </p>
+
+                {/* OCR data preview */}
+                {kycOcrData && (
+                  <div className="mt-2 p-2.5 rounded-lg bg-white/70 border border-brand-100">
+                    <p className="text-[10px] font-semibold text-brand-600 uppercase tracking-wider mb-1">Données extraites de la CNI :</p>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px]">
+                      {kycOcrData.typeDoc && <><span className="text-muted-foreground">Type</span><span className="text-foreground font-medium text-right">{kycOcrData.typeDoc}</span></>}
+                      {kycOcrData.nom && <><span className="text-muted-foreground">Nom</span><span className="text-foreground font-medium text-right">{kycOcrData.nom}</span></>}
+                      {kycOcrData.prenom && <><span className="text-muted-foreground">Prénom</span><span className="text-foreground font-medium text-right">{kycOcrData.prenom}</span></>}
+                      {kycOcrData.dateNaissance && <><span className="text-muted-foreground">Date naiss.</span><span className="text-foreground font-medium text-right">{kycOcrData.dateNaissance}</span></>}
+                      {kycOcrData.numeroDocument && <><span className="text-muted-foreground">N° doc.</span><span className="text-foreground font-medium text-right">{kycOcrData.numeroDocument}</span></>}
+                      {kycOcrData.verso?.nni && <><span className="text-muted-foreground">NNI</span><span className="text-foreground font-medium text-right">{kycOcrData.verso.nni}</span></>}
+                      {kycOcrData.verso?.profession && <><span className="text-muted-foreground">Profession</span><span className="text-foreground font-medium text-right">{kycOcrData.verso.profession}</span></>}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <Button
@@ -609,19 +728,35 @@ function KycVerificationModal({
                   : 'bg-red-50 border-red-200'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <div className={`flex size-10 items-center justify-center rounded-full shrink-0 ${
+              <div className="flex items-start gap-3">
+                <div className={`flex size-10 items-center justify-center rounded-full shrink-0 mt-0.5 ${
                   kycResult.verified ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'
                 }`}>
                   {kycResult.verified ? <CheckCircle2 className="size-5" /> : <XCircle className="size-5" />}
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold ${kycResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
                     {kycResult.verified ? 'Vérification KYC réussie !' : 'Vérification échouée'}
                   </p>
                   <p className={`text-xs mt-0.5 ${kycResult.verified ? 'text-emerald-600' : 'text-red-600'}`}>
                     {kycResult.message}
                   </p>
+
+                  {/* OCR data on success */}
+                  {kycResult.verified && kycOcrData && (
+                    <div className="mt-3 p-2.5 rounded-lg bg-white/70 border border-emerald-100">
+                      <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider mb-1">Données extraites de la CNI :</p>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px]">
+                        {kycOcrData.typeDoc && <><span className="text-muted-foreground">Type</span><span className="text-foreground font-medium text-right">{kycOcrData.typeDoc}</span></>}
+                        {kycOcrData.nom && <><span className="text-muted-foreground">Nom</span><span className="text-foreground font-medium text-right">{kycOcrData.nom}</span></>}
+                        {kycOcrData.prenom && <><span className="text-muted-foreground">Prénom</span><span className="text-foreground font-medium text-right">{kycOcrData.prenom}</span></>}
+                        {kycOcrData.dateNaissance && <><span className="text-muted-foreground">Date naiss.</span><span className="text-foreground font-medium text-right">{kycOcrData.dateNaissance}</span></>}
+                        {kycOcrData.numeroDocument && <><span className="text-muted-foreground">N° doc.</span><span className="text-foreground font-medium text-right">{kycOcrData.numeroDocument}</span></>}
+                        {kycOcrData.verso?.nni && <><span className="text-muted-foreground">NNI</span><span className="text-foreground font-medium text-right">{kycOcrData.verso.nni}</span></>}
+                        {kycOcrData.verso?.profession && <><span className="text-muted-foreground">Profession</span><span className="text-foreground font-medium text-right">{kycOcrData.verso.profession}</span></>}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               {!kycResult.verified && (
@@ -662,6 +797,7 @@ function KycVerificationModal({
           )}
         </div>
       </DialogContent>
+      )}
     </Dialog>
   )
 }
@@ -1122,7 +1258,7 @@ export function SettingsSection() {
   // Scoring tab navigation items
   const tabs = [
     { id: 'profil' as const, label: 'Mon Profil', icon: User },
-    { id: 'scoring' as const, label: 'Mon Score', icon: ShieldCheck },
+    { id: 'scoring' as const, label: 'Vérifications', icon: ShieldCheck },
     { id: 'securite' as const, label: 'Sécurité', icon: Shield },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell },
   ]
@@ -1902,6 +2038,8 @@ export function SettingsSection() {
                 details="Vérification biométrique obligatoire"
                 actionLabel="Vérification KYC"
                 onAction={() => setKycModalOpen(true)}
+                redoLabel="Refaire la vérification"
+                onRedo={() => setKycModalOpen(true)}
               />
               <ScoreComponentCard
                 icon={CreditCard}

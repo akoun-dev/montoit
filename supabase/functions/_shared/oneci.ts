@@ -64,7 +64,7 @@ export async function getOneciToken(): Promise<string> {
     throw new Error(`ONECI auth failed (${res.status}): ${text}`)
   }
   const data: OneciAuthResponse = await res.json()
-  const token = data?.token || data?.data?.token
+  const token = data?.bearerToken || data?.token || data?.data?.token
   if (!token) throw new Error(`ONECI auth returned no token: ${JSON.stringify(data)}`)
   cachedToken = { token, expiresAt: Date.now() + TOKEN_TTL_MS }
   return token

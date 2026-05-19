@@ -20,6 +20,13 @@ alter table sessions enable row level security;
 -- these policies are colocated with the table migration so the security model
 -- is defined at the same time as the underlying table structure.
 
+-- Service role full access (for server-side operations)
+create policy "service_role_full_access"
+  on sessions for all
+  to service_role
+  using (true)
+  with check (true);
+
 create policy "sessions_select_own"
   on sessions for select
   to authenticated

@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
-import { getSupabaseAdminClient } from '../_shared/supabase-admin.ts'
+import { resolveUserFromRequest } from '../_shared/auth.ts'
 import { oneciCheckSubscription } from '../_shared/oneci.ts'
 
 serve(async (req) => {
@@ -15,18 +15,8 @@ serve(async (req) => {
       })
     }
 
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const supabase = getSupabaseAdminClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-
-    if (userError || !user) {
+    const userId = await resolveUserFromRequest(req)
+    if (!userId) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

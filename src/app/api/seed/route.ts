@@ -1,15 +1,25 @@
 import { NextResponse } from 'next/server'
-import bcrypt from 'bcryptjs'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { SUPABASE_PASSWORD_PLACEHOLDER } from '@/lib/supabase/email-auth'
 
 const DEMO_PASSWORD = 'demo1234'
 
 const uuid = () => crypto.randomUUID()
 
+const SEED_USER_EMAILS = [
+  'admin@montoit.ci',
+  'tc@montoit.ci',
+  'proprietaire@montoit.ci',
+  'awa.diallo@email.ci',
+  'locataire@montoit.ci',
+  'fatou.b@email.ci',
+  'jean.c@email.ci',
+  'agence@montoit.ci',
+]
+
 export async function POST() {
   try {
     const supabase = getSupabaseAdminClient()
-    const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12)
 
     const allUuid = '00000000-0000-0000-0000-000000000000'
 
@@ -37,131 +47,68 @@ export async function POST() {
     await supabase.from('users').delete().neq('id', allUuid)
     await supabase.from('mandats').delete().neq('id', allUuid)
 
-    const { data: admin } = await supabase
-      .from('users')
-      .insert({
-        id: uuid(),
-        phone: '+22501010101',
-        first_name: 'Admin',
-        last_name: 'Toit',
-        email: 'admin@montoit.ci',
-        password_hash: passwordHash,
-        role: 'ADMIN',
-        active_role: 'ADMIN',
-        is_email_verified: true,
-        is_phone_verified: true,
-        is_active: true,
-      })
-      .select()
-      .single() as any
+    // ── Clean up existing Supabase Auth users for seed emails ──────────────
+    const { data: { users: existingAuthUsers } } = await supabase.auth.admin.listUsers()
+    for (const au of existingAuthUsers || []) {
+      if (au.email && SEED_USER_EMAILS.includes(au.email)) {
+        await supabase.auth.admin.deleteUser(au.id)
+      }
+    }
 
-    const { data: tc } = await supabase
-      .from('users')
-      .insert({
-        id: uuid(),
-        phone: '+22502020202',
-        first_name: 'Aya',
-        last_name: 'Diabaté',
-        email: 'tc@montoit.ci',
-        password_hash: passwordHash,
-        role: 'TIERS_CONFIANCE',
-        active_role: 'TIERS_CONFIANCE',
-        is_email_verified: true,
-        is_phone_verified: true,
-        is_active: true,
+    // ── Helper to create a Supabase Auth user and return its ID ────────────
+    async function createAuthUser(email: string, firstName: string, lastName: string) {
+      const { data, error } = await supabase.auth.admin.createUser({
+        email,
+        password: DEMO_PASSWORD,
+        email_confirm: true,
+        user_metadata: { firstName, lastName },
       })
-      .select()
-      .single() as any
+      if (error || !data?.user) throw error || new Error(`Failed to create auth user for ${email}`)
+      return data.user.id
+    }
 
-    const { data: owner1 } = await supabase
-      .from('users')
-      .insert({
-        id: uuid(),
-        phone: '+22503030303',
-        first_name: 'Kouadio',
-        last_name: 'Yao',
-        email: 'proprietaire@montoit.ci',
-        password_hash: passwordHash,
-        role: 'PROPRIETAIRE',
-        active_role: 'PROPRIETAIRE',
-        is_email_verified: true,
-        is_phone_verified: true,
-        is_active: true,
-      })
-      .select()
-      .single() as any
+    // ── Create users in both auth.users and public.users ───────────────────
+    async function seedUser(opts: {
+      phone: string
+      firstName: string
+      lastName: string
+      email: string
+      role: string
+      companyName?: string
+      city?: string
+      address?: string
+    }) {
+      const authId = await createAuthUser(opts.email, opts.firstName, opts.lastName)
+      const { data } = await supabase
+        .from('users')
+        .insert({
+          id: authId,
+          phone: opts.phone,
+          first_name: opts.firstName,
+          last_name: opts.lastName,
+          email: opts.email,
+          password_hash: SUPABASE_PASSWORD_PLACEHOLDER,
+          role: opts.role as any,
+          active_role: opts.role as any,
+          is_email_verified: true,
+          is_phone_verified: true,
+          is_active: true,
+          company_name: opts.companyName || null,
+          city: opts.city || null,
+          address: opts.address || null,
+        })
+        .select()
+        .single() as any
+      return data
+    }
 
-    const { data: owner2 } = await supabase
-      .from('users')
-      .insert({
-        id: uuid(),
-        phone: '+22504040404',
-        first_name: 'Awa',
-        last_name: 'Diallo',
-        email: 'awa.diallo@email.ci',
-        password_hash: passwordHash,
-        role: 'PROPRIETAIRE',
-        active_role: 'PROPRIETAIRE',
-        is_email_verified: true,
-        is_phone_verified: true,
-        is_active: true,
-      })
-      .select()
-      .single() as any
-
-    const { data: tenant1 } = await supabase
-      .from('users')
-      .insert({
-        id: uuid(),
-        phone: '+22505050505',
-        first_name: 'Moussa',
-        last_name: 'Koné',
-        email: 'locataire@montoit.ci',
-        password_hash: passwordHash,
-        role: 'LOCATAIRE',
-        active_role: 'LOCATAIRE',
-        is_email_verified: true,
-        is_phone_verified: true,
-        is_active: true,
-      })
-      .select()
-      .single() as any
-
-    const { data: tenant2 } = await supabase
-      .from('users')
-      .insert({
-        id: uuid(),
-        phone: '+22506060606',
-        first_name: 'Fatou',
-        last_name: 'Bamba',
-        email: 'fatou.b@email.ci',
-        password_hash: passwordHash,
-        role: 'LOCATAIRE',
-        active_role: 'LOCATAIRE',
-        is_email_verified: true,
-        is_phone_verified: true,
-        is_active: true,
-      })
-      .select()
-      .single() as any
-
-    const { data: tenant3 } = await supabase
-      .from('users')
-      .insert({
-        id: uuid(),
-        phone: '+22507070707',
-        first_name: 'Jean',
-        last_name: 'Coulibaly',
-        email: 'jean.c@email.ci',
-        password_hash: passwordHash,
-        role: 'LOCATAIRE',
-        active_role: 'LOCATAIRE',
-        is_email_verified: true,
-        is_phone_verified: true,
-        is_active: true,
-      })
-      .select()
-      .single() as any
+    const admin = await seedUser({ phone: '+22501010101', firstName: 'Admin', lastName: 'Toit', email: 'admin@montoit.ci', role: 'ADMIN' })
+    const tc = await seedUser({ phone: '+22502020202', firstName: 'Aya', lastName: 'Diabaté', email: 'tc@montoit.ci', role: 'TIERS_CONFIANCE' })
+    const owner1 = await seedUser({ phone: '+22503030303', firstName: 'Kouadio', lastName: 'Yao', email: 'proprietaire@montoit.ci', role: 'PROPRIETAIRE' })
+    const owner2 = await seedUser({ phone: '+22504040404', firstName: 'Awa', lastName: 'Diallo', email: 'awa.diallo@email.ci', role: 'PROPRIETAIRE' })
+    const tenant1 = await seedUser({ phone: '+22505050505', firstName: 'Moussa', lastName: 'Koné', email: 'locataire@montoit.ci', role: 'LOCATAIRE' })
+    const tenant2 = await seedUser({ phone: '+22506060606', firstName: 'Fatou', lastName: 'Bamba', email: 'fatou.b@email.ci', role: 'LOCATAIRE' })
+    const tenant3 = await seedUser({ phone: '+22507070707', firstName: 'Jean', lastName: 'Coulibaly', email: 'jean.c@email.ci', role: 'LOCATAIRE' })
 
     const propertyImages = [
       'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
@@ -672,26 +619,16 @@ export async function POST() {
       comment: 'Propriétaire réactif et logement en bon état',
     }) as any
 
-    const { data: agency } = await supabase
-      .from('users')
-      .insert({
-        id: uuid(),
-        phone: '+22508080808',
-        first_name: 'Immobilier',
-        last_name: 'Cocody',
-        email: 'agence@montoit.ci',
-        password_hash: passwordHash,
-        role: 'AGENCE',
-        active_role: 'AGENCE',
-        is_email_verified: true,
-        is_phone_verified: true,
-        is_active: true,
-        company_name: 'Immobilier Cocody SARL',
-        city: 'Abidjan',
-        address: 'Boulevard de France, Cocody',
-      })
-      .select()
-      .single() as any
+    const agency = await seedUser({
+      phone: '+22508080808',
+      firstName: 'Immobilier',
+      lastName: 'Cocody',
+      email: 'agence@montoit.ci',
+      role: 'AGENCE',
+      companyName: 'Immobilier Cocody SARL',
+      city: 'Abidjan',
+      address: 'Boulevard de France, Cocody',
+    })
 
     const { data: agent1 } = await supabase
       .from('agency_agents')

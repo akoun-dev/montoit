@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
+import {
+  BUCKETS,
+  uploadFromBase64,
+  isBase64DataUrl,
+  guessExtensionFromMime,
+} from '@/lib/supabase/storage'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -244,6 +250,28 @@ export async function POST(req: NextRequest) {
 
     const propertyId = generateId()
 
+    // Upload images to Supabase Storage
+    const uploadedImageUrls: string[] = []
+    for (let i = 0; i < imageArray.length; i++) {
+      const url = imageArray[i]
+      if (isBase64DataUrl(url)) {
+        const ext = guessExtensionFromMime(url)
+        const path = `properties/${propertyId}/${generateId()}.${ext}`
+        const publicUrl = await uploadFromBase64(BUCKETS.PROPERTY_IMAGES, url, path)
+        uploadedImageUrls.push(publicUrl)
+      } else {
+        uploadedImageUrls.push(url)
+      }
+    }
+
+    // Upload video to Supabase Storage
+    let videoUrl: string | null = virtualTourUrl || null
+    if (videoUrl && isBase64DataUrl(videoUrl)) {
+      const ext = guessExtensionFromMime(videoUrl)
+      const path = `properties/${propertyId}/video-${generateId()}.${ext}`
+      videoUrl = await uploadFromBase64(BUCKETS.PROPERTY_VIDEOS, videoUrl, path)
+    }
+
     const { data: property, error } = await admin
       .from('properties')
       .insert({
@@ -268,7 +296,7 @@ export async function POST(req: NextRequest) {
         amenities: typeof amenities === 'string' ? amenities : '[]',
         rental_terms: typeof rentalTerms === 'string' ? rentalTerms : '{}',
         hide_owner_name: Boolean(hideOwnerName),
-        virtual_tour_url: virtualTourUrl || null,
+        virtual_tour_url: videoUrl,
         owner_id: userId,
       })
       .select()
@@ -279,8 +307,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     }
 
-    if (imageArray.length > 0) {
-      const imageRows = imageArray.map((url, index) => ({
+    if (uploadedImageUrls.length > 0) {
+      const imageRows = uploadedImageUrls.map((url, index) => ({
         id: generateId(),
         url,
         order: index,

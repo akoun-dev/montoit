@@ -62,6 +62,7 @@ interface TransientAuthState {
   authMethod: AuthMethod
   devCode: string
   otpPurpose: OtpPurpose
+  pendingMessage: string
 }
 
 interface AuthActions {
@@ -116,6 +117,7 @@ const defaultTransient: TransientAuthState = {
   authMethod: 'email',
   devCode: '',
   otpPurpose: 'login',
+  pendingMessage: '',
 }
 
 // ─── checkAuth deduplication guard ──────────────────────────────────────────
@@ -269,6 +271,7 @@ export const useAuthStore = create<AuthState>()(
               currentView: 'login',
               pendingEmail: email,
               devCode: '',
+              pendingMessage: 'Votre adresse email a été vérifiée avec succès. Veuillez vous connecter.',
             })
             return data
           }
@@ -303,7 +306,18 @@ export const useAuthStore = create<AuthState>()(
             body: JSON.stringify({ ...data, method: 'email' }),
           })
           const result = await res.json()
-          if (!res.ok) throw new Error(result.error || 'Erreur')
+          if (!res.ok) {
+            if (res.status === 400 && result.error?.includes('existe déjà')) {
+              set({
+                isLoading: false,
+                currentView: 'login',
+                pendingEmail: data.email,
+                pendingMessage: 'Un compte existe déjà avec cet email. Veuillez vous connecter.',
+              })
+              return
+            }
+            throw new Error(result.error || 'Erreur')
+          }
 
           // Do NOT set isAuthenticated — user must verify email OTP first
           set({

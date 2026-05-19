@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from './admin'
 export const BUCKETS = {
   AVATARS: 'avatars',
   PROPERTY_IMAGES: 'property-images',
+  PROPERTY_VIDEOS: 'property-videos',
   PROPERTY_DOCUMENTS: 'property-documents',
   OWNER_DOCUMENTS: 'owner-documents',
   RENTAL_DOCUMENTS: 'rental-documents',
@@ -69,6 +70,26 @@ export function extractBucketAndPath(publicUrl: string): { bucket: string; path:
   return { bucket: match[1], path: match[2] }
 }
 
+export function isBase64DataUrl(value: string): boolean {
+  return value.startsWith('data:')
+}
+
+export function guessExtensionFromMime(base64DataUrl: string): string {
+  const match = base64DataUrl.match(/^data:([^;]+);/)
+  if (!match) return 'bin'
+  const mime = match[1]
+  const map: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'video/mp4': 'mp4',
+    'video/quicktime': 'mov',
+    'video/webm': 'webm',
+    'video/x-msvideo': 'avi',
+  }
+  return map[mime] || 'bin'
+}
+
 function guessContentType(filePath: string): string {
   const ext = filePath.split('.').pop()?.toLowerCase()
   switch (ext) {
@@ -83,6 +104,14 @@ function guessContentType(filePath: string): string {
       return 'image/gif'
     case 'pdf':
       return 'application/pdf'
+    case 'mp4':
+      return 'video/mp4'
+    case 'mov':
+      return 'video/quicktime'
+    case 'webm':
+      return 'video/webm'
+    case 'avi':
+      return 'video/x-msvideo'
     default:
       return 'application/octet-stream'
   }

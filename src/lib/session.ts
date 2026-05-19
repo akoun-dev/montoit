@@ -17,7 +17,8 @@ export async function createSession(
   const token = generateSessionToken()
   const expiresAt = getSessionExpiry()
 
-  await supabase.from('sessions').insert({
+  await (supabase.from('sessions') as any).insert({
+    id: crypto.randomUUID(),
     token,
     user_id: userId,
     expires_at: expiresAt.toISOString(),
@@ -30,7 +31,7 @@ export async function deleteSession(
   supabase: ReturnType<typeof import('@/lib/supabase/admin').getSupabaseAdminClient>,
   token: string,
 ): Promise<void> {
-  await supabase.from('sessions').delete().eq('token', token).catch(() => {})
+  await (supabase.from('sessions') as any).delete().eq('token', token).catch(() => {})
 }
 
 export const SESSION_COOKIE_NAME = 'montoit-session'

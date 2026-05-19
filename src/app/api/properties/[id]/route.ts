@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
+import {
+  BUCKETS,
+  uploadFromBase64,
+  deleteFromStorage,
+  isBase64DataUrl,
+  guessExtensionFromMime,
+  extractBucketAndPath,
+} from '@/lib/supabase/storage'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -140,7 +148,15 @@ export async function PATCH(
     if (hasGuardian !== undefined) updateData.has_guardian = Boolean(hasGuardian)
     if (hasClimate !== undefined) updateData.has_climate = Boolean(hasClimate)
     if (hideOwnerName !== undefined) updateData.hide_owner_name = Boolean(hideOwnerName)
-    if (virtualTourUrl !== undefined) updateData.virtual_tour_url = virtualTourUrl || null
+    if (virtualTourUrl !== undefined) {
+      if (virtualTourUrl && isBase64DataUrl(virtualTourUrl)) {
+        const ext = guessExtensionFromMime(virtualTourUrl)
+        const path = `properties/${id}/video-${generateId()}.${ext}`
+        updateData.virtual_tour_url = await uploadFromBase64(BUCKETS.PROPERTY_VIDEOS, virtualTourUrl, path)
+      } else {
+        updateData.virtual_tour_url = virtualTourUrl || null
+      }
+    }
     if (status !== undefined) {
       updateData.status = status === 'ACTIVE' ? 'PENDING_VERIFICATION' : status
     }
@@ -154,10 +170,38 @@ export async function PATCH(
         )
       }
 
+      // Delete old images from storage
+      const { data: oldImages } = await admin
+        .from('property_images')
+        .select('url')
+        .eq('property_id', id)
+
+      if (oldImages) {
+        for (const img of oldImages) {
+          const parsed = extractBucketAndPath(img.url)
+          if (parsed) {
+            await deleteFromStorage(parsed.bucket, parsed.path).catch(() => {})
+          }
+        }
+      }
+
       await admin.from('property_images').delete().eq('property_id', id)
 
-      if (imageArray.length > 0) {
-        const imageRows = imageArray.map((url: string, index: number) => ({
+      // Upload new images to storage
+      const uploadedUrls: string[] = []
+      for (const url of imageArray) {
+        if (isBase64DataUrl(url)) {
+          const ext = guessExtensionFromMime(url)
+          const path = `properties/${id}/${generateId()}.${ext}`
+          const publicUrl = await uploadFromBase64(BUCKETS.PROPERTY_IMAGES, url, path)
+          uploadedUrls.push(publicUrl)
+        } else {
+          uploadedUrls.push(url)
+        }
+      }
+
+      if (uploadedUrls.length > 0) {
+        const imageRows = uploadedUrls.map((url, index) => ({
           id: generateId(),
           url,
           order: index,
@@ -292,8 +336,23 @@ export async function DELETE(
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
+    const { data: oldImages } = await admin
+      .from('property_images')
+      .select('url')
+      .eq('property_id', id)
+
     await admin.from('property_images').delete().eq('property_id', id)
     await admin.from('properties').delete().eq('id', id)
+
+    // Clean up storage files
+    if (oldImages) {
+      for (const img of oldImages) {
+        const parsed = extractBucketAndPath(img.url)
+        if (parsed) {
+          await deleteFromStorage(parsed.bucket, parsed.path).catch(() => {})
+        }
+      }
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

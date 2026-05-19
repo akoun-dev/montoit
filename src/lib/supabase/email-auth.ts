@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, OtpType } from '@/lib/supabase/types'
 import { profileSelect, type UserProfileRow } from '@/lib/supabase/profile'
+import crypto from 'crypto'
 
 export const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10)
 export const SUPABASE_PASSWORD_PLACEHOLDER = '__managed_by_supabase_auth__'
@@ -70,6 +71,7 @@ export async function createEmailOtp(
   }
 ) {
   const { error } = await admin.from('otp_codes').insert({
+    id: crypto.randomUUID(),
     email: normalizeEmail(input.email),
     code: input.code,
     type: input.type,

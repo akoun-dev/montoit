@@ -55,7 +55,20 @@
 - 🔜 Tester les Edge Functions localement avec `supabase functions serve`
 - 🔜 Déployer avec `supabase functions deploy`
 
-### Sprint 6 — Nettoyage Prisma
+### Sprint 6 — Upload média via Supabase Storage
+- Les images et vidéos 3D étaient stockées en base64 dans la DB → très lent, base64 énorme dans les payloads JSON
+- Ajouté `PROPERTY_VIDEOS` à `BUCKETS` dans `storage.ts`
+- Ajouté `guessExtensionFromMime()`, `isBase64DataUrl()` dans `storage.ts`
+- Ajouté les MIME types video dans `guessContentType()`
+- POST /api/properties : upload des images vers `property-images`, vidéo vers `property-videos`, stockage des URLs publiques
+- PATCH /api/properties/[id] : upload + nettoyage des anciens fichiers storage
+- DELETE /api/properties/[id] : nettoyage des fichiers storage orphelins
+
+⚠️ **Action manuelle requise** : créer le bucket `property-videos` dans Supabase (Public, max 50 MB, allowed MIME: `video/mp4,video/quicktime,video/webm`)
+
+Les anciennes données (base64 dans la DB) continuent de fonctionner — seuls les nouveaux uploads passeront par Storage.
+
+### Sprint 7 — Nettoyage Prisma
 - Supprimer le package Prisma et `@prisma/client` des dépendances
 - Supprimer `@/lib/db` (fichier Prisma client)
 - Supprimer les commandes `db:push`, `db:migrate`, `db:seed` du package.json

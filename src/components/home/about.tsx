@@ -173,27 +173,6 @@ export function About() {
             ))}
           </div>
         </motion.div>
-
-        {/* ANSUT subsection */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="bg-card rounded-xl border border-border p-6 sm:p-8 text-center shadow-sm"
-        >
-          <div className="size-16 rounded-full bg-brand-50 flex items-center justify-center mx-auto mb-5">
-            <Building2 className="size-8 text-brand-500" />
-          </div>
-          <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-3">
-            Un projet ANSUT
-          </h3>
-          <p className="text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-            Mon Toit est une initiative de l&apos;ANSUT (Agence Nationale Urbaine des Transferts),
-            dédiée à l&apos;amélioration du secteur locatif en Côte d&apos;Ivoire. Notre engagement :
-            un cadre locatif moderne, sûr et régulé.
-          </p>
-        </motion.div>
       </div>
     </section>
   )

@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
 import { getSupabaseAdminClient } from '../_shared/supabase-admin.ts'
+import { resolveUserFromRequest } from '../_shared/auth.ts'
 import { oneciPersonMatch } from '../_shared/oneci.ts'
 
 serve(async (req) => {
@@ -15,23 +16,15 @@ serve(async (req) => {
       })
     }
 
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
+    const userId = await resolveUserFromRequest(req)
+    if (!userId) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     const supabase = getSupabaseAdminClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
 
     const apiKey = Deno.env.get('ONECI_API_KEY')
     const secretKey = Deno.env.get('ONECI_SECRET_KEY')
@@ -45,7 +38,7 @@ serve(async (req) => {
     const { data: dbUser } = await supabase
       .from('users')
       .select('id, oneci_verified, nni, first_name, last_name, gender, birth_date')
-      .eq('id', user.id)
+      .eq('id', userId)
       .maybeSingle()
 
     if (dbUser?.oneci_verified) {
@@ -124,7 +117,7 @@ serve(async (req) => {
         nni: resolvedNni,
         gender: resolvedGender.toUpperCase(),
         birth_date: resolvedBirthDate,
-      }).eq('id', user.id)
+      }).eq('id', userId)
 
       return new Response(JSON.stringify({
         match: true,

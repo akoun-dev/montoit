@@ -1,25 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerSupabaseClient } from '@/lib/supabase/server'
+import { resolveRequestUser } from '@/lib/auth/request-user'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(req: NextRequest) {
   try {
-    const { supabase, applyCookies } = createRouteHandlerSupabaseClient(req)
-    const { data: { session } } = await supabase.auth.getSession()
-    const token = session?.access_token
+    // Debug: log request info
+    console.log('[KYC Face Auth] Cookies:', req.cookies.getAll())
 
-    if (!token) {
+    const { userId, accessToken, authSource, applyCookies } = await resolveRequestUser(req)
+
+    console.log('[KYC Face Auth] Resolved:', { userId, authSource, hasAccessToken: !!accessToken })
+
+    if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
     const body = await req.json()
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/kyc-face-auth`
 
+    // Use user's JWT as Bearer token (preferred by Supabase gateway)
+    // Fall back to service role key if no access token (custom session)
+    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${bearerToken}`,
+      'Content-Type': 'application/json',
+    }
+
+    // When using service role key, also pass the user ID
+    if (!accessToken) {
+      headers['x-user-id'] = userId
+    }
+
     const res = await fetch(functionUrl, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     })
 

@@ -51,10 +51,10 @@ import { cn } from '@/lib/utils'
 
 const navLinks: { label: string; view: AppView; icon: React.ElementType }[] = [
   { label: 'Accueil', view: 'home', icon: Home },
-  { label: 'Nos iens', view: 'nos-biens', icon: Search },
+  { label: 'Nos biens', view: 'nos-biens', icon: Search },
   { label: 'À propos', view: 'a-propos', icon: Building2 },
   { label: 'FAQ', view: 'faq', icon: HelpCircle },
-  { label: 'Nous Contacter', view: 'nous-contacter', icon: MessageSquare },
+  { label: 'Nous contacter', view: 'nous-contacter', icon: MessageSquare },
 ]
 
 // ─── Role label & color helpers ──────────────────────────────────────────────

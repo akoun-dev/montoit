@@ -1,25 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerSupabaseClient } from '@/lib/supabase/server'
+import { resolveRequestUser } from '@/lib/auth/request-user'
 
 export async function POST(req: NextRequest) {
   try {
-    const { supabase, applyCookies } = createRouteHandlerSupabaseClient(req)
-    const { data: { session } } = await supabase.auth.getSession()
-    const token = session?.access_token
-
-    if (!token) {
+    const { userId, accessToken, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
     const body = await req.json().catch(() => ({}))
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign-send-otp`
 
+    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${bearerToken}`,
+      'Content-Type': 'application/json',
+    }
+    if (!accessToken) {
+      headers['x-user-id'] = userId
+    }
+
     const res = await fetch(functionUrl, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(body),
     })
 

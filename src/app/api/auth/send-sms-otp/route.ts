@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { generateOtpCode, sendOtpSms } from '@/lib/ansut-messaging'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
@@ -46,12 +47,14 @@ export async function POST(req: NextRequest) {
       const { data: tempUser } = await supabase
         .from('users')
           .insert({
+            id: crypto.randomUUID(),
             phone,
-            email: `temp-sms-${Date.now()}@temp.ci`,
+            email: `${Date.now()}@montoit.ci`,
             password_hash: 'TEMP',
             first_name: 'Temp',
             last_name: 'User',
             role: 'LOCATAIRE' as any,
+            active_role: 'LOCATAIRE' as any,
             is_phone_verified: false,
           } as any)
         .select('id')
@@ -68,6 +71,7 @@ export async function POST(req: NextRequest) {
     await supabase
       .from('otp_codes')
       .insert({
+        id: crypto.randomUUID(),
         phone,
         code: otpCode,
         type: otpType,
