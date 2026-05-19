@@ -176,6 +176,7 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'my-tenants': return <TenantsList onDetail={goToTenantDetail} />
     case 'tenant-detail': return <TenantDetail tenantId={selectedItemId} onBack={goBackToTenants} />
     case 'visit-requests': return <VisitRequests />
+    case 'candidatures':
     case 'rental-files': return <EnhancedRentalFiles />
     case 'my-leases': return <EnhancedLeases />
     case 'mandats': return <ProprietaireMandats />

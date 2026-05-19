@@ -67,18 +67,17 @@ export function SutaChatbot() {
     }
   }, [isOpen])
 
-  // Reset position when chat closes
-  useEffect(() => {
-    if (!isOpen) {
-      setPosition({ x: 0, y: 0 })
-    }
-  }, [isOpen])
-
   // Handle drag functionality
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Only allow dragging on desktop and from header
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    // Prevent drag when clicking interactive elements inside header
+    const target = e.target as HTMLElement
+    if (target.closest('button') || target.closest('input') || target.closest('a')) return
+
+    // Only allow dragging on desktop
     if (window.innerWidth < 640) return
 
+    e.preventDefault()
+    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     setIsDragging(true)
     dragStartPos.current = {
       x: e.clientX - position.x,
@@ -89,7 +88,7 @@ export function SutaChatbot() {
   useEffect(() => {
     if (!isDragging) return
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
       const newX = e.clientX - dragStartPos.current.x
       const newY = e.clientY - dragStartPos.current.y
 
@@ -103,16 +102,16 @@ export function SutaChatbot() {
       })
     }
 
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
       setIsDragging(false)
     }
 
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
+    document.addEventListener('pointermove', handlePointerMove)
+    document.addEventListener('pointerup', handlePointerUp)
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('pointermove', handlePointerMove)
+      document.removeEventListener('pointerup', handlePointerUp)
     }
   }, [isDragging])
 
@@ -242,8 +241,8 @@ export function SutaChatbot() {
           >
             {/* Header */}
             <div
-              className="flex items-center gap-2.5 border-b border-white/10 bg-[#FF6C2F] px-3 py-2.5 text-white sm:gap-3 sm:px-4 sm:py-3 cursor-move select-none"
-              onMouseDown={handleMouseDown}
+              className="flex items-center gap-2.5 border-b border-white/10 bg-[#FF6C2F] px-3 py-2.5 text-white sm:gap-3 sm:px-4 sm:py-3 cursor-move select-none touch-none"
+              onPointerDown={handlePointerDown}
             >
               <GripVertical className="h-4 w-4 text-white/60 flex-shrink-0 hidden sm:block" />
               <div className="relative flex-shrink-0">

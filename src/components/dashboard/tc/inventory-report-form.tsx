@@ -196,17 +196,41 @@ export function InventoryReportForm() {
 
   // Fetch data on mount
   useEffect(() => {
-    if (!isAuthenticated || !selectedItemId) {
+    if (!isAuthenticated) {
       setInitialLoading(false)
       return
     }
 
     const loadData = async () => {
-      // Try to load as an existing report
-      try {
-        const d = await authFetch<{ reports: ExistingReport[] }>(`/api/tc/inventory-reports?propertyId=${selectedItemId}`)
-        if (d.reports && d.reports.length > 0) {
-          const match = d.reports.find((r: ExistingReport) => r.id === selectedItemId)
+      // Try to load as an existing report (only if selectedItemId is set)
+      if (selectedItemId) {
+        try {
+          const d = await authFetch<{ reports: ExistingReport[] }>(`/api/tc/inventory-reports?propertyId=${selectedItemId}`)
+          if (d.reports && d.reports.length > 0) {
+            const match = d.reports.find((r: ExistingReport) => r.id === selectedItemId)
+            if (match) {
+              setExistingReport(match)
+              loadReportIntoGrid(match)
+              setPropertyInfo({
+                id: match.property.id,
+                title: match.property.title,
+                type: '',
+                commune: match.property.commune || '',
+                images: [],
+                owner: { id: '', firstName: '', lastName: '', phone: '', email: '' },
+              })
+              setInitialLoading(false)
+              return
+            }
+          }
+        } catch {
+          // Continue
+        }
+
+        // Try to load by report ID directly
+        try {
+          const d = await authFetch<{ reports: ExistingReport[] }>('/api/tc/inventory-reports')
+          const match = d.reports?.find((r: ExistingReport) => r.id === selectedItemId)
           if (match) {
             setExistingReport(match)
             loadReportIntoGrid(match)
@@ -221,31 +245,9 @@ export function InventoryReportForm() {
             setInitialLoading(false)
             return
           }
+        } catch {
+          // Continue
         }
-      } catch {
-        // Continue
-      }
-
-      // Try to load by report ID directly
-      try {
-        const d = await authFetch<{ reports: ExistingReport[] }>('/api/tc/inventory-reports')
-        const match = d.reports?.find((r: ExistingReport) => r.id === selectedItemId)
-        if (match) {
-          setExistingReport(match)
-          loadReportIntoGrid(match)
-          setPropertyInfo({
-            id: match.property.id,
-            title: match.property.title,
-            type: '',
-            commune: match.property.commune || '',
-            images: [],
-            owner: { id: '', firstName: '', lastName: '', phone: '', email: '' },
-          })
-          setInitialLoading(false)
-          return
-        }
-      } catch {
-        // Continue
       }
 
       // Otherwise, load property info for creating a new report
