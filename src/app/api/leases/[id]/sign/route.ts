@@ -6,6 +6,7 @@ import { notify, notifyLeaseActivated } from '@/lib/notify'
 import { generateAndUploadLeasePdf } from '@/lib/generate-and-upload-lease-pdf'
 import { uploadFromBase64, BUCKETS, getPublicUrl } from '@/lib/supabase/storage'
 
+
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
@@ -38,10 +39,10 @@ function mapLease(lease: Record<string, unknown>) {
 }
 
 /**
- * Download the current lease PDF from Storage and calculate its SHA256 hash.
- * Returns { buffer, hash, publicUrl } or null if no contract exists.
+ * Download the current lease PDF from Storage and convert to base64.
+ * Returns { buffer, base64, publicUrl } or null if no contract exists.
  */
-async function getCurrentPdfInfo(supabase: ReturnType<typeof getSupabaseAdminClient>, leaseId: string, lease: any): Promise<{ buffer: Buffer; hash: string; publicUrl: string } | null> {
+async function getCurrentPdfInfo(supabase: ReturnType<typeof getSupabaseAdminClient>, leaseId: string, lease: any): Promise<{ buffer: Buffer; base64: string; publicUrl: string } | null> {
   // If no contract_url, generate the initial PDF
   let contractUrl = lease.contract_url
   if (!contractUrl) {
@@ -60,11 +61,9 @@ async function getCurrentPdfInfo(supabase: ReturnType<typeof getSupabaseAdminCli
     }
     const arrayBuffer = await res.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
+    const base64 = buffer.toString('base64')
 
-    // Calculate SHA256 hash
-    const hash = crypto.createHash('sha256').update(buffer).digest('hex')
-
-    return { buffer, hash, publicUrl: contractUrl }
+    return { buffer, base64, publicUrl: contractUrl }
   } catch (err) {
     console.error('Error downloading PDF:', err)
     return null
@@ -94,11 +93,6 @@ export async function POST(
     const { id } = await params
     const body = await req.json()
     const { otpCode, signatureImage } = body
-
-    if (!otpCode) {
-      const resp = NextResponse.json({ error: 'Code OTP requis' }, { status: 400 })
-      return applyCookies(resp)
-    }
 
     const supabase = getSupabaseAdminClient()
 
@@ -135,37 +129,9 @@ export async function POST(
       return applyCookies(resp)
     }
 
-    // ── Vérifier que l'utilisateur a un certificat CRYPTONEO actif ──
-    const { data: aliasRaw } = await supabase
-      .from('signature_aliases')
-      .select('alias_certificat')
-      .eq('user_id', userId)
-      .eq('active', true)
-      .maybeSingle()
-
-    const alias = aliasRaw as { alias_certificat: string } | null
-
-    if (!alias?.alias_certificat) {
-      const resp = NextResponse.json(
-        { error: 'Vous devez d\'abord générer votre certificat de signature électronique.' },
-        { status: 400 }
-      )
-      return applyCookies(resp)
-    }
-
-    // ── Obtenir le PDF à signer ──
-    const pdfInfo = await getCurrentPdfInfo(supabase, id, lease)
-    if (!pdfInfo) {
-      const resp = NextResponse.json(
-        { error: 'Impossible de générer le document à signer. Veuillez réessayer.' },
-        { status: 500 }
-      )
-      return applyCookies(resp)
-    }
-
-    // ── Appeler CRYPTONEO signFileBatch via la Edge Function ──
-    const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign`
-    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+    // Seul le propriétaire valide via CRYPTONEO
+    let operationId: string | undefined
+    let newContractUrl: string | null = null
 
     const { data: property } = await supabase
       .from('properties')
@@ -173,71 +139,103 @@ export async function POST(
       .eq('id', lease.property_id)
       .maybeSingle()
 
-    const signRequest = [{
-      codeDoc: `bail_${id}_${isOwner ? 'owner' : 'tenant'}`,
-      urlDoc: pdfInfo.publicUrl,
-      hashDoc: pdfInfo.hash,
-      visibiliteImage: true,
-      messageImage: isOwner ? 'Signé par le propriétaire' : 'Signé par le locataire',
-      lieuSignature: property?.city || 'Abidjan',
-      motifSignature: `Signature électronique du bail de location - ${property?.title || ''}`,
-    }]
+    if (isOwner) {
+      if (!otpCode) {
+        const resp = NextResponse.json({ error: 'Code OTP requis' }, { status: 400 })
+        return applyCookies(resp)
+      }
 
-    const signRes = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${bearerToken}`,
-        'Content-Type': 'application/json',
-        ...(accessToken ? {} : { 'x-user-id': userId }),
-      },
-      body: JSON.stringify({
-        otp: otpCode,
-        signRequest,
-      }),
-    })
+      // ── Obtenir le PDF à signer ──
+      const pdfInfo = await getCurrentPdfInfo(supabase, id, lease)
+      if (!pdfInfo) {
+        const resp = NextResponse.json(
+          { error: 'Impossible de générer le document à signer. Veuillez réessayer.' },
+          { status: 500 }
+        )
+        return applyCookies(resp)
+      }
 
-    const signResult = await signRes.json()
+      // ── Récupérer les infos du signataire (propriétaire) ──
+      const { data: ownerInfo } = await supabase
+        .from('users')
+        .select('first_name, last_name, email, phone')
+        .eq('id', userId)
+        .single()
 
-    if (!signRes.ok) {
-      const errorMsg = signResult?.error || signResult?.statusMessage || 'Erreur CRYPTONEO lors de la signature'
-      const resp = NextResponse.json({ error: errorMsg }, { status: 400 })
-      return applyCookies(resp)
-    }
+      // ── Appeler CRYPTONEO signFileBatch via la Edge Function ──
+      const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign`
+      const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
 
-    const operationId: string | undefined = signResult?.operationId || signResult?.data?.operationId
-    if (!operationId) {
-      const resp = NextResponse.json({ error: 'CRYPTONEO n\'a pas retourné d\'operationId' }, { status: 500 })
-      return applyCookies(resp)
-    }
+      const signRequest = [{
+        fileName: `bail_${id}_owner.pdf`,
+        base64: pdfInfo.base64,
+        urlDoc: pdfInfo.publicUrl,
+        signataireNom: ownerInfo?.last_name || '',
+        signatairePrenom: ownerInfo?.first_name || '',
+        signataireEmail: ownerInfo?.email || '',
+        signatairePhone: ownerInfo?.phone || '',
+        visibleSignature: true,
+      }]
 
-    // ── Récupérer le PDF signé depuis CRYPTONEO ──
-    let signedPdfBuffer: Buffer | null = null
-    try {
-      const signedFileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/signed-file?fileName=${encodeURIComponent(operationId)}`
-      const fileRes = await fetch(signedFileUrl, {
+      const signRes = await fetch(functionUrl, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${bearerToken}`,
+          'Content-Type': 'application/json',
           ...(accessToken ? {} : { 'x-user-id': userId }),
         },
+        body: JSON.stringify({
+          otp: otpCode,
+          signRequest,
+        }),
       })
 
-      if (fileRes.ok) {
-        const arrayBuffer = await fileRes.arrayBuffer()
-        signedPdfBuffer = Buffer.from(arrayBuffer)
+      const signResult = await signRes.json()
+
+      if (!signRes.ok) {
+        const errorMsg = signResult?.error || signResult?.statusMessage || 'Erreur CRYPTONEO lors de la signature'
+        const resp = NextResponse.json({ error: errorMsg }, { status: 400 })
+        return applyCookies(resp)
       }
-    } catch (err) {
-      console.warn('Could not retrieve signed PDF from CRYPTONEO:', err)
-    }
 
-    // ── Uploader le PDF signé dans Storage ──
-    const version = isOwner ? 'owner_signed' : 'tenant_signed'
-    let newContractUrl: string | null = null
+      operationId = signResult?.operationId || signResult?.data?.operationId
+      const signedFileName = signResult?.signedFileName || signResult?.data?.signedFileName
 
-    if (signedPdfBuffer) {
-      newContractUrl = await uploadSignedPdf(signedPdfBuffer, id, `${version}_cryptoneo`)
+      if (!operationId) {
+        const resp = NextResponse.json({ error: 'CRYPTONEO n\'a pas retourné d\'operationId' }, { status: 500 })
+        return applyCookies(resp)
+      }
+
+      // ── Récupérer le PDF signé depuis CRYPTONEO ──
+      let signedPdfBuffer: Buffer | null = null
+      if (signedFileName) {
+        try {
+          const signedFileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/signed-file/${encodeURIComponent(signedFileName)}`
+          const fileRes = await fetch(signedFileUrl, {
+            headers: {
+              'Authorization': `Bearer ${bearerToken}`,
+              ...(accessToken ? {} : { 'x-user-id': userId }),
+            },
+          })
+
+          if (fileRes.ok) {
+            const arrayBuffer = await fileRes.arrayBuffer()
+            signedPdfBuffer = Buffer.from(arrayBuffer)
+          }
+        } catch (err) {
+          console.warn('Could not retrieve signed PDF from CRYPTONEO:', err)
+        }
+      }
+
+      // ── Uploader le PDF signé dans Storage ──
+      if (signedPdfBuffer) {
+        newContractUrl = await uploadSignedPdf(signedPdfBuffer, id, 'owner_signed_cryptoneo')
+      } else {
+        newContractUrl = await generateAndUploadLeasePdf(id, 'owner_signed')
+      }
     } else {
-      // Fallback: generate PDF with signature image locally
-      newContractUrl = await generateAndUploadLeasePdf(id, isOwner ? 'owner_signed' : 'tenant_signed')
+      // Locataire : signature simple sans CRYPTONEO
+      newContractUrl = await generateAndUploadLeasePdf(id, 'tenant_signed')
     }
 
     // ── Mettre à jour le bail ──
@@ -296,9 +294,9 @@ export async function POST(
         tenant_signed_at: now.toISOString(),
         tenant_sign_otp: signOtp,
         tenant_signature_image: signatureImage || null,
-        cryptoneo_operation_id: operationId,
         updated_at: now.toISOString(),
       }
+      if (operationId) updateData.cryptoneo_operation_id = operationId
       if (newContractUrl) updateData.contract_url = newContractUrl
       if (lease.owner_signed_at) {
         updateData.status = 'ACTIVE'
@@ -328,7 +326,7 @@ export async function POST(
         title: lease.owner_signed_at ? 'Bail signé et activé' : 'Le locataire a signé le bail',
         message: lease.owner_signed_at
           ? `Le bail pour "${property?.title || ''}" est maintenant actif. Les deux parties ont signé via CRYPTONEO.`
-          : `Le locataire a signé le bail pour "${property?.title || ''}" via CRYPTONEO.`,
+          : `Le locataire a signé le bail pour "${property?.title || ''}".`,
         actionUrl: 'my-leases',
         entityId: lease.id,
       })

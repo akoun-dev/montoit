@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import {
-  FileSignature, Building2, User, AlertTriangle, Loader2, Check, X,
+  FileSignature, Building2, User, AlertTriangle, Loader2, Check, X, Send,
   Download, Eye, PenLine, Plus, ChevronRight, ChevronLeft, Search, Clock,
   ShieldCheck, FileText, CalendarDays, Banknote, PenTool, CheckCircle2, Bell, Mail
 } from 'lucide-react'
@@ -40,6 +40,7 @@ import { apiFetch } from '@/lib/capacitor'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { SignaturePad } from '@/components/ui/signature-pad'
+import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -126,9 +127,14 @@ export function EnhancedLeases() {
   const [allLeases, setAllLeases] = useState<LeaseItem[]>([])
   const [properties, setProperties] = useState<PropertyItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   // Create lease state
   const [createStep, setCreateStep] = useState(0)
+  // Search & filter
+  const [search, setSearch] = useState('')
+  const [propertyFilter, setPropertyFilter] = useState('all')
+
   const [selectedPropertyId, setSelectedPropertyId] = useState('')
   const [rentalFiles, setRentalFiles] = useState<RentalFileItem[]>([])
   const [selectedRentalFileId, setSelectedRentalFileId] = useState('')
@@ -185,6 +191,7 @@ export function EnhancedLeases() {
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) { setAllLeases([]); return }
       setAllLeases([])
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -362,6 +369,24 @@ export function EnhancedLeases() {
     }
   }
 
+  const handleSendForSignature = async (lease: LeaseItem) => {
+    try {
+      await authFetch(`/api/leases/${lease.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'modify' }),
+      })
+      toast.success('Bail envoyé pour signature')
+      fetchData()
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message || 'Erreur lors de l\'envoi')
+      } else {
+        toast.error('Erreur lors de l\'envoi pour signature')
+      }
+    }
+  }
+
   const handleModifyLease = async () => {
     if (!modifyLease) return
     setModifying(true)
@@ -434,13 +459,38 @@ export function EnhancedLeases() {
   // ─── Loading ────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
+        <div><div className="h-8 w-48 bg-muted animate-pulse rounded" /><div className="h-4 w-64 bg-muted animate-pulse rounded mt-2" /></div>
+        <div className="flex gap-2">{[1,2,3].map((i) => <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-lg" />)}</div>
         {[1, 2, 3].map((i) => (
           <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />
         ))}
       </div>
     )
   }
+
+  // ─── Error ──────────────────────────────────────────────────────────────
+  if (error) return <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6"><div><h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes baux</h1><p className="text-muted-foreground mt-1">Impossible de charger les baux</p></div><Card className="border-amber-200 bg-amber-50"><CardContent className="p-4"><p className="text-sm text-amber-700">Impossible de charger. Veuillez réessayer.</p></CardContent></Card></motion.div>
+
+  // ─── Filtered list ─────────────────────────────────────────────────────
+  const filteredLeases = (list: LeaseItem[]) => {
+    return list.filter((l) => {
+      if (propertyFilter !== 'all' && l.property.id !== propertyFilter) return false
+      if (search) {
+        const q = search.toLowerCase()
+        const tenantName = `${l.tenant.firstName} ${l.tenant.lastName}`.toLowerCase()
+        const propTitle = l.property.title.toLowerCase()
+        if (!tenantName.includes(q) && !propTitle.includes(q)) return false
+      }
+      return true
+    })
+  }
+
+  const leaseStats = [
+    { key: 'active', label: 'Actifs', count: activeLeases.length },
+    { key: 'pending', label: 'En attente', count: pendingLeases.length },
+    { key: 'archived', label: 'Archivés', count: archivedLeases.length },
+  ]
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -449,6 +499,58 @@ export function EnhancedLeases() {
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes baux</h1>
         <p className="text-muted-foreground mt-1">Gestion des contrats de location</p>
+      </div>
+
+      {/* Stats cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {leaseStats.map((s) => (
+          <button
+            key={s.key}
+            onClick={() => setActiveTab(s.key)}
+            className={cn(
+              'p-3 rounded-xl border text-left transition-all',
+              activeTab === s.key
+                ? 'border-brand-500 bg-brand-50 shadow-sm'
+                : 'border-border bg-card hover:bg-muted/50'
+            )}
+          >
+            <p className={cn(
+              'text-2xl font-bold',
+              activeTab === s.key ? 'text-brand-600' : 'text-foreground'
+            )}>{s.count}</p>
+            <p className={cn(
+              'text-xs mt-0.5',
+              activeTab === s.key ? 'text-brand-600 font-medium' : 'text-muted-foreground'
+            )}>{s.label}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par locataire ou bien..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-10"
+          />
+        </div>
+        {properties.length > 1 && (
+          <Select value={propertyFilter} onValueChange={setPropertyFilter}>
+            <SelectTrigger className="w-full sm:w-[220px] h-10">
+              <Building2 className="size-4 mr-2 shrink-0" />
+              <SelectValue placeholder="Tous les biens" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les biens</SelectItem>
+              {properties.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -484,7 +586,7 @@ export function EnhancedLeases() {
         {/* ─── Active Leases Tab ─────────────────────────────────────────── */}
         <TabsContent value="active" className="mt-4">
           {activeLeases.length === 0 ? (
-            <Card className="border-border">
+            <Card className="border-dashed border-border bg-muted/50">
               <CardContent className="py-12 text-center">
                 <FileSignature className="size-12 text-muted-foreground/50 mx-auto mb-4" />
                 <p className="text-muted-foreground">Aucun bail actif</p>
@@ -520,14 +622,14 @@ export function EnhancedLeases() {
         {/* ─── Pending Leases Tab ────────────────────────────────────────── */}
         <TabsContent value="pending" className="mt-4">
           {pendingLeases.length === 0 ? (
-            <Card className="border-border">
+            <Card className="border-dashed border-border bg-muted/50">
               <CardContent className="py-12 text-center">
                 <Clock className="size-12 text-muted-foreground/50 mx-auto mb-4" />
                 <p className="text-muted-foreground">Aucun bail en attente de signature</p>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {pendingLeases.map((lease, idx) => (
                 <motion.div
                   key={lease.id}
@@ -535,104 +637,140 @@ export function EnhancedLeases() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
                 >
-                  <Card className="border-border hover:shadow-md transition-shadow">
-                    <CardContent className="p-5">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-start gap-3">
-                          <div className="shrink-0 mt-0.5">
-                            {lease.tenant.avatarUrl ? (
-                              <img
-                                src={lease.tenant.avatarUrl}
-                                alt={`${lease.tenant.firstName} ${lease.tenant.lastName}`}
-                                className="size-10 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="size-10 rounded-full bg-brand-50 flex items-center justify-center">
-                                <User className="size-5 text-brand-500" />
-                              </div>
+                  <Card
+                    className="border-border hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => handleOpenDetail(lease)}
+                  >
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex items-start gap-4">
+                        {/* Property thumbnail */}
+                        <div className="hidden sm:flex size-14 rounded-lg bg-muted overflow-hidden shrink-0">
+                          {lease.property.images?.[0]?.url ? (
+                            <img src={lease.property.images[0].url} alt="" className="size-full object-cover" />
+                          ) : (
+                            <div className="size-full flex items-center justify-center">
+                              <Building2 className="size-6 text-muted-foreground/40" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          {/* Top row */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                            <div className="min-w-0">
+                              <h3 className="font-semibold text-foreground truncate">{lease.property.title}</h3>
+                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <User className="size-3" />
+                                {lease.tenant.firstName} {lease.tenant.lastName}
+                              </p>
+                            </div>
+                            {statusBadge(lease.status)}
+                          </div>
+
+                          {/* Signature status */}
+                          <div className="flex items-center gap-3 mb-2 text-xs">
+                            <span className={cn('flex items-center gap-1', lease.ownerSignedAt ? 'text-emerald-600' : 'text-muted-foreground')}>
+                              <Check className={cn('size-3', lease.ownerSignedAt ? 'text-emerald-600' : 'text-muted-foreground/40')} />
+                              Propriétaire
+                            </span>
+                            <span className={cn('flex items-center gap-1', lease.tenantSignedAt ? 'text-emerald-600' : 'text-muted-foreground')}>
+                              <Check className={cn('size-3', lease.tenantSignedAt ? 'text-emerald-600' : 'text-muted-foreground/40')} />
+                              Locataire
+                            </span>
+                          </div>
+
+                          {/* Info rows */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                              <Banknote className="size-3.5 shrink-0" />
+                              <span>Loyer {formatFCFA(lease.monthlyRent)}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <CalendarDays className="size-3.5 shrink-0" />
+                              <span>Début {new Date(lease.startDate).toLocaleDateString('fr-FR')}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="size-3.5 shrink-0" />
+                              <span>Fin {new Date(lease.endDate).toLocaleDateString('fr-FR')}</span>
+                            </div>
+                          </div>
+
+                          {/* Quick actions */}
+                          <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            {!lease.ownerSignedAt && lease.status === 'DRAFT' && (
+                              <Button
+                                size="sm"
+                                className="h-8 bg-brand-500 hover:bg-brand-600 text-white gap-1"
+                                onClick={() => handleSendForSignature(lease)}
+                              >
+                                <Send className="size-3.5" />
+                                <span className="hidden lg:inline">Envoyer</span>
+                              </Button>
                             )}
+                            {!lease.ownerSignedAt && lease.status === 'PENDING_SIGNATURE' && (
+                              <Button
+                                size="sm"
+                                className="h-8 bg-brand-500 hover:bg-brand-600 text-white gap-1"
+                                onClick={() => { setSignLease(lease); setSignDialogOpen(true) }}
+                              >
+                                <ShieldCheck className="size-3.5" />
+                                <span className="hidden lg:inline">Signer</span>
+                              </Button>
+                            )}
+                            {!lease.ownerSignedAt && (lease.status === 'DRAFT' || lease.status === 'PENDING_SIGNATURE') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 gap-1"
+                                onClick={() => handleOpenModify(lease)}
+                              >
+                                <PenLine className="size-3.5" />
+                                <span className="hidden lg:inline">Modifier</span>
+                              </Button>
+                            )}
+                            {!lease.ownerSignedAt && !lease.tenantSignedAt && (lease.status === 'DRAFT' || lease.status === 'PENDING_SIGNATURE') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 border-red-200 text-red-600 hover:bg-red-50 gap-1"
+                                onClick={() => handleDeleteLease(lease.id)}
+                              >
+                                <X className="size-3.5" />
+                                <span className="hidden lg:inline">Supprimer</span>
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 gap-1"
+                              onClick={async () => {
+                                try {
+                                  const res = await apiFetch(`/api/leases/${lease.id}/contract?format=pdf`)
+                                  if (!res.ok) return toast.error('Erreur lors du téléchargement')
+                                  const blob = await res.blob()
+                                  const url = URL.createObjectURL(blob)
+                                  const a = document.createElement('a')
+                                  a.href = url; a.download = `Bail_${lease.property?.title || 'contrat'}.pdf`
+                                  document.body.appendChild(a); a.click()
+                                  document.body.removeChild(a); URL.revokeObjectURL(url)
+                                  toast.success('Contrat téléchargé')
+                                } catch { toast.error('Erreur lors du téléchargement') }
+                              }}
+                            >
+                              <Download className="size-3.5" />
+                              <span className="hidden lg:inline">Bail</span>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 gap-1"
+                              onClick={() => handleOpenDetail(lease)}
+                            >
+                              <Eye className="size-3.5" />
+                              <span className="hidden lg:inline">Détails</span>
+                            </Button>
                           </div>
-                          <div>
-                            <h3 className="font-semibold text-foreground">{lease.property.title}</h3>
-                            <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <User className="size-3.5" /> {lease.tenant.firstName} {lease.tenant.lastName}
-                            </p>
-                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {statusBadge(lease.status)}
-                        </div>
-                      </div>
-
-                      {/* Signature status */}
-                      <div className="p-3 rounded-lg bg-muted mb-3 space-y-1.5">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">État des signatures</p>
-                        <SignatureStatus signed={!!lease.ownerSignedAt} label="Propriétaire" />
-                        <SignatureStatus signed={!!lease.tenantSignedAt} label="Locataire" />
-                      </div>
-
-                      {/* Lease terms */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-lg bg-muted mb-3">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Loyer</p>
-                          <p className="text-sm font-semibold">{formatFCFA(lease.monthlyRent)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Charges</p>
-                          <p className="text-sm font-semibold">{formatFCFA(lease.charges || 0)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Début</p>
-                          <p className="text-sm font-semibold">{new Date(lease.startDate).toLocaleDateString('fr-FR')}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Fin</p>
-                          <p className="text-sm font-semibold">{new Date(lease.endDate).toLocaleDateString('fr-FR')}</p>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex flex-wrap gap-2">
-                        {!lease.ownerSignedAt && lease.status === 'PENDING_SIGNATURE' && (
-                          <Button
-                            size="sm"
-                            className="bg-brand-500 hover:bg-brand-600 text-white gap-1.5"
-                            onClick={() => {
-                              setSignLease(lease)
-                              setSignDialogOpen(true)
-                            }}
-                          >
-                            <ShieldCheck className="size-3.5" /> Signer
-                          </Button>
-                        )}
-                        {!lease.ownerSignedAt && (lease.status === 'DRAFT' || lease.status === 'PENDING_SIGNATURE') && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1.5"
-                            onClick={() => handleOpenModify(lease)}
-                          >
-                            <PenLine className="size-3.5" /> Modifier
-                          </Button>
-                        )}
-                        {!lease.ownerSignedAt && !lease.tenantSignedAt && (lease.status === 'DRAFT' || lease.status === 'PENDING_SIGNATURE') && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50"
-                            onClick={() => handleDeleteLease(lease.id)}
-                          >
-                            <X className="size-3.5" /> Supprimer
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-1.5"
-                          onClick={() => handleOpenDetail(lease)}
-                        >
-                          <Eye className="size-3.5" /> Détails
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -645,14 +783,14 @@ export function EnhancedLeases() {
         {/* ─── Archived Leases Tab ───────────────────────────────────────── */}
         <TabsContent value="archived" className="mt-4">
           {archivedLeases.length === 0 ? (
-            <Card className="border-border">
+            <Card className="border-dashed border-border bg-muted/50">
               <CardContent className="py-12 text-center">
                 <Banknote className="size-12 text-muted-foreground/50 mx-auto mb-4" />
                 <p className="text-muted-foreground">Aucun bail archivé</p>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {archivedLeases.map((lease, idx) => (
                 <motion.div
                   key={lease.id}
@@ -660,50 +798,67 @@ export function EnhancedLeases() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
                 >
-                  <Card className="border-border opacity-80">
-                    <CardContent className="p-5">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-start gap-3">
-                          <div className="shrink-0 mt-0.5">
-                            {lease.tenant.avatarUrl ? (
-                              <img src={lease.tenant.avatarUrl} alt="" className="size-10 rounded-full object-cover grayscale" />
-                            ) : (
-                              <div className="size-10 rounded-full bg-neutral-100 flex items-center justify-center">
-                                <User className="size-5 text-neutral-400" />
-                              </div>
-                            )}
+                  <Card
+                    className="border-border opacity-80 hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => handleOpenDetail(lease)}
+                  >
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex items-start gap-4">
+                        <div className="hidden sm:flex size-14 rounded-lg bg-muted overflow-hidden shrink-0">
+                          {lease.property.images?.[0]?.url ? (
+                            <img src={lease.property.images[0].url} alt="" className="size-full object-cover grayscale" />
+                          ) : (
+                            <div className="size-full flex items-center justify-center">
+                              <Building2 className="size-6 text-muted-foreground/40" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                            <div className="min-w-0">
+                              <h3 className="font-semibold text-foreground truncate">{lease.property.title}</h3>
+                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <User className="size-3" />
+                                {lease.tenant.firstName} {lease.tenant.lastName}
+                              </p>
+                            </div>
+                            {statusBadge(lease.status)}
                           </div>
-                          <div>
-                            <h3 className="font-semibold text-foreground">{lease.property.title}</h3>
-                            <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <User className="size-3.5" /> {lease.tenant.firstName} {lease.tenant.lastName}
-                            </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                              <Banknote className="size-3.5 shrink-0" />
+                              <span>Loyer {formatFCFA(lease.monthlyRent)}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <CalendarDays className="size-3.5 shrink-0" />
+                              <span>Début {new Date(lease.startDate).toLocaleDateString('fr-FR')}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="size-3.5 shrink-0" />
+                              <span>Fin {new Date(lease.endDate).toLocaleDateString('fr-FR')}</span>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <Button size="sm" variant="outline" className="h-8 gap-1" onClick={async () => {
+                              try {
+                                const res = await apiFetch(`/api/leases/${lease.id}/contract?format=pdf`)
+                                if (!res.ok) return toast.error('Erreur lors du téléchargement')
+                                const blob = await res.blob()
+                                const url = URL.createObjectURL(blob)
+                                const a = document.createElement('a')
+                                a.href = url; a.download = `Bail_${lease.property?.title || 'contrat'}.pdf`
+                                document.body.appendChild(a); a.click()
+                                document.body.removeChild(a); URL.revokeObjectURL(url)
+                                toast.success('Contrat téléchargé')
+                              } catch { toast.error('Erreur lors du téléchargement') }
+                            }}>
+                              <Download className="size-3.5" /> Bail
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => handleOpenDetail(lease)}>
+                              <Eye className="size-3.5" /> Détails
+                            </Button>
                           </div>
                         </div>
-                        {statusBadge(lease.status)}
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-lg bg-muted">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Loyer</p>
-                          <p className="text-sm font-semibold">{formatFCFA(lease.monthlyRent)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Charges</p>
-                          <p className="text-sm font-semibold">{formatFCFA(lease.charges || 0)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Début</p>
-                          <p className="text-sm font-semibold">{new Date(lease.startDate).toLocaleDateString('fr-FR')}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Fin</p>
-                          <p className="text-sm font-semibold">{new Date(lease.endDate).toLocaleDateString('fr-FR')}</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => handleOpenDetail(lease)}>
-                          <Eye className="size-3.5" /> Voir détails
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -1048,7 +1203,7 @@ export function EnhancedLeases() {
               {signStep === 'signature'
                 ? <>Dessinez votre signature manuscrite pour le bail de <span className="font-semibold text-foreground">{signLease?.property?.title}</span>.</>
                 : signStep === 'certification'
-                  ? <>Certifiez votre signature avec un code OTP pour <span className="font-semibold text-foreground">{signLease?.property?.title}</span>.</>
+                  ? <>Certifiez votre signature pour <span className="font-semibold text-foreground">{signLease?.property?.title}</span>.</>
                   : <>Suivi de la signature du locataire pour <span className="font-semibold text-foreground">{signLease?.property?.title}</span>.</>
               }
             </DialogDescription>
@@ -1412,37 +1567,35 @@ export function EnhancedLeases() {
 
               {/* Actions */}
               <div className="flex flex-wrap gap-2 pt-2">
-                {(detailLease.ownerSignedAt || detailLease.tenantSignedAt) && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5 border-brand-200 text-brand-600 hover:bg-brand-50"
-                    onClick={async () => {
-                      try {
-                        const res = await apiFetch(`/api/leases/${detailLease.id}/contract?format=pdf`)
-                        if (!res.ok) {
-                          const err = await res.json().catch(() => ({ error: 'Erreur' }))
-                          toast.error(err.error || 'Erreur lors du téléchargement')
-                          return
-                        }
-                        const blob = await res.blob()
-                        const url = URL.createObjectURL(blob)
-                        const a = document.createElement('a')
-                        a.href = url
-                        a.download = `Bail_${detailLease.property?.title || 'contrat'}.pdf`
-                        document.body.appendChild(a)
-                        a.click()
-                        document.body.removeChild(a)
-                        URL.revokeObjectURL(url)
-                        toast.success('Contrat téléchargé')
-                      } catch {
-                        toast.error('Erreur lors du téléchargement')
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 border-brand-200 text-brand-600 hover:bg-brand-50"
+                  onClick={async () => {
+                    try {
+                      const res = await apiFetch(`/api/leases/${detailLease.id}/contract?format=pdf`)
+                      if (!res.ok) {
+                        const err = await res.json().catch(() => ({ error: 'Erreur' }))
+                        toast.error(err.error || 'Erreur lors du téléchargement')
+                        return
                       }
-                    }}
-                  >
-                    <Download className="size-3.5" /> Télécharger le contrat
-                  </Button>
-                )}
+                      const blob = await res.blob()
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `Bail_${detailLease.property?.title || 'contrat'}.pdf`
+                      document.body.appendChild(a)
+                      a.click()
+                      document.body.removeChild(a)
+                      URL.revokeObjectURL(url)
+                      toast.success('Contrat téléchargé')
+                    } catch {
+                      toast.error('Erreur lors du téléchargement')
+                    }
+                  }}
+                >
+                  <Download className="size-3.5" /> Télécharger le contrat
+                </Button>
                 {detailLease.status === 'ACTIVE' && (
                   <>
                     <Button
@@ -1458,7 +1611,45 @@ export function EnhancedLeases() {
                     </Button>
                   </>
                 )}
-                {(detailLease.status === 'DRAFT' || detailLease.status === 'PENDING_SIGNATURE') && !detailLease.ownerSignedAt && (
+                {detailLease.status === 'DRAFT' && !detailLease.ownerSignedAt && (
+                  <>
+                    <Button
+                      size="sm"
+                      className="bg-brand-500 hover:bg-brand-600 text-white gap-1.5"
+                      onClick={() => {
+                        setDetailDialogOpen(false)
+                        handleSendForSignature(detailLease)
+                      }}
+                    >
+                      <Send className="size-3.5" /> Envoyer
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => {
+                        setDetailDialogOpen(false)
+                        handleOpenModify(detailLease)
+                      }}
+                    >
+                      <PenLine className="size-3.5" /> Modifier
+                    </Button>
+                    {!detailLease.ownerSignedAt && !detailLease.tenantSignedAt && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-200 text-red-600 hover:bg-red-50 gap-1.5"
+                        onClick={() => {
+                          setDetailDialogOpen(false)
+                          handleDeleteLease(detailLease.id)
+                        }}
+                      >
+                        <X className="size-3.5" /> Supprimer
+                      </Button>
+                    )}
+                  </>
+                )}
+                {detailLease.status === 'PENDING_SIGNATURE' && !detailLease.ownerSignedAt && (
                   <>
                     <Button
                       size="sm"
@@ -1664,76 +1855,102 @@ function LeaseCard({
   onTerminate: () => void
 }) {
   return (
-    <Card className="border-border hover:shadow-md transition-shadow">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-start gap-3">
-            <div className="shrink-0 mt-0.5">
-              {lease.tenant.avatarUrl ? (
-                <img
-                  src={lease.tenant.avatarUrl}
-                  alt={`${lease.tenant.firstName} ${lease.tenant.lastName}`}
-                  className="size-10 rounded-full object-cover"
-                />
-              ) : (
-                <div className="size-10 rounded-full bg-brand-50 flex items-center justify-center">
-                  <User className="size-5 text-brand-500" />
-                </div>
-              )}
-            </div>
-            <div>
-              <h3 className="font-semibold text-foreground">{lease.property.title}</h3>
-              <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                <User className="size-3.5" /> {lease.tenant.firstName} {lease.tenant.lastName}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge className={lease.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : lease.status === 'TERMINATED' ? 'bg-red-50 text-red-600' : 'bg-neutral-100 text-neutral-600'}>
-              {lease.status === 'ACTIVE' ? 'Actif' : lease.status === 'TERMINATED' ? 'Résilié' : lease.status}
-            </Badge>
-            {lease.paymentStatus === 'late' && (
-              <Badge className="bg-red-50 text-red-600">Retard</Badge>
+    <Card
+      className="border-border hover:shadow-md transition-shadow cursor-pointer"
+      onClick={onDetail}
+    >
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-start gap-4">
+          {/* Property thumbnail */}
+          <div className="hidden sm:flex size-14 rounded-lg bg-muted overflow-hidden shrink-0">
+            {lease.property.images?.[0]?.url ? (
+              <img src={lease.property.images[0].url} alt="" className="size-full object-cover" />
+            ) : (
+              <div className="size-full flex items-center justify-center">
+                <Building2 className="size-6 text-muted-foreground/40" />
+              </div>
             )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="size-8 p-0">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="3" r="1.5" fill="currentColor"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/><circle cx="8" cy="13" r="1.5" fill="currentColor"/></svg>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem className="cursor-pointer" onClick={onDetail}>
-                  <Eye className="size-4 mr-2" /> Voir détails
-                </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer" onClick={() => toast.info('Fonctionnalité PDF à venir')}>
-                  <Download className="size-4 mr-2" /> Télécharger PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+          </div>
+
+          <div className="flex-1 min-w-0">
+            {/* Top row */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-foreground truncate">{lease.property.title}</h3>
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <User className="size-3" />
+                  {lease.tenant.firstName} {lease.tenant.lastName}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {lease.paymentStatus === 'late' && (
+                  <Badge className="bg-red-50 text-red-600">Retard</Badge>
+                )}
+                <Badge className={cn('shrink-0 text-xs w-fit', lease.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : lease.status === 'TERMINATED' ? 'bg-red-50 text-red-600' : 'bg-neutral-100 text-neutral-600')}>
+                  {lease.status === 'ACTIVE' ? 'Actif' : lease.status === 'TERMINATED' ? 'Résilié' : lease.status}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Info rows */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Banknote className="size-3.5 shrink-0" />
+                <span>Loyer {formatFCFA(lease.monthlyRent)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CalendarDays className="size-3.5 shrink-0" />
+                <span>Début {new Date(lease.startDate).toLocaleDateString('fr-FR')}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="size-3.5 shrink-0" />
+                <span>Fin {new Date(lease.endDate).toLocaleDateString('fr-FR')}</span>
+              </div>
+            </div>
+
+            {/* Quick actions */}
+            <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <Button size="sm" variant="outline" className="h-8 gap-1" onClick={onDetail}>
+                <Eye className="size-3.5" />
+                <span className="hidden lg:inline">Détails</span>
+              </Button>
+              <Button size="sm" variant="outline" className="h-8 gap-1" onClick={async () => {
+                try {
+                  const res = await apiFetch(`/api/leases/${lease.id}/contract?format=pdf`)
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({ error: 'Erreur' }))
+                    toast.error(err.error || 'Erreur lors du téléchargement')
+                    return
+                  }
+                  const blob = await res.blob()
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `Bail_${lease.property?.title || 'contrat'}.pdf`
+                  document.body.appendChild(a)
+                  a.click()
+                  document.body.removeChild(a)
+                  URL.revokeObjectURL(url)
+                  toast.success('Contrat téléchargé')
+                } catch {
+                  toast.error('Erreur lors du téléchargement')
+                }
+              }}>
+                <Download className="size-3.5" />
+                <span className="hidden lg:inline">Téléchrager le bail</span>
+              </Button>
+              {lease.status === 'ACTIVE' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 border-red-200 text-red-600 hover:bg-red-50 gap-1"
                   onClick={onTerminate}
                 >
-                  <AlertTriangle className="size-4 mr-2" /> Résilier le bail
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-lg bg-muted">
-          <div>
-            <p className="text-xs text-muted-foreground">Loyer</p>
-            <p className="text-sm font-semibold">{formatFCFA(lease.monthlyRent)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Charges</p>
-            <p className="text-sm font-semibold">{formatFCFA(lease.charges || 0)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Début</p>
-            <p className="text-sm font-semibold">{new Date(lease.startDate).toLocaleDateString('fr-FR')}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Fin</p>
-            <p className="text-sm font-semibold">{new Date(lease.endDate).toLocaleDateString('fr-FR')}</p>
+                  <AlertTriangle className="size-3.5" />
+                  <span className="hidden lg:inline">Résilier</span>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>

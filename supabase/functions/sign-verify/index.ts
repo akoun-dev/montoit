@@ -46,7 +46,7 @@ serve(async (req) => {
       })
     }
 
-    return new Response(JSON.stringify({ results: result?.data?.results || [] }), {
+    return new Response(JSON.stringify({ data: result?.data }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

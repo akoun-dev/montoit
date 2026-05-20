@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,7 +19,7 @@ export async function POST(
 
     const { data: lease } = await (supabase
       .from('leases')
-      .select('id, status, tenant_id, owner_id, tenant:tenant_id(id, first_name, last_name, email), owner:owner_id(id, first_name, last_name), property:property_id(id, title)')
+      .select('id, status, tenant_id, owner_id, tenant:tenant_id(id, first_name, last_name, email), owner:owner_id(id, first_name, last_name, email), property:property_id(id, title)')
       .eq('id', id)
       .maybeSingle() as any)
 
@@ -40,34 +41,36 @@ export async function POST(
       return applyCookies(resp)
     }
 
-    const alreadySigned = lease.owner_id === userId ? !!lease.owner_signed_at : !!lease.tenant_signed_at
+    const isOwner = lease.owner_id === userId
+    const alreadySigned = isOwner ? !!lease.owner_signed_at : !!lease.tenant_signed_at
     if (alreadySigned) {
       const resp = NextResponse.json({ error: 'Vous avez déjà signé ce bail' }, { status: 400 })
       return applyCookies(resp)
     }
 
-    // ── Vérifier que l'utilisateur a un certificat CRYPTONEO actif ──
-    const { data: aliasRaw } = await supabase
-      .from('signature_aliases')
-      .select('alias_certificat')
-      .eq('user_id', userId)
-      .eq('active', true)
-      .maybeSingle()
+    // Récupérer l'email du destinataire
+    let recipientEmail = ''
+    
+    if (isOwner) {
+      recipientEmail = lease.owner?.email || ''
+    } else {
+      // Pour le locataire, utiliser son email depuis les données du bail
+      recipientEmail = lease.tenant?.email || ''
+    }
 
-    const alias = aliasRaw as { alias_certificat: string } | null
-
-    if (!alias?.alias_certificat) {
+    if (!recipientEmail) {
       const resp = NextResponse.json(
-        { error: 'Vous devez d\'abord générer votre certificat de signature électronique. Allez dans vos paramètres pour le créer.' },
+        { error: 'Email du destinataire introuvable' },
         { status: 400 }
       )
       return applyCookies(resp)
     }
 
-    // ── Envoyer l'OTP via CRYPTONEO ──
-    // L'OTP est envoyé par email, pas retourné dans la réponse
+    // Envoyer l'OTP via CRYPTONEO
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign-send-otp`
     const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    console.log('[request-sign-otp] Calling sign-send-otp:', { canal: 'MAIL', email: recipientEmail, userId, isOwner, leaseId: id })
 
     const otpRes = await fetch(functionUrl, {
       method: 'POST',
@@ -78,11 +81,16 @@ export async function POST(
       },
       body: JSON.stringify({
         canal: 'MAIL',
+        email: recipientEmail, // Spécifier l'email du destinataire
       }),
     })
 
+    const otpResponseBody = await otpRes.text()
+    console.log('[request-sign-otp] sign-send-otp response:', { status: otpRes.status, body: otpResponseBody })
+
     if (!otpRes.ok) {
-      const errData = await otpRes.json().catch(() => ({ error: 'Erreur CRYPTONEO' }))
+      let errData: Record<string, unknown> = { error: 'Erreur CRYPTONEO' }
+      try { errData = JSON.parse(otpResponseBody) } catch { /* ignore */ }
       const resp = NextResponse.json(
         { error: errData.error || 'Erreur lors de l\'envoi de l\'OTP CRYPTONEO' },
         { status: 400 }
@@ -91,8 +99,10 @@ export async function POST(
     }
 
     const resp = NextResponse.json({
-      message: 'Un code OTP vous a été envoyé par email. Vérifiez votre boîte de réception.',
-      sentTo: 'email',
+      message: isOwner
+        ? 'Un code OTP vous a été envoyé par email. Vérifiez votre boîte de réception.'
+        : 'Code de vérification envoyé.',
+      sentTo: recipientEmail,
     })
     return applyCookies(resp)
   } catch (error) {
