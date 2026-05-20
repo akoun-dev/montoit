@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   FileSignature, Building2, User, AlertTriangle, Loader2, Check, X,
   Download, Eye, PenLine, Plus, ChevronRight, ChevronLeft, Search, Clock,
-  ShieldCheck, FileText, CalendarDays, Banknote, PenTool, CheckCircle2
+  ShieldCheck, FileText, CalendarDays, Banknote, PenTool, CheckCircle2, Bell
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -151,7 +151,6 @@ export function EnhancedLeases() {
   const [signing, setSigning] = useState(false)
   const [signStep, setSignStep] = useState<'signature' | 'signature_locataire' | 'certification'>('signature')
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
-  const [signatureConfirmed, setSignatureConfirmed] = useState(false)
   const [requestingOtp, setRequestingOtp] = useState(false)
 
   // Detail dialog
@@ -282,7 +281,11 @@ export function EnhancedLeases() {
         body: JSON.stringify({ otpCode: signOtp, signatureImage: signatureDataUrl }),
       })
       toast.success('Bail signé et certifié avec succès')
-      setSignStep('signature_locataire')
+      setSignDialogOpen(false)
+      setSignLease(null)
+      setSignOtp('')
+      setSignStep('signature')
+      setSignatureDataUrl(null)
       fetchData()
     } catch (err) {
       if (err instanceof AuthError) {
@@ -1009,7 +1012,7 @@ export function EnhancedLeases() {
       {/* ─── Sign Dialog ──────────────────────────────────────────────────── */}
       <Dialog open={signDialogOpen} onOpenChange={(open) => {
         setSignDialogOpen(open)
-        if (!open) { setSignOtp(''); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null); setSignatureConfirmed(false) }
+        if (!open) { setSignOtp(''); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null) }
       }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1067,7 +1070,7 @@ export function EnhancedLeases() {
             </div>
 
             {/* Step 1: Signature Propriétaire */}
-            {signStep === 'signature' && !signatureConfirmed && (
+            {signStep === 'signature' && (
               <>
                 <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
                   <p className="text-xs text-blue-700">
@@ -1077,25 +1080,69 @@ export function EnhancedLeases() {
                 <SignaturePad
                   onConfirm={(dataUrl) => {
                     setSignatureDataUrl(dataUrl)
-                    setSignatureConfirmed(true)
+                    setSignStep('signature_locataire')
                   }}
-                  onCancel={() => { setSignDialogOpen(false); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null); setSignatureConfirmed(false) }}
+                  onCancel={() => { setSignDialogOpen(false); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null) }}
                   signatoryRole="Propriétaire"
                 />
               </>
             )}
 
-            {/* Step 1 — Confirmed: preview + Certifier */}
-            {signStep === 'signature' && signatureConfirmed && (
+            {/* Step 2: Signature Locataire */}
+            {signStep === 'signature_locataire' && (
               <div className="space-y-3">
                 {signatureDataUrl && (
                   <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Votre signature :</p>
+                    <p className="text-xs font-medium text-muted-foreground">Votre signature</p>
                     <div className="rounded-lg border border-border bg-white p-2">
                       <img src={signatureDataUrl} alt="Votre signature" className="h-16 w-auto mx-auto object-contain" />
                     </div>
                   </div>
                 )}
+
+                {signLease?.tenantSignedAt ? (
+                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center gap-2">
+                    <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
+                    <p className="text-xs text-emerald-700">
+                      Le locataire a déjà signé ce bail.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-100 flex items-center gap-2">
+                    <Clock className="size-4 text-amber-600 shrink-0" />
+                    <p className="text-xs text-amber-700">
+                      En attente de la signature du locataire. Vous serez notifié lorsqu'il aura signé.
+                    </p>
+                  </div>
+                )}
+
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => setSignStep('certification')}
+                >
+                  <ChevronRight className="size-4" /> Continuer
+                </Button>
+              </div>
+            )}
+
+            {/* Step 3: Certification OTP */}
+            {signStep === 'certification' && (
+              <div className="space-y-3">
+                {signatureDataUrl && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Votre signature</p>
+                    <div className="rounded-lg border border-border bg-white p-2">
+                      <img src={signatureDataUrl} alt="Votre signature" className="h-16 w-auto mx-auto object-contain" />
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+                  <p className="text-xs text-blue-700 flex items-center gap-2">
+                    <Bell className="size-3.5 shrink-0" />
+                    Le locataire sera notifié dès que vous aurez certifié votre signature.
+                  </p>
+                </div>
 
                 {!signOtp && (
                   <Button
@@ -1116,7 +1163,7 @@ export function EnhancedLeases() {
                   <>
                     <div className="p-3 rounded-lg bg-brand-50 border border-brand-100">
                       <p className="text-xs text-brand-700">
-                        Un code OTP a été généré. Saisissez-le ci-dessous pour finaliser votre signature.
+                        Un code OTP a été généré. Saisissez-le ci-dessous pour certifier votre signature.
                       </p>
                     </div>
                     <div>
@@ -1146,84 +1193,22 @@ export function EnhancedLeases() {
               </div>
             )}
 
-            {/* Step 2: Signature Locataire */}
-            {signStep === 'signature_locataire' && (
-              <div className="space-y-3">
-                {signLease?.tenantSignedAt ? (
-                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center gap-2">
-                    <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-                    <p className="text-xs text-emerald-700">
-                      Le locataire a déjà signé ce bail.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-100 flex items-center gap-2">
-                    <Clock className="size-4 text-amber-600 shrink-0" />
-                    <p className="text-xs text-amber-700">
-                      En attente de la signature du locataire. Vous serez notifié lorsqu'il aura signé.
-                    </p>
-                  </div>
-                )}
-
-                {signatureDataUrl && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Ma signature</p>
-                    <div className="rounded-lg border border-border bg-white p-2">
-                      <img src={signatureDataUrl} alt="Signature" className="h-16 w-auto mx-auto object-contain" />
-                    </div>
-                  </div>
-                )}
-
-                <Button
-                  className="w-full gap-2"
-                  onClick={() => setSignStep('certification')}
-                >
-                  <ChevronRight className="size-4" /> Continuer
-                </Button>
-              </div>
-            )}
-
-            {/* Step 3: Certification */}
-            {signStep === 'certification' && (
-              <div className="space-y-3 text-center py-4">
-                <div className="inline-flex items-center justify-center size-16 rounded-full bg-emerald-100 mx-auto">
-                  <CheckCircle2 className="size-8 text-emerald-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground">Bail signé avec succès</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Votre signature a été certifiée électroniquement via CRYPTONEO.
-                    {!signLease?.tenantSignedAt && (
-                      <> Le locataire sera notifié pour signer à son tour.</>
-                    )}
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  className="gap-2"
-                  onClick={() => { setSignDialogOpen(false); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null); setSignatureConfirmed(false); setSignOtp('') }}
-                >
-                  Fermer
-                </Button>
-              </div>
-            )}
-
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            {signStep === 'signature' && signatureConfirmed && (
+            {signStep === 'certification' && (
               <Button
                 variant="outline"
-                onClick={() => { setSignatureConfirmed(false); setSignOtp('') }}
+                onClick={() => setSignStep('signature_locataire')}
                 disabled={signing}
               >
                 Retour
               </Button>
             )}
-            {signStep === 'signature' && !signatureConfirmed && (
+            {signStep === 'signature' && (
               <Button
                 variant="outline"
-                onClick={() => { setSignDialogOpen(false); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null); setSignatureConfirmed(false) }}
+                onClick={() => { setSignDialogOpen(false); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null) }}
               >
                 Annuler
               </Button>
