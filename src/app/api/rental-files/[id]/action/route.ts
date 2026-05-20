@@ -119,6 +119,7 @@ export async function POST(
       const leaseResult: any = await supabase
         .from('leases')
         .insert({
+          id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
           status: 'DRAFT',
           start_date: new Date().toISOString(),
           end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
@@ -149,6 +150,7 @@ export async function POST(
       })
 
       await supabase.from('audit_logs').insert({
+        id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
         action: 'ACCEPT_RENTAL_FILE',
         entity: 'RentalFile',
         entity_id: rFile.id,
@@ -216,6 +218,7 @@ export async function POST(
       })
 
       await supabase.from('audit_logs').insert({
+        id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
         action: 'REJECT_RENTAL_FILE',
         entity: 'RentalFile',
         entity_id: rFile.id,
