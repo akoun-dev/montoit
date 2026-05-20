@@ -105,11 +105,10 @@ export async function GET(
     const steps = [
       { status: 'DRAFT', label: 'Brouillon' },
       { status: 'SUBMITTED', label: 'Soumis' },
-      { status: 'TC_REVIEW', label: 'Examen TC' },
       { status: 'VALIDATED', label: 'Validé' },
     ]
 
-    const statusOrder = ['DRAFT', 'SUBMITTED', 'TC_REVIEW', 'VALIDATED']
+    const statusOrder = ['DRAFT', 'SUBMITTED', 'VALIDATED']
     const currentIndex = statusOrder.indexOf(application.status)
     const isRejected = application.status === 'REJECTED'
     const isExpired = application.status === 'EXPIRED'

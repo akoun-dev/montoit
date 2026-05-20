@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       .select('id')
       .eq('tenant_id', userId)
       .eq('property_id', propertyId)
-      .in('status', ['DRAFT', 'SUBMITTED', 'TC_REVIEW'])
+      .in('status', ['DRAFT', 'SUBMITTED'])
       .maybeSingle()
 
     if (existingApp) {
@@ -449,11 +449,10 @@ function getStatusTimeline(currentStatus: string) {
   const steps = [
     { status: 'DRAFT', label: 'Brouillon' },
     { status: 'SUBMITTED', label: 'Soumis' },
-    { status: 'TC_REVIEW', label: 'Examen TC' },
     { status: 'VALIDATED', label: 'Validé' },
   ]
 
-  const statusOrder = ['DRAFT', 'SUBMITTED', 'TC_REVIEW', 'VALIDATED']
+  const statusOrder = ['DRAFT', 'SUBMITTED', 'VALIDATED']
   const currentIndex = statusOrder.indexOf(currentStatus)
   const isRejected = currentStatus === 'REJECTED'
   const isExpired = currentStatus === 'EXPIRED'

@@ -778,10 +778,9 @@ export function EnhancedRentalFiles() {
                     <div className="flex flex-wrap items-center gap-2">
                       {[
                         { status: 'SUBMITTED', label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-                        { status: 'TC_REVIEW', label: 'Examen TC', color: 'bg-brand-50 text-brand-600 border-brand-200' },
                         { status: 'VALIDATED', label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
                       ].map((step, i) => {
-                        const statusOrder = ['SUBMITTED', 'TC_REVIEW', 'VALIDATED']
+                        const statusOrder = ['SUBMITTED', 'VALIDATED']
                         const currentIdx = statusOrder.indexOf(selectedTenant.status)
                         const stepIdx = statusOrder.indexOf(step.status)
                         const completed = stepIdx < currentIdx
