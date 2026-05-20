@@ -702,211 +702,337 @@ export function EnhancedRentalFiles() {
         </DialogContent>
       </Dialog>
 
-      {/* ─── Tenant Profile Dialog ───────────────────────────────────────────── */}
+      {/* ─── Candidature Detail Modal ─────────────────────────────────────── */}
       <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="flex flex-col w-full h-full sm:h-auto sm:max-w-3xl max-h-dvh sm:max-h-[90vh] rounded-none sm:rounded-lg border-0 sm:border p-0 sm:p-6 overflow-hidden">
+          {/* Mobile drag handle */}
+          <div className="sm:hidden flex justify-center pt-2 pb-1 absolute top-0 left-0 right-0 z-10">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/20" />
+          </div>
+
           {selectedTenant && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50">
-                    {selectedTenant.tenant.avatarUrl ? (
-                      <img
-                        src={selectedTenant.tenant.avatarUrl}
-                        alt=""
-                        className="size-10 rounded-full object-cover"
-                      />
-                    ) : (
-                      <User className="size-5 text-brand-500" />
-                    )}
-                  </div>
+            <div className="flex flex-col flex-1 min-h-0">
+              {/* Sticky header */}
+              <div className="shrink-0 px-4 sm:px-0 pt-10 sm:pt-0 pb-3">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50">
+                      {selectedTenant.tenant.avatarUrl ? (
+                        <img
+                          src={selectedTenant.tenant.avatarUrl}
+                          alt=""
+                          className="size-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <User className="size-5 text-brand-500" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <span className="truncate block">
+                        {selectedTenant.tenant.firstName} {selectedTenant.tenant.lastName}
+                      </span>
+                      <p className="text-sm font-normal text-muted-foreground truncate">
+                        Candidature · {getStatusLabel(selectedTenant.status)}
+                      </p>
+                    </div>
+                  </DialogTitle>
+                </DialogHeader>
+              </div>
+
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto px-4 sm:px-0 pb-4">
+                <div className="space-y-5">
+
+                  {/* Property targeted by this candidature */}
+                  {selectedTenant.leases?.[0]?.property && (
+                    <>
+                      <div>
+                        <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                          <Building2 className="size-4 text-brand-500" />
+                          Bien concerné
+                        </h4>
+                        <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
+                          <div className="size-12 shrink-0 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                            {selectedTenant.leases[0].property.images?.[0]?.url ? (
+                              <img src={selectedTenant.leases[0].property.images[0].url} alt="" className="size-full object-cover" />
+                            ) : (
+                              <Building2 className="size-5 text-neutral-300" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{selectedTenant.leases[0].property.title}</p>
+                            <p className="text-xs text-muted-foreground truncate">{selectedTenant.leases[0].property.address}, {selectedTenant.leases[0].property.city}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <Separator />
+                    </>
+                  )}
+
+                  {/* Status Timeline */}
                   <div>
-                    <span>
-                      {selectedTenant.tenant.firstName} {selectedTenant.tenant.lastName}
-                    </span>
-                    <p className="text-sm font-normal text-muted-foreground">
-                      Profil du candidat
-                    </p>
-                  </div>
-                </DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-5 py-2">
-                {/* Personal Info */}
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <User className="size-4 text-brand-500" />
-                    Informations personnelles
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    {selectedTenant.tenant.phone && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Phone className="size-3.5" />
-                        {selectedTenant.tenant.phone}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="size-3.5" />
-                      {selectedTenant.tenant.email}
+                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <ClipboardCheck className="size-4 text-brand-500" />
+                      Statut de la candidature
+                    </h4>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {[
+                        { status: 'SUBMITTED', label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+                        { status: 'TC_REVIEW', label: 'Examen TC', color: 'bg-brand-50 text-brand-600 border-brand-200' },
+                        { status: 'VALIDATED', label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+                      ].map((step, i) => {
+                        const statusOrder = ['SUBMITTED', 'TC_REVIEW', 'VALIDATED']
+                        const currentIdx = statusOrder.indexOf(selectedTenant.status)
+                        const stepIdx = statusOrder.indexOf(step.status)
+                        const completed = stepIdx < currentIdx
+                        const active = stepIdx === currentIdx
+                        return (
+                          <div key={step.status} className="flex items-center gap-1">
+                            <div className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border ${
+                              completed ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                              active ? step.color : 'bg-muted text-muted-foreground border-border'
+                            }`}>
+                              {completed ? <CheckCircle2 className="size-3.5" /> :
+                               active ? <Eye className="size-3.5" /> :
+                               <div className="size-1.5 rounded-full bg-neutral-300" />}
+                              {step.label}
+                            </div>
+                            {i < 2 && (
+                              <div className={`w-5 h-px ${completed ? 'bg-emerald-300' : 'bg-neutral-200'}`} />
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
-                    {selectedTenant.tenant.city && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <MapPin className="size-3.5" />
-                        {selectedTenant.tenant.city}
-                      </div>
-                    )}
-                    {selectedTenant.tenant.birthDate && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Calendar className="size-3.5" />
-                        {formatDate(selectedTenant.tenant.birthDate)}
+                    {selectedTenant.status === 'REJECTED' && selectedTenant.rejectionReason && (
+                      <div className="mt-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
+                        <p className="text-xs font-medium text-red-700">Motif du refus :</p>
+                        <p className="text-sm text-red-600">{selectedTenant.rejectionReason}</p>
                       </div>
                     )}
                   </div>
-                </div>
 
-                <Separator />
+                  <Separator />
 
-                {/* Financial Info */}
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <CreditCard className="size-4 text-brand-500" />
-                    Situation financière
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    {selectedTenant.monthlyIncome && (
-                      <div>
-                        <p className="text-xs text-muted-foreground">Revenus mensuels</p>
-                        <p className="font-medium text-foreground">
-                          {selectedTenant.monthlyIncome.toLocaleString('fr-FR')} FCFA
-                        </p>
+                  {/* Personal Info */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <User className="size-4 text-brand-500" />
+                      Informations personnelles
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      {selectedTenant.tenant.phone && (
+                        <div className="flex items-center gap-2 text-muted-foreground p-2.5 rounded-lg border border-border bg-muted/20">
+                          <Phone className="size-3.5 shrink-0" />
+                          <span className="truncate">{selectedTenant.tenant.phone}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 text-muted-foreground p-2.5 rounded-lg border border-border bg-muted/20">
+                        <Mail className="size-3.5 shrink-0" />
+                        <span className="truncate">{selectedTenant.tenant.email}</span>
                       </div>
-                    )}
-                    {selectedTenant.employer && (
-                      <div>
-                        <p className="text-xs text-muted-foreground">Employeur</p>
-                        <p className="font-medium text-foreground">{selectedTenant.employer}</p>
-                      </div>
-                    )}
-                    {selectedTenant.employmentType && (
-                      <div>
-                        <p className="text-xs text-muted-foreground">Type d\'emploi</p>
-                        <p className="font-medium text-foreground">{selectedTenant.employmentType}</p>
-                      </div>
-                    )}
-                    {selectedTenant.tenantPaymentScore !== null && (
-                      <div>
+                      {selectedTenant.tenant.city && (
+                        <div className="flex items-center gap-2 text-muted-foreground p-2.5 rounded-lg border border-border bg-muted/20">
+                          <MapPin className="size-3.5 shrink-0" />
+                          <span className="truncate">{selectedTenant.tenant.city}</span>
+                        </div>
+                      )}
+                      {selectedTenant.tenant.birthDate && (
+                        <div className="flex items-center gap-2 text-muted-foreground p-2.5 rounded-lg border border-border bg-muted/20">
+                          <Calendar className="size-3.5 shrink-0" />
+                          <span>{formatDate(selectedTenant.tenant.birthDate)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Financial Info */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <CreditCard className="size-4 text-brand-500" />
+                      Situation financière
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      {selectedTenant.monthlyIncome && (
+                        <div className="p-2.5 rounded-lg border border-border bg-muted/20">
+                          <p className="text-xs text-muted-foreground">Revenus mensuels</p>
+                          <p className="font-medium text-foreground">
+                            {selectedTenant.monthlyIncome.toLocaleString('fr-FR')} FCFA
+                          </p>
+                        </div>
+                      )}
+                      {selectedTenant.employer && (
+                        <div className="p-2.5 rounded-lg border border-border bg-muted/20">
+                          <p className="text-xs text-muted-foreground">Employeur</p>
+                          <p className="font-medium text-foreground truncate">{selectedTenant.employer}</p>
+                        </div>
+                      )}
+                      {selectedTenant.employmentType && (
+                        <div className="p-2.5 rounded-lg border border-border bg-muted/20">
+                          <p className="text-xs text-muted-foreground">Type d'emploi</p>
+                          <p className="font-medium text-foreground">{selectedTenant.employmentType}</p>
+                        </div>
+                      )}
+                      <div className="p-2.5 rounded-lg border border-border bg-muted/20">
                         <p className="text-xs text-muted-foreground">Score de paiement</p>
-                        <p
-                          className={`font-semibold ${
-                            selectedTenant.tenantPaymentScore >= 80
-                              ? 'text-emerald-600'
-                              : selectedTenant.tenantPaymentScore >= 50
-                                ? 'text-amber-600'
-                                : 'text-red-600'
-                          }`}
-                        >
-                          {selectedTenant.tenantPaymentScore}%
+                        <p className={`font-semibold text-lg ${
+                          selectedTenant.tenantPaymentScore === null ? 'text-muted-foreground' :
+                          selectedTenant.tenantPaymentScore >= 80 ? 'text-emerald-600' :
+                          selectedTenant.tenantPaymentScore >= 50 ? 'text-amber-600' : 'text-red-600'
+                        }`}>
+                          {selectedTenant.tenantPaymentScore !== null
+                            ? `${selectedTenant.tenantPaymentScore}%`
+                            : 'N/A'}
                         </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Guarantor */}
+                  {selectedTenant.guarantorName && (
+                    <>
+                      <Separator />
+                      <div>
+                        <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                          <Shield className="size-4 text-brand-500" />
+                          Garant
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                          <div className="p-2.5 rounded-lg border border-border bg-muted/20">
+                            <p className="text-xs text-muted-foreground">Nom</p>
+                            <p className="font-medium text-foreground">{selectedTenant.guarantorName}</p>
+                          </div>
+                          {selectedTenant.guarantorPhone && (
+                            <div className="p-2.5 rounded-lg border border-border bg-muted/20">
+                              <p className="text-xs text-muted-foreground">Téléphone</p>
+                              <p className="font-medium text-foreground">{selectedTenant.guarantorPhone}</p>
+                            </div>
+                          )}
+                          {selectedTenant.guarantorRelation && (
+                            <div className="p-2.5 rounded-lg border border-border bg-muted/20">
+                              <p className="text-xs text-muted-foreground">Relation</p>
+                              <p className="font-medium text-foreground">{selectedTenant.guarantorRelation}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  <Separator />
+
+                  {/* Documents */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <FileText className="size-4 text-brand-500" />
+                      Documents ({selectedTenant.documents.length})
+                    </h4>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {selectedTenant.documents.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Aucun document fourni</p>
+                      ) : (
+                        selectedTenant.documents.map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <FileText className="size-3.5 text-muted-foreground shrink-0" />
+                              <span className="text-sm text-foreground truncate">{doc.name}</span>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 shrink-0 ${getDocStatusColor(doc.status)}`}
+                            >
+                              {getDocStatusLabel(doc.status)}
+                            </Badge>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Other candidatures history */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <ClipboardCheck className="size-4 text-brand-500" />
+                      Historique des candidatures
+                    </h4>
+                    {selectedTenant.tenantOtherFiles.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Aucune autre candidature</p>
+                    ) : (
+                      <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                        {selectedTenant.tenantOtherFiles.map((otherFile) => (
+                          <div
+                            key={otherFile.id}
+                            className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border"
+                          >
+                            <div className="text-sm min-w-0">
+                              <span className="text-foreground font-medium truncate block">
+                                {otherFile.leases[0]?.property?.title || 'Bien non spécifié'}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(otherFile.createdAt)}
+                              </span>
+                            </div>
+                            <Badge className={`shrink-0 ml-2 ${getStatusColor(otherFile.status)}`}>
+                              {getStatusLabel(otherFile.status)}
+                            </Badge>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
-                </div>
 
-                {/* Guarantor */}
-                {selectedTenant.guarantorName && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                        <Shield className="size-4 text-brand-500" />
-                        Garant
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Nom</p>
-                          <p className="font-medium text-foreground">{selectedTenant.guarantorName}</p>
-                        </div>
-                        {selectedTenant.guarantorPhone && (
-                          <div>
-                            <p className="text-xs text-muted-foreground">Téléphone</p>
-                            <p className="font-medium text-foreground">{selectedTenant.guarantorPhone}</p>
-                          </div>
-                        )}
-                        {selectedTenant.guarantorRelation && (
-                          <div>
-                            <p className="text-xs text-muted-foreground">Relation</p>
-                            <p className="font-medium text-foreground">{selectedTenant.guarantorRelation}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <Separator />
-
-                {/* Documents */}
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <FileText className="size-4 text-brand-500" />
-                    Documents ({selectedTenant.documents.length})
-                  </h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {selectedTenant.documents.map((doc) => (
-                      <div
-                        key={doc.id}
-                        className="flex items-center justify-between p-2 rounded-lg bg-muted/50 border border-border"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <FileText className="size-3.5 text-muted-foreground shrink-0" />
-                          <span className="text-sm text-foreground truncate">{doc.name}</span>
-                        </div>
-                        <Badge
+                  {/* Quick actions */}
+                  {['SUBMITTED', 'TC_REVIEW', 'VALIDATED'].includes(selectedTenant.status) && (
+                    <>
+                      <Separator />
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                        <Button
+                          className="flex-1 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white h-11 sm:h-9"
+                          onClick={() => {
+                            setProfileDialogOpen(false)
+                            setSelectedFileId(selectedTenant.id)
+                            setAcceptDialogOpen(true)
+                          }}
+                        >
+                          <CheckCircle2 className="size-4 sm:size-3.5" />
+                          Accepter
+                        </Button>
+                        <Button
                           variant="outline"
-                          className={`text-[10px] px-1.5 py-0 shrink-0 ${getDocStatusColor(doc.status)}`}
+                          className="flex-1 gap-1.5 border-red-200 text-red-600 hover:bg-red-50 h-11 sm:h-9"
+                          onClick={() => {
+                            setProfileDialogOpen(false)
+                            setSelectedFileId(selectedTenant.id)
+                            setRejectDialogOpen(true)
+                          }}
                         >
-                          {getDocStatusLabel(doc.status)}
-                        </Badge>
+                          <XCircle className="size-4 sm:size-3.5" />
+                          Refuser
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1 gap-1.5 h-11 sm:h-9"
+                          onClick={() => {
+                            setProfileDialogOpen(false)
+                            setDashboardSection('messages')
+                          }}
+                        >
+                          <MessageSquare className="size-4 sm:size-3.5" />
+                          Contacter
+                        </Button>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Previous rental history */}
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <ClipboardCheck className="size-4 text-brand-500" />
-                    Historique des candidatures
-                  </h4>
-                  {selectedTenant.tenantOtherFiles.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Aucune autre candidature trouvée</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {selectedTenant.tenantOtherFiles.map((otherFile) => (
-                        <div
-                          key={otherFile.id}
-                          className="flex items-center justify-between p-2 rounded-lg bg-muted/50 border border-border"
-                        >
-                          <div className="text-sm">
-                            <span className="text-foreground">
-                              {otherFile.leases[0]?.property?.title || 'Bien non spécifié'}
-                            </span>
-                            <span className="text-muted-foreground ml-2">
-                              {formatDate(otherFile.createdAt)}
-                            </span>
-                          </div>
-                          <Badge className={getStatusColor(otherFile.status)}>
-                            {getStatusLabel(otherFile.status)}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
+                    </>
                   )}
                 </div>
               </div>
-            </>
+            </div>
           )}
         </DialogContent>
       </Dialog>
