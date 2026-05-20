@@ -43,25 +43,56 @@ export async function POST(
       )
     }
 
-    const { data: rentalFile, error: rentalError } = await supabase
+    const rentalFileResult: any = await supabase
       .from('rental_files')
       .select('*, tenant:users!rental_files_tenant_id_fkey(id, first_name, last_name), leases:leases(id, property:properties(id, owner_id, title))')
       .eq('id', id)
       .single()
 
-    if (rentalError || !rentalFile) {
+    if (rentalFileResult.error || !rentalFileResult.data) {
       return NextResponse.json(
         { error: 'Dossier locatif introuvable' },
         { status: 404 }
       )
     }
 
-    const rFile = rentalFile as any
+    const rFile = rentalFileResult.data as any
 
+    // Find the owner's property — check existing leases first, then applications
     const ownerLease = (rFile.leases || []).find(
       (l: any) => l.property?.owner_id === userId
     )
-    if (!ownerLease) {
+
+    let property: { id: string; owner_id: string; title: string } | null =
+      ownerLease?.property || null
+
+    if (!property) {
+      // No lease yet — check applications table for a candidature on this owner's property
+      const { data: ownerProperties } = await supabase
+        .from('properties')
+        .select('id, title')
+        .eq('owner_id', userId)
+
+      const ownerPropIds = (ownerProperties || []).map(p => p.id)
+
+      if (ownerPropIds.length > 0) {
+        const appResult: any = await supabase
+          .from('applications')
+          .select('property_id')
+          .eq('rental_file_id', id)
+          .in('property_id', ownerPropIds)
+          .maybeSingle()
+
+        if (appResult.data) {
+          const matched = (ownerProperties || []).find(p => p.id === appResult.data.property_id)
+          if (matched) {
+            property = { id: matched.id, owner_id: userId, title: matched.title }
+          }
+        }
+      }
+    }
+
+    if (!property) {
       return NextResponse.json(
         { error: 'Vous n\'êtes pas autorisé à traiter ce dossier' },
         { status: 403 }
@@ -76,16 +107,16 @@ export async function POST(
     }
 
     if (action === 'accept') {
-      const { data: updatedFile } = await supabase
+      const updatedFileResult: any = await supabase
         .from('rental_files')
-        .update({ status: 'VALIDATED' })
+        .update({ status: 'VALIDATED' } as any)
         .eq('id', id)
         .select()
         .single()
 
-      const property = ownerLease.property
+      const updatedFile = updatedFileResult?.data || null
 
-      const { data: lease, error: leaseError } = await supabase
+      const leaseResult: any = await supabase
         .from('leases')
         .insert({
           status: 'DRAFT',
@@ -98,13 +129,15 @@ export async function POST(
           tenant_id: rFile.tenant_id,
           owner_id: userId,
           rental_file_id: rFile.id,
-        })
+        } as any)
         .select()
         .single()
 
-      if (leaseError || !lease) {
-        throw leaseError || new Error('Failed to create lease')
+      if (leaseResult.error || !leaseResult.data) {
+        throw leaseResult.error || new Error('Failed to create lease')
       }
+
+      const lease = leaseResult.data
 
       await notify({
         userId: rFile.tenant_id,
@@ -161,17 +194,17 @@ export async function POST(
         )
       }
 
-      const { data: updatedFile } = await supabase
+      const rejectResult: any = await supabase
         .from('rental_files')
         .update({
           status: 'REJECTED',
           rejection_reason: rejectionReason.trim(),
-        })
+        } as any)
         .eq('id', id)
         .select()
         .single()
 
-      const property = ownerLease.property
+      const updatedFile = rejectResult?.data || null
 
       await notify({
         userId: rFile.tenant_id,
