@@ -210,6 +210,8 @@ export async function GET(req: NextRequest) {
         ownerId: l.owner_id,
         propertyId: l.property_id,
         createdAt: l.created_at,
+        ownerSignedAt: l.owner_signed_at,
+        tenantSignedAt: l.tenant_signed_at,
         tenant: tenant ? {
           id: tenant.id,
           firstName: tenant.first_name,
