@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const statusFilter = searchParams.get('status')
+    const propertyIdFilter = searchParams.get('propertyId')
 
     let query = supabase.from('leases').select('*')
     if (effectiveRole === 'LOCATAIRE') {
@@ -60,6 +61,9 @@ export async function GET(req: NextRequest) {
     }
     if (statusFilter) {
       query = query.eq('status', statusFilter)
+    }
+    if (propertyIdFilter) {
+      query = query.eq('property_id', propertyIdFilter)
     }
     query = query.order('created_at', { ascending: false })
 

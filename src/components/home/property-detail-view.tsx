@@ -899,7 +899,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                 {activeTab === 'commodites' && <CommoditesTab amenities={extras.amenities} />}
                 {activeTab === 'modalites' && <ModalitesTab extras={extras} price={property.price} />}
                 {activeTab === 'contact' && <ContactTab property={property} extras={extras} />}
-                {activeTab === 'reviews' && <ReviewsTab avgRating={avgRating} reviews={reviews} totalReviews={totalReviews} />}
+                {activeTab === 'reviews' && <ReviewsTab avgRating={avgRating} reviews={reviews} totalReviews={totalReviews} propertyId={property.id} ownerId={property.ownerId} />}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -1805,7 +1805,15 @@ function VisitModal({
 
 // ── Reviews Tab ─────────────────────────────────────────────────────────────
 
-function ReviewsTab({ avgRating, reviews, totalReviews }: { avgRating: number; reviews: Review[]; totalReviews: number }) {
+function ReviewsTab({ avgRating, reviews, totalReviews, propertyId, ownerId }: {
+  avgRating: number
+  reviews: Review[]
+  totalReviews: number
+  propertyId: string
+  ownerId: string
+}) {
+  const { isAuthenticated, user } = useAuthStore()
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
   const ratingDistribution = [5, 4, 3, 2, 1].map((star) => ({
     star,
     count: reviews.filter((r) => r.rating === star).length,
@@ -1814,84 +1822,318 @@ function ReviewsTab({ avgRating, reviews, totalReviews }: { avgRating: number; r
       : 0,
   }))
 
-  // Empty state when no reviews
-  if (reviews.length === 0) {
-    return (
-      <div className="pb-24 lg:pb-6">
-        <div className="bg-card rounded-xl border border-border p-8 text-center shadow-sm">
-          <MessageSquare className="size-10 text-muted-foreground mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Aucun avis pour le moment. Soyez le premier à laisser un avis !</p>
-        </div>
-      </div>
-    )
-  }
+  const canReview = isAuthenticated && user && (
+    user.role === 'LOCATAIRE' || user.activeRole === 'LOCATAIRE' ||
+    user.role === 'PROPRIETAIRE' || user.activeRole === 'PROPRIETAIRE'
+  )
 
   return (
     <div className="space-y-6 pb-24 lg:pb-6">
-      {/* Rating summary */}
-      <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-          <div className="text-center">
-            <p className="text-4xl font-bold text-foreground">{avgRating.toFixed(1)}</p>
-            <div className="flex items-center gap-0.5 mt-1">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star
-                  key={i}
-                  className={`size-4 ${i < Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-neutral-200'}`}
-                />
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">{totalReviews} avis</p>
-          </div>
-          <div className="w-full sm:w-auto flex-1 max-w-xs space-y-1.5">
-            {ratingDistribution.map((d) => (
-              <div key={d.star} className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground w-3">{d.star}</span>
-                <Star className="size-3 text-amber-400 fill-amber-400" />
-                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-amber-400 rounded-full transition-all"
-                    style={{ width: `${d.percentage}%` }}
-                  />
-                </div>
-                <span className="text-xs text-muted-foreground w-6">{d.count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <ReviewDialog
+        open={reviewDialogOpen}
+        onOpenChange={setReviewDialogOpen}
+        propertyId={propertyId}
+        ownerId={ownerId}
+      />
 
-      {/* Individual reviews */}
-      {reviews.map((review) => (
-        <div key={review.id} className="bg-card rounded-xl border border-border p-5 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="size-10 rounded-full bg-brand-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
-              {review.avatar}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-foreground">{review.name}</p>
-                  {review.verified && (
-                    <BadgeCheck className="size-4 text-brand-500" />
-                  )}
+      {reviews.length === 0 ? (
+        <div className="bg-card rounded-xl border border-border p-8 text-center shadow-sm">
+          <MessageSquare className="size-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Aucun avis pour le moment. Soyez le premier à laisser un avis !</p>
+          {canReview && (
+            <Button
+              onClick={() => setReviewDialogOpen(true)}
+              className="mt-4 bg-brand-500 hover:bg-brand-600 text-white h-10 text-sm font-semibold"
+            >
+              <Star className="size-4 mr-1.5" />
+              Donner un avis
+            </Button>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Rating summary */}
+          <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+              <div className="text-center">
+                <p className="text-4xl font-bold text-foreground">{avgRating.toFixed(1)}</p>
+                <div className="flex items-center gap-0.5 mt-1">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`size-4 ${i < Math.round(avgRating) ? 'fill-amber-400 text-amber-400' : 'text-neutral-200'}`}
+                    />
+                  ))}
                 </div>
-                <span className="text-[11px] text-muted-foreground shrink-0">{review.date}</span>
+                <p className="text-xs text-muted-foreground mt-1">{totalReviews} avis</p>
               </div>
-              <div className="flex items-center gap-0.5 mt-0.5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`size-3 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-neutral-200'}`}
-                  />
+              <div className="w-full sm:w-auto flex-1 max-w-xs space-y-1.5">
+                {ratingDistribution.map((d) => (
+                  <div key={d.star} className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-3">{d.star}</span>
+                    <Star className="size-3 text-amber-400 fill-amber-400" />
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-amber-400 rounded-full transition-all"
+                        style={{ width: `${d.percentage}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground w-6">{d.count}</span>
+                  </div>
                 ))}
               </div>
-              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{review.comment}</p>
             </div>
+            {canReview && (
+              <div className="mt-4 pt-4 border-t border-border text-center">
+                <Button
+                  onClick={() => setReviewDialogOpen(true)}
+                  variant="outline"
+                  className="text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600 h-10 text-sm font-semibold"
+                >
+                  <Star className="size-4 mr-1.5" />
+                  Donner un avis
+                </Button>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+
+          {/* Individual reviews */}
+          {reviews.map((review) => (
+            <div key={review.id} className="bg-card rounded-xl border border-border p-5 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="size-10 rounded-full bg-brand-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
+                  {review.avatar}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">{review.name}</p>
+                      {review.verified && (
+                        <BadgeCheck className="size-4 text-brand-500" />
+                      )}
+                    </div>
+                    <span className="text-[11px] text-muted-foreground shrink-0">{review.date}</span>
+                  </div>
+                  <div className="flex items-center gap-0.5 mt-0.5">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`size-3 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-neutral-200'}`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{review.comment}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
     </div>
+  )
+}
+
+// ── Review Dialog ────────────────────────────────────────────────────────────
+
+function ReviewDialog({
+  open,
+  onOpenChange,
+  propertyId,
+  ownerId,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  propertyId: string
+  ownerId: string
+}) {
+  const [score, setScore] = useState(0)
+  const [hoverScore, setHoverScore] = useState(0)
+  const [comment, setComment] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState('')
+  const [checkingLease, setCheckingLease] = useState(true)
+  const [leaseId, setLeaseId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) {
+      setTimeout(() => {
+        setScore(0)
+        setHoverScore(0)
+        setComment('')
+        setSubmitting(false)
+        setSubmitted(false)
+        setError('')
+        setLeaseId(null)
+        setCheckingLease(true)
+      }, 200)
+      return
+    }
+
+    let cancelled = false
+    setCheckingLease(true)
+
+    authFetch<{ data?: { id: string }[] }>(`/api/leases?propertyId=${encodeURIComponent(propertyId)}`)
+      .then((data) => {
+        if (cancelled) return
+        const lease = (data.data ?? [])[0]
+        if (lease) {
+          setLeaseId(lease.id)
+        }
+        setCheckingLease(false)
+      })
+      .catch(() => {
+        if (!cancelled) setCheckingLease(false)
+      })
+
+    return () => { cancelled = true }
+  }, [open, propertyId])
+
+  const handleSubmit = async () => {
+    if (!leaseId || score < 1) return
+    setSubmitting(true)
+    setError('')
+
+    try {
+      await authFetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leaseId,
+          toUserId: ownerId,
+          score,
+          comment: comment.trim() || undefined,
+          propertyId,
+        }),
+      })
+
+      setSubmitted(true)
+    } catch {
+      setError('Erreur réseau. Veuillez réessayer.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleOpenChange = (v: boolean) => {
+    if (submitting) return
+    onOpenChange(v)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Star className="size-5 text-brand-500" />
+            {submitted ? 'Avis envoyé !' : 'Donner un avis'}
+          </DialogTitle>
+          <DialogDescription>
+            {submitted
+              ? 'Merci pour votre retour. Votre avis a été enregistré.'
+              : 'Partagez votre expérience avec ce propriétaire.'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {submitted ? (
+          <div className="text-center py-4">
+            <div className="size-14 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+              <CheckCircle2 className="size-7 text-emerald-500" />
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              className="text-brand-500 border-brand-200"
+            >
+              Fermer
+            </Button>
+          </div>
+        ) : checkingLease ? (
+          <div className="text-center py-8">
+            <div className="size-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">Vérification de votre éligibilité...</p>
+          </div>
+        ) : !leaseId ? (
+          <div className="text-center py-6">
+            <AlertCircle className="size-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground mb-4">
+              Vous devez avoir été locataire de ce bien pour laisser un avis.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              className="text-brand-500 border-brand-200"
+            >
+              Fermer
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4 mt-2">
+            {/* Star rating */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-2 block">Note</Label>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onMouseEnter={() => setHoverScore(star)}
+                    onMouseLeave={() => setHoverScore(0)}
+                    onClick={() => setScore(star)}
+                    className="p-0.5 transition-transform hover:scale-110"
+                  >
+                    <Star
+                      className={`size-7 transition-colors ${
+                        star <= (hoverScore || score)
+                          ? 'fill-amber-400 text-amber-400'
+                          : 'text-neutral-200'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Comment */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1 block">Commentaire (optionnel)</Label>
+              <Textarea
+                placeholder="Décrivez votre expérience avec ce propriétaire..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                className="min-h-[100px] bg-card border-border text-sm resize-none"
+              />
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 text-xs text-red-700">
+                {error}
+              </div>
+            )}
+
+            {/* Submit */}
+            <Button
+              onClick={handleSubmit}
+              disabled={score < 1 || submitting}
+              className="w-full bg-brand-500 hover:bg-brand-600 text-white h-11 text-sm font-semibold"
+            >
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <span className="size-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Envoi...
+                </span>
+              ) : (
+                <>
+                  <Star className="size-4 mr-1.5" />
+                  Envoyer mon avis
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
 

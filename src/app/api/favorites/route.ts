@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
 
     const { error } = await admin
       .from('favorites')
-      .insert({ user_id: userId, property_id: propertyId })
+      .insert({ id: crypto.randomUUID(), user_id: userId, property_id: propertyId })
 
     if (error) throw error
 
