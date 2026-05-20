@@ -192,6 +192,7 @@ interface FilterSidebarProps {
   userLocation: { lat: number; lng: number } | null
   radiusFilter: string
   setRadiusFilter: (v: string) => void
+  showHeader?: boolean
 }
 
 function FilterSidebar({
@@ -216,28 +217,30 @@ function FilterSidebar({
   userLocation,
   radiusFilter,
   setRadiusFilter,
+  showHeader = true,
 }: FilterSidebarProps) {
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="size-4 text-brand-500" />
-          <span className="text-sm font-semibold text-foreground">Filtres</span>
-          <Badge className="bg-brand-500 text-white border-0 text-[11px] px-2 py-0.5 hover:bg-brand-500 leading-tight">
-            {resultCount}
-          </Badge>
+      {showHeader && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="size-4 text-brand-500" />
+            <span className="text-sm font-semibold text-foreground">Filtres</span>
+            <Badge className="bg-brand-500 text-white border-0 text-[11px] px-2 py-0.5 hover:bg-brand-500 leading-tight">
+              {resultCount}
+            </Badge>
+          </div>
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="text-[11px] text-brand-500 hover:text-brand-600 transition-colors flex items-center gap-1"
+            >
+              <RotateCcw className="size-3" />
+              Réinitialiser
+            </button>
+          )}
         </div>
-        {hasActiveFilters && (
-          <button
-            onClick={resetFilters}
-            className="text-[11px] text-brand-500 hover:text-brand-600 transition-colors flex items-center gap-1"
-          >
-            <RotateCcw className="size-3" />
-            Réinitialiser
-          </button>
-        )}
-      </div>
+      )}
 
       <div className="h-px bg-border" />
 
@@ -1166,7 +1169,7 @@ export function NosBiensView() {
                 </h2>
               </div>
               <div className="px-4 py-6 overflow-y-auto max-h-[calc(100vh-120px)]">
-                <FilterSidebar {...filterSidebarProps} />
+                <FilterSidebar {...filterSidebarProps} showHeader={false} />
               </div>
               <div className="px-4 pb-4 mt-auto">
                 <Button
