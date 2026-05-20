@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   Eye,
   ArrowLeft,
+  Trash2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -88,6 +89,9 @@ interface PropertyInfo {
 
 interface LeaseInfo {
   id: string
+  status?: string
+  ownerSignedAt?: string | null
+  tenantSignedAt?: string | null
   property: PropertyInfo & { images: Array<{ url: string }> }
 }
 
@@ -334,6 +338,22 @@ export function EnhancedRentalFiles() {
     }
   }
 
+  // ─── Delete lease handler ─────────────────────────────────────────────────
+  const handleDeleteLease = async (leaseId: string) => {
+    if (!confirm('Supprimer le bail ? Cette action est irréversible.')) return
+    try {
+      await authFetch(`/api/leases/${leaseId}`, { method: 'DELETE' })
+      toast.success('Bail supprimé')
+      fetchData()
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message || 'Erreur lors de la suppression')
+      } else {
+        toast.error('Erreur lors de la suppression')
+      }
+    }
+  }
+
   // ─── Loading skeleton ──────────────────────────────────────────────────
   if (loading) {
     return (
@@ -516,6 +536,20 @@ export function EnhancedRentalFiles() {
                               <span className="hidden sm:inline">Refuser</span>
                             </Button>
                           </>
+                        )}
+                        {rf.leases.length > 0 && rf.leases.some(l => !l.ownerSignedAt && !l.tenantSignedAt) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50"
+                            onClick={() => {
+                              const unsignedLease = rf.leases.find(l => !l.ownerSignedAt && !l.tenantSignedAt)
+                              if (unsignedLease) handleDeleteLease(unsignedLease.id)
+                            }}
+                          >
+                            <Trash2 className="size-3.5" />
+                            <span className="hidden sm:inline">Supprimer le bail</span>
+                          </Button>
                         )}
                         <Button
                           size="sm"
@@ -1014,6 +1048,38 @@ export function EnhancedRentalFiles() {
                         >
                           <XCircle className="size-4 sm:size-3.5" />
                           Refuser
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1 gap-1.5 h-11 sm:h-9"
+                          onClick={() => {
+                            setProfileDialogOpen(false)
+                            setDashboardSection('messages')
+                          }}
+                        >
+                          <MessageSquare className="size-4 sm:size-3.5" />
+                          Contacter
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                  {selectedTenant.leases.length > 0 && selectedTenant.leases.some(l => !l.ownerSignedAt && !l.tenantSignedAt) && (
+                    <>
+                      <Separator />
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          className="flex-1 gap-1.5 border-red-200 text-red-600 hover:bg-red-50 h-11 sm:h-9"
+                          onClick={() => {
+                            const unsignedLease = selectedTenant.leases.find(l => !l.ownerSignedAt && !l.tenantSignedAt)
+                            if (unsignedLease) {
+                              handleDeleteLease(unsignedLease.id)
+                              setProfileDialogOpen(false)
+                            }
+                          }}
+                        >
+                          <Trash2 className="size-4 sm:size-3.5" />
+                          Supprimer le bail
                         </Button>
                         <Button
                           variant="outline"

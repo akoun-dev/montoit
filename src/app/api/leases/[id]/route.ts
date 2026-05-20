@@ -126,6 +126,58 @@ export async function GET(
   }
 }
 
+// DELETE /api/leases/[id] — Delete an unsigned lease (DRAFT or PENDING_SIGNATURE without any signature)
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { userId, applyCookies } = await resolveRequestUser(_req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
+    }
+
+    const { id } = await params
+    const supabase = getSupabaseAdminClient()
+
+    const { data: lease } = await supabase
+      .from('leases')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle()
+
+    if (!lease) {
+      const resp = NextResponse.json({ error: 'Bail introuvable' }, { status: 404 })
+      return applyCookies(resp)
+    }
+
+    if (lease.owner_id !== userId) {
+      const resp = NextResponse.json({ error: 'Seul le propriétaire peut supprimer ce bail' }, { status: 403 })
+      return applyCookies(resp)
+    }
+
+    if (lease.owner_signed_at || lease.tenant_signed_at) {
+      const resp = NextResponse.json({ error: 'Impossible de supprimer un bail déjà signé' }, { status: 400 })
+      return applyCookies(resp)
+    }
+
+    if (lease.status !== 'DRAFT' && lease.status !== 'PENDING_SIGNATURE') {
+      const resp = NextResponse.json({ error: 'Seul un bail en brouillon ou en attente de signature peut être supprimé' }, { status: 400 })
+      return applyCookies(resp)
+    }
+
+    await supabase.from('leases').delete().eq('id', id)
+
+    const resp = NextResponse.json({ success: true })
+    return applyCookies(resp)
+  } catch (error) {
+    console.error('Lease DELETE error:', error)
+    const resp = NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return resp
+  }
+}
+
 // PATCH /api/leases/[id] — Sign, modify, or terminate a lease
 export async function PATCH(
   req: NextRequest,

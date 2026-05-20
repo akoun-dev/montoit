@@ -155,7 +155,7 @@ export async function GET(req: NextRequest) {
     const { data: rfLeases } = filteredRentalFileIds.length > 0
       ? await supabase
           .from('leases')
-          .select('id, rental_file_id, property_id')
+          .select('id, rental_file_id, property_id, status, owner_signed_at, tenant_signed_at')
           .in('rental_file_id', filteredRentalFileIds)
       : { data: [] as any[] }
 
@@ -192,6 +192,9 @@ export async function GET(req: NextRequest) {
       const prop = rfPropMap[l.property_id] || { id: l.property_id, title: '', city: '', address: '' }
       leasesByRentalFile[l.rental_file_id].push({
         id: l.id,
+        status: l.status,
+        ownerSignedAt: l.owner_signed_at,
+        tenantSignedAt: l.tenant_signed_at,
         rentalFileId: l.rental_file_id,
         property: {
           ...prop,

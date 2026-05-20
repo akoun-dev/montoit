@@ -346,6 +346,21 @@ export function EnhancedLeases() {
     setModifyDialogOpen(true)
   }
 
+  const handleDeleteLease = async (leaseId: string) => {
+    if (!confirm('Supprimer le bail ? Cette action est irréversible.')) return
+    try {
+      await authFetch(`/api/leases/${leaseId}`, { method: 'DELETE' })
+      toast.success('Bail supprimé')
+      fetchData()
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message || 'Erreur lors de la suppression')
+      } else {
+        toast.error('Erreur lors de la suppression')
+      }
+    }
+  }
+
   const handleModifyLease = async () => {
     if (!modifyLease) return
     setModifying(true)
@@ -598,6 +613,16 @@ export function EnhancedLeases() {
                             onClick={() => handleOpenModify(lease)}
                           >
                             <PenLine className="size-3.5" /> Modifier
+                          </Button>
+                        )}
+                        {!lease.ownerSignedAt && !lease.tenantSignedAt && (lease.status === 'DRAFT' || lease.status === 'PENDING_SIGNATURE') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50"
+                            onClick={() => handleDeleteLease(lease.id)}
+                          >
+                            <X className="size-3.5" /> Supprimer
                           </Button>
                         )}
                         <Button
@@ -1406,6 +1431,19 @@ export function EnhancedLeases() {
                     >
                       <PenLine className="size-3.5" /> Modifier
                     </Button>
+                    {!detailLease.ownerSignedAt && !detailLease.tenantSignedAt && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50"
+                        onClick={() => {
+                          setDetailDialogOpen(false)
+                          handleDeleteLease(detailLease.id)
+                        }}
+                      >
+                        <X className="size-3.5" /> Supprimer
+                      </Button>
+                    )}
                   </>
                 )}
               </div>
