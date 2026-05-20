@@ -490,7 +490,7 @@ export function EnhancedRentalFiles() {
 
                       {/* Actions */}
                       <div className="flex items-center gap-2 shrink-0">
-                        {['SUBMITTED', 'TC_REVIEW', 'VALIDATED'].includes(rf.status) && (
+                        {['SUBMITTED', 'TC_REVIEW', 'VALIDATED'].includes(rf.status) && rf.leases.length === 0 && (
                           <>
                             <Button
                               size="sm"
@@ -989,7 +989,7 @@ export function EnhancedRentalFiles() {
                   </div>
 
                   {/* Quick actions */}
-                  {['SUBMITTED', 'TC_REVIEW', 'VALIDATED'].includes(selectedTenant.status) && (
+                  {['SUBMITTED', 'TC_REVIEW', 'VALIDATED'].includes(selectedTenant.status) && selectedTenant.leases.length === 0 && (
                     <>
                       <Separator />
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
