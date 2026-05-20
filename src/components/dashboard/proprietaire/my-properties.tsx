@@ -31,6 +31,7 @@ interface PropertyItem {
 const typeLabels: Record<string, string> = {
   APPARTEMENT: 'Appartement', MAISON: 'Maison', STUDIO: 'Studio',
   DUPLEX: 'Duplex', PENTHOUSE: 'Penthouse', VILLA: 'Villa',
+  CHAMBRE: 'Chambre', CONCESSION: 'Concession', IMMEUBLE: 'Immeuble',
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {

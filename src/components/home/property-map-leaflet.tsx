@@ -46,6 +46,8 @@ const TYPE_ICONS: Record<string, string> = {
   DUPLEX: '\u{1F3E2}',
   PENTHOUSE: '\u{1F3E2}',
   CHAMBRE: '\u{1F6CF}',
+  CONCESSION: '\u{1F3E2}',
+  IMMEUBLE: '\u{1F3E2}',
   TERRAIN: '\u{1F3D4}',
   LOCAL_COMMERCIAL: '\u{1F3EA}',
 }

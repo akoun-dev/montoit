@@ -71,9 +71,12 @@ const typeLabels: Record<string, string> = {
   MAISON: 'Maison',
   HOUSE: 'Maison',
   STUDIO: 'Studio',
+  CHAMBRE: 'Chambre',
   VILLA: 'Villa',
   DUPLEX: 'Duplex',
   PENTHOUSE: 'Penthouse',
+  CONCESSION: 'Concession',
+  IMMEUBLE: 'Immeuble',
   COMMERCIAL: 'Local commercial',
   LAND: 'Terrain',
 }
@@ -102,8 +105,11 @@ const typeOptions = [
   { value: 'APPARTEMENT', label: 'Appartement' },
   { value: 'MAISON', label: 'Maison' },
   { value: 'STUDIO', label: 'Studio' },
+  { value: 'CHAMBRE', label: 'Chambre' },
   { value: 'VILLA', label: 'Villa' },
   { value: 'DUPLEX', label: 'Duplex' },
+  { value: 'CONCESSION', label: 'Concession' },
+  { value: 'IMMEUBLE', label: 'Immeuble' },
   { value: 'COMMERCIAL', label: 'Local commercial' },
 ]
 

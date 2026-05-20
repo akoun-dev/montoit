@@ -96,6 +96,9 @@ const PROPERTY_TYPE_OPTIONS = [
   { value: 'DUPLEX', label: 'Duplex' },
   { value: 'PENTHOUSE', label: 'Penthouse' },
   { value: 'VILLA', label: 'Villa' },
+  { value: 'CHAMBRE', label: 'Chambre' },
+  { value: 'CONCESSION', label: 'Concession' },
+  { value: 'IMMEUBLE', label: 'Immeuble' },
 ] as const
 
 const TIME_SLOTS = [

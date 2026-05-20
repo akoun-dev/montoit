@@ -1021,9 +1021,12 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
                   <SelectItem value="APPARTEMENT">Appartement</SelectItem>
                   <SelectItem value="MAISON">Maison</SelectItem>
                   <SelectItem value="STUDIO">Studio</SelectItem>
+                  <SelectItem value="CHAMBRE">Chambre</SelectItem>
                   <SelectItem value="DUPLEX">Duplex</SelectItem>
                   <SelectItem value="PENTHOUSE">Penthouse</SelectItem>
                   <SelectItem value="VILLA">Villa</SelectItem>
+                  <SelectItem value="CONCESSION">Concession</SelectItem>
+                  <SelectItem value="IMMEUBLE">Immeuble</SelectItem>
                 </SelectContent>
               </Select>
             </div>

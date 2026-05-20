@@ -71,6 +71,9 @@ const propertyTypeLabels: Record<string, string> = {
   DUPLEX: 'Duplex',
   PENTHOUSE: 'Penthouse',
   VILLA: 'Villa',
+  CHAMBRE: 'Chambre',
+  CONCESSION: 'Concession',
+  IMMEUBLE: 'Immeuble',
 }
 
 const propertyTypeColors: Record<string, string> = {
@@ -80,6 +83,9 @@ const propertyTypeColors: Record<string, string> = {
   DUPLEX: 'bg-sky-100 text-sky-700',
   PENTHOUSE: 'bg-orange-100 text-orange-700',
   VILLA: 'bg-rose-100 text-rose-700',
+  CHAMBRE: 'bg-pink-100 text-pink-700',
+  CONCESSION: 'bg-lime-100 text-lime-700',
+  IMMEUBLE: 'bg-slate-100 text-slate-700',
 }
 
 const statusLabels: Record<string, string> = {
@@ -272,9 +278,12 @@ export function PropertiesModeration() {
             <SelectItem value="APPARTEMENT">Appartement</SelectItem>
             <SelectItem value="MAISON">Maison</SelectItem>
             <SelectItem value="STUDIO">Studio</SelectItem>
+            <SelectItem value="CHAMBRE">Chambre</SelectItem>
             <SelectItem value="DUPLEX">Duplex</SelectItem>
             <SelectItem value="PENTHOUSE">Penthouse</SelectItem>
             <SelectItem value="VILLA">Villa</SelectItem>
+            <SelectItem value="CONCESSION">Concession</SelectItem>
+            <SelectItem value="IMMEUBLE">Immeuble</SelectItem>
           </SelectContent>
         </Select>
       </div>

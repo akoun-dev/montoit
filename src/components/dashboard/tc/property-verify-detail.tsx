@@ -57,9 +57,12 @@ const typeLabels: Record<string, string> = {
   HOUSE: 'Maison',
   MAISON: 'Maison',
   STUDIO: 'Studio',
+  CHAMBRE: 'Chambre',
   VILLA: 'Villa',
   DUPLEX: 'Duplex',
   PENTHOUSE: 'Penthouse',
+  CONCESSION: 'Concession',
+  IMMEUBLE: 'Immeuble',
   COMMERCIAL: 'Local commercial',
   LAND: 'Terrain',
 }

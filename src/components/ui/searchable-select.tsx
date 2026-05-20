@@ -66,16 +66,17 @@ export function SearchableSelect({
         type="button"
         onClick={() => { if (!disabled) setOpen(!open) }}
         disabled={disabled}
+        data-placeholder={!value ? true : undefined}
         className={cn(
-          'flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors',
-          'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          'border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*="text-"])]:text-muted-foreground flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none',
+          'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
           'disabled:cursor-not-allowed disabled:opacity-50',
-          value ? 'text-foreground' : 'text-muted-foreground',
+          value ? 'text-foreground' : '',
           triggerClassName,
         )}
       >
         <span className="truncate">{selectedLabel || placeholder}</span>
-        <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+        <ChevronDown className={cn('size-4 shrink-0 opacity-50 transition-transform', open && 'rotate-180')} />
       </button>
 
       {open && (
