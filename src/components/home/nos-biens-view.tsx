@@ -39,6 +39,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { AnimatedSheet } from '@/components/ui/sheet'
+import { SearchableSelect } from '@/components/ui/searchable-select'
+import { CITIES, getCommunesForCity } from '@/lib/cities'
 import { toast } from 'sonner'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -171,6 +173,8 @@ function PropertyListItemSkeleton() {
 interface FilterSidebarProps {
   typeFilter: string
   setTypeFilter: (v: string) => void
+  cityFilter: string
+  setCityFilter: (v: string) => void
   communeFilter: string
   setCommuneFilter: (v: string) => void
   priceMin: string
@@ -185,7 +189,6 @@ interface FilterSidebarProps {
   hasActiveFilters: boolean
   resetFilters: () => void
   propertyTypes: string[]
-  communes: string[]
   userLocation: { lat: number; lng: number } | null
   radiusFilter: string
   setRadiusFilter: (v: string) => void
@@ -194,6 +197,8 @@ interface FilterSidebarProps {
 function FilterSidebar({
   typeFilter,
   setTypeFilter,
+  cityFilter,
+  setCityFilter,
   communeFilter,
   setCommuneFilter,
   priceMin,
@@ -208,7 +213,6 @@ function FilterSidebar({
   hasActiveFilters,
   resetFilters,
   propertyTypes,
-  communes,
   userLocation,
   radiusFilter,
   setRadiusFilter,
@@ -267,23 +271,39 @@ function FilterSidebar({
         </div>
       </div>
 
-      {/* Ville ou commune */}
+      {/* Ville */}
       <div className="space-y-1.5">
-        <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Ville ou commune</Label>
-        <Select value={communeFilter} onValueChange={setCommuneFilter}>
-          <SelectTrigger className="h-9 bg-card border-border text-xs rounded-md">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Toutes">Toutes</SelectItem>
-            {communes.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Ville</Label>
+        <SearchableSelect
+          options={CITIES.map((c) => ({ value: c.name, label: c.name }))}
+          value={cityFilter}
+          onChange={(v) => {
+            setCityFilter(v)
+            if (v && getCommunesForCity(v).length > 0) {
+              if (!getCommunesForCity(v).includes(communeFilter)) {
+                setCommuneFilter('')
+              }
+            } else {
+              setCommuneFilter('')
+            }
+          }}
+          placeholder="Toutes les villes"
+          className="text-xs"
+        />
       </div>
+      {/* Commune */}
+      {cityFilter && getCommunesForCity(cityFilter).length > 0 && (
+        <div className="space-y-1.5">
+          <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Commune</Label>
+          <SearchableSelect
+            options={getCommunesForCity(cityFilter).map((c) => ({ value: c, label: c }))}
+            value={communeFilter}
+            onChange={setCommuneFilter}
+            placeholder="Toutes les communes"
+            className="text-xs"
+          />
+        </div>
+      )}
 
       {/* Loyer */}
       <div className="space-y-1.5">
@@ -742,12 +762,12 @@ export function NosBiensView() {
 
   // Dynamic filter options from DB
   const [propertyTypes, setPropertyTypes] = useState<string[]>([])
-  const [communes, setCommunes] = useState<string[]>([])
 
   // Filter state — initialize from search params passed from Hero
   const [searchQuery, setSearchQuery] = useState(searchParams.query || '')
   const [typeFilter, setTypeFilter] = useState<string>(searchParams.propertyType || 'Tous')
-  const [communeFilter, setCommuneFilter] = useState<string>(searchParams.commune || 'Toutes')
+  const [cityFilter, setCityFilter] = useState<string>(searchParams.commune || '')
+  const [communeFilter, setCommuneFilter] = useState<string>('')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
   const [roomsMin, setRoomsMin] = useState('0')
@@ -822,10 +842,9 @@ export function NosBiensView() {
         if (!propertiesRes.ok) throw new Error('Erreur lors du chargement')
         const propertiesData = await propertiesRes.json()
         setProperties(propertiesData.properties || [])
-        if (statsRes.ok) {
+          if (statsRes.ok) {
           const statsData = await statsRes.json()
           setPropertyTypes(statsData.propertyTypes || [])
-          setCommunes(statsData.communes || [])
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erreur inconnue')
@@ -870,8 +889,10 @@ export function NosBiensView() {
       }
       // Type
       if (typeFilter !== 'Tous' && p.type !== typeFilter) return false
+      // City
+      if (cityFilter && p.city !== cityFilter) return false
       // Commune
-      if (communeFilter !== 'Toutes' && p.commune !== communeFilter) return false
+      if (communeFilter && p.commune !== communeFilter) return false
       // Price range
       if (priceMin && p.price < Number(priceMin)) return false
       if (priceMax && p.price > Number(priceMax)) return false
@@ -913,7 +934,7 @@ export function NosBiensView() {
     }
 
     return result
-  }, [properties, searchQuery, typeFilter, communeFilter, priceMin, priceMax, roomsMin, meubleOnly, sortBy, userLocation, radiusFilter, propertyDistances])
+  }, [properties, searchQuery, typeFilter, cityFilter, communeFilter, priceMin, priceMax, roomsMin, meubleOnly, sortBy, userLocation, radiusFilter, propertyDistances])
 
   // Map-compatible properties (only those with coordinates)
   const mappableProperties = useMemo(() => (
@@ -922,7 +943,8 @@ export function NosBiensView() {
 
   const hasActiveFilters =
     typeFilter !== 'Tous' ||
-    communeFilter !== 'Toutes' ||
+    cityFilter !== '' ||
+    communeFilter !== '' ||
     priceMin !== '' ||
     priceMax !== '' ||
     roomsMin !== '0' ||
@@ -931,7 +953,8 @@ export function NosBiensView() {
 
   const resetFilters = () => {
     setTypeFilter('Tous')
-    setCommuneFilter('Toutes')
+    setCityFilter('')
+    setCommuneFilter('')
     setPriceMin('')
     setPriceMax('')
     setRoomsMin('0')
@@ -943,6 +966,8 @@ export function NosBiensView() {
   const filterSidebarProps = {
     typeFilter,
     setTypeFilter,
+    cityFilter,
+    setCityFilter,
     communeFilter,
     setCommuneFilter,
     priceMin,
@@ -957,7 +982,6 @@ export function NosBiensView() {
     hasActiveFilters,
     resetFilters,
     propertyTypes,
-    communes,
     userLocation,
     radiusFilter,
     setRadiusFilter,

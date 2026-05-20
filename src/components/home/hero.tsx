@@ -14,13 +14,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
+import { CITIES } from '@/lib/cities'
 
 interface Stats {
   totalProperties: number
   monthlyVisitors: number
   newToday: number
   satisfactionRate: number
-  communes: string[]
   propertyTypes: string[]
 }
 
@@ -51,7 +52,7 @@ export function Hero() {
       .then((res) => res.json())
       .then((data) => setStats(data))
       .catch(() => {
-        setStats({ totalProperties: 0, monthlyVisitors: 0, newToday: 0, satisfactionRate: 0, communes: [], propertyTypes: [] })
+        setStats({ totalProperties: 0, monthlyVisitors: 0, newToday: 0, satisfactionRate: 0, propertyTypes: [] })
       })
   }, [])
 
@@ -131,17 +132,15 @@ export function Hero() {
                 className="pl-9 h-11 bg-muted border-border focus-visible:border-brand-500 focus-visible:ring-brand-500/30"
               />
             </div>
-            <Select value={selectedCommune} onValueChange={setSelectedCommune}>
-              <SelectTrigger className="h-11 w-full sm:w-[180px] bg-muted border-border">
-                <MapPin className="size-4 text-muted-foreground mr-1" />
-                <SelectValue placeholder="Ville, Commune" />
-              </SelectTrigger>
-              <SelectContent>
-                {(stats?.communes ?? []).map((commune) => (
-                  <SelectItem key={commune} value={commune}>{commune}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="w-full sm:w-[200px]">
+              <SearchableSelect
+                options={CITIES.map((c) => ({ value: c.name, label: c.name }))}
+                value={selectedCommune}
+                onChange={setSelectedCommune}
+                placeholder="Ville"
+                triggerClassName="h-11"
+              />
+            </div>
             <Select value={selectedType} onValueChange={setSelectedType}>
               <SelectTrigger className="h-11 w-full sm:w-[200px] bg-muted border-border">
                 <Building2 className="size-4 text-muted-foreground mr-1" />

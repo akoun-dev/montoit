@@ -21,6 +21,8 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { SearchableSelect } from '@/components/ui/searchable-select'
+import { CITIES, getCommunesForCity } from '@/lib/cities'
 
 // ── Property Location Picker (Leaflet map) ────────────────────────────────────
 
@@ -1099,23 +1101,43 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="city" className="text-xs font-medium">Ville <span className="text-red-400">*</span></Label>
-              <Input
-                id="city"
-                placeholder="Abidjan"
+              <SearchableSelect
+                options={CITIES.map((c) => ({ value: c.name, label: c.name }))}
                 value={form.city}
-                onChange={(e) => update('city', e.target.value)}
+                onChange={(v) => {
+                  update('city', v)
+                  if (v && getCommunesForCity(v).length > 0) {
+                    if (!getCommunesForCity(v).includes(form.commune)) {
+                      update('commune', '')
+                    }
+                  } else {
+                    update('commune', '')
+                  }
+                }}
+                placeholder="Sélectionnez une ville"
                 className="h-9 text-sm"
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="commune" className="text-xs font-medium">Commune</Label>
-              <Input
-                id="commune"
-                placeholder="Cocody"
-                value={form.commune}
-                onChange={(e) => update('commune', e.target.value)}
-                className="h-9 text-sm"
-              />
+              {form.city && getCommunesForCity(form.city).length > 0 ? (
+                <SearchableSelect
+                  options={getCommunesForCity(form.city).map((c) => ({ value: c, label: c }))}
+                  value={form.commune}
+                  onChange={(v) => update('commune', v)}
+                  placeholder="Sélectionnez une commune"
+                  className="h-9 text-sm"
+                />
+              ) : (
+                <Input
+                  id="commune"
+                  placeholder={form.city ? 'Aucune commune' : 'Sélectionnez d\'abord une ville'}
+                  value={form.commune}
+                  onChange={(e) => update('commune', e.target.value)}
+                  className="h-9 text-sm"
+                  disabled
+                />
+              )}
             </div>
           </div>
 
