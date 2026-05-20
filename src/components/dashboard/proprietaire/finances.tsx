@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { apiFetch } from '@/lib/capacitor'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -171,10 +172,9 @@ export function OwnerFinances() {
   const handleSendReminder = async (reminder: PaymentReminder) => {
     setSendingReminder(reminder.paymentId)
     try {
-      await fetch('/api/notifications', {
+      await apiFetch('/api/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           userId: reminder.tenant.id,
           type: 'PAYMENT_ALERT',

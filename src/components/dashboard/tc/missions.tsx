@@ -30,6 +30,7 @@ import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useInAppBrowser } from '@/hooks/capacitor'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -219,6 +220,8 @@ export function MissionsManagement() {
   const [agentSearchOpen, setAgentSearchOpen] = useState(false)
   const [propertySearch, setPropertySearch] = useState('')
   const [agentSearch, setAgentSearch] = useState('')
+
+  const { openInWebView } = useInAppBrowser()
 
   // Photo URL input
   const [newPhotoUrl, setNewPhotoUrl] = useState('')
@@ -1155,8 +1158,13 @@ export function MissionsManagement() {
                       {urls.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           {urls.map((url, idx) => (
-                            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                              <div className="aspect-square rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden hover:border-brand-300 transition-colors">
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => openInWebView(url)}
+                              className="block w-full text-left"
+                            >
+                              <div className="aspect-square rounded-lg border border-border bg-muted/30 flex items-center justify-center overflow-hidden hover:border-brand-300 transition-colors cursor-pointer">
                                 <img
                                   src={url}
                                   alt={`Photo ${idx + 1}`}
@@ -1168,7 +1176,7 @@ export function MissionsManagement() {
                                   }}
                                 />
                               </div>
-                            </a>
+                            </button>
                           ))}
                         </div>
                       ) : (

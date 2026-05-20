@@ -64,8 +64,8 @@ export async function GET(
         kitchen: item.kitchen,
         mainBathroom: item.main_bathroom,
         otherBathroom: item.other_bathroom,
-        otherRoom1: item.other_room_1,
-        otherRoom2: item.other_room_2,
+        otherRoom1: item.other_room1,
+        otherRoom2: item.other_room2,
         observations: item.observations,
       }))
 

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   FileSignature, Building2, User, AlertTriangle, Loader2, Check, X,
   Download, Eye, PenLine, Plus, ChevronRight, ChevronLeft, Search, Clock,
-  ShieldCheck, FileText, CalendarDays, Banknote, PenTool, CheckCircle2, Bell
+  ShieldCheck, FileText, CalendarDays, Banknote, PenTool, CheckCircle2, Bell, Mail
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { apiFetch } from '@/lib/capacitor'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { SignaturePad } from '@/components/ui/signature-pad'
@@ -141,7 +142,6 @@ export function EnhancedLeases() {
     specialConditions: '',
   })
   const [creating, setCreating] = useState(false)
-  const [createdOtp, setCreatedOtp] = useState<string | null>(null)
   const [createdLeaseId, setCreatedLeaseId] = useState<string | null>(null)
 
   // Sign dialog
@@ -149,9 +149,10 @@ export function EnhancedLeases() {
   const [signLease, setSignLease] = useState<LeaseItem | null>(null)
   const [signOtp, setSignOtp] = useState('')
   const [signing, setSigning] = useState(false)
-  const [signStep, setSignStep] = useState<'signature' | 'signature_locataire' | 'certification'>('signature')
+  const [signStep, setSignStep] = useState<'signature' | 'certification' | 'signature_locataire'>('signature')
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
   const [requestingOtp, setRequestingOtp] = useState(false)
+  const [otpRequested, setOtpRequested] = useState(false)
 
   // Detail dialog
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
@@ -240,7 +241,7 @@ export function EnhancedLeases() {
   const handleCreateLease = async () => {
     setCreating(true)
     try {
-      const res = await authFetch<{ data: LeaseItem; otpCode: string }>('/api/leases/create', {
+      const res = await authFetch<{ data: LeaseItem }>('/api/leases/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -255,7 +256,6 @@ export function EnhancedLeases() {
           specialConditions: leaseForm.specialConditions || undefined,
         }),
       })
-      setCreatedOtp(res.otpCode)
       setCreatedLeaseId(res.data.id)
       setCreateStep(4)
       toast.success('Bail créé avec succès')
@@ -275,17 +275,16 @@ export function EnhancedLeases() {
     if (!signLease) return
     setSigning(true)
     try {
-      await authFetch(`/api/leases/${signLease.id}/sign`, {
+      const result = await authFetch<{ data: LeaseItem }>(`/api/leases/${signLease.id}/sign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ otpCode: signOtp, signatureImage: signatureDataUrl }),
       })
-      toast.success('Bail signé et certifié avec succès')
-      setSignDialogOpen(false)
-      setSignLease(null)
-      setSignOtp('')
-      setSignStep('signature')
-      setSignatureDataUrl(null)
+      if (result.data) {
+        setSignLease(result.data)
+      }
+      toast.success('Bail signé avec succès ! Le locataire est maintenant notifié.')
+      setSignStep('signature_locataire')
       fetchData()
     } catch (err) {
       if (err instanceof AuthError) {
@@ -302,17 +301,19 @@ export function EnhancedLeases() {
     if (!signLease) return
     setRequestingOtp(true)
     try {
-      const result = await authFetch<{ otpCode: string }>(`/api/leases/${signLease.id}/request-sign-otp`, {
+      const result = await authFetch<{ message: string; sentTo: string }>(`/api/leases/${signLease.id}/request-sign-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
-      setSignOtp(result.otpCode)
-      toast.success('Code OTP généré', { description: 'Utilisez ce code pour certifier votre signature.' })
+      setOtpRequested(true)
+      toast.success('OTP envoyé par email', {
+        description: result.message || 'Vérifiez votre boîte de réception pour le code de certification CRYPTONEO.',
+      })
     } catch (err) {
       if (err instanceof AuthError) {
         toast.error(err.message || 'Erreur OTP')
       } else {
-        toast.error('Erreur lors de la génération OTP')
+        toast.error('Erreur lors de l\'envoi de l\'OTP')
       }
     } finally {
       setRequestingOtp(false)
@@ -427,7 +428,6 @@ export function EnhancedLeases() {
     setSelectedRentalFileId('')
     setSelectedTenantId('')
     setLeaseForm({ monthlyRent: '', charges: '', deposit: '', startDate: '', endDate: '', specialConditions: '' })
-    setCreatedOtp(null)
     setCreatedLeaseId(null)
   }
 
@@ -994,15 +994,15 @@ export function EnhancedLeases() {
                       </div>
                       <h3 className="text-lg font-semibold mb-2">Bail créé avec succès !</h3>
                       <p className="text-sm text-muted-foreground mb-6">
-                        Le bail est en attente de signature. Utilisez le code OTP ci-dessous pour le signer électroniquement.
+                        Le bail est en attente de signature. Cliquez sur "Signer maintenant" pour commencer le processus de signature électronique via CRYPTONEO.
                       </p>
-                      {createdOtp && (
-                        <div className="inline-block p-4 rounded-lg bg-brand-50 border-2 border-dashed border-brand-300 mb-6">
-                          <p className="text-xs text-brand-600 mb-1">Code OTP de signature</p>
-                          <p className="text-2xl font-bold font-mono tracking-widest text-brand-600">{createdOtp}</p>
-                        </div>
-                      )}
-                      <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
+                                      <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 mb-4">
+                        <p className="text-xs text-blue-700 flex items-center gap-2">
+                          <Bell className="size-3.5 shrink-0" />
+                          Le contrat a été généré et stocké dans le cloud. Pour signer, cliquez sur "Signer maintenant". Un code OTP vous sera envoyé par email via CRYPTONEO.
+                        </p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-3 justify-center">
                         <Button
                           className="bg-brand-500 hover:bg-brand-600 text-white gap-2"
                           onClick={() => {
@@ -1010,7 +1010,6 @@ export function EnhancedLeases() {
                               const lease = allLeases.find((l) => l.id === createdLeaseId)
                               if (lease) {
                                 setSignLease(lease)
-                                setSignOtp(createdOtp || '')
                                 setSignDialogOpen(true)
                               }
                             }
@@ -1037,7 +1036,7 @@ export function EnhancedLeases() {
       {/* ─── Sign Dialog ──────────────────────────────────────────────────── */}
       <Dialog open={signDialogOpen} onOpenChange={(open) => {
         setSignDialogOpen(open)
-        if (!open) { setSignOtp(''); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null) }
+        if (!open) { setSignOtp(''); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null); setOtpRequested(false) }
       }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1048,9 +1047,9 @@ export function EnhancedLeases() {
             <DialogDescription className="pt-2">
               {signStep === 'signature'
                 ? <>Dessinez votre signature manuscrite pour le bail de <span className="font-semibold text-foreground">{signLease?.property?.title}</span>.</>
-                : signStep === 'signature_locataire'
-                  ? <>Suivi de la signature du locataire pour <span className="font-semibold text-foreground">{signLease?.property?.title}</span>.</>
-                  : <>Certification finale pour <span className="font-semibold text-foreground">{signLease?.property?.title}</span>.</>
+                : signStep === 'certification'
+                  ? <>Certifiez votre signature avec un code OTP pour <span className="font-semibold text-foreground">{signLease?.property?.title}</span>.</>
+                  : <>Suivi de la signature du locataire pour <span className="font-semibold text-foreground">{signLease?.property?.title}</span>.</>
               }
             </DialogDescription>
           </DialogHeader>
@@ -1060,10 +1059,10 @@ export function EnhancedLeases() {
             <div className="flex items-center gap-2">
               {[
                 { key: 'signature', label: 'Signature (Propriétaire)' },
-                { key: 'signature_locataire', label: 'Signature (Locataire)' },
                 { key: 'certification', label: 'Certification' },
+                { key: 'signature_locataire', label: 'Signature (Locataire)' },
               ].map((step, i) => {
-                const stepOrder = ['signature', 'signature_locataire', 'certification']
+                const stepOrder = ['signature', 'certification', 'signature_locataire']
                 const currentIdx = stepOrder.indexOf(signStep)
                 const stepIdx = stepOrder.indexOf(step.key)
                 const isActive = step.key === signStep
@@ -1074,7 +1073,7 @@ export function EnhancedLeases() {
                   if (signLease?.tenantSignedAt) {
                     stepLabel = '✓ Locataire signé'
                   } else if (isDone) {
-                    stepLabel = 'Signature (Locataire)'
+                    stepLabel = 'En attente du locataire'
                   }
                 }
 
@@ -1105,7 +1104,7 @@ export function EnhancedLeases() {
                 <SignaturePad
                   onConfirm={(dataUrl) => {
                     setSignatureDataUrl(dataUrl)
-                    setSignStep('signature_locataire')
+                    setSignStep('certification')
                   }}
                   onCancel={() => { setSignDialogOpen(false); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null) }}
                   signatoryRole="Propriétaire"
@@ -1113,49 +1112,12 @@ export function EnhancedLeases() {
               </>
             )}
 
-            {/* Step 2: Signature Locataire */}
-            {signStep === 'signature_locataire' && (
-              <div className="space-y-3">
-                {signatureDataUrl && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Votre signature</p>
-                    <div className="rounded-lg border border-border bg-white p-2">
-                      <img src={signatureDataUrl} alt="Votre signature" className="h-16 w-auto mx-auto object-contain" />
-                    </div>
-                  </div>
-                )}
-
-                {signLease?.tenantSignedAt ? (
-                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center gap-2">
-                    <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-                    <p className="text-xs text-emerald-700">
-                      Le locataire a déjà signé ce bail.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-100 flex items-center gap-2">
-                    <Clock className="size-4 text-amber-600 shrink-0" />
-                    <p className="text-xs text-amber-700">
-                      En attente de la signature du locataire. Vous serez notifié lorsqu'il aura signé.
-                    </p>
-                  </div>
-                )}
-
-                <Button
-                  className="w-full gap-2"
-                  onClick={() => setSignStep('certification')}
-                >
-                  <ChevronRight className="size-4" /> Continuer
-                </Button>
-              </div>
-            )}
-
-            {/* Step 3: Certification OTP */}
+            {/* Step 2: Certification OTP — Sauvegarde immédiate de la signature propriétaire */}
             {signStep === 'certification' && (
               <div className="space-y-3">
                 {signatureDataUrl && (
                   <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Votre signature</p>
+                    <p className="text-xs font-medium text-muted-foreground">Votre signature manuscrite</p>
                     <div className="rounded-lg border border-border bg-white p-2">
                       <img src={signatureDataUrl} alt="Votre signature" className="h-16 w-auto mx-auto object-contain" />
                     </div>
@@ -1165,34 +1127,42 @@ export function EnhancedLeases() {
                 <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
                   <p className="text-xs text-blue-700 flex items-center gap-2">
                     <Bell className="size-3.5 shrink-0" />
-                    Le locataire sera notifié dès que vous aurez certifié votre signature.
+                    Après validation, le locataire sera notifié par notification pour qu'il signe à son tour.
                   </p>
                 </div>
 
-                {!signOtp && (
+                <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 mb-1">
+                  <p className="text-xs text-blue-700">
+                    Cliquez sur "Recevoir l'OTP" pour qu'un code vous soit envoyé par email via CRYPTONEO.
+                    Saisissez ensuite le code reçu pour certifier votre signature électronique.
+                  </p>
+                </div>
+
+                {!otpRequested && !requestingOtp && (
                   <Button
                     onClick={handleRequestSignOtp}
-                    disabled={requestingOtp}
                     className="w-full gap-2"
                     variant="outline"
                   >
-                    {requestingOtp ? (
-                      <><Loader2 className="size-4 animate-spin" /> Génération...</>
-                    ) : (
-                      <><ShieldCheck className="size-4" /> Certifier avec un code OTP</>
-                    )}
+                    <Mail className="size-4" /> Recevoir l'OTP par email
+                  </Button>
+                )}
+                {requestingOtp && (
+                  <Button disabled className="w-full gap-2" variant="outline">
+                    <Loader2 className="size-4 animate-spin" /> Envoi en cours...
                   </Button>
                 )}
 
-                {signOtp && (
+                {otpRequested && !requestingOtp && (
                   <>
-                    <div className="p-3 rounded-lg bg-brand-50 border border-brand-100">
-                      <p className="text-xs text-brand-700">
-                        Un code OTP a été généré. Saisissez-le ci-dessous pour certifier votre signature.
+                    <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
+                      <p className="text-xs text-amber-700 flex items-center gap-2">
+                        <Mail className="size-3.5 shrink-0" />
+                        Un code OTP vous a été envoyé par email. Saisissez-le ci-dessous.
                       </p>
                     </div>
                     <div>
-                      <Label htmlFor="signOtp">Code OTP</Label>
+                      <Label htmlFor="signOtp">Code OTP reçu par email</Label>
                       <Input
                         id="signOtp"
                         value={signOtp}
@@ -1210,7 +1180,7 @@ export function EnhancedLeases() {
                       {signing ? (
                         <><Loader2 className="size-4 animate-spin" /> Certification CRYPTONEO...</>
                       ) : (
-                        <><ShieldCheck className="size-4" /> Certifier et signer le bail</>
+                        <><ShieldCheck className="size-4" /> Signer et certifier le bail</>
                       )}
                     </Button>
                   </>
@@ -1218,13 +1188,94 @@ export function EnhancedLeases() {
               </div>
             )}
 
+            {/* Step 3: Attente signature locataire (après que le propriétaire a signé) */}
+            {signStep === 'signature_locataire' && (
+              <div className="space-y-4 py-2">
+                {signatureDataUrl && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Votre signature</p>
+                    <div className="rounded-lg border border-border bg-white p-2">
+                      <img src={signatureDataUrl} alt="Votre signature" className="h-16 w-auto mx-auto object-contain" />
+                    </div>
+                  </div>
+                )}
+
+                {signLease?.tenantSignedAt ? (
+                  <>
+                    <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-center">
+                      <CheckCircle2 className="size-10 text-emerald-500 mx-auto mb-2" />
+                      <p className="font-semibold text-emerald-800">Le locataire a signé le bail !</p>
+                      <p className="text-xs text-emerald-600 mt-1">
+                        Signé le {new Date(signLease.tenantSignedAt).toLocaleDateString('fr-FR')} à {new Date(signLease.tenantSignedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      {signLease.status === 'ACTIVE' && (
+                        <p className="text-xs text-emerald-600 mt-2 font-medium">
+                          ✓ Le bail est maintenant actif. Les deux parties ont signé.
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      className="w-full gap-2"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const res = await apiFetch(`/api/leases/${signLease.id}/contract?format=pdf`)
+                          if (!res.ok) {
+                            const err = await res.json().catch(() => ({ error: 'Erreur' }))
+                            toast.error(err.error || 'Erreur lors du téléchargement')
+                            return
+                          }
+                          const blob = await res.blob()
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `Bail_${signLease.property?.title || 'contrat'}.pdf`
+                          document.body.appendChild(a)
+                          a.click()
+                          document.body.removeChild(a)
+                          URL.revokeObjectURL(url)
+                        } catch {
+                          toast.error('Erreur lors du téléchargement')
+                        }
+                      }}
+                    >
+                      <Download className="size-4" /> Télécharger le contrat signé
+                    </Button>
+                  </>
+                ) : (
+                  <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 text-center">
+                    <Clock className="size-10 text-amber-500 mx-auto mb-2" />
+                    <p className="font-semibold text-amber-800">En attente de la signature du locataire</p>
+                    <p className="text-xs text-amber-600 mt-2">
+                      Votre signature a été enregistrée avec succès. Le locataire a été notifié.
+                      Vous serez averti dès qu'il aura signé à son tour.
+                    </p>
+                  </div>
+                )}
+
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => {
+                    setSignDialogOpen(false)
+                    setSignLease(null)
+                    setSignStep('signature')
+                    setSignatureDataUrl(null)
+                    setSignOtp('')
+                    setOtpRequested(false)
+                    fetchData()
+                  }}
+                >
+                  Terminé
+                </Button>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
             {signStep === 'certification' && (
               <Button
                 variant="outline"
-                onClick={() => setSignStep('signature_locataire')}
+                onClick={() => { setSignStep('signature'); setSignatureDataUrl(null); setSignOtp(''); setOtpRequested(false) }}
                 disabled={signing}
               >
                 Retour
@@ -1233,7 +1284,7 @@ export function EnhancedLeases() {
             {signStep === 'signature' && (
               <Button
                 variant="outline"
-                onClick={() => { setSignDialogOpen(false); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null) }}
+                onClick={() => { setSignDialogOpen(false); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null); setOtpRequested(false) }}
               >
                 Annuler
               </Button>
@@ -1368,7 +1419,7 @@ export function EnhancedLeases() {
                     className="gap-1.5 border-brand-200 text-brand-600 hover:bg-brand-50"
                     onClick={async () => {
                       try {
-                        const res = await fetch(`/api/leases/${detailLease.id}/contract?format=pdf`, { credentials: 'include' })
+                        const res = await apiFetch(`/api/leases/${detailLease.id}/contract?format=pdf`)
                         if (!res.ok) {
                           const err = await res.json().catch(() => ({ error: 'Erreur' }))
                           toast.error(err.error || 'Erreur lors du téléchargement')

@@ -3,6 +3,8 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import crypto from 'crypto'
 import { notify, notifyLeaseActivated } from '@/lib/notify'
+import { generateAndUploadLeasePdf } from '@/lib/generate-and-upload-lease-pdf'
+import { uploadFromBase64, BUCKETS, getPublicUrl } from '@/lib/supabase/storage'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -28,9 +30,54 @@ function mapLease(lease: Record<string, unknown>) {
     tenantSignOtp: lease.tenant_sign_otp,
     ownerSignatureImage: lease.owner_signature_image,
     tenantSignatureImage: lease.tenant_signature_image,
+    contractUrl: lease.contract_url,
+    cryptoneoOperationId: lease.cryptoneo_operation_id,
     createdAt: lease.created_at,
     updatedAt: lease.updated_at,
   }
+}
+
+/**
+ * Download the current lease PDF from Storage and calculate its SHA256 hash.
+ * Returns { buffer, hash, publicUrl } or null if no contract exists.
+ */
+async function getCurrentPdfInfo(supabase: ReturnType<typeof getSupabaseAdminClient>, leaseId: string, lease: any): Promise<{ buffer: Buffer; hash: string; publicUrl: string } | null> {
+  // If no contract_url, generate the initial PDF
+  let contractUrl = lease.contract_url
+  if (!contractUrl) {
+    contractUrl = await generateAndUploadLeasePdf(leaseId, 'initial')
+    if (!contractUrl) return null
+    // Update contract_url in lease
+    await supabase.from('leases').update({ contract_url: contractUrl, updated_at: new Date().toISOString() } as any).eq('id', leaseId)
+  }
+
+  // Download the PDF from the public URL
+  try {
+    const res = await fetch(contractUrl)
+    if (!res.ok) {
+      console.error(`Failed to download PDF from ${contractUrl}`)
+      return null
+    }
+    const arrayBuffer = await res.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+
+    // Calculate SHA256 hash
+    const hash = crypto.createHash('sha256').update(buffer).digest('hex')
+
+    return { buffer, hash, publicUrl: contractUrl }
+  } catch (err) {
+    console.error('Error downloading PDF:', err)
+    return null
+  }
+}
+
+/**
+ * Upload a buffer as a signed PDF to Storage and return the public URL.
+ */
+async function uploadSignedPdf(buffer: Buffer, leaseId: string, version: string): Promise<string> {
+  const base64Data = `data:application/pdf;base64,${buffer.toString('base64')}`
+  const storagePath = `${leaseId}/bail_${version}.pdf`
+  return uploadFromBase64(BUCKETS.LEASE_DOCUMENTS, base64Data, storagePath)
 }
 
 export async function POST(
@@ -38,7 +85,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, applyCookies } = await resolveRequestUser(req)
+    const { userId, accessToken, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)
@@ -55,16 +102,18 @@ export async function POST(
 
     const supabase = getSupabaseAdminClient()
 
-    const { data: lease } = await supabase
+    const { data: _lease } = await supabase
       .from('leases')
       .select('*')
       .eq('id', id)
       .maybeSingle()
 
-    if (!lease) {
+    if (!_lease) {
       const resp = NextResponse.json({ error: 'Bail introuvable' }, { status: 404 })
       return applyCookies(resp)
     }
+
+    const lease = _lease as any
 
     if (lease.tenant_id !== userId && lease.owner_id !== userId) {
       const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
@@ -79,33 +128,44 @@ export async function POST(
       return applyCookies(resp)
     }
 
-    const { data: otpRecord } = await supabase
-      .from('otp_codes')
-      .select('id')
+    const isOwner = lease.owner_id === userId
+    const alreadySigned = isOwner ? !!lease.owner_signed_at : !!lease.tenant_signed_at
+    if (alreadySigned) {
+      const resp = NextResponse.json({ error: 'Vous avez déjà signé ce bail' }, { status: 400 })
+      return applyCookies(resp)
+    }
+
+    // ── Vérifier que l'utilisateur a un certificat CRYPTONEO actif ──
+    const { data: aliasRaw } = await supabase
+      .from('signature_aliases')
+      .select('alias_certificat')
       .eq('user_id', userId)
-      .eq('type', 'BAIL_SIGNATURE')
-      .eq('code', otpCode)
-      .eq('is_used', false)
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .eq('active', true)
       .maybeSingle()
 
-    if (!otpRecord) {
+    const alias = aliasRaw as { alias_certificat: string } | null
+
+    if (!alias?.alias_certificat) {
       const resp = NextResponse.json(
-        { error: 'Code OTP invalide ou expiré' },
+        { error: 'Vous devez d\'abord générer votre certificat de signature électronique.' },
         { status: 400 }
       )
       return applyCookies(resp)
     }
 
-    await supabase.from('otp_codes').update({ is_used: true }).eq('id', otpRecord.id)
+    // ── Obtenir le PDF à signer ──
+    const pdfInfo = await getCurrentPdfInfo(supabase, id, lease)
+    if (!pdfInfo) {
+      const resp = NextResponse.json(
+        { error: 'Impossible de générer le document à signer. Veuillez réessayer.' },
+        { status: 500 }
+      )
+      return applyCookies(resp)
+    }
 
-    const now = new Date()
-    const signOtp = crypto.randomBytes(16).toString('hex')
-
-    let updatedLease: any
-    const isOwner = lease.owner_id === userId
+    // ── Appeler CRYPTONEO signFileBatch via la Edge Function ──
+    const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign`
+    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
 
     const { data: property } = await supabase
       .from('properties')
@@ -113,46 +173,117 @@ export async function POST(
       .eq('id', lease.property_id)
       .maybeSingle()
 
-    const userIds = [lease.owner_id, lease.tenant_id].filter(Boolean)
-    const { data: users } = await supabase
-      .from('users')
-      .select('id, first_name, last_name, email, avatar_url')
-      .in('id', userIds)
-    const userMap = new Map((users ?? []).map((u: any) => [u.id, u]))
-    const owner = userMap.get(lease.owner_id)
-    const tenant = userMap.get(lease.tenant_id)
+    const signRequest = [{
+      codeDoc: `bail_${id}_${isOwner ? 'owner' : 'tenant'}`,
+      urlDoc: pdfInfo.publicUrl,
+      hashDoc: pdfInfo.hash,
+      visibiliteImage: true,
+      messageImage: isOwner ? 'Signé par le propriétaire' : 'Signé par le locataire',
+      lieuSignature: property?.city || 'Abidjan',
+      motifSignature: `Signature électronique du bail de location - ${property?.title || ''}`,
+    }]
+
+    const signRes = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${bearerToken}`,
+        'Content-Type': 'application/json',
+        ...(accessToken ? {} : { 'x-user-id': userId }),
+      },
+      body: JSON.stringify({
+        otp: otpCode,
+        signRequest,
+      }),
+    })
+
+    const signResult = await signRes.json()
+
+    if (!signRes.ok) {
+      const errorMsg = signResult?.error || signResult?.statusMessage || 'Erreur CRYPTONEO lors de la signature'
+      const resp = NextResponse.json({ error: errorMsg }, { status: 400 })
+      return applyCookies(resp)
+    }
+
+    const operationId: string | undefined = signResult?.operationId || signResult?.data?.operationId
+    if (!operationId) {
+      const resp = NextResponse.json({ error: 'CRYPTONEO n\'a pas retourné d\'operationId' }, { status: 500 })
+      return applyCookies(resp)
+    }
+
+    // ── Récupérer le PDF signé depuis CRYPTONEO ──
+    let signedPdfBuffer: Buffer | null = null
+    try {
+      const signedFileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/signed-file?fileName=${encodeURIComponent(operationId)}`
+      const fileRes = await fetch(signedFileUrl, {
+        headers: {
+          'Authorization': `Bearer ${bearerToken}`,
+          ...(accessToken ? {} : { 'x-user-id': userId }),
+        },
+      })
+
+      if (fileRes.ok) {
+        const arrayBuffer = await fileRes.arrayBuffer()
+        signedPdfBuffer = Buffer.from(arrayBuffer)
+      }
+    } catch (err) {
+      console.warn('Could not retrieve signed PDF from CRYPTONEO:', err)
+    }
+
+    // ── Uploader le PDF signé dans Storage ──
+    const version = isOwner ? 'owner_signed' : 'tenant_signed'
+    let newContractUrl: string | null = null
+
+    if (signedPdfBuffer) {
+      newContractUrl = await uploadSignedPdf(signedPdfBuffer, id, `${version}_cryptoneo`)
+    } else {
+      // Fallback: generate PDF with signature image locally
+      newContractUrl = await generateAndUploadLeasePdf(id, isOwner ? 'owner_signed' : 'tenant_signed')
+    }
+
+    // ── Mettre à jour le bail ──
+    const now = new Date()
+    const signOtp = crypto.randomBytes(16).toString('hex')
+
+    let updatedLease: any
 
     if (isOwner) {
-      if (lease.owner_signed_at) {
-        const resp = NextResponse.json({ error: 'Vous avez déjà signé ce bail' }, { status: 400 })
-        return applyCookies(resp)
-      }
-
       const updateData: Record<string, unknown> = {
         owner_signed_at: now.toISOString(),
         owner_sign_otp: signOtp,
         owner_signature_image: signatureImage || null,
+        cryptoneo_operation_id: operationId,
         updated_at: now.toISOString(),
       }
+      if (newContractUrl) updateData.contract_url = newContractUrl
       if (lease.tenant_signed_at) {
         updateData.status = 'ACTIVE'
       }
 
       const { data: updated } = await supabase
-          .from('leases')
-          .update(updateData as any)
-          .eq('id', id)
-          .select()
-          .single()
-        updatedLease = updated
+        .from('leases')
+        .update(updateData as any)
+        .eq('id', id)
+        .select()
+        .single()
+      updatedLease = updated as any
 
-        await notify({
-          userId: lease.tenant_id,
+      // Si les deux ont signé, générer la version finale
+      if (lease.tenant_signed_at) {
+        generateAndUploadLeasePdf(id, 'final').then((url) => {
+          if (url) {
+            (supabase.from('leases').update({ contract_url: url, updated_at: new Date().toISOString() } as any).eq('id', id) as any).then()
+          }
+        }).catch((err) => console.error('Final PDF generation failed:', err))
+      }
+
+      // Notifier le locataire
+      await notify({
+        userId: lease.tenant_id,
         type: 'DOSSIER_UPDATE',
         title: lease.tenant_signed_at ? 'Bail signé et activé' : 'Le propriétaire a signé le bail',
         message: lease.tenant_signed_at
-          ? `Le bail pour "${property?.title || ''}" est maintenant actif. Les deux parties ont signé.`
-          : `${owner?.first_name || ''} ${owner?.last_name || ''} a signé le bail pour "${property?.title || ''}". Votre signature est attendue.`,
+          ? `Le bail pour "${property?.title || ''}" est maintenant actif. Les deux parties ont signé via CRYPTONEO.`
+          : `${/* owner name */ ''} a signé le bail pour "${property?.title || ''}" via CRYPTONEO. Votre signature est attendue.`,
         actionUrl: 'my-leases',
         entityId: lease.id,
       })
@@ -161,36 +292,43 @@ export async function POST(
         await notifyLeaseActivated(lease.tenant_id, lease.owner_id, property?.title || '', lease.id)
       }
     } else {
-      if (lease.tenant_signed_at) {
-        const resp = NextResponse.json({ error: 'Vous avez déjà signé ce bail' }, { status: 400 })
-        return applyCookies(resp)
-      }
-
       const updateData: Record<string, unknown> = {
         tenant_signed_at: now.toISOString(),
         tenant_sign_otp: signOtp,
         tenant_signature_image: signatureImage || null,
+        cryptoneo_operation_id: operationId,
         updated_at: now.toISOString(),
       }
+      if (newContractUrl) updateData.contract_url = newContractUrl
       if (lease.owner_signed_at) {
         updateData.status = 'ACTIVE'
       }
 
       const { data: updated } = await supabase
-          .from('leases')
-          .update(updateData as any)
-          .eq('id', id)
-          .select()
-          .single()
-        updatedLease = updated
+        .from('leases')
+        .update(updateData as any)
+        .eq('id', id)
+        .select()
+        .single()
+      updatedLease = updated as any
 
-        await notify({
-          userId: lease.owner_id,
+      // Si les deux ont signé, générer la version finale
+      if (lease.owner_signed_at) {
+        generateAndUploadLeasePdf(id, 'final').then((url) => {
+          if (url) {
+            (supabase.from('leases').update({ contract_url: url, updated_at: new Date().toISOString() } as any).eq('id', id) as any).then()
+          }
+        }).catch((err) => console.error('Final PDF generation failed:', err))
+      }
+
+      // Notifier le propriétaire
+      await notify({
+        userId: lease.owner_id,
         type: 'DOSSIER_UPDATE',
         title: lease.owner_signed_at ? 'Bail signé et activé' : 'Le locataire a signé le bail',
         message: lease.owner_signed_at
-          ? `Le bail pour "${property?.title || ''}" est maintenant actif. Les deux parties ont signé.`
-          : `${tenant?.first_name || ''} ${tenant?.last_name || ''} a signé le bail pour "${property?.title || ''}".`,
+          ? `Le bail pour "${property?.title || ''}" est maintenant actif. Les deux parties ont signé via CRYPTONEO.`
+          : `Le locataire a signé le bail pour "${property?.title || ''}" via CRYPTONEO.`,
         actionUrl: 'my-leases',
         entityId: lease.id,
       })
@@ -200,6 +338,7 @@ export async function POST(
       }
     }
 
+    // ── Audit log ──
     await supabase.from('audit_logs').insert({
       id: generateId(),
       action: isOwner ? 'LEASE_OWNER_SIGNED' : 'LEASE_TENANT_SIGNED',
@@ -208,12 +347,23 @@ export async function POST(
       details: JSON.stringify({
         signedBy: userId,
         role: isOwner ? 'OWNER' : 'TENANT',
+        cryptoneoOperationId: operationId,
         propertyTitle: property?.title || '',
         bothSigned: !!(updatedLease?.tenant_signed_at && updatedLease?.owner_signed_at),
         newStatus: updatedLease?.status,
       }),
       user_id: userId,
     })
+
+    // ── Build response ──
+    const userIds = [lease.owner_id, lease.tenant_id].filter(Boolean)
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, email, avatar_url')
+      .in('id', userIds)
+    const userMap = new Map((users ?? []).map((u: any) => [u.id, u]))
+    const owner = userMap.get(lease.owner_id)
+    const tenant = userMap.get(lease.tenant_id)
 
     let propImages: any[] = []
     if (lease.property_id) {

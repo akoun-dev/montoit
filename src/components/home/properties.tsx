@@ -7,6 +7,7 @@ import { MapPin, Heart, Eye, ShieldCheck, ArrowRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/lib/auth-store'
 import { useFavorites } from '@/lib/use-favorites'
+import { apiFetch } from '@/lib/capacitor'
 
 interface Property {
   id: string
@@ -187,7 +188,7 @@ export function NosBiens() {
   const { isFavorite: checkIsFavorite, toggleFavorite } = useFavorites(propertyIds)
 
   useEffect(() => {
-    fetch('/api/properties?limit=6')
+    apiFetch('/api/properties?limit=6')
       .then((res) => res.json())
       .then((data) => {
         setProperties(data.properties ?? [])

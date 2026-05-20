@@ -39,6 +39,7 @@ import {
 import { useAuthStore } from '@/lib/auth-store'
 import { useFavorites } from '@/lib/use-favorites'
 import { authFetch } from '@/lib/auth-fetch'
+import { apiFetch } from '@/lib/capacitor'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -170,8 +171,8 @@ export function SearchProperties() {
       if (propertyType !== 'ALL') params.set('type', propertyType)
       params.set('all', 'true')
 
-      // /api/properties is a public endpoint — use raw fetch
-      const res = await fetch(`/api/properties?${params.toString()}`)
+      // /api/properties is a public endpoint — use apiFetch
+      const res = await apiFetch(`/api/properties?${params.toString()}`)
       if (!res.ok) throw new Error('Erreur serveur')
       const data = await res.json()
       setResults(data.properties ?? [])

@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useInAppBrowser } from '@/hooks/capacitor'
 
 interface DocumentInfo {
   url: string
@@ -82,6 +83,8 @@ export function DocumentPreviewDialog({
   const name = document?.name || documentName || ''
   const docType = document?.type
 
+  const { openInWebView } = useInAppBrowser()
+
   if (!url) return null
 
   const isImage = isImageFile(url)
@@ -136,6 +139,14 @@ export function DocumentPreviewDialog({
         <div className="shrink-0 flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Fermer
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => openInWebView(url)}
+          >
+            <Eye className="size-4" />
+            Ouvrir
           </Button>
           <a
             href={url}

@@ -25,6 +25,7 @@ import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useInAppBrowser } from '@/hooks/capacitor'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -203,6 +204,8 @@ export function LitigesManagement() {
   // Investigation notes editing
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesValue, setNotesValue] = useState('')
+
+  const { openInWebView } = useInAppBrowser()
 
   // Evidence URL input
   const [newEvidenceUrl, setNewEvidenceUrl] = useState('')
@@ -1312,14 +1315,13 @@ export function LitigesManagement() {
                           {urls.map((url, idx) => (
                             <div key={idx} className="flex items-center gap-2 text-sm p-1.5 rounded bg-muted/50">
                               <Paperclip className="size-3.5 text-muted-foreground shrink-0" />
-                              <a
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-brand-500 hover:underline truncate flex-1"
+                              <button
+                                type="button"
+                                onClick={() => openInWebView(url)}
+                                className="text-brand-500 hover:underline truncate flex-1 text-left"
                               >
                                 {url.length > 60 ? url.substring(0, 60) + '...' : url}
-                              </a>
+                              </button>
                             </div>
                           ))}
                         </div>

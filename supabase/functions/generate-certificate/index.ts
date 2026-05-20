@@ -49,10 +49,15 @@ serve(async (req) => {
       })
     }
 
+    const now = new Date()
+    const consentDate = now.toISOString().replace('T', ' ').substring(0, 19)
+
     const payload: Record<string, unknown> = {
       firstName,
       lastName,
       email,
+      consent: true,
+      consentDate,
     }
 
     if (gender) payload.gender = gender

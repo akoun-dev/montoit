@@ -19,6 +19,7 @@ import {
 import { SignaturePad } from '@/components/ui/signature-pad'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { apiFetch } from '@/lib/capacitor'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -561,7 +562,7 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
             className="w-full border-brand-200 text-brand-600 hover:bg-brand-50 hover:text-brand-700 gap-2"
             onClick={async () => {
               try {
-                const res = await fetch(`/api/leases/${lease.id}/contract?format=pdf`, { credentials: 'include' })
+                const res = await apiFetch(`/api/leases/${lease.id}/contract?format=pdf`)
                 if (!res.ok) {
                   const err = await res.json().catch(() => ({ error: 'Erreur' }))
                   toast.error(err.error || 'Erreur lors du téléchargement')

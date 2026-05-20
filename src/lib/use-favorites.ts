@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuthStore } from '@/lib/auth-store'
+import { apiFetch } from '@/lib/capacitor'
 
 /**
  * Hook to manage favorite state for property cards.
@@ -45,7 +46,7 @@ export function useFavorites(propertyIds: string[] = []) {
     }
 
     try {
-      const res = await fetch('/api/favorites/check', {
+      const res = await apiFetch('/api/favorites/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -73,7 +74,7 @@ export function useFavorites(propertyIds: string[] = []) {
     if (!isAuthenticated) return false
 
     try {
-      const res = await fetch('/api/favorites/check', {
+      const res = await apiFetch('/api/favorites/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -102,7 +103,7 @@ export function useFavorites(propertyIds: string[] = []) {
     setFavoritesMap((prev) => ({ ...prev, [propertyId]: !currentFav }))
 
     try {
-      const res = await fetch('/api/favorites', {
+      const res = await apiFetch('/api/favorites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

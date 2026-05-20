@@ -26,6 +26,7 @@ import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useInAppBrowser } from '@/hooks/capacitor'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -182,6 +183,8 @@ export function AgentsManagement() {
   // View
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [search, setSearch] = useState('')
+
+  const { openInWebView } = useInAppBrowser()
 
   // Agent detail
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
@@ -628,14 +631,13 @@ export function AgentsManagement() {
                           {formatDate(r.completedAt)}
                         </p>
                       </div>
-                      <a
-                        href={r.reportUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => openInWebView(r.reportUrl)}
                         className="inline-flex items-center gap-1 text-xs font-medium text-brand-500 hover:text-brand-600 shrink-0"
                       >
                         Voir <ExternalLink className="size-3" />
-                      </a>
+                      </button>
                     </div>
                   ))}
                 </div>

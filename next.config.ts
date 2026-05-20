@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
+const isCapacitorBuild = process.env.BUILD_TARGET === 'capacitor'
+
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: isCapacitorBuild ? 'export' : 'standalone',
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,

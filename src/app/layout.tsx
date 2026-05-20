@@ -4,6 +4,10 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SutaChatbot } from "@/components/suta-chatbot";
+import { OfflineBanner } from "@/components/offline-banner";
+import { AppBackHandler } from "@/components/app-back-handler";
+import { AppLifecycleManager } from "@/components/app-lifecycle-manager";
+import { BackNavigationProvider } from "@/components/back-navigation-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 
 const inter = Inter({
@@ -89,7 +93,12 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            {children}
+            <OfflineBanner />
+            <BackNavigationProvider>
+              <AppBackHandler />
+              <AppLifecycleManager />
+              {children}
+            </BackNavigationProvider>
             <SutaChatbot />
             <Toaster />
           </ThemeProvider>

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { apiFetch } from '@/lib/capacitor'
 
 export type AuthMethod = 'email' | 'sms'
 
@@ -137,7 +138,7 @@ export const useAuthStore = create<AuthState>()(
       loginWithEmail: async (email: string, password: string) => {
         set({ isLoading: true })
         try {
-          const res = await fetch('/api/auth/login', {
+          const res = await apiFetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -176,7 +177,7 @@ export const useAuthStore = create<AuthState>()(
       loginWithSms: async (phone: string) => {
         set({ isLoading: true, pendingPhone: phone, otpPurpose: 'login' })
         try {
-          const res = await fetch('/api/auth/send-sms-otp', {
+          const res = await apiFetch('/api/auth/send-sms-otp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -195,7 +196,7 @@ export const useAuthStore = create<AuthState>()(
       verifySmsOtp: async (phone: string, code: string) => {
         set({ isLoading: true })
         try {
-          const res = await fetch('/api/auth/verify-sms-otp', {
+          const res = await apiFetch('/api/auth/verify-sms-otp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -227,7 +228,7 @@ export const useAuthStore = create<AuthState>()(
       sendEmailOtp: async (email: string, purpose: OtpPurpose) => {
         set({ isLoading: true, pendingEmail: email, otpPurpose: purpose })
         try {
-          const res = await fetch('/api/auth/send-email-otp', {
+          const res = await apiFetch('/api/auth/send-email-otp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -246,7 +247,7 @@ export const useAuthStore = create<AuthState>()(
       verifyEmailOtp: async (email: string, code: string, purpose: OtpPurpose) => {
         set({ isLoading: true })
         try {
-          const res = await fetch('/api/auth/verify-email-otp', {
+          const res = await apiFetch('/api/auth/verify-email-otp', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -299,7 +300,7 @@ export const useAuthStore = create<AuthState>()(
       registerWithEmail: async (data) => {
         set({ isLoading: true })
         try {
-          const res = await fetch('/api/auth/register', {
+          const res = await apiFetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -337,7 +338,7 @@ export const useAuthStore = create<AuthState>()(
       registerWithSms: async (data) => {
         set({ isLoading: true })
         try {
-          const res = await fetch('/api/auth/register', {
+          const res = await apiFetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -364,7 +365,7 @@ export const useAuthStore = create<AuthState>()(
       forgotPassword: async (identifier: string, method: 'email' | 'sms') => {
         set({ isLoading: true })
         try {
-          const res = await fetch('/api/auth/forgot-password', {
+          const res = await apiFetch('/api/auth/forgot-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -397,7 +398,7 @@ export const useAuthStore = create<AuthState>()(
       resetPassword: async (data: { email?: string; phone?: string; code: string; newPassword: string }) => {
         set({ isLoading: true })
         try {
-          const res = await fetch('/api/auth/reset-password', {
+          const res = await apiFetch('/api/auth/reset-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -416,7 +417,7 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         stopHeartbeat()
         try {
-          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+          await apiFetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
         } finally {
           set({
             user: null,
@@ -452,7 +453,7 @@ export const useAuthStore = create<AuthState>()(
       switchRole: async (newRole) => {
         set({ isLoading: true })
         try {
-          const res = await fetch('/api/user/switch-role', {
+          const res = await apiFetch('/api/user/switch-role', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -478,7 +479,7 @@ export const useAuthStore = create<AuthState>()(
 
         checkAuthPromise = (async () => {
           try {
-            const res = await fetch('/api/auth/me', {
+            const res = await apiFetch('/api/auth/me', {
               credentials: 'include',
             })
 
@@ -522,7 +523,7 @@ export const useAuthStore = create<AuthState>()(
 
       seedData: async () => {
         try {
-          const res = await fetch('/api/seed', { method: 'POST', credentials: 'include' })
+          const res = await apiFetch('/api/seed', { method: 'POST', credentials: 'include' })
           const data = await res.json()
           if (!res.ok) throw new Error(data.error)
           return data

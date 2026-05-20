@@ -22,6 +22,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useInAppBrowser } from '@/hooks/capacitor'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -416,10 +417,12 @@ function KycVerificationModal({
     }
   }, [kycDocImage, kycDocImageVerso])
 
-  // ── KYC: Open selfie URL in new window ────────────────────────────────────
+  const { openInWebView } = useInAppBrowser()
+
+  // ── KYC: Open selfie URL in app browser ────────────────────────────────────
   const handleKycOpenSelfie = useCallback(() => {
     if (!kycSelfieUrl) return
-    window.open(kycSelfieUrl, '_blank', 'width=500,height=700')
+    openInWebView(kycSelfieUrl)
 
     // Start polling after a short delay
     setKycStep('verifying')

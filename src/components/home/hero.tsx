@@ -6,6 +6,7 @@ import { Search, MapPin, Home, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/lib/auth-store'
+import { apiFetch } from '@/lib/capacitor'
 import {
   Select,
   SelectContent,
@@ -46,7 +47,7 @@ export function Hero() {
   const [selectedType, setSelectedType] = useState('')
 
   useEffect(() => {
-    fetch('/api/stats')
+    apiFetch('/api/stats')
       .then((res) => res.json())
       .then((data) => setStats(data))
       .catch(() => {

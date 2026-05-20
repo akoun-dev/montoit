@@ -42,7 +42,10 @@ serve(async (req) => {
 
     const { canal } = await req.json()
 
-    const body: Record<string, string> = { aliasCertificat: alias.alias_certificat }
+    const body: Record<string, string> = {
+      aliasCertificat: alias.alias_certificat,
+      typeOperation: 'SIGNATURE_ELECTRONIQUE',
+    }
     if (canal && (canal === 'MAIL' || canal === 'SMS')) {
       body.canal = canal
     }

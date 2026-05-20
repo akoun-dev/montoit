@@ -318,6 +318,14 @@
    ────────────────────────────────────────────── */
 
 /* ──────────────────────────────────────────────
+   Leaflet z-index containment
+   Prevent Leaflet map from overlapping modals (z-50) and chatbot (z-50)
+   ────────────────────────────────────────────── */
+.leaflet-container {
+  isolation: isolate;
+}
+
+/* ──────────────────────────────────────────────
    Mobile Safe Area (iOS notch/home indicator)
    ────────────────────────────────────────────── */
 @layer utilities {

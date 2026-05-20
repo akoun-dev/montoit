@@ -34,7 +34,7 @@ async function convertDocxToPdf(docxBuffer: Buffer, filename: string): Promise<B
   }
 }
 
-// GET /api/leases/[id]/contract — Generate and download the bail contract as .docx or .pdf
+// GET /api/leases/[id]/contract — Serve contract from Storage, fallback to generation
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -62,7 +62,9 @@ export async function GET(
       return applyCookies(resp)
     }
 
-    if (lease.owner_id !== userId && lease.tenant_id !== userId) {
+    const leaseAny = lease as any
+
+    if (leaseAny.owner_id !== userId && leaseAny.tenant_id !== userId) {
       const auth = await resolveRequestUser(req)
       if (!auth?.userId) {
         const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
@@ -80,28 +82,42 @@ export async function GET(
       }
     }
 
-    if (!lease.owner_signed_at && !lease.tenant_signed_at) {
-      const resp = NextResponse.json(
-        { error: 'Le bail doit être signé par au moins une partie pour télécharger le contrat' },
-        { status: 400 }
-      )
-      return applyCookies(resp)
+    // ── Try to serve from Storage first ──
+    if (leaseAny.contract_url) {
+      try {
+        const storageRes = await fetch(leaseAny.contract_url)
+        if (storageRes.ok) {
+          const blob = await storageRes.arrayBuffer()
+          const contentType = storageRes.headers.get('content-type') || 'application/pdf'
+          const filename = `Bail_${id}.${contentType.includes('pdf') ? 'pdf' : 'docx'}`
+          return new NextResponse(new Uint8Array(blob), {
+            status: 200,
+            headers: {
+              'Content-Type': contentType,
+              'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+            },
+          })
+        }
+      } catch {
+        console.warn('Failed to fetch from Storage, falling back to generation')
+      }
     }
 
+    // ── Fallback: allow download even if not signed (for preview) ──
     // Fetch related data
     const [propRes, usersRes] = await Promise.all([
-      supabase.from('properties').select('*').eq('id', lease.property_id).maybeSingle(),
-      supabase.from('users').select('*').in('id', [lease.owner_id, lease.tenant_id].filter(Boolean)),
+      supabase.from('properties').select('*').eq('id', leaseAny.property_id).maybeSingle(),
+      supabase.from('users').select('*').in('id', [leaseAny.owner_id, leaseAny.tenant_id].filter(Boolean)),
     ])
 
     const property = (propRes as any).data
     const userMap = new Map((usersRes.data ?? []).map((u: any) => [u.id, u]))
-    const leaseOwner = userMap.get(lease.owner_id)
-    const leaseTenant = userMap.get(lease.tenant_id)
+    const leaseOwner = userMap.get(leaseAny.owner_id)
+    const leaseTenant = userMap.get(leaseAny.tenant_id)
 
     // Fetch property owner (may differ from lease owner)
     let propOwner: Record<string, any> | undefined
-    if (property?.owner_id && property.owner_id !== lease.owner_id) {
+    if (property?.owner_id && property.owner_id !== leaseAny.owner_id) {
       const { data: po } = await supabase
         .from('users')
         .select('id, first_name, last_name, email, phone, address')
@@ -170,22 +186,22 @@ export async function GET(
       propertyCity: property?.city || '',
       propertyDescription,
 
-      monthlyRent: lease.monthly_rent,
-      deposit: lease.deposit || 0,
+      monthlyRent: leaseAny.monthly_rent,
+      deposit: leaseAny.deposit || 0,
       advanceRent: 0,
       advanceRentMonths: '',
 
       leaseDuration: String(Math.max(1, Math.round(
-        (new Date(lease.end_date).getTime() - new Date(lease.start_date).getTime()) /
+        (new Date(leaseAny.end_date).getTime() - new Date(leaseAny.start_date).getTime()) /
         (365.25 * 24 * 60 * 60 * 1000)
       ))),
-      startDate: lease.start_date,
-      endDate: lease.end_date,
+      startDate: leaseAny.start_date,
+      endDate: leaseAny.end_date,
 
-      ownerSignatureImage: lease.owner_signature_image || undefined,
-      tenantSignatureImage: lease.tenant_signature_image || undefined,
-      ownerSignedAt: lease.owner_signed_at || undefined,
-      tenantSignedAt: lease.tenant_signed_at || undefined,
+      ownerSignatureImage: leaseAny.owner_signature_image || undefined,
+      tenantSignatureImage: leaseAny.tenant_signature_image || undefined,
+      ownerSignedAt: leaseAny.owner_signed_at || undefined,
+      tenantSignedAt: leaseAny.tenant_signed_at || undefined,
 
       inventoryItems: mappedItems,
       totalKeys: latestReport?.total_keys ?? undefined,

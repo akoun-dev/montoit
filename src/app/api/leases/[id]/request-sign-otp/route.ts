@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
-import crypto from 'crypto'
-
-function generateId() {
-  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-}
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId, applyCookies } = await resolveRequestUser(req)
+    const { userId, accessToken, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)
@@ -51,35 +46,54 @@ export async function POST(
       return applyCookies(resp)
     }
 
-    const { data: existingOtp } = await supabase
-      .from('otp_codes')
-      .select('code')
+    // ── Vérifier que l'utilisateur a un certificat CRYPTONEO actif ──
+    const { data: aliasRaw } = await supabase
+      .from('signature_aliases')
+      .select('alias_certificat')
       .eq('user_id', userId)
-      .eq('type', 'BAIL_SIGNATURE')
-      .eq('is_used', false)
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .eq('active', true)
       .maybeSingle()
 
-    if (existingOtp) {
-      const resp = NextResponse.json({ otpCode: existingOtp.code })
+    const alias = aliasRaw as { alias_certificat: string } | null
+
+    if (!alias?.alias_certificat) {
+      const resp = NextResponse.json(
+        { error: 'Vous devez d\'abord générer votre certificat de signature électronique. Allez dans vos paramètres pour le créer.' },
+        { status: 400 }
+      )
       return applyCookies(resp)
     }
 
-    const otpCode = crypto.randomInt(100000, 999999).toString()
-    const otpExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    // ── Envoyer l'OTP via CRYPTONEO ──
+    // L'OTP est envoyé par email, pas retourné dans la réponse
+    const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign-send-otp`
+    const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
 
-    await supabase.from('otp_codes').insert({
-      id: generateId(),
-      code: otpCode,
-      type: 'BAIL_SIGNATURE',
-      email: (lease.tenant as any)?.email || '',
-      expires_at: otpExpiry.toISOString(),
-      user_id: userId,
+    const otpRes = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${bearerToken}`,
+        'Content-Type': 'application/json',
+        ...(accessToken ? {} : { 'x-user-id': userId }),
+      },
+      body: JSON.stringify({
+        canal: 'MAIL',
+      }),
     })
 
-    const resp = NextResponse.json({ otpCode })
+    if (!otpRes.ok) {
+      const errData = await otpRes.json().catch(() => ({ error: 'Erreur CRYPTONEO' }))
+      const resp = NextResponse.json(
+        { error: errData.error || 'Erreur lors de l\'envoi de l\'OTP CRYPTONEO' },
+        { status: 400 }
+      )
+      return applyCookies(resp)
+    }
+
+    const resp = NextResponse.json({
+      message: 'Un code OTP vous a été envoyé par email. Vérifiez votre boîte de réception.',
+      sentTo: 'email',
+    })
     return applyCookies(resp)
   } catch (error) {
     console.error('Request sign OTP error:', error)

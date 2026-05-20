@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import crypto from 'crypto'
 import { notify } from '@/lib/notify'
+import { generateAndUploadLeasePdf } from '@/lib/generate-and-upload-lease-pdf'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -28,6 +29,7 @@ function mapLease(lease: Record<string, unknown>) {
     tenantSignOtp: lease.tenant_sign_otp,
     ownerSignatureImage: lease.owner_signature_image,
     tenantSignatureImage: lease.tenant_signature_image,
+    contractUrl: lease.contract_url,
     createdAt: lease.created_at,
     updatedAt: lease.updated_at,
   }
@@ -130,8 +132,7 @@ export async function POST(req: NextRequest) {
       return applyCookies(resp)
     }
 
-    const otpCode = crypto.randomInt(100000, 999999).toString()
-    const otpExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    // OTP is now sent via CRYPTONEO email — not generated locally
 
     const leaseId = generateId()
 
@@ -156,20 +157,12 @@ export async function POST(req: NextRequest) {
 
     if (leaseError) throw leaseError
 
-    const { data: rentalFileTenant } = await supabase
-      .from('users')
-      .select('id, first_name, last_name, email')
-      .eq('id', rentalFile.tenant_id)
-      .single()
-
-    await supabase.from('otp_codes').insert({
-      id: generateId(),
-      code: otpCode,
-      type: 'BAIL_SIGNATURE',
-      email: rentalFileTenant?.email || '',
-      expires_at: otpExpiry.toISOString(),
-      user_id: userId,
-    })
+    // ── Generate PDF + upload to Storage (async, non-bloquant) ──
+    generateAndUploadLeasePdf((lease as any).id, 'initial').then((url) => {
+      if (url) {
+        (supabase.from('leases').update({ contract_url: url, updated_at: new Date().toISOString() } as any).eq('id', (lease as any).id) as any).then()
+      }
+    }).catch((err) => console.error('PDF generation failed:', err))
 
     await notify({
       userId: tenantId,
@@ -241,7 +234,6 @@ export async function POST(req: NextRequest) {
 
     const resp = NextResponse.json({
       data: result,
-      otpCode,
     })
     return applyCookies(resp)
   } catch (error) {

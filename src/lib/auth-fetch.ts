@@ -8,9 +8,11 @@
  * - Returns parsed JSON on success
  * - In-memory response cache for GET requests with stale-while-revalidate support
  * - Auto-invalidates cache on mutations (POST, PATCH, PUT, DELETE)
+ * - In Capacitor mode, prefixes relative URLs and adds Bearer token
  */
 
 import { useAuthStore } from '@/lib/auth-store'
+import { getApiBaseUrl, getAuthToken, isCapacitor } from '@/lib/capacitor'
 
 export class AuthError extends Error {
   status: number
@@ -225,10 +227,26 @@ export async function authFetch<T = Record<string, unknown>>(
     timeoutId = setTimeout(() => controller.abort(), timeoutMs)
   }
 
+  // In Capacitor mode, prefix relative URLs and add auth token
+  let effectiveUrl = url
+  const baseUrl = getApiBaseUrl()
+  const headers: Record<string, string> = { ...((options?.headers as Record<string, string>) || {}) }
+
+  if (baseUrl && effectiveUrl.startsWith('/')) {
+    effectiveUrl = `${baseUrl.replace(/\/+$/, '')}${effectiveUrl}`
+  }
+  if (isCapacitor()) {
+    const token = await getAuthToken()
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+  }
+
   let res: Response
   try {
-    res = await fetch(url, {
+    res = await fetch(effectiveUrl, {
       ...options,
+      headers,
       signal: abortController?.signal,
       credentials: 'include',
     })
@@ -257,7 +275,7 @@ export async function authFetch<T = Record<string, unknown>>(
         const newState = useAuthStore.getState()
         if (newState.isAuthenticated) {
           // Re-auth succeeded — retry the original request ONCE
-          const retryRes = await fetch(url, { ...options, credentials: 'include' })
+          const retryRes = await fetch(effectiveUrl, { ...options, headers, credentials: 'include' })
           if (retryRes.ok) {
             const data = await retryRes.json() as T
             // Cache the successful retry response
@@ -335,7 +353,19 @@ export async function authFetch<T = Record<string, unknown>>(
  */
 async function revalidateInBackground<T>(url: string, cacheKey: string): Promise<void> {
   try {
-    const res = await fetch(url, { credentials: 'include' })
+    const baseUrl = getApiBaseUrl()
+    let effectiveUrl = url
+    if (baseUrl && effectiveUrl.startsWith('/')) {
+      effectiveUrl = `${baseUrl.replace(/\/+$/, '')}${effectiveUrl}`
+    }
+    const headers: Record<string, string> = {}
+    if (isCapacitor()) {
+      const token = await getAuthToken()
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+    }
+    const res = await fetch(effectiveUrl, { headers, credentials: 'include' })
     if (res.ok) {
       const data = await res.json() as T
       const { ttl, staleWhileRevalidate } = getTtlForUrl(url)

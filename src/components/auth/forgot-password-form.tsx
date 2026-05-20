@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/lib/auth-store'
+import { apiFetch } from '@/lib/capacitor'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
@@ -72,7 +73,7 @@ export function ForgotPasswordForm() {
 
     setSubmitting(true)
     try {
-      const res = await fetch('/api/auth/forgot-password', {
+      const res = await apiFetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier, method }),
@@ -104,7 +105,7 @@ export function ForgotPasswordForm() {
     try {
       const identifier = method === 'email' ? email.trim() : phone.trim()
       const verifyUrl = method === 'email' ? '/api/auth/verify-email-otp' : '/api/auth/verify-sms-otp'
-      const res = await fetch(verifyUrl, {
+      const res = await apiFetch(verifyUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -138,7 +139,7 @@ export function ForgotPasswordForm() {
     setIsResending(true)
     try {
       const identifier = method === 'email' ? email.trim() : phone.trim()
-      const res = await fetch('/api/auth/forgot-password', {
+      const res = await apiFetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier, method }),
@@ -169,7 +170,7 @@ export function ForgotPasswordForm() {
 
     setSubmitting(true)
     try {
-      const res = await fetch('/api/auth/reset-password', {
+      const res = await apiFetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

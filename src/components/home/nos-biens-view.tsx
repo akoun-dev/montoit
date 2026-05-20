@@ -29,6 +29,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/lib/auth-store'
 import { useFavorites } from '@/lib/use-favorites'
+import { apiFetch } from '@/lib/capacitor'
 import { PropertyMapLeaflet } from '@/components/home/property-map'
 import {
   Select,
@@ -815,8 +816,8 @@ export function NosBiensView() {
       try {
         setIsLoading(true)
         const [propertiesRes, statsRes] = await Promise.all([
-          fetch('/api/properties?all=true'),
-          fetch('/api/stats'),
+          apiFetch('/api/properties?all=true'),
+          apiFetch('/api/stats'),
         ])
         if (!propertiesRes.ok) throw new Error('Erreur lors du chargement')
         const propertiesData = await propertiesRes.json()

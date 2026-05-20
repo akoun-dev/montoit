@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Image from 'next/image'
-import { motion } from 'framer-motion'
-import { MapPin, BedDouble, Maximize, BadgeCheck, ArrowRight, X } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { MapPin, BedDouble, Maximize, BadgeCheck, ArrowRight, X, Star, Navigation, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useGeolocation } from '@/hooks/capacitor/use-geolocation'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -36,6 +37,19 @@ interface PropertyMapLeafletProps {
   searchRadius?: number | null
 }
 
+// ── Property type icons ────────────────────────────────────────────────────
+
+const TYPE_ICONS: Record<string, string> = {
+  APPARTEMENT: '\u{1F3E0}',
+  STUDIO: '\u{1F3E0}',
+  VILLA: '\u{1F3E1}',
+  DUPLEX: '\u{1F3E2}',
+  PENTHOUSE: '\u{1F3E2}',
+  CHAMBRE: '\u{1F6CF}',
+  TERRAIN: '\u{1F3D4}',
+  LOCAL_COMMERCIAL: '\u{1F3EA}',
+}
+
 // ── Helper ──────────────────────────────────────────────────────────────────
 
 function getMapPropertyLocation(property: MapProperty): string {
@@ -43,6 +57,10 @@ function getMapPropertyLocation(property: MapProperty): string {
     return `${property.address}, ${property.commune}`
   }
   return property.address
+}
+
+function getTypeIcon(property: MapProperty): string {
+  return TYPE_ICONS[property.type] || '\u{1F3E0}'
 }
 
 // ── Popup Card ──────────────────────────────────────────────────────────────
@@ -69,43 +87,45 @@ function LeafletPopupCard({ property, onVoirClick }: { property: MapProperty; on
             unoptimized
           />
         ) : (
-          <div className="w-full h-full bg-neutral-200 flex items-center justify-center">
-            <MapPin className="size-6 text-muted-foreground" />
+          <div className="w-full h-full bg-gradient-to-br from-brand-100 to-brand-200 flex items-center justify-center">
+            <span className="text-3xl">{getTypeIcon(property)}</span>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
         <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
           <Badge className={`border-0 text-[9px] font-semibold px-1.5 py-0 ${statusConfig[property.rentalStatus].className}`}>
             {statusConfig[property.rentalStatus].label}
           </Badge>
           {property.isFurnished && (
-            <Badge className="border-0 text-[9px] font-medium px-1.5 py-0 bg-sky-500 text-white">
+            <Badge className="border-0 text-[9px] font-medium px-1.5 py-0 bg-sky-500/90 text-white">
               Meublé
             </Badge>
           )}
+        </div>
+        {/* Type icon overlay */}
+        <div className="absolute top-1.5 right-1.5 bg-black/30 backdrop-blur-sm rounded-full px-1.5 py-0.5 text-xs leading-none">
+          <span>{getTypeIcon(property)}</span>
         </div>
       </div>
       <div className="p-2.5">
         <h3 className="font-semibold text-foreground text-[11px] mb-0.5 line-clamp-1">{property.title}</h3>
         <div className="flex items-center gap-1 text-muted-foreground text-[10px] mb-1.5">
-          <MapPin className="size-2.5 shrink-0" />
+          <MapPin className="size-2.5 shrink-0 text-brand-500" />
           <span className="line-clamp-1">{location}</span>
         </div>
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground mb-2">
           {property.bedrooms !== null && (
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-0.5 bg-muted rounded-full px-1.5 py-0.5">
               <BedDouble className="size-2.5 text-muted-foreground" />
               <span>{property.bedrooms} pièce{property.bedrooms > 1 ? 's' : ''}</span>
             </div>
           )}
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-0.5 bg-muted rounded-full px-1.5 py-0.5">
             <Maximize className="size-2.5 text-muted-foreground" />
             <span>{property.area} m²</span>
           </div>
           {property.isVerified && (
-            <div className="flex items-center gap-0.5 text-brand-500">
-              <BadgeCheck className="size-2.5" />
-            </div>
+            <BadgeCheck className="size-3 text-brand-500" />
           )}
         </div>
         <div className="flex items-center justify-between pt-1.5 border-t border-border">
@@ -115,7 +135,7 @@ function LeafletPopupCard({ property, onVoirClick }: { property: MapProperty; on
           <Button
             variant="outline"
             size="sm"
-            className="text-brand-500 border-brand-200 hover:bg-brand-50 text-[9px] h-6 px-2"
+            className="text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600 text-[9px] h-6 px-2 rounded-lg transition-all"
             onClick={(e) => {
               e.stopPropagation()
               onVoirClick()
@@ -136,6 +156,38 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
   const mapInstanceRef = useRef<L.Map | null>(null)
   const [selectedProperty, setSelectedProperty] = useState<MapProperty | null>(null)
   const [mapZoomLevel, setMapZoomLevel] = useState(12)
+  const [internalUserLocation, setInternalUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const hasAutoCenteredRef = useRef(false)
+  const isTransitioningRef = useRef(false)
+  const userFlyInProgressRef = useRef(false)
+  const userMarkerLayerRef = useRef<L.LayerGroup | null>(null)
+  const userMarkerRenderFnRef = useRef<((loc: { lat: number; lng: number } | null, radius: number | null) => void) | null>(null)
+
+  // Geolocation hook for auto-detection (only when userLocation prop is not provided)
+  const geo = useGeolocation({ enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 })
+
+  // Effective location: prop overrides auto-detected location
+  const effectiveUserLocation = userLocation ?? internalUserLocation
+
+  // Auto-detect position on mount when parent doesn't provide userLocation
+  useEffect(() => {
+    if (!userLocation && !internalUserLocation) {
+      geo.getCurrentPosition()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // When geolocation hook obtains a position (and no prop overrides), update internal state
+  useEffect(() => {
+    if (userLocation) return // parent controls location
+    if (!geo.position) return
+
+    const newLoc = {
+      lat: geo.position.coords.latitude,
+      lng: geo.position.coords.longitude,
+    }
+    setInternalUserLocation(newLoc)
+  }, [geo.position, userLocation])
 
   // Group properties by commune
   const communeGroups = useCallback(() => {
@@ -147,6 +199,21 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
     })
     return groups
   }, [properties])
+
+  // Compute price range for a group
+  function getPriceRange(props: MapProperty[]): string {
+    const prices = props.map(p => p.price).filter(p => p > 0)
+    if (prices.length === 0) return ''
+    const min = Math.min(...prices)
+    const max = Math.max(...prices)
+    if (min === max) return `${(min / 1000).toFixed(0)}k`
+    return `${(min / 1000).toFixed(0)}k - ${(max / 1000).toFixed(0)}k`
+  }
+
+  function getGroupTypes(props: MapProperty[]): string[] {
+    const types = new Set(props.map(p => p.type))
+    return Array.from(types)
+  }
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return
@@ -161,6 +228,9 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
         zoom: 12,
         zoomControl: false,
         scrollWheelZoom: true,
+        fadeAnimation: true,
+        zoomAnimation: true,
+        markerZoomAnimation: true,
       })
 
       // Add OpenStreetMap tiles
@@ -175,67 +245,84 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
       // ── Marker creation functions ───────────────────────────────────────
 
       // Cluster marker: shows count of properties in a commune
-      const createClusterIcon = (count: number, commune: string) => {
-        const size = count > 5 ? 48 : count > 3 ? 42 : 36
-        const bgColor = count > 5 ? '#FF6C2F' : count > 3 ? '#FF8C5A' : '#FFAA80'
+      const createClusterIcon = (count: number, commune: string, priceRange: string, types: string[]) => {
+        const size = count > 10 ? 56 : count > 5 ? 50 : count > 3 ? 44 : 38
+        const bgColor = count > 5 ? '#FF6C2F' : '#FF8C5A'
+
+        const typeIcons = types.slice(0, 3).map(t => TYPE_ICONS[t] || '').join(' ')
+        const iconHtml = typeIcons || '\u{1F3E0}'
 
         return L.divIcon({
-          className: 'custom-cluster-marker',
+          className: 'custom-cluster-marker animated-marker',
           html: `
-            <div style="
+            <div class="cluster-marker-container" style="
               position: relative;
               width: ${size}px;
-              height: ${size}px;
+              height: ${size + 18}px;
               display: flex;
+              flex-direction: column;
               align-items: center;
               justify-content: center;
               cursor: pointer;
+              animation: markerEntrance 0.4s ease-out both;
             ">
-              <div style="
+              <div class="cluster-marker-circle" style="
                 width: ${size}px;
                 height: ${size}px;
                 border-radius: 50%;
-                background: ${bgColor};
+                background: linear-gradient(135deg, ${bgColor}, #FF6C2F);
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
                 border: 3px solid white;
-                box-shadow: 0 3px 12px rgba(255,108,47,0.4), 0 0 0 1px rgba(255,108,47,0.2);
-                transition: transform 0.2s, box-shadow 0.2s;
-                font-family: Inter, sans-serif;
-              "
-              onmouseover="this.style.transform='scale(1.12)'; this.style.boxShadow='0 5px 20px rgba(255,108,47,0.5), 0 0 0 2px rgba(255,108,47,0.3)'"
-              onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 3px 12px rgba(255,108,47,0.4), 0 0 0 1px rgba(255,108,47,0.2)'"
-              >
-                <span style="color: white; font-size: ${count > 9 ? 13 : 15}px; font-weight: 800; line-height: 1;">${count}</span>
-                <span style="color: rgba(255,255,255,0.85); font-size: 7px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-top: -1px;">biens</span>
+                box-shadow: 0 3px 15px rgba(255,108,47,0.4), 0 0 0 1px rgba(255,108,47,0.15);
+                transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+                position: relative;
+                overflow: hidden;
+              ">
+                <div class="cluster-inner-glow" style="
+                  position: absolute;
+                  top: -30%;
+                  left: -30%;
+                  width: 80%;
+                  height: 80%;
+                  background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+                  border-radius: 50%;
+                "></div>
+                <span style="color: white; font-size: ${count > 9 ? 14 : 16}px; font-weight: 800; line-height: 1; position: relative;">${count}</span>
+                <span style="color: rgba(255,255,255,0.85); font-size: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: -1px; position: relative;">biens</span>
               </div>
-              <div style="
-                position: absolute;
-                bottom: -6px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: ${bgColor};
+              <div class="cluster-label" style="
+                margin-top: 4px;
+                padding: 0 8px;
+                height: 18px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                background: rgba(0,0,0,0.7);
+                backdrop-filter: blur(4px);
                 color: white;
                 font-size: 8px;
-                font-weight: 700;
-                padding: 1px 6px;
-                border-radius: 8px;
+                font-weight: 600;
+                border-radius: 9px;
                 white-space: nowrap;
-                border: 1.5px solid white;
-                font-family: Inter, sans-serif;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.15);
-              ">${commune}</div>
+                border: 1.5px solid rgba(255,255,255,0.3);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+              ">
+                <span>${iconHtml}</span>
+                <span>${commune}</span>
+                ${priceRange ? `<span style="opacity:0.7;font-weight:400;">· ${priceRange}</span>` : ''}
+              </div>
             </div>
           `,
-          iconSize: [size, size + 16],
-          iconAnchor: [size / 2, size + 8],
+          iconSize: [size + 12, size + 28],
+          iconAnchor: [(size + 12) / 2, size + 20],
         })
       }
 
-      // Individual property marker: shows price
-      const createPropertyIcon = (price: number, status: PropertyStatus) => {
+      // Individual property marker: shows price with type icon
+      const createPropertyIcon = (price: number, status: PropertyStatus, propertyType: string) => {
         const color: Record<PropertyStatus, string> = {
           disponible: '#FF6C2F',
           loue: '#EF4444',
@@ -243,92 +330,105 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
         }
         const bgColor = color[status]
         const label = `${(price / 1000).toFixed(0)}k`
+        const typeIcon = TYPE_ICONS[propertyType] || ''
 
         return L.divIcon({
-          className: 'custom-price-marker',
+          className: 'custom-price-marker animated-marker',
           html: `
-            <div style="
-              background: ${bgColor};
-              color: white;
-              font-size: 11px;
-              font-weight: 700;
-              padding: 4px 10px;
-              border-radius: 20px;
-              white-space: nowrap;
-              border: 2px solid white;
-              box-shadow: 0 2px 10px rgba(0,0,0,0.25);
-              cursor: pointer;
-              transition: transform 0.15s, box-shadow 0.15s;
-              font-family: Inter, sans-serif;
+            <div class="price-marker-container" style="
               position: relative;
-            "
-            onmouseover="this.style.transform='scale(1.12)'; this.style.boxShadow='0 4px 16px rgba(0,0,0,0.35)'"
-            onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 10px rgba(0,0,0,0.25)'"
-            >
-              ${label} F
-              <div style="
-                position: absolute;
-                bottom: -5px;
-                left: 50%;
-                transform: translateX(-50%) rotate(45deg);
-                width: 8px;
-                height: 8px;
-                background: ${bgColor};
-                border-right: 2px solid white;
-                border-bottom: 2px solid white;
-              "></div>
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              animation: markerEntrance 0.35s ease-out both;
+            ">
+              <div class="price-marker-bubble" style="
+                background: linear-gradient(135deg, ${bgColor}, ${bgColor}dd);
+                color: white;
+                font-size: 11px;
+                font-weight: 700;
+                padding: 5px 12px;
+                border-radius: 20px;
+                white-space: nowrap;
+                border: 2.5px solid white;
+                box-shadow: 0 3px 12px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.15);
+                cursor: pointer;
+                transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.2s ease;
+                font-family: Inter, system-ui, sans-serif;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                position: relative;
+              ">
+                ${typeIcon ? `<span style="font-size: 12px;">${typeIcon}</span>` : ''}
+                <span>${label} F</span>
+                <div class="price-arrow" style="
+                  position: absolute;
+                  bottom: -6px;
+                  left: 50%;
+                  transform: translateX(-50%) rotate(45deg);
+                  width: 10px;
+                  height: 10px;
+                  background: ${bgColor}dd;
+                  border-right: 2.5px solid white;
+                  border-bottom: 2.5px solid white;
+                  border-radius: 0 0 2px 0;
+                "></div>
+              </div>
             </div>
           `,
           iconSize: [0, 0],
-          iconAnchor: [28, 34],
+          iconAnchor: [32, 40],
         })
       }
 
       // ── User location marker ────────────────────────────────────────────
 
       const userMarkerLayer = L.layerGroup().addTo(map)
+      userMarkerLayerRef.current = userMarkerLayer
 
-      function renderUserLocation() {
-        userMarkerLayer.clearLayers()
-        if (!userLocation) return
+      function renderUserLocation(loc: { lat: number; lng: number } | null, radius: number | null) {
+        const layer = userMarkerLayerRef.current
+        if (!layer || !loc) return
+        layer.clearLayers()
 
         // Pulsing blue dot
         const userIcon = L.divIcon({
           className: 'user-location-marker',
           html: `
-            <div style="position: relative; width: 24px; height: 24px;">
-              <div style="
+            <div style="position: relative; width: 28px; height: 28px;">
+              <div class="user-pulse-ring" style="
                 position: absolute;
                 top: 50%; left: 50%;
                 transform: translate(-50%, -50%);
-                width: 24px; height: 24px;
+                width: 28px; height: 28px;
                 border-radius: 50%;
                 background: rgba(59, 130, 246, 0.2);
-                animation: userPulse 2s ease-in-out infinite;
               "></div>
-              <div style="
+              <div class="user-dot" style="
                 position: absolute;
                 top: 50%; left: 50%;
                 transform: translate(-50%, -50%);
-                width: 14px; height: 14px;
+                width: 16px; height: 16px;
                 border-radius: 50%;
-                background: #3B82F6;
+                background: linear-gradient(135deg, #60A5FA, #3B82F6);
                 border: 3px solid white;
                 box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+                animation: userPulse 2s ease-in-out infinite;
               "></div>
             </div>
           `,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
         })
 
-        const userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon, zIndexOffset: 1000 })
-        userMarker.addTo(userMarkerLayer)
+        const userMarker = L.marker([loc.lat, loc.lng], { icon: userIcon, zIndexOffset: 1000 })
+        userMarker.addTo(layer)
 
         // Radius circle
-        if (searchRadius) {
-          const circle = L.circle([userLocation.lat, userLocation.lng], {
-            radius: searchRadius * 1000, // Convert km to meters
+        if (radius) {
+          const circle = L.circle([loc.lat, loc.lng], {
+            radius: radius * 1000,
             color: '#3B82F6',
             fillColor: '#3B82F6',
             fillOpacity: 0.06,
@@ -336,9 +436,11 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
             dashArray: '6 4',
             opacity: 0.4,
           })
-          circle.addTo(userMarkerLayer)
+          circle.addTo(layer)
         }
       }
+
+      userMarkerRenderFnRef.current = (loc: { lat: number; lng: number } | null, radius: number | null) => renderUserLocation(loc, radius)
 
       // ── Render markers based on zoom level ──────────────────────────────
 
@@ -352,34 +454,61 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
         if (zoom < 14) {
           // Show cluster markers by commune
           const groups = communeGroups()
+          let delay = 0
           Object.entries(groups).forEach(([commune, props]) => {
-            // Calculate centroid of commune's properties (filter out null coords)
             const validProps = props.filter((p) => p.latitude !== null && p.longitude !== null)
             if (validProps.length === 0) return
 
             const avgLat = validProps.reduce((s, p) => s + (p.latitude ?? 0), 0) / validProps.length
             const avgLng = validProps.reduce((s, p) => s + (p.longitude ?? 0), 0) / validProps.length
+            const priceRange = getPriceRange(props)
+            const types = getGroupTypes(props)
 
-            const clusterIcon = createClusterIcon(props.length, commune)
+            const clusterIcon = createClusterIcon(props.length, commune, priceRange, types)
             const marker = L.marker([avgLat, avgLng], { icon: clusterIcon })
 
             marker.on('click', () => {
-              // Zoom into this commune
+              if (isTransitioningRef.current) return
+              isTransitioningRef.current = true
               const bounds = L.latLngBounds(validProps.map((p) => L.latLng(p.latitude ?? 0, p.longitude ?? 0)))
-              map.fitBounds(bounds.pad(0.3), { animate: true, duration: 0.5 })
+              map.flyToBounds(bounds.pad(0.3), {
+                animate: true,
+                duration: 0.6,
+                easeLinearity: 0.3,
+              })
+              setTimeout(() => { isTransitioningRef.current = false }, 700)
             })
+
+            // Add entrance delay for staggered animation (set after marker is rendered)
+            const currentDelay = delay
+            marker.on('add', () => {
+              const el = marker.getElement()
+              if (el) {
+                (el as HTMLElement).style.animationDelay = `${currentDelay * 0.08}s`
+              }
+            })
+            delay++
 
             marker.addTo(markersLayer)
           })
         } else {
           // Show individual property markers
-          properties.forEach((property) => {
+          properties.forEach((property, idx) => {
             if (property.latitude === null || property.longitude === null) return
-            const icon = createPropertyIcon(property.price, property.rentalStatus)
+            const icon = createPropertyIcon(property.price, property.rentalStatus, property.type)
             const marker = L.marker([property.latitude, property.longitude], { icon })
 
             marker.on('click', () => {
               setSelectedProperty(property)
+            })
+
+            // Staggered animation delay (set after marker is rendered)
+            const currentIdx = idx
+            marker.on('add', () => {
+              const el = marker.getElement()
+              if (el) {
+                (el as HTMLElement).style.animationDelay = `${currentIdx * 0.05}s`
+              }
             })
 
             marker.addTo(markersLayer)
@@ -389,11 +518,18 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
 
       // Initial render
       renderMarkers()
-      renderUserLocation()
+      renderUserLocation(effectiveUserLocation, searchRadius ?? null)
 
-      // Re-render on zoom change
+      // Re-render on zoom change with smooth transition
+      map.on('zoomstart', () => {
+        isTransitioningRef.current = true
+      })
+
       map.on('zoomend', () => {
-        renderMarkers()
+        setTimeout(() => {
+          renderMarkers()
+          isTransitioningRef.current = false
+        }, 100)
       })
 
       // Fit bounds to all properties
@@ -421,16 +557,37 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
         mapInstanceRef.current = null
       }
     }
-  }, [properties, communeGroups, userLocation, searchRadius])
+  }, [properties, communeGroups, searchRadius])
 
   // Update markers when properties change
   useEffect(() => {
     const map = mapInstanceRef.current
     if (!map) return
-
-    // Re-render by triggering zoomend event
-    map.fire('zoomend')
+    setTimeout(() => {
+      map.fire('zoomend')
+    }, 50)
   }, [properties])
+
+  // Update user marker and fly to location when user location changes
+  useEffect(() => {
+    const loc = userLocation ?? internalUserLocation
+    if (!loc) return
+
+    // Re-render the user marker with the latest location and radius
+    userMarkerRenderFnRef.current?.(loc, searchRadius ?? null)
+
+    // Fly to location on first auto-detection only (not when parent provides it)
+    if (!hasAutoCenteredRef.current && !userLocation) {
+      const map = mapInstanceRef.current
+      if (map) {
+        hasAutoCenteredRef.current = true
+        map.flyTo([loc.lat, loc.lng], 14, {
+          animate: true,
+          duration: 0.8,
+        })
+      }
+    }
+  }, [userLocation, internalUserLocation, searchRadius])
 
   return (
     <div className="relative w-full h-full">
@@ -441,6 +598,46 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
         style={{ minHeight: '500px' }}
       />
 
+      {/* Centrer sur ma position button (only when we have a location) */}
+      {effectiveUserLocation && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => {
+            const map = mapInstanceRef.current
+            if (!map) return
+            userFlyInProgressRef.current = true
+            map.flyTo([effectiveUserLocation.lat, effectiveUserLocation.lng], 14, {
+              animate: true,
+              duration: 0.8,
+            })
+            setTimeout(() => { userFlyInProgressRef.current = false }, 1200)
+          }}
+          className="absolute top-4 right-4 z-[1000] flex items-center gap-1.5 bg-card/95 backdrop-blur-md rounded-full px-3.5 py-2 shadow-lg border border-border hover:bg-accent transition-colors"
+          aria-label="Centrer sur ma position"
+        >
+          <Navigation className="size-4 text-brand-500" />
+          <span className="text-xs font-semibold text-foreground hidden sm:inline">Centrer</span>
+        </motion.button>
+      )}
+
+      {/* Loading indicator when getting position */}
+      {geo.isLoading && !effectiveUserLocation && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000]"
+        >
+          <div className="flex items-center gap-2 bg-card/95 backdrop-blur-md rounded-full px-4 py-2 shadow-lg border border-border">
+            <Loader2 className="size-3.5 text-brand-500 animate-spin" />
+            <span className="text-xs text-muted-foreground font-medium">Recherche de votre position...</span>
+          </div>
+        </motion.div>
+      )}
+
       {/* Leaflet CSS overrides */}
       <style jsx global>{`
         .leaflet-popup-content-wrapper {
@@ -448,6 +645,7 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
           padding: 0 !important;
           overflow: hidden !important;
           box-shadow: 0 8px 30px rgba(0,0,0,0.15) !important;
+          animation: popupEntrance 0.3s ease-out;
         }
         .leaflet-popup-content {
           margin: 0 !important;
@@ -465,55 +663,158 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
           background: none !important;
           border: none !important;
         }
+        .cluster-marker-container:hover .cluster-marker-circle {
+          transform: scale(1.12) !important;
+          box-shadow: 0 5px 20px rgba(255,108,47,0.5), 0 0 0 2px rgba(255,108,47,0.3) !important;
+        }
+        .price-marker-container:hover .price-marker-bubble {
+          transform: scale(1.1) !important;
+          box-shadow: 0 5px 18px rgba(0,0,0,0.3) !important;
+        }
+
+        @keyframes markerEntrance {
+          0% {
+            opacity: 0;
+            transform: scale(0) translateY(10px);
+          }
+          60% {
+            opacity: 1;
+            transform: scale(1.15) translateY(-2px);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1) translateY(0px);
+          }
+        }
+
+        @keyframes popupEntrance {
+          0% {
+            opacity: 0;
+            transform: translateY(10px) scale(0.95);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
         @keyframes userPulse {
-          0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
-          50% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
+          0%, 100% {
+            transform: translate(-50%, -50%) scale(1);
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+          }
+          50% {
+            transform: translate(-50%, -50%) scale(1.25);
+            box-shadow: 0 2px 16px rgba(59, 130, 246, 0.4);
+          }
+        }
+
+        .user-pulse-ring {
+          animation: userPulseRing 2s ease-in-out infinite;
+        }
+
+        @keyframes userPulseRing {
+          0%, 100% {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 0.6;
+          }
+          50% {
+            transform: translate(-50%, -50%) scale(2);
+            opacity: 0;
+          }
+        }
+
+        /* Smooth zoom transition */
+        .leaflet-zoom-anim .leaflet-zoom-animated {
+          transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+
+        /* Improved zoom controls */
+        .leaflet-control-zoom {
+          border: none !important;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.15) !important;
+          border-radius: 10px !important;
+          overflow: hidden !important;
+        }
+        .leaflet-control-zoom a {
+          width: 36px !important;
+          height: 36px !important;
+          line-height: 36px !important;
+          font-size: 16px !important;
+          border: none !important;
+          background: white !important;
+          color: #374151 !important;
+          font-weight: 700 !important;
+          transition: background 0.15s !important;
+        }
+        .leaflet-control-zoom a:hover {
+          background: #F9FAFB !important;
+          color: #FF6C2F !important;
+        }
+        .leaflet-control-zoom a.leaflet-control-zoom-in {
+          border-bottom: 1px solid #F3F4F6 !important;
         }
       `}</style>
 
       {/* Selected property card overlay */}
-      {selectedProperty && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] sm:left-4 sm:translate-x-0"
-        >
-          <div className="bg-card rounded-xl shadow-2xl border border-border overflow-hidden w-72">
-            {/* Close button */}
-            <button
-              onClick={() => setSelectedProperty(null)}
-              className="absolute top-2 right-2 z-10 size-6 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center hover:bg-card shadow-sm"
-              aria-label="Fermer"
-            >
-              <X className="size-3 text-muted-foreground" />
-            </button>
-            <LeafletPopupCard
-              property={selectedProperty}
-              onVoirClick={() => {
-                if (onPropertyClick) onPropertyClick(selectedProperty)
-              }}
-            />
-          </div>
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {selectedProperty && (
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] sm:left-4 sm:translate-x-0 sm:bottom-6"
+          >
+            <div className="bg-card rounded-xl shadow-2xl border border-border overflow-hidden w-72 sm:w-64">
+              {/* Close button */}
+              <button
+                onClick={() => setSelectedProperty(null)}
+                className="absolute top-2 right-2 z-10 size-6 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center hover:bg-card shadow-sm hover:shadow-md transition-all"
+                aria-label="Fermer"
+              >
+                <X className="size-3 text-muted-foreground" />
+              </button>
+              <LeafletPopupCard
+                property={selectedProperty}
+                onVoirClick={() => {
+                  if (onPropertyClick) onPropertyClick(selectedProperty)
+                }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Zoom hint */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-card/95 backdrop-blur-sm rounded-full px-4 py-2 shadow-md border border-border">
-        <p className="text-[11px] text-muted-foreground font-medium flex items-center gap-1.5">
-          <MapPin className="size-3 text-brand-500" />
-          {mapZoomLevel < 14
-            ? 'Cliquez sur un marqueur pour zoomer et voir les détails'
-            : 'Cliquez sur un bien pour plus d\'informations'}
-        </p>
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000]"
+      >
+        <div className="bg-card/90 backdrop-blur-md rounded-full px-4 py-2 shadow-lg border border-border">
+          <p className="text-[11px] text-muted-foreground font-medium flex items-center gap-1.5">
+            <MapPin className="size-3 text-brand-500" />
+            {mapZoomLevel < 14
+              ? properties.length > 0
+                ? 'Cliquez sur un groupe pour voir les biens du quartier'
+                : 'Aucun bien à afficher sur la carte'
+              : 'Cliquez sur un marqueur pour voir les détails'}
+          </p>
+        </div>
+      </motion.div>
 
       {/* Legend */}
-      <div className="absolute bottom-4 right-4 z-[1000] sm:right-14 bg-card/95 backdrop-blur-sm rounded-lg shadow-md border border-border px-3 py-2">
-        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Légende</p>
-        <div className="flex flex-col gap-1">
+      <motion.div
+        initial={{ opacity: 0, x: 10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.3 }}
+        className="absolute bottom-4 right-4 z-[1000] sm:right-14 bg-card/90 backdrop-blur-md rounded-xl shadow-lg border border-border px-3 py-2.5"
+      >
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Légende</p>
+        <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full bg-brand-500" />
+            <span className="size-2.5 rounded-full bg-[#FF6C2F]" />
             <span className="text-[10px] text-muted-foreground">Disponible</span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -525,12 +826,20 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
             <span className="text-[10px] text-muted-foreground">Réservé</span>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Property count */}
-      <div className="absolute top-4 left-4 z-[1000] bg-brand-500 text-white rounded-full px-3 py-1.5 shadow-lg text-xs font-semibold">
-        {properties.length} bien{properties.length !== 1 ? 's' : ''} sur la carte
-      </div>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.2 }}
+        className="absolute top-4 left-4 z-[1000]"
+      >
+        <div className="bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-full px-4 py-1.5 shadow-lg text-xs font-semibold flex items-center gap-1.5">
+          <Star className="size-3" />
+          {properties.length} bien{properties.length !== 1 ? 's' : ''}
+        </div>
+      </motion.div>
     </div>
   )
 }

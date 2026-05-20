@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/lib/auth-store'
 import { useFavorites } from '@/lib/use-favorites'
 import { authFetch } from '@/lib/auth-fetch'
+import { apiFetch } from '@/lib/capacitor'
 import {
   MapPin,
   BedDouble,
@@ -53,6 +54,7 @@ import {
   Navigation,
   Loader2,
   EyeOff,
+  Check,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -71,6 +73,7 @@ import {
 } from '@/components/ui/dialog'
 import { ReportDetailDialog, statusConfig as inventoryStatusConfig, typeLabels as inventoryTypeLabels } from '@/components/dashboard/tc/report-detail-dialog'
 import type { InventoryReport } from '@/components/dashboard/tc/report-detail-dialog'
+import { toast } from '@/hooks/use-toast'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -309,6 +312,7 @@ function AuthGateDialog({
 function MiniMap({ lat, lng, location }: { lat: number; lng: number; location: string }) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
+  const resizeObserverRef = useRef<ResizeObserver | null>(null)
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return
@@ -358,10 +362,24 @@ function MiniMap({ lat, lng, location }: { lat: number; lng: number; location: s
 
       mapInstanceRef.current = map
 
-      setTimeout(() => map.invalidateSize(), 200)
+      // Use ResizeObserver instead of fragile setTimeout
+      if (mapRef.current) {
+        const observer = new ResizeObserver(() => {
+          map.invalidateSize()
+        })
+        observer.observe(mapRef.current)
+        resizeObserverRef.current = observer
+      }
+
+      // Initial invalidate after mount
+      map.invalidateSize()
     })
 
     return () => {
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect()
+        resizeObserverRef.current = null
+      }
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null
@@ -381,7 +399,7 @@ function MiniMap({ lat, lng, location }: { lat: number; lng: number; location: s
         href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="absolute bottom-3 right-3 z-[1000] bg-card/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-md border border-border flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:bg-card hover:text-brand-500 transition-colors"
+        className="absolute bottom-2 right-2 z-10 bg-card/95 backdrop-blur-sm rounded-lg px-2.5 py-1.5 shadow-md border border-border flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:bg-card hover:text-brand-500 transition-colors"
       >
         <Navigation className="size-3.5" />
         Itinéraire
@@ -471,11 +489,29 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   const [detailReport, setDetailReport] = useState<InventoryReport | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
 
+  // Partage state
+  const [shareSuccess, setShareSuccess] = useState(false)
+  const handleShare = useCallback(() => {
+    const url = window.location.href
+    const title = property?.title ?? 'Bien immobilier'
+    if (navigator.share) {
+      navigator.share({ title, url }).catch(() => {})
+    } else {
+      navigator.clipboard.writeText(url).then(() => {
+        setShareSuccess(true)
+        toast({ title: 'Lien copié !', description: 'Le lien du bien a été copié dans votre presse-papier.' })
+        setTimeout(() => setShareSuccess(false), 2000)
+      }).catch(() => {
+        toast({ title: 'Erreur', description: 'Impossible de copier le lien.', variant: 'destructive' })
+      })
+    }
+  }, [property])
+
   // Fetch property from API
   useEffect(() => {
     if (!propertyId) return
     let cancelled = false
-    fetch(`/api/properties/${propertyId}`, { credentials: 'include' })
+    apiFetch(`/api/properties/${propertyId}`, { credentials: 'include' })
       .then((res) => {
         if (!res.ok) throw new Error('Bien introuvable')
         return res.json()
@@ -515,7 +551,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
     if (!property || !propertyId) return
     let cancelled = false
     setInventoryLoading(true)
-    fetch(`/api/properties/${propertyId}/inventory-reports`)
+    apiFetch(`/api/properties/${propertyId}/inventory-reports`)
       .then((res) => res.json())
       .then((data) => {
         if (!cancelled) {
@@ -534,7 +570,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   // Fetch reviews from API
   useEffect(() => {
     if (!propertyId) return
-    fetch(`/api/properties/reviews?propertyId=${propertyId}`)
+    apiFetch(`/api/properties/reviews?propertyId=${propertyId}`)
       .then((res) => {
         if (!res.ok) throw new Error('Erreur')
         return res.json()
@@ -656,10 +692,15 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
               <Heart className={`size-4 ${checkIsFavorite(propertyId) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
             </button>
             <button
+              onClick={handleShare}
               className="size-9 rounded-full bg-muted border border-border flex items-center justify-center hover:bg-brand-50 hover:border-brand-200 transition-all"
               aria-label="Partager"
             >
-              <Share2 className="size-4 text-muted-foreground" />
+              {shareSuccess ? (
+                <Check className="size-4 text-emerald-500" />
+              ) : (
+                <Share2 className="size-4 text-muted-foreground" />
+              )}
             </button>
           </div>
         </div>
@@ -863,51 +904,57 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
             </AnimatePresence>
           </div>
 
-          {/* États des Lieux — Mobile version (visible en dessous des onglets) */}
+          {/* États des Lieux — Mobile version */}
           {!inventoryLoading && inventoryReports.length > 0 && (
-            <div className="lg:hidden mt-6 mb-4">
+            <div className="lg:hidden mt-6 pb-[72px]">
               <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
-                <h3 className="text-xs font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <FileText className="size-3.5 text-brand-500" />
-                  États des Lieux
-                </h3>
-                <div className="space-y-2">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <FileText className="size-4 text-brand-500" />
+                    États des Lieux
+                  </h3>
+                  <span className="text-[11px] text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full font-medium">
+                    {inventoryReports.length} rapport{inventoryReports.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="space-y-2.5">
                   {inventoryReports.map((report) => {
                     const config = inventoryStatusConfig[report.status] || inventoryStatusConfig.DRAFT
                     const StatusIcon = config.icon
                     return (
                       <div
                         key={report.id}
-                        className="flex items-center justify-between gap-2 p-2 rounded-lg border border-border hover:bg-muted/30 transition-colors"
+                        className="flex items-center gap-2.5 p-2.5 rounded-xl border border-border hover:bg-muted/30 transition-colors active:bg-muted/50"
                       >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-medium text-muted-foreground">
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <div className="flex items-start gap-1.5 flex-wrap">
+                            <span className="text-xs font-semibold text-foreground truncate max-w-full">
                               {inventoryTypeLabels[report.type] || report.type}
                             </span>
-                            <span className={cn('text-[10px] px-1.5 py-0.5 rounded font-medium', config.className)}>
-                              <StatusIcon className="size-2.5 inline mr-0.5" />
+                            <span className={cn('whitespace-nowrap text-[10px] px-1.5 py-0.5 rounded-md font-medium inline-flex items-center gap-0.5', config.className)}>
+                              <StatusIcon className="size-2.5" />
                               {config.label}
                             </span>
                           </div>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
                             {new Date(report.createdAt).toLocaleDateString('fr-FR', {
                               day: 'numeric', month: 'short', year: 'numeric'
                             })}
+                            {report.totalKeys != null && (
+                              <span className="ml-2 text-muted-foreground/70">· {report.totalKeys} clé{report.totalKeys > 1 ? 's' : ''}</span>
+                            )}
                           </p>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 shrink-0 gap-0.5 text-[11px] px-1.5"
+                        <button
+                          className="shrink-0 h-8 w-16 flex items-center justify-center gap-1 rounded-lg border border-brand-200 text-brand-600 text-xs font-medium hover:bg-brand-50 hover:border-brand-300 transition-colors active:bg-brand-100"
                           onClick={() => {
                             setDetailReport(report)
                             setDetailOpen(true)
                           }}
                         >
-                          <Eye className="size-3" />
+                          <Eye className="size-3.5" />
                           Voir
-                        </Button>
+                        </button>
                       </div>
                     )
                   })}
@@ -1594,7 +1641,7 @@ function VisitModal({
     setError('')
 
     try {
-      const res = await fetch('/api/visits', {
+      const res = await apiFetch('/api/visits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

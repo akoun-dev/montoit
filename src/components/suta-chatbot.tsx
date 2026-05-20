@@ -6,6 +6,7 @@ import { X, Send, Trash2, Sparkles, GripVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { apiFetch } from '@/lib/capacitor'
 
 interface Message {
   id: string
@@ -67,14 +68,11 @@ export function SutaChatbot() {
     }
   }, [isOpen])
 
-  // Handle drag functionality
+  // Handle drag functionality for both panel and button
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     // Prevent drag when clicking interactive elements inside header
     const target = e.target as HTMLElement
     if (target.closest('button') || target.closest('input') || target.closest('a')) return
-
-    // Only allow dragging on desktop
-    if (window.innerWidth < 640) return
 
     e.preventDefault()
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
@@ -93,8 +91,10 @@ export function SutaChatbot() {
       const newY = e.clientY - dragStartPos.current.y
 
       // Constrain within viewport
-      const maxX = window.innerWidth - 380
-      const maxY = window.innerHeight - 500
+      const panelWidth = window.innerWidth < 640 ? window.innerWidth - 16 : 380
+      const panelHeight = window.innerWidth < 640 ? window.innerHeight - 16 : 500
+      const maxX = Math.max(0, window.innerWidth - panelWidth)
+      const maxY = Math.max(0, window.innerHeight - panelHeight)
 
       setPosition({
         x: Math.max(0, Math.min(newX, maxX)),
@@ -131,7 +131,7 @@ export function SutaChatbot() {
     setShowSuggestions(false)
 
     try {
-      const res = await fetch('/api/suta', {
+      const res = await apiFetch('/api/suta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text.trim(), sessionId }),
@@ -172,7 +172,7 @@ export function SutaChatbot() {
 
   const clearConversation = async () => {
     try {
-      await fetch(`/api/suta?sessionId=${sessionId}`, { method: 'DELETE', credentials: 'include' })
+      await apiFetch(`/api/suta?sessionId=${sessionId}`, { method: 'DELETE', credentials: 'include' })
     } catch {
       // Ignore delete errors
     }
@@ -207,7 +207,10 @@ export function SutaChatbot() {
             exit={{ scale: 0, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 20 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-4 right-4 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-[#FF6C2F] p-1 shadow-lg shadow-[#FF6C2F]/30 hover:shadow-xl hover:shadow-[#FF6C2F]/40 transition-shadow sm:bottom-6 sm:right-6"
+            className="fixed bottom-24 right-4 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-[#FF6C2F] p-1 shadow-lg shadow-[#FF6C2F]/30 hover:shadow-xl hover:shadow-[#FF6C2F]/40 transition-shadow sm:bottom-6 sm:right-6"
+            style={{
+              transform: `translate(${position.x}px, ${position.y}px)`,
+            }}
             aria-label="Ouvrir le chat SUTA"
           >
             <div className="relative h-full w-full">

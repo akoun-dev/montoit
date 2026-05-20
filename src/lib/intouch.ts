@@ -20,6 +20,15 @@ const CASHIN_PASSWORDS: Record<PaymentOperator, string> = {
   WAVE: process.env.INTOUCH_CASHIN_WAVE_PASSWORD || '',
 }
 
+// Password for PAIEMENT (separate from CASHIN — single shared password for all operators)
+const PAIEMENT_PASSWORD = process.env.INTOUCH_PAIEMENT_PASSWORD || ''
+
+// Password for GET BALANCE endpoint
+const BALANCE_PASSWORD = process.env.INTOUCH_BALANCE_PASSWORD || ''
+
+// Password for TRANSFER/49 Paiement Immédiat (sender wallet password)
+const PAIEMENT_IMMEDIAT_PASSWORD = process.env.INTOUCH_PAIEMENT_IMMEDIAT_PASSWORD || ''
+
 // Service IDs for CASHIN per operator
 const CASHIN_SERVICE_IDS: Record<PaymentOperator, string> = {
   ORANGE_MONEY: 'CASHINOMCIPART2',
@@ -28,7 +37,7 @@ const CASHIN_SERVICE_IDS: Record<PaymentOperator, string> = {
   WAVE: 'CI_CASHIN_WAVE_PART',
 }
 
-// Service codes for PAIEMENT per operator
+// Service IDs for PAIEMENT per operator
 const PAIEMENT_SERVICE_CODES: Record<PaymentOperator, string> = {
   ORANGE_MONEY: 'PAIEMENTMARCHANDOMPAYCIDIRECT',
   MTN_MOMO: 'PAIEMENTMARCHAND_MTN_CI',
@@ -112,6 +121,45 @@ export interface IntouchPaiementResponse {
 }
 
 export interface IntouchStatusResponse {
+  success: boolean
+  data?: {
+    transactionId?: string
+    status?: string
+    message?: string
+    [key: string]: unknown
+  }
+  error?: string
+  raw?: unknown
+}
+
+export interface PaiementImmediatParams {
+  /** Unique transaction ID from our system */
+  txId: string
+  /** Payer's Intouch alias/phone number (sender) */
+  payeurAlias: string
+  /** Payee's Intouch alias/phone number (receiver) */
+  payeAlias: string
+  /** Amount in FCFA */
+  montant: number
+  /** Reason/motif for the transfer */
+  motif: string
+  /** Confirmation flag (set to true to confirm) */
+  confirmation: boolean
+}
+
+export interface IntouchBalanceResponse {
+  success: boolean
+  data?: {
+    balance?: number
+    currency?: string
+    message?: string
+    [key: string]: unknown
+  }
+  error?: string
+  raw?: unknown
+}
+
+export interface IntouchPaiementImmediatResponse {
   success: boolean
   data?: {
     transactionId?: string
@@ -239,7 +287,7 @@ export async function initiatePaiement(params: PaiementParams): Promise<IntouchP
   }
 
   const loginAgent = INTOUCH_LOGIN_API
-  const passwordAgent = CASHIN_PASSWORDS[operator]
+  const passwordAgent = PAIEMENT_PASSWORD || CASHIN_PASSWORDS[operator]
 
   const url = `${INTOUCH_BASE_URL}touchpayapi/ANSUT13287/transaction?loginAgent=${encodeURIComponent(loginAgent)}&passwordAgent=${encodeURIComponent(passwordAgent)}`
 
@@ -306,23 +354,25 @@ export async function initiatePaiement(params: PaiementParams): Promise<IntouchP
   }
 }
 
-// ─── Transaction Status Check ───────────────────────────────────────────────────
+// ─── Transaction Status Check (PAIEMENT) ────────────────────────────────────────
 
 /**
- * Checks the status of a transaction using its partner_transaction_id.
- * Note: Intouch may not have a dedicated status endpoint; this is a placeholder
- * that could be adapted based on available API documentation.
+ * Checks the status of a PAIEMENT transaction using its transaction_id.
+ * Uses the PAIEMENT CHECKSTATUS endpoint: GET .../transaction/{id}?loginAgent=...&passwordAgent=...
  */
 export async function checkTransactionStatus(
   transactionId: string
 ): Promise<IntouchStatusResponse> {
-  const url = `${INTOUCH_BASE_URL}touchpayapi/ANSUT13287/transaction/${encodeURIComponent(transactionId)}`
+  const loginAgent = INTOUCH_LOGIN_API
+  const passwordAgent = PAIEMENT_PASSWORD || INTOUCH_LOGIN_API
+  const url = `${INTOUCH_BASE_URL}touchpayapi/ANSUT13287/transaction/${encodeURIComponent(transactionId)}?loginAgent=${encodeURIComponent(loginAgent)}&passwordAgent=${encodeURIComponent(passwordAgent)}`
 
   try {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         Authorization: getBasicAuthHeader(),
+        'Content-Type': 'application/json',
       },
     })
 
@@ -346,6 +396,125 @@ export async function checkTransactionStatus(
     return {
       success: false,
       error: `Erreur réseau vérification: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+    }
+  }
+}
+
+// ─── Paiement Immédiat (TRANSFER/49) ────────────────────────────────────────────
+
+/**
+ * Initiates a Paiement Immédiat — transfers money between two Intouch wallets.
+ * Uses the TRANSFER/49 endpoint at businessapi.gutouch.com.
+ * POST to https://businessapi.gutouch.com/paiements-immediats
+ *
+ * Use cases:
+ * - Transfer commissions to agents
+ * - Transfer payouts to property owners
+ * - Internal wallet transfers
+ */
+export async function initiatePaiementImmediat(
+  params: PaiementImmediatParams
+): Promise<IntouchPaiementImmediatResponse> {
+  const { txId, payeurAlias, payeAlias, montant, motif, confirmation } = params
+
+  // Paiement Immédiat uses a different base URL from other Intouch APIs
+  // Auth is via Basic Auth header only (no password in request body)
+  const PAIEMENT_IMMEDIAT_URL =
+    process.env.INTOUCH_PAIEMENT_IMMEDIAT_URL || 'https://businessapi.gutouch.com/paiements-immediats'
+
+  const body = {
+    txId,
+    payeurAlias,
+    payeAlias,
+    montant,
+    motif,
+    confirmation,
+  }
+
+  try {
+    const response = await fetch(PAIEMENT_IMMEDIAT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: getBasicAuthHeader(),
+      },
+      body: JSON.stringify(body),
+    })
+
+    const raw = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      console.error('Intouch Paiement Immédiat error:', { status: response.status, raw })
+      return {
+        success: false,
+        error: `Erreur Intouch Paiement Immédiat (HTTP ${response.status}): ${(raw as Record<string, unknown>)?.message || 'Erreur inconnue'}`,
+        raw,
+      }
+    }
+
+    return {
+      success: true,
+      data: raw as IntouchPaiementImmediatResponse['data'],
+      raw,
+    }
+  } catch (error) {
+    console.error('Intouch Paiement Immédiat network error:', error)
+    return {
+      success: false,
+      error: `Erreur réseau Intouch Paiement Immédiat: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+    }
+  }
+}
+
+// ─── Get Balance ────────────────────────────────────────────────────────────────
+
+/**
+ * Retrieves the current balance from Intouch.
+ * POST to .../ANSUT13287/get_balance with partner credentials.
+ */
+export async function getBalance(): Promise<IntouchBalanceResponse> {
+  const loginApi = INTOUCH_LOGIN_API
+  const passwordApi = BALANCE_PASSWORD || CASHIN_PASSWORDS.ORANGE_MONEY || INTOUCH_LOGIN_API
+
+  const url = `${INTOUCH_BASE_URL}ANSUT13287/get_balance`
+
+  const body = {
+    partner_id: INTOUCH_PARTNER_ID,
+    login_api: loginApi,
+    password_api: passwordApi,
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: getBasicAuthHeader(),
+      },
+      body: JSON.stringify(body),
+    })
+
+    const raw = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      console.error('Intouch getBalance error:', { status: response.status, raw })
+      return {
+        success: false,
+        error: `Erreur Intouch getBalance (HTTP ${response.status}): ${(raw as Record<string, unknown>)?.message || 'Erreur inconnue'}`,
+        raw,
+      }
+    }
+
+    return {
+      success: true,
+      data: raw as IntouchBalanceResponse['data'],
+      raw,
+    }
+  } catch (error) {
+    console.error('Intouch getBalance network error:', error)
+    return {
+      success: false,
+      error: `Erreur réseau Intouch getBalance: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
     }
   }
 }

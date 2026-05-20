@@ -131,6 +131,8 @@ export async function POST() {
         address: 'Riviera 3, Cocody',
         city: 'Abidjan',
         commune: 'Cocody',
+        latitude: 5.3750,
+        longitude: -3.9890,
         is_furnished: true,
         has_parking: true,
         has_garden: false,
@@ -149,6 +151,8 @@ export async function POST() {
         address: 'Avenue Franchet d\'Espérey, Plateau',
         city: 'Abidjan',
         commune: 'Plateau',
+        latitude: 5.3160,
+        longitude: -4.0200,
         is_furnished: true,
         has_parking: false,
         has_garden: false,
@@ -168,6 +172,8 @@ export async function POST() {
         address: 'Zone 4, Marcory',
         city: 'Abidjan',
         commune: 'Marcory',
+        latitude: 5.2990,
+        longitude: -3.9920,
         is_furnished: false,
         has_parking: true,
         has_garden: true,
@@ -186,6 +192,8 @@ export async function POST() {
         address: 'Sogefiha, Yopougon',
         city: 'Abidjan',
         commune: 'Yopougon',
+        latitude: 5.3310,
+        longitude: -4.0800,
         is_furnished: false,
         has_parking: false,
         has_garden: false,
@@ -205,6 +213,8 @@ export async function POST() {
         address: 'Riviera Palmeraie',
         city: 'Abidjan',
         commune: 'Cocody',
+        latitude: 5.3800,
+        longitude: -3.9950,
         is_furnished: true,
         has_parking: true,
         has_garden: true,
@@ -223,6 +233,8 @@ export async function POST() {
         address: 'Zone 4, Marcory',
         city: 'Abidjan',
         commune: 'Marcory',
+        latitude: 5.2960,
+        longitude: -3.9890,
         is_furnished: true,
         has_parking: true,
         has_garden: false,
@@ -865,6 +877,340 @@ export async function POST() {
       { user_id: agency.id, type: 'MISSION_ASSIGNED', title: 'Nouveau mandat', message: 'Nouveau mandat de gestion signé avec Kouadio Yao', is_read: false },
       { user_id: agency.id, type: 'DOSSIER_UPDATE', title: 'Dossier validé', message: 'Le dossier de Moussa Koné a été validé par le TC', is_read: true },
       { user_id: agency.id, type: 'PAYMENT_ALERT', title: 'Paiement reçu', message: 'Paiement de 350 000 FCFA reçu pour Appartement Riviera 2', is_read: false },
+    ] as any)
+
+    // ─── Étape 1 : Inventaire des biens avec bails signés (ACTIVE) ─────────────────
+    // Créer des états des lieux COMPLETED avec items pour les baux actifs existants
+    // Cela permet au public de voir les rapports depuis la page détail d'un bien
+
+    const INVENTORY_DESIGNATIONS = [
+      'SOL',
+      'PEINTURE DES MURS',
+      'PEINTURE DES PLAFONDS',
+      'PORTES',
+      'ÉLECTRICITÉ',
+      'ROBINETTERIE',
+      'ÉVIER INOX DE LAVABO',
+      'DOUCHE ET SDB',
+      'NOMBRE DE CLÉS',
+    ]
+
+    async function createInventoryReport(opts: {
+      propertyId: string
+      leaseId?: string
+      type: 'INVENTORY_ENTRANCE' | 'INVENTORY_EXIT'
+      status: string
+      generalObservations?: string
+    }) {
+      const reportId = uuid()
+      const supabaseAdmin = supabase
+
+      await supabaseAdmin.from('inventory_reports').insert({
+        id: reportId,
+        property_id: opts.propertyId,
+        lease_id: opts.leaseId || null,
+        type: opts.type,
+        status: opts.status,
+        reviewer_id: tc.id,
+        completed_at: opts.status !== 'DRAFT' ? new Date().toISOString() : null,
+        general_observations: opts.generalObservations || null,
+        total_keys: 6,
+      } as any)
+
+      const items = [
+        { designation: 'SOL', condition: 'BON', keyCount: null },
+        { designation: 'PEINTURE DES MURS', condition: 'BON', keyCount: null },
+        { designation: 'PEINTURE DES PLAFONDS', condition: 'BON', keyCount: null },
+        { designation: 'PORTES', condition: 'BON', keyCount: null },
+        { designation: 'ÉLECTRICITÉ', condition: 'BON', keyCount: null },
+        { designation: 'ROBINETTERIE', condition: 'BON', keyCount: null },
+        { designation: 'ÉVIER INOX DE LAVABO', condition: 'BON', keyCount: null },
+        { designation: 'DOUCHE ET SDB', condition: 'BON', keyCount: null },
+        { designation: 'NOMBRE DE CLÉS', condition: null, keyCount: 6 },
+      ]
+
+      const inventoryItems = items.map((item, index) => ({
+        report_id: reportId,
+        designation: item.designation,
+        designation_order: index + 1,
+        kitchen: item.keyCount !== null ? `${item.keyCount} clé(s)` : item.condition,
+        main_bathroom: item.keyCount !== null ? `${item.keyCount} clé(s)` : item.condition,
+        other_bathroom: item.keyCount !== null ? `${item.keyCount} clé(s)` : item.condition,
+        other_room1: item.keyCount !== null ? `${item.keyCount} clé(s)` : item.condition,
+        other_room2: item.keyCount !== null ? `${item.keyCount} clé(s)` : item.condition,
+        observations: null,
+      }))
+
+      await supabaseAdmin.from('inventory_report_items').insert(inventoryItems as any)
+      return reportId
+    }
+
+    // Inventaires pour les baux ACTIVE existants
+    const leasesWithBothSigned = [
+      { lease: lease1, property: createdProperties[0] },
+      { lease: lease2, property: createdProperties[2] },
+      { lease: lease3, property: createdProperties[1] },
+      { lease: lease4, property: createdProperties[3] },
+      { lease: lease5, property: createdProperties[4] },
+      { lease: lease6, property: createdProperties[5] },
+    ]
+
+    for (const { lease: l, property } of leasesWithBothSigned) {
+      if (l && property && l.status === 'ACTIVE') {
+        await createInventoryReport({
+          propertyId: property.id,
+          leaseId: l.id,
+          type: 'INVENTORY_ENTRANCE',
+          status: 'COMPLETED',
+          generalObservations: 'État des lieux d\'entrée effectué. L\'ensemble du logement est en bon état général.',
+        })
+      }
+    }
+
+    // ─── Étape 2 : Créer des biens avec bails signés par le propriétaire (en attente locataire) ──
+    // Ces biens permettent de tester le flux : proprio a signé/certifié → locataire doit signer à son tour
+
+    // Créer un nouveau locataire dédié pour ce scénario
+    const pendingTenant = await seedUser({
+      phone: '+22509090909',
+      firstName: 'Nadia',
+      lastName: 'Kouamé',
+      email: 'nadia.k@email.ci',
+      role: 'LOCATAIRE',
+    })
+
+    // Properties avec coordonnées GPS précises pour la carte
+    const pendingPropertiesData = [
+      {
+        title: 'Appartement F3 Deux-Plateaux',
+        description: 'Bel appartement F3 situé aux Deux-Plateaux, quartier résidentiel calme. Proche des commerces et transports. Cuisine équipée, climatisation, parking.',
+        type: 'APPARTEMENT',
+        price: 200000,
+        area: 75,
+        bedrooms: 2,
+        bathrooms: 1,
+        address: 'Avenue des Hôtels, Deux-Plateaux',
+        city: 'Abidjan',
+        commune: 'Cocody',
+        latitude: 5.3730,
+        longitude: -3.9870,
+        is_furnished: true,
+        has_parking: true,
+        has_climate: true,
+        has_pool: false,
+        has_garden: false,
+        has_guardian: true,
+        amenities: JSON.stringify(['wifi', 'climatisation', 'cuisine_equipee', 'machine_laver', 'parking', 'gardien']),
+        rental_terms: JSON.stringify({
+          caution: 400000,
+          dureeBail: '1 an renouvelable',
+          chargesIncluses: ['Eau', 'Gardien'],
+          chargesNonIncluses: ['Électricité', 'Internet'],
+          modePaiement: ['Orange Money', 'MTN MoMo'],
+          conditions: ['Dossier locatif complet', 'Garant', '1 mois de caution'],
+          etatLieux: 'Fait à l\'entrée',
+          preavis: '3 mois',
+        }),
+        owner_id: owner2.id,
+        images: [propertyImages[1], propertyImages[2], propertyImages[5]],
+      },
+      {
+        title: 'Studio Meublé Angré',
+        description: 'Studio entièrement meublé et climatisé à Angré. Idéal pour étudiant ou jeune actif. Proche du CHU d\'Angré et des commodités.',
+        type: 'STUDIO',
+        price: 100000,
+        area: 30,
+        bedrooms: null,
+        bathrooms: 1,
+        address: 'Angré 7e tranche, Cocody',
+        city: 'Abidjan',
+        commune: 'Cocody',
+        latitude: 5.3820,
+        longitude: -3.9570,
+        is_furnished: true,
+        has_parking: false,
+        has_climate: true,
+        has_pool: false,
+        has_garden: false,
+        has_guardian: false,
+        amenities: JSON.stringify(['wifi', 'climatisation', 'machine_laver', 'dressing']),
+        rental_terms: JSON.stringify({
+          caution: 200000,
+          dureeBail: '1 an',
+          chargesIncluses: ['Eau'],
+          chargesNonIncluses: ['Électricité', 'Internet'],
+          modePaiement: ['Orange Money', 'Wave'],
+          conditions: ['Dossier locatif simple', '2 mois de caution'],
+          etatLieux: 'Fait à l\'entrée',
+          preavis: '1 mois',
+        }),
+        owner_id: owner1.id,
+        images: [propertyImages[2], propertyImages[4]],
+      },
+    ]
+
+    const pendingCreatedProperties: any[] = []
+    for (const pData of pendingPropertiesData) {
+      const { images, ...data } = pData
+      const { data: property } = await supabase
+        .from('properties')
+        .insert({
+          id: uuid(),
+          status: 'ACTIVE',
+          ...data,
+        } as any)
+        .select()
+        .single() as any
+      pendingCreatedProperties.push(property)
+
+      for (let i = 0; i < images.length; i++) {
+        await supabase
+          .from('property_images')
+          .insert({
+            id: uuid(),
+            url: images[i],
+            order: i,
+            property_id: property.id,
+          } as any)
+      }
+    }
+
+    // Créer un dossier locatif pour le nouveau locataire
+    const { data: pendingRentalFile } = await supabase
+      .from('rental_files')
+      .insert({
+        id: uuid(),
+        tenant_id: pendingTenant.id,
+        status: 'VALIDATED',
+        monthly_income: 450000,
+        employer: 'MTN CI',
+        employment_type: 'CDI',
+        reviewed_by_id: tc.id,
+        reviewed_at: new Date().toISOString(),
+      } as any)
+      .select()
+      .single() as any
+
+    await supabase.from('rental_file_documents').insert([
+      { rental_file_id: pendingRentalFile.id, type: 'ID_CARD', url: '/docs/id_kouame.pdf', name: "Carte d'identité Nadia", status: 'VALIDATED' },
+      { rental_file_id: pendingRentalFile.id, type: 'PAY_SLIP', url: '/docs/pay_kouame.pdf', name: 'Fiche de paie Nadia', status: 'VALIDATED' },
+    ] as any)
+
+    // Baux PENDING_SIGNATURE avec owner_signed_at déjà rempli (propriétaire a signé, en attente locataire)
+    const now = new Date()
+    const ownerSignDate = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000) // 2 jours avant
+
+    const { data: pendingLease1 } = await supabase
+      .from('leases')
+      .insert({
+        id: uuid(),
+        property_id: pendingCreatedProperties[0].id,
+        tenant_id: pendingTenant.id,
+        owner_id: owner2.id,
+        rental_file_id: pendingRentalFile.id,
+        status: 'PENDING_SIGNATURE',
+        start_date: '2025-12-01',
+        end_date: '2026-11-30',
+        monthly_rent: 200000,
+        charges: 20000,
+        deposit: 400000,
+        owner_signed_at: ownerSignDate.toISOString(),
+        owner_sign_otp: 'seed-otp-owner-001',
+        owner_signature_image: null,
+        tenant_signed_at: null,
+      } as any)
+      .select()
+      .single() as any
+
+    const { data: pendingLease2 } = await supabase
+      .from('leases')
+      .insert({
+        id: uuid(),
+        property_id: pendingCreatedProperties[1].id,
+        tenant_id: pendingTenant.id,
+        owner_id: owner1.id,
+        rental_file_id: pendingRentalFile.id,
+        status: 'PENDING_SIGNATURE',
+        start_date: '2025-12-15',
+        end_date: '2026-12-14',
+        monthly_rent: 100000,
+        charges: 10000,
+        deposit: 200000,
+        owner_signed_at: ownerSignDate.toISOString(),
+        owner_sign_otp: 'seed-otp-owner-002',
+        owner_signature_image: null,
+        tenant_signed_at: null,
+      } as any)
+      .select()
+      .single() as any
+
+    // Créer des notifications pour le locataire pour l'informer des baux à signer
+    await supabase.from('notifications').insert([
+      {
+        user_id: pendingTenant.id,
+        type: 'LEASE_UPDATE',
+        title: 'Bail en attente de signature',
+        message: `Le propriétaire a signé le bail pour "${pendingCreatedProperties[0].title}". Veuillez le signer à votre tour.`,
+        is_read: false,
+        action_url: 'my-leases',
+        entity_id: pendingLease1.id,
+      },
+      {
+        user_id: pendingTenant.id,
+        type: 'LEASE_UPDATE',
+        title: 'Bail en attente de signature',
+        message: `Le propriétaire a signé le bail pour "${pendingCreatedProperties[1].title}". Veuillez le signer à votre tour.`,
+        is_read: false,
+        action_url: 'my-leases',
+        entity_id: pendingLease2.id,
+      },
+    ] as any)
+
+    // États des lieux COMPLETED pour les nouveaux biens (visibles sur la page détail)
+    await createInventoryReport({
+      propertyId: pendingCreatedProperties[0].id,
+      leaseId: pendingLease1.id,
+      type: 'INVENTORY_ENTRANCE',
+      status: 'COMPLETED',
+      generalObservations: "État des lieux d'entrée : Appartement en excellent état. Peinture neuve, sols refaits, équipements neufs.",
+    })
+
+    await createInventoryReport({
+      propertyId: pendingCreatedProperties[1].id,
+      leaseId: pendingLease2.id,
+      type: 'INVENTORY_ENTRANCE',
+      status: 'COMPLETED',
+      generalObservations: "Studio meublé en bon état général. Tous les équipements sont fonctionnels.",
+    })
+
+    // Audit logs
+    await supabase.from('audit_logs').insert([
+      {
+        user_id: owner2.id,
+        action: 'LEASE_OWNER_SIGNED',
+        entity: 'Lease',
+        entity_id: pendingLease1.id,
+        details: JSON.stringify({
+          signedBy: owner2.id,
+          role: 'OWNER',
+          propertyTitle: pendingCreatedProperties[0].title,
+          bothSigned: false,
+          newStatus: 'PENDING_SIGNATURE',
+        }),
+      },
+      {
+        user_id: owner1.id,
+        action: 'LEASE_OWNER_SIGNED',
+        entity: 'Lease',
+        entity_id: pendingLease2.id,
+        details: JSON.stringify({
+          signedBy: owner1.id,
+          role: 'OWNER',
+          propertyTitle: pendingCreatedProperties[1].title,
+          bothSigned: false,
+          newStatus: 'PENDING_SIGNATURE',
+        }),
+      },
     ] as any)
 
     return NextResponse.json({

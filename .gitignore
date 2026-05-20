@@ -57,3 +57,12 @@ server.log
 data.txt
 API_NEOFACE_V2.md.txt
 API_NEOFACE_V2.md.txt
+ANSUT CI INTOUCH.postman_collection.json
+CRYPTONEO - API Signature Electronique ANSUT TEST.postman_collection.json
+
+# Capacitor / Android APK
+android/
+!android/app/src/main/AndroidManifest.xml
+!android/app/src/main/res/
+capacitor-cordova-android-plugins/
+capacitor.config.local.*

@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   PlusCircle, ImagePlus, EyeOff, Video, X, Loader2,
   Upload, ArrowLeft, CheckCircle2, MapPin, Home,
-  FileText, Settings2, Save
+  FileText, Settings2, Save, Navigation, LocateFixed
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,161 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
+
+// ── Property Location Picker (Leaflet map) ────────────────────────────────────
+
+function PropertyLocationPicker({
+  lat,
+  lng,
+  onLocationChange,
+  defaultCenter,
+}: {
+  lat: number | null
+  lng: number | null
+  onLocationChange: (lat: number, lng: number) => void
+  defaultCenter: { lat: number; lng: number }
+}) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<L.Map | null>(null)
+  const markerRef = useRef<L.Marker | null>(null)
+
+  const centerLat = lat ?? defaultCenter.lat
+  const centerLng = lng ?? defaultCenter.lng
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return
+
+    let cancelled = false
+
+    import('leaflet').then((L) => {
+      if (!mapRef.current || cancelled || mapInstanceRef.current) return
+
+      const map = L.map(mapRef.current, {
+        center: [centerLat, centerLng],
+        zoom: 14,
+        zoomControl: true,
+        scrollWheelZoom: true,
+      })
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap',
+        maxZoom: 19,
+      }).addTo(map)
+
+      // Custom marker icon
+      const icon = L.divIcon({
+        className: 'location-picker-marker',
+        html: `<div style="
+          background: #FF6C2F;
+          color: white;
+          width: 32px;
+          height: 32px;
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          border: 3px solid white;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(45deg);"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+      })
+
+      // Add marker if coordinates exist
+      if (lat !== null && lng !== null) {
+        const marker = L.marker([lat, lng], { icon, draggable: true }).addTo(map)
+        marker.on('dragend', () => {
+          const pos = marker.getLatLng()
+          onLocationChange(pos.lat, pos.lng)
+        })
+        markerRef.current = marker
+      }
+
+      // Click on map to set/update marker
+      map.on('click', (e: L.LeafletMouseEvent) => {
+        const { lat: clickedLat, lng: clickedLng } = e.latlng
+        if (markerRef.current) {
+          markerRef.current.setLatLng([clickedLat, clickedLng])
+        } else {
+          const marker = L.marker([clickedLat, clickedLng], { icon, draggable: true }).addTo(map)
+          marker.on('dragend', () => {
+            const pos = marker.getLatLng()
+            onLocationChange(pos.lat, pos.lng)
+          })
+          markerRef.current = marker
+        }
+        onLocationChange(clickedLat, clickedLng)
+      })
+
+      mapInstanceRef.current = map
+
+      // Fix map rendering after mount
+      requestAnimationFrame(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize()
+        }
+      })
+    })
+
+    return () => {
+      cancelled = true
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+        markerRef.current = null
+      }
+    }
+  }, []) // Only mount once
+
+  // Update marker position when lat/lng props change externally
+  useEffect(() => {
+    if (!mapInstanceRef.current || lat === null || lng === null) return
+    const map = mapInstanceRef.current
+    if (markerRef.current) {
+      markerRef.current.setLatLng([lat, lng])
+    } else {
+      import('leaflet').then((L) => {
+        if (!mapInstanceRef.current) return
+        const icon = L.divIcon({
+          className: 'location-picker-marker',
+          html: `<div style="
+            background: #FF6C2F;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          ">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(45deg);"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 32],
+        })
+        const marker = L.marker([lat, lng], { icon, draggable: true }).addTo(mapInstanceRef.current)
+        marker.on('dragend', () => {
+          const pos = marker.getLatLng()
+          onLocationChange(pos.lat, pos.lng)
+        })
+        markerRef.current = marker
+      })
+    }
+    map.setView([lat, lng], map.getZoom() || 14)
+  }, [lat, lng, onLocationChange])
+
+  return (
+    <div className="w-full h-48 sm:h-56 rounded-lg overflow-hidden border border-border">
+      <div ref={mapRef} className="w-full h-full" />
+    </div>
+  )
+}
 
 interface AddPropertyProps {
   editId?: string  // If provided, load existing draft for editing
@@ -40,6 +195,8 @@ interface PropertyData {
   address: string
   city: string
   commune: string | null
+  latitude: number | null
+  longitude: number | null
   isFurnished: boolean
   hasParking: boolean
   hasGarden: boolean
@@ -54,6 +211,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
   const [form, setForm] = useState({
     title: '', description: '', type: 'APPARTEMENT', price: '', area: '',
     bedrooms: '', bathrooms: '', address: '', city: '', commune: '',
+    latitude: '', longitude: '',
     isFurnished: false, hasParking: false, hasGarden: false, hasPool: false,
     hideOwnerName: false,
   })
@@ -131,6 +289,8 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
           address: p.address || '',
           city: p.city || '',
           commune: p.commune || '',
+          latitude: p.latitude !== null ? String(p.latitude) : '',
+          longitude: p.longitude !== null ? String(p.longitude) : '',
           isFurnished: p.isFurnished || false,
           hasParking: p.hasParking || false,
           hasGarden: p.hasGarden || false,
@@ -356,6 +516,8 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
         address: form.address.trim() || undefined,
         city: form.city.trim() || undefined,
         commune: form.commune.trim() || null,
+        latitude: form.latitude ? parseFloat(form.latitude) : null,
+        longitude: form.longitude ? parseFloat(form.longitude) : null,
         isFurnished: form.isFurnished,
         hasParking: form.hasParking,
         hasGarden: form.hasGarden,
@@ -495,6 +657,8 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
         address: form.address.trim(),
         city: form.city.trim(),
         commune: form.commune.trim() || null,
+        latitude: form.latitude ? parseFloat(form.latitude) : null,
+        longitude: form.longitude ? parseFloat(form.longitude) : null,
         isFurnished: form.isFurnished,
         hasParking: form.hasParking,
         hasGarden: form.hasGarden,
@@ -953,6 +1117,80 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
                 className="h-9 text-sm"
               />
             </div>
+          </div>
+
+          {/* ── Geolocation (Latitude / Longitude) ─────────────────────── */}
+          <div className="bg-muted/30 rounded-xl border border-border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Navigation className="size-4 text-brand-500" />
+                <span className="text-xs font-semibold text-foreground">Coordonnées GPS</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!navigator.geolocation) {
+                    toast.error('Géolocalisation non disponible')
+                    return
+                  }
+                  navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                      update('latitude', String(position.coords.latitude))
+                      update('longitude', String(position.coords.longitude))
+                      toast.success('Position détectée')
+                    },
+                    () => toast.error('Impossible de détecter votre position'),
+                    { enableHighAccuracy: true, timeout: 10000 }
+                  )
+                }}
+                className="h-8 gap-1.5 text-xs border-brand-200 text-brand-600 hover:bg-brand-50"
+              >
+                <LocateFixed className="size-3.5" />
+                <span className="hidden sm:inline">Ma position</span>
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">Latitude</Label>
+                <Input
+                  type="number"
+                  step="any"
+                  placeholder="5.3364"
+                  value={form.latitude}
+                  onChange={(e) => update('latitude', e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-medium text-muted-foreground">Longitude</Label>
+                <Input
+                  type="number"
+                  step="any"
+                  placeholder="-4.0267"
+                  value={form.longitude}
+                  onChange={(e) => update('longitude', e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Map Picker */}
+            <PropertyLocationPicker
+              lat={form.latitude ? parseFloat(form.latitude) : null}
+              lng={form.longitude ? parseFloat(form.longitude) : null}
+              onLocationChange={(lat, lng) => {
+                update('latitude', String(lat))
+                update('longitude', String(lng))
+              }}
+              defaultCenter={{ lat: 5.3364, lng: -4.0267 }}
+            />
+
+            <p className="text-[10px] text-muted-foreground text-center">
+              Cliquez sur la carte pour positionner le bien ou utilisez les champs ci-dessus
+            </p>
           </div>
         </CardContent>
       </Card>

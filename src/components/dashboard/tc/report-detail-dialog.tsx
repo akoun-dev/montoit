@@ -185,7 +185,7 @@ export function ReportDetailDialog({
 
         {/* Inventory Grid */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          <ScrollArea className="h-full max-h-[55vh]">
+          <ScrollArea className="h-full">
             {report.items && report.items.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[700px] border-collapse text-sm">
