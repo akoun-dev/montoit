@@ -578,7 +578,7 @@ export function EnhancedLeases() {
 
                       {/* Actions */}
                       <div className="flex flex-wrap gap-2">
-                        {!lease.ownerSignedAt && (
+                        {!lease.ownerSignedAt && lease.status === 'PENDING_SIGNATURE' && (
                           <Button
                             size="sm"
                             className="bg-brand-500 hover:bg-brand-600 text-white gap-1.5"
