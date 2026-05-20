@@ -659,7 +659,7 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
             {/* Step indicator */}
             <div className="flex items-center gap-2">
               {[
-                { key: 'signature', label: 'Signature', icon: PenTool },
+                { key: 'signature', label: 'Signature (Locataire)', icon: PenTool },
                 { key: 'otp-request', label: 'Vérification', icon: ShieldCheck },
                 { key: 'otp-enter', label: 'Validation', icon: CheckCircle2 },
               ].map((step, i) => {

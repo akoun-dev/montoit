@@ -1039,7 +1039,7 @@ export function EnhancedLeases() {
             {/* Step indicator */}
             <div className="flex items-center gap-2">
               {[
-                { key: 'signature', label: 'Signature' },
+                { key: 'signature', label: 'Signature (Propriétaire)' },
                 { key: 'otp', label: 'Certification' },
               ].map((step, i) => {
                 const stepOrder = ['signature', 'otp']
