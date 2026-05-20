@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import crypto from 'crypto'
-import { notify, notifyLeaseActivated } from '@/lib/notify'
+import { notify, notifyLeaseActivated, notifyNewLease } from '@/lib/notify'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -352,6 +352,11 @@ export async function PATCH(
       if (body.endDate !== undefined) updateData.end_date = new Date(body.endDate).toISOString()
       if (body.specialConditions !== undefined) updateData.special_conditions = body.specialConditions
 
+      const wasDraft = lease.status === 'DRAFT'
+      if (wasDraft) {
+        updateData.status = 'PENDING_SIGNATURE'
+      }
+
       const { data: updatedLease } = await supabase
           .from('leases')
           .update(updateData as any)
@@ -374,14 +379,18 @@ export async function PATCH(
       const modOwner = modUserMap.get(lease.owner_id)
       const modTenant = modUserMap.get(lease.tenant_id)
 
-      await notify({
-        userId: lease.tenant_id,
-        type: 'LEASE_UPDATE',
-        title: 'Bail modifié',
-        message: `Le bail pour "${modProperty?.title || ''}" a été modifié par le propriétaire. Veuillez vérifier les nouvelles conditions.`,
-        actionUrl: 'my-leases',
-        entityId: lease.id,
-      })
+      if (wasDraft) {
+        await notifyNewLease(lease.tenant_id, modProperty?.title || '', lease.id)
+      } else {
+        await notify({
+          userId: lease.tenant_id,
+          type: 'LEASE_UPDATE',
+          title: 'Bail modifié',
+          message: `Le bail pour "${modProperty?.title || ''}" a été modifié par le propriétaire. Veuillez vérifier les nouvelles conditions.`,
+          actionUrl: 'my-leases',
+          entityId: lease.id,
+        })
+      }
 
       await supabase.from('audit_logs').insert({
         id: generateId(),
