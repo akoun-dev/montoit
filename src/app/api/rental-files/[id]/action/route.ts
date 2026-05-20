@@ -120,7 +120,7 @@ export async function POST(
         .from('leases')
         .insert({
           id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-          status: 'DRAFT',
+          status: 'PENDING_SIGNATURE',
           start_date: new Date().toISOString(),
           end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
           monthly_rent: 0,

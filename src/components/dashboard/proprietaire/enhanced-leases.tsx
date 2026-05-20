@@ -590,7 +590,7 @@ export function EnhancedLeases() {
                             <ShieldCheck className="size-3.5" /> Signer
                           </Button>
                         )}
-                        {!lease.ownerSignedAt && lease.status === 'DRAFT' && (
+                        {!lease.ownerSignedAt && (lease.status === 'DRAFT' || lease.status === 'PENDING_SIGNATURE') && (
                           <Button
                             size="sm"
                             variant="outline"
