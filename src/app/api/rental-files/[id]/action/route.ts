@@ -240,7 +240,8 @@ export async function POST(
 
     return NextResponse.json({ error: 'Action non reconnue' }, { status: 400 })
   } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Erreur serveur'
     console.error('Rental file action error:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
