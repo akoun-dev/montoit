@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
-import { notifyMany } from '@/lib/notify'
+import { notify } from '@/lib/notify'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -145,9 +145,15 @@ export async function POST(req: NextRequest) {
       .eq('property_id', propertyId)
       .order('order', { ascending: true })
 
-    // Notify TC users
-    await notifyTcUsers(supabase, 'Nouvelle candidature soumise',
-      'Un locataire a soumis une candidature pour un bien.', rentalFile.id)
+    // Notify the property owner
+    await notify({
+      userId: property.owner_id,
+      type: 'DOSSIER_UPDATE',
+      title: 'Nouvelle candidature',
+      message: `Un locataire a soumis une candidature pour votre bien "${propertyInfo?.title || ''}".`,
+      actionUrl: 'candidatures',
+      entityId: appId,
+    })
 
     const resp = NextResponse.json({
       data: {
@@ -176,25 +182,6 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Applications POST error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
-  }
-}
-
-async function notifyTcUsers(admin: ReturnType<typeof getSupabaseAdminClient>, title: string, message: string, entityId: string) {
-  const { data: tcUsers } = await admin
-    .from('users')
-    .select('id')
-    .eq('role', 'TIERS_CONFIANCE')
-    .eq('is_active', true)
-
-  if (tcUsers && tcUsers.length > 0) {
-    await notifyMany({
-      userIds: tcUsers.map((tc) => tc.id),
-      type: 'DOSSIER_UPDATE',
-      title,
-      message,
-      actionUrl: 'rental-files-queue',
-      entityId,
-    })
   }
 }
 
