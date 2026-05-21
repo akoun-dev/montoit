@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeCertifications } from '@/hooks/use-realtime-certifications'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -108,7 +109,7 @@ const typeFilterOptions = [
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function CertificationsManagement() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const [certifications, setCertifications] = useState<Certification[]>([])
   const [stats, setStats] = useState<CertStats>({ PENDING: 0, GRANTED: 0, REVOKED: 0, EXPIRED: 0, TOTAL: 0 })
   const [loading, setLoading] = useState(true)
@@ -172,6 +173,13 @@ export function CertificationsManagement() {
       setLoading(false)
     }
   }, [isAuthenticated, statusFilter, typeFilter, search])
+
+  // ─── Realtime subscription (TC watches all certifications) ───────
+  useRealtimeCertifications({
+    userId: user?.id,
+    watchAll: true,
+    onCertificationChange: () => { fetchData() },
+  })
 
   useEffect(() => {
     fetchData()

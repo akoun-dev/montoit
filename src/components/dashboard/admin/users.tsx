@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeUsers } from '@/hooks/use-realtime-users'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -47,7 +48,7 @@ const roleLabels: Record<string, string> = {
 }
 
 export function AdminUsers() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [data, setData] = useState<UserData['users']>([])
   const [stats, setStats] = useState<UserData['stats']>({ total: 0, active: 0, inactive: 0, byRole: {} })
   const [loading, setLoading] = useState(true)
@@ -81,9 +82,13 @@ export function AdminUsers() {
     }
   }, [isAuthenticated])
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  useRealtimeUsers({
+    userId: user?.id,
+    watchAll: true,
+    onUserChange: () => { fetchData() },
+  })
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   const handleRoleChange = async () => {
     setUpdating(true)

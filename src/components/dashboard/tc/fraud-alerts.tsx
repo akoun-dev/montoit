@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeFraudAlerts } from '@/hooks/use-realtime-fraud-alerts'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -75,7 +76,7 @@ const statusFilterOptions = [
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function FraudAlertsManagement() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const [alerts, setAlerts] = useState<FraudAlert[]>([])
   const [stats, setStats] = useState<FraudStats>({ OPEN: 0, INVESTIGATING: 0, CONFIRMED: 0, DISMISSED: 0 })
   const [loading, setLoading] = useState(true)
@@ -128,6 +129,13 @@ export function FraudAlertsManagement() {
       setLoading(false)
     }
   }, [isAuthenticated, statusFilter, search])
+
+  // ─── Realtime subscription (TC watches all fraud alerts) ─────────
+  useRealtimeFraudAlerts({
+    userId: user?.id,
+    watchAll: true,
+    onFraudAlertChange: () => { fetchData() },
+  })
 
   useEffect(() => {
     fetchData()

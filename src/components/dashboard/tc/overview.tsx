@@ -12,6 +12,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
+import { useRealtimeDisputes } from '@/hooks/use-realtime-disputes'
+import { useRealtimeCertifications } from '@/hooks/use-realtime-certifications'
+import { useRealtimeFraudAlerts } from '@/hooks/use-realtime-fraud-alerts'
+import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -268,6 +273,36 @@ export function TcOverview() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useRealtimeRentalFiles({
+    userId: user?.id,
+    watchAll: true,
+    onRentalFileChange: () => { fetchData() },
+  })
+
+  useRealtimeDisputes({
+    userId: user?.id,
+    watchAll: true,
+    onDisputeChange: () => { fetchData() },
+  })
+
+  useRealtimeCertifications({
+    userId: user?.id,
+    watchAll: true,
+    onCertificationChange: () => { fetchData() },
+  })
+
+  useRealtimeFraudAlerts({
+    userId: user?.id,
+    watchAll: true,
+    onFraudAlertChange: () => { fetchData() },
+  })
+
+  useRealtimeProperties({
+    userId: user?.id,
+    watchAll: true,
+    onPropertyChange: () => { fetchData() },
+  })
 
   if (loading) {
     return (

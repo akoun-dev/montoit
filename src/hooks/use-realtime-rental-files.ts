@@ -27,6 +27,10 @@ interface UseRealtimeRentalFilesOptions {
    * If omitted, filtering uses only `tenant_id` (for tenants).
    */
   watchedTenantIds?: string[]
+  /**
+   * If true, watches ALL rental files (for TC/admin).
+   */
+  watchAll?: boolean
   onRentalFileChange: (event: RentalFileChangeEvent, payload: RealtimeRentalFilePayload) => void
 }
 
@@ -39,12 +43,15 @@ interface UseRealtimeRentalFilesOptions {
  *   - If `tenant_id === userId` → the user is the tenant (own file)
  *   - If `tenant_id` is in `watchedTenantIds` → the user is an owner watching
  */
-export function useRealtimeRentalFiles({ userId, watchedTenantIds, onRentalFileChange }: UseRealtimeRentalFilesOptions) {
+export function useRealtimeRentalFiles({ userId, watchedTenantIds, watchAll, onRentalFileChange }: UseRealtimeRentalFilesOptions) {
   const callbackRef = useRef(onRentalFileChange)
   callbackRef.current = onRentalFileChange
 
   const watchedRef = useRef(watchedTenantIds)
   watchedRef.current = watchedTenantIds
+
+  const watchAllRef = useRef(watchAll)
+  watchAllRef.current = watchAll
 
   useEffect(() => {
     if (!userId) return
@@ -61,10 +68,17 @@ export function useRealtimeRentalFiles({ userId, watchedTenantIds, onRentalFileC
           table: 'rental_files',
         },
         (payload: RealtimePostgresChangesPayload<RealtimeRentalFilePayload>) => {
-          const rf = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!rf?.id) return
+          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+          if (!raw?.id) return
+
+          const rf = raw as RealtimeRentalFilePayload
 
           // Skip if the file isn't relevant
+          if (watchAllRef.current) {
+            callbackRef.current(payload.eventType as RentalFileChangeEvent, rf)
+            return
+          }
+
           const isOwnFile = rf.tenant_id === userId
           const isWatched = watchedRef.current?.includes(rf.tenant_id)
 

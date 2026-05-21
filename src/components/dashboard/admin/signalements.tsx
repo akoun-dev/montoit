@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeSignalements } from '@/hooks/use-realtime-signalements'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -61,7 +62,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 }
 
 export function AdminSignalements() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [signalements, setSignalements] = useState<Signalement[]>([])
   const [stats, setStats] = useState<SignalementStats>({ byStatus: {}, byReason: {} })
   const [loading, setLoading] = useState(true)
@@ -92,6 +93,12 @@ export function AdminSignalements() {
       setLoading(false)
     }
   }, [isAuthenticated, statusFilter, reasonFilter])
+
+  useRealtimeSignalements({
+    userId: user?.id,
+    watchAll: true,
+    onSignalementChange: () => { fetchData() },
+  })
 
   useEffect(() => { fetchData() }, [fetchData])
 

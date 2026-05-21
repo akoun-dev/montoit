@@ -42,6 +42,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useAuthStore } from '@/lib/auth-store'
+import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { DocumentPreviewDialog } from './document-preview-dialog'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -177,7 +178,7 @@ function PriorityBadge({ priority }: { priority: DossierPriority }) {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function RentalFilesQueue() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
 
   // Data
   const [files, setFiles] = useState<RentalFile[]>([])
@@ -251,6 +252,13 @@ export function RentalFilesQueue() {
       setLoading(false)
     }
   }, [isAuthenticated, statusFilter, search, priorityFilter, onHoldFilter, overdueOnly])
+
+  // ─── Realtime subscription (TC watches all files) ──────────────
+  useRealtimeRentalFiles({
+    userId: user?.id,
+    watchAll: true,
+    onRentalFileChange: () => { fetchData() },
+  })
 
   useEffect(() => {
     fetchData()

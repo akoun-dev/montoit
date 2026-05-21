@@ -17,9 +17,6 @@ const config: CapacitorConfig = {
     InAppBrowser: {
       // Permet l'ouverture de l'URL NeoFace pour le selfie KYC
     },
-    Camera: {
-      permissions: true,
-    },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
@@ -38,12 +35,6 @@ const config: CapacitorConfig = {
     },
     AppLauncher: {
       // Lancement d'autres applications depuis Mon Toit
-    },
-  },
-  android: {
-    buildOptions: {
-      keystorePath: undefined,
-      keystoreAlias: undefined,
     },
   },
 }

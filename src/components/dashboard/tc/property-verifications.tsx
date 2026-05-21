@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -97,7 +98,7 @@ function PropertyThumbnail({
 }
 
 export function PropertyVerifications() {
-  const { isAuthenticated, setSelectedItemId, setDashboardSection } = useAuthStore()
+  const { user, isAuthenticated, setSelectedItemId, setDashboardSection } = useAuthStore()
   const [properties, setProperties] = useState<PendingProperty[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
@@ -136,6 +137,12 @@ export function PropertyVerifications() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useRealtimeProperties({
+    userId: user?.id,
+    watchAll: true,
+    onPropertyChange: () => { fetchData() },
+  })
 
   const handleVerify = (id: string) => {
     setSelectedItemId(id)

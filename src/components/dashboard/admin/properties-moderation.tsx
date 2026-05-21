@@ -26,6 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Textarea } from '@/components/ui/textarea'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -109,7 +110,7 @@ const statusColors: Record<string, string> = {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function PropertiesModeration() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
 
   // Data
   const [properties, setProperties] = useState<PropertyItem[]>([])
@@ -155,6 +156,12 @@ export function PropertiesModeration() {
       setLoading(false)
     }
   }, [isAuthenticated, search, typeFilter])
+
+  useRealtimeProperties({
+    userId: user?.id,
+    watchAll: true,
+    onPropertyChange: () => { fetchData() },
+  })
 
   useEffect(() => { fetchData() }, [fetchData])
 

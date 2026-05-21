@@ -21,6 +21,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useAuthStore } from '@/lib/auth-store'
+import { useRealtimeDisputes } from '@/hooks/use-realtime-disputes'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -171,8 +172,7 @@ function PriorityBadge({ priority }: { priority: DossierPriority }) {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function LitigesManagement() {
-  const { isAuthenticated } = useAuthStore()
-  const { setDashboardSection } = useAuthStore()
+  const { isAuthenticated, setDashboardSection, user } = useAuthStore()
 
   // Data
   const [disputes, setDisputes] = useState<Dispute[]>([])
@@ -237,6 +237,13 @@ export function LitigesManagement() {
       setLoading(false)
     }
   }, [isAuthenticated])
+
+  // ─── Realtime subscription (TC watches all disputes) ────────────
+  useRealtimeDisputes({
+    userId: user?.id,
+    watchAll: true,
+    onDisputeChange: () => { fetchData() },
+  })
 
   useEffect(() => {
     fetchData()

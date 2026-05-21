@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useAuthStore } from '@/lib/auth-store'
+import { useRealtimeUsers } from '@/hooks/use-realtime-users'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -173,7 +174,7 @@ function StarRating({
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function AgentsManagement() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
 
   // Data
   const [agents, setAgents] = useState<Agent[]>([])
@@ -239,6 +240,12 @@ export function AgentsManagement() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useRealtimeUsers({
+    userId: user?.id,
+    watchAll: true,
+    onUserChange: () => { fetchData() },
+  })
 
   // ─── Filtered agents ──────────────────────────────────────────────────
 

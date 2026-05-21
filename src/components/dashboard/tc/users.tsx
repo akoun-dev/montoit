@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeUsers } from '@/hooks/use-realtime-users'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -88,7 +89,7 @@ function shortDate(dateStr: string) {
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function TcUsers() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const [users, setUsers] = useState<UserItem[]>([])
   const [stats, setStats] = useState<ApiResponse['stats']>({ total: 0, active: 0, inactive: 0, byRole: {} })
   const [loading, setLoading] = useState(true)
@@ -120,6 +121,13 @@ export function TcUsers() {
       setLoading(false)
     }
   }, [isAuthenticated])
+
+  // ─── Realtime subscription (TC watches all users) ────────────────
+  useRealtimeUsers({
+    userId: user?.id,
+    watchAll: true,
+    onUserChange: () => { fetchData() },
+  })
 
   useEffect(() => {
     fetchData()

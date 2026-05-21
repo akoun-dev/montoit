@@ -7,6 +7,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeUsers } from '@/hooks/use-realtime-users'
+import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
+import { useRealtimeDisputes } from '@/hooks/use-realtime-disputes'
+import { useRealtimeSignalements } from '@/hooks/use-realtime-signalements'
 import { motion } from 'framer-motion'
 
 interface AdminData {
@@ -130,9 +134,28 @@ export function AdminOverview() {
     }
   }, [isAuthenticated])
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  useRealtimeUsers({
+    userId: user?.id,
+    watchAll: true,
+    onUserChange: () => { fetchData() },
+  })
+  useRealtimeProperties({
+    userId: user?.id,
+    watchAll: true,
+    onPropertyChange: () => { fetchData() },
+  })
+  useRealtimeDisputes({
+    userId: user?.id,
+    watchAll: true,
+    onDisputeChange: () => { fetchData() },
+  })
+  useRealtimeSignalements({
+    userId: user?.id,
+    watchAll: true,
+    onSignalementChange: () => { fetchData() },
+  })
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3, 4].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 

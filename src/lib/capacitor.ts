@@ -1,6 +1,7 @@
 'use client'
 
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import { autoInvalidateOnMutation } from '@/lib/response-cache'
 
 /**
  * Capacitor detection and API URL redirection helper.
@@ -90,12 +91,20 @@ function getAuthTokenFromStorage(): string | null {
  * Synchronous fallback to retrieve the Supabase access token.
  *
  * Priority:
- * 1. Parse from document.cookie (@supabase/ssr default storage)
- * 2. Parse from localStorage (legacy/manual setups)
+ * 1. Parse from localStorage (main storage in Capacitor static APK mode)
+ * 2. Parse from document.cookie (@supabase/ssr — works in SSR/Next.js mode)
+ *
+ * In Capacitor static APK mode, cookies are unreliable (no server to set them),
+ * so localStorage is checked first.
  *
  * Returns `null` if no token is found.
  */
 export function getAuthTokenSync(): string | null {
+  if (isCapacitor()) {
+    // In Capacitor mode, localStorage is the primary storage
+    return getAuthTokenFromStorage() || getAuthTokenFromCookie()
+  }
+  // In web/SSR mode, cookies are the primary storage (@supabase/ssr)
   return getAuthTokenFromCookie() || getAuthTokenFromStorage()
 }
 
@@ -103,22 +112,32 @@ export function getAuthTokenSync(): string | null {
  * Asynchronously retrieve the Supabase access token using the canonical API.
  *
  * Priority:
- * 1. supabase.auth.getSession() — the canonical way, reads from cookie storage
- * 2. Fallback to sync parsers (cookie → localStorage)
+ * 1. sync parsers with Capacitor-aware ordering (localStorage first in APK)
+ * 2. supabase.auth.getSession() — for web/SSR mode
  *
- * This is the preferred method in Capacitor mode, as it uses the official
- * Supabase client and handles all storage backends correctly.
+ * In Capacitor mode, the Supabase SSR client may not have access to the
+ * session via getSession() because there's no server to set cookies.
  */
 export async function getAuthToken(): Promise<string | null> {
   if (typeof window === 'undefined') return null
+
+  // In Capacitor mode, use sync parsers first (localStorage-based)
+  if (isCapacitor()) {
+    const token = getAuthTokenSync()
+    if (token) return token
+  }
+
+  // Try the canonical Supabase client
   try {
     const { data } = await getSupabaseBrowserClient().auth.getSession()
     if (data?.session?.access_token) {
       return data.session.access_token
     }
   } catch {
-    // Supabase client unavailable — fall through to sync parsers
+    // Supabase client unavailable — fall through
   }
+
+  // Final fallback (for web mode where Supabase getSession failed)
   return getAuthTokenSync()
 }
 
@@ -155,5 +174,14 @@ export async function apiFetch(
     }
   }
 
-  return fetch(url, newInit)
+  const response = await fetch(url, newInit)
+
+  // Invalidate cached GET data on mutations (POST, PATCH, PUT, DELETE)
+  // so that subsequent fetchData() calls return fresh data.
+  const method = init?.method?.toUpperCase() || 'GET'
+  if (method !== 'GET') {
+    autoInvalidateOnMutation(url.toString())
+  }
+
+  return response
 }

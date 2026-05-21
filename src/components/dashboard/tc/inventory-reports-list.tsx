@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/table'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeInventoryReports } from '@/hooks/use-realtime-inventory-reports'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -48,7 +49,7 @@ interface ReportsResponse {
 // ─── Main Component ──────────────────────────────────────────────────────────────
 
 export function InventoryReportsList() {
-  const { isAuthenticated, setSelectedItemId, setDashboardSection, setSelectedPropertyId } =
+  const { user, isAuthenticated, setSelectedItemId, setDashboardSection, setSelectedPropertyId } =
     useAuthStore()
   const [reports, setReports] = useState<InventoryReport[]>([])
   const [loading, setLoading] = useState(true)
@@ -91,6 +92,12 @@ export function InventoryReportsList() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useRealtimeInventoryReports({
+    userId: user?.id,
+    watchAll: true,
+    onInventoryReportChange: () => { fetchData() },
+  })
 
   // ─── Handlers ────────────────────────────────────────────────────────────────
 

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeDisputes } from '@/hooks/use-realtime-disputes'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -26,7 +27,7 @@ const typeLabels: Record<string, string> = {
 }
 
 export function Disputes() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [disputes, setDisputes] = useState<Dispute[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -51,9 +52,13 @@ export function Disputes() {
     }
   }, [isAuthenticated])
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  useRealtimeDisputes({
+    userId: user?.id,
+    watchAll: true,
+    onDisputeChange: () => { fetchData() },
+  })
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   if (loading) return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 

@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/table'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useAuthStore } from '@/lib/auth-store'
+import { useRealtimeOwnershipDocs } from '@/hooks/use-realtime-ownership-docs'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { DocumentPreviewDialog } from './document-preview-dialog'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -122,7 +123,7 @@ const PAGE_SIZE = 10
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function OwnerValidations() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
 
   // Data state
   const [docs, setDocs] = useState<OwnershipDoc[]>([])
@@ -183,6 +184,13 @@ export function OwnerValidations() {
       setLoading(false)
     }
   }, [isAuthenticated, page, filterType])
+
+  // ─── Realtime subscription (TC watches all ownership docs) ───────
+  useRealtimeOwnershipDocs({
+    userId: user?.id,
+    watchAll: true,
+    onOwnershipDocChange: () => { fetchData() },
+  })
 
   useEffect(() => {
     fetchData()

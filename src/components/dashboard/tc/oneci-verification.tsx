@@ -13,6 +13,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeUsers } from '@/hooks/use-realtime-users'
+import { useRealtimeFacialVerifications } from '@/hooks/use-realtime-facial-verifications'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -55,7 +57,7 @@ const filterOptions = [
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function OneciVerification() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [users, setUsers] = useState<OneciUser[]>([])
   const [stats, setStats] = useState<OneciStats>({ totalUsers: 0, oneciVerified: 0, neofaceVerified: 0, oneciPending: 0, neofacePending: 0 })
   const [loading, setLoading] = useState(true)
@@ -105,6 +107,18 @@ export function OneciVerification() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useRealtimeUsers({
+    userId: user?.id,
+    watchAll: true,
+    onUserChange: () => { fetchData() },
+  })
+
+  useRealtimeFacialVerifications({
+    userId: user?.id,
+    watchAll: true,
+    onFacialVerificationChange: () => { fetchData() },
+  })
 
   // ─── Actions ──────────────────────────────────────────────────────────
 

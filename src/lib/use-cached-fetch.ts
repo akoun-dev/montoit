@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { authFetch, AuthError, clearCache } from '@/lib/auth-fetch'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { clearCache } from '@/lib/response-cache'
 
 /**
  * Hook for cached data fetching with auto-refresh and stale-while-revalidate.

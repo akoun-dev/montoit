@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeOwnershipDocs } from '@/hooks/use-realtime-ownership-docs'
 import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { DocumentPreviewDialog } from './document-preview-dialog'
 import { motion } from 'framer-motion'
@@ -36,7 +37,7 @@ interface AgencyDoc {
 }
 
 export function AgencyValidations() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [docs, setDocs] = useState<AgencyDoc[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
@@ -81,6 +82,12 @@ export function AgencyValidations() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useRealtimeOwnershipDocs({
+    userId: user?.id,
+    watchAll: true,
+    onOwnershipDocChange: () => { fetchData() },
+  })
 
   const handleAction = async (docId: string, action: 'APPROVE' | 'REJECT' | 'REQUEST_INFO', comment?: string) => {
     setActionLoading(docId)

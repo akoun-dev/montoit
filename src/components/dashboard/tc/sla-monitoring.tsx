@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeValidationSlas } from '@/hooks/use-realtime-validation-slas'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -75,8 +76,7 @@ const entityTypeColors: Record<string, string> = {
 }
 
 export function SlaMonitoring() {
-  const { isAuthenticated } = useAuthStore()
-  const { setDashboardSection } = useAuthStore()
+  const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const [stats, setStats] = useState<TcStats>(defaultStats)
   const [overdueList, setOverdueList] = useState<OverdueSla[]>([])
   const [loading, setLoading] = useState(true)
@@ -108,6 +108,12 @@ export function SlaMonitoring() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useRealtimeValidationSlas({
+    userId: user?.id,
+    watchAll: true,
+    onValidationSlaChange: () => { fetchData() },
+  })
 
   if (loading) {
     return (

@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -277,7 +278,7 @@ function ListRow({
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function AllProperties() {
-  const { isAuthenticated, setSelectedItemId, setDashboardSection } = useAuthStore()
+  const { isAuthenticated, setSelectedItemId, setDashboardSection, user } = useAuthStore()
   const [properties, setProperties] = useState<PropertyItem[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -337,6 +338,13 @@ export function AllProperties() {
       setLoading(false)
     }
   }, [isAuthenticated, searchQuery, filterStatus, filterType, filterCommune, offset])
+
+  // ─── Realtime subscription (TC watches all properties) ────────────
+  useRealtimeProperties({
+    userId: user?.id,
+    watchAll: true,
+    onPropertyChange: () => { fetchData(true) },
+  })
 
   useEffect(() => {
     setLoading(true)
