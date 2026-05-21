@@ -282,11 +282,13 @@ function KycVerificationModal({
   onOpenChange,
   profile,
   onVerified,
+  onRedo,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   profile: ProfileData | null
   onVerified: () => void
+  onRedo?: () => Promise<void>
 }) {
   // KYC face verification state (NeoFace v2 flow)
   const [kycStep, setKycStep] = useState<'idle' | 'uploading' | 'selfie' | 'verifying' | 'done'>('idle')
@@ -526,10 +528,8 @@ function KycVerificationModal({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ mode: 'reset' }),
               }).catch(() => {})
-              const profileResult = await authFetch<{ user: ProfileData }>('/api/profile').catch(() => null)
-              if (profileResult) {
-                onVerified()
-              }
+              handleKycReset()
+              await onRedo?.()
             }}
           >
             <RefreshCw className="size-4 mr-2" />
@@ -1071,6 +1071,25 @@ export function SettingsSection() {
       }
       if (scoringResult.status === 'fulfilled') setScoring(scoringResult.value)
     } catch {}
+  }, [])
+
+  const handleKycRedo = useCallback(async () => {
+    const [profileResult, scoringResult] = await Promise.allSettled([
+      authFetch<{ user: ProfileData }>('/api/profile'),
+      authFetch<ScoringData>('/api/scoring'),
+    ])
+    if (profileResult.status === 'fulfilled') {
+      const p = profileResult.value.user
+      setProfile(p)
+      updateUser({
+        firstName: p.firstName,
+        lastName: p.lastName,
+        email: p.email,
+        phone: p.phone,
+        avatarUrl: p.avatarUrl,
+      })
+    }
+    if (scoringResult.status === 'fulfilled') setScoring(scoringResult.value)
   }, [])
 
   // ── Avatar upload handler ────────────────────────────────────────────────
@@ -2787,6 +2806,7 @@ export function SettingsSection() {
         onOpenChange={setKycModalOpen}
         profile={profile}
         onVerified={handleKycVerified}
+        onRedo={handleKycRedo}
       />
     </motion.div>
   )
