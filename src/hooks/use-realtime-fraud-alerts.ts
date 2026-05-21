@@ -52,61 +52,79 @@ export function useRealtimeFraudAlerts({
   onFraudAlertChange,
 }: UseRealtimeFraudAlertsOptions) {
   const callbackRef = useRef(onFraudAlertChange)
-  callbackRef.current = onFraudAlertChange
-
   const watchedRef = useRef(watchedSuspectIds)
-  watchedRef.current = watchedSuspectIds
-
   const watchAllRef = useRef(watchAll)
-  watchAllRef.current = watchAll
+
+  useEffect(() => {
+    callbackRef.current = onFraudAlertChange
+    watchedRef.current = watchedSuspectIds
+    watchAllRef.current = watchAll
+  }, [onFraudAlertChange, watchedSuspectIds, watchAll])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('fraud-alerts-realtime')
-      .on<RealtimeFraudAlertPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'fraud_alerts',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeFraudAlertPayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
-          const alert = raw as RealtimeFraudAlertPayload
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('fraud-alerts-realtime')
 
-          // If watchAll is enabled, forward all events (TC/admin)
-          if (watchAllRef.current) {
-            callbackRef.current(payload.eventType as FraudAlertChangeEvent, alert)
-            return
-          }
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          // Check if the alert concerns a watched suspect
-          const isWatchedSuspect = watchedRef.current?.includes(alert.suspect_id)
-          if (isWatchedSuspect) {
-            callbackRef.current(payload.eventType as FraudAlertChangeEvent, alert)
-            return
-          }
+      if (cancelled) return
 
-          // Otherwise, only forward if the user is the reporter
-          if (alert.reporter_id === userId) {
-            callbackRef.current(payload.eventType as FraudAlertChangeEvent, alert)
+      if (!session?.access_token) {
+        console.warn('[realtime-fraud-alerts] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeFraudAlertPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'fraud_alerts',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeFraudAlertPayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+            const alert = raw as RealtimeFraudAlertPayload
+
+            // If watchAll is enabled, forward all events (TC/admin)
+            if (watchAllRef.current) {
+              callbackRef.current(payload.eventType as FraudAlertChangeEvent, alert)
+              return
+            }
+
+            // Check if the alert concerns a watched suspect
+            const isWatchedSuspect = watchedRef.current?.includes(alert.suspect_id)
+            if (isWatchedSuspect) {
+              callbackRef.current(payload.eventType as FraudAlertChangeEvent, alert)
+              return
+            }
+
+            // Otherwise, only forward if the user is the reporter
+            if (alert.reporter_id === userId) {
+              callbackRef.current(payload.eventType as FraudAlertChangeEvent, alert)
+            }
           }
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-fraud-alerts] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-fraud-alerts] Channel error')
-        }
-      })
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-fraud-alerts] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-fraud-alerts] Channel error')
+          }
+        })
+    }
+
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

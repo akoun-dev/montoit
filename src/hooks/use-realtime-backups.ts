@@ -29,38 +29,58 @@ interface UseRealtimeBackupsOptions {
  */
 export function useRealtimeBackups({ userId, onBackupChange }: UseRealtimeBackupsOptions) {
   const callbackRef = useRef(onBackupChange)
-  callbackRef.current = onBackupChange
+
+  useEffect(() => {
+    callbackRef.current = onBackupChange
+  }, [onBackupChange])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('backups-realtime')
-      .on<RealtimeBackupPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'backups',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeBackupPayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('backups-realtime')
 
-          callbackRef.current(payload.eventType as BackupChangeEvent, raw as RealtimeBackupPayload)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-backups] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-backups] Channel error')
-        }
-      })
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (cancelled) return
+
+      if (!session?.access_token) {
+        console.warn('[realtime-backups] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeBackupPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'backups',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeBackupPayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+
+            callbackRef.current(payload.eventType as BackupChangeEvent, raw as RealtimeBackupPayload)
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-backups] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-backups] Channel error')
+          }
+        })
+    }
+
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

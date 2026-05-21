@@ -41,47 +41,66 @@ interface UseRealtimeMaintenanceOptions {
  */
 export function useRealtimeMaintenance({ userId, ownerLeaseIds, onMaintenanceChange }: UseRealtimeMaintenanceOptions) {
   const callbackRef = useRef(onMaintenanceChange)
-  callbackRef.current = onMaintenanceChange
-
   const leaseIdsRef = useRef(ownerLeaseIds)
-  leaseIdsRef.current = ownerLeaseIds
+
+  useEffect(() => {
+    callbackRef.current = onMaintenanceChange
+    leaseIdsRef.current = ownerLeaseIds
+  }, [onMaintenanceChange, ownerLeaseIds])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('maintenance-realtime')
-      .on<RealtimeMaintenancePayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'maintenance_requests',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeMaintenancePayload>) => {
-          const req = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!req?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('maintenance-realtime')
 
-          // Skip if the request isn't relevant to the current user
-          const isTenant = req.tenant_id === userId
-          const isOwner = leaseIdsRef.current?.includes(req.lease_id)
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          if (!isTenant && !isOwner) return
+      if (cancelled) return
 
-          callbackRef.current(payload.eventType as MaintenanceChangeEvent, req)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-maintenance] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-maintenance] Channel error')
-        }
-      })
+      if (!session?.access_token) {
+        console.warn('[realtime-maintenance] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeMaintenancePayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'maintenance_requests',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeMaintenancePayload>) => {
+            const req = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!req?.id) return
+
+            // Skip if the request isn't relevant to the current user
+            const isTenant = req.tenant_id === userId
+            const isOwner = leaseIdsRef.current?.includes(req.lease_id)
+
+            if (!isTenant && !isOwner) return
+
+            callbackRef.current(payload.eventType as MaintenanceChangeEvent, req)
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-maintenance] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-maintenance] Channel error')
+          }
+        })
+    }
+
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

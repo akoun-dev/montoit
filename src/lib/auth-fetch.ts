@@ -19,6 +19,7 @@ import {
   setCachedData,
   getTtlForUrl,
   autoInvalidateOnMutation,
+  getLastMutationAt,
 } from '@/lib/response-cache'
 
 export class AuthError extends Error {
@@ -72,7 +73,15 @@ export async function authFetch<T = Record<string, unknown>>(
   // Check cache for GET requests (unless skipCache is set or cacheTtl is 0)
   const cacheKey = getCacheKey(url, options?.method)
   const customOptions = options as RequestInit & { skipCache?: boolean; cacheTtl?: number; timeout?: number }
-  const shouldSkipCache = customOptions?.skipCache || customOptions?.cacheTtl === 0
+  let shouldSkipCache = customOptions?.skipCache || customOptions?.cacheTtl === 0
+
+  // If a mutation happened less than 2s ago, skip cache to guarantee fresh data
+  if (cacheKey && !shouldSkipCache) {
+    const sinceLastMutation = Date.now() - getLastMutationAt()
+    if (sinceLastMutation < 2_000) {
+      shouldSkipCache = true
+    }
+  }
 
   if (cacheKey && !shouldSkipCache) {
     const cached = getCachedData<T>(cacheKey)

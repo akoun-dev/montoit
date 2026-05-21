@@ -58,57 +58,75 @@ export function useRealtimeDisputes({
   onDisputeChange,
 }: UseRealtimeDisputesOptions) {
   const callbackRef = useRef(onDisputeChange)
-  callbackRef.current = onDisputeChange
-
   const leaseIdsRef = useRef(participantLeaseIds)
-  leaseIdsRef.current = participantLeaseIds
-
   const watchAllRef = useRef(watchAll)
-  watchAllRef.current = watchAll
+
+  useEffect(() => {
+    callbackRef.current = onDisputeChange
+    leaseIdsRef.current = participantLeaseIds
+    watchAllRef.current = watchAll
+  }, [onDisputeChange, participantLeaseIds, watchAll])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('disputes-realtime')
-      .on<RealtimeDisputePayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'disputes',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeDisputePayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
-          const dispute = raw as RealtimeDisputePayload
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('disputes-realtime')
 
-          // If watchAll is enabled, forward all events (TC/admin)
-          if (watchAllRef.current) {
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (cancelled) return
+
+      if (!session?.access_token) {
+        console.warn('[realtime-disputes] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeDisputePayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'disputes',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeDisputePayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+            const dispute = raw as RealtimeDisputePayload
+
+            // If watchAll is enabled, forward all events (TC/admin)
+            if (watchAllRef.current) {
+              callbackRef.current(payload.eventType as DisputeChangeEvent, dispute)
+              return
+            }
+
+            // Skip if the dispute isn't relevant to the current user
+            const isReporter = dispute.reported_by_id === userId
+            const isParticipant = leaseIdsRef.current?.includes(dispute.lease_id)
+
+            if (!isReporter && !isParticipant) return
+
             callbackRef.current(payload.eventType as DisputeChangeEvent, dispute)
-            return
           }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-disputes] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-disputes] Channel error')
+          }
+        })
+    }
 
-          // Skip if the dispute isn't relevant to the current user
-          const isReporter = dispute.reported_by_id === userId
-          const isParticipant = leaseIdsRef.current?.includes(dispute.lease_id)
-
-          if (!isReporter && !isParticipant) return
-
-          callbackRef.current(payload.eventType as DisputeChangeEvent, dispute)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-disputes] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-disputes] Channel error')
-        }
-      })
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

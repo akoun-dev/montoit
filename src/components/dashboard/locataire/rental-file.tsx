@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   FileText, Upload, CheckCircle2, ChevronRight, ChevronLeft,
-  Save, Send, AlertCircle, Briefcase, GraduationCap, User,
-  X, Eye, Trash2
+  Save, Send, AlertCircle,
+  Eye, Trash2
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -59,38 +59,7 @@ interface RentalFileResponse {
   stats: Record<string, number>
 }
 
-// ─── Tenant category config ─────────────────────────────────────────────────
-const tenantCategories = [
-  {
-    id: 'SALARIE',
-    label: 'Salarié',
-    description: 'Vous avez un emploi avec contrat de travail',
-    icon: Briefcase,
-    color: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-    activeColor: 'bg-emerald-100 border-emerald-400 ring-2 ring-emerald-400',
-    iconColor: 'text-emerald-500',
-  },
-  {
-    id: 'ENTREPRENEUR',
-    label: 'Entrepreneur / Indépendant',
-    description: 'Vous êtes travailleur indépendant ou chef d\'entreprise',
-    icon: User,
-    color: 'bg-brand-50 border-brand-200 text-brand-700',
-    activeColor: 'bg-brand-100 border-brand-400 ring-2 ring-brand-400',
-    iconColor: 'text-brand-500',
-  },
-  {
-    id: 'ETUDIANT',
-    label: 'Étudiant',
-    description: 'Vous êtes étudiant et pouvez fournir un garant',
-    icon: GraduationCap,
-    color: 'bg-violet-50 border-violet-200 text-violet-700',
-    activeColor: 'bg-violet-100 border-violet-400 ring-2 ring-violet-400',
-    iconColor: 'text-violet-500',
-  },
-]
-
-// ─── Document requirements per category ─────────────────────────────────────
+// ─── Document requirements ───────────────────────────────────────────────────
 interface DocRequirement {
   type: string
   label: string
@@ -99,38 +68,20 @@ interface DocRequirement {
   accept?: string
 }
 
-const documentRequirements: Record<string, DocRequirement[]> = {
-  SALARIE: [
-    { type: 'ID_CARD', label: "Carte d'identité ou Passeport", required: true, accept: '.pdf,.jpg,.jpeg,.png' },
-    { type: 'EMPLOYMENT_CONTRACT', label: 'Contrat de travail', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-    { type: 'WORK_CERTIFICATE', label: 'Attestation de travail récente', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-    { type: 'PAY_SLIP', label: 'Bulletins de salaire (3 derniers mois)', description: 'Fournir les 3 derniers bulletins', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-    { type: 'BANK_STATEMENT', label: 'Relevés bancaires (3 derniers mois)', required: false, accept: '.pdf' },
-    { type: 'PROOF_OF_ADDRESS', label: 'Justificatif de domicile actuel', description: 'Facture CIE, SODECI ou quittance de loyer', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-  ],
-  ENTREPRENEUR: [
-    { type: 'ID_CARD', label: "Carte d'identité ou Passeport", required: true, accept: '.pdf,.jpg,.jpeg,.png' },
-    { type: 'RCCM_REGISTRATION', label: 'Attestation d\'immatriculation (RCCM)', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-    { type: 'TAX_DECLARATION', label: 'Dernière déclaration fiscale', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-    { type: 'BANK_STATEMENT', label: 'Relevés bancaires (3 derniers mois)', required: false, accept: '.pdf' },
-    { type: 'PROOF_OF_ADDRESS', label: 'Justificatif de domicile actuel', description: 'Facture CIE, SODECI', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-  ],
-  ETUDIANT: [
-    { type: 'ID_CARD', label: "Carte d'identité ou Passeport", required: true, accept: '.pdf,.jpg,.jpeg,.png' },
-    { type: 'SCHOOL_CERTIFICATE', label: 'Certificat de scolarité', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-    { type: 'SCHOLARSHIP_CERTIFICATE', label: 'Attestation de bourse', description: 'Si applicable', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-    { type: 'PARENT_ADDRESS_PROOF', label: 'Justificatif de domicile des parents', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-    { type: 'GUARANTOR_ID', label: "Pièce d'identité du garant", required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-    { type: 'GUARANTOR_INCOME_PROOF', label: 'Justificatif de revenus du garant', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-  ],
-}
+const documentRequirements: DocRequirement[] = [
+  { type: 'ID_CARD', label: "Carte d'identité ou Passeport", required: true, accept: '.pdf,.jpg,.jpeg,.png' },
+  { type: 'PROOF_OF_ADDRESS', label: 'Justificatif de domicile actuel', description: 'Facture CIE, SODECI ou quittance de loyer', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
+  { type: 'PAY_SLIP', label: 'Bulletins de salaire (3 derniers mois)', description: 'Facultatif — Fournir les 3 derniers bulletins si disponible', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
+  { type: 'BANK_STATEMENT', label: 'Relevés bancaires (3 derniers mois)', required: false, accept: '.pdf' },
+  { type: 'EMPLOYMENT_CONTRACT', label: 'Contrat de travail', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
+  { type: 'GUARANTOR_ID', label: "Pièce d'identité du garant", required: false, accept: '.pdf,.jpg,.jpeg,.png' },
+  { type: 'GUARANTOR_INCOME_PROOF', label: 'Justificatif de revenus du garant', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
+]
 
 // ─── Step definition ───────────────────────────────────────────────────────
 const steps = [
-  { id: 1, title: 'Catégorie' },
-  { id: 2, title: 'Informations' },
-  { id: 3, title: 'Garant' },
-  { id: 4, title: 'Documents' },
+  { id: 1, title: 'Garant' },
+  { id: 2, title: 'Documents' },
 ]
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -157,10 +108,6 @@ export function RentalFileForm() {
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   const [formData, setFormData] = useState({
-    tenantCategory: '',
-    monthlyIncome: '',
-    employer: '',
-    employmentType: 'CDI',
     guarantorName: '',
     guarantorPhone: '',
     guarantorRelation: '',
@@ -175,10 +122,6 @@ export function RentalFileForm() {
       if (draft) {
         setExistingFile(draft)
         setFormData({
-          tenantCategory: draft.tenantCategory || '',
-          monthlyIncome: draft.monthlyIncome?.toString() || '',
-          employer: draft.employer || '',
-          employmentType: draft.employmentType || 'CDI',
           guarantorName: draft.guarantorName || '',
           guarantorPhone: draft.guarantorPhone || '',
           guarantorRelation: draft.guarantorRelation || '',
@@ -197,7 +140,10 @@ export function RentalFileForm() {
     onRentalFileChange: () => fetchRentalFile(),
   })
 
-  useEffect(() => { fetchRentalFile() }, [fetchRentalFile])
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchRentalFile()
+  }, [fetchRentalFile])
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -210,10 +156,6 @@ export function RentalFileForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tenantCategory: formData.tenantCategory || undefined,
-          monthlyIncome: formData.monthlyIncome ? parseFloat(formData.monthlyIncome) : undefined,
-          employer: formData.employer || undefined,
-          employmentType: formData.employmentType || undefined,
           guarantorName: formData.guarantorName || undefined,
           guarantorPhone: formData.guarantorPhone || undefined,
           guarantorRelation: formData.guarantorRelation || undefined,
@@ -229,20 +171,12 @@ export function RentalFileForm() {
   }
 
   const handleSubmit = async () => {
-    if (!formData.tenantCategory) {
-      toast.error('Veuillez sélectionner votre catégorie')
-      return
-    }
     setSubmitting(true)
     try {
       await authFetch('/api/rental-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tenantCategory: formData.tenantCategory,
-          monthlyIncome: formData.monthlyIncome ? parseFloat(formData.monthlyIncome) : undefined,
-          employer: formData.employer || undefined,
-          employmentType: formData.employmentType || undefined,
           guarantorName: formData.guarantorName || undefined,
           guarantorPhone: formData.guarantorPhone || undefined,
           guarantorRelation: formData.guarantorRelation || undefined,
@@ -272,9 +206,7 @@ export function RentalFileForm() {
         await authFetch('/api/rental-file', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tenantCategory: formData.tenantCategory || undefined,
-          }),
+          body: JSON.stringify({}),
         })
         // Re-fetch to get the ID
         await fetchRentalFile()
@@ -282,12 +214,6 @@ export function RentalFileForm() {
         toast.error('Erreur lors de la création du dossier')
         return
       }
-    }
-
-    // Re-check after potential creation
-    if (!existingFile && !formData.tenantCategory) {
-      toast.error('Veuillez d\'abord sélectionner votre catégorie')
-      return
     }
 
     setUploadingDocType(docType)
@@ -380,9 +306,7 @@ export function RentalFileForm() {
   // Check if existing file is already submitted (not DRAFT)
   const isReadOnly = !!(existingFile && existingFile.status !== 'DRAFT')
   const existingStatus = existingFile ? statusConfig[existingFile.status] : null
-  const currentCategory = formData.tenantCategory || existingFile?.tenantCategory
-  const requiredDocs = currentCategory ? documentRequirements[currentCategory] : []
-  const categoryConfig = tenantCategories.find(c => c.id === currentCategory)
+  const requiredDocs = documentRequirements
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -404,15 +328,10 @@ export function RentalFileForm() {
                 <FileText className="size-5 text-amber-600 shrink-0" />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium flex flex-wrap items-center gap-1.5">
-                  <span className="text-nowrap">Statut du dossier :</span>
-                  <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${existingStatus.color}`}>{existingStatus.label}</Badge>
-                  {categoryConfig && (
-                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-muted">
-                      {categoryConfig.label}
-                    </Badge>
-                  )}
-                </p>
+                  <p className="text-sm font-medium flex flex-wrap items-center gap-1.5">
+                    <span className="text-nowrap">Statut du dossier :</span>
+                    <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${existingStatus.color}`}>{existingStatus.label}</Badge>
+                  </p>
                 {existingFile.rejectionReason && (
                   <p className="text-xs text-red-600 mt-1">Raison : {existingFile.rejectionReason}</p>
                 )}
@@ -458,192 +377,39 @@ export function RentalFileForm() {
           <CardDescription>Étape {step} sur {steps.length}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Step 1: Category Selection + Personal Info */}
-          {step === 1 && (
-            <div className="space-y-6">
+          {/* Personal info read-only section */}
+          <div className="rounded-lg bg-muted/30 border border-border p-4">
+            <p className="text-sm font-medium mb-3 text-muted-foreground">Informations personnelles</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label className="text-base font-semibold mb-3 block">Vous êtes :</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {tenantCategories.map((cat) => {
-                    const Icon = cat.icon
-                    const isActive = formData.tenantCategory === cat.id
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => !isReadOnly && updateField('tenantCategory', cat.id)}
-                        disabled={isReadOnly}
-                        className={`p-4 rounded-xl border-2 text-left transition-all ${
-                          isActive ? cat.activeColor : cat.color
-                        } ${isReadOnly ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:scale-[1.02]'}`}
-                      >
-                        <Icon className={`size-6 mb-2 ${isActive ? cat.iconColor : 'text-current'}`} />
-                        <p className="font-semibold text-sm">{cat.label}</p>
-                        <p className="text-xs mt-1 opacity-80">{cat.description}</p>
-                      </button>
-                    )
-                  })}
-                </div>
+                <p className="text-xs text-muted-foreground">Prénom</p>
+                <p className="text-sm font-medium">{user?.firstName || '—'}</p>
               </div>
-
-              <div className="border-t border-border pt-4">
-                <p className="text-sm font-medium mb-3 text-muted-foreground">Informations personnelles</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Prénom</Label>
-                    <Input value={user?.firstName || ''} disabled />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Nom</Label>
-                    <Input value={user?.lastName || ''} disabled />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                  <div className="space-y-2">
-                    <Label>Téléphone</Label>
-                    <Input value={user?.phone || 'Non renseigné'} disabled />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input value={user?.email || ''} disabled />
-                  </div>
-                </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Nom</p>
+                <p className="text-sm font-medium">{user?.lastName || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Téléphone</p>
+                <p className="text-sm font-medium">{user?.phone || 'Non renseigné'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Email</p>
+                <p className="text-sm font-medium">{user?.email || '—'}</p>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Step 2: Category-specific info */}
-          {step === 2 && (
+          {/* Step 1: Guarantor */}
+          {step === 1 && (
             <div className="space-y-4">
-              {currentCategory === 'SALARIE' && (
-                <>
-                  <div className="space-y-2">
-                    <Label>Revenus mensuels (FCFA)</Label>
-                    <Input
-                      type="number"
-                      placeholder="500000"
-                      value={formData.monthlyIncome}
-                      onChange={(e) => updateField('monthlyIncome', e.target.value)}
-                      disabled={isReadOnly}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Employeur</Label>
-                    <Input
-                      placeholder="Nom de l'entreprise"
-                      value={formData.employer}
-                      onChange={(e) => updateField('employer', e.target.value)}
-                      disabled={isReadOnly}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Type d&apos;emploi</Label>
-                    <Select value={formData.employmentType} onValueChange={(v) => updateField('employmentType', v)} disabled={isReadOnly}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CDI">CDI</SelectItem>
-                        <SelectItem value="CDD">CDD</SelectItem>
-                        <SelectItem value="FREELANCE">Free-lance</SelectItem>
-                        <SelectItem value="RETIRED">Retraité</SelectItem>
-                        <SelectItem value="OTHER">Autre</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              )}
-
-              {currentCategory === 'ENTREPRENEUR' && (
-                <>
-                  <div className="space-y-2">
-                    <Label>Revenus mensuels moyens (FCFA)</Label>
-                    <Input
-                      type="number"
-                      placeholder="500000"
-                      value={formData.monthlyIncome}
-                      onChange={(e) => updateField('monthlyIncome', e.target.value)}
-                      disabled={isReadOnly}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Nom de l&apos;entreprise / Activité</Label>
-                    <Input
-                      placeholder="Nom de votre activité"
-                      value={formData.employer}
-                      onChange={(e) => updateField('employer', e.target.value)}
-                      disabled={isReadOnly}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Type d&apos;activité</Label>
-                    <Select value={formData.employmentType} onValueChange={(v) => updateField('employmentType', v)} disabled={isReadOnly}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="FREELANCE">Free-lance</SelectItem>
-                        <SelectItem value="OTHER">Entrepreneur</SelectItem>
-                        <SelectItem value="CDI">Auto-entrepreneur</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              )}
-
-              {currentCategory === 'ETUDIANT' && (
-                <>
-                  <div className="space-y-2">
-                    <Label>Établissement scolaire</Label>
-                    <Input
-                      placeholder="Nom de l'établissement"
-                      value={formData.employer}
-                      onChange={(e) => updateField('employer', e.target.value)}
-                      disabled={isReadOnly}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Revenus mensuels (FCFA)</Label>
-                    <Input
-                      type="number"
-                      placeholder="0 (si aucun revenu)"
-                      value={formData.monthlyIncome}
-                      onChange={(e) => updateField('monthlyIncome', e.target.value)}
-                      disabled={isReadOnly}
-                    />
-                    <p className="text-xs text-muted-foreground">Laissez 0 si vous n&apos;avez pas de revenus</p>
-                  </div>
-                </>
-              )}
-
-              {!currentCategory && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p className="text-sm">Veuillez d&apos;abord sélectionner votre catégorie à l&apos;étape 1</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Step 3: Guarantor */}
-          {step === 3 && (
-            <div className="space-y-4">
-              {currentCategory === 'ETUDIANT' && (
-                <Card className="border-violet-200 bg-violet-50">
-                  <CardContent className="p-3">
-                    <p className="text-xs text-violet-700">
-                      <strong>Étudiant :</strong> Un garant est fortement recommandé pour votre dossier. Il renforce la confiance des propriétaires.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-              {currentCategory !== 'ETUDIANT' && (
-                <Card className="border-border bg-muted/50">
-                  <CardContent className="p-3">
-                    <p className="text-xs text-muted-foreground">
-                      <strong>Optionnel :</strong> Ajouter un garant peut renforcer votre dossier, surtout si vos revenus sont limités.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
+              <Card className="border-border bg-muted/50">
+                <CardContent className="p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Ajouter un garant renforce votre dossier et rassure les propriétaires.
+                  </p>
+                </CardContent>
+              </Card>
               <div className="space-y-2">
                 <Label>Nom du garant</Label>
                 <Input
@@ -680,155 +446,142 @@ export function RentalFileForm() {
             </div>
           )}
 
-          {/* Step 4: Documents */}
-          {step === 4 && (
+          {/* Step 2: Documents */}
+          {step === 2 && (
             <div className="space-y-4">
-              {currentCategory ? (
-                <>
-                  <div className="flex items-center gap-2">
-                    {categoryConfig && (
-                      <Badge variant="outline" className="text-xs">{categoryConfig.label}</Badge>
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      Documents requis pour votre profil
-                    </span>
-                  </div>
+              <span className="text-xs text-muted-foreground">
+                Documents à fournir pour compléter votre dossier
+              </span>
 
-                  {/* Required documents summary */}
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground mb-2">
-                    <span className="flex items-center gap-1">
-                      <span className="size-2 rounded-full bg-red-400 inline-block" /> Obligatoire
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="size-2 rounded-full bg-neutral-300 inline-block" /> Facultatif
-                    </span>
-                  </div>
+              {/* Required documents summary */}
+              <div className="flex items-center gap-4 text-xs text-muted-foreground mb-2">
+                <span className="flex items-center gap-1">
+                  <span className="size-2 rounded-full bg-red-400 inline-block" /> Obligatoire
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="size-2 rounded-full bg-neutral-300 inline-block" /> Facultatif
+                </span>
+              </div>
 
-                  {/* Document list */}
-                  {requiredDocs.map((doc) => {
-                    const existingDoc = existingFile?.documents?.find((d) => d.type === doc.type)
-                    const isUploading = uploadingDocType === doc.type
+              {/* Document list */}
+              {requiredDocs.map((doc) => {
+                const existingDoc = existingFile?.documents?.find((d) => d.type === doc.type)
+                const isUploading = uploadingDocType === doc.type
 
-                    return (
-                      <div key={doc.type} className={`rounded-xl border-2 p-3 sm:p-4 transition-colors ${
-                        existingDoc ? 'border-emerald-200 bg-emerald-50/50' : doc.required ? 'border-red-100' : 'border-border'
-                      }`}>
-                        <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0 w-full sm:w-auto">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {existingDoc ? (
-                                <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-                              ) : (
-                                <FileText className={`size-4 shrink-0 ${doc.required ? 'text-red-400' : 'text-muted-foreground'}`} />
-                              )}
-                              <span className="text-sm font-medium text-foreground break-words">{doc.label}</span>
-                              {doc.required && !existingDoc && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-red-50 text-red-600 border-red-200">
-                                  Obligatoire
-                                </Badge>
-                              )}
-                              {!doc.required && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground border-border">
-                                  Facultatif
-                                </Badge>
-                              )}
-                              {existingDoc && (
-                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
-                                  existingDoc.status === 'VALIDATED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : existingDoc.status === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-200'
-                                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                                }`}>
-                                  {existingDoc.status === 'VALIDATED' ? 'Validé' : existingDoc.status === 'REJECTED' ? 'Rejeté' : 'En attente'}
-                                </Badge>
-                              )}
-                            </div>
-                            {doc.description && (
-                              <p className="text-xs text-muted-foreground mt-1 ml-6">{doc.description}</p>
-                            )}
-                            {existingDoc && (
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-2 ml-6">
-                                <span className="text-xs text-muted-foreground truncate max-w-[140px] sm:max-w-[300px]">{existingDoc.name}</span>
-                                <span className="text-xs text-muted-foreground hidden sm:inline">•</span>
-                                <span className="text-xs text-muted-foreground">
-                                  Ajouté le {new Date(existingDoc.createdAt).toLocaleDateString('fr-FR')}
-                                </span>
-                              </div>
-                            )}
-                            {existingDoc?.tcComment && (
-                              <p className="text-xs text-amber-600 mt-1 ml-6">Commentaire TC : {existingDoc.tcComment}</p>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end sm:justify-start">
-                            {!isReadOnly && existingDoc && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="size-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => handleDeleteDocument(existingDoc.id)}
-                                title="Supprimer"
-                              >
-                                <Trash2 className="size-3.5" />
-                              </Button>
-                            )}
-                            {!isReadOnly && (
-                              <Button
-                                variant={existingDoc ? "outline" : "default"}
-                                size="sm"
-                                className={`gap-1.5 ${!existingDoc ? 'bg-brand-500 hover:bg-brand-600 text-white' : ''}`}
-                                disabled={isUploading}
-                                onClick={() => fileInputRefs.current[doc.type]?.click()}
-                              >
-                                {isUploading ? (
-                                  <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                ) : existingDoc ? (
-                                  <Eye className="size-3.5" />
-                                ) : (
-                                  <Upload className="size-3.5" />
-                                )}
-                                {isUploading ? 'Envoi...' : existingDoc ? 'Remplacer' : 'Télécharger'}
-                              </Button>
-                            )}
-                            <input
-                              ref={(el) => { fileInputRefs.current[doc.type] = el }}
-                              type="file"
-                              className="hidden"
-                              accept={doc.accept}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0]
-                                if (file) handleFileUpload(doc.type, file)
-                                e.target.value = ''
-                              }}
-                            />
-                          </div>
+                return (
+                  <div key={doc.type} className={`rounded-xl border-2 p-3 sm:p-4 transition-colors ${
+                    existingDoc ? 'border-emerald-200 bg-emerald-50/50' : doc.required ? 'border-red-100' : 'border-border'
+                  }`}>
+                    <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0 w-full sm:w-auto">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {existingDoc ? (
+                            <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+                          ) : (
+                            <FileText className={`size-4 shrink-0 ${doc.required ? 'text-red-400' : 'text-muted-foreground'}`} />
+                          )}
+                          <span className="text-sm font-medium text-foreground break-words">{doc.label}</span>
+                          {doc.required && !existingDoc && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-red-50 text-red-600 border-red-200">
+                              Obligatoire
+                            </Badge>
+                          )}
+                          {!doc.required && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-muted text-muted-foreground border-border">
+                              Facultatif
+                            </Badge>
+                          )}
+                          {existingDoc && (
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
+                              existingDoc.status === 'VALIDATED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : existingDoc.status === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>
+                              {existingDoc.status === 'VALIDATED' ? 'Validé' : existingDoc.status === 'REJECTED' ? 'Rejeté' : 'En attente'}
+                            </Badge>
+                          )}
                         </div>
+                        {doc.description && (
+                          <p className="text-xs text-muted-foreground mt-1 ml-6">{doc.description}</p>
+                        )}
+                        {existingDoc && (
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-2 ml-6">
+                            <span className="text-xs text-muted-foreground truncate max-w-[140px] sm:max-w-[300px]">{existingDoc.name}</span>
+                            <span className="text-xs text-muted-foreground hidden sm:inline">•</span>
+                            <span className="text-xs text-muted-foreground">
+                              Ajouté le {new Date(existingDoc.createdAt).toLocaleDateString('fr-FR')}
+                            </span>
+                          </div>
+                        )}
+                        {existingDoc?.tcComment && (
+                          <p className="text-xs text-amber-600 mt-1 ml-6">Commentaire TC : {existingDoc.tcComment}</p>
+                        )}
                       </div>
-                    )
-                  })}
 
-                  {/* Upload progress indicator */}
-                  {requiredDocs.length > 0 && (
-                    <div className="mt-4 p-3 rounded-lg bg-muted/50 border border-border">
-                      <div className="flex items-center justify-between text-xs mb-2">
-                        <span className="text-muted-foreground">Progression des documents</span>
-                        <span className="font-medium">
-                          {existingFile?.documents?.filter(d => requiredDocs.some(rd => rd.type === d.type)).length || 0} / {requiredDocs.length}
-                        </span>
-                      </div>
-                      <div className="w-full h-2 bg-neutral-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-brand-500 rounded-full transition-all duration-500"
-                          style={{
-                            width: `${((existingFile?.documents?.filter(d => requiredDocs.some(rd => rd.type === d.type)).length || 0) / requiredDocs.length) * 100}%`,
+                      <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end sm:justify-start">
+                        {!isReadOnly && existingDoc && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="size-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleDeleteDocument(existingDoc.id)}
+                            title="Supprimer"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        )}
+                        {!isReadOnly && (
+                          <Button
+                            variant={existingDoc ? "outline" : "default"}
+                            size="sm"
+                            className={`gap-1.5 ${!existingDoc ? 'bg-brand-500 hover:bg-brand-600 text-white' : ''}`}
+                            disabled={isUploading}
+                            onClick={() => fileInputRefs.current[doc.type]?.click()}
+                          >
+                            {isUploading ? (
+                              <span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                            ) : existingDoc ? (
+                              <Eye className="size-3.5" />
+                            ) : (
+                              <Upload className="size-3.5" />
+                            )}
+                            {isUploading ? 'Envoi...' : existingDoc ? 'Remplacer' : 'Télécharger'}
+                          </Button>
+                        )}
+                        <input
+                          ref={(el) => { fileInputRefs.current[doc.type] = el }}
+                          type="file"
+                          className="hidden"
+                          accept={doc.accept}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) handleFileUpload(doc.type, file)
+                            e.target.value = ''
                           }}
                         />
                       </div>
                     </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p className="text-sm">Veuillez d&apos;abord sélectionner votre catégorie à l&apos;étape 1</p>
+                  </div>
+                )
+              })}
+
+              {/* Upload progress indicator */}
+              {requiredDocs.length > 0 && (
+                <div className="mt-4 p-3 rounded-lg bg-muted/50 border border-border">
+                  <div className="flex items-center justify-between text-xs mb-2">
+                    <span className="text-muted-foreground">Progression des documents</span>
+                    <span className="font-medium">
+                      {existingFile?.documents?.filter(d => requiredDocs.some(rd => rd.type === d.type)).length || 0} / {requiredDocs.length}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-neutral-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-brand-500 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${((existingFile?.documents?.filter(d => requiredDocs.some(rd => rd.type === d.type)).length || 0) / requiredDocs.length) * 100}%`,
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </div>

@@ -38,49 +38,68 @@ interface UseRealtimePropertyDocumentsOptions {
  */
 export function useRealtimePropertyDocuments({ userId, watchedPropertyIds, onPropertyDocChange }: UseRealtimePropertyDocumentsOptions) {
   const callbackRef = useRef(onPropertyDocChange)
-  callbackRef.current = onPropertyDocChange
-
   const watchedIdsRef = useRef(watchedPropertyIds)
-  watchedIdsRef.current = watchedPropertyIds
+
+  useEffect(() => {
+    callbackRef.current = onPropertyDocChange
+    watchedIdsRef.current = watchedPropertyIds
+  }, [onPropertyDocChange, watchedPropertyIds])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('property-documents-realtime')
-      .on<RealtimePropertyDocPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'property_documents',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimePropertyDocPayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('property-documents-realtime')
 
-          const doc = raw as RealtimePropertyDocPayload
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          // If specific property IDs are watched, filter by them
-          const watchedIds = watchedIdsRef.current
-          if (watchedIds && watchedIds.length > 0) {
-            if (!watchedIds.includes(doc.property_id)) return
+      if (cancelled) return
+
+      if (!session?.access_token) {
+        console.warn('[realtime-property-documents] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimePropertyDocPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'property_documents',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimePropertyDocPayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+
+            const doc = raw as RealtimePropertyDocPayload
+
+            // If specific property IDs are watched, filter by them
+            const watchedIds = watchedIdsRef.current
+            if (watchedIds && watchedIds.length > 0) {
+              if (!watchedIds.includes(doc.property_id)) return
+            }
+
+            callbackRef.current(payload.eventType as PropertyDocChangeEvent, doc)
           }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-property-documents] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-property-documents] Channel error')
+          }
+        })
+    }
 
-          callbackRef.current(payload.eventType as PropertyDocChangeEvent, doc)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-property-documents] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-property-documents] Channel error')
-        }
-      })
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

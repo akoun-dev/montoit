@@ -38,46 +38,65 @@ interface UseRealtimeOwnershipDocsOptions {
  */
 export function useRealtimeOwnershipDocs({ userId, watchAll, onOwnershipDocChange }: UseRealtimeOwnershipDocsOptions) {
   const callbackRef = useRef(onOwnershipDocChange)
-  callbackRef.current = onOwnershipDocChange
-
   const watchAllRef = useRef(watchAll)
-  watchAllRef.current = watchAll
+
+  useEffect(() => {
+    callbackRef.current = onOwnershipDocChange
+    watchAllRef.current = watchAll
+  }, [onOwnershipDocChange, watchAll])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('ownership-docs-realtime')
-      .on<RealtimeOwnershipDocPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'ownership_documents',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeOwnershipDocPayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('ownership-docs-realtime')
 
-          const doc = raw as RealtimeOwnershipDocPayload
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          // Filter: watchAll or own document
-          if (!watchAllRef.current && doc.owner_id !== userId) return
+      if (cancelled) return
 
-          callbackRef.current(payload.eventType as OwnershipDocEvent, doc)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-ownership-docs] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-ownership-docs] Channel error')
-        }
-      })
+      if (!session?.access_token) {
+        console.warn('[realtime-ownership-docs] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeOwnershipDocPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'ownership_documents',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeOwnershipDocPayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+
+            const doc = raw as RealtimeOwnershipDocPayload
+
+            // Filter: watchAll or own document
+            if (!watchAllRef.current && doc.owner_id !== userId) return
+
+            callbackRef.current(payload.eventType as OwnershipDocEvent, doc)
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-ownership-docs] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-ownership-docs] Channel error')
+          }
+        })
+    }
+
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

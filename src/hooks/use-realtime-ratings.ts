@@ -39,58 +39,77 @@ interface UseRealtimeRatingsOptions {
  */
 export function useRealtimeRatings({ userId, watchAll, onRatingChange }: UseRealtimeRatingsOptions) {
   const callbackRef = useRef(onRatingChange)
-  callbackRef.current = onRatingChange
-
   const watchAllRef = useRef(watchAll)
-  watchAllRef.current = watchAll
+
+  useEffect(() => {
+    callbackRef.current = onRatingChange
+    watchAllRef.current = watchAll
+  }, [onRatingChange, watchAll])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('ratings-realtime')
-      .on<RealtimeRatingPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'ratings',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeRatingPayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('ratings-realtime')
 
-          const rating = raw as RealtimeRatingPayload
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          // Skip DELETEs — only forward INSERT/UPDATE
-          if (payload.eventType === 'DELETE') return
+      if (cancelled) return
 
-          // watchAll forwards everything
-          if (watchAllRef.current) {
+      if (!session?.access_token) {
+        console.warn('[realtime-ratings] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeRatingPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'ratings',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeRatingPayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+
+            const rating = raw as RealtimeRatingPayload
+
+            // Skip DELETEs — only forward INSERT/UPDATE
+            if (payload.eventType === 'DELETE') return
+
+            // watchAll forwards everything
+            if (watchAllRef.current) {
+              callbackRef.current(payload.eventType as RatingChangeEvent, rating)
+              return
+            }
+
+            // Filter: user is the target (received) or the author (given)
+            const isTarget = rating.to_user_id === userId
+            const isAuthor = rating.from_user_id === userId
+
+            if (!isTarget && !isAuthor) return
+
             callbackRef.current(payload.eventType as RatingChangeEvent, rating)
-            return
           }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-ratings] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-ratings] Channel error')
+          }
+        })
+    }
 
-          // Filter: user is the target (received) or the author (given)
-          const isTarget = rating.to_user_id === userId
-          const isAuthor = rating.from_user_id === userId
-
-          if (!isTarget && !isAuthor) return
-
-          callbackRef.current(payload.eventType as RatingChangeEvent, rating)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-ratings] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-ratings] Channel error')
-        }
-      })
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

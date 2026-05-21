@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Eye, Calendar, Clock, MapPin, Building2, MessageSquare, XCircle, Loader2 } from 'lucide-react'
+import { ArrowLeft, Eye, Calendar, Clock, MapPin, Building2, MessageSquare, XCircle, Loader2, FileText } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -63,12 +63,13 @@ interface VisitDetailProps {
 }
 
 export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, setDashboardSection } = useAuthStore()
   const [visit, setVisit] = useState<VisitItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
+  const [applying, setApplying] = useState(false)
 
   const fetchVisit = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -91,7 +92,32 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
     }
   }, [isAuthenticated, visitId])
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchVisit() }, [fetchVisit])
+
+  const handleApply = async () => {
+    if (!visit) return
+    setApplying(true)
+    try {
+      await authFetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyId: visit.property.id }),
+      })
+      toast.success('Candidature envoyée avec succès !')
+      setDashboardSection('applications')
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 409) {
+        toast.error('Vous avez déjà candidaté pour ce bien')
+      } else if (err instanceof AuthError) {
+        toast.error(err.message || "Erreur lors de l'envoi de la candidature")
+      } else {
+        toast.error("Erreur lors de l'envoi de la candidature")
+      }
+    } finally {
+      setApplying(false)
+    }
+  }
 
   const handleCancel = async () => {
     if (!visit) return
@@ -257,6 +283,29 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Postuler — visible quand la visite est confirmée ou effectuée */}
+      {(visit.status === 'ACCEPTED' || visit.status === 'COMPLETED') && (
+        <div className="pt-2">
+          <Button
+            className="w-full gap-2"
+            onClick={handleApply}
+            disabled={applying}
+          >
+            {applying ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Envoi en cours...
+              </>
+            ) : (
+              <>
+                <FileText className="size-4" />
+                Postuler pour ce bien
+              </>
+            )}
+          </Button>
+        </div>
       )}
 
       {/* Cancel Visit Button */}

@@ -43,47 +43,66 @@ interface UseRealtimeVisitsOptions {
  */
 export function useRealtimeVisits({ userId, ownedPropertyIds, onVisitChange }: UseRealtimeVisitsOptions) {
   const callbackRef = useRef(onVisitChange)
-  callbackRef.current = onVisitChange
-
   const ownedRef = useRef(ownedPropertyIds)
-  ownedRef.current = ownedPropertyIds
+
+  useEffect(() => {
+    callbackRef.current = onVisitChange
+    ownedRef.current = ownedPropertyIds
+  }, [onVisitChange, ownedPropertyIds])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('visits-realtime')
-      .on<RealtimeVisitPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'visit_requests',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeVisitPayload>) => {
-          const visit = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!visit?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('visits-realtime')
 
-          // Skip if the visit isn't relevant to the current user
-          const isTenant = visit.tenant_id === userId
-          const isOwner = ownedRef.current?.includes(visit.property_id)
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          if (!isTenant && !isOwner) return
+      if (cancelled) return
 
-          callbackRef.current(payload.eventType as VisitChangeEvent, visit)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-visits] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-visits] Channel error')
-        }
-      })
+      if (!session?.access_token) {
+        console.warn('[realtime-visits] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeVisitPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'visit_requests',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeVisitPayload>) => {
+            const visit = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!visit?.id) return
+
+            // Skip if the visit isn't relevant to the current user
+            const isTenant = visit.tenant_id === userId
+            const isOwner = ownedRef.current?.includes(visit.property_id)
+
+            if (!isTenant && !isOwner) return
+
+            callbackRef.current(payload.eventType as VisitChangeEvent, visit)
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-visits] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-visits] Channel error')
+          }
+        })
+    }
+
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

@@ -71,57 +71,75 @@ export function useRealtimeProperties({
   onPropertyChange,
 }: UseRealtimePropertiesOptions) {
   const callbackRef = useRef(onPropertyChange)
-  callbackRef.current = onPropertyChange
-
   const ownedRef = useRef(ownedPropertyIds)
-  ownedRef.current = ownedPropertyIds
-
   const watchAllRef = useRef(watchAll)
-  watchAllRef.current = watchAll
+
+  useEffect(() => {
+    callbackRef.current = onPropertyChange
+    ownedRef.current = ownedPropertyIds
+    watchAllRef.current = watchAll
+  }, [onPropertyChange, ownedPropertyIds, watchAll])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('properties-realtime')
-      .on<RealtimePropertyPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'properties',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimePropertyPayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
-          const property = raw as RealtimePropertyPayload
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('properties-realtime')
 
-          // If watchAll is enabled, forward all events (TC/admin)
-          if (watchAllRef.current) {
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (cancelled) return
+
+      if (!session?.access_token) {
+        console.warn('[realtime-properties] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimePropertyPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'properties',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimePropertyPayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+            const property = raw as RealtimePropertyPayload
+
+            // If watchAll is enabled, forward all events (TC/admin)
+            if (watchAllRef.current) {
+              callbackRef.current(payload.eventType as PropertyChangeEvent, property)
+              return
+            }
+
+            // Skip if the property isn't relevant to the current user
+            const isOwner = property.owner_id === userId
+            const isWatched = ownedRef.current?.includes(property.id)
+
+            if (!isOwner && !isWatched) return
+
             callbackRef.current(payload.eventType as PropertyChangeEvent, property)
-            return
           }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-properties] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-properties] Channel error')
+          }
+        })
+    }
 
-          // Skip if the property isn't relevant to the current user
-          const isOwner = property.owner_id === userId
-          const isWatched = ownedRef.current?.includes(property.id)
-
-          if (!isOwner && !isWatched) return
-
-          callbackRef.current(payload.eventType as PropertyChangeEvent, property)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-properties] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-properties] Channel error')
-        }
-      })
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

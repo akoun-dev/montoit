@@ -51,57 +51,75 @@ export function useRealtimeInventoryReports({
   onInventoryReportChange,
 }: UseRealtimeInventoryReportsOptions) {
   const callbackRef = useRef(onInventoryReportChange)
-  callbackRef.current = onInventoryReportChange
-
   const watchAllRef = useRef(watchAll)
-  watchAllRef.current = watchAll
-
   const leaseIdsRef = useRef(participantLeaseIds)
-  leaseIdsRef.current = participantLeaseIds
+
+  useEffect(() => {
+    callbackRef.current = onInventoryReportChange
+    watchAllRef.current = watchAll
+    leaseIdsRef.current = participantLeaseIds
+  }, [onInventoryReportChange, watchAll, participantLeaseIds])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('inventory-reports-realtime')
-      .on<RealtimeInventoryReportPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'inventory_reports',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeInventoryReportPayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('inventory-reports-realtime')
 
-          const report = raw as RealtimeInventoryReportPayload
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          // Filter: watchAll, own review, or participant lease
-          if (watchAllRef.current) {
+      if (cancelled) return
+
+      if (!session?.access_token) {
+        console.warn('[realtime-inventory-reports] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeInventoryReportPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'inventory_reports',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeInventoryReportPayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+
+            const report = raw as RealtimeInventoryReportPayload
+
+            // Filter: watchAll, own review, or participant lease
+            if (watchAllRef.current) {
+              callbackRef.current(payload.eventType as InventoryReportEvent, report)
+              return
+            }
+
+            const isReviewer = report.reviewer_id === userId
+            const isParticipant = leaseIdsRef.current?.includes(report.lease_id ?? '')
+
+            if (!isReviewer && !isParticipant) return
+
             callbackRef.current(payload.eventType as InventoryReportEvent, report)
-            return
           }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-inventory-reports] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-inventory-reports] Channel error')
+          }
+        })
+    }
 
-          const isReviewer = report.reviewer_id === userId
-          const isParticipant = leaseIdsRef.current?.includes(report.lease_id ?? '')
-
-          if (!isReviewer && !isParticipant) return
-
-          callbackRef.current(payload.eventType as InventoryReportEvent, report)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-inventory-reports] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-inventory-reports] Channel error')
-        }
-      })
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

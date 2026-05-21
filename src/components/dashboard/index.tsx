@@ -39,6 +39,7 @@ import { OwnerSettings } from './proprietaire/owner-settings'
 import { OwnerSecurity } from './proprietaire/security'
 import { TcOverview } from './tc/overview'
 import { RentalFilesQueue } from './tc/rental-files-queue'
+import { RentalFileDetail } from './tc/rental-file-detail'
 import { OwnerValidations } from './tc/owner-validations'
 import { AgencyValidations } from './tc/agency-validations'
 import { SlaMonitoring } from './tc/sla-monitoring'
@@ -204,6 +205,7 @@ function TcDashboard({ section }: { section: string }) {
     case 'property-verify-detail': return <PropertyVerifyDetail />
     case 'inventory-report-form': return <InventoryReportForm />
     case 'rental-files-queue': return <RentalFilesQueue />
+    case 'rental-file-detail': return <RentalFileDetail />
     case 'owner-validations': return <OwnerValidations />
     case 'agency-validations': return <AgencyValidations />
     case 'inventory-reports': return <InventoryReportsList />

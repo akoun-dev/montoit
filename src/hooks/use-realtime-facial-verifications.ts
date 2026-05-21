@@ -46,46 +46,65 @@ export function useRealtimeFacialVerifications({
   onFacialVerificationChange,
 }: UseRealtimeFacialVerificationsOptions) {
   const callbackRef = useRef(onFacialVerificationChange)
-  callbackRef.current = onFacialVerificationChange
-
   const watchAllRef = useRef(watchAll)
-  watchAllRef.current = watchAll
+
+  useEffect(() => {
+    callbackRef.current = onFacialVerificationChange
+    watchAllRef.current = watchAll
+  }, [onFacialVerificationChange, watchAll])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('facial-verifications-realtime')
-      .on<RealtimeFacialVerificationPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'facial_verifications',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeFacialVerificationPayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.uuid) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('facial-verifications-realtime')
 
-          const fv = raw as RealtimeFacialVerificationPayload
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          // Filter: watchAll or own verification
-          if (!watchAllRef.current && fv.user_id !== userId) return
+      if (cancelled) return
 
-          callbackRef.current(payload.eventType as FacialVerificationEvent, fv)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-facial-verifications] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-facial-verifications] Channel error')
-        }
-      })
+      if (!session?.access_token) {
+        console.warn('[realtime-facial-verifications] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeFacialVerificationPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'facial_verifications',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeFacialVerificationPayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.uuid) return
+
+            const fv = raw as RealtimeFacialVerificationPayload
+
+            // Filter: watchAll or own verification
+            if (!watchAllRef.current && fv.user_id !== userId) return
+
+            callbackRef.current(payload.eventType as FacialVerificationEvent, fv)
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-facial-verifications] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-facial-verifications] Channel error')
+          }
+        })
+    }
+
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

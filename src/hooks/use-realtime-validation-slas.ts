@@ -42,46 +42,65 @@ export function useRealtimeValidationSlas({
   onValidationSlaChange,
 }: UseRealtimeValidationSlasOptions) {
   const callbackRef = useRef(onValidationSlaChange)
-  callbackRef.current = onValidationSlaChange
-
   const watchAllRef = useRef(watchAll)
-  watchAllRef.current = watchAll
+
+  useEffect(() => {
+    callbackRef.current = onValidationSlaChange
+    watchAllRef.current = watchAll
+  }, [onValidationSlaChange, watchAll])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('validation-slas-realtime')
-      .on<RealtimeValidationSlaPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'validation_slas',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeValidationSlaPayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('validation-slas-realtime')
 
-          const sla = raw as RealtimeValidationSlaPayload
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          // Filter: watchAll or assigned to current reviewer
-          if (!watchAllRef.current && sla.reviewer_id !== userId) return
+      if (cancelled) return
 
-          callbackRef.current(payload.eventType as ValidationSlaEvent, sla)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-validation-slas] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-validation-slas] Channel error')
-        }
-      })
+      if (!session?.access_token) {
+        console.warn('[realtime-validation-slas] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeValidationSlaPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'validation_slas',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeValidationSlaPayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+
+            const sla = raw as RealtimeValidationSlaPayload
+
+            // Filter: watchAll or assigned to current reviewer
+            if (!watchAllRef.current && sla.reviewer_id !== userId) return
+
+            callbackRef.current(payload.eventType as ValidationSlaEvent, sla)
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-validation-slas] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-validation-slas] Channel error')
+          }
+        })
+    }
+
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

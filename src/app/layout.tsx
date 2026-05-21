@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SutaChatbot } from "@/components/suta-chatbot";
 import { OfflineBanner } from "@/components/offline-banner";
 import { AppBackHandler } from "@/components/app-back-handler";
 import { AppLifecycleManager } from "@/components/app-lifecycle-manager";
+import { NotificationToastProvider } from "@/components/notification-toast-provider";
 import { BackNavigationProvider } from "@/components/back-navigation-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 
@@ -97,9 +99,11 @@ export default function RootLayout({
             <BackNavigationProvider>
               <AppBackHandler />
               <AppLifecycleManager />
+              <NotificationToastProvider />
               {children}
             </BackNavigationProvider>
             <SutaChatbot />
+            <SonnerToaster position="top-center" />
             <Toaster />
           </ThemeProvider>
         </QueryProvider>

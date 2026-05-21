@@ -4,7 +4,6 @@ import { create } from 'zustand'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { apiFetch } from '@/lib/capacitor'
 import type { RealtimePostgresChangesPayload, RealtimeChannel } from '@supabase/supabase-js'
-import { toast } from 'sonner'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -23,30 +22,82 @@ interface NotificationStore {
   unreadCount: number
   notifications: Notification[]
   isConnected: boolean
-  // Actions
   markAsRead: (notificationIds: string[]) => Promise<void>
   markAllRead: () => Promise<void>
   refreshNotifications: () => Promise<void>
-  // Internal — called by useNotifications hook
   _init: (userId: string) => void
   _destroy: (userId: string) => void
 }
 
 // ─── Singleton Realtime subscription ────────────────────────────────────────
-// Only one channel is ever created, with reference counting for cleanup.
 
 let realtimeChannel: RealtimeChannel | null = null
 let realtimeUserId: string | null = null
 let subscriberCount = 0
 
+// Track known notification IDs so polling doesn't re-add duplicates
+const knownIds = new Set<string>()
+
+let pollInterval: ReturnType<typeof setInterval> | null = null
+let pollUserId: string | null = null
+
+function startPolling(userId: string) {
+  if (pollInterval) return
+  pollUserId = userId
+
+  pollInterval = setInterval(async () => {
+    try {
+      const res = await apiFetch('/api/notifications?page=1&limit=5', { credentials: 'include' })
+      if (!res.ok) return
+      const body = await res.json()
+      const list: Notification[] = body.data ?? []
+
+      const newNotifs: Notification[] = []
+      for (const n of list) {
+        if (!knownIds.has(n.id)) {
+          knownIds.add(n.id)
+          newNotifs.push(n)
+        }
+      }
+
+      if (newNotifs.length === 0) return
+
+      useNotificationStore.setState((state) => {
+        const existing = new Map(state.notifications.map((n) => [n.id, n]))
+        let unreadDelta = 0
+        for (const n of newNotifs) {
+          if (!existing.has(n.id)) {
+            existing.set(n.id, n)
+            if (!n.isRead) unreadDelta++
+          }
+        }
+        return {
+          unreadCount: state.unreadCount + unreadDelta,
+          notifications: Array.from(existing.values()).sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          ),
+        }
+      })
+    } catch {
+      // Silently ignore — retry on next interval
+    }
+  }, 10_000)
+}
+
+function stopPolling() {
+  if (pollInterval) {
+    clearInterval(pollInterval)
+    pollInterval = null
+    pollUserId = null
+  }
+}
+
 function ensureRealtime(userId: string) {
-  // Already subscribed for this user → just increment ref count
   if (realtimeChannel && realtimeUserId === userId) {
     subscriberCount++
     return
   }
 
-  // Different user → tear down old, set up new
   if (realtimeChannel) {
     realtimeChannel.unsubscribe()
     realtimeChannel = null
@@ -56,60 +107,71 @@ function ensureRealtime(userId: string) {
 
   const supabase = getSupabaseBrowserClient()
 
-  realtimeChannel = supabase
-    .channel('notifications-realtime')
-    .on<Notification>(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${userId}`,
-      },
-      (payload: RealtimePostgresChangesPayload<Notification>) => {
-        const newNotif = payload.new as any
-        if (!newNotif?.id) return
+  const channel = supabase.channel('notifications-realtime')
+  realtimeChannel = channel
 
-        const mapped: Notification = {
-          id: newNotif.id,
-          type: newNotif.type,
-          title: newNotif.title,
-          message: newNotif.message,
-          actionUrl: newNotif.action_url ?? null,
-          entityId: newNotif.entity_id ?? null,
-          isRead: newNotif.is_read ?? false,
-          createdAt: newNotif.created_at,
+  async function subscribeAfterAuth() {
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session?.access_token) {
+      console.warn('[notifications-store] No session — subscribing anyway (will likely fail)')
+    }
+
+    channel
+      .on<Notification>(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload: RealtimePostgresChangesPayload<Notification>) => {
+          const newNotif = payload.new as any
+          if (!newNotif?.id) return
+
+          const mapped: Notification = {
+            id: newNotif.id,
+            type: newNotif.type,
+            title: newNotif.title,
+            message: newNotif.message,
+            actionUrl: newNotif.action_url ?? null,
+            entityId: newNotif.entity_id ?? null,
+            isRead: newNotif.is_read ?? false,
+            createdAt: newNotif.created_at,
+          }
+
+          useNotificationStore.setState((state) => ({
+            unreadCount: state.unreadCount + 1,
+            notifications: [mapped, ...state.notifications],
+          }))
+
+          knownIds.add(mapped.id)
         }
+      )
+      .subscribe((status) => {
+        useNotificationStore.setState({ isConnected: status === 'SUBSCRIBED' })
+      })
+  }
 
-        useNotificationStore.setState((state) => ({
-          unreadCount: state.unreadCount + 1,
-          notifications: [mapped, ...state.notifications],
-        }))
-
-        toast(mapped.title, {
-          description: mapped.message,
-        })
-      }
-    )
-    .subscribe((status) => {
-      useNotificationStore.setState({ isConnected: status === 'SUBSCRIBED' })
-    })
+  subscribeAfterAuth()
 
   subscriberCount = 1
 }
 
 function releaseRealtime(userId: string) {
-  // Prevent race condition when user switches: if the channel was
-  // already re-created for a different user, don't touch it.
   if (realtimeUserId !== userId) return
 
   subscriberCount--
-  if (subscriberCount <= 0 && realtimeChannel) {
-    realtimeChannel.unsubscribe()
-    realtimeChannel = null
+  if (subscriberCount <= 0) {
+    if (realtimeChannel) {
+      realtimeChannel.unsubscribe()
+      realtimeChannel = null
+    }
     realtimeUserId = null
     subscriberCount = 0
     useNotificationStore.setState({ isConnected: false })
+    stopPolling()
   }
 }
 
@@ -161,6 +223,7 @@ export const useNotificationStore = create<NotificationStore>((set) => ({
 
   _init: (userId: string) => {
     ensureRealtime(userId)
+    startPolling(userId)
   },
 
   _destroy: (userId: string) => {

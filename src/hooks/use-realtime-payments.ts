@@ -41,47 +41,66 @@ interface UseRealtimePaymentsOptions {
  */
 export function useRealtimePayments({ userId, leaseIds, onPaymentChange }: UseRealtimePaymentsOptions) {
   const callbackRef = useRef(onPaymentChange)
-  callbackRef.current = onPaymentChange
-
   const leaseIdsRef = useRef(leaseIds)
-  leaseIdsRef.current = leaseIds
+
+  useEffect(() => {
+    callbackRef.current = onPaymentChange
+    leaseIdsRef.current = leaseIds
+  }, [onPaymentChange, leaseIds])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('payments-realtime')
-      .on<RealtimePaymentPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'payments',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimePaymentPayload>) => {
-          const payment = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!payment?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('payments-realtime')
 
-          // Skip if the payment isn't relevant to the current user
-          const isTenant = payment.tenant_id === userId
-          const isOwner = leaseIdsRef.current?.includes(payment.lease_id)
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          if (!isTenant && !isOwner) return
+      if (cancelled) return
 
-          callbackRef.current(payload.eventType as PaymentChangeEvent, payment)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-payments] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-payments] Channel error')
-        }
-      })
+      if (!session?.access_token) {
+        console.warn('[realtime-payments] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimePaymentPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'payments',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimePaymentPayload>) => {
+            const payment = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!payment?.id) return
+
+            // Skip if the payment isn't relevant to the current user
+            const isTenant = payment.tenant_id === userId
+            const isOwner = leaseIdsRef.current?.includes(payment.lease_id)
+
+            if (!isTenant && !isOwner) return
+
+            callbackRef.current(payload.eventType as PaymentChangeEvent, payment)
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-payments] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-payments] Channel error')
+          }
+        })
+    }
+
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

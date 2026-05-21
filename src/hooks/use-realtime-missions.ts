@@ -45,52 +45,71 @@ interface UseRealtimeMissionsOptions {
  */
 export function useRealtimeMissions({ userId, watchAll, onMissionChange }: UseRealtimeMissionsOptions) {
   const callbackRef = useRef(onMissionChange)
-  callbackRef.current = onMissionChange
-
   const watchAllRef = useRef(watchAll)
-  watchAllRef.current = watchAll
+
+  useEffect(() => {
+    callbackRef.current = onMissionChange
+    watchAllRef.current = watchAll
+  }, [onMissionChange, watchAll])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('missions-realtime')
-      .on<RealtimeMissionPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'missions',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeMissionPayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('missions-realtime')
 
-          const mission = raw as RealtimeMissionPayload
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          // watchAll forwards everything
-          if (watchAllRef.current) {
+      if (cancelled) return
+
+      if (!session?.access_token) {
+        console.warn('[realtime-missions] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeMissionPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'missions',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeMissionPayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+
+            const mission = raw as RealtimeMissionPayload
+
+            // watchAll forwards everything
+            if (watchAllRef.current) {
+              callbackRef.current(payload.eventType as MissionChangeEvent, mission)
+              return
+            }
+
+            // Filter: only missions assigned to this TC user
+            if (mission.tc_id !== userId) return
+
             callbackRef.current(payload.eventType as MissionChangeEvent, mission)
-            return
           }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-missions] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-missions] Channel error')
+          }
+        })
+    }
 
-          // Filter: only missions assigned to this TC user
-          if (mission.tc_id !== userId) return
-
-          callbackRef.current(payload.eventType as MissionChangeEvent, mission)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-missions] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-missions] Channel error')
-        }
-      })
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

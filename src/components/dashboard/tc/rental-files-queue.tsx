@@ -175,10 +175,10 @@ function PriorityBadge({ priority }: { priority: DossierPriority }) {
   )
 }
 
-// ─── Component ──────────────────────────────────────────────────────────────
+  // ─── Component ──────────────────────────────────────────────────────────────
 
 export function RentalFilesQueue() {
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, setSelectedItemId, setDashboardSection } = useAuthStore()
 
   // Data
   const [files, setFiles] = useState<RentalFile[]>([])
@@ -221,7 +221,7 @@ export function RentalFilesQueue() {
 
   // ─── Fetch ──────────────────────────────────────────────────────────────
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (skipCache?: boolean) => {
     if (!isAuthenticated) {
       setLoading(false)
       return
@@ -240,7 +240,7 @@ export function RentalFilesQueue() {
       const qs = params.toString()
       const url = `/api/tc/rental-files${qs ? `?${qs}` : ''}`
 
-      const data = await authFetch<ApiResponse>(url)
+      const data = await authFetch<ApiResponse>(url, skipCache ? { skipCache: true } : undefined)
       setFiles(data.files || [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) {
@@ -257,10 +257,11 @@ export function RentalFilesQueue() {
   useRealtimeRentalFiles({
     userId: user?.id,
     watchAll: true,
-    onRentalFileChange: () => { fetchData() },
+    onRentalFileChange: () => { fetchData(true) },
   })
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
   }, [fetchData])
 
@@ -282,7 +283,7 @@ export function RentalFilesQueue() {
               ? 'Dossier rejeté.'
               : 'Demande d\'information envoyée.'
         )
-        await fetchData()
+        await fetchData(true)
       } catch (err) {
         if (err instanceof AuthError) {
           toast.error(err.message)
@@ -325,7 +326,7 @@ export function RentalFilesQueue() {
         body: JSON.stringify({ id: fileId, priority }),
       })
       toast.success(`Priorité mise à jour : ${priorityLabels[priority]}`)
-      await fetchData()
+      await fetchData(true)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur')
     }
@@ -347,7 +348,7 @@ export function RentalFilesQueue() {
       toast.success('Dossier mis en attente')
       setOnHoldDialog({ open: false, file: null })
       setDialogComment('')
-      await fetchData()
+      await fetchData(true)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur')
     } finally {
@@ -363,7 +364,7 @@ export function RentalFilesQueue() {
         body: JSON.stringify({ id: fileId, onHold: false }),
       })
       toast.success('Dossier repris')
-      await fetchData()
+      await fetchData(true)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur')
     }
@@ -378,6 +379,13 @@ export function RentalFilesQueue() {
       else next.add(id)
       return next
     })
+  }
+
+  // ─── Detail navigation ────────────────────────────────────────────────
+
+  const handleViewDetail = (fileId: string) => {
+    setSelectedItemId(fileId)
+    setDashboardSection('rental-file-detail')
   }
 
   // ─── Document preview ──────────────────────────────────────────────────
@@ -589,6 +597,16 @@ export function RentalFilesQueue() {
                         <span>SLA dépassé — Date limite : {new Date(rf.sla.deadlineAt).toLocaleDateString('fr-FR')}</span>
                       </div>
                     )}
+
+                    {/* View detail button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-brand-500 hover:text-brand-600 hover:bg-brand-50 gap-1 mb-2 text-xs"
+                      onClick={() => handleViewDetail(rf.id)}
+                    >
+                      <Eye className="size-3.5" /> Voir le dossier complet
+                    </Button>
 
                     {/* Details */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground mb-3">
@@ -858,6 +876,15 @@ export function RentalFilesQueue() {
                       {/* Actions */}
                       <td className="p-3">
                         <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-brand-500 hover:text-brand-600 hover:bg-brand-50 h-8 w-8 p-0"
+                            onClick={() => handleViewDetail(rf.id)}
+                            title="Voir le dossier"
+                          >
+                            <Eye className="size-4" />
+                          </Button>
                           {(rf.status === 'SUBMITTED' || rf.status === 'TC_REVIEW') && !rf.onHold && (
                             <>
                               <Button

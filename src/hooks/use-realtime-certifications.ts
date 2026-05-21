@@ -53,61 +53,79 @@ export function useRealtimeCertifications({
   onCertificationChange,
 }: UseRealtimeCertificationsOptions) {
   const callbackRef = useRef(onCertificationChange)
-  callbackRef.current = onCertificationChange
-
   const watchedRef = useRef(watchedUserIds)
-  watchedRef.current = watchedUserIds
-
   const watchAllRef = useRef(watchAll)
-  watchAllRef.current = watchAll
+
+  useEffect(() => {
+    callbackRef.current = onCertificationChange
+    watchedRef.current = watchedUserIds
+    watchAllRef.current = watchAll
+  }, [onCertificationChange, watchedUserIds, watchAll])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('certifications-realtime')
-      .on<RealtimeCertificationPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'certifications',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeCertificationPayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
-          const cert = raw as RealtimeCertificationPayload
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('certifications-realtime')
 
-          // If watchAll is enabled, forward all events (TC/admin)
-          if (watchAllRef.current) {
-            callbackRef.current(payload.eventType as CertificationChangeEvent, cert)
-            return
-          }
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          // Check if the certification is for a watched user
-          const isWatched = watchedRef.current?.includes(cert.user_id)
-          if (isWatched) {
-            callbackRef.current(payload.eventType as CertificationChangeEvent, cert)
-            return
-          }
+      if (cancelled) return
 
-          // Otherwise, only forward events for the user's own certifications
-          if (cert.user_id === userId) {
-            callbackRef.current(payload.eventType as CertificationChangeEvent, cert)
+      if (!session?.access_token) {
+        console.warn('[realtime-certifications] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeCertificationPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'certifications',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeCertificationPayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+            const cert = raw as RealtimeCertificationPayload
+
+            // If watchAll is enabled, forward all events (TC/admin)
+            if (watchAllRef.current) {
+              callbackRef.current(payload.eventType as CertificationChangeEvent, cert)
+              return
+            }
+
+            // Check if the certification is for a watched user
+            const isWatched = watchedRef.current?.includes(cert.user_id)
+            if (isWatched) {
+              callbackRef.current(payload.eventType as CertificationChangeEvent, cert)
+              return
+            }
+
+            // Otherwise, only forward events for the user's own certifications
+            if (cert.user_id === userId) {
+              callbackRef.current(payload.eventType as CertificationChangeEvent, cert)
+            }
           }
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-certifications] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-certifications] Channel error')
-        }
-      })
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-certifications] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-certifications] Channel error')
+          }
+        })
+    }
+
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

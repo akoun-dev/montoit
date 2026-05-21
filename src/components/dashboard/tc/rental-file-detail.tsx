@@ -1,0 +1,847 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import {
+  ArrowLeft, ArrowRight, User, Mail, Phone, Calendar,
+  FileText, Building2, Briefcase, Check, X, MessageSquare,
+  Pause, Play, AlertTriangle, Flame, CircleDot, Loader2,
+  ChevronLeft, ChevronRight, Shield,
+} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
+import { DocumentPreviewDialog } from './document-preview-dialog'
+import { motion } from 'framer-motion'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+
+type DossierPriority = 'NORMAL' | 'HIGH' | 'URGENT'
+
+interface RentalFile {
+  id: string
+  status: 'DRAFT' | 'SUBMITTED' | 'TC_REVIEW' | 'VALIDATED' | 'REJECTED' | 'EXPIRED'
+  priority: DossierPriority
+  onHold: boolean
+  onHoldReason: string | null
+  tenantCategory: string | null
+  monthlyIncome: number | null
+  employer: string | null
+  employmentType: string | null
+  guarantorName: string | null
+  guarantorPhone: string | null
+  rejectionReason: string | null
+  tcComment: string | null
+  reviewedAt: string | null
+  createdAt: string
+  tenant: {
+    id: string
+    firstName: string
+    lastName: string
+    phone: string
+    email: string
+    avatarUrl: string | null
+  }
+  documents: Array<{
+    id: string
+    type: string
+    url: string
+    name: string
+    status: 'PENDING' | 'VALIDATED' | 'REJECTED'
+    tcComment: string | null
+    createdAt: string
+  }>
+  sla: {
+    id: string
+    submittedAt: string
+    deadlineAt: string
+    isOverdue: boolean
+  } | null
+}
+
+const statusLabels: Record<RentalFile['status'], string> = {
+  DRAFT: 'Brouillon',
+  SUBMITTED: 'Soumis',
+  TC_REVIEW: 'En revue TC',
+  VALIDATED: 'Validé',
+  REJECTED: 'Rejeté',
+  EXPIRED: 'Expiré',
+}
+
+const statusColors: Record<RentalFile['status'], string> = {
+  DRAFT: 'bg-gray-100 text-gray-700',
+  SUBMITTED: 'bg-amber-100 text-amber-700',
+  TC_REVIEW: 'bg-orange-100 text-orange-700',
+  VALIDATED: 'bg-green-100 text-green-700',
+  REJECTED: 'bg-red-100 text-red-700',
+  EXPIRED: 'bg-gray-100 text-gray-500',
+}
+
+const docStatusColors: Record<string, string> = {
+  PENDING: 'bg-amber-100 text-amber-700',
+  VALIDATED: 'bg-green-100 text-green-700',
+  REJECTED: 'bg-red-100 text-red-700',
+}
+
+const docStatusLabels: Record<string, string> = {
+  PENDING: 'En attente',
+  VALIDATED: 'Validé',
+  REJECTED: 'Rejeté',
+}
+
+const priorityLabels: Record<DossierPriority, string> = {
+  NORMAL: 'Normale',
+  HIGH: 'Haute',
+  URGENT: 'Urgente',
+}
+
+const priorityColors: Record<DossierPriority, string> = {
+  NORMAL: 'bg-gray-100 text-gray-600',
+  HIGH: 'bg-amber-100 text-amber-700',
+  URGENT: 'bg-red-100 text-red-700',
+}
+
+const priorityIcons: Record<DossierPriority, React.ElementType> = {
+  NORMAL: CircleDot,
+  HIGH: AlertTriangle,
+  URGENT: Flame,
+}
+
+function PriorityBadge({ priority }: { priority: DossierPriority }) {
+  const Icon = priorityIcons[priority]
+  return (
+    <Badge className={cn('gap-1 text-xs', priorityColors[priority])}>
+      <Icon className="size-3" />
+      {priorityLabels[priority]}
+    </Badge>
+  )
+}
+
+export function RentalFileDetail() {
+  const { user, isAuthenticated, selectedItemId, setDashboardSection, setSelectedItemId } = useAuthStore()
+
+  const [file, setFile] = useState<RentalFile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
+
+  const [previewDoc, setPreviewDoc] = useState<{
+    open: boolean
+    url: string
+    name: string
+    type?: string
+  }>({ open: false, url: '', name: '' })
+
+  const [actionLoading, setActionLoading] = useState(false)
+
+  const [rejectDialog, setRejectDialog] = useState(false)
+  const [rejectComment, setRejectComment] = useState('')
+
+  const [requestInfoDialog, setRequestInfoDialog] = useState(false)
+  const [requestInfoComment, setRequestInfoComment] = useState('')
+
+  const [onHoldDialog, setOnHoldDialog] = useState(false)
+  const [onHoldReason, setOnHoldReason] = useState('')
+
+  const goBack = () => {
+    setSelectedItemId('')
+    setDashboardSection('rental-files-queue')
+  }
+
+  const fetchFile = useCallback(async (skipCache?: boolean) => {
+    if (!isAuthenticated || !selectedItemId) {
+      setLoading(false)
+      setNotFound(true)
+      return
+    }
+
+    setLoading(true)
+    setNotFound(false)
+    setFile(null)
+
+    try {
+      const d = await authFetch<{ files: RentalFile[] }>(
+        `/api/tc/rental-files?limit=100`,
+        skipCache ? { skipCache: true } : undefined
+      )
+      const found = d.files?.find((f) => f.id === selectedItemId)
+      if (found) {
+        setFile(found)
+      } else {
+        setNotFound(true)
+      }
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) {
+        setNotFound(true)
+        return
+      }
+      setNotFound(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated, selectedItemId])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchFile()
+  }, [fetchFile])
+
+  useRealtimeRentalFiles({
+    userId: user?.id,
+    watchAll: true,
+    onRentalFileChange: () => { fetchFile(true) },
+  })
+
+  const handleAction = useCallback(async (action: 'APPROVE' | 'REJECT' | 'REQUEST_INFO', comment?: string) => {
+    if (!file) return
+    setActionLoading(true)
+    try {
+      await authFetch('/api/tc/rental-files', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileIds: [file.id], action, comment: comment || '' }),
+      })
+      toast.success(
+        action === 'APPROVE'
+          ? 'Dossier validé avec succès !'
+          : action === 'REJECT'
+            ? 'Dossier rejeté.'
+            : 'Demande d\'information envoyée.'
+      )
+      setRejectDialog(false)
+      setRequestInfoDialog(false)
+      setRejectComment('')
+      setRequestInfoComment('')
+      await fetchFile(true)
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message)
+      } else {
+        toast.error('Erreur lors de l\'action.')
+      }
+    } finally {
+      setActionLoading(false)
+    }
+  }, [file, fetchFile])
+
+  const handleValidate = () => handleAction('APPROVE')
+
+  const handleRejectConfirm = () => {
+    if (rejectComment.trim()) {
+      handleAction('REJECT', rejectComment)
+    }
+  }
+
+  const handleRequestInfoConfirm = () => {
+    if (requestInfoComment.trim()) {
+      handleAction('REQUEST_INFO', requestInfoComment)
+    }
+  }
+
+  const handleOnHold = async () => {
+    if (!file) return
+    setActionLoading(true)
+    try {
+      await authFetch('/api/tc/rental-files', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: file.id,
+          onHold: true,
+          onHoldReason: onHoldReason.trim(),
+        }),
+      })
+      toast.success('Dossier mis en attente')
+      setOnHoldDialog(false)
+      setOnHoldReason('')
+      await fetchFile(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleResume = async () => {
+    if (!file) return
+    setActionLoading(true)
+    try {
+      await authFetch('/api/tc/rental-files', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: file.id, onHold: false }),
+      })
+      toast.success('Dossier repris')
+      await fetchFile(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handlePriorityChange = async (priority: DossierPriority) => {
+    if (!file) return
+    try {
+      await authFetch('/api/tc/rental-files', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: file.id, priority }),
+      })
+      toast.success(`Priorité mise à jour : ${priorityLabels[priority]}`)
+      await fetchFile(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-8 w-32 rounded bg-muted animate-pulse" />
+        <div className="h-64 rounded-xl bg-muted animate-pulse" />
+        <div className="h-48 rounded-xl bg-muted animate-pulse" />
+      </div>
+    )
+  }
+
+  if (notFound || !file) {
+    return (
+      <div className="space-y-6">
+        <Button variant="ghost" onClick={goBack} className="gap-2">
+          <ArrowLeft className="size-4" /> Retour
+        </Button>
+        <Card className="border-border">
+          <CardContent className="py-12 text-center">
+            <FileText className="size-12 text-muted-foreground/50 mx-auto mb-4" />
+            <p className="text-muted-foreground font-medium">Dossier introuvable</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Ce dossier n&apos;existe pas ou vous n&apos;avez pas les droits pour le consulter.
+            </p>
+            <Button variant="outline" className="mt-4 gap-2" onClick={goBack}>
+              <ArrowLeft className="size-4" /> Retour aux dossiers
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const canAction = (file.status === 'SUBMITTED' || file.status === 'TC_REVIEW') && !file.onHold
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      {/* Back button */}
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" onClick={goBack} className="gap-2 -ml-2">
+          <ArrowLeft className="size-4" /> Retour
+        </Button>
+
+        {/* Status badge */}
+        <div className="flex items-center gap-2">
+          {file.onHold && (
+            <Badge className="bg-amber-100 text-amber-700 gap-1">
+              <Pause className="size-3" /> En attente
+            </Badge>
+          )}
+          {file.sla?.isOverdue && (
+            <Badge className="bg-red-100 text-red-700 gap-1">
+              <AlertTriangle className="size-3" /> SLA dépassé
+            </Badge>
+          )}
+          <Badge className={statusColors[file.status]}>{statusLabels[file.status]}</Badge>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Main column */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Tenant info card */}
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="size-12 rounded-full bg-brand-500/10 flex items-center justify-center">
+                    <User className="size-6 text-brand-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg font-bold text-foreground">
+                      {file.tenant.firstName} {file.tenant.lastName}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">Locataire</p>
+                  </div>
+                </div>
+                <PriorityBadge priority={file.priority} />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail className="size-4 shrink-0" />
+                  <span className="truncate">{file.tenant.email}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Phone className="size-4 shrink-0" />
+                  <span>{file.tenant.phone}</span>
+                </div>
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <h4 className="text-sm font-semibold text-foreground mb-3">Informations financières</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {file.monthlyIncome != null && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground">Revenus :</span>
+                      <span className="font-medium text-foreground">{file.monthlyIncome.toLocaleString('fr-FR')} FCFA</span>
+                    </div>
+                  )}
+                  {file.employer && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Building2 className="size-4 text-muted-foreground shrink-0" />
+                      <span className="truncate">{file.employer}</span>
+                    </div>
+                  )}
+                  {file.employmentType && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Briefcase className="size-4 text-muted-foreground shrink-0" />
+                      <span>{file.employmentType}</span>
+                    </div>
+                  )}
+                  {file.tenantCategory && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Shield className="size-4 text-muted-foreground shrink-0" />
+                      <span>{file.tenantCategory}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Guarantor */}
+              {(file.guarantorName || file.guarantorPhone) && (
+                <div className="border-t border-border pt-4">
+                  <h4 className="text-sm font-semibold text-foreground mb-3">Garant</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {file.guarantorName && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <User className="size-4 text-muted-foreground shrink-0" />
+                        <span>{file.guarantorName}</span>
+                      </div>
+                    )}
+                    {file.guarantorPhone && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="size-4 text-muted-foreground shrink-0" />
+                        <span>{file.guarantorPhone}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Dates */}
+              <div className="border-t border-border pt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="size-4 shrink-0" />
+                    <span>Soumis le {new Date(file.createdAt).toLocaleDateString('fr-FR')}</span>
+                  </div>
+                  {file.reviewedAt && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="size-4 shrink-0" />
+                      <span>Revu le {new Date(file.reviewedAt).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* SLA */}
+              {file.sla && (
+                <div className={cn(
+                  'border-t border-border pt-4',
+                  file.sla.isOverdue && 'bg-red-50 -mx-6 px-6 pb-4 rounded-b-lg'
+                )}>
+                  <h4 className="text-sm font-semibold text-foreground mb-2">SLA</h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Soumis : </span>
+                      <span className="text-foreground">{new Date(file.sla.submittedAt).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Deadline : </span>
+                      <span className={cn('font-medium', file.sla.isOverdue ? 'text-red-600' : 'text-foreground')}>
+                        {new Date(file.sla.deadlineAt).toLocaleDateString('fr-FR')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Documents card */}
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <FileText className="size-4 text-brand-500" />
+                Documents ({file.documents.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {file.documents.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">Aucun document fourni</p>
+              ) : (
+                <div className="space-y-2">
+                  {file.documents.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors"
+                    >
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 min-w-0 flex-1 text-left"
+                        onClick={() => setPreviewDoc({ open: true, url: doc.url, name: doc.name, type: doc.type })}
+                      >
+                        <FileText className="size-5 text-brand-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
+                          <p className="text-xs text-muted-foreground">{doc.type}</p>
+                        </div>
+                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge className={cn('text-xs', docStatusColors[doc.status])}>
+                          {docStatusLabels[doc.status]}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setPreviewDoc({ open: true, url: doc.url, name: doc.name, type: doc.type })}
+                        >
+                          <ChevronRight className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Document legend */}
+              <div className="flex gap-3 mt-4 pt-3 border-t border-border text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <span className="size-2 rounded-full bg-amber-400" /> En attente
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="size-2 rounded-full bg-green-400" /> Validé
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="size-2 rounded-full bg-red-400" /> Rejeté
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* TC Comments */}
+          {(file.tcComment || file.rejectionReason || file.onHoldReason) && (
+            <Card className="border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <MessageSquare className="size-4 text-brand-500" />
+                  Commentaires
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {file.rejectionReason && (
+                  <div className="p-3 rounded-lg bg-red-50 text-sm text-red-700">
+                    <span className="font-medium">Motif de rejet :</span> {file.rejectionReason}
+                  </div>
+                )}
+                {file.tcComment && (
+                  <div className="p-3 rounded-lg bg-brand-500/5 text-sm text-foreground">
+                    <span className="font-medium">Commentaire TC :</span> {file.tcComment}
+                  </div>
+                )}
+                {file.onHoldReason && (
+                  <div className="p-3 rounded-lg bg-amber-50 text-sm text-amber-700">
+                    <span className="font-medium">Raison de la mise en attente :</span> {file.onHoldReason}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Actions card */}
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {canAction ? (
+                <>
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700 text-white gap-2"
+                    disabled={actionLoading}
+                    onClick={handleValidate}
+                  >
+                    {actionLoading ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                    Valider le dossier
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full text-orange-600 border-orange-200 hover:bg-orange-50 gap-2"
+                    disabled={actionLoading}
+                    onClick={() => { setRequestInfoComment(''); setRequestInfoDialog(true) }}
+                  >
+                    <MessageSquare className="size-4" />
+                    Demander des informations
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full text-red-600 border-red-200 hover:bg-red-50 gap-2"
+                    disabled={actionLoading}
+                    onClick={() => { setRejectComment(''); setRejectDialog(true) }}
+                  >
+                    <X className="size-4" />
+                    Rejeter le dossier
+                  </Button>
+                  <div className="border-t border-border pt-3">
+                    <Button
+                      variant="ghost"
+                      className="w-full text-amber-600 hover:text-amber-700 hover:bg-amber-50 gap-2"
+                      disabled={actionLoading}
+                      onClick={() => { setOnHoldReason(''); setOnHoldDialog(true) }}
+                    >
+                      <Pause className="size-4" />
+                      Mettre en attente
+                    </Button>
+                  </div>
+                </>
+              ) : file.onHold ? (
+                <div className="space-y-3">
+                  <div className="p-3 rounded-lg bg-amber-50 text-center">
+                    <p className="text-xs text-amber-700 font-medium">Dossier en attente</p>
+                    <p className="text-xs text-amber-600 mt-1">Reprendre pour pouvoir valider ou rejeter</p>
+                  </div>
+                  <Button
+                    className="w-full bg-brand-500 hover:bg-brand-600 text-white gap-2"
+                    disabled={actionLoading}
+                    onClick={handleResume}
+                  >
+                    {actionLoading ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+                    Reprendre le dossier
+                  </Button>
+                </div>
+              ) : (
+                <div className="p-3 rounded-lg bg-muted/50 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    Ce dossier a déjà été traité ({statusLabels[file.status]})
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Priority card */}
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">Priorité</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Select
+                value={file.priority}
+                onValueChange={(v) => handlePriorityChange(v as DossierPriority)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NORMAL">
+                    <span className="flex items-center gap-2"><CircleDot className="size-3" /> Normale</span>
+                  </SelectItem>
+                  <SelectItem value="HIGH">
+                    <span className="flex items-center gap-2"><AlertTriangle className="size-3" /> Haute</span>
+                  </SelectItem>
+                  <SelectItem value="URGENT">
+                    <span className="flex items-center gap-2"><Flame className="size-3" /> Urgente</span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          {/* Tenant contact card */}
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">Contact locataire</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Phone className="size-4 shrink-0" />
+                <a href={`tel:${file.tenant.phone}`} className="hover:underline">{file.tenant.phone}</a>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Mail className="size-4 shrink-0" />
+                <a href={`mailto:${file.tenant.email}`} className="hover:underline truncate">{file.tenant.email}</a>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Document count summary */}
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold">Récapitulatif</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Documents</span>
+                  <span className="font-medium">{file.documents.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Validés</span>
+                  <span className="font-medium text-green-600">
+                    {file.documents.filter((d) => d.status === 'VALIDATED').length}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">En attente</span>
+                  <span className="font-medium text-amber-600">
+                    {file.documents.filter((d) => d.status === 'PENDING').length}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Rejetés</span>
+                  <span className="font-medium text-red-600">
+                    {file.documents.filter((d) => d.status === 'REJECTED').length}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* ─── Reject Dialog ──────────────────────────────────────────────── */}
+      <Dialog open={rejectDialog} onOpenChange={setRejectDialog}>
+        <DialogContent className="sm:max-w-md">
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Vous allez rejeter le dossier de{' '}
+              <span className="font-semibold text-foreground">
+                {file.tenant.firstName} {file.tenant.lastName}
+              </span>
+              . Veuillez indiquer le motif du rejet.
+            </p>
+            <Textarea
+              placeholder="Motif du rejet..."
+              value={rejectComment}
+              onChange={(e) => setRejectComment(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialog(false)}>Annuler</Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={!rejectComment.trim() || actionLoading}
+              onClick={handleRejectConfirm}
+            >
+              {actionLoading ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+              Confirmer le rejet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Request Info Dialog ────────────────────────────────────────── */}
+      <Dialog open={requestInfoDialog} onOpenChange={setRequestInfoDialog}>
+        <DialogContent className="sm:max-w-md">
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Vous allez demander des informations complémentaires pour le dossier de{' '}
+              <span className="font-semibold text-foreground">
+                {file.tenant.firstName} {file.tenant.lastName}
+              </span>
+              . Précisez ce qui est attendu.
+            </p>
+            <Textarea
+              placeholder="Informations ou documents attendus..."
+              value={requestInfoComment}
+              onChange={(e) => setRequestInfoComment(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRequestInfoDialog(false)}>Annuler</Button>
+            <Button
+              className="bg-brand-500 hover:bg-brand-600 text-white"
+              disabled={!requestInfoComment.trim() || actionLoading}
+              onClick={handleRequestInfoConfirm}
+            >
+              {actionLoading ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+              Envoyer la demande
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── On Hold Dialog ────────────────────────────────────────────── */}
+      <Dialog open={onHoldDialog} onOpenChange={setOnHoldDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mettre le dossier en attente</DialogTitle>
+            <DialogDescription>
+              Le dossier sera suspendu jusqu&apos;à reprise. Indiquez la raison si nécessaire.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Dossier de{' '}
+              <span className="font-semibold text-foreground">
+                {file.tenant.firstName} {file.tenant.lastName}
+              </span>
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="detailOnHoldReason">Raison (optionnel)</Label>
+              <Textarea
+                id="detailOnHoldReason"
+                placeholder="Raison de la mise en attente..."
+                value={onHoldReason}
+                onChange={(e) => setOnHoldReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setOnHoldDialog(false)}>Annuler</Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={handleOnHold}
+              disabled={actionLoading}
+            >
+              {actionLoading && <Loader2 className="size-4 animate-spin mr-2" />}
+              Mettre en attente
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Document Preview Dialog ────────────────────────────────────── */}
+      <DocumentPreviewDialog
+        open={previewDoc.open}
+        onOpenChange={(open) => setPreviewDoc((prev) => ({ ...prev, open }))}
+        document={{ url: previewDoc.url, name: previewDoc.name, type: previewDoc.type }}
+      />
+    </motion.div>
+  )
+}

@@ -48,55 +48,74 @@ interface UseRealtimeMandatsOptions {
  */
 export function useRealtimeMandats({ userId, watchAll, onMandatChange }: UseRealtimeMandatsOptions) {
   const callbackRef = useRef(onMandatChange)
-  callbackRef.current = onMandatChange
-
   const watchAllRef = useRef(watchAll)
-  watchAllRef.current = watchAll
+
+  useEffect(() => {
+    callbackRef.current = onMandatChange
+    watchAllRef.current = watchAll
+  }, [onMandatChange, watchAll])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('mandats-realtime')
-      .on<RealtimeMandatPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'mandats',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeMandatPayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('mandats-realtime')
 
-          const mandat = raw as RealtimeMandatPayload
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          // watchAll forwards everything
-          if (watchAllRef.current) {
+      if (cancelled) return
+
+      if (!session?.access_token) {
+        console.warn('[realtime-mandats] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeMandatPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'mandats',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeMandatPayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+
+            const mandat = raw as RealtimeMandatPayload
+
+            // watchAll forwards everything
+            if (watchAllRef.current) {
+              callbackRef.current(payload.eventType as MandatChangeEvent, mandat)
+              return
+            }
+
+            // Filter: user is the owner or the agency
+            const isOwner = mandat.owner_id === userId
+            const isAgency = mandat.agency_id === userId
+
+            if (!isOwner && !isAgency) return
+
             callbackRef.current(payload.eventType as MandatChangeEvent, mandat)
-            return
           }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-mandats] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-mandats] Channel error')
+          }
+        })
+    }
 
-          // Filter: user is the owner or the agency
-          const isOwner = mandat.owner_id === userId
-          const isAgency = mandat.agency_id === userId
-
-          if (!isOwner && !isAgency) return
-
-          callbackRef.current(payload.eventType as MandatChangeEvent, mandat)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-mandats] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-mandats] Channel error')
-        }
-      })
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

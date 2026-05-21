@@ -42,46 +42,65 @@ export function useRealtimeVerificationAgents({
   onVerificationAgentChange,
 }: UseRealtimeVerificationAgentsOptions) {
   const callbackRef = useRef(onVerificationAgentChange)
-  callbackRef.current = onVerificationAgentChange
-
   const watchAllRef = useRef(watchAll)
-  watchAllRef.current = watchAll
+
+  useEffect(() => {
+    callbackRef.current = onVerificationAgentChange
+    watchAllRef.current = watchAll
+  }, [onVerificationAgentChange, watchAll])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('verification-agents-realtime')
-      .on<RealtimeVerificationAgentPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'verification_agents',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeVerificationAgentPayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('verification-agents-realtime')
 
-          const agent = raw as RealtimeVerificationAgentPayload
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          // Filter: watchAll or own agents
-          if (!watchAllRef.current && agent.tc_id !== userId) return
+      if (cancelled) return
 
-          callbackRef.current(payload.eventType as VerificationAgentEvent, agent)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-verification-agents] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-verification-agents] Channel error')
-        }
-      })
+      if (!session?.access_token) {
+        console.warn('[realtime-verification-agents] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeVerificationAgentPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'verification_agents',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeVerificationAgentPayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+
+            const agent = raw as RealtimeVerificationAgentPayload
+
+            // Filter: watchAll or own agents
+            if (!watchAllRef.current && agent.tc_id !== userId) return
+
+            callbackRef.current(payload.eventType as VerificationAgentEvent, agent)
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-verification-agents] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-verification-agents] Channel error')
+          }
+        })
+    }
+
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

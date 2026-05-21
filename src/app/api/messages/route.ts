@@ -3,6 +3,10 @@ import { resolveRequestUser } from '@/lib/auth/request-user'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notify'
 
+function generateId() {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { userId, applyCookies } = await resolveRequestUser(req)
@@ -190,6 +194,7 @@ export async function POST(req: NextRequest) {
         const { data: newConv, error: convError } = await admin
           .from('conversations')
           .insert({
+            id: generateId(),
             participant1_id: userId,
             participant2_id: recipientId,
             property_id: propertyId || null,
@@ -211,6 +216,7 @@ export async function POST(req: NextRequest) {
     const { data: message, error: msgError } = await admin
       .from('messages')
       .insert({
+        id: generateId(),
         content: content.trim(),
         conversation_id: convId,
         sender_id: userId,
@@ -264,29 +270,23 @@ export async function POST(req: NextRequest) {
       sender,
     }
 
-    const p1Summary = await getUserSummary(convId ? (await admin.from('conversations').select('participant1_id').eq('id', convId).single()).data?.participant1_id ?? '' : '', admin)
-    const p2Summary = convId ? await getUserSummary((await admin.from('conversations').select('participant2_id').eq('id', convId).single()).data?.participant2_id ?? '', admin) : null
-    const propSummary = convId ? (await getPropertySummary((await admin.from('conversations').select('property_id').eq('id', convId).single()).data?.property_id ?? '', admin)) : null
-
-    const { data: finalConv } = await admin
-      .from('conversations')
-      .select('*')
-      .eq('id', convId)
-      .single()
+    const p1Summary = convData ? await getUserSummary(convData.participant1_id, admin) : null
+    const p2Summary = convData ? await getUserSummary(convData.participant2_id, admin) : null
+    const propSummary = propertyId ? await getPropertySummary(propertyId, admin) : null
 
     const response = NextResponse.json({
       message: enrichedMsg,
-      conversation: finalConv ? {
-        id: finalConv.id,
-        lastMessageAt: finalConv.last_message_at,
-        createdAt: finalConv.created_at,
-        propertyId: finalConv.property_id,
-        participant1Id: finalConv.participant1_id,
-        participant2Id: finalConv.participant2_id,
+      conversation: {
+        id: convId,
+        lastMessageAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        propertyId: propertyId || null,
+        participant1Id: convData?.participant1_id ?? null,
+        participant2Id: convData?.participant2_id ?? null,
         participant1: p1Summary,
         participant2: p2Summary,
         property: propSummary,
-      } : null,
+      },
     })
     return applyCookies(response)
   } catch (error) {
@@ -296,11 +296,12 @@ export async function POST(req: NextRequest) {
 }
 
 async function getUserSummary(userId: string, admin: ReturnType<typeof getSupabaseAdminClient>) {
+  if (!userId) return null
   const { data } = await admin
     .from('users')
     .select('id, first_name, last_name, avatar_url')
     .eq('id', userId)
-    .single()
+    .maybeSingle()
   if (!data) return null
   return { id: data.id, firstName: data.first_name, lastName: data.last_name, avatarUrl: data.avatar_url }
 }

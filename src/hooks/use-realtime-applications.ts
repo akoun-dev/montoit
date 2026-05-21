@@ -30,41 +30,61 @@ interface UseRealtimeApplicationsOptions {
  */
 export function useRealtimeApplications({ userId, onApplicationChange }: UseRealtimeApplicationsOptions) {
   const callbackRef = useRef(onApplicationChange)
-  callbackRef.current = onApplicationChange
+
+  useEffect(() => {
+    callbackRef.current = onApplicationChange
+  }, [onApplicationChange])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('applications-realtime')
-      .on<RealtimeApplicationPayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'applications',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeApplicationPayload>) => {
-          const app = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!app?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('applications-realtime')
 
-          // Only process applications where the user is the tenant
-          if (app.tenant_id !== userId) return
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          callbackRef.current(payload.eventType as ApplicationChangeEvent, app)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-applications] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-applications] Channel error')
-        }
-      })
+      if (cancelled) return
+
+      if (!session?.access_token) {
+        console.warn('[realtime-applications] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeApplicationPayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'applications',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeApplicationPayload>) => {
+            const app = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!app?.id) return
+
+            // Only process applications where the user is the tenant
+            if (app.tenant_id !== userId) return
+
+            callbackRef.current(payload.eventType as ApplicationChangeEvent, app)
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-applications] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-applications] Channel error')
+          }
+        })
+    }
+
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

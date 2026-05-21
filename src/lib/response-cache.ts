@@ -19,6 +19,17 @@ type CacheEntry = {
 
 const responseCache = new Map<string, CacheEntry>()
 
+// Track the last mutation timestamp so authFetch can skip cache after writes.
+let lastMutationAt = 0
+
+export function getLastMutationAt(): number {
+  return lastMutationAt
+}
+
+export function markMutation(): void {
+  lastMutationAt = Date.now()
+}
+
 // ── Route-specific TTL overrides ────────────────────────────────────────────
 
 const ROUTE_TTL_OVERRIDES: Array<{ pattern: RegExp; ttl: number; staleWhileRevalidate: number }> = [
@@ -167,6 +178,8 @@ export function invalidateCache(entityType: string, _entityId?: string): void {
  * Each rule clears all cache entries whose keys start with the given prefixes.
  */
 export function autoInvalidateOnMutation(url: string): void {
+  markMutation()
+
   // The order matters: specific patterns must come before general ones
   // so that /api/tc/rental-files matches before /api/rental-files? does.
   const invalidationMap: Array<{ pattern: RegExp; clearPrefixes: string[] }> = [

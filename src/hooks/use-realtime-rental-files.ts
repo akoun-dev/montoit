@@ -45,57 +45,77 @@ interface UseRealtimeRentalFilesOptions {
  */
 export function useRealtimeRentalFiles({ userId, watchedTenantIds, watchAll, onRentalFileChange }: UseRealtimeRentalFilesOptions) {
   const callbackRef = useRef(onRentalFileChange)
-  callbackRef.current = onRentalFileChange
-
   const watchedRef = useRef(watchedTenantIds)
-  watchedRef.current = watchedTenantIds
-
   const watchAllRef = useRef(watchAll)
-  watchAllRef.current = watchAll
+
+  useEffect(() => {
+    callbackRef.current = onRentalFileChange
+    watchedRef.current = watchedTenantIds
+    watchAllRef.current = watchAll
+  }, [onRentalFileChange, watchedTenantIds, watchAll])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('rental-files-realtime')
-      .on<RealtimeRentalFilePayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'rental_files',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeRentalFilePayload>) => {
-          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!raw?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('rental-files-realtime')
 
-          const rf = raw as RealtimeRentalFilePayload
+    async function subscribeAfterAuth() {
+      // Ensure the auth session is initialized before subscribing,
+      // otherwise the realtime WebSocket connects as anonymous and RLS blocks everything.
+      const { data: { session } } = await supabase.auth.getSession()
 
-          // Skip if the file isn't relevant
-          if (watchAllRef.current) {
+      if (cancelled) return
+
+      if (!session?.access_token) {
+        console.warn('[realtime-rental-files] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeRentalFilePayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'rental_files',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeRentalFilePayload>) => {
+            const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!raw?.id) return
+
+            const rf = raw as RealtimeRentalFilePayload
+
+            // Skip if the file isn't relevant
+            if (watchAllRef.current) {
+              callbackRef.current(payload.eventType as RentalFileChangeEvent, rf)
+              return
+            }
+
+            const isOwnFile = rf.tenant_id === userId
+            const isWatched = watchedRef.current?.includes(rf.tenant_id)
+
+            if (!isOwnFile && !isWatched) return
+
             callbackRef.current(payload.eventType as RentalFileChangeEvent, rf)
-            return
           }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-rental-files] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-rental-files] Channel error')
+          }
+        })
+    }
 
-          const isOwnFile = rf.tenant_id === userId
-          const isWatched = watchedRef.current?.includes(rf.tenant_id)
-
-          if (!isOwnFile && !isWatched) return
-
-          callbackRef.current(payload.eventType as RentalFileChangeEvent, rf)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-rental-files] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-rental-files] Channel error')
-        }
-      })
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])

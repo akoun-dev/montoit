@@ -37,41 +37,61 @@ interface UseRealtimeLeasesOptions {
  */
 export function useRealtimeLeases({ userId, onLeaseChange }: UseRealtimeLeasesOptions) {
   const callbackRef = useRef(onLeaseChange)
-  callbackRef.current = onLeaseChange
+
+  useEffect(() => {
+    callbackRef.current = onLeaseChange
+  }, [onLeaseChange])
 
   useEffect(() => {
     if (!userId) return
 
+    let cancelled = false
+
     const supabase = getSupabaseBrowserClient()
 
-    const channel = supabase
-      .channel('leases-realtime')
-      .on<RealtimeLeasePayload>(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'leases',
-        },
-        (payload: RealtimePostgresChangesPayload<RealtimeLeasePayload>) => {
-          const lease = payload.eventType === 'DELETE' ? payload.old : payload.new
-          if (!lease?.id) return
+    // Create the channel synchronously so cleanup always works
+    const channel = supabase.channel('leases-realtime')
 
-          // Only process leases where the user is a participant
-          if (lease.tenant_id !== userId && lease.owner_id !== userId) return
+    async function subscribeAfterAuth() {
+      const { data: { session } } = await supabase.auth.getSession()
 
-          callbackRef.current(payload.eventType as LeaseChangeEvent, lease)
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[realtime-leases] Subscribed')
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn('[realtime-leases] Channel error')
-        }
-      })
+      if (cancelled) return
+
+      if (!session?.access_token) {
+        console.warn('[realtime-leases] No session — subscribing anyway (will likely fail)')
+      }
+
+      channel
+        .on<RealtimeLeasePayload>(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'leases',
+          },
+          (payload: RealtimePostgresChangesPayload<RealtimeLeasePayload>) => {
+            const lease = payload.eventType === 'DELETE' ? payload.old : payload.new
+            if (!lease?.id) return
+
+            // Only process leases where the user is a participant
+            if (lease.tenant_id !== userId && lease.owner_id !== userId) return
+
+            callbackRef.current(payload.eventType as LeaseChangeEvent, lease)
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[realtime-leases] Subscribed')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('[realtime-leases] Channel error')
+          }
+        })
+    }
+
+    subscribeAfterAuth()
 
     return () => {
+      cancelled = true
       channel.unsubscribe()
     }
   }, [userId])
