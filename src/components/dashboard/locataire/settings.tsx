@@ -313,9 +313,9 @@ function KycVerificationModal({
   const kycDocVersoInputRef = useRef<HTMLInputElement>(null)
   const kycPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Reset state when modal opens
+  // Reset state when modal opens (always, even if already verified)
   useEffect(() => {
-    if (open && !profile?.neofaceVerified) {
+    if (open) {
       setKycStep('idle')
       setKycDocImage(null)
       setKycDocImageVerso(null)
@@ -325,7 +325,7 @@ function KycVerificationModal({
       setKycOcrData(null)
       setKycPollCount(0)
     }
-  }, [open, profile?.neofaceVerified])
+  }, [open])
 
   // Cleanup polling interval on unmount or close
   useEffect(() => {
@@ -517,6 +517,24 @@ function KycVerificationModal({
               </div>
             </div>
           </div>
+          <Button
+            variant="outline"
+            className="w-full mt-4"
+            onClick={async () => {
+              await authFetch('/api/kyc/face-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: 'reset' }),
+              }).catch(() => {})
+              const profileResult = await authFetch<{ user: ProfileData }>('/api/profile').catch(() => null)
+              if (profileResult) {
+                onVerified()
+              }
+            }}
+          >
+            <RefreshCw className="size-4 mr-2" />
+            Refaire la vérification
+          </Button>
         </DialogContent>
       ) : (
         <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
@@ -1981,6 +1999,8 @@ export function SettingsSection() {
                 details="Authentification de votre carte d'identité nationale"
                 actionLabel="Vérifier ma CNI"
                 onAction={() => oneciSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                redoLabel="Refaire la vérification"
+                onRedo={() => oneciSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
               />
               <ScoreComponentCard
                 icon={FileCheck}
@@ -2015,7 +2035,7 @@ export function SettingsSection() {
                   <div className="space-y-1.5">
                     <Label htmlFor="nni-scoring" className="text-xs font-medium text-foreground flex items-center gap-1.5">
                       NNI
-                      {(profile?.oneciVerified || profile?.neofaceVerified) && (
+                      {profile?.oneciVerified && (
                         <CheckCircle2 className="size-3 text-emerald-500" />
                       )}
                     </Label>
@@ -2028,7 +2048,7 @@ export function SettingsSection() {
                       }}
                       placeholder="Numéro National d'Identification"
                       className="h-9 text-sm"
-                      disabled={profile?.oneciVerified || profile?.neofaceVerified || oneciVerifying}
+                      disabled={oneciVerifying}
                       maxLength={11}
                     />
                     <p className="text-[10px] text-muted-foreground">10 à 11 chiffres — requis pour la vérification ONECI</p>
@@ -2047,7 +2067,7 @@ export function SettingsSection() {
                       value={formState.birthDate}
                       onChange={(e) => setFormState((prev) => ({ ...prev, birthDate: e.target.value }))}
                       className="h-9 text-sm"
-                      disabled={profile?.oneciVerified || oneciVerifying}
+                      disabled={oneciVerifying}
                     />
                   </div>
                 </div>
@@ -2056,13 +2076,11 @@ export function SettingsSection() {
                 <div className="flex justify-end pt-2">
                   <Button
                     onClick={handleOneciVerify}
-                    disabled={!formState.nni || !formState.birthDate || oneciVerifying || profile?.oneciVerified}
+                    disabled={!formState.nni || !formState.birthDate || oneciVerifying}
                     className="bg-brand-500 hover:bg-brand-600 text-white"
                   >
                     {oneciVerifying ? (
                       <><Loader2 className="size-4 mr-2 animate-spin" /> Vérification...</>
-                    ) : profile?.oneciVerified ? (
-                      <><CheckCircle2 className="size-4 mr-2" /> Vérifié</>
                     ) : (
                       <><CreditCard className="size-4 mr-2" /> Vérifier ma CNI</>
                     )}

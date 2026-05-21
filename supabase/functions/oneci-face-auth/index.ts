@@ -41,13 +41,6 @@ serve(async (req) => {
       .eq('id', userId)
       .maybeSingle()
 
-    if (dbUser?.oneci_verified) {
-      return new Response(JSON.stringify({ error: 'User already ONECI verified' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
     const { nni, faceImage } = await req.json()
 
     const resolvedNni = nni || dbUser?.nni
