@@ -109,42 +109,24 @@ export async function POST(
     if (action === 'accept') {
       const updatedFileResult: any = await supabase
         .from('rental_files')
-        .update({ status: 'VALIDATED' } as any)
+        .update({ status: 'TC_REVIEW' } as any)
         .eq('id', id)
         .select()
         .single()
 
       const updatedFile = updatedFileResult?.data || null
 
-      const leaseResult: any = await supabase
-        .from('leases')
-        .insert({
-          id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-          status: 'PENDING_SIGNATURE',
-          start_date: new Date().toISOString(),
-          end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-          monthly_rent: 0,
-          charges: 0,
-          deposit: 0,
-          property_id: property.id,
-          tenant_id: rFile.tenant_id,
-          owner_id: userId,
-          rental_file_id: rFile.id,
-        } as any)
-        .select()
-        .single()
-
-      if (leaseResult.error || !leaseResult.data) {
-        throw leaseResult.error || new Error('Failed to create lease')
-      }
-
-      const lease = leaseResult.data
+      // Sync status to applications table
+      await supabase
+        .from('applications')
+        .update({ status: 'TC_REVIEW' } as any)
+        .eq('rental_file_id', id)
 
       await notify({
         userId: rFile.tenant_id,
         type: 'DOSSIER_UPDATE',
-        title: 'Dossier accepté',
-        message: `Votre dossier locatif pour "${property.title}" a été accepté par le propriétaire.`,
+        title: 'Dossier en cours de vérification',
+        message: `Votre dossier locatif pour "${property.title}" a été accepté par le propriétaire et est en cours de vérification par le Tiers de Confiance.`,
         actionUrl: 'rental-file',
         entityId: rFile.id,
       })
@@ -154,7 +136,7 @@ export async function POST(
         action: 'ACCEPT_RENTAL_FILE',
         entity: 'RentalFile',
         entity_id: rFile.id,
-        details: `Dossier accepté par le propriétaire ${userId}. Bail brouillon créé: ${lease.id}`,
+        details: `Dossier accepté par le propriétaire ${userId}. En attente de vérification TC.`,
         user_id: userId,
       })
 
@@ -166,25 +148,9 @@ export async function POST(
         updatedAt: updatedFile.updated_at,
       } : null
 
-      const mappedLease = {
-        id: lease.id,
-        status: lease.status,
-        startDate: lease.start_date,
-        endDate: lease.end_date,
-        monthlyRent: lease.monthly_rent,
-        charges: lease.charges,
-        deposit: lease.deposit,
-        propertyId: lease.property_id,
-        tenantId: lease.tenant_id,
-        ownerId: lease.owner_id,
-        rentalFileId: lease.rental_file_id,
-        createdAt: lease.created_at,
-        updatedAt: lease.updated_at,
-      }
-
       return NextResponse.json({
-        data: { rentalFile: mappedFile, lease: mappedLease },
-        message: 'Dossier accepté et brouillon de bail créé',
+        data: { rentalFile: mappedFile },
+        message: 'Dossier envoyé au Tiers de Confiance pour vérification',
       })
     }
 
@@ -207,6 +173,12 @@ export async function POST(
         .single()
 
       const updatedFile = rejectResult?.data || null
+
+      // Sync status to applications table
+      await supabase
+        .from('applications')
+        .update({ status: 'REJECTED' } as any)
+        .eq('rental_file_id', id)
 
       await notify({
         userId: rFile.tenant_id,

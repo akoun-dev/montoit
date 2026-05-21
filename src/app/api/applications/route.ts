@@ -31,11 +31,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { propertyId, motivation, employmentType, monthlyIncome } = body as {
+    const { propertyId } = body as {
       propertyId: string
-      motivation?: string
-      employmentType?: string
-      monthlyIncome?: number
     }
 
     if (!propertyId) {
@@ -90,15 +87,6 @@ export async function POST(req: NextRequest) {
       rentalFile = created
     }
 
-    // Update rental_file with provided info
-    const updateData: any = {}
-    if (employmentType) updateData.employment_type = employmentType
-    if (monthlyIncome !== undefined) updateData.monthly_income = monthlyIncome
-    await supabase
-      .from('rental_files')
-      .update(updateData as any)
-      .eq('id', rentalFile.id)
-
     // Submit the rental_file
     await supabase
       .from('rental_files')
@@ -116,9 +104,6 @@ export async function POST(req: NextRequest) {
         property_id: propertyId,
         tenant_id: userId,
         status: 'SUBMITTED',
-        motivation: motivation || null,
-        employment_type: employmentType || null,
-        monthly_income: monthlyIncome ?? null,
         created_at: now,
         updated_at: now,
       } as any)
@@ -161,9 +146,6 @@ export async function POST(req: NextRequest) {
         status: app.status,
         rentalFileId: app.rental_file_id,
         propertyId: app.property_id,
-        motivation: app.motivation,
-        employmentType: app.employment_type,
-        monthlyIncome: app.monthly_income,
         createdAt: app.created_at,
         updatedAt: app.updated_at,
         property: propertyInfo ? {

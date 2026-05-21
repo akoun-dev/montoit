@@ -34,6 +34,7 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -105,7 +106,7 @@ function formatShort(dateStr: string): string {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function VisitRequests() {
-  const { isAuthenticated, setDashboardSection } = useAuthStore()
+  const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const [visits, setVisits] = useState<VisitItem[]>([])
   const [rentalFiles, setRentalFiles] = useState<RentalFileItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -159,6 +160,40 @@ export function VisitRequests() {
   }, [isAuthenticated])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // ─── Realtime subscription for visit changes ────────────────────
+  const ownedPropertyIds = visits
+    .map((v) => v.propertyId)
+    .filter((id, i, arr) => arr.indexOf(id) === i)
+
+  useRealtimeVisits({
+    userId: user?.id,
+    ownedPropertyIds,
+    onVisitChange: (event, payload) => {
+      if (event === 'UPDATE') {
+        setVisits((prev) =>
+          prev.map((v) =>
+            v.id === payload.id
+              ? {
+                  ...v,
+                  status: payload.status,
+                  requestedDate: payload.requested_date,
+                  timeSlot: payload.time_slot,
+                  counterDate: payload.counter_date,
+                  counterTimeSlot: payload.counter_time_slot,
+                  ownerComment: payload.owner_comment,
+                  tenantMessage: payload.tenant_message,
+                  updatedAt: payload.updated_at,
+                }
+              : v
+          )
+        )
+      } else if (event === 'INSERT') {
+        // Re-fetch to get full visit data for new requests
+        fetchData()
+      }
+    },
+  })
 
   // ─── Derived data ────────────────────────────────────────────────────────
 
@@ -287,7 +322,7 @@ export function VisitRequests() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'accept' }),
       })
-      toast.success('Candidature acceptée — brouillon de bail créé')
+      toast.success('Candidature transmise au Tiers de Confiance pour vérification')
       setAcceptFileOpen(false)
       setDetailOpen(false)
       setDetailVisit(null)
@@ -747,7 +782,7 @@ export function VisitRequests() {
                             )}
 
                             {/* Actions for pending files */}
-                            {['SUBMITTED', 'TC_REVIEW', 'VALIDATED'].includes(matchingFile.status) && (
+                            {['SUBMITTED', 'TC_REVIEW'].includes(matchingFile.status) && (
                               <div className="flex items-center gap-2 pt-1">
                                 <Button
                                   size="sm"
@@ -914,7 +949,7 @@ export function VisitRequests() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><CheckCircle2 className="size-5 text-emerald-600" />Accepter la candidature</DialogTitle>
-            <DialogDescription>Un brouillon de bail sera automatiquement créé. Vous pourrez ensuite compléter les détails.</DialogDescription>
+            <DialogDescription>Le dossier sera transmis au Tiers de Confiance pour vérification avant validation finale.</DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 pt-4">
             <Button variant="outline" onClick={() => setAcceptFileOpen(false)}>Annuler</Button>

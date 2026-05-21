@@ -2154,9 +2154,6 @@ function ApplyDialog({
   submitted: boolean
   setSubmitted: (v: boolean) => void
 }) {
-  const [employmentType, setEmploymentType] = useState('cdi')
-  const [monthlyIncome, setMonthlyIncome] = useState('')
-  const [motivation, setMotivation] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
@@ -2169,9 +2166,6 @@ function ApplyDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           propertyId: property.id,
-          motivation: motivation.trim(),
-          employmentType,
-          monthlyIncome: monthlyIncome ? parseFloat(monthlyIncome) : null,
         }),
       })
       if (res.error) {
@@ -2189,23 +2183,17 @@ function ApplyDialog({
     onOpenChange(false)
     if (submitted) {
       setSubmitted(false)
-      setEmploymentType('cdi')
-      setMonthlyIncome('')
-      setMotivation('')
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="size-5 text-brand-500" />
-            Candidature — {property.title}
+            Candidature
           </DialogTitle>
-          <DialogDescription>
-            Remplissez le formulaire ci-dessous pour soumettre votre candidature de location.
-          </DialogDescription>
         </DialogHeader>
 
         {submitted ? (
@@ -2215,7 +2203,7 @@ function ApplyDialog({
             </div>
             <h3 className="text-lg font-bold text-foreground mb-2">Candidature soumise !</h3>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-              Votre dossier de candidature pour &quot;{property.title}&quot; a été transmis au propriétaire.
+              Votre candidature pour &quot;{property.title}&quot; a été transmise au propriétaire.
               Vous serez notifié de la suite donnée à votre demande.
             </p>
             <Button
@@ -2226,100 +2214,22 @@ function ApplyDialog({
             </Button>
           </div>
         ) : (
-          <div className="space-y-4 mt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-            {/* Property summary */}
-            <div className="bg-muted rounded-lg p-3 flex items-center gap-3">
-              <div className="size-12 rounded-lg bg-neutral-200 overflow-hidden shrink-0">
-                {property.images.length > 0 ? (
-                  <Image
-                    src={property.images[0]!.url}
-                    alt={property.title}
-                    width={48}
-                    height={48}
-                    className="w-full h-full object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Building2 className="size-5 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground line-clamp-1">{property.title}</p>
-                <p className="text-xs text-muted-foreground">{property.address}</p>
-                <p className="text-sm font-bold text-brand-500 mt-0.5">
-                  {property.price.toLocaleString('fr-FR')} F CFA/mois
-                </p>
-              </div>
+          <div className="text-center py-6">
+            <div className="size-16 rounded-full bg-brand-50 flex items-center justify-center mx-auto mb-4">
+              <Building2 className="size-8 text-brand-500" />
             </div>
+            <h3 className="text-lg font-bold text-foreground mb-1">{property.title}</h3>
+            <p className="text-sm text-muted-foreground mb-1">{property.address}</p>
+            <p className="text-lg font-bold text-brand-500 mb-6">
+              {property.price.toLocaleString('fr-FR')} F CFA/mois
+            </p>
 
-            {/* Rental terms summary */}
-            {extras.modalites.caution > 0 && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                <p className="text-xs font-semibold text-amber-800 mb-1">Conditions de location</p>
-                <div className="flex flex-wrap gap-3 text-xs text-amber-700">
-                  <span>Caution : {extras.modalites.caution.toLocaleString('fr-FR')} F CFA</span>
-                  {extras.modalites.dureeBail && <span>Bail : {extras.modalites.dureeBail}</span>}
-                </div>
-              </div>
-            )}
-
-            {/* Employment type */}
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1">Type d&apos;emploi</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: 'cdi', label: 'CDI' },
-                  { value: 'cdd', label: 'CDD' },
-                  { value: 'freelance', label: 'Freelance' },
-                  { value: 'retraite', label: 'Retraité' },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setEmploymentType(opt.value)}
-                    className={`py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
-                      employmentType === opt.value
-                        ? 'border-brand-500 bg-brand-50 text-brand-600'
-                        : 'border-border text-muted-foreground hover:border-border'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Monthly income */}
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1">Revenus mensuels (F CFA)</Label>
-              <Input
-                type="number"
-                placeholder="Ex : 500000"
-                value={monthlyIncome}
-                onChange={(e) => setMonthlyIncome(e.target.value)}
-                className="h-9 bg-card border-border text-sm"
-              />
-            </div>
-
-            {/* Motivation */}
-            <div>
-              <Label className="text-xs text-muted-foreground mb-1">Lettre de motivation</Label>
-              <Textarea
-                placeholder="Présentez-vous et expliquez pourquoi vous souhaitez louer ce bien..."
-                value={motivation}
-                onChange={(e) => setMotivation(e.target.value)}
-                className="min-h-[100px] bg-card border-border text-sm resize-none"
-              />
-            </div>
-
-            {/* Submit */}
             {submitError && (
-              <p className="text-xs text-red-500 text-center">{submitError}</p>
+              <p className="text-xs text-red-500 text-center mb-4">{submitError}</p>
             )}
             <Button
               className="w-full bg-brand-500 hover:bg-brand-600 text-white h-11 text-sm font-semibold"
-              disabled={!motivation.trim() || !monthlyIncome || submitting}
+              disabled={submitting}
               onClick={handleSubmit}
             >
               {submitting ? (
@@ -2329,10 +2239,6 @@ function ApplyDialog({
               )}
               {submitting ? 'Envoi en cours...' : 'Soumettre ma candidature'}
             </Button>
-
-            <p className="text-[11px] text-muted-foreground text-center">
-              En soumettant votre candidature, vous acceptez que vos informations soient transmises au propriétaire.
-            </p>
           </div>
         )}
       </DialogContent>

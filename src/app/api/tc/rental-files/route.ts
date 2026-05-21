@@ -320,6 +320,55 @@ export async function PATCH(req: NextRequest) {
         .select()
         .single() as any)
 
+      // Sync status to applications table
+      try {
+        await (supabase as any)
+          .from('applications')
+          .update({ status: newStatus } as any)
+          .eq('rental_file_id', fileId)
+      } catch (syncErr) {
+        console.error(`Failed to sync application status for file ${fileId}:`, syncErr)
+      }
+
+      // Create lease when TC approves
+      if (action === 'APPROVE') {
+        try {
+          const { data: application } = await (supabase as any)
+            .from('applications')
+            .select('property_id')
+            .eq('rental_file_id', fileId)
+            .maybeSingle()
+
+          if (application?.property_id) {
+            const { data: property } = await (supabase as any)
+              .from('properties')
+              .select('id, owner_id, title')
+              .eq('id', application.property_id)
+              .single()
+
+            if (property) {
+              await (supabase as any)
+                .from('leases')
+                .insert({
+                  id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+                  status: 'PENDING_SIGNATURE',
+                  start_date: new Date().toISOString(),
+                  end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                  monthly_rent: 0,
+                  charges: 0,
+                  deposit: 0,
+                  property_id: property.id,
+                  tenant_id: file.tenant_id,
+                  owner_id: property.owner_id,
+                  rental_file_id: fileId,
+                })
+            }
+          }
+        } catch (leaseErr) {
+          console.error(`Failed to create lease for file ${fileId}:`, leaseErr)
+        }
+      }
+
       await (supabase as any)
         .from('validation_slas')
         .update({ completed_at: new Date().toISOString(), is_overdue: false })
@@ -335,19 +384,23 @@ export async function PATCH(req: NextRequest) {
       })
 
       const notificationMessage = action === 'APPROVE'
-        ? `Votre dossier locatif a été validé par le Tiers de Confiance.`
+        ? `Votre dossier locatif a été validé par le Tiers de Confiance. Un bail a été créé en attente de signature.`
         : action === 'REJECT'
           ? `Votre dossier locatif a été rejeté. Raison : ${comment || 'Non spécifié'}`
           : `Le Tiers de Confiance demande des documents complémentaires : ${comment || 'Veuillez compléter votre dossier.'}`
 
-      await notify({
-        userId: file.tenant_id,
-        type: 'DOSSIER_UPDATE',
-        title: notificationTitle,
-        message: notificationMessage,
-        actionUrl: 'rental-file',
-        entityId: fileId,
-      })
+      try {
+        await notify({
+          userId: file.tenant_id,
+          type: 'DOSSIER_UPDATE',
+          title: notificationTitle,
+          message: notificationMessage,
+          actionUrl: 'rental-file',
+          entityId: fileId,
+        })
+      } catch (notifyErr) {
+        console.error(`Failed to notify tenant for file ${fileId}:`, notifyErr)
+      }
 
       results.push({ fileId, success: true, file: updatedFile })
     }

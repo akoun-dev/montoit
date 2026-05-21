@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
     const { data: rfTenants } = rfTenantIds.length > 0
       ? await supabase
           .from('users')
-          .select('id, first_name, last_name, phone, email, avatar_url, gender, city, address, birth_date, created_at')
+          .select('id, first_name, last_name, phone, email, avatar_url, gender, city, address, birth_date, created_at, neoface_verified, oneci_verified')
           .in('id', rfTenantIds)
       : { data: [] as any[] }
 
@@ -128,6 +128,8 @@ export async function GET(req: NextRequest) {
         address: t.address,
         birthDate: t.birth_date,
         createdAt: t.created_at,
+        neofaceVerified: t.neoface_verified,
+        oneciVerified: t.oneci_verified,
       }
     }
 
@@ -239,6 +241,30 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Calculate trust scores for each tenant
+    const { data: validatedRentalFiles } = allTenantIds.length > 0
+      ? await supabase
+          .from('rental_files')
+          .select('tenant_id')
+          .in('tenant_id', allTenantIds)
+          .eq('status', 'VALIDATED')
+      : { data: [] as any[] }
+
+    const validatedTenantIds = new Set((validatedRentalFiles || []).map((r: any) => r.tenant_id))
+
+    const trustScores: Record<string, number> = {}
+    for (const tid of allTenantIds) {
+      const t = tenantDataMap[tid]
+      if (!t) { trustScores[tid] = 0; continue }
+      const profileFields = [!!t.firstName && !!t.lastName, !!t.phone, !!t.city, !!t.gender]
+      const profileFilled = profileFields.filter(Boolean).length
+      const profileScore = Math.round((profileFilled / 4) * 5)
+      const neofaceScore = t.neofaceVerified ? 20 : 0
+      const oneciScore = t.oneciVerified ? 25 : 0
+      const roleScore = validatedTenantIds.has(tid) ? 50 : 0
+      trustScores[tid] = profileScore + neofaceScore + oneciScore + roleScore
+    }
+
     const { data: otherRentalFiles } = allTenantIds.length > 0
       ? await supabase
           .from('rental_files')
@@ -313,6 +339,7 @@ export async function GET(req: NextRequest) {
           },
         })),
         tenantPaymentScore: paymentScores[rf.tenant_id] ?? null,
+        tenantTrustScore: trustScores[rf.tenant_id] ?? 0,
         tenantOtherFiles,
       }
     })

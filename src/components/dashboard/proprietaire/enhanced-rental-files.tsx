@@ -55,6 +55,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
 import { Input } from '@/components/ui/input'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -124,6 +125,7 @@ interface RentalFileItem {
   documents: DocumentInfo[]
   leases: LeaseInfo[]
   tenantPaymentScore: number | null
+  tenantTrustScore: number
   tenantOtherFiles: OtherFileInfo[]
 }
 
@@ -216,7 +218,7 @@ const itemVariants = {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export function EnhancedRentalFiles() {
-  const { isAuthenticated, dashboardSection, setDashboardSection } = useAuthStore()
+  const { user, isAuthenticated, dashboardSection, setDashboardSection } = useAuthStore()
   const [data, setData] = useState<RentalFileItem[]>([])
   const [properties, setProperties] = useState<Array<{ id: string; title: string; city: string; address: string }>>([])
   const [stats, setStats] = useState<Record<string, number>>({})
@@ -262,10 +264,32 @@ export function EnhancedRentalFiles() {
     fetchData()
   }, [fetchData])
 
+  // Derive watched tenant IDs from existing data for Realtime filtering
+  const watchedTenantIds = [...new Set(data.map((rf) => rf.tenant?.id).filter(Boolean))] as string[]
+
+  // Realtime subscription for rental files
+  useRealtimeRentalFiles({
+    userId: user?.id,
+    watchedTenantIds,
+    onRentalFileChange: (event, rf) => {
+      if (event === 'INSERT') {
+        fetchData()
+      } else {
+        setData((prev) =>
+          prev.map((item) =>
+            item.id === rf.id
+              ? { ...item, status: rf.status, tcComment: rf.tc_comment, updatedAt: rf.updated_at }
+              : item
+          )
+        )
+      }
+    },
+  })
+
   // Auto-switch to first non-empty tab after data loads (defined before use below)
   useEffect(() => {
     if (!loading && data.length > 0) {
-      const pCount = (stats['SUBMITTED'] || 0) + (stats['TC_REVIEW'] || 0) + (stats['VALIDATED'] || 0)
+      const pCount = (stats['SUBMITTED'] || 0) + (stats['TC_REVIEW'] || 0)
       const vCount = stats['VALIDATED'] || 0
       const rCount = stats['REJECTED'] || 0
       if (activeTab === 'pending' && pCount === 0) {
@@ -279,7 +303,7 @@ export function EnhancedRentalFiles() {
   // ─── Filter logic ────────────────────────────────────────────────────────
   const filteredData = data.filter((rf) => {
     // Status filter
-    if (activeTab === 'pending' && !['SUBMITTED', 'TC_REVIEW', 'VALIDATED'].includes(rf.status)) return false
+    if (activeTab === 'pending' && !['SUBMITTED', 'TC_REVIEW'].includes(rf.status)) return false
     if (activeTab === 'validated' && rf.status !== 'VALIDATED') return false
     if (activeTab === 'rejected' && rf.status !== 'REJECTED') return false
 
@@ -301,7 +325,7 @@ export function EnhancedRentalFiles() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'accept' }),
       })
-      toast.success('Dossier accepté et brouillon de bail créé')
+      toast.success('Dossier transmis au Tiers de Confiance pour vérification')
       setAcceptDialogOpen(false)
       fetchData()
     } catch (err) {
@@ -379,7 +403,7 @@ export function EnhancedRentalFiles() {
     )
   }
 
-  const pendingCount = (stats['SUBMITTED'] || 0) + (stats['TC_REVIEW'] || 0) + (stats['VALIDATED'] || 0)
+  const pendingCount = (stats['SUBMITTED'] || 0) + (stats['TC_REVIEW'] || 0)
   const validatedCount = stats['VALIDATED'] || 0
   const rejectedCount = stats['REJECTED'] || 0
   const totalCount = Object.values(stats).reduce((a, b) => a + b, 0)
@@ -589,7 +613,7 @@ export function EnhancedRentalFiles() {
 
                         {/* Quick actions */}
                         <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          {['SUBMITTED', 'TC_REVIEW', 'VALIDATED'].includes(rf.status) && rf.leases.length === 0 && (
+                          {['SUBMITTED', 'TC_REVIEW'].includes(rf.status) && rf.leases.length === 0 && (
                             <>
                               <Button
                                 size="sm"
@@ -653,7 +677,7 @@ export function EnhancedRentalFiles() {
               Accepter le dossier
             </AlertDialogTitle>
             <AlertDialogDescription>
-              En acceptant ce dossier, un brouillon de bail sera automatiquement créé. Vous pourrez ensuite compléter les détails du bail (loyer, charges, caution, dates).
+              Le dossier sera transmis au Tiers de Confiance pour vérification avant validation finale.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -791,9 +815,10 @@ export function EnhancedRentalFiles() {
                     <div className="flex flex-wrap items-center gap-2">
                       {[
                         { status: 'SUBMITTED', label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+                        { status: 'TC_REVIEW', label: 'En revue TC', color: 'bg-orange-50 text-orange-700 border-orange-200' },
                         { status: 'VALIDATED', label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
                       ].map((step, i) => {
-                        const statusOrder = ['SUBMITTED', 'VALIDATED']
+                        const statusOrder = ['SUBMITTED', 'TC_REVIEW', 'VALIDATED']
                         const currentIdx = statusOrder.indexOf(selectedTenant.status)
                         const stepIdx = statusOrder.indexOf(step.status)
                         const completed = stepIdx < currentIdx
@@ -888,15 +913,12 @@ export function EnhancedRentalFiles() {
                         </div>
                       )}
                       <div className="p-2.5 rounded-lg border border-border bg-muted/20">
-                        <p className="text-xs text-muted-foreground">Score de paiement</p>
+                        <p className="text-xs text-muted-foreground">Score de confiance</p>
                         <p className={`font-semibold text-lg ${
-                          selectedTenant.tenantPaymentScore === null ? 'text-muted-foreground' :
-                          selectedTenant.tenantPaymentScore >= 80 ? 'text-emerald-600' :
-                          selectedTenant.tenantPaymentScore >= 50 ? 'text-amber-600' : 'text-red-600'
+                          selectedTenant.tenantTrustScore >= 70 ? 'text-emerald-600' :
+                          selectedTenant.tenantTrustScore >= 50 ? 'text-amber-600' : 'text-red-600'
                         }`}>
-                          {selectedTenant.tenantPaymentScore !== null
-                            ? `${selectedTenant.tenantPaymentScore}%`
-                            : 'N/A'}
+                          {selectedTenant.tenantTrustScore}/100
                         </p>
                       </div>
                     </div>
@@ -1001,7 +1023,7 @@ export function EnhancedRentalFiles() {
                   </div>
 
                   {/* Quick actions */}
-                  {['SUBMITTED', 'TC_REVIEW', 'VALIDATED'].includes(selectedTenant.status) && selectedTenant.leases.length === 0 && (
+                  {['SUBMITTED', 'TC_REVIEW'].includes(selectedTenant.status) && selectedTenant.leases.length === 0 && (
                     <>
                       <Separator />
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
