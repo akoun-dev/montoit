@@ -984,6 +984,7 @@ export function SettingsSection() {
       try {
         const profileResult = await authFetch<{ user: ProfileData }>('/api/profile')
         setProfile(profileResult.user)
+        updateUser({ passwordUpdatedAt: profileResult.user.passwordUpdatedAt })
       } catch {}
       setTimeout(() => setPasswordModalOpen(false), 1500)
     } catch (err) {
@@ -1032,6 +1033,13 @@ export function SettingsSection() {
       if (profileResult.status === 'fulfilled') {
         const p = profileResult.value.user
         setProfile(p)
+        updateUser({
+          firstName: p.firstName,
+          lastName: p.lastName,
+          email: p.email,
+          phone: p.phone,
+          avatarUrl: p.avatarUrl,
+        })
         // Pre-fill form with OCR-extracted data (first_name, last_name, gender, nni, birth_date)
         setFormState({
           firstName: p.firstName || '',
@@ -1178,6 +1186,15 @@ export function SettingsSection() {
       })
 
       setProfile(result.user)
+      updateUser({
+        firstName: result.user.firstName,
+        lastName: result.user.lastName,
+        email: result.user.email,
+        phone: result.user.phone,
+        city: result.user.city,
+        address: result.user.address,
+        avatarUrl: result.user.avatarUrl,
+      })
       setSuccess('Profil mis à jour avec succès !')
 
       // Re-fetch scoring to reflect profile changes
@@ -1236,7 +1253,15 @@ export function SettingsSection() {
           authFetch<ScoringData>('/api/scoring'),
         ])
         if (profileResult.status === 'fulfilled') {
-          setProfile(profileResult.value.user)
+          const p = profileResult.value.user
+          setProfile(p)
+          updateUser({
+            firstName: p.firstName,
+            lastName: p.lastName,
+            email: p.email,
+            phone: p.phone,
+            avatarUrl: p.avatarUrl,
+          })
         }
         if (scoringResult.status === 'fulfilled') {
           setScoring(scoringResult.value)
