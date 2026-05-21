@@ -14,6 +14,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
+import { useRealtimeOwnershipDocs } from '@/hooks/use-realtime-ownership-docs'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface OwnerFileDoc {
@@ -107,6 +108,12 @@ export function OwnerFileForm() {
   }, [isAuthenticated])
 
   useEffect(() => { fetchOwnerFile() }, [fetchOwnerFile])
+
+  // Realtime — refresh when ownership documents change
+  useRealtimeOwnershipDocs({
+    userId: user?.id,
+    onOwnershipDocChange: useCallback(() => { void fetchOwnerFile() }, [fetchOwnerFile]),
+  })
 
   const handleSaveDraft = async () => {
     setSaving(true)

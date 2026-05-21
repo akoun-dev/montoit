@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 
@@ -190,6 +191,11 @@ export function RentalFileForm() {
       setLoading(false)
     }
   }, [isAuthenticated])
+
+  useRealtimeRentalFiles({
+    userId: user?.id,
+    onRentalFileChange: () => fetchRentalFile(),
+  })
 
   useEffect(() => { fetchRentalFile() }, [fetchRentalFile])
 

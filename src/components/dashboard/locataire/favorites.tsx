@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Heart, MapPin, Building2, Eye, ArrowRight } from 'lucide-react'
+import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -75,6 +76,12 @@ export function Favorites() {
   useEffect(() => {
     fetchFavorites()
   }, [fetchFavorites])
+
+  // Realtime — refresh when properties change
+  useRealtimeProperties({
+    userId: user?.id,
+    onPropertyChange: useCallback(() => { void fetchFavorites() }, [fetchFavorites]),
+  })
 
   const handleRemoveFavorite = async (propertyId: string) => {
     try {

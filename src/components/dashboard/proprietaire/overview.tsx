@@ -8,6 +8,10 @@ import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
+import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
+import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
+import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 
 interface ScoringSummary {
   score: number
@@ -195,6 +199,24 @@ export function ProprietaireOverview() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Realtime — refresh on data changes
+  useRealtimeProperties({
+    userId: user?.id,
+    onPropertyChange: useCallback(() => { void fetchData() }, [fetchData]),
+  })
+  useRealtimeVisits({
+    userId: user?.id,
+    onVisitChange: useCallback(() => { void fetchData() }, [fetchData]),
+  })
+  useRealtimeLeases({
+    userId: user?.id,
+    onLeaseChange: useCallback(() => { void fetchData() }, [fetchData]),
+  })
+  useRealtimePayments({
+    userId: user?.id,
+    onPaymentChange: useCallback(() => { void fetchData() }, [fetchData]),
+  })
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 

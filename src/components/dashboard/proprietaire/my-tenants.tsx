@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
+import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface TenantLease {
@@ -100,7 +102,7 @@ interface TenantsListProps {
 }
 
 export function TenantsList({ onDetail }: TenantsListProps) {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [tenants, setTenants] = useState<TenantWithStats[]>([])
   const [globalStats, setGlobalStats] = useState<ApiResponse['stats']>({
     totalTenants: 0,
@@ -129,6 +131,16 @@ export function TenantsList({ onDetail }: TenantsListProps) {
   }, [isAuthenticated, search])
 
   useEffect(() => { fetchTenants() }, [fetchTenants])
+
+  // Realtime — refresh when leases or payments change
+  useRealtimeLeases({
+    userId: user?.id,
+    onLeaseChange: useCallback(() => { void fetchTenants() }, [fetchTenants]),
+  })
+  useRealtimePayments({
+    userId: user?.id,
+    onPaymentChange: useCallback(() => { void fetchTenants() }, [fetchTenants]),
+  })
 
   if (loading) {
     return (

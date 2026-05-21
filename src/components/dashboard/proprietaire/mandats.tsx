@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeMandats } from '@/hooks/use-realtime-mandats'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -149,7 +150,7 @@ const itemVariants = {
 // ─── Component ──────────────────────────────────────────────────────────────────
 
 export function ProprietaireMandats() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
 
   // Data
   const [mandats, setMandats] = useState<MandatItem[]>([])
@@ -248,6 +249,13 @@ export function ProprietaireMandats() {
   useEffect(() => {
     fetchMandats()
   }, [fetchMandats])
+
+  useRealtimeMandats({
+    userId: user?.id,
+    onMandatChange: useCallback(() => {
+      fetchMandats()
+    }, [fetchMandats]),
+  })
 
   useEffect(() => {
     if (showCreateDialog) {

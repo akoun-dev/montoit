@@ -10,6 +10,7 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeBackups } from '@/hooks/use-realtime-backups'
 
 interface Backup {
   id: string
@@ -54,6 +55,13 @@ export function AdminBackups() {
   }, [isAuthenticated])
 
   useEffect(() => { fetchBackups() }, [fetchBackups])
+
+  useRealtimeBackups({
+    userId: user?.id,
+    onBackupChange: useCallback(() => {
+      fetchBackups()
+    }, [fetchBackups]),
+  })
 
   const handleTriggerBackup = () => {
     setTriggering(true)

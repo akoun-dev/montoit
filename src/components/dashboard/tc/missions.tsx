@@ -31,6 +31,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useInAppBrowser } from '@/hooks/capacitor'
+import { useRealtimeMissions } from '@/hooks/use-realtime-missions'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -174,7 +175,7 @@ const DAY_NAMES = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function MissionsManagement() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
 
   // Data
   const [missions, setMissions] = useState<Mission[]>([])
@@ -277,6 +278,14 @@ export function MissionsManagement() {
     fetchAgents()
     fetchProperties()
   }, [fetchMissions, fetchAgents, fetchProperties])
+
+  useRealtimeMissions({
+    userId: user?.id,
+    watchAll: true,
+    onMissionChange: useCallback(() => {
+      fetchMissions()
+    }, [fetchMissions]),
+  })
 
   // ─── Calendar data ─────────────────────────────────────────────────────
 

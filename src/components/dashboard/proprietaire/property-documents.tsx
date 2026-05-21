@@ -55,6 +55,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimePropertyDocuments } from '@/hooks/use-realtime-property-documents'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -197,7 +198,7 @@ function formatDate(dateStr: string): string {
 // ─── Component ──────────────────────────────────────────────────────────────────
 
 export function PropertyDocuments() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
 
   // Data state
   const [properties, setProperties] = useState<PropertyInfo[]>([])
@@ -306,6 +307,16 @@ export function PropertyDocuments() {
       setLoading(false)
     }
   }, [isAuthenticated, loadAllData])
+
+  // ─── Realtime: reload when documents change ────────────────────────────────
+
+  useRealtimePropertyDocuments({
+    userId: user?.id,
+    watchedPropertyIds: properties.map(p => p.id),
+    onPropertyDocChange: useCallback(() => {
+      loadAllData()
+    }, [loadAllData]),
+  })
 
   // ─── When property selector changes ────────────────────────────────────────
 

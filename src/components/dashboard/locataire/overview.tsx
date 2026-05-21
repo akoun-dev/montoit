@@ -8,6 +8,11 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications'
+import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
+import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
+import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
+import { useRealtimeApplications } from '@/hooks/use-realtime-applications'
 import { ContactDialog } from '@/components/messaging/contact-dialog'
 import { motion } from 'framer-motion'
 
@@ -201,6 +206,27 @@ export function LocataireOverview() {
       setLoading(false)
     }
   }, [isAuthenticated])
+
+  useRealtimeNotifications({
+    userId: user?.id,
+    onNotificationChange: () => fetchData(),
+  })
+  useRealtimeRentalFiles({
+    userId: user?.id,
+    onRentalFileChange: () => fetchData(),
+  })
+  useRealtimeLeases({
+    userId: user?.id,
+    onLeaseChange: () => fetchData(),
+  })
+  useRealtimeVisits({
+    userId: user?.id,
+    onVisitChange: () => fetchData(),
+  })
+  useRealtimeApplications({
+    userId: user?.id,
+    onApplicationChange: () => fetchData(),
+  })
 
   useEffect(() => {
     fetchData()

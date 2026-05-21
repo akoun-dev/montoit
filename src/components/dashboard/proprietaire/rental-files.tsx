@@ -7,9 +7,11 @@ import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
+import type { RealtimeRentalFilePayload } from '@/hooks/use-realtime-rental-files'
 
 export function ProprietaireRentalFiles() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [data, setData] = useState<Array<{
     id: string; status: string; monthlyIncome: number | null; employer: string | null
     tenant: { firstName: string; lastName: string; phone: string }
@@ -47,6 +49,14 @@ export function ProprietaireRentalFiles() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useRealtimeRentalFiles({
+    userId: user?.id,
+    watchAll: true,
+    onRentalFileChange: useCallback((_event: 'INSERT' | 'UPDATE', _payload: RealtimeRentalFilePayload) => {
+      fetchData()
+    }, [fetchData]),
+  })
 
   if (loading) return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 

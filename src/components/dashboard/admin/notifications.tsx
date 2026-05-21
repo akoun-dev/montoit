@@ -11,6 +11,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications'
 
 interface NotificationItem {
   id: string
@@ -94,7 +95,7 @@ function formatTimeAgo(dateStr: string): string {
 }
 
 export function AdminNotifications() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [loading, setLoading] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -123,6 +124,13 @@ export function AdminNotifications() {
   }, [isAuthenticated])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useRealtimeNotifications({
+    userId: user?.id,
+    onNotificationChange: useCallback(() => {
+      fetchData()
+    }, [fetchData]),
+  })
 
   const togglePref = (key: keyof typeof prefs) => {
     setPrefs(prev => ({ ...prev, [key]: !prev[key] }))

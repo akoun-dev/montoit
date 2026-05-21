@@ -22,6 +22,8 @@ import {
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
+import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { toast } from 'sonner'
 
 interface LeaseItem {
@@ -40,7 +42,7 @@ interface LeaseItem {
 }
 
 export function ProprietaireLeases() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [data, setData] = useState<LeaseItem[]>([])
   const [loading, setLoading] = useState(true)
   const [terminating, setTerminating] = useState(false)
@@ -70,6 +72,16 @@ export function ProprietaireLeases() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Realtime — refresh when leases or payments change
+  useRealtimeLeases({
+    userId: user?.id,
+    onLeaseChange: useCallback(() => { void fetchData() }, [fetchData]),
+  })
+  useRealtimePayments({
+    userId: user?.id,
+    onPaymentChange: useCallback(() => { void fetchData() }, [fetchData]),
+  })
 
   const handleTerminateClick = (lease: LeaseItem) => {
     setLeaseToTerminate(lease)

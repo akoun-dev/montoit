@@ -18,6 +18,7 @@ import {
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRealtimeUsers } from '@/hooks/use-realtime-users'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -39,7 +40,7 @@ function getInitials(first: string, last: string) {
 }
 
 export function TeamManagement() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -60,6 +61,14 @@ export function TeamManagement() {
   }, [isAuthenticated])
 
   useEffect(() => { fetchAgents() }, [fetchAgents])
+
+  useRealtimeUsers({
+    userId: user?.id,
+    watchAll: true,
+    onUserChange: useCallback(() => {
+      fetchAgents()
+    }, [fetchAgents]),
+  })
 
   const handleAddAgent = async () => {
     if (!form.firstName || !form.lastName || !form.email) {

@@ -24,6 +24,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeRatings } from '@/hooks/use-realtime-ratings'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -190,6 +191,13 @@ export function Reviews() {
 
   useEffect(() => { fetchReviews() }, [fetchReviews])
   useEffect(() => { fetchLeases() }, [fetchLeases])
+
+  useRealtimeRatings({
+    userId: user?.id,
+    onRatingChange: useCallback(() => {
+      fetchReviews()
+    }, [fetchReviews]),
+  })
 
   const selectedLease = leases.find((l) => l.id === selectedLeaseId)
 

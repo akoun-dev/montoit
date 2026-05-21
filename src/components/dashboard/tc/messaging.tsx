@@ -14,6 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeMessages } from '@/hooks/use-realtime-messages'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -179,6 +180,11 @@ export function TcMessaging() {
       setLoading(false)
     }
   }, [isAuthenticated])
+
+  useRealtimeMessages({
+    userId: user?.id,
+    onNewMessage: () => fetchConversations(),
+  })
 
   useEffect(() => {
     fetchConversations()

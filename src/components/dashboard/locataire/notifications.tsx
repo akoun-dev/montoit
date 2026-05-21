@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -116,6 +117,11 @@ export function Notifications() {
       setLoading(false)
     }
   }, [isAuthenticated, activeFilter])
+
+  useRealtimeNotifications({
+    userId: user?.id,
+    onNotificationChange: () => fetchNotifications(),
+  })
 
   useEffect(() => { fetchNotifications() }, [fetchNotifications])
 

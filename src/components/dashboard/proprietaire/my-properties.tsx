@@ -19,6 +19,7 @@ import {
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { toast } from 'sonner'
 import { AddProperty } from './add-property'
 
@@ -51,7 +52,7 @@ const statCards = [
 ]
 
 export function MyProperties() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [properties, setProperties] = useState<PropertyItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -81,6 +82,12 @@ export function MyProperties() {
   }, [isAuthenticated])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Realtime — refresh when properties change
+  useRealtimeProperties({
+    userId: user?.id,
+    onPropertyChange: useCallback(() => { void fetchData() }, [fetchData]),
+  })
 
   const filtered = useMemo(() => {
     let list = properties
