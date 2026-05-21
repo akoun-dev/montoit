@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { motion } from 'framer-motion'
 
 interface Property {
@@ -35,7 +36,7 @@ const statusLabels: Record<string, { label: string; cls: string }> = {
 }
 
 export function Portfolio() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -52,7 +53,11 @@ export function Portfolio() {
     } finally { setLoading(false) }
   }, [isAuthenticated])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  // Realtime subscription
+  useRealtimeProperties({
+    userId: user?.id,
+    onPropertyChange: () => { fetchData() },
+  })
 
   const communes = [...new Set(properties.map((p) => p.commune).filter(Boolean))]
   const filtered = properties.filter((p) => {

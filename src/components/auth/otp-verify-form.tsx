@@ -15,6 +15,7 @@ const RESEND_COOLDOWN = 60 // seconds
 
 export function OtpVerifyForm() {
   const [code, setCode] = useState('')
+  const [error, setError] = useState('')
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN)
   const [isResending, setIsResending] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -51,8 +52,9 @@ export function OtpVerifyForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     if (!code.trim() || code.length < 6) {
-      toast.error('Veuillez entrer le code complet à 6 chiffres')
+      setError('Veuillez entrer le code complet à 6 chiffres')
       return
     }
     try {
@@ -60,9 +62,7 @@ export function OtpVerifyForm() {
         const result = await verifyEmailOtp(pendingEmail, code.trim(), otpPurpose)
 
         if (otpPurpose === 'password_reset' && result?.valid) {
-          // Password reset verified — show reset form
-          toast.success('Code vérifié ! Vous pouvez maintenant réinitialiser votre mot de passe.')
-          // We'll handle showing the reset form via a new view state
+          setView('forgot-password')
           return
         }
 
@@ -77,12 +77,13 @@ export function OtpVerifyForm() {
         toast.success('Connexion réussie !')
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Code invalide')
+      setError(error instanceof Error ? error.message : 'Code invalide')
     }
   }
 
   const handleResend = useCallback(async () => {
     if (cooldown > 0 || isResending) return
+    setError('')
     setIsResending(true)
     try {
       if (isEmailOtp) {
@@ -94,7 +95,7 @@ export function OtpVerifyForm() {
       }
       setCooldown(RESEND_COOLDOWN)
     } catch (error) {
-      toast.error('Erreur lors du renvoi')
+      setError('Erreur lors du renvoi')
     } finally {
       setIsResending(false)
     }
@@ -170,12 +171,16 @@ export function OtpVerifyForm() {
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '').slice(0, 6)
                     setCode(val)
+                    setError('')
                   }}
                   className="h-14 text-center text-2xl tracking-[0.5em] font-mono"
                   maxLength={6}
                   disabled={isLoading}
                   autoFocus
                 />
+                {error && (
+                  <p className="text-sm text-red-500 text-center mt-2">{error}</p>
+                )}
               </div>
 
               {/* Dev mode: show dev code */}

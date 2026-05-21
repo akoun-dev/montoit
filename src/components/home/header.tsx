@@ -257,6 +257,11 @@ export function Header() {
     setView('login')
   }
 
+  const handleRegister = () => {
+    setOpen(false)
+    setView('register')
+  }
+
   // Navigate to a dashboard section from mobile menu
   const handleMobileDashboardItem = (section: string) => {
     setOpen(false)
@@ -332,9 +337,9 @@ export function Header() {
               <Button variant="outline" size="sm" onClick={handleLogin}>
                 Se connecter
               </Button>
-              <Button size="sm" className="bg-brand-500 hover:bg-brand-600 text-white" onClick={handleLogin}>
-                S&apos;inscrire
-              </Button>
+      <Button size="sm" className="bg-brand-500 hover:bg-brand-600 text-white" onClick={handleRegister}>
+        S&apos;inscrire
+      </Button>
             </>
           )}
         </div>
@@ -499,7 +504,7 @@ export function Header() {
                     <Button variant="outline" className="w-full" onClick={handleLogin}>
                       Se connecter
                     </Button>
-                    <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white" onClick={handleLogin}>
+                    <Button className="w-full bg-brand-500 hover:bg-brand-600 text-white" onClick={handleRegister}>
                       S&apos;inscrire
                     </Button>
                   </div>

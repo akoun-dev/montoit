@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/table'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -35,7 +36,7 @@ const monthlyData = [
 ]
 
 export function AgenceFinances() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const [data, setData] = useState<AgenceData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -53,7 +54,15 @@ export function AgenceFinances() {
     } finally { setLoading(false) }
   }, [isAuthenticated])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  // Track lease IDs for Realtime filtering
+  const leaseIds = (data?.activeLeases ?? []).map(l => l.id)
+
+  // Realtime subscription
+  useRealtimePayments({
+    userId: user?.id,
+    leaseIds,
+    onPaymentChange: () => { fetchData() },
+  })
 
   const markAsPaid = async (commissionId: string) => {
     try {

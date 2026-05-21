@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -39,7 +40,7 @@ const statusConfig: Record<string, { label: string; cls: string }> = {
 }
 
 export function AgenceVisits() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const [visits, setVisits] = useState<VisitRequest[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
@@ -59,7 +60,11 @@ export function AgenceVisits() {
     } finally { setLoading(false) }
   }, [isAuthenticated])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  // Realtime subscription
+  useRealtimeVisits({
+    userId: user?.id,
+    onVisitChange: () => { fetchData() },
+  })
 
   const filtered = visits.filter((v) => {
     const matchesStatus = statusFilter === 'all' || v.status === statusFilter

@@ -19,6 +19,7 @@ export function LoginForm() {
   const [phone, setPhone] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
+  const [error, setError] = useState('')
   const { loginWithEmail, loginWithSms, isLoading, setView, setAuthMethod, pendingMessage, pendingEmail } = useAuthStore()
 
   useEffect(() => {
@@ -35,13 +36,14 @@ export function LoginForm() {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     clearMessage()
     if (!email.trim()) {
-      toast.error('Veuillez entrer votre adresse email')
+      setError('Veuillez entrer votre adresse email')
       return
     }
     if (!password.trim()) {
-      toast.error('Veuillez entrer votre mot de passe')
+      setError('Veuillez entrer votre mot de passe')
       return
     }
     try {
@@ -49,15 +51,16 @@ export function LoginForm() {
       toast.success('Connexion réussie !')
     } catch (error) {
       const msg = error instanceof Error ? error.message : ''
-      toast.error(msg || 'Erreur lors de la connexion')
+      setError(msg || 'Erreur lors de la connexion')
     }
   }
 
   const handleSmsSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     clearMessage()
     if (!phone.trim()) {
-      toast.error('Veuillez entrer votre numéro de téléphone')
+      setError('Veuillez entrer votre numéro de téléphone')
       return
     }
     try {
@@ -65,7 +68,7 @@ export function LoginForm() {
       await loginWithSms(phone.trim())
       toast.success('Code OTP envoyé par SMS !')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'envoi')
+      setError(error instanceof Error ? error.message : 'Erreur lors de l\'envoi')
     }
   }
 
@@ -163,7 +166,7 @@ export function LoginForm() {
                       type="email"
                       placeholder="votre@email.ci"
                       value={email}
-                      onChange={(e) => { clearMessage(); setEmail(e.target.value) }}
+                      onChange={(e) => { clearMessage(); setError(''); setEmail(e.target.value) }}
                       className="h-11 pl-9"
                       disabled={isLoading}
                       required
@@ -189,7 +192,7 @@ export function LoginForm() {
                       type={showPassword ? 'text' : 'password'}
                       placeholder="••••••••"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => { setError(''); setPassword(e.target.value) }}
                       className="h-11 pl-9 pr-10"
                       disabled={isLoading}
                       required
@@ -234,6 +237,9 @@ export function LoginForm() {
                     </span>
                   )}
                 </Button>
+                {error && (
+                  <p className="text-sm text-red-500 text-center">{error}</p>
+                )}
               </form>
             )}
 
@@ -249,7 +255,7 @@ export function LoginForm() {
                       type="tel"
                       placeholder="+225 XX XX XX XX XX"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => { setError(''); setPhone(e.target.value.replace(/\D/g, '')) }}
                       className="h-11 pl-9"
                       disabled={isLoading}
                       required
@@ -278,6 +284,9 @@ export function LoginForm() {
                     </span>
                   )}
                 </Button>
+                {error && (
+                  <p className="text-sm text-red-500 text-center">{error}</p>
+                )}
               </form>
             )}
 

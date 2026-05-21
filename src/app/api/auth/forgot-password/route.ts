@@ -22,10 +22,18 @@ export async function POST(req: NextRequest) {
       const admin = getSupabaseAdminClient()
       const user = await getUserProfileByEmail(admin, identifier)
 
-      if (!user || !user.is_active) {
-        return NextResponse.json({
-          message: 'Si un compte existe avec ces informations, un code de réinitialisation sera envoyé',
-        })
+      if (!user) {
+        return NextResponse.json(
+          { error: 'Aucun compte associé à cet email' },
+          { status: 404 }
+        )
+      }
+
+      if (!user.is_active) {
+        return NextResponse.json(
+          { error: 'Ce compte a été désactivé' },
+          { status: 403 }
+        )
       }
 
       await invalidateEmailOtps(admin, user.email, 'PASSWORD_RESET')
@@ -58,10 +66,18 @@ export async function POST(req: NextRequest) {
       .eq('phone', identifier)
       .maybeSingle()
 
-    if (!user || !user.is_active) {
-      return NextResponse.json({
-        message: 'Si un compte existe avec ces informations, un code de réinitialisation sera envoyé',
-      })
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Aucun compte associé à ce numéro' },
+        { status: 404 }
+      )
+    }
+
+    if (!user.is_active) {
+      return NextResponse.json(
+        { error: 'Ce compte a été désactivé' },
+        { status: 403 }
+      )
     }
 
     const { data: existingOtps } = await supabase

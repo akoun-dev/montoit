@@ -43,6 +43,7 @@ export function ForgotPasswordForm() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [step, setStep] = useState<Step>('request')
   const [direction, setDirection] = useState(1)
+  const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [cooldown, setCooldown] = useState(0)
   const [isResending, setIsResending] = useState(false)
@@ -65,9 +66,10 @@ export function ForgotPasswordForm() {
   // ─── Step 1: Request reset ────────────────────────────────────────────
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     const identifier = method === 'email' ? email.trim() : phone.trim()
     if (!identifier) {
-      toast.error(method === 'email' ? 'Veuillez entrer votre email' : 'Veuillez entrer votre numéro')
+      setError(method === 'email' ? 'Veuillez entrer votre email' : 'Veuillez entrer votre numéro')
       return
     }
 
@@ -86,7 +88,7 @@ export function ForgotPasswordForm() {
       toast.success('Code de réinitialisation envoyé !')
       goToStep('verify', 1)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur')
+      setError(error instanceof Error ? error.message : 'Erreur')
     } finally {
       setSubmitting(false)
     }
@@ -95,8 +97,9 @@ export function ForgotPasswordForm() {
   // ─── Step 2: Verify OTP ───────────────────────────────────────────────
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     if (!code.trim() || code.length < 6) {
-      toast.error('Veuillez entrer le code complet à 6 chiffres')
+      setError('Veuillez entrer le code complet à 6 chiffres')
       return
     }
 
@@ -125,10 +128,10 @@ export function ForgotPasswordForm() {
         toast.success('Code vérifié ! Créez votre nouveau mot de passe.')
         goToStep('reset', 1)
       } else {
-        toast.error('Code invalide ou expiré')
+        setError('Code invalide ou expiré')
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Code invalide')
+      setError(error instanceof Error ? error.message : 'Code invalide')
     } finally {
       setSubmitting(false)
     }
@@ -138,14 +141,23 @@ export function ForgotPasswordForm() {
     if (cooldown > 0 || isResending) return
     setIsResending(true)
     try {
-      const identifier = method === 'email' ? email.trim() : phone.trim()
-      const res = await apiFetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, method }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erreur')
+      if (method === 'email') {
+        const res = await apiFetch('/api/auth/send-email-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), purpose: 'password_reset' }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Erreur')
+      } else {
+        const res = await apiFetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier: phone.trim(), method: 'sms' }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Erreur')
+      }
 
       setCooldown(RESEND_COOLDOWN)
       toast.success('Nouveau code envoyé !')
@@ -159,12 +171,13 @@ export function ForgotPasswordForm() {
   // ─── Step 3: Reset password ───────────────────────────────────────────
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     if (passwordStrength < 4) {
-      toast.error('Le mot de passe ne respecte pas les critères requis')
+      setError('Le mot de passe ne respecte pas les critères requis')
       return
     }
     if (!passwordsMatch) {
-      toast.error('Les mots de passe ne correspondent pas')
+      setError('Les mots de passe ne correspondent pas')
       return
     }
 
@@ -183,10 +196,10 @@ export function ForgotPasswordForm() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
 
-      toast.success('Mot de passe réinitialisé ! Connectez-vous avec votre nouveau mot de passe.')
+      toast.success('Votre mot de passe a été réinitialisé avec succès, veuillez vous connecter.')
       setView('login')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur')
+      setError(error instanceof Error ? error.message : 'Erreur')
     } finally {
       setSubmitting(false)
     }
@@ -279,7 +292,7 @@ export function ForgotPasswordForm() {
                     <div className="flex rounded-lg border border-border p-1 bg-muted">
                       <button
                         type="button"
-                        onClick={() => setMethod('email')}
+                        onClick={() => { setError(''); setMethod('email') }}
                         className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
                           method === 'email' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
@@ -289,7 +302,7 @@ export function ForgotPasswordForm() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setMethod('sms')}
+                        onClick={() => { setError(''); setMethod('sms') }}
                         className={`flex-1 flex items-center justify-center gap-2 rounded-md py-2.5 text-sm font-medium transition-all ${
                           method === 'sms' ? 'bg-background text-brand-500 shadow-sm' : 'text-muted-foreground hover:text-foreground'
                         }`}
@@ -309,7 +322,7 @@ export function ForgotPasswordForm() {
                             type="email"
                             placeholder="votre@email.ci"
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            onChange={(e) => { setError(''); setEmail(e.target.value) }}
                             className="h-11 pl-9"
                             disabled={submitting}
                             required
@@ -327,7 +340,7 @@ export function ForgotPasswordForm() {
                             type="tel"
                             placeholder="+225 XX XX XX XX XX"
                             value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
+                            onChange={(e) => { setError(''); setPhone(e.target.value.replace(/\D/g, '')) }}
                             className="h-11 pl-9"
                             disabled={submitting}
                             required
@@ -354,6 +367,9 @@ export function ForgotPasswordForm() {
                         </span>
                       )}
                     </Button>
+                    {error && (
+                      <p className="text-sm text-red-500 text-center">{error}</p>
+                    )}
                   </form>
                 </motion.div>
               )}
@@ -386,6 +402,7 @@ export function ForgotPasswordForm() {
                         onChange={(e) => {
                           const val = e.target.value.replace(/\D/g, '').slice(0, 6)
                           setCode(val)
+                          setError('')
                         }}
                         className="h-14 text-center text-2xl tracking-[0.5em] font-mono"
                         maxLength={6}
@@ -408,6 +425,9 @@ export function ForgotPasswordForm() {
                         'Vérifier le code'
                       )}
                     </Button>
+                    {error && (
+                      <p className="text-sm text-red-500 text-center">{error}</p>
+                    )}
 
                     {/* Resend */}
                     <div className="flex items-center justify-center">
@@ -464,7 +484,7 @@ export function ForgotPasswordForm() {
                           type={showPassword ? 'text' : 'password'}
                           placeholder="••••••••"
                           value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
+                          onChange={(e) => { setError(''); setNewPassword(e.target.value) }}
                           className="h-11 pl-9 pr-10"
                           disabled={submitting}
                           required
@@ -564,6 +584,9 @@ export function ForgotPasswordForm() {
                         'Réinitialiser le mot de passe'
                       )}
                     </Button>
+                    {error && (
+                      <p className="text-sm text-red-500 text-center">{error}</p>
+                    )}
 
                     <button
                       type="button"

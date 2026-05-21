@@ -10,6 +10,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
+import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
+import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
+import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -73,7 +77,28 @@ export function AgenceOverview() {
     } finally { setLoading(false) }
   }, [isAuthenticated])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  // Track property IDs for Realtime filtering
+  const propertyIds = data.properties.map(p => p.id)
+
+  // Realtime subscriptions
+  useRealtimeProperties({
+    userId: user?.id,
+    onPropertyChange: () => { fetchData() },
+  })
+  useRealtimeRentalFiles({
+    userId: user?.id,
+    watchAll: true,
+    onRentalFileChange: () => { fetchData() },
+  })
+  useRealtimeLeases({
+    userId: user?.id,
+    onLeaseChange: () => { fetchData() },
+  })
+  useRealtimeVisits({
+    userId: user?.id,
+    ownedPropertyIds: propertyIds,
+    onVisitChange: () => { fetchData() },
+  })
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 

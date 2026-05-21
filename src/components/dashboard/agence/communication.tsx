@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeMessages } from '@/hooks/use-realtime-messages'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -50,7 +51,11 @@ export function AgenceCommunication() {
     } finally { setLoading(false) }
   }, [isAuthenticated, user])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  // Realtime subscription — refresh on new incoming messages
+  useRealtimeMessages({
+    userId: user?.id,
+    onNewMessage: () => { fetchData() },
+  })
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedConv) return

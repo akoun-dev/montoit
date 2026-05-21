@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -36,7 +37,7 @@ const statusConfig: Record<string, { label: string; cls: string }> = {
 }
 
 export function AgenceContracts() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const [leases, setLeases] = useState<Lease[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('all')
@@ -52,7 +53,11 @@ export function AgenceContracts() {
     } finally { setLoading(false) }
   }, [isAuthenticated])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  // Realtime subscription
+  useRealtimeLeases({
+    userId: user?.id,
+    onLeaseChange: () => { fetchData() },
+  })
 
   const stats = {
     all: leases.length,

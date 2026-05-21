@@ -111,7 +111,7 @@ export function AgenceSettings() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-foreground">Téléphone</label>
-                    <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="h-9 text-sm" />
+                    <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '') })} className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-foreground">Ville</label>

@@ -31,6 +31,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    if (otpType === 'PASSWORD_RESET') {
+      return NextResponse.json({
+        valid: true,
+        email: normalizedEmail,
+      })
+    }
+
     const { error: markUsedError } = await admin
       .from('otp_codes')
       .update({ is_used: true })
@@ -38,13 +45,6 @@ export async function POST(req: NextRequest) {
 
     if (markUsedError) {
       throw markUsedError
-    }
-
-    if (otpType === 'PASSWORD_RESET') {
-      return NextResponse.json({
-        valid: true,
-        email: normalizedEmail,
-      })
     }
 
     const user = await getUserProfileByEmail(admin, normalizedEmail)

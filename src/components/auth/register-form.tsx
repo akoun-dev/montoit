@@ -307,7 +307,7 @@ export function RegisterForm() {
                             type="tel"
                             placeholder="+225 XX XX XX XX XX"
                             value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
+                            onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                             className="h-11 pl-9"
                             disabled={isLoading}
                           />
@@ -443,7 +443,7 @@ export function RegisterForm() {
                             type="tel"
                             placeholder="+225 XX XX XX XX XX"
                             value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
+                            onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                             className="h-11 pl-9"
                             disabled={isLoading || !!pendingPhone}
                           />

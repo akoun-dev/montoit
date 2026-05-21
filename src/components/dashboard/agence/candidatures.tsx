@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
 import { motion } from 'framer-motion'
 
 interface RentalFile {
@@ -34,7 +35,7 @@ const pipelineStages = [
 ]
 
 export function Candidatures() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const [rentalFiles, setRentalFiles] = useState<RentalFile[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,7 +53,12 @@ export function Candidatures() {
     } finally { setLoading(false) }
   }, [isAuthenticated])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  // Realtime subscription
+  useRealtimeRentalFiles({
+    userId: user?.id,
+    watchAll: true,
+    onRentalFileChange: () => { fetchData() },
+  })
 
   const filtered = rentalFiles.filter((rf) => {
     if (agentFilter !== 'all') return true // Agent filtering would need assignment data
