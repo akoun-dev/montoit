@@ -320,7 +320,7 @@ const detailToParent: Record<string, string> = {
 }
 
 export function SidebarContent({ collapsed = false, onNavigate }: SidebarContentProps) {
-  const { user, dashboardSection, setDashboardSection } = useAuthStore()
+  const { user, dashboardSection, setDashboardSection, setView } = useAuthStore()
 
   if (!user) return null
 
@@ -332,7 +332,11 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
   const activeSection = detailToParent[dashboardSection] || dashboardSection
 
   const handleItemClick = (id: string) => {
-    setDashboardSection(id)
+    if (id === 'search-properties') {
+      setView('nos-biens')
+    } else {
+      setDashboardSection(id)
+    }
     onNavigate?.()
   }
 
