@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -63,7 +64,7 @@ interface VisitDetailProps {
 }
 
 export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
-  const { isAuthenticated, setDashboardSection } = useAuthStore()
+  const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const [visit, setVisit] = useState<VisitItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -71,10 +72,10 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const [applying, setApplying] = useState(false)
 
-  const fetchVisit = useCallback(async () => {
+  const fetchVisit = useCallback(async (skipCache = false) => {
     if (!isAuthenticated) { setLoading(false); return }
     try {
-      const result = await authFetch<{ data: VisitItem }>(`/api/visits/${visitId}`)
+      const result = await authFetch<{ data: VisitItem }>(`/api/visits/${visitId}`, skipCache ? { skipCache: true } : undefined)
       if (result.data) {
         setVisit(result.data)
       } else {
@@ -94,6 +95,14 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchVisit() }, [fetchVisit])
+
+  // Realtime — refresh when visit status changes (owner accepts/rejects/counter-proposes)
+  useRealtimeVisits({
+    userId: user?.id,
+    onVisitChange: (event, visit) => {
+      if (event === 'UPDATE' && visit.id === visitId) fetchVisit(true)
+    },
+  })
 
   const handleApply = async () => {
     if (!visit) return

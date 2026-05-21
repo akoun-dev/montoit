@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import { markMutation } from '@/lib/response-cache'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 export interface RealtimeRentalFilePayload {
@@ -88,6 +89,15 @@ export function useRealtimeRentalFiles({ userId, watchedTenantIds, watchAll, onR
             if (!raw?.id) return
 
             const rf = raw as RealtimeRentalFilePayload
+
+            // Mark mutation so authFetch skips the response cache
+            markMutation()
+
+            // Always fire for INSERT — a new file might be from a tenant we don't know yet
+            if (payload.eventType === 'INSERT') {
+              callbackRef.current(payload.eventType as RentalFileChangeEvent, rf)
+              return
+            }
 
             // Skip if the file isn't relevant
             if (watchAllRef.current) {

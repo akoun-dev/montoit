@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import { markMutation } from '@/lib/response-cache'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 export interface RealtimeApplicationPayload {
@@ -68,6 +69,9 @@ export function useRealtimeApplications({ userId, onApplicationChange }: UseReal
 
             // Only process applications where the user is the tenant
             if (app.tenant_id !== userId) return
+
+            // Mark mutation so authFetch skips the response cache
+            markMutation()
 
             callbackRef.current(payload.eventType as ApplicationChangeEvent, app)
           }

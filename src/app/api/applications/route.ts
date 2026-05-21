@@ -204,7 +204,7 @@ export async function GET(req: NextRequest) {
     const applications = queryResult.data as any[]
     const total = queryResult.count
 
-    const appIds = (applications ?? []).map((a: any) => a.id)
+    const rentalFileIds = (applications ?? []).map((a: any) => a.rental_file_id).filter(Boolean)
 
     let documentsMap: Record<string, any[]> = {}
     let leasesMap: Record<string, any[]> = {}
@@ -212,10 +212,10 @@ export async function GET(req: NextRequest) {
     let appPropMap = new Map<string, any>()
     let appOwnerMap = new Map<string, any>()
 
-    if (appIds.length > 0) {
+    if (rentalFileIds.length > 0) {
       const [docResult, leaseResult] = await Promise.all([
-        supabase.from('rental_file_documents').select('*').in('rental_file_id', appIds).order('created_at', { ascending: false }),
-        supabase.from('leases').select('*, property:properties!property_id(*)').in('rental_file_id', appIds),
+        supabase.from('rental_file_documents').select('*').in('rental_file_id', rentalFileIds).order('created_at', { ascending: false }),
+        supabase.from('leases').select('*, property:properties!property_id(*)').in('rental_file_id', rentalFileIds),
       ])
 
       const docsData = (docResult.data ?? []) as any[]
@@ -311,7 +311,7 @@ export async function GET(req: NextRequest) {
 
     const enrichedApplications = (applications ?? []).map((app: any) => {
       const statusTimeline = getStatusTimeline(app.status)
-      const leaseProperty = leasesMap[app.id]?.[0]?.property
+      const leaseProperty = leasesMap[app.rental_file_id]?.[0]?.property
       const directProperty = app.property_id ? appPropMap.get(app.property_id) : null
       const directOwner = directProperty && appOwnerMap.get(directProperty.owner_id)
 
@@ -342,7 +342,7 @@ export async function GET(req: NextRequest) {
         } : null,
       } : null
 
-      const docs = documentsMap[app.id] || []
+      const docs = documentsMap[app.rental_file_id] || []
       const totalDocs = docs.length
       const validatedDocs = docs.filter((d: any) => d.status === 'VALIDATED').length
       const rejectedDocs = docs.filter((d: any) => d.status === 'REJECTED').length
@@ -432,9 +432,10 @@ function getStatusTimeline(currentStatus: string) {
     { status: 'DRAFT', label: 'Brouillon' },
     { status: 'SUBMITTED', label: 'Soumis' },
     { status: 'VALIDATED', label: 'Validé' },
+    { status: 'ACCEPTED', label: 'Accepté' },
   ]
 
-  const statusOrder = ['DRAFT', 'SUBMITTED', 'VALIDATED']
+  const statusOrder = ['DRAFT', 'SUBMITTED', 'VALIDATED', 'ACCEPTED']
   const currentIndex = statusOrder.indexOf(currentStatus)
   const isRejected = currentStatus === 'REJECTED'
   const isExpired = currentStatus === 'EXPIRED'

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeApplications } from '@/hooks/use-realtime-applications'
 import { motion } from 'framer-motion'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   SUBMITTED: { label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Clock },
   TC_REVIEW: { label: 'En examen', color: 'bg-brand-50 text-brand-600 border-brand-200', icon: UserCheck },
   VALIDATED: { label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
+  ACCEPTED: { label: 'Accepté', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
   REJECTED: { label: 'Rejeté', color: 'bg-red-50 text-red-700 border-red-200', icon: AlertCircle },
   EXPIRED: { label: 'Expiré', color: 'bg-muted text-muted-foreground border-border', icon: Clock },
 }
@@ -112,15 +114,15 @@ interface ApplicationDetailProps {
 }
 
 export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: ApplicationDetailProps) {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [application, setApplication] = useState<ApplicationItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchApplication = useCallback(async () => {
+  const fetchApplication = useCallback(async (skipCache = false) => {
     if (!isAuthenticated) { setLoading(false); return }
     try {
-      const result = await authFetch<{ data: ApplicationItem }>(`/api/applications/${applicationId}`)
+      const result = await authFetch<{ data: ApplicationItem }>(`/api/applications/${applicationId}`, skipCache ? { skipCache: true } : undefined)
       if (result.data) {
         setApplication(result.data)
       } else {
@@ -139,6 +141,14 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
   }, [isAuthenticated, applicationId])
 
   useEffect(() => { fetchApplication() }, [fetchApplication])
+
+  // Realtime — refresh when application status changes
+  useRealtimeApplications({
+    userId: user?.id,
+    onApplicationChange: (event, app) => {
+      if (event === 'UPDATE' && app.id === applicationId) fetchApplication(true)
+    },
+  })
 
   if (loading) {
     return (

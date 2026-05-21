@@ -42,8 +42,8 @@ export async function GET(
     }
 
     const [docResult, leaseResult, reviewerResult] = await Promise.all([
-      supabase.from('rental_file_documents').select('*').eq('rental_file_id', id).order('created_at', { ascending: false }),
-      supabase.from('leases').select('*, property:properties!property_id(*)').eq('rental_file_id', id),
+      supabase.from('rental_file_documents').select('*').eq('rental_file_id', application.rental_file_id).order('created_at', { ascending: false }),
+      supabase.from('leases').select('*, property:properties!property_id(*)').eq('rental_file_id', application.rental_file_id),
       application.reviewed_by_id
         ? supabase.from('users').select('id, first_name, last_name').eq('id', application.reviewed_by_id).single()
         : Promise.resolve({ data: null, error: null }),
@@ -106,9 +106,10 @@ export async function GET(
       { status: 'DRAFT', label: 'Brouillon' },
       { status: 'SUBMITTED', label: 'Soumis' },
       { status: 'VALIDATED', label: 'Validé' },
+      { status: 'ACCEPTED', label: 'Accepté' },
     ]
 
-    const statusOrder = ['DRAFT', 'SUBMITTED', 'VALIDATED']
+    const statusOrder = ['DRAFT', 'SUBMITTED', 'VALIDATED', 'ACCEPTED']
     const currentIndex = statusOrder.indexOf(application.status)
     const isRejected = application.status === 'REJECTED'
     const isExpired = application.status === 'EXPIRED'

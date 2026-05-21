@@ -210,7 +210,7 @@ export function autoInvalidateOnMutation(url: string): void {
 
     // ── Core business routes ──────────────────────────────────────────────
     { pattern: /\/api\/properties/, clearPrefixes: ['/api/properties', '/api/tc/verifications', '/api/dashboard/'] },
-    { pattern: /\/api\/rental-files?/, clearPrefixes: ['/api/rental-file', '/api/rental-files', '/api/dashboard/'] },
+    { pattern: /\/api\/rental-files?/, clearPrefixes: ['/api/rental-file', '/api/rental-files', '/api/owner', '/api/applications', '/api/dashboard/'] },
     { pattern: /\/api\/leases/, clearPrefixes: ['/api/leases', '/api/dashboard/'] },
     { pattern: /\/api\/payments/, clearPrefixes: ['/api/payments', '/api/dashboard/'] },
     { pattern: /\/api\/applications/, clearPrefixes: ['/api/applications', '/api/dashboard/'] },

@@ -64,6 +64,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   SUBMITTED: { label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Clock },
   TC_REVIEW: { label: 'En examen', color: 'bg-brand-50 text-brand-600 border-brand-200', icon: UserCheck },
   VALIDATED: { label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
+  ACCEPTED: { label: 'Accepté', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
   REJECTED: { label: 'Rejeté', color: 'bg-red-50 text-red-700 border-red-200', icon: AlertCircle },
   EXPIRED: { label: 'Expiré', color: 'bg-muted text-muted-foreground border-border', icon: Clock },
 }
@@ -113,17 +114,13 @@ export function Applications({ onDetail }: ApplicationsProps) {
   // Realtime subscription for applications
   useRealtimeApplications({
     userId: user?.id,
-    onApplicationChange: (event, app) => {
-      if (event === 'INSERT') {
-        fetchApplications()
-      } else {
-        setApplications((prev) =>
-          prev.map((a) =>
-            a.id === app.id
-              ? { ...a, status: app.status, updatedAt: app.updated_at }
-              : a
-          )
-        )
+    onApplicationChange: async () => {
+      try {
+        const result = await authFetch<ApplicationsResponse>('/api/applications', { skipCache: true })
+        setApplications(result.data ?? [])
+        setStats(result.stats ?? {})
+      } catch (err) {
+        if (err instanceof AuthError && err.status === 401) { setApplications([]); return }
       }
     },
   })

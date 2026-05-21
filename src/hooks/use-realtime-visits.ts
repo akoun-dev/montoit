@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import { markMutation } from '@/lib/response-cache'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 export interface RealtimeVisitPayload {
@@ -86,6 +87,9 @@ export function useRealtimeVisits({ userId, ownedPropertyIds, onVisitChange }: U
             const isOwner = ownedRef.current?.includes(visit.property_id)
 
             if (!isTenant && !isOwner) return
+
+            // Mark mutation so authFetch skips the response cache
+            markMutation()
 
             callbackRef.current(payload.eventType as VisitChangeEvent, visit)
           }

@@ -148,7 +148,7 @@ function getStatusLabel(status: string): string {
   switch (status) {
     case 'DRAFT': return 'Brouillon'
     case 'SUBMITTED': return 'Soumis'
-    case 'TC_REVIEW': return 'En revue TC'
+    case 'ACCEPTED': return 'Accepté'
     case 'VALIDATED': return 'Validé'
     case 'REJECTED': return 'Refusé'
     case 'EXPIRED': return 'Expiré'
@@ -158,8 +158,8 @@ function getStatusLabel(status: string): string {
 
 function getStatusColor(status: string): string {
   switch (status) {
-    case 'VALIDATED': return 'bg-emerald-100 text-emerald-700'
-    case 'TC_REVIEW': return 'bg-amber-100 text-amber-700'
+    case 'ACCEPTED': return 'bg-emerald-100 text-emerald-700'
+    case 'VALIDATED': return 'bg-blue-100 text-blue-700'
     case 'SUBMITTED': return 'bg-amber-100 text-amber-700'
     case 'REJECTED': return 'bg-red-100 text-red-700'
     case 'EXPIRED': return 'bg-neutral-100 text-neutral-600'
@@ -238,14 +238,14 @@ export function EnhancedRentalFiles() {
   const [selectedTenant, setSelectedTenant] = useState<RentalFileItem | null>(null)
   const [search, setSearch] = useState('')
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (skipCache = false) => {
     if (!isAuthenticated) {
       setLoading(false)
       return
     }
 
     try {
-      const d = await authFetch<OwnerRentalFilesResponse>('/api/owner/rental-files')
+      const d = await authFetch<OwnerRentalFilesResponse>('/api/owner/rental-files', skipCache ? { skipCache: true } : undefined)
       setData(d.data || [])
       setStats(d.stats || {})
       setProperties(d.properties || [])
@@ -271,25 +271,15 @@ export function EnhancedRentalFiles() {
   useRealtimeRentalFiles({
     userId: user?.id,
     watchedTenantIds,
-    onRentalFileChange: (event, rf) => {
-      if (event === 'INSERT') {
-        fetchData()
-      } else {
-        setData((prev) =>
-          prev.map((item) =>
-            item.id === rf.id
-              ? { ...item, status: rf.status, tcComment: rf.tc_comment, updatedAt: rf.updated_at }
-              : item
-          )
-        )
-      }
+    onRentalFileChange: () => {
+      fetchData(true)
     },
   })
 
   // Auto-switch to first non-empty tab after data loads (defined before use below)
   useEffect(() => {
     if (!loading && data.length > 0) {
-      const pCount = (stats['SUBMITTED'] || 0) + (stats['TC_REVIEW'] || 0)
+      const pCount = stats['SUBMITTED'] || 0
       const vCount = stats['VALIDATED'] || 0
       const rCount = stats['REJECTED'] || 0
       if (activeTab === 'pending' && pCount === 0) {
@@ -303,7 +293,7 @@ export function EnhancedRentalFiles() {
   // ─── Filter logic ────────────────────────────────────────────────────────
   const filteredData = data.filter((rf) => {
     // Status filter
-    if (activeTab === 'pending' && !['SUBMITTED', 'TC_REVIEW'].includes(rf.status)) return false
+    if (activeTab === 'pending' && rf.status !== 'SUBMITTED') return false
     if (activeTab === 'validated' && rf.status !== 'VALIDATED') return false
     if (activeTab === 'rejected' && rf.status !== 'REJECTED') return false
 
@@ -320,14 +310,14 @@ export function EnhancedRentalFiles() {
   const handleAccept = async () => {
     setActionLoading(true)
     try {
-      await authFetch(`/api/rental-files/${selectedFileId}/action`, {
+      const res = await authFetch<{ data: { leaseId: string } }>(`/api/rental-files/${selectedFileId}/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'accept' }),
       })
-      toast.success('Dossier transmis au Tiers de Confiance pour vérification')
+      toast.success('Candidature acceptée. Redirection vers le bail...')
       setAcceptDialogOpen(false)
-      fetchData()
+      setDashboardSection('my-leases')
     } catch (err) {
       if (err instanceof AuthError) {
         toast.error(err.message || 'Erreur lors de l\'acceptation')
@@ -613,7 +603,7 @@ export function EnhancedRentalFiles() {
 
                         {/* Quick actions */}
                         <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          {['SUBMITTED', 'TC_REVIEW'].includes(rf.status) && rf.leases.length === 0 && (
+                          {['SUBMITTED', 'VALIDATED'].includes(rf.status) && !rf.leases.some(l => l.id) && (
                             <>
                               <Button
                                 size="sm"
@@ -634,7 +624,7 @@ export function EnhancedRentalFiles() {
                               </Button>
                             </>
                           )}
-                          {rf.leases.length > 0 && rf.leases.some(l => !l.ownerSignedAt && !l.tenantSignedAt) && (
+                          {rf.leases.some(l => l.id && !l.ownerSignedAt && !l.tenantSignedAt) && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -677,7 +667,7 @@ export function EnhancedRentalFiles() {
               Accepter le dossier
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Le dossier sera transmis au Tiers de Confiance pour vérification avant validation finale.
+              Un bail sera créé et le locataire sera invité à signer. Vous pourrez définir les termes du bail dans la section Baux.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -815,10 +805,9 @@ export function EnhancedRentalFiles() {
                     <div className="flex flex-wrap items-center gap-2">
                       {[
                         { status: 'SUBMITTED', label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-                        { status: 'TC_REVIEW', label: 'En revue TC', color: 'bg-orange-50 text-orange-700 border-orange-200' },
-                        { status: 'VALIDATED', label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+                        { status: 'ACCEPTED', label: 'Accepté', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
                       ].map((step, i) => {
-                        const statusOrder = ['SUBMITTED', 'TC_REVIEW', 'VALIDATED']
+                        const statusOrder = ['SUBMITTED', 'ACCEPTED']
                         const currentIdx = statusOrder.indexOf(selectedTenant.status)
                         const stepIdx = statusOrder.indexOf(step.status)
                         const completed = stepIdx < currentIdx
@@ -834,7 +823,7 @@ export function EnhancedRentalFiles() {
                                <div className="size-1.5 rounded-full bg-neutral-300" />}
                               {step.label}
                             </div>
-                            {i < 2 && (
+                            {i < 1 && (
                               <div className={`w-5 h-px ${completed ? 'bg-emerald-300' : 'bg-neutral-200'}`} />
                             )}
                           </div>
@@ -1023,7 +1012,7 @@ export function EnhancedRentalFiles() {
                   </div>
 
                   {/* Quick actions */}
-                  {['SUBMITTED', 'TC_REVIEW'].includes(selectedTenant.status) && selectedTenant.leases.length === 0 && (
+                  {['SUBMITTED', 'VALIDATED'].includes(selectedTenant.status) && !selectedTenant.leases.some(l => l.id) && (
                     <>
                       <Separator />
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">

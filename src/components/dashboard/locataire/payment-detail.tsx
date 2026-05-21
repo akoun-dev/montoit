@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { toast } from 'sonner'
 import { PaymentDialog } from './payment-dialog'
 import { motion } from 'framer-motion'
@@ -135,17 +136,17 @@ interface PaymentDetailProps {
 }
 
 export function PaymentDetail({ paymentId, onBack }: PaymentDetailProps) {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [payment, setPayment] = useState<PaymentItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const fetchPayment = useCallback(async () => {
+  const fetchPayment = useCallback(async (skipCache = false) => {
     if (!isAuthenticated) { setLoading(false); return }
     try {
-      const result = await authFetch<{ data: PaymentItem }>(`/api/payments/${paymentId}`)
+      const result = await authFetch<{ data: PaymentItem }>(`/api/payments/${paymentId}`, skipCache ? { skipCache: true } : undefined)
       if (result.data) {
         setPayment(result.data)
       } else {
@@ -164,6 +165,14 @@ export function PaymentDetail({ paymentId, onBack }: PaymentDetailProps) {
   }, [isAuthenticated, paymentId])
 
   useEffect(() => { fetchPayment() }, [fetchPayment])
+
+  // Realtime — refresh when payment status changes (after mobile money callback)
+  useRealtimePayments({
+    userId: user?.id,
+    onPaymentChange: (event, payment) => {
+      if (event === 'UPDATE' && payment.id === paymentId) fetchPayment(true)
+    },
+  })
 
   const handleRefreshStatus = async () => {
     setIsRefreshing(true)

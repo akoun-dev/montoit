@@ -19,6 +19,7 @@ import {
 import { SignaturePad } from '@/components/ui/signature-pad'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { apiFetch } from '@/lib/capacitor'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -121,7 +122,7 @@ interface LeaseDetailProps {
 }
 
 export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [lease, setLease] = useState<LeaseItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -133,10 +134,10 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
   const [signing, setSigning] = useState(false)
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
 
-  const fetchLease = useCallback(async () => {
+  const fetchLease = useCallback(async (skipCache = false) => {
     if (!isAuthenticated) { setLoading(false); return }
     try {
-      const result = await authFetch<{ data: LeaseItem }>(`/api/leases/${leaseId}`)
+      const result = await authFetch<{ data: LeaseItem }>(`/api/leases/${leaseId}`, skipCache ? { skipCache: true } : undefined)
       if (result.data) {
         setLease(result.data)
       } else {
@@ -155,6 +156,14 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
   }, [isAuthenticated, leaseId])
 
   useEffect(() => { fetchLease() }, [fetchLease])
+
+  // Realtime — refresh when lease status changes (owner signs, etc.)
+  useRealtimeLeases({
+    userId: user?.id,
+    onLeaseChange: (event, lease) => {
+      if (event === 'UPDATE' && lease.id === leaseId) fetchLease(true)
+    },
+  })
 
   const handleTerminate = async () => {
     if (!lease) return
