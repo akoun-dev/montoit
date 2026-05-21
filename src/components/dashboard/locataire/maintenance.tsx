@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeMaintenance } from '@/hooks/use-realtime-maintenance'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 
@@ -153,6 +154,24 @@ export function Maintenance() {
   }, [isAuthenticated])
 
   useEffect(() => { fetchMaintenance() }, [fetchMaintenance])
+
+  // Realtime subscription for maintenance
+  useRealtimeMaintenance({
+    userId: user?.id,
+    onMaintenanceChange: (event, req) => {
+      if (event === 'INSERT') {
+        fetchMaintenance()
+      } else {
+        setRequests((prev) =>
+          prev.map((r) =>
+            r.id === req.id
+              ? { ...r, status: req.status, priority: req.priority, resolution: req.resolution, updatedAt: req.updated_at }
+              : r
+          )
+        )
+      }
+    },
+  })
 
   const fetchLeases = useCallback(async () => {
     if (!isAuthenticated) return

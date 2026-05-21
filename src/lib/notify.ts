@@ -18,30 +18,6 @@ export interface NotifyManyParams {
   entityId?: string
 }
 
-async function pushToWebSocket(userId: string, data: Omit<NotifyParams, 'userId'>) {
-  try {
-    await fetch('http://localhost:3003/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, ...data }),
-    })
-  } catch (e) {
-    console.error('[notify] WebSocket push failed:', e)
-  }
-}
-
-async function pushToWebSocketMany(userIds: string[], data: Omit<NotifyManyParams, 'userIds'>) {
-  try {
-    await fetch('http://localhost:3003/notify-many', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userIds, ...data }),
-    })
-  } catch (e) {
-    console.error('[notify] WebSocket push-many failed:', e)
-  }
-}
-
 function makeId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 }
@@ -68,8 +44,6 @@ export async function notify(params: NotifyParams) {
     throw error
   }
 
-  pushToWebSocket(userId, { type, title, message, actionUrl, entityId }).catch(() => {})
-
   return notification ? mapNotification(notification) : null
 }
 
@@ -95,8 +69,6 @@ export async function notifyMany(params: NotifyManyParams) {
   if (error) {
     throw error
   }
-
-  pushToWebSocketMany(userIds, { type, title, message, actionUrl, entityId }).catch(() => {})
 
   return (notifications ?? []).map(mapNotification)
 }

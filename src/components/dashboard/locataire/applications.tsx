@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeApplications } from '@/hooks/use-realtime-applications'
 import { motion } from 'framer-motion'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -108,6 +109,24 @@ export function Applications({ onDetail }: ApplicationsProps) {
   }, [isAuthenticated])
 
   useEffect(() => { fetchApplications() }, [fetchApplications])
+
+  // Realtime subscription for applications
+  useRealtimeApplications({
+    userId: user?.id,
+    onApplicationChange: (event, app) => {
+      if (event === 'INSERT') {
+        fetchApplications()
+      } else {
+        setApplications((prev) =>
+          prev.map((a) =>
+            a.id === app.id
+              ? { ...a, status: app.status, updatedAt: app.updated_at }
+              : a
+          )
+        )
+      }
+    },
+  })
 
   const handleEditRentalFile = () => {
     setDashboardSection('rental-file')

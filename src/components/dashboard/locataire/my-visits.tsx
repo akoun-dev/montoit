@@ -9,6 +9,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
 
 interface VisitData {
   visitRequests: Array<{
@@ -41,7 +42,7 @@ interface MyVisitsProps {
 }
 
 export function MyVisits({ onDetail }: MyVisitsProps) {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [data, setData] = useState<VisitData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -74,6 +75,37 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // ─── Realtime subscription for visit changes ────────────────────
+  useRealtimeVisits({
+    userId: user?.id,
+    onVisitChange: (event, payload) => {
+      if (event === 'UPDATE') {
+        setData((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            visitRequests: prev.visitRequests.map((v) =>
+              v.id === payload.id
+                ? {
+                    ...v,
+                    status: payload.status,
+                    requestedDate: payload.requested_date,
+                    timeSlot: payload.time_slot,
+                    counterDate: payload.counter_date,
+                    counterTimeSlot: payload.counter_time_slot,
+                    ownerComment: payload.owner_comment,
+                  }
+                : v
+            ),
+          }
+        })
+      } else if (event === 'INSERT') {
+        // Re-fetch to get full property info for new visits
+        fetchData()
+      }
+    },
+  })
 
   const visits = data?.visitRequests || []
 

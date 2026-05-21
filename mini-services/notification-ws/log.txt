@@ -1,4 +1,0 @@
-[notification-ws] Notification WebSocket server running on port 3003
-[notification-ws] REST endpoints: GET /health, POST /notify, POST /notify-many
-[notification-ws] Socket.IO path: /socket.io/
-[notification-ws] Socket.IO events: join, notification

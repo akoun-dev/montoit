@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { io, Socket } from 'socket.io-client'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuthStore } from '@/lib/auth-store'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/capacitor'
+import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 
 export interface Notification {
   id: string
@@ -22,12 +23,11 @@ export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isConnected, setIsConnected] = useState(false)
-  const socketRef = useRef<Socket | null>(null)
 
   /**
    * Refresh the unread notification count from the REST API.
    * Only updates `unreadCount` — never touches the `notifications` array
-   * to avoid overwriting real-time WebSocket data.
+   * to avoid overwriting real-time data.
    */
   const refreshNotifications = useCallback(async () => {
     try {
@@ -42,48 +42,61 @@ export function useNotifications() {
   useEffect(() => {
     if (!user) return
 
-    // Connect to WebSocket notification service
-    const socket = io('/?XTransformPort=3003', {
-      path: '/socket.io/',
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 3000,
-    })
+    const supabase = getSupabaseBrowserClient()
 
-    socket.on('connect', () => {
-      console.log('[notifications] WebSocket connected, joining room for user:', user.id)
-      socket.emit('join', { userId: user.id })
-      setIsConnected(true)
-    })
+    // Subscribe to new notifications via Supabase Realtime
+    const channel = supabase
+      .channel('notifications-realtime')
+      .on<Notification>(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload: RealtimePostgresChangesPayload<Notification>) => {
+          const newNotif = payload.new as any
+          if (!newNotif?.id) return
 
-    socket.on('notification', (data: Notification) => {
-      setUnreadCount((prev) => prev + 1)
-      setNotifications((prev) => [data, ...prev])
+          const mapped: Notification = {
+            id: newNotif.id,
+            type: newNotif.type,
+            title: newNotif.title,
+            message: newNotif.message,
+            actionUrl: newNotif.action_url ?? null,
+            entityId: newNotif.entity_id ?? null,
+            isRead: newNotif.is_read ?? false,
+            createdAt: newNotif.created_at,
+          }
 
-      // Show toast notification
-      toast(data.title, {
-        description: data.message,
+          setUnreadCount((prev) => prev + 1)
+          setNotifications((prev) => [mapped, ...prev])
+
+          // Show toast notification
+          toast(mapped.title, {
+            description: mapped.message,
+          })
+        }
+      )
+      .subscribe((status) => {
+        setIsConnected(status === 'SUBSCRIBED')
+        if (status === 'SUBSCRIBED') {
+          console.log('[notifications] Realtime connected')
+        } else if (status === 'CHANNEL_ERROR') {
+          console.warn('[notifications] Realtime channel error')
+        } else if (status === 'TIMED_OUT') {
+          console.warn('[notifications] Realtime subscription timed out')
+        } else if (status === 'CLOSED') {
+          console.log('[notifications] Realtime channel closed')
+        }
       })
-    })
-
-    socket.on('disconnect', (reason) => {
-      console.log('[notifications] WebSocket disconnected:', reason)
-      setIsConnected(false)
-    })
-
-    socket.on('connect_error', (error) => {
-      console.warn('[notifications] WebSocket connection error:', error.message)
-    })
-
-    socketRef.current = socket
 
     // Fetch initial unread count from REST API
     refreshNotifications()
 
     return () => {
-      socket.disconnect()
-      socketRef.current = null
+      channel.unsubscribe()
       setIsConnected(false)
     }
   }, [user, refreshNotifications])

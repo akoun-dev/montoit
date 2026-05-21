@@ -13,6 +13,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { ContactDialog } from '@/components/messaging/contact-dialog'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRealtimeMessages, type RealtimeMessagePayload } from '@/hooks/use-realtime-messages'
 
 interface Participant {
   id: string
@@ -96,6 +97,66 @@ export function Messages() {
   }, [selectedId])
 
   const selected = conversations.find((c) => c.id === selectedId)
+
+  // ─── Realtime subscription for incoming messages ────────────────
+  useRealtimeMessages({
+    userId: user?.id,
+    onNewMessage: (payload: RealtimeMessagePayload) => {
+      // Find the conversation in local state
+      const conv = conversations.find((c) => c.id === payload.conversation_id)
+      if (!conv) {
+        // Unknown conversation — refresh the list
+        fetchConversations()
+        return
+      }
+
+      // Determine sender info from participants
+      const isMe = payload.sender_id === user?.id
+      const sender = conv.participant1Id === payload.sender_id ? conv.participant1 : conv.participant2
+
+      const newMessage: Message = {
+        id: payload.id,
+        content: payload.content,
+        createdAt: payload.created_at,
+        isRead: payload.is_read,
+        senderId: payload.sender_id,
+        sender: {
+          id: sender.id,
+          firstName: sender.firstName,
+          lastName: sender.lastName,
+          avatarUrl: sender.avatarUrl,
+        },
+      }
+
+      // Add to full messages if this conversation is selected
+      if (selectedId === payload.conversation_id) {
+        setFullMessages((prev) => [...prev, newMessage])
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        }, 100)
+      }
+
+      // Update conversation in the list
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id !== payload.conversation_id) return c
+          return {
+            ...c,
+            messages: [...c.messages, newMessage],
+            lastMessageAt: payload.created_at,
+            unreadCount: selectedId === payload.conversation_id
+              ? c.unreadCount
+              : c.unreadCount + 1,
+          }
+        }).sort((a, b) => {
+          // Move updated conversation to top
+          const aTime = a.lastMessageAt || a.createdAt
+          const bTime = b.lastMessageAt || b.createdAt
+          return new Date(bTime).getTime() - new Date(aTime).getTime()
+        })
+      )
+    },
+  })
 
   // Fetch full message history when selecting a conversation
   const [fullMessages, setFullMessages] = useState<Message[]>([])

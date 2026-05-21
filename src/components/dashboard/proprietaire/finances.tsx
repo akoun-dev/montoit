@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { apiFetch } from '@/lib/capacitor'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
@@ -139,7 +140,7 @@ const itemVariants = {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 export function OwnerFinances() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [data, setData] = useState<FinancesData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -168,6 +169,15 @@ export function OwnerFinances() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // Realtime subscription for payments (re-fetch aggregated data)
+  useRealtimePayments({
+    userId: user?.id,
+    leaseIds: data?.recentPayments?.map((p) => p.lease?.id).filter(Boolean) as string[] | undefined,
+    onPaymentChange: () => {
+      fetchData()
+    },
+  })
 
   const handleSendReminder = async (reminder: PaymentReminder) => {
     setSendingReminder(reminder.paymentId)

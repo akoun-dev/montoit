@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { PaymentDialog } from './payment-dialog'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -139,6 +140,24 @@ export function Payments({ onDetail }: PaymentsProps) {
   }, [isAuthenticated])
 
   useEffect(() => { fetchPayments() }, [fetchPayments])
+
+  // Realtime subscription for payments
+  useRealtimePayments({
+    userId: user?.id,
+    onPaymentChange: (event, payment) => {
+      if (event === 'INSERT') {
+        fetchPayments()
+      } else {
+        setPayments((prev) =>
+          prev.map((p) =>
+            p.id === payment.id
+              ? { ...p, status: payment.status, paidAt: payment.paid_at, reference: payment.reference }
+              : p
+          )
+        )
+      }
+    },
+  })
 
   // Filter payments based on active tab
   const filteredPayments = payments.filter((p) => {

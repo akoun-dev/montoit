@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeMaintenance } from '@/hooks/use-realtime-maintenance'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -217,6 +218,28 @@ export function OwnerMaintenance() {
   useEffect(() => {
     fetchMaintenance()
   }, [fetchMaintenance])
+
+  // Derive owner lease IDs from existing requests for Realtime filtering
+  const ownerLeaseIds = requests.map((r) => r.lease?.id).filter(Boolean) as string[]
+
+  // Realtime subscription for maintenance
+  useRealtimeMaintenance({
+    userId: user?.id,
+    ownerLeaseIds,
+    onMaintenanceChange: (event, req) => {
+      if (event === 'INSERT') {
+        fetchMaintenance()
+      } else {
+        setRequests((prev) =>
+          prev.map((r) =>
+            r.id === req.id
+              ? { ...r, status: req.status, priority: req.priority, resolution: req.resolution, updatedAt: req.updated_at }
+              : r
+          )
+        )
+      }
+    },
+  })
 
   // ── Comments ───────────────────────────────────────────────────────────────
   const fetchComments = useCallback(

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRealtimeMessages, type RealtimeMessagePayload } from '@/hooks/use-realtime-messages'
 
 interface Participant {
   id: string
@@ -124,6 +125,59 @@ export function ProprietaireMessages() {
   }, [selectedId])
 
   const selected = conversations.find((c) => c.id === selectedId)
+
+  // ─── Realtime subscription for incoming messages ────────────────
+  useRealtimeMessages({
+    userId: user?.id,
+    onNewMessage: (payload: RealtimeMessagePayload) => {
+      const conv = conversations.find((c) => c.id === payload.conversation_id)
+      if (!conv) {
+        fetchConversations()
+        return
+      }
+
+      const sender = conv.participant1Id === payload.sender_id ? conv.participant1 : conv.participant2
+
+      const newMessage: Message = {
+        id: payload.id,
+        content: payload.content,
+        createdAt: payload.created_at,
+        isRead: payload.is_read,
+        senderId: payload.sender_id,
+        sender: {
+          id: sender.id,
+          firstName: sender.firstName,
+          lastName: sender.lastName,
+          avatarUrl: sender.avatarUrl,
+        },
+      }
+
+      if (selectedId === payload.conversation_id) {
+        setFullMessages((prev) => [...prev, newMessage])
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        }, 100)
+      }
+
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id !== payload.conversation_id) return c
+          return {
+            ...c,
+            messages: [...c.messages, newMessage],
+            lastMessageAt: payload.created_at,
+            unreadCount: selectedId === payload.conversation_id
+              ? c.unreadCount
+              : c.unreadCount + 1,
+          }
+        }).sort((a, b) => {
+          const aTime = a.lastMessageAt || a.createdAt
+          const bTime = b.lastMessageAt || b.createdAt
+          return new Date(bTime).getTime() - new Date(aTime).getTime()
+        })
+      )
+    },
+  })
 
   const [fullMessages, setFullMessages] = useState<Message[]>([])
   const [loadingMessages, setLoadingMessages] = useState(false)

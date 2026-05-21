@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { apiFetch } from '@/lib/capacitor'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
@@ -120,7 +121,7 @@ function SignatureStatus({ signed, label }: { signed: boolean; label: string }) 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function EnhancedLeases() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [activeTab, setActiveTab] = useState('active')
 
   // Data
@@ -198,6 +199,24 @@ export function EnhancedLeases() {
   }, [isAuthenticated])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Realtime subscription for leases
+  useRealtimeLeases({
+    userId: user?.id,
+    onLeaseChange: (event, lease) => {
+      if (event === 'INSERT') {
+        fetchData()
+      } else {
+        setAllLeases((prev) =>
+          prev.map((l) =>
+            l.id === lease.id
+              ? { ...l, status: lease.status, monthlyRent: lease.monthly_rent, charges: lease.charges, deposit: lease.deposit, startDate: lease.start_date, endDate: lease.end_date, ownerSignedAt: lease.owner_signed_at, tenantSignedAt: lease.tenant_signed_at }
+              : l
+          )
+        )
+      }
+    },
+  })
 
   // ─── Derived lists ──────────────────────────────────────────────────────
   const activeLeases = allLeases.filter((l) => l.status === 'ACTIVE')
