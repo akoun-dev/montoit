@@ -157,6 +157,7 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
   const [selectedProperty, setSelectedProperty] = useState<MapProperty | null>(null)
+  const [clusterProperties, setClusterProperties] = useState<MapProperty[]>([])
   const [mapZoomLevel, setMapZoomLevel] = useState(12)
   const [internalUserLocation, setInternalUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const hasAutoCenteredRef = useRef(false)
@@ -164,6 +165,13 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
   const userFlyInProgressRef = useRef(false)
   const userMarkerLayerRef = useRef<L.LayerGroup | null>(null)
   const userMarkerRenderFnRef = useRef<((loc: { lat: number; lng: number } | null, radius: number | null) => void) | null>(null)
+  // Refs for animated circle transitions
+  const userMarkerRef = useRef<L.Marker | null>(null)
+  const circleRef = useRef<L.Circle | null>(null)
+  const pulseCircleRef = useRef<L.Circle | null>(null)
+  const labelRef = useRef<L.Marker | null>(null)
+  const circleAnimRef = useRef<number | null>(null)
+  const currentRadiusRef = useRef<number | null>(null)
 
   // Geolocation hook for auto-detection (only when userLocation prop is not provided)
   const geo = useGeolocation({ enableHighAccuracy: true, timeout: 15000, maximumAge: 300000 })
@@ -392,53 +400,252 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
       function renderUserLocation(loc: { lat: number; lng: number } | null, radius: number | null) {
         const layer = userMarkerLayerRef.current
         if (!layer || !loc) return
-        layer.clearLayers()
 
-        // Pulsing blue dot
-        const userIcon = L.divIcon({
-          className: 'user-location-marker',
-          html: `
-            <div style="position: relative; width: 28px; height: 28px;">
-              <div class="user-pulse-ring" style="
-                position: absolute;
-                top: 50%; left: 50%;
-                transform: translate(-50%, -50%);
-                width: 28px; height: 28px;
-                border-radius: 50%;
-                background: rgba(59, 130, 246, 0.2);
-              "></div>
-              <div class="user-dot" style="
-                position: absolute;
-                top: 50%; left: 50%;
-                transform: translate(-50%, -50%);
-                width: 16px; height: 16px;
-                border-radius: 50%;
-                background: linear-gradient(135deg, #60A5FA, #3B82F6);
-                border: 3px solid white;
-                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
-                animation: userPulse 2s ease-in-out infinite;
-              "></div>
-            </div>
-          `,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14],
-        })
+        // Cancel any in-progress radius animation
+        if (circleAnimRef.current) {
+          cancelAnimationFrame(circleAnimRef.current)
+          circleAnimRef.current = null
+        }
 
-        const userMarker = L.marker([loc.lat, loc.lng], { icon: userIcon, zIndexOffset: 1000 })
-        userMarker.addTo(layer)
+        // --- First time setup: create user marker and circle elements ---
+        if (!userMarkerRef.current) {
+          layer.clearLayers()
 
-        // Radius circle
-        if (radius) {
-          const circle = L.circle([loc.lat, loc.lng], {
-            radius: radius * 1000,
-            color: '#3B82F6',
-            fillColor: '#3B82F6',
-            fillOpacity: 0.06,
-            weight: 2,
-            dashArray: '6 4',
-            opacity: 0.4,
+          // User dot icon
+          const userIcon = L.divIcon({
+            className: 'user-location-marker',
+            html: `
+              <div style="position: relative; width: 32px; height: 32px;">
+                <div class="user-pulse-ring" style="
+                  position: absolute;
+                  top: 50%; left: 50%;
+                  transform: translate(-50%, -50%);
+                  width: 32px; height: 32px;
+                  border-radius: 50%;
+                  background: rgba(255, 108, 47, 0.15);
+                  animation: userPulseRing 2s ease-in-out infinite;
+                "></div>
+                <div class="user-dot" style="
+                  position: absolute;
+                  top: 50%; left: 50%;
+                  transform: translate(-50%, -50%);
+                  width: 18px; height: 18px;
+                  border-radius: 50%;
+                  background: linear-gradient(135deg, #FF8C5A, #FF6C2F);
+                  border: 3px solid white;
+                  box-shadow: 0 2px 10px rgba(255, 108, 47, 0.5);
+                  animation: userPulse 2s ease-in-out infinite;
+                "></div>
+              </div>
+            `,
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
           })
-          circle.addTo(layer)
+
+          const um = L.marker([loc.lat, loc.lng], { icon: userIcon, zIndexOffset: 1000 })
+          um.addTo(layer)
+          userMarkerRef.current = um
+
+          // Create circle elements if radius is provided
+          if (radius && radius > 0) {
+            const rMeters = radius * 1000
+            const labelLat = loc.lat + rMeters / 111320
+
+            const c = L.circle([loc.lat, loc.lng], {
+              radius: rMeters,
+              color: '#FF6C2F',
+              fillColor: '#FF6C2F',
+              fillOpacity: 0.05,
+              weight: 2.5,
+              opacity: 0.55,
+            })
+            c.addTo(layer)
+            circleRef.current = c
+
+            const pc = L.circle([loc.lat, loc.lng], {
+              radius: rMeters,
+              color: '#FF6C2F',
+              fill: false,
+              weight: 4,
+              opacity: 0,
+              className: 'radius-pulse-circle',
+            })
+            pc.addTo(layer)
+            pulseCircleRef.current = pc
+
+            const radiusLabel = L.divIcon({
+              className: 'radius-label-marker',
+              html: `
+                <div style="
+                  background: rgba(255,108,47,0.92);
+                  backdrop-filter: blur(4px);
+                  color: white;
+                  font-size: 10px;
+                  font-weight: 700;
+                  padding: 3px 10px;
+                  border-radius: 20px;
+                  border: 2px solid white;
+                  box-shadow: 0 2px 8px rgba(255,108,47,0.3);
+                  white-space: nowrap;
+                  letter-spacing: 0.3px;
+                ">
+                  <span style="display:flex;align-items:center;gap:3px;">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <circle cx="12" cy="12" r="4"/>
+                    </svg>
+                    ${radius} km
+                  </span>
+                </div>
+              `,
+              iconSize: [0, 0],
+              iconAnchor: [24, 12],
+            })
+            const lm = L.marker([labelLat, loc.lng], { icon: radiusLabel, zIndexOffset: 1001 })
+            lm.addTo(layer)
+            labelRef.current = lm
+
+            currentRadiusRef.current = radius
+          }
+        } else {
+          // --- Subsequent calls: animate transitions smoothly ---
+
+          // Update user marker position if location changed
+          userMarkerRef.current.setLatLng([loc.lat, loc.lng])
+
+          // Handle radius change
+          const existingCircle = circleRef.current
+          const existingPulse = pulseCircleRef.current
+          const existingLabel = labelRef.current
+
+          if (radius && radius > 0) {
+            if (existingCircle && existingPulse && existingLabel) {
+              // Recreate label marker immediately so the text is correct
+              layer.removeLayer(existingLabel)
+              const rMeters = radius * 1000
+              const labelLat = loc.lat + rMeters / 111320
+              const radiusLabel = L.divIcon({
+                className: 'radius-label-marker',
+                html: `
+                  <div style="
+                    background: rgba(255,108,47,0.92);
+                    backdrop-filter: blur(4px);
+                    color: white;
+                    font-size: 10px;
+                    font-weight: 700;
+                    padding: 3px 10px;
+                    border-radius: 20px;
+                    border: 2px solid white;
+                    box-shadow: 0 2px 8px rgba(255,108,47,0.3);
+                    white-space: nowrap;
+                    letter-spacing: 0.3px;
+                  ">
+                    <span style="display:flex;align-items:center;gap:3px;">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <circle cx="12" cy="12" r="4"/>
+                      </svg>
+                      ${radius} km
+                    </span>
+                  </div>
+                `,
+                iconSize: [0, 0],
+                iconAnchor: [24, 12],
+              })
+              const newLabel = L.marker([labelLat, loc.lng], { icon: radiusLabel, zIndexOffset: 1001 })
+              newLabel.addTo(layer)
+              labelRef.current = newLabel
+
+              // Animate circles from current radius to new radius
+              const startR = (currentRadiusRef.current ?? radius) * 1000
+              const endR = radius * 1000
+              const startTime = performance.now()
+              const duration = 400
+
+              const animate = (now: number) => {
+                const t = Math.min((now - startTime) / duration, 1)
+                // Ease-out cubic
+                const eased = 1 - Math.pow(1 - t, 3)
+                const current = startR + (endR - startR) * eased
+
+                existingCircle.setRadius(current)
+                existingPulse.setRadius(current)
+
+                if (t < 1) {
+                  circleAnimRef.current = requestAnimationFrame(animate)
+                }
+              }
+
+              circleAnimRef.current = requestAnimationFrame(animate)
+              currentRadiusRef.current = radius
+            } else {
+              // No existing circles — create them
+              const rMeters = radius * 1000
+              const labelLat = loc.lat + rMeters / 111320
+
+              const c = L.circle([loc.lat, loc.lng], {
+                radius: rMeters,
+                color: '#FF6C2F',
+                fillColor: '#FF6C2F',
+                fillOpacity: 0.05,
+                weight: 2.5,
+                opacity: 0.55,
+              })
+              c.addTo(layer)
+              circleRef.current = c
+
+              const pc = L.circle([loc.lat, loc.lng], {
+                radius: rMeters,
+                color: '#FF6C2F',
+                fill: false,
+                weight: 4,
+                opacity: 0,
+                className: 'radius-pulse-circle',
+              })
+              pc.addTo(layer)
+              pulseCircleRef.current = pc
+
+              const radiusLabel = L.divIcon({
+                className: 'radius-label-marker',
+                html: `
+                  <div style="
+                    background: rgba(255,108,47,0.92);
+                    backdrop-filter: blur(4px);
+                    color: white;
+                    font-size: 10px;
+                    font-weight: 700;
+                    padding: 3px 10px;
+                    border-radius: 20px;
+                    border: 2px solid white;
+                    box-shadow: 0 2px 8px rgba(255,108,47,0.3);
+                    white-space: nowrap;
+                    letter-spacing: 0.3px;
+                  ">
+                    <span style="display:flex;align-items:center;gap:3px;">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <circle cx="12" cy="12" r="4"/>
+                      </svg>
+                      ${radius} km
+                    </span>
+                  </div>
+                `,
+                iconSize: [0, 0],
+                iconAnchor: [24, 12],
+              })
+              const lm = L.marker([labelLat, loc.lng], { icon: radiusLabel, zIndexOffset: 1001 })
+              lm.addTo(layer)
+              labelRef.current = lm
+
+              currentRadiusRef.current = radius
+            }
+          } else {
+            // Radius removed — remove circle elements from the map
+            if (existingCircle) { layer.removeLayer(existingCircle); circleRef.current = null }
+            if (existingPulse) { layer.removeLayer(existingPulse); pulseCircleRef.current = null }
+            if (existingLabel) { layer.removeLayer(existingLabel); labelRef.current = null }
+            currentRadiusRef.current = null
+          }
         }
       }
 
@@ -472,13 +679,27 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
             marker.on('click', () => {
               if (isTransitioningRef.current) return
               isTransitioningRef.current = true
+
+              // Show cluster properties in the React overlay
+              setClusterProperties(props)
+
+              // Fly to bounds to show individual markers
               const bounds = L.latLngBounds(validProps.map((p) => L.latLng(p.latitude ?? 0, p.longitude ?? 0)))
               map.flyToBounds(bounds.pad(0.3), {
                 animate: true,
                 duration: 0.6,
                 easeLinearity: 0.3,
               })
-              setTimeout(() => { isTransitioningRef.current = false }, 700)
+
+              // After fly animation, force zoom to at least 14 to show individual markers
+              const ensureZoom = () => {
+                if (map.getZoom() < 14) {
+                  map.setZoom(Math.max(map.getZoom(), 14), { animate: true })
+                }
+              }
+              setTimeout(ensureZoom, 700)
+
+              setTimeout(() => { isTransitioningRef.current = false }, 900)
             })
 
             // Add entrance delay for staggered animation (set after marker is rendered)
@@ -502,6 +723,7 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
 
             marker.on('click', () => {
               setSelectedProperty(property)
+              setClusterProperties([])
             })
 
             // Staggered animation delay (set after marker is rendered)
@@ -554,6 +776,17 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
     })
 
     return () => {
+      // Cancel any in-progress circle animation
+      if (circleAnimRef.current) {
+        cancelAnimationFrame(circleAnimRef.current)
+        circleAnimRef.current = null
+      }
+      // Reset user marker refs so they get recreated on remount
+      userMarkerRef.current = null
+      circleRef.current = null
+      pulseCircleRef.current = null
+      labelRef.current = null
+      currentRadiusRef.current = null
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null
@@ -726,6 +959,37 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
           }
         }
 
+        /* Radius circle edge pulse */
+        .radius-pulse-circle {
+          animation: radiusPulse 2.5s ease-in-out infinite !important;
+        }
+
+        @keyframes radiusPulse {
+          0%, 100% {
+            stroke-opacity: 0.6;
+            stroke-width: 2.5;
+          }
+          50% {
+            stroke-opacity: 0.15;
+            stroke-width: 6;
+          }
+        }
+
+        /* Radius label entrance */
+        .radius-label-marker {
+          animation: labelEntrance 0.4s ease-out both !important;
+        }
+        @keyframes labelEntrance {
+          0% {
+            opacity: 0;
+            transform: translateY(-8px) scale(0.8);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
         /* Smooth zoom transition */
         .leaflet-zoom-anim .leaflet-zoom-animated {
           transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -783,6 +1047,101 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
                   if (onPropertyClick) onPropertyClick(selectedProperty)
                 }}
               />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Cluster properties list overlay */}
+      <AnimatePresence>
+        {clusterProperties.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] sm:left-4 sm:translate-x-0 sm:bottom-6"
+          >
+            <div className="bg-card rounded-xl shadow-2xl border border-border overflow-hidden w-80 sm:w-72 max-h-[60vh]">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/40">
+                <div className="flex items-center gap-2">
+                  <MapPin className="size-4 text-brand-500" />
+                  <h3 className="text-sm font-bold text-foreground">
+                    {clusterProperties[0]?.commune || 'Groupe'}
+                  </h3>
+                  <span className="text-xs font-semibold text-brand-500 bg-brand-50 rounded-full px-2 py-0.5">
+                    {clusterProperties.length} bien{clusterProperties.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setClusterProperties([])}
+                  className="size-7 rounded-full bg-card/80 flex items-center justify-center hover:bg-accent transition-colors"
+                  aria-label="Fermer"
+                >
+                  <X className="size-3.5 text-muted-foreground" />
+                </button>
+              </div>
+
+              {/* List of properties */}
+              <div className="overflow-y-auto max-h-[50vh] divide-y divide-border">
+                {clusterProperties.map((property) => (
+                  <div
+                    key={property.id}
+                    className="flex items-center gap-3 p-3 hover:bg-muted/60 cursor-pointer transition-colors group"
+                    onClick={() => {
+                      if (onPropertyClick) onPropertyClick(property)
+                      setClusterProperties([])
+                    }}
+                  >
+                    {/* Thumbnail */}
+                    <div className="relative size-14 shrink-0 rounded-lg overflow-hidden bg-muted">
+                      {property.image ? (
+                        <Image
+                          src={property.image}
+                          alt={property.title}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          sizes="56px"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xl">
+                          {getTypeIcon(property)}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground line-clamp-1 mb-0.5">
+                        {property.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground line-clamp-1 mb-1">
+                        {property.address}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="font-bold text-brand-500">
+                          {property.price.toLocaleString('fr-FR')} F CFA
+                        </span>
+                        {property.bedrooms !== null && (
+                          <>
+                            <span className="text-muted-foreground/30">·</span>
+                            <span className="text-muted-foreground">
+                              {property.bedrooms} pièce{property.bedrooms > 1 ? 's' : ''}
+                            </span>
+                          </>
+                        )}
+                        <span className="text-muted-foreground/30">·</span>
+                        <span className="text-muted-foreground">{property.area} m²</span>
+                      </div>
+                    </div>
+
+                    {/* Arrow */}
+                    <ArrowRight className="size-4 text-muted-foreground/40 group-hover:text-brand-500 transition-colors shrink-0" />
+                  </div>
+                ))}
+              </div>
             </div>
           </motion.div>
         )}

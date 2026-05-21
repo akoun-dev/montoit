@@ -10,6 +10,10 @@ export async function GET() {
       .select('id', { count: 'exact', head: true })
       .eq('status', 'ACTIVE')
 
+    const { count: totalUsers } = await supabase
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+
     const { data: properties } = await supabase
       .from('properties')
       .select('views_count')
@@ -72,6 +76,7 @@ export async function GET() {
 
     return NextResponse.json({
       totalProperties: totalProperties || 0,
+      totalUsers: totalUsers || 0,
       monthlyVisitors,
       newToday: newToday || 0,
       satisfactionRate,

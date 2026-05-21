@@ -70,9 +70,17 @@ const faqItems = [
 
 const subjectOptions = [
   { value: 'information', label: 'Demande d\'information' },
+  { value: 'publication', label: 'Publication d\'annonce' },
+  { value: 'recherche', label: 'Recherche de logement' },
+  { value: 'paiement', label: 'Problème de paiement' },
+  { value: 'compte', label: 'Gestion du compte' },
+  { value: 'signalement', label: 'Signaler un problème' },
+  { value: 'kyc', label: 'Vérification KYC/ONECI' },
+  { value: 'bail', label: 'Questions sur les baux' },
   { value: 'technique', label: 'Problème technique' },
-  { value: 'partenariat', label: 'Partenariat' },
-  { value: 'autre', label: 'Autre' },
+  { value: 'partenariat', label: 'Partenariat commercial' },
+  { value: 'reclamation', label: 'Réclamation' },
+  { value: 'autre', label: 'Autre sujet' },
 ]
 
 export function Contact() {
