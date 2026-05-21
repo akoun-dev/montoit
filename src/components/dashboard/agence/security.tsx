@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Shield, Eye, Lock, FileText, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -9,22 +9,49 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeUsers } from '@/hooks/use-realtime-users'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
-const activityLogs = [
-  { id: '1', agent: 'Agent Konan', action: 'Connexion', date: '2025-05-17 08:30', ip: '192.168.1.1' },
-  { id: '2', agent: 'Agent Diallo', action: 'Modification mandat', date: '2025-05-16 14:15', ip: '192.168.1.2' },
-  { id: '3', agent: 'Agent Konan', action: 'Ajout bien', date: '2025-05-15 10:00', ip: '192.168.1.1' },
-  { id: '4', agent: 'Admin', action: 'Changement mot de passe', date: '2025-05-14 09:00', ip: '192.168.1.3' },
-]
+interface ActivityLog {
+  id: string; agentName: string; action: string; date: string; ip: string
+}
 
 export function AgenceSecurity() {
-  const { user } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([])
+  const [loading, setLoading] = useState(true)
   const [consent, setConsent] = useState({ marketing: false, analytics: true, thirdParty: false })
+
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) { setLoading(false); return }
+    try {
+      const data = await authFetch<{ logs: ActivityLog[] }>('/api/user/connection-logs?limit=50')
+      setActivityLogs(data.logs || [])
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) return
+      console.error('Failed to fetch connection logs:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  // Realtime: connection log updates
+  useRealtimeUsers({
+    userId: user?.id,
+    watchAll: true,
+    onUserChange: useCallback(() => {
+      fetchData()
+    }, [fetchData]),
+  })
+
+  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />)}</div>
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
@@ -75,26 +102,30 @@ export function AgenceSecurity() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Agent</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead className="hidden sm:table-cell">Date</TableHead>
-                  <TableHead className="hidden md:table-cell">IP</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {activityLogs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="text-xs font-medium">{log.agent}</TableCell>
-                    <TableCell className="text-xs">{log.action}</TableCell>
-                    <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">{log.date}</TableCell>
-                    <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{log.ip}</TableCell>
+            {activityLogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Aucune activité enregistrée</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Agent</TableHead>
+                    <TableHead>Action</TableHead>
+                    <TableHead className="hidden sm:table-cell">Date</TableHead>
+                    <TableHead className="hidden md:table-cell">IP</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {activityLogs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell className="text-xs font-medium">{log.agentName}</TableCell>
+                      <TableCell className="text-xs">{log.action}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">{log.date}</TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{log.ip}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </motion.div>

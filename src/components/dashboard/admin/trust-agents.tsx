@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeVerificationAgents } from '@/hooks/use-realtime-verification-agents'
+import { useRealtimeUsers } from '@/hooks/use-realtime-users'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -32,14 +34,8 @@ interface TrustAgentsData {
   agents: TrustAgent[]
 }
 
-const mockAgents: TrustAgent[] = [
-  { id: 'tc1', firstName: 'Yao', lastName: 'Kouassi', email: 'yao.k@montoit.ci', phone: '+225 07 01 01 01', isActive: true, createdAt: '2025-01-15T00:00:00Z', stats: { validationsCompleted: 47, avgProcessingTimeHours: 12, missionsAssigned: 15, missionsCompleted: 13 } },
-  { id: 'tc2', firstName: 'Awa', lastName: 'Diallo', email: 'awa.d@montoit.ci', phone: '+225 07 02 02 02', isActive: true, createdAt: '2025-02-10T00:00:00Z', stats: { validationsCompleted: 32, avgProcessingTimeHours: 18, missionsAssigned: 10, missionsCompleted: 8 } },
-  { id: 'tc3', firstName: 'Moussa', lastName: 'Koné', email: 'moussa.k@montoit.ci', phone: '+225 07 03 03 03', isActive: false, createdAt: '2025-03-01T00:00:00Z', stats: { validationsCompleted: 5, avgProcessingTimeHours: 48, missionsAssigned: 3, missionsCompleted: 1 } },
-]
-
 export function AdminTrustAgents() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const [agents, setAgents] = useState<TrustAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedAgent, setSelectedAgent] = useState<TrustAgent | null>(null)
@@ -47,24 +43,34 @@ export function AdminTrustAgents() {
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
-
     try {
-      const d = await authFetch<TrustAgentsData>('/api/admin/users?role=TIERS_CONFIANCE').catch(() => ({ agents: [] }))
-      if (d.agents && d.agents.length > 0) {
-        setAgents(d.agents)
-      } else {
-        // Use mock data for demo
-        setAgents(mockAgents)
-      }
+      const d = await authFetch<TrustAgentsData>('/api/admin/users?role=TIERS_CONFIANCE')
+      setAgents(d.agents || [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
-      setAgents(mockAgents)
+      console.error('Failed to fetch trust agents:', err)
     } finally {
       setLoading(false)
     }
   }, [isAuthenticated])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useRealtimeVerificationAgents({
+    userId: user?.id,
+    watchAll: true,
+    onVerificationAgentChange: useCallback(() => {
+      fetchData()
+    }, [fetchData]),
+  })
+
+  useRealtimeUsers({
+    userId: user?.id,
+    watchAll: true,
+    onUserChange: useCallback(() => {
+      fetchData()
+    }, [fetchData]),
+  })
 
   const totalValidations = agents.reduce((sum, a) => sum + a.stats.validationsCompleted, 0)
   const activeAgents = agents.filter(a => a.isActive).length
@@ -162,6 +168,14 @@ export function AdminTrustAgents() {
             </CardContent>
           </Card>
         ))}
+        {agents.length === 0 && (
+          <Card className="border-border col-span-full">
+            <CardContent className="py-8 text-center">
+              <Shield className="size-10 text-muted-foreground/50 mx-auto mb-3" />
+              <p className="text-muted-foreground">Aucun agent TC trouvé</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Assign Missions Overview */}
@@ -240,22 +254,15 @@ export function AdminTrustAgents() {
                   </Badge>
                 </div>
               </div>
-              <CardDescription>Historique des validations</CardDescription>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                <div className="flex items-center gap-2 p-2 rounded border border-border text-sm">
-                  <CheckCircle className="size-4 text-green-600" />
-                  <span>Dossier locatif #DL-001 — Validé</span>
-                  <span className="ml-auto text-xs text-muted-foreground">Il y a 2h</span>
+              <CardDescription>Statistiques de validation</CardDescription>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg bg-muted text-center">
+                  <p className="text-lg font-bold text-foreground">{selectedAgent.stats.validationsCompleted}</p>
+                  <p className="text-xs text-muted-foreground">Validations</p>
                 </div>
-                <div className="flex items-center gap-2 p-2 rounded border border-border text-sm">
-                  <CheckCircle className="size-4 text-green-600" />
-                  <span>Document propriété #DP-003 — Validé</span>
-                  <span className="ml-auto text-xs text-muted-foreground">Il y a 5h</span>
-                </div>
-                <div className="flex items-center gap-2 p-2 rounded border border-border text-sm">
-                  <Clock className="size-4 text-amber-600" />
-                  <span>Vérification bien #VB-007 — En cours</span>
-                  <span className="ml-auto text-xs text-muted-foreground">Il y a 1j</span>
+                <div className="p-3 rounded-lg bg-muted text-center">
+                  <p className="text-lg font-bold text-foreground">{selectedAgent.stats.avgProcessingTimeHours}h</p>
+                  <p className="text-xs text-muted-foreground">Temps moyen</p>
                 </div>
               </div>
             </div>

@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeUsers } from '@/hooks/use-realtime-users'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -27,18 +28,8 @@ interface SecurityData {
   adminActions: AuditEntry[]
 }
 
-const mockFailedLogins: AuditEntry[] = [
-  { id: '1', action: 'LOGIN_FAILED', entity: 'Session', details: 'Mot de passe incorrect', createdAt: new Date().toISOString(), user: { firstName: 'Ibrahim', lastName: 'Koné', email: 'ibrahim@test.ci' } },
-  { id: '2', action: 'LOGIN_FAILED', entity: 'Session', details: 'Compte inexistant', createdAt: new Date().toISOString(), user: { firstName: 'Unknown', lastName: 'User', email: 'unknown@test.ci' } },
-]
-
-const mockAdminActions: AuditEntry[] = [
-  { id: 'a1', action: 'USER_ROLE_CHANGED', entity: 'User', details: 'LOCATAIRE → PROPRIETAIRE', createdAt: new Date().toISOString(), user: { firstName: 'Admin', lastName: 'MonToit', email: 'admin@montoit.ci' } },
-  { id: 'a2', action: 'USER_BANNED', entity: 'User', details: 'Violation des conditions', createdAt: new Date().toISOString(), user: { firstName: 'Admin', lastName: 'MonToit', email: 'admin@montoit.ci' } },
-]
-
 export function AdminSecurity() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [failedLogins, setFailedLogins] = useState<AuditEntry[]>([])
   const [adminActions, setAdminActions] = useState<AuditEntry[]>([])
@@ -49,21 +40,27 @@ export function AdminSecurity() {
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
-
     try {
-      const d = await authFetch<SecurityData>('/api/admin/system').catch(() => null)
-      setFailedLogins(d?.failedLogins?.length ? (d.failedLogins as unknown as AuditEntry[]) : mockFailedLogins)
-      setAdminActions(mockAdminActions)
+      const d = await authFetch<SecurityData>('/api/admin/audit-logs?limit=50')
+      setFailedLogins(d.failedLogins || [])
+      setAdminActions(d.adminActions || [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
-      setFailedLogins(mockFailedLogins)
-      setAdminActions(mockAdminActions)
+      console.error('Failed to fetch security data:', err)
     } finally {
       setLoading(false)
     }
   }, [isAuthenticated])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useRealtimeUsers({
+    userId: user?.id,
+    watchAll: true,
+    onUserChange: useCallback(() => {
+      fetchData()
+    }, [fetchData]),
+  })
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 
@@ -89,7 +86,7 @@ export function AdminSecurity() {
                 <AlertTriangle className="size-5 text-red-600" />
                 Tentatives de connexion échouées
               </CardTitle>
-              <CardDescription>Depuis AuditLog (action = LOGIN_FAILED)</CardDescription>
+              <CardDescription>Depuis les logs d&apos;audit</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">

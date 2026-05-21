@@ -1,5 +1,6 @@
 'use client'
 
+import { useCallback, useEffect, useState } from 'react'
 import { Database, Play, Download, Trash2, RotateCcw, Clock, CheckCircle, AlertTriangle, HardDrive } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -7,7 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
-import { useState } from 'react'
+import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 
 interface Backup {
   id: string
@@ -17,23 +19,46 @@ interface Backup {
   status: 'completed' | 'in_progress' | 'failed'
 }
 
-const mockBackups: Backup[] = [
-  { id: 'b1', name: 'backup_2025-05-17_04h00', date: '2025-05-17T04:00:00Z', size: '142 Mo', status: 'completed' },
-  { id: 'b2', name: 'backup_2025-05-16_04h00', date: '2025-05-16T04:00:00Z', size: '139 Mo', status: 'completed' },
-  { id: 'b3', name: 'backup_2025-05-15_04h00', date: '2025-05-15T04:00:00Z', size: '137 Mo', status: 'completed' },
-  { id: 'b4', name: 'backup_2025-05-14_04h00', date: '2025-05-14T04:00:00Z', size: '135 Mo', status: 'failed' },
-  { id: 'b5', name: 'backup_2025-05-13_04h00', date: '2025-05-13T04:00:00Z', size: '133 Mo', status: 'completed' },
-]
+interface BackupsResponse {
+  backups: Backup[]
+  stats: {
+    totalBackups: number
+    lastBackupSize: string
+    failedCount: number
+  }
+}
 
 export function AdminBackups() {
-  const [backups] = useState<Backup[]>(mockBackups)
+  const { isAuthenticated, user } = useAuthStore()
+  const [backups, setBackups] = useState<Backup[]>([])
+  const [stats, setStats] = useState<BackupsResponse['stats'] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [restoreDialog, setRestoreDialog] = useState<{ open: boolean; backup: Backup | null }>({ open: false, backup: null })
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; backup: Backup | null }>({ open: false, backup: null })
   const [triggering, setTriggering] = useState(false)
 
+  const fetchBackups = useCallback(async () => {
+    if (!isAuthenticated) { setLoading(false); return }
+    try {
+      const data = await authFetch<BackupsResponse>('/api/admin/backups')
+      setBackups(data.backups ?? [])
+      setStats(data.stats ?? null)
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) { setBackups([]); return }
+      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      setBackups([])
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => { fetchBackups() }, [fetchBackups])
+
   const handleTriggerBackup = () => {
     setTriggering(true)
     setTimeout(() => {
+      fetchBackups()
       toast.success('Sauvegarde manuelle lancée')
       setTriggering(false)
     }, 1500)

@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/select'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
+import { useRealtimeUsers } from '@/hooks/use-realtime-users'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -21,13 +23,6 @@ interface OwnerClient {
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
-const mockClients: OwnerClient[] = [
-  { id: '1', firstName: 'Kouadio', lastName: 'Yao', email: 'kouadio@email.ci', phone: '+225 07 00 00 00', status: 'actif', propertiesCount: 3, lastActivity: '2025-05-10' },
-  { id: '2', firstName: 'Aminata', lastName: 'Diallo', email: 'aminata@email.ci', phone: '+225 05 00 00 00', status: 'actif', propertiesCount: 1, lastActivity: '2025-05-08' },
-  { id: '3', firstName: 'Jean', lastName: 'Koné', email: 'jean@email.ci', phone: null, status: 'prospect', propertiesCount: 0, lastActivity: '2025-04-20' },
-  { id: '4', firstName: 'Marie', lastName: 'Bamba', email: 'marie@email.ci', phone: '+225 01 00 00 00', status: 'inactif', propertiesCount: 2, lastActivity: '2025-03-15' },
-]
-
 const statusConfig: Record<string, { label: string; cls: string }> = {
   actif: { label: 'Actif', cls: 'bg-green-100 text-green-700' },
   inactif: { label: 'Inactif', cls: 'bg-neutral-100 text-neutral-500' },
@@ -35,13 +30,49 @@ const statusConfig: Record<string, { label: string; cls: string }> = {
 }
 
 export function ClientFiles() {
-  const { isAuthenticated } = useAuthStore()
-  const [clients] = useState<OwnerClient[]>(mockClients)
+  const { isAuthenticated, user } = useAuthStore()
+  const [clients, setClients] = useState<OwnerClient[]>([])
+  const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [selectedClient, setSelectedClient] = useState<OwnerClient | null>(null)
   const [note, setNote] = useState('')
 
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) { setLoading(false); return }
+    try {
+      const data = await authFetch<{ clients: OwnerClient[] }>('/api/agence/users?role=PROPRIETAIRE')
+      setClients(data.clients || [])
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) return
+      console.error('Failed to fetch clients:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  // Realtime: watch rental file changes for client activity updates
+  useRealtimeRentalFiles({
+    userId: user?.id,
+    watchAll: true,
+    onRentalFileChange: useCallback(() => {
+      fetchData()
+    }, [fetchData]),
+  })
+
+  // Realtime: watch user profile changes for client info updates
+  useRealtimeUsers({
+    userId: user?.id,
+    watchAll: true,
+    onUserChange: useCallback(() => {
+      fetchData()
+    }, [fetchData]),
+  })
+
   const filtered = clients.filter((c) => statusFilter === 'all' || c.status === statusFilter)
+
+  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}</div>
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
@@ -110,7 +141,7 @@ export function ClientFiles() {
                       <FileText className="size-4 text-[#FF6C2F]" />
                       <span className="text-sm font-medium">Documents</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">3 documents stockés</p>
+                    <p className="text-xs text-muted-foreground">Documents disponibles</p>
                     <Button variant="ghost" size="sm" className="text-[#FF6C2F] text-xs mt-1">Voir les documents</Button>
                   </div>
                 </div>
@@ -122,9 +153,7 @@ export function ClientFiles() {
                     <span className="text-sm font-medium">Historique d&apos;activité</span>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">• Dernière activité : {new Date(selectedClient.lastActivity).toLocaleDateString('fr-FR')}</p>
-                    <p className="text-xs text-muted-foreground">• Visite planifiée le 15/06/2025</p>
-                    <p className="text-xs text-muted-foreground">• Paiement reçu le 01/05/2025</p>
+                    <p className="text-xs text-muted-foreground">• Dernière activité : {selectedClient.lastActivity ? new Date(selectedClient.lastActivity).toLocaleDateString('fr-FR') : 'N/A'}</p>
                   </div>
                 </div>
 

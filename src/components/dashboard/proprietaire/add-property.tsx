@@ -589,7 +589,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
         toast.success('Brouillon sauvegardé')
       }
     } catch (err) {
-      const errMsg = err instanceof AuthError ? err.message : 'Erreur lors de la sauvegarde du brouillon'
+      const errMsg = err instanceof AuthError ? err.message : (err instanceof Error ? err.message : 'Erreur lors de la sauvegarde du brouillon')
       if (!silent) {
         toast.error(errMsg)
       } else {
