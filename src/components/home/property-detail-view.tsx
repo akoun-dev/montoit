@@ -1022,19 +1022,6 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                 </Button>
               </div>
 
-              {/* Safety tips */}
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircle className="size-4 text-amber-600" />
-                  <p className="text-xs font-semibold text-amber-800">Conseils de sécurité</p>
-                </div>
-                <ul className="text-[11px] text-amber-700 space-y-1">
-                  <li>· Ne payez jamais avant la visite</li>
-                  <li>· Vérifiez les documents du propriétaire</li>
-                  <li>· Signalez toute démarche suspecte</li>
-                </ul>
-              </div>
-
               {/* États des Lieux (visible si des rapports existent) */}
               {!inventoryLoading && inventoryReports.length > 0 && (
                 <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
@@ -1085,6 +1072,19 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                   </div>
                 </div>
               )}
+
+              {/* Safety tips */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="size-4 text-amber-600" />
+                  <p className="text-xs font-semibold text-amber-800">Conseils de sécurité</p>
+                </div>
+                <ul className="text-[11px] text-amber-700 space-y-1">
+                  <li>· Ne payez jamais avant la visite</li>
+                  <li>· Vérifiez les documents du propriétaire</li>
+                  <li>· Signalez toute démarche suspecte</li>
+                </ul>
+              </div>
             </div>
           </motion.aside>
         </div>
@@ -1551,6 +1551,23 @@ function ContactTab({
             <CheckCircle2 className="size-10 text-emerald-500 mx-auto mb-3" />
             <p className="text-sm font-semibold text-foreground mb-1">Message envoyé !</p>
             <p className="text-xs text-muted-foreground">Le propriétaire vous répondra dans les plus brefs délais.</p>
+          </div>
+        ) : !isAuthenticated ? (
+          <div className="text-center py-6 space-y-3">
+            <div className="size-12 bg-brand-50 rounded-full flex items-center justify-center mx-auto">
+              <LogIn className="size-6 text-brand-500" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-1">Connectez-vous pour contacter le propriétaire</p>
+              <p className="text-xs text-muted-foreground">Vous devez être connecté pour envoyer un message au propriétaire de ce bien.</p>
+            </div>
+            <Button
+              onClick={() => setView('login')}
+              className="w-full bg-brand-500 hover:bg-brand-600 text-white h-10 text-sm font-semibold"
+            >
+              <LogIn className="size-4 mr-1.5" />
+              Se connecter
+            </Button>
           </div>
         ) : (
           <div className="space-y-3">
