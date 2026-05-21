@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Calendar, Clock, MapPin, User, CheckCircle2, Bell, MessageSquare } from 'lucide-react'
+import { Calendar, Clock, MapPin, User, CheckCircle2, Bell, MessageSquare, Search } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
@@ -41,7 +43,9 @@ export function AgenceVisits() {
   const [visits, setVisits] = useState<VisitRequest[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -51,12 +55,18 @@ export function AgenceVisits() {
       setAgents(d.agents ?? [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
+      setError(true)
     } finally { setLoading(false) }
   }, [isAuthenticated])
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const filtered = visits.filter((v) => statusFilter === 'all' || v.status === statusFilter)
+  const filtered = visits.filter((v) => {
+    const matchesStatus = statusFilter === 'all' || v.status === statusFilter
+    const matchesSearch = !searchQuery ||
+      `${v.tenant.firstName} ${v.tenant.lastName} ${v.property.title}`.toLowerCase().includes(searchQuery.toLowerCase())
+    return matchesStatus && matchesSearch
+  })
 
   // Group by date for calendar view
   const groupedByDate = filtered.reduce<Record<string, VisitRequest[]>>((acc, v) => {
@@ -70,7 +80,9 @@ export function AgenceVisits() {
   const upcomingVisits = visits.filter((v) => v.status === 'ACCEPTED')
   const completedVisits = visits.filter((v) => v.status === 'COMPLETED')
 
-  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-40 rounded-xl bg-muted animate-pulse" />)}</div>
+  if (loading) return <div className="space-y-6"><div><div className="h-8 w-48 bg-muted animate-pulse rounded" /><div className="h-4 w-64 bg-muted animate-pulse rounded mt-2" /></div><div className="flex gap-2">{[1,2,3].map((i) => <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-lg" />)}</div>{[1,2,3].map((i) => <div key={i} className="h-40 rounded-xl bg-muted animate-pulse" />)}</div>
+
+  if (error) return <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6"><motion.div variants={itemVariants}><h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2"><Calendar className="size-5 sm:size-6 text-[#FF6C2F]" /> Visites</h1><p className="text-muted-foreground mt-1">Impossible de charger les visites</p></motion.div><Card className="border-amber-200 bg-amber-50"><CardContent className="p-4"><p className="text-sm text-amber-700">Impossible de charger. Veuillez réessayer.</p></CardContent></Card></motion.div>
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
@@ -85,41 +97,65 @@ export function AgenceVisits() {
 
       {/* Stats */}
       <motion.div variants={itemVariants} className="grid sm:grid-cols-3 gap-4">
-        <Card className="border-amber-200 bg-amber-50/50">
-          <CardContent className="p-4 flex items-center gap-3">
+        <button onClick={() => setStatusFilter(statusFilter === 'PENDING' ? 'all' : 'PENDING')}
+          className={cn('relative overflow-hidden rounded-xl border p-4 text-left transition-all hover:shadow-md', statusFilter === 'PENDING' ? 'border-amber-300 bg-amber-50 ring-2 ring-amber-200' : 'border-amber-200 bg-amber-50/50')}>
+          <div className="flex items-center gap-3">
             <Clock className="size-8 text-amber-500" />
             <div><p className="text-xl sm:text-2xl font-bold text-amber-700">{pendingVisits.length}</p><p className="text-xs text-amber-600">En attente</p></div>
-          </CardContent>
-        </Card>
-        <Card className="border-green-200 bg-green-50/50">
-          <CardContent className="p-4 flex items-center gap-3">
+          </div>
+        </button>
+        <button onClick={() => setStatusFilter(statusFilter === 'ACCEPTED' ? 'all' : 'ACCEPTED')}
+          className={cn('relative overflow-hidden rounded-xl border p-4 text-left transition-all hover:shadow-md', statusFilter === 'ACCEPTED' ? 'border-green-300 bg-green-50 ring-2 ring-green-200' : 'border-green-200 bg-green-50/50')}>
+          <div className="flex items-center gap-3">
             <CheckCircle2 className="size-8 text-green-500" />
             <div><p className="text-xl sm:text-2xl font-bold text-green-700">{upcomingVisits.length}</p><p className="text-xs text-green-600">Acceptées</p></div>
-          </CardContent>
-        </Card>
-        <Card className="border-teal-200 bg-teal-50/50">
-          <CardContent className="p-4 flex items-center gap-3">
+          </div>
+        </button>
+        <button onClick={() => setStatusFilter(statusFilter === 'COMPLETED' ? 'all' : 'COMPLETED')}
+          className={cn('relative overflow-hidden rounded-xl border p-4 text-left transition-all hover:shadow-md', statusFilter === 'COMPLETED' ? 'border-teal-300 bg-teal-50 ring-2 ring-teal-200' : 'border-teal-200 bg-teal-50/50')}>
+          <div className="flex items-center gap-3">
             <MapPin className="size-8 text-teal-500" />
             <div><p className="text-xl sm:text-2xl font-bold text-teal-700">{completedVisits.length}</p><p className="text-xs text-teal-600">Terminées</p></div>
-          </CardContent>
-        </Card>
+          </div>
+        </button>
       </motion.div>
 
-      {/* Filter */}
-      <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-3">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Filtrer par statut" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tous</SelectItem>
-            <SelectItem value="PENDING">En attente</SelectItem>
-            <SelectItem value="ACCEPTED">Acceptée</SelectItem>
-            <SelectItem value="COMPLETED">Terminée</SelectItem>
-            <SelectItem value="REJECTED">Refusée</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="outline" size="sm" className="gap-1" onClick={() => toast.info('Rappels envoyés')}>
-          <Bell className="size-3" /> Envoyer rappels
-        </Button>
+      {/* Search & Filters */}
+      <motion.div variants={itemVariants} className="space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Rechercher par locataire ou bien..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-10"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { value: 'all', label: 'Toutes' },
+            { value: 'PENDING', label: 'En attente' },
+            { value: 'ACCEPTED', label: 'Acceptée' },
+            { value: 'COMPLETED', label: 'Terminée' },
+            { value: 'REJECTED', label: 'Refusée' },
+          ].map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setStatusFilter(tab.value)}
+              className={cn(
+                'px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors',
+                statusFilter === tab.value
+                  ? 'bg-brand-500 text-white'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+          <Button variant="outline" size="sm" className="gap-1 ml-auto" onClick={() => toast.info('Rappels envoyés')}>
+            <Bell className="size-3" /> Envoyer rappels
+          </Button>
+        </div>
       </motion.div>
 
       {/* Calendar View */}

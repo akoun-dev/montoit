@@ -131,6 +131,7 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
   // Signing flow state
   const [showSignDialog, setShowSignDialog] = useState(false)
   const [signing, setSigning] = useState(false)
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
 
   const fetchLease = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }

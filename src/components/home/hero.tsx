@@ -17,12 +17,23 @@ import {
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { CITIES } from '@/lib/cities'
 
+const PROPERTY_TYPES = [
+  { value: 'APPARTEMENT', label: 'Appartement' },
+  { value: 'MAISON', label: 'Maison' },
+  { value: 'STUDIO', label: 'Studio' },
+  { value: 'CHAMBRE', label: 'Chambre' },
+  { value: 'DUPLEX', label: 'Duplex' },
+  { value: 'PENTHOUSE', label: 'Penthouse' },
+  { value: 'VILLA', label: 'Villa' },
+  { value: 'CONCESSION', label: 'Concession' },
+  { value: 'IMMEUBLE', label: 'Immeuble' },
+]
+
 interface Stats {
   totalProperties: number
   monthlyVisitors: number
   newToday: number
   satisfactionRate: number
-  propertyTypes: string[]
 }
 
 const fadeUp = {
@@ -52,7 +63,7 @@ export function Hero() {
       .then((res) => res.json())
       .then((data) => setStats(data))
       .catch(() => {
-        setStats({ totalProperties: 0, monthlyVisitors: 0, newToday: 0, satisfactionRate: 0, propertyTypes: [] })
+        setStats({ totalProperties: 0, monthlyVisitors: 0, newToday: 0, satisfactionRate: 0 })
       })
   }, [])
 
@@ -147,8 +158,8 @@ export function Hero() {
                 <SelectValue placeholder="Type de bien" />
               </SelectTrigger>
               <SelectContent>
-                {(stats?.propertyTypes ?? []).map((type) => (
-                  <SelectItem key={type} value={type}>{type.charAt(0) + type.slice(1).toLowerCase()}</SelectItem>
+                {PROPERTY_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

@@ -614,7 +614,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   }
 
   const features = [
-    { icon: BedDouble, label: 'Chambres', value: property.bedrooms ?? '—' },
+    { icon: BedDouble, label: 'Pièces', value: property.bedrooms ?? '—' },
     { icon: ShowerHead, label: 'SdB', value: property.bathrooms ?? '—' },
     { icon: Maximize, label: 'Surface', value: `${property.area} m²` },
     { icon: Car, label: 'Parking', value: property.hasParking ? 'Oui' : 'Non' },

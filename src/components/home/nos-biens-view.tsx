@@ -95,6 +95,25 @@ const radiusOptions = [
   { label: '50 km', value: '50' },
 ]
 
+// ── Property types ──────────────────────────────────────────────────────────
+
+const PROPERTY_TYPES = [
+  'APPARTEMENT', 'MAISON', 'STUDIO', 'CHAMBRE', 'DUPLEX',
+  'PENTHOUSE', 'VILLA', 'CONCESSION', 'IMMEUBLE',
+]
+
+const PROPERTY_TYPE_LABELS: Record<string, string> = {
+  APPARTEMENT: 'Appartement',
+  MAISON: 'Maison',
+  STUDIO: 'Studio',
+  CHAMBRE: 'Chambre',
+  DUPLEX: 'Duplex',
+  PENTHOUSE: 'Penthouse',
+  VILLA: 'Villa',
+  CONCESSION: 'Concession',
+  IMMEUBLE: 'Immeuble',
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatPrice(price: number): string {
@@ -102,7 +121,7 @@ function formatPrice(price: number): string {
 }
 
 function formatPropertyType(type: string): string {
-  return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()
+  return PROPERTY_TYPE_LABELS[type] || (type.charAt(0).toUpperCase() + type.slice(1).toLowerCase())
 }
 
 function getPropertyLocation(property: Property): string {
@@ -188,7 +207,6 @@ interface FilterSidebarProps {
   resultCount: number
   hasActiveFilters: boolean
   resetFilters: () => void
-  propertyTypes: string[]
   userLocation: { lat: number; lng: number } | null
   radiusFilter: string
   setRadiusFilter: (v: string) => void
@@ -213,7 +231,6 @@ function FilterSidebar({
   resultCount,
   hasActiveFilters,
   resetFilters,
-  propertyTypes,
   userLocation,
   radiusFilter,
   setRadiusFilter,
@@ -258,7 +275,7 @@ function FilterSidebar({
           >
             Tous
           </button>
-          {propertyTypes.map((type) => (
+          {PROPERTY_TYPES.map((type) => (
             <button
               key={type}
               onClick={() => setTypeFilter(type)}
@@ -763,9 +780,6 @@ export function NosBiensView() {
   const propertyIds = useMemo(() => properties.map(p => p.id), [properties])
   const { isFavorite, toggleFavorite } = useFavorites(propertyIds)
 
-  // Dynamic filter options from DB
-  const [propertyTypes, setPropertyTypes] = useState<string[]>([])
-
   // Filter state — initialize from search params passed from Hero
   const [searchQuery, setSearchQuery] = useState(searchParams.query || '')
   const [typeFilter, setTypeFilter] = useState<string>(searchParams.propertyType || 'Tous')
@@ -838,17 +852,10 @@ export function NosBiensView() {
     async function fetchData() {
       try {
         setIsLoading(true)
-        const [propertiesRes, statsRes] = await Promise.all([
-          apiFetch('/api/properties?all=true'),
-          apiFetch('/api/stats'),
-        ])
+        const propertiesRes = await apiFetch('/api/properties?all=true')
         if (!propertiesRes.ok) throw new Error('Erreur lors du chargement')
         const propertiesData = await propertiesRes.json()
         setProperties(propertiesData.properties || [])
-          if (statsRes.ok) {
-          const statsData = await statsRes.json()
-          setPropertyTypes(statsData.propertyTypes || [])
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erreur inconnue')
       } finally {
@@ -984,7 +991,6 @@ export function NosBiensView() {
     resultCount: filteredProperties.length,
     hasActiveFilters,
     resetFilters,
-    propertyTypes,
     userLocation,
     radiusFilter,
     setRadiusFilter,
@@ -1168,7 +1174,7 @@ export function NosBiensView() {
                   Filtres
                 </h2>
               </div>
-              <div className="px-4 py-6 overflow-y-auto max-h-[calc(100vh-120px)]">
+              <div className="px-4 py-4 overflow-y-auto max-h-[calc(100vh-120px)]">
                 <FilterSidebar {...filterSidebarProps} showHeader={false} />
               </div>
               <div className="px-4 pb-4 mt-auto">

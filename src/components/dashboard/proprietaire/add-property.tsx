@@ -1056,14 +1056,14 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="bedrooms" className="text-xs font-medium">Chambres</Label>
+              <Label htmlFor="bedrooms" className="text-xs font-medium">Pièces</Label>
               <Input
                 id="bedrooms"
                 type="number"
                 placeholder="2"
                 value={form.bedrooms}
                 onChange={(e) => update('bedrooms', e.target.value)}
-                className="h-9 text-sm"
+                className="h-9 text-sm w-auto"
               />
             </div>
             <div className="space-y-1.5">

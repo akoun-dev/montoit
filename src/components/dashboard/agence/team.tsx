@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Users, Plus, Mail, Phone, ToggleLeft, ToggleRight, Building2, CreditCard } from 'lucide-react'
+import {
+  Users, Plus, Mail, Phone, ToggleLeft, ToggleRight, Building2,
+  CreditCard, Search, BadgeCheck,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,13 +15,11 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 interface Agent {
   id: string; firstName: string; lastName: string; email: string; phone: string | null
@@ -33,10 +34,16 @@ const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 }
 const roleLabels: Record<string, string> = { ADMIN: 'Admin', AGENT: 'Agent', READ_ONLY: 'Lecture seule' }
 const statusLabels: Record<string, string> = { ACTIVE: 'Actif', INACTIVE: 'Inactif' }
 
+function getInitials(first: string, last: string) {
+  return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase()
+}
+
 export function TeamManagement() {
   const { isAuthenticated } = useAuthStore()
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', role: 'AGENT' })
@@ -88,10 +95,39 @@ export function TeamManagement() {
     } catch { toast.error('Erreur lors du changement de statut') }
   }
 
-  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}</div>
+  const stats = {
+    all: agents.length,
+    ACTIVE: agents.filter((a) => a.status === 'ACTIVE').length,
+    INACTIVE: agents.filter((a) => a.status === 'INACTIVE').length,
+  }
+
+  const tabs = [
+    { key: 'all', label: 'Total agents', count: stats.all },
+    { key: 'ACTIVE', label: 'Actifs', count: stats.ACTIVE },
+    { key: 'INACTIVE', label: 'Inactifs', count: stats.INACTIVE },
+  ]
+
+  const filtered = agents.filter((a) => {
+    if (statusFilter !== 'all' && a.status !== statusFilter) return false
+    if (search) {
+      const q = search.toLowerCase()
+      const name = `${a.firstName} ${a.lastName}`.toLowerCase()
+      if (!name.includes(q) && !a.email.toLowerCase().includes(q)) return false
+    }
+    return true
+  })
+
+  if (loading) return (
+    <div className="space-y-6">
+      <div><div className="h-8 w-56 bg-muted animate-pulse rounded" /><div className="h-4 w-72 bg-muted animate-pulse rounded mt-2" /></div>
+      <div className="flex gap-2">{[1,2,3].map((i) => <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-lg" />)}</div>
+      {[1,2,3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}
+    </div>
+  )
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
+      {/* Header */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
@@ -130,66 +166,161 @@ export function TeamManagement() {
         </Dialog>
       </motion.div>
 
+      {/* Stats cards */}
       <motion.div variants={itemVariants}>
-        <Card className="border-border">
-          <CardContent className="p-0 overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead className="hidden sm:table-cell">Email</TableHead>
-                  <TableHead className="hidden md:table-cell">Téléphone</TableHead>
-                  <TableHead>Rôle</TableHead>
-                  <TableHead className="hidden sm:table-cell">Biens</TableHead>
-                  <TableHead className="hidden md:table-cell">Commissions</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {agents.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      Aucun agent dans votre équipe
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  agents.map((agent) => (
-                    <TableRow key={agent.id}>
-                      <TableCell className="font-medium">{agent.firstName} {agent.lastName}</TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <span className="flex items-center gap-1.5 text-xs"><Mail className="size-3" />{agent.email}</span>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <span className="flex items-center gap-1.5 text-xs"><Phone className="size-3" />{agent.phone || '—'}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className="bg-orange-100 text-orange-700">{roleLabels[agent.role] || agent.role}</Badge>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <span className="flex items-center gap-1 text-xs"><Building2 className="size-3" />{agent.assignedPropertiesCount}</span>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <span className="flex items-center gap-1 text-xs"><CreditCard className="size-3" />{agent.totalCommissions.toLocaleString('fr-FR')} FCFA</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={agent.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-500'}>
-                          {statusLabels[agent.status] || agent.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => toggleAgentStatus(agent)} className="gap-1">
-                          {agent.status === 'ACTIVE' ? <ToggleRight className="size-4 text-green-500" /> : <ToggleLeft className="size-4 text-neutral-400" />}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-3 gap-3">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setStatusFilter(tab.key)}
+              className={cn(
+                'p-3 rounded-xl border text-left transition-all',
+                statusFilter === tab.key
+                  ? 'border-[#FF6C2F] bg-orange-50 shadow-sm'
+                  : 'border-border bg-card hover:bg-muted/50'
+              )}
+            >
+              <p className={cn(
+                'text-2xl font-bold',
+                statusFilter === tab.key ? 'text-[#FF6C2F]' : 'text-foreground'
+              )}>{tab.count}</p>
+              <p className={cn(
+                'text-xs mt-0.5',
+                statusFilter === tab.key ? 'text-[#FF6C2F] font-medium' : 'text-muted-foreground'
+              )}>{tab.label}</p>
+            </button>
+          ))}
+        </div>
       </motion.div>
+
+      {/* Search */}
+      <motion.div variants={itemVariants}>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par nom ou email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-10"
+          />
+        </div>
+      </motion.div>
+
+      {/* Status pill tabs */}
+      <motion.div variants={itemVariants} className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusFilter(tab.key)}
+            className={cn(
+              'px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors',
+              statusFilter === tab.key
+                ? 'bg-[#FF6C2F] text-white'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
+            )}
+          >
+            {tab.label} ({tab.count})
+          </button>
+        ))}
+      </motion.div>
+
+      {/* Cards list */}
+      {filtered.length === 0 ? (
+        <motion.div variants={itemVariants}>
+          <Card className="border-dashed border-border bg-muted/50">
+            <CardContent className="py-12 flex flex-col items-center text-center">
+              <Users className="size-12 text-muted-foreground/40 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-1">
+                {search ? 'Aucun agent trouvé' : 'Aucun agent dans votre équipe'}
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                {search ? 'Essayez de modifier votre recherche.' : 'Ajoutez un agent pour commencer.'}
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ) : (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={statusFilter + search}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-3"
+          >
+            {filtered.map((agent) => (
+              <motion.div
+                key={agent.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                layout
+              >
+                <Card className="border-border hover:shadow-md transition-all">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex items-start gap-4">
+                      {/* Avatar */}
+                      <div className="size-14 rounded-lg bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-100 flex items-center justify-center shrink-0 text-lg font-bold text-[#FF6C2F]">
+                        {agent.avatarUrl ? (
+                          <img src={agent.avatarUrl} alt="" className="size-full object-cover rounded-lg" />
+                        ) : (
+                          getInitials(agent.firstName, agent.lastName)
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        {/* Top row */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-foreground truncate">
+                              {agent.firstName} {agent.lastName}
+                            </h3>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Mail className="size-3" />
+                              {agent.email}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge className="bg-orange-100 text-orange-700 text-xs">{roleLabels[agent.role] || agent.role}</Badge>
+                            <Badge className={cn('text-xs', agent.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-500')}>
+                              {statusLabels[agent.status] || agent.status}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Info rows */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <Phone className="size-3.5 shrink-0" />
+                            <span>{agent.phone || '—'}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Building2 className="size-3.5 shrink-0" />
+                            <span>{agent.assignedPropertiesCount} bien{agent.assignedPropertiesCount > 1 ? 's' : ''}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="size-3.5 shrink-0" />
+                            <span className="text-[#FF6C2F] font-medium">{agent.totalCommissions.toLocaleString('fr-FR')} FCFA</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Toggle status action */}
+                      <div className="shrink-0">
+                        <Button variant="ghost" size="sm" onClick={() => toggleAgentStatus(agent)} className="gap-1">
+                          {agent.status === 'ACTIVE' ? (
+                            <ToggleRight className="size-5 text-green-500" />
+                          ) : (
+                            <ToggleLeft className="size-5 text-neutral-400" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+        </AnimatePresence>
+      )}
 
       {/* Agent Performance Summary */}
       {agents.length > 0 && (

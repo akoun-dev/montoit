@@ -22,7 +22,9 @@ create table if not exists leases (
   property_id          text          not null references properties(id) on delete cascade,
   tenant_id            text          not null references users(id) on delete cascade,
   owner_id             text          not null references users(id) on delete cascade,
-  rental_file_id       text          not null references rental_files(id) on delete cascade
+  rental_file_id       text          not null references rental_files(id) on delete cascade,
+  contract_url         text,
+  cryptoneo_operation_id text
 );
 
 create index if not exists idx_leases_property_id on leases (property_id);
@@ -80,4 +82,25 @@ create policy "leases_update_admin"
   )
   with check (
     exists (select 1 from users where id = (select auth.uid()::text) and role in ('TIERS_CONFIANCE', 'ADMIN'))
+  );
+
+-- Create lease-documents bucket if it doesn't exist
+insert into storage.buckets (id, name, public)
+values ('lease-documents', 'lease-documents', true)
+on conflict (id) do nothing;
+
+-- Allow authenticated users to read lease documents
+create policy "lease_documents_select_authenticated"
+  on storage.objects for select
+  to authenticated
+  using (
+    bucket_id = 'lease-documents'::text
+  );
+
+-- Allow authenticated users to insert lease documents (for server-side uploads)
+create policy "lease_documents_insert_authenticated"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'lease-documents'::text
   );

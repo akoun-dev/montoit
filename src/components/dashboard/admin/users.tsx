@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
@@ -52,6 +53,7 @@ export function AdminUsers() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [sortField, setSortField] = useState<'createdAt' | 'firstName'>('createdAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [banDialog, setBanDialog] = useState<{ open: boolean; userId: string; userName: string; action: 'ban' | 'reactivate' }>({ open: false, userId: '', userName: '', action: 'ban' })
@@ -125,7 +127,8 @@ export function AdminUsers() {
     .filter((u) => {
       const matchesSearch = `${u.firstName} ${u.lastName} ${u.phone} ${u.email}`.toLowerCase().includes(search.toLowerCase())
       const matchesRole = roleFilter === 'all' || u.role === roleFilter
-      return matchesSearch && matchesRole
+      const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' && u.isActive) || (statusFilter === 'inactive' && !u.isActive)
+      return matchesSearch && matchesRole && matchesStatus
     })
     .sort((a, b) => {
       const valA = sortField === 'createdAt' ? new Date(a.createdAt).getTime() : a.firstName.toLowerCase()
@@ -141,11 +144,12 @@ export function AdminUsers() {
           <p className="text-muted-foreground mt-1">{stats.total} utilisateur(s) au total</p>
         </div>
         <div className="flex gap-2 items-center">
-          <div className="w-full sm:w-56">
-            <Input placeholder="Rechercher..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-9" />
+          <div className="relative w-full sm:w-56">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input placeholder="Rechercher..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-10" />
           </div>
           <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-full sm:w-40 h-9">
+            <SelectTrigger className="w-full sm:w-40 h-10">
               <SelectValue placeholder="Filtrer par rôle" />
             </SelectTrigger>
             <SelectContent>
@@ -161,140 +165,133 @@ export function AdminUsers() {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="border-border">
-          <CardContent className="p-4 text-center">
-            <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.total}</p>
-            <p className="text-xs text-muted-foreground">Total</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="p-4 text-center">
-            <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.active}</p>
-            <p className="text-xs text-muted-foreground">Actifs</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="p-4 text-center">
-            <p className="text-xl sm:text-2xl font-bold text-red-600">{stats.inactive}</p>
-            <p className="text-xs text-muted-foreground">Inactifs</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="p-4 text-center">
-            <p className="text-xl sm:text-2xl font-bold text-amber-600">{Object.keys(stats.byRole).length}</p>
-            <p className="text-xs text-muted-foreground">Rôles</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <button onClick={() => { setStatusFilter('all'); setRoleFilter('all') }}
+          className={cn('p-3 rounded-xl border text-left transition-all', statusFilter === 'all' ? 'border-brand-500 bg-brand-50 shadow-sm' : 'border-border bg-card hover:bg-muted/50')}>
+          <p className={cn('text-2xl font-bold', statusFilter === 'all' ? 'text-brand-600' : 'text-foreground')}>{stats.total}</p>
+          <p className={cn('text-xs mt-0.5', statusFilter === 'all' ? 'text-brand-600 font-medium' : 'text-muted-foreground')}>Total</p>
+        </button>
+        <button onClick={() => setStatusFilter(statusFilter === 'active' ? 'all' : 'active')}
+          className={cn('p-3 rounded-xl border text-left transition-all', statusFilter === 'active' ? 'border-brand-500 bg-brand-50 shadow-sm' : 'border-border bg-card hover:bg-muted/50')}>
+          <p className={cn('text-2xl font-bold', statusFilter === 'active' ? 'text-brand-600' : 'text-foreground')}>{stats.active}</p>
+          <p className={cn('text-xs mt-0.5', statusFilter === 'active' ? 'text-brand-600 font-medium' : 'text-muted-foreground')}>Actifs</p>
+        </button>
+        <button onClick={() => setStatusFilter(statusFilter === 'inactive' ? 'all' : 'inactive')}
+          className={cn('p-3 rounded-xl border text-left transition-all', statusFilter === 'inactive' ? 'border-brand-500 bg-brand-50 shadow-sm' : 'border-border bg-card hover:bg-muted/50')}>
+          <p className={cn('text-2xl font-bold', statusFilter === 'inactive' ? 'text-brand-600' : 'text-foreground')}>{stats.inactive}</p>
+          <p className={cn('text-xs mt-0.5', statusFilter === 'inactive' ? 'text-brand-600 font-medium' : 'text-muted-foreground')}>Inactifs</p>
+        </button>
+        <div className="p-3 rounded-xl border border-border bg-card">
+          <p className="text-2xl font-bold text-foreground">{Object.keys(stats.byRole).length}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Rôles</p>
+        </div>
       </div>
 
       {/* Users by Role */}
       {Object.keys(stats.byRole).length > 0 && (
         <div className="flex flex-wrap gap-2">
           {Object.entries(stats.byRole).map(([role, count]) => (
-            <Badge key={role} variant="outline" className="py-1 px-3 text-sm">
+            <button key={role} onClick={() => setRoleFilter(role === roleFilter ? 'all' : role)}
+              className={cn('px-3 py-1.5 text-xs font-medium rounded-lg transition-colors border', role === roleFilter ? 'bg-brand-500 text-white border-brand-500' : 'bg-muted text-muted-foreground border-border hover:bg-accent')}>
               {roleLabels[role] || role}: <span className="font-bold ml-1">{count}</span>
-            </Badge>
+            </button>
           ))}
+          {roleFilter !== 'all' && (
+            <button onClick={() => setRoleFilter('all')} className="rounded-full px-3 py-1 text-xs font-medium bg-muted text-muted-foreground border border-border hover:bg-muted/80">
+              ✕ Tout voir
+            </button>
+          )}
         </div>
       )}
 
-      <Card className="border-border">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted">
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Utilisateur</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Email</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Rôle</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Statut</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium cursor-pointer" onClick={() => {
-                    if (sortField === 'createdAt') setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')
-                    else { setSortField('createdAt'); setSortOrder('desc') }
-                  }}>
-                    <span className="flex items-center gap-1">Inscrit le <ArrowUpDown className="size-3" /></span>
-                  </th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((u) => (
-                  <tr key={u.id} className="border-b border-border hover:bg-accent">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="size-8 rounded-full bg-[#FF6C2F] text-white flex items-center justify-center text-xs font-semibold">
-                          {u.firstName[0]}{u.lastName[0]}
-                        </div>
-                        <div>
-                          <span className="font-medium text-foreground">{u.firstName} {u.lastName}</span>
-                          <p className="text-xs text-muted-foreground">{u.phone || '—'}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground">{u.email || '—'}</td>
-                    <td className="py-3 px-4">
-                      <RoleBadge role={u.role} />
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge className={u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
-                        {u.isActive ? 'Actif' : 'Suspendu'}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground">{new Date(u.createdAt).toLocaleDateString('fr-FR')}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex gap-1">
-                        {/* Role change */}
-                        <Select
-                          value={u.role}
-                          onValueChange={(newRole) => setRoleDialog({
-                            open: true,
-                            userId: u.id,
-                            userName: `${u.firstName} ${u.lastName}`,
-                            currentRole: u.role,
-                            newRole,
-                          })}
-                        >
-                          <SelectTrigger className="h-8 w-28 text-xs">
-                            <ChevronDown className="size-3" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="LOCATAIRE">Locataire</SelectItem>
-                            <SelectItem value="PROPRIETAIRE">Propriétaire</SelectItem>
-                            <SelectItem value="AGENCE">Agence</SelectItem>
-                            <SelectItem value="TIERS_CONFIANCE">TC</SelectItem>
-                            <SelectItem value="ADMIN">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {/* Ban/Suspend/Reactivate */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={`size-8 ${u.isActive ? 'text-red-500 hover:text-red-700 hover:bg-red-50' : 'text-green-500 hover:text-green-700 hover:bg-green-50'}`}
-                          title={u.isActive ? 'Suspendre' : 'Réactiver'}
-                          onClick={() => setBanDialog({
-                            open: true,
-                            userId: u.id,
-                            userName: `${u.firstName} ${u.lastName}`,
-                            action: u.isActive ? 'ban' : 'reactivate',
-                          })}
-                        >
-                          <Power className="size-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-muted-foreground">Aucun utilisateur trouvé</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Status Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {[
+          { value: 'all', label: 'Tous' },
+          { value: 'active', label: 'Actifs' },
+          { value: 'inactive', label: 'Inactifs' },
+        ].map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => setStatusFilter(tab.value)}
+            className={cn(
+              'px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap',
+              statusFilter === tab.value
+                ? 'bg-brand-500 text-white'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <Card className="border-dashed border-border bg-muted/50">
+          <CardContent className="py-12 text-center">
+            <Users className="size-10 text-muted-foreground/40 mx-auto mb-3" />
+            <p className="text-muted-foreground">Aucun utilisateur trouvé</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <motion.div initial="hidden" animate="show" variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.04 } } }} className="space-y-2">
+          {filtered.map((u) => (
+            <motion.div key={u.id} variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/40 transition-colors group">
+                <div className="size-10 rounded-full bg-[#FF6C2F] text-white flex items-center justify-center text-xs font-semibold shrink-0">
+                  {u.firstName[0]}{u.lastName[0]}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{u.firstName} {u.lastName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{u.email || u.phone || '—'}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <RoleBadge role={u.role} />
+                  <Badge className={u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                    {u.isActive ? 'Actif' : 'Suspendu'}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground hidden sm:inline">{new Date(u.createdAt).toLocaleDateString('fr-FR')}</span>
+                  <Select
+                    value={u.role}
+                    onValueChange={(newRole) => setRoleDialog({
+                      open: true,
+                      userId: u.id,
+                      userName: `${u.firstName} ${u.lastName}`,
+                      currentRole: u.role,
+                      newRole,
+                    })}
+                  >
+                    <SelectTrigger className="h-8 w-24 text-xs">
+                      <ChevronDown className="size-3" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="LOCATAIRE">Locataire</SelectItem>
+                      <SelectItem value="PROPRIETAIRE">Propriétaire</SelectItem>
+                      <SelectItem value="AGENCE">Agence</SelectItem>
+                      <SelectItem value="TIERS_CONFIANCE">TC</SelectItem>
+                      <SelectItem value="ADMIN">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`size-8 ${u.isActive ? 'text-red-500 hover:text-red-700 hover:bg-red-50' : 'text-green-500 hover:text-green-700 hover:bg-green-50'}`}
+                    title={u.isActive ? 'Suspendre' : 'Réactiver'}
+                    onClick={() => setBanDialog({
+                      open: true,
+                      userId: u.id,
+                      userName: `${u.firstName} ${u.lastName}`,
+                      action: u.isActive ? 'ban' : 'reactivate',
+                    })}
+                  >
+                    <Power className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
 
       {/* Ban/Suspend Confirmation Dialog */}
       <Dialog open={banDialog.open} onOpenChange={(open) => setBanDialog({ ...banDialog, open })}>

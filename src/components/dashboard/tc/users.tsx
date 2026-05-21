@@ -92,10 +92,12 @@ export function TcUsers() {
   const [users, setUsers] = useState<UserItem[]>([])
   const [stats, setStats] = useState<ApiResponse['stats']>({ total: 0, active: 0, inactive: 0, byRole: {} })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('')
   const [filterRole, setFilterRole] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -113,6 +115,7 @@ export function TcUsers() {
         return
       }
       setUsers([])
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -132,6 +135,7 @@ export function TcUsers() {
 
   // Filter & sort client-side
   const filtered = users.filter((u) => {
+    if (statusFilter !== 'all' && (statusFilter === 'active' ? !u.isActive : u.isActive)) return false
     if (filterRole && filterRole !== 'ALL' && u.role !== filterRole) return false
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
@@ -147,16 +151,22 @@ export function TcUsers() {
 
   if (loading && users.length === 0) {
     return (
-      <div className="space-y-4 sm:space-y-6">
-        <div className="h-10 w-full rounded-lg bg-muted animate-pulse" />
-        <div className="space-y-2 sm:space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-14 sm:h-16 rounded-lg bg-muted animate-pulse" />
-          ))}
-        </div>
+      <div className="space-y-6">
+        <div><div className="h-8 w-48 bg-muted animate-pulse rounded" /><div className="h-4 w-64 bg-muted animate-pulse rounded mt-2" /></div>
+        <div className="flex gap-2">{[1,2,3].map((i) => <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-lg" />)}</div>
+        {[1,2,3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}
       </div>
     )
   }
+
+  // ─── Error State ──────────────────────────────────────────────────────────
+
+  if (error) return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      <div><h1 className="text-xl sm:text-2xl font-bold text-foreground">Tous les utilisateurs</h1><p className="text-muted-foreground mt-1">Impossible de charger les utilisateurs</p></div>
+      <Card className="border-amber-200 bg-amber-50"><CardContent className="p-4"><p className="text-sm text-amber-700">Impossible de charger. Veuillez réessayer.</p></CardContent></Card>
+    </motion.div>
+  )
 
   return (
     <motion.div
@@ -203,29 +213,26 @@ export function TcUsers() {
       </div>
 
       {/* ─── Stats Cards ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-        <Card className="border-border">
-          <CardContent className="p-3 sm:p-4 text-center">
-            <p className="text-lg sm:text-2xl font-bold text-foreground">{stats.total}</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Total</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="p-3 sm:p-4 text-center">
-            <p className="text-lg sm:text-2xl font-bold text-green-600">{stats.active}</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Actifs</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="p-3 sm:p-4 text-center">
-            <p className="text-lg sm:text-2xl font-bold text-red-600">{stats.inactive}</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Inactifs</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="p-3 sm:p-4 text-center">
-            <p className="text-lg sm:text-2xl font-bold text-amber-600">{Object.keys(stats.byRole).length}</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">Rôles</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <button onClick={() => { setStatusFilter('all'); setFilterRole('') }}
+          className={cn('p-3 rounded-xl border text-left transition-all', statusFilter === 'all' && !filterRole ? 'border-brand-500 bg-brand-50 shadow-sm' : 'border-border bg-card hover:bg-muted/50')}>
+          <p className={cn('text-2xl font-bold', statusFilter === 'all' && !filterRole ? 'text-brand-600' : 'text-foreground')}>{stats.total}</p>
+          <p className={cn('text-xs mt-0.5', statusFilter === 'all' && !filterRole ? 'text-brand-600 font-medium' : 'text-muted-foreground')}>Total</p>
+        </button>
+        <button onClick={() => setStatusFilter(statusFilter === 'active' ? 'all' : 'active')}
+          className={cn('p-3 rounded-xl border text-left transition-all', statusFilter === 'active' ? 'border-brand-500 bg-brand-50 shadow-sm' : 'border-border bg-card hover:bg-muted/50')}>
+          <p className={cn('text-2xl font-bold', statusFilter === 'active' ? 'text-brand-600' : 'text-foreground')}>{stats.active}</p>
+          <p className={cn('text-xs mt-0.5', statusFilter === 'active' ? 'text-brand-600 font-medium' : 'text-muted-foreground')}>Actifs</p>
+        </button>
+        <button onClick={() => setStatusFilter(statusFilter === 'inactive' ? 'all' : 'inactive')}
+          className={cn('p-3 rounded-xl border text-left transition-all', statusFilter === 'inactive' ? 'border-brand-500 bg-brand-50 shadow-sm' : 'border-border bg-card hover:bg-muted/50')}>
+          <p className={cn('text-2xl font-bold', statusFilter === 'inactive' ? 'text-brand-600' : 'text-foreground')}>{stats.inactive}</p>
+          <p className={cn('text-xs mt-0.5', statusFilter === 'inactive' ? 'text-brand-600 font-medium' : 'text-muted-foreground')}>Inactifs</p>
+        </button>
+        <Card className="border-dashed border-border bg-muted/50">
+          <CardContent className="p-3 text-center">
+            <p className={cn('text-2xl font-bold', 'text-foreground')}>{Object.keys(stats.byRole).length}</p>
+            <p className={cn('text-xs mt-0.5', 'text-muted-foreground')}>Rôles</p>
           </CardContent>
         </Card>
       </div>
@@ -253,6 +260,28 @@ export function TcUsers() {
         </div>
       )}
 
+      {/* ─── Status Tabs ────────────────────────────────────────────────── */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {[
+          { value: 'all', label: 'Tous' },
+          { value: 'active', label: 'Actifs' },
+          { value: 'inactive', label: 'Inactifs' },
+        ].map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => setStatusFilter(tab.value)}
+            className={cn(
+              'px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors',
+              statusFilter === tab.value
+                ? 'bg-brand-500 text-white'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* ─── Search Bar ──────────────────────────────────────────────────── */}
       <div className="relative w-full">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 sm:size-4 text-muted-foreground pointer-events-none" />
@@ -266,7 +295,7 @@ export function TcUsers() {
 
       {/* ─── Empty State ─────────────────────────────────────────────────── */}
       {!loading && filtered.length === 0 && (
-        <Card className="border-border">
+        <Card className="border-dashed border-border bg-muted/50">
           <CardContent className="py-10 sm:py-16 text-center px-4">
             <Users className="size-10 sm:size-16 text-muted-foreground/30 mx-auto mb-3 sm:mb-4" />
             <p className="text-muted-foreground font-medium text-base sm:text-lg">

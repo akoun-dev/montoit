@@ -205,12 +205,19 @@ serve(async (req) => {
 
     console.log('[sign-send-otp] Sending OTP to CRYPTONEO:', body)
 
+    // Log du payload envoyé à CRYPTONEO /otp/send
+    console.log('[sign-send-otp] CRYPTONEO /otp/send payload:', JSON.stringify({
+      aliasCertificat: body.aliasCertificat?.substring(0, 8) + '...',
+      typeOperation: body.typeOperation,
+      canal: body.canal,
+    }, null, 2))
+
     const { ok, data, error } = await cryptoneoFetchJson('/otp/send', {
       method: 'POST',
       body: JSON.stringify(body),
     })
 
-    console.log('[sign-send-otp] CRYPTONEO /otp/send response:', { ok, data, error })
+    console.log('[sign-send-otp] CRYPTONEO /otp/send response:', { ok, data: JSON.stringify(data), error })
 
     if (!ok) {
       console.log('[sign-send-otp] OTP send failed:', error)

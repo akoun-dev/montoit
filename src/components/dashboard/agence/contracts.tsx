@@ -1,17 +1,19 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { FileText, AlertTriangle, Calendar, Download } from 'lucide-react'
+import {
+  FileText, AlertTriangle, Calendar, Download, Search, Home,
+  User, Building2, ArrowRight, Clock,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table'
+import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 interface Lease {
   id: string; status: string; monthlyRent: number; charges: number; deposit: number
@@ -37,6 +39,8 @@ export function AgenceContracts() {
   const { isAuthenticated } = useAuthStore()
   const [leases, setLeases] = useState<Lease[]>([])
   const [loading, setLoading] = useState(true)
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [search, setSearch] = useState('')
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -50,7 +54,34 @@ export function AgenceContracts() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}</div>
+  const stats = {
+    all: leases.length,
+    ACTIVE: leases.filter((l) => l.status === 'ACTIVE').length,
+    PENDING: leases.filter((l) => l.status === 'PENDING_SIGNATURE' || l.status === 'DRAFT').length,
+    TERMINATED: leases.filter((l) => l.status === 'TERMINATED' || l.status === 'EXPIRED').length,
+  }
+
+  const tabs = [
+    { key: 'all', label: 'Tous', count: stats.all },
+    { key: 'ACTIVE', label: 'Actifs', count: stats.ACTIVE },
+    { key: 'PENDING', label: 'En attente', count: stats.PENDING },
+    { key: 'TERMINATED', label: 'Expirés/Résiliés', count: stats.TERMINATED },
+  ]
+
+  const filtered = leases.filter((l) => {
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'PENDING' && l.status !== 'PENDING_SIGNATURE' && l.status !== 'DRAFT') return false
+      if (statusFilter === 'TERMINATED' && l.status !== 'TERMINATED' && l.status !== 'EXPIRED') return false
+      if (statusFilter !== 'PENDING' && statusFilter !== 'TERMINATED' && l.status !== statusFilter) return false
+    }
+    if (search) {
+      const q = search.toLowerCase()
+      const propTitle = l.property.title.toLowerCase()
+      const tenantName = `${l.tenant.firstName} ${l.tenant.lastName}`.toLowerCase()
+      if (!propTitle.includes(q) && !tenantName.includes(q)) return false
+    }
+    return true
+  })
 
   const activeLeases = leases.filter((l) => l.status === 'ACTIVE')
   const expiringLeases = leases.filter((l) => {
@@ -59,8 +90,17 @@ export function AgenceContracts() {
     return new Date(l.endDate) <= threeMonthsFromNow
   })
 
+  if (loading) return (
+    <div className="space-y-6">
+      <div><div className="h-8 w-56 bg-muted animate-pulse rounded" /><div className="h-4 w-72 bg-muted animate-pulse rounded mt-2" /></div>
+      <div className="flex gap-2">{[1,2,3,4].map((i) => <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-lg" />)}</div>
+      {[1,2,3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}
+    </div>
+  )
+
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
+      {/* Header */}
       <motion.div variants={itemVariants}>
         <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
           <FileText className="size-5 sm:size-6 text-[#FF6C2F]" /> Contrats
@@ -94,54 +134,155 @@ export function AgenceContracts() {
         </motion.div>
       )}
 
-      {/* All Leases Table */}
+      {/* Stats cards */}
       <motion.div variants={itemVariants}>
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold">Tous les baux</CardTitle>
-              <Button variant="outline" size="sm" className="gap-1" onClick={() => toast.info('Fonctionnalité à venir')}>
-                <Download className="size-3" /> Exporter
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0 overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Bien</TableHead>
-                  <TableHead>Locataire</TableHead>
-                  <TableHead>Loyer</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead className="hidden md:table-cell">Période</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {leases.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Aucun bail</TableCell></TableRow>
-                ) : (
-                  leases.map((l) => (
-                    <TableRow key={l.id}>
-                      <TableCell className="font-medium text-xs">{l.property.title}</TableCell>
-                      <TableCell className="text-xs">{l.tenant.firstName} {l.tenant.lastName}</TableCell>
-                      <TableCell className="text-xs font-semibold text-[#FF6C2F]">{l.monthlyRent.toLocaleString('fr-FR')} FCFA</TableCell>
-                      <TableCell><Badge className={statusConfig[l.status]?.cls || 'bg-neutral-100'}>{statusConfig[l.status]?.label || l.status}</Badge></TableCell>
-                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                        {new Date(l.startDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })} → {new Date(l.endDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setStatusFilter(tab.key)}
+              className={cn(
+                'p-3 rounded-xl border text-left transition-all',
+                statusFilter === tab.key
+                  ? 'border-[#FF6C2F] bg-orange-50 shadow-sm'
+                  : 'border-border bg-card hover:bg-muted/50'
+              )}
+            >
+              <p className={cn(
+                'text-2xl font-bold',
+                statusFilter === tab.key ? 'text-[#FF6C2F]' : 'text-foreground'
+              )}>{tab.count}</p>
+              <p className={cn(
+                'text-xs mt-0.5',
+                statusFilter === tab.key ? 'text-[#FF6C2F] font-medium' : 'text-muted-foreground'
+              )}>{tab.label}</p>
+            </button>
+          ))}
+        </div>
       </motion.div>
+
+      {/* Search */}
+      <motion.div variants={itemVariants}>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par bien ou locataire..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-10"
+          />
+        </div>
+      </motion.div>
+
+      {/* Status pill tabs */}
+      <motion.div variants={itemVariants} className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusFilter(tab.key)}
+            className={cn(
+              'px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors',
+              statusFilter === tab.key
+                ? 'bg-[#FF6C2F] text-white'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
+            )}
+          >
+            {tab.label} ({tab.count})
+          </button>
+        ))}
+      </motion.div>
+
+      {/* Cards list */}
+      {filtered.length === 0 ? (
+        <motion.div variants={itemVariants}>
+          <Card className="border-dashed border-border bg-muted/50">
+            <CardContent className="py-12 flex flex-col items-center text-center">
+              <FileText className="size-12 text-muted-foreground/40 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-1">
+                {search ? 'Aucun bail trouvé' : 'Aucun bail'}
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                {search ? 'Essayez de modifier votre recherche.' : 'Les baux apparaîtront ici une fois créés.'}
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ) : (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={statusFilter + search}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-3"
+          >
+            {filtered.map((l) => (
+              <motion.div
+                key={l.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                layout
+              >
+                <Card className="border-border hover:shadow-md transition-all">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex items-start gap-4">
+                      {/* Thumbnail */}
+                      <div className="hidden sm:flex size-14 rounded-lg bg-muted overflow-hidden shrink-0">
+                        {l.property.images[0]?.url ? (
+                          <img src={l.property.images[0].url} alt="" className="size-full object-cover" />
+                        ) : (
+                          <div className="size-full flex items-center justify-center"><Building2 className="size-6 text-muted-foreground/40" /></div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        {/* Top row */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-foreground truncate">{l.property.title}</h3>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <User className="size-3" />
+                              {l.tenant.firstName} {l.tenant.lastName}
+                            </p>
+                          </div>
+                          <Badge className={cn('shrink-0 text-xs', statusConfig[l.status]?.cls || 'bg-neutral-100')}>
+                            {statusConfig[l.status]?.label || l.status}
+                          </Badge>
+                        </div>
+
+                        {/* Info rows */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <Home className="size-3.5 shrink-0 text-[#FF6C2F]" />
+                            <span className="font-semibold text-[#FF6C2F]">{l.monthlyRent.toLocaleString('fr-FR')} FCFA</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="size-3.5 shrink-0" />
+                            <span>{new Date(l.startDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <ArrowRight className="size-3.5 shrink-0 text-muted-foreground/50" />
+                            <span>{new Date(l.endDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+        </AnimatePresence>
+      )}
 
       {/* Contract Templates */}
       <motion.div variants={itemVariants}>
         <Card className="border-border">
-          <CardHeader className="pb-3"><CardTitle className="text-base font-semibold">Modèles de contrats</CardTitle></CardHeader>
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-base font-semibold">Modèles de contrats</CardTitle>
+            <Button variant="outline" size="sm" className="gap-1" onClick={() => toast.info('Fonctionnalité à venir')}>
+              <Download className="size-3" /> Exporter
+            </Button>
+          </CardHeader>
           <CardContent className="grid sm:grid-cols-3 gap-3">
             <div className="p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer">
               <FileText className="size-6 text-[#FF6C2F] mb-2" />

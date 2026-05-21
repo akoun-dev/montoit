@@ -166,6 +166,14 @@ export async function POST(
       const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign`
       const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
 
+      // CRYPTONEO a besoin d'une URL HTTP publique accessible depuis ses serveurs.
+      // En développement local, il faut exposer Supabase via un tunnel (ngrok).
+      // Voir Postman : https://ric-ci.ci/signatureelectronique/fichier_pdf_vingt_mega.pdf
+      console.log('[sign/route] PDF info:', {
+        publicUrl: pdfInfo.publicUrl?.substring(0, 80) + '...',
+        base64Len: pdfInfo.base64.length,
+      })
+
       const signRequest = [{
         fileName: `bail_${id}_owner.pdf`,
         base64: pdfInfo.base64,
@@ -177,6 +185,20 @@ export async function POST(
         visibleSignature: true,
       }]
 
+      // URL de callback pour que CRYPTONEO notifie après la signature
+      const callBackUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign-verify`
+
+      const signPayload = {
+        otp: otpCode,
+        signRequest,
+        callBackUrl,
+      }
+      console.log('[sign/route] Calling Edge Function sign with payload:', {
+        hasOtp: !!otpCode,
+        signRequestCount: signRequest.length,
+        callBackUrl,
+      })
+
       const signRes = await fetch(functionUrl, {
         method: 'POST',
         headers: {
@@ -184,16 +206,21 @@ export async function POST(
           'Content-Type': 'application/json',
           ...(accessToken ? {} : { 'x-user-id': userId }),
         },
-        body: JSON.stringify({
-          otp: otpCode,
-          signRequest,
-        }),
+        body: JSON.stringify(signPayload),
       })
 
       const signResult = await signRes.json()
+      console.log('[sign/route] Edge Function sign response:', {
+        ok: signRes.ok,
+        status: signRes.status,
+        operationId: signResult?.operationId || signResult?.data?.operationId,
+        error: signResult?.error,
+        statusMessage: signResult?.statusMessage,
+      })
 
       if (!signRes.ok) {
         const errorMsg = signResult?.error || signResult?.statusMessage || 'Erreur CRYPTONEO lors de la signature'
+        console.error('[sign/route] Sign failed:', errorMsg)
         const resp = NextResponse.json({ error: errorMsg }, { status: 400 })
         return applyCookies(resp)
       }

@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { History as HistoryIcon, LogIn, FileText, CreditCard, Wrench, Eye, MessageSquare, Settings, CheckCircle2, XCircle } from 'lucide-react'
+import { History as HistoryIcon, LogIn, FileText, CreditCard, Wrench, Eye, MessageSquare, Settings, CheckCircle2, XCircle, Search } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
@@ -84,6 +86,20 @@ export function ActivityHistory() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [total, setTotal] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const actionCounts = logs.reduce<Record<string, number>>((acc, l) => {
+    acc[l.action] = (acc[l.action] || 0) + 1
+    return acc
+  }, {})
+
+  const filteredLogs = logs.filter((l) => {
+    if (!searchQuery) return true
+    const q = searchQuery.toLowerCase()
+    return l.action.toLowerCase().includes(q) ||
+      (entityLabels[l.entity] || l.entity).toLowerCase().includes(q) ||
+      (l.details || '').toLowerCase().includes(q)
+  })
 
   const fetchHistory = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -151,8 +167,37 @@ export function ActivityHistory() {
         </p>
       </motion.div>
 
-      {logs.length === 0 ? (
-        /* Empty State */
+      {logs.length > 0 && (
+        <>
+          <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <button className="relative overflow-hidden rounded-xl border border-border p-3 text-left transition-all hover:shadow-sm bg-muted/50">
+              <p className="text-lg font-bold text-foreground">{logs.length}</p>
+              <p className="text-xs text-muted-foreground">Total</p>
+            </button>
+            {Object.entries(actionCounts).filter(([, count]) => count > 0).slice(0, 3).map(([action, count]) => {
+              const cfg = getActionConfig(action)
+              return (
+                <button key={action} className="relative overflow-hidden rounded-xl border border-border p-3 text-left transition-all hover:shadow-sm bg-muted/50">
+                  <p className={cn('text-lg font-bold', cfg.color.split(' ')[0])}>{count}</p>
+                  <p className="text-xs text-muted-foreground">{cfg.label}</p>
+                </button>
+              )
+            })}
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Rechercher par action, entité ou détails..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-10"
+            />
+          </motion.div>
+        </>
+      )}
+
+      {filteredLogs.length === 0 ? (
         <motion.div variants={itemVariants}>
           <Card className="border-dashed border-border bg-muted/50">
             <CardContent className="py-12 flex flex-col items-center text-center">
@@ -160,16 +205,17 @@ export function ActivityHistory() {
                 <HistoryIcon className="size-7 text-brand-500" />
               </div>
               <h3 className="text-lg font-semibold text-foreground mb-1">
-                Aucune activité récente
+                {searchQuery ? 'Aucun résultat' : 'Aucune activité récente'}
               </h3>
               <p className="text-sm text-muted-foreground max-w-sm">
-                {user?.firstName}, vos actions et événements apparaîtront ici au fil du temps.
+                {searchQuery
+                  ? 'Essayez de modifier votre recherche.'
+                  : `${user?.firstName}, vos actions et événements apparaîtront ici au fil du temps.`}
               </p>
             </CardContent>
           </Card>
         </motion.div>
       ) : (
-        /* Timeline */
         <motion.div variants={itemVariants}>
           <Card className="border-border">
             <CardHeader className="pb-3">
@@ -177,11 +223,10 @@ export function ActivityHistory() {
             </CardHeader>
             <CardContent>
               <div className="relative">
-                {/* Vertical line */}
                 <div className="absolute left-[11px] top-2 bottom-2 w-px bg-neutral-200" />
 
                 <div className="space-y-6">
-                  {logs.map((log, index) => {
+                  {filteredLogs.map((log, index) => {
                     const config = getActionConfig(log.action)
                     const IconComp = config.icon
                     const entityLabel = entityLabels[log.entity] || log.entity

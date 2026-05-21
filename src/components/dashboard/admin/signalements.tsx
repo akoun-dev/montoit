@@ -1,13 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Flag, Eye, CheckCircle, XCircle, AlertTriangle, ArrowUpCircle, Check, Filter } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Flag, Eye, CheckCircle, XCircle, AlertTriangle, ArrowUpCircle, Check, Search } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
@@ -63,8 +65,10 @@ export function AdminSignalements() {
   const [signalements, setSignalements] = useState<Signalement[]>([])
   const [stats, setStats] = useState<SignalementStats>({ byStatus: {}, byReason: {} })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [reasonFilter, setReasonFilter] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
   const [detailDialog, setDetailDialog] = useState<{ open: boolean; signalement: Signalement | null }>({ open: false, signalement: null })
   const [actionDialog, setActionDialog] = useState<{ open: boolean; signalement: Signalement | null; action: string }>({ open: false, signalement: null, action: '' })
   const [adminNotes, setAdminNotes] = useState('')
@@ -83,6 +87,7 @@ export function AdminSignalements() {
       setStats(d.stats || { byStatus: {}, byReason: {} })
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -114,9 +119,19 @@ export function AdminSignalements() {
     }
   }
 
-  if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
+  if (loading) return <div className="space-y-6"><div><div className="h-8 w-48 bg-muted animate-pulse rounded" /><div className="h-4 w-64 bg-muted animate-pulse rounded mt-2" /></div><div className="flex gap-2">{[1,2,3].map((i) => <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-lg" />)}</div>{[1,2,3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
+
+  if (error) return <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6"><div><h1 className="text-xl sm:text-2xl font-bold text-foreground">Signalements</h1><p className="text-muted-foreground mt-1">Impossible de charger les signalements</p></div><Card className="border-amber-200 bg-amber-50"><CardContent className="p-4"><p className="text-sm text-amber-700">Impossible de charger. Veuillez réessayer.</p></CardContent></Card></motion.div>
 
   const totalSignalements = Object.values(stats.byStatus).reduce((sum, n) => sum + n, 0)
+
+  const filteredSignalements = signalements.filter((s) => {
+    if (!searchQuery) return true
+    const q = searchQuery.toLowerCase()
+    return (reasonLabels[s.reason] || s.reason).toLowerCase().includes(q) ||
+      s.description.toLowerCase().includes(q) ||
+      `${s.reporter.firstName} ${s.reporter.lastName}`.toLowerCase().includes(q)
+  })
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -126,21 +141,6 @@ export function AdminSignalements() {
           <p className="text-muted-foreground mt-1">{totalSignalements} signalement(s) au total</p>
         </div>
         <div className="flex gap-2 items-center">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-40 h-9">
-              <Filter className="size-3.5 mr-1" />
-              <SelectValue placeholder="Statut" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les statuts</SelectItem>
-              <SelectItem value="PENDING">En attente</SelectItem>
-              <SelectItem value="IN_REVIEW">En revue</SelectItem>
-              <SelectItem value="VALIDATED">Validé</SelectItem>
-              <SelectItem value="REJECTED">Rejeté</SelectItem>
-              <SelectItem value="ESCALATED">Escaladé</SelectItem>
-              <SelectItem value="RESOLVED">Résolu</SelectItem>
-            </SelectContent>
-          </Select>
           <Select value={reasonFilter} onValueChange={setReasonFilter}>
             <SelectTrigger className="w-full sm:w-44 h-9">
               <SelectValue placeholder="Raison" />
@@ -158,109 +158,120 @@ export function AdminSignalements() {
         </div>
       </div>
 
-      {/* Statistics */}
-      <div className="grid sm:grid-cols-2 gap-4">
-        <Card className="border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Par statut</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {Object.entries(stats.byStatus).map(([status, count]) => {
-              const cfg = statusConfig[status] || { label: status, className: 'bg-neutral-100 text-neutral-700' }
-              return (
-                <Badge key={status} className={cfg.className}>
-                  {cfg.label}: {count}
-                </Badge>
-              )
-            })}
-            {Object.keys(stats.byStatus).length === 0 && <p className="text-sm text-muted-foreground">Aucune donnée</p>}
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Par raison</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {Object.entries(stats.byReason).map(([reason, count]) => (
-              <Badge key={reason} variant="outline" className="py-1">
-                {reasonLabels[reason] || reason}: {count}
-              </Badge>
-            ))}
-            {Object.keys(stats.byReason).length === 0 && <p className="text-sm text-muted-foreground">Aucune donnée</p>}
-          </CardContent>
-        </Card>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+        <Input
+          placeholder="Rechercher par raison, description ou signalant..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9 h-10"
+        />
       </div>
 
-      {/* Signalements Table */}
-      <Card className="border-border">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted">
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Raison</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Description</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Signalé par</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Type</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Statut</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Date</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {signalements.map((s) => {
-                  const cfg = statusConfig[s.status] || { label: s.status, className: 'bg-neutral-100 text-neutral-700' }
-                  return (
-                    <tr key={s.id} className="border-b border-border hover:bg-accent">
-                      <td className="py-3 px-4">
-                        <Badge variant="outline" className="text-xs">{reasonLabels[s.reason] || s.reason}</Badge>
-                      </td>
-                      <td className="py-3 px-4 max-w-48 truncate text-foreground">{s.description}</td>
-                      <td className="py-3 px-4 text-muted-foreground">{s.reporter.firstName} {s.reporter.lastName}</td>
-                      <td className="py-3 px-4 text-muted-foreground">{entityTypeLabels[s.entityType] || s.entityType}</td>
-                      <td className="py-3 px-4"><Badge className={cfg.className}>{cfg.label}</Badge></td>
-                      <td className="py-3 px-4 text-muted-foreground">{new Date(s.createdAt).toLocaleDateString('fr-FR')}</td>
-                      <td className="py-3 px-4">
-                        <div className="flex gap-1">
-                          <Button size="icon" variant="ghost" className="size-7" title="Voir" onClick={() => setDetailDialog({ open: true, signalement: s })}>
-                            <Eye className="size-3.5" />
-                          </Button>
-                          {s.status === 'PENDING' && (
-                            <>
-                              <Button size="icon" variant="ghost" className="size-7 text-green-600" title="Valider" onClick={() => { setActionDialog({ open: true, signalement: s, action: 'VALIDATED' }); setAdminNotes('') }}>
-                                <Check className="size-3.5" />
-                              </Button>
-                              <Button size="icon" variant="ghost" className="size-7 text-red-600" title="Rejeter" onClick={() => { setActionDialog({ open: true, signalement: s, action: 'REJECTED' }); setAdminNotes('') }}>
-                                <XCircle className="size-3.5" />
-                              </Button>
-                              <Button size="icon" variant="ghost" className="size-7 text-orange-600" title="Escalader" onClick={() => { setActionDialog({ open: true, signalement: s, action: 'ESCALATED' }); setAdminNotes('') }}>
-                                <ArrowUpCircle className="size-3.5" />
-                              </Button>
-                            </>
-                          )}
-                          {(s.status === 'IN_REVIEW' || s.status === 'ESCALATED') && (
-                            <Button size="icon" variant="ghost" className="size-7 text-green-600" title="Résoudre" onClick={() => { setActionDialog({ open: true, signalement: s, action: 'RESOLVED' }); setAdminNotes('') }}>
-                              <CheckCircle className="size-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-                {signalements.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
-                      <Flag className="size-8 text-muted-foreground/50 mx-auto mb-2" />
-                      Aucun signalement trouvé
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Status Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {[
+          { value: 'all', label: 'Tous' },
+          { value: 'PENDING', label: 'En attente' },
+          { value: 'IN_REVIEW', label: 'En revue' },
+          { value: 'VALIDATED', label: 'Validé' },
+          { value: 'REJECTED', label: 'Rejeté' },
+        ].map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => setStatusFilter(tab.value)}
+            className={cn(
+              'px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors',
+              statusFilter === tab.value
+                ? 'bg-brand-500 text-white'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Statistics */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <button onClick={() => setStatusFilter('all')}
+          className={cn('p-3 rounded-xl border text-left transition-all', statusFilter === 'all' ? 'border-brand-500 bg-brand-50 shadow-sm' : 'border-border bg-card hover:bg-muted/50')}>
+          <p className={cn('text-2xl font-bold', statusFilter === 'all' ? 'text-brand-600' : 'text-foreground')}>{totalSignalements}</p>
+          <p className={cn('text-xs mt-0.5', statusFilter === 'all' ? 'text-brand-600 font-medium' : 'text-muted-foreground')}>Total</p>
+        </button>
+        {[
+          { status: 'PENDING', label: 'En attente', count: stats.byStatus.PENDING || 0 },
+          { status: 'IN_REVIEW', label: 'En revue', count: stats.byStatus.IN_REVIEW || 0 },
+          { status: 'VALIDATED', label: 'Validé', count: stats.byStatus.VALIDATED || 0 },
+          { status: 'REJECTED', label: 'Rejeté', count: stats.byStatus.REJECTED || 0 },
+        ].filter(s => s.count > 0).map((s) => (
+          <button key={s.status} onClick={() => setStatusFilter(s.status === statusFilter ? 'all' : s.status)}
+            className={cn('p-3 rounded-xl border text-left transition-all', s.status === statusFilter ? 'border-brand-500 bg-brand-50 shadow-sm' : 'border-border bg-card hover:bg-muted/50')}>
+            <p className={cn('text-2xl font-bold', s.status === statusFilter ? 'text-brand-600' : 'text-foreground')}>{s.count}</p>
+            <p className={cn('text-xs mt-0.5', s.status === statusFilter ? 'text-brand-600 font-medium' : 'text-muted-foreground')}>{s.label}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* Signalements Cards */}
+      {filteredSignalements.length === 0 ? (
+        <Card className="border-dashed border-border bg-muted/50">
+          <CardContent className="py-12 text-center">
+            <Flag className="size-10 text-muted-foreground/40 mx-auto mb-3" />
+            <p className="text-muted-foreground">Aucun signalement trouvé</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <motion.div initial="hidden" animate="show" variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.04 } } }} className="space-y-2">
+          {filteredSignalements.map((s) => {
+            const cfg = statusConfig[s.status] || { label: s.status, className: 'bg-neutral-100 text-neutral-700' }
+            return (
+              <motion.div key={s.id} variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+                <div className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/40 transition-colors group">
+                  <div className="size-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center text-xs font-semibold shrink-0">
+                    <Flag className="size-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-foreground">{s.reporter.firstName} {s.reporter.lastName}</span>
+                      <Badge variant="outline" className="text-[10px]">{reasonLabels[s.reason] || s.reason}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">{s.description}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge className={cn('text-[10px] leading-none px-1.5 py-0.5', cfg.className)}>{cfg.label}</Badge>
+                      <span className="text-[10px] text-muted-foreground">{entityTypeLabels[s.entityType] || s.entityType} · {new Date(s.createdAt).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button size="icon" variant="ghost" className="size-7" title="Voir" onClick={() => setDetailDialog({ open: true, signalement: s })}>
+                      <Eye className="size-3.5" />
+                    </Button>
+                    {s.status === 'PENDING' && (
+                      <>
+                        <Button size="icon" variant="ghost" className="size-7 text-green-600" title="Valider" onClick={() => { setActionDialog({ open: true, signalement: s, action: 'VALIDATED' }); setAdminNotes('') }}>
+                          <Check className="size-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="size-7 text-red-600" title="Rejeter" onClick={() => { setActionDialog({ open: true, signalement: s, action: 'REJECTED' }); setAdminNotes('') }}>
+                          <XCircle className="size-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="size-7 text-orange-600" title="Escalader" onClick={() => { setActionDialog({ open: true, signalement: s, action: 'ESCALATED' }); setAdminNotes('') }}>
+                          <ArrowUpCircle className="size-3.5" />
+                        </Button>
+                      </>
+                    )}
+                    {(s.status === 'IN_REVIEW' || s.status === 'ESCALATED') && (
+                      <Button size="icon" variant="ghost" className="size-7 text-green-600" title="Résoudre" onClick={() => { setActionDialog({ open: true, signalement: s, action: 'RESOLVED' }); setAdminNotes('') }}>
+                        <CheckCircle className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )
+          })}
+        </motion.div>
+      )}
 
       {/* Detail Dialog */}
       <Dialog open={detailDialog.open} onOpenChange={(open) => setDetailDialog({ ...detailDialog, open })}>

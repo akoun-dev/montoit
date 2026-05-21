@@ -181,9 +181,20 @@ serve(async (req) => {
           hashDoc = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
         } catch { /* keep empty hash */ }
 
+        // CRYPTONEO a besoin d'une URL HTTP publique accessible depuis ses serveurs
+        // (pas de data URL). On utilise l'URL publique du Storage Supabase.
+        // En développement local, il faut exposer Supabase via un tunnel (ngrok).
+        const itemUrl = item.urlDoc || ''
+
+        console.log('[sign] Sign item:', {
+          fileName: item.fileName,
+          urlDoc: itemUrl.substring(0, 80) + '...',
+          hashDoc: hashDoc.substring(0, 16) + '...',
+        })
+
         return {
           codeDoc: item.fileName || 'document.pdf',
-          urlDoc: item.urlDoc || `data:application/pdf;base64,${base64Data || item.base64 || ''}`,
+          urlDoc: itemUrl,
           hashDoc,
           visibiliteImage: item.visibleSignature !== false,
           lieuSignature: 'Abidjan',
@@ -200,7 +211,21 @@ serve(async (req) => {
 
     if (callBackUrl) payload.callBackUrl = callBackUrl
 
-    console.log('[sign] Calling CRYPTONEO /sign/signFileBatch with converted payload')
+    // Log du payload (sans base64/hash pour éviter les logs énormes)
+    console.log('[sign] CRYPTONEO payload (loggé):', JSON.stringify({
+      aliasCertificat,
+      otp: otp ? otp.substring(0, 2) + '***' : '(empty)',
+      callBackUrl: callBackUrl || '(none)',
+      signRequestCount: convertedItems.length,
+      signRequest: convertedItems.map(i => ({
+        codeDoc: i.codeDoc,
+        urlDoc: i.urlDoc ? i.urlDoc.substring(0, 100) + '...' : '(empty!)',
+        hashDoc: i.hashDoc ? i.hashDoc.substring(0, 16) + '...' : '(empty)',
+        visibiliteImage: i.visibiliteImage,
+        lieuSignature: i.lieuSignature,
+        motifSignature: i.motifSignature,
+      })),
+    }, null, 2))
 
     const { ok, data, error } = await cryptoneoFetchJson('/sign/signFileBatch', {
       method: 'POST',

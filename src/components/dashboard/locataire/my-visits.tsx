@@ -1,12 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Eye, Calendar, Clock, MapPin, ChevronRight } from 'lucide-react'
+import { Eye, Calendar, Clock, MapPin, ChevronRight, Search, Building2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { cn } from '@/lib/utils'
 
 interface VisitData {
   visitRequests: Array<{
@@ -44,6 +46,10 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Filters
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('ALL')
+
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
       setLoading(false)
@@ -69,8 +75,40 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
     fetchData()
   }, [fetchData])
 
+  const visits = data?.visitRequests || []
+
+  const stats = {
+    total: visits.length,
+    PENDING: visits.filter(v => v.status === 'PENDING').length,
+    ACCEPTED: visits.filter(v => v.status === 'ACCEPTED').length,
+    COMPLETED: visits.filter(v => v.status === 'COMPLETED').length,
+    REJECTED: visits.filter(v => ['REJECTED', 'CANCELLED'].includes(v.status)).length,
+  }
+
+  const statTabs = [
+    { key: 'ALL', label: 'Toutes', count: stats.total },
+    { key: 'PENDING', label: 'En attente', count: stats.PENDING },
+    { key: 'ACCEPTED', label: 'Acceptées', count: stats.ACCEPTED },
+    { key: 'COMPLETED', label: 'Terminées', count: stats.COMPLETED },
+    { key: 'REJECTED', label: 'Refusées', count: stats.REJECTED },
+  ]
+
+  const filtered = visits.filter((vr) => {
+    if (statusFilter !== 'ALL' && vr.status !== statusFilter) return false
+    if (search) {
+      const q = search.toLowerCase()
+      const propTitle = vr.property.title.toLowerCase()
+      if (!propTitle.includes(q)) return false
+    }
+    return true
+  })
+
   if (loading) {
-    return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />)}</div>
+    return <div className="space-y-6">
+      <div><div className="h-8 w-48 bg-muted animate-pulse rounded" /><div className="h-4 w-56 bg-muted animate-pulse rounded mt-2" /></div>
+      <div className="flex gap-2">{[1,2,3,4,5].map((i) => <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-lg" />)}</div>
+      {[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />)}
+    </div>
   }
 
   if (error) {
@@ -96,20 +134,79 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
         <p className="text-muted-foreground mt-1">Suivez vos demandes de visite</p>
       </div>
 
-      {!data?.visitRequests.length ? (
-        <Card className="border-border">
-          <CardContent className="py-12 text-center">
-            <Eye className="size-12 text-neutral-300 mx-auto mb-4" />
-            <p className="text-muted-foreground">Aucune visite planifiée</p>
-            <p className="text-sm text-muted-foreground mt-1">Explorez les biens disponibles pour demander une visite</p>
+      {/* Stats cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {statTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusFilter(tab.key)}
+            className={cn(
+              'p-3 rounded-xl border text-left transition-all',
+              statusFilter === tab.key
+                ? 'border-brand-500 bg-brand-50 shadow-sm'
+                : 'border-border bg-card hover:bg-muted/50'
+            )}
+          >
+            <p className={cn(
+              'text-2xl font-bold',
+              statusFilter === tab.key ? 'text-brand-600' : 'text-foreground'
+            )}>{tab.count}</p>
+            <p className={cn(
+              'text-xs mt-0.5',
+              statusFilter === tab.key ? 'text-brand-600 font-medium' : 'text-muted-foreground'
+            )}>{tab.label}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Input
+          placeholder="Rechercher par bien..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9 h-10"
+        />
+      </div>
+
+      {/* Status tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {statTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusFilter(tab.key)}
+            className={cn(
+              'px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors',
+              statusFilter === tab.key
+                ? 'bg-brand-500 text-white'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
+            )}
+          >
+            {tab.label} ({tab.count})
+          </button>
+        ))}
+      </div>
+
+      {/* Visit list */}
+      {filtered.length === 0 ? (
+        <Card className="border-dashed border-border bg-muted/50">
+          <CardContent className="py-12 flex flex-col items-center text-center">
+            <Eye className="size-12 text-muted-foreground/40 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-1">
+              {search ? 'Aucune visite trouvée' : 'Aucune visite planifiée'}
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              {search ? 'Essayez de modifier votre recherche.' : 'Explorez les biens disponibles pour demander une visite'}
+            </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
-          {data.visitRequests.map((vr) => (
+          {filtered.map((vr) => (
             <Card
               key={vr.id}
-              className="border-border hover:shadow-sm transition-shadow cursor-pointer"
+              className="border-border hover:shadow-md transition-all cursor-pointer"
               onClick={() => onDetail(vr.id)}
             >
               <CardContent className="p-4">
@@ -124,8 +221,8 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
                       />
                     </div>
                   ) : (
-                    <div className="size-14 sm:size-16 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
-                      <Eye className="size-6 text-brand-400" />
+                    <div className="size-14 sm:size-16 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <Building2 className="size-6 text-muted-foreground/40" />
                     </div>
                   )}
 

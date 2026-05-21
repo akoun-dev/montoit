@@ -20,6 +20,8 @@ import {
   Eye,
   ArrowLeft,
   Trash2,
+  Search,
+  Home,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -53,8 +55,10 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { Input } from '@/components/ui/input'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface TenantInfo {
@@ -230,6 +234,7 @@ export function EnhancedRentalFiles() {
   // Tenant profile dialog state
   const [profileDialogOpen, setProfileDialogOpen] = useState(false)
   const [selectedTenant, setSelectedTenant] = useState<RentalFileItem | null>(null)
+  const [search, setSearch] = useState('')
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -400,37 +405,70 @@ export function EnhancedRentalFiles() {
         <p className="text-muted-foreground mt-1">{pageDesc}</p>
       </div>
 
-      {/* Property Filter */}
-      {properties.length > 1 && (
-        <div className="flex items-center gap-2">
-          <Building2 className="size-4 text-muted-foreground shrink-0" />
-          <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-            <SelectTrigger className="w-full sm:w-[260px]">
-              <SelectValue placeholder="Filtrer par bien" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les biens</SelectItem>
-              {properties.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.title} — {p.city}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      {/* Stats cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+            className={cn(
+              'p-3 rounded-xl border text-left transition-all',
+              activeTab === tab.key
+                ? 'border-brand-500 bg-brand-50 shadow-sm'
+                : 'border-border bg-card hover:bg-muted/50'
+            )}
+          >
+            <p className={cn(
+              'text-2xl font-bold',
+              activeTab === tab.key ? 'text-brand-600' : 'text-foreground'
+            )}>{tab.count}</p>
+            <p className={cn(
+              'text-xs mt-0.5',
+              activeTab === tab.key ? 'text-brand-600 font-medium' : 'text-muted-foreground'
+            )}>{tab.label}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par locataire ou bien..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-10"
+          />
+        </div>
+        {properties.length > 1 && (
+          <Select value={propertyFilter} onValueChange={setPropertyFilter}>
+            <SelectTrigger className="w-full sm:w-[220px] h-10">
+              <Building2 className="size-4 mr-2 shrink-0" />
+              <SelectValue placeholder="Tous les biens" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les biens</SelectItem>
+              {properties.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+
+      {/* Status tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={cn(
+              'px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors',
               activeTab === tab.key
                 ? 'bg-brand-500 text-white'
                 : 'bg-muted text-muted-foreground hover:bg-accent'
-            }`}
+            )}
           >
             {tab.label} ({tab.count})
           </button>
@@ -439,7 +477,15 @@ export function EnhancedRentalFiles() {
 
       {/* Files List */}
       <AnimatePresence mode="wait">
-        {filteredData.length === 0 ? (
+        {(search ? (() => {
+          const q = search.toLowerCase()
+          return filteredData.filter((rf) => {
+            if (!search) return true
+            const name = `${rf.tenant.firstName} ${rf.tenant.lastName}`.toLowerCase()
+            const propTitle = rf.leases[0]?.property?.title?.toLowerCase() || ''
+            return name.includes(q) || propTitle.includes(q)
+          })
+        })() : filteredData).length === 0 ? (
           <motion.div key="empty" variants={itemVariants} initial="hidden" animate="show" exit="hidden">
             <Card className="border-dashed border-border bg-muted/50">
               <CardContent className="py-12 flex flex-col items-center text-center">
@@ -447,216 +493,149 @@ export function EnhancedRentalFiles() {
                   <ClipboardCheck className="size-7 text-amber-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-1">
-                  {activeTab === 'pending'
-                    ? 'Aucun dossier en attente'
-                    : activeTab === 'validated'
-                      ? 'Aucun dossier validé'
-                      : activeTab === 'rejected'
-                        ? 'Aucun dossier refusé'
-                        : 'Aucun dossier locatif'}
+                  {search || propertyFilter !== 'all'
+                    ? 'Aucun dossier trouvé'
+                    : activeTab === 'pending'
+                      ? 'Aucun dossier en attente'
+                      : activeTab === 'validated'
+                        ? 'Aucun dossier validé'
+                        : activeTab === 'rejected'
+                          ? 'Aucun dossier refusé'
+                          : 'Aucun dossier locatif'}
                 </h3>
                 <p className="text-sm text-muted-foreground max-w-sm">
-                  {activeTab === 'pending'
-                    ? 'Les nouvelles candidatures apparaîtront ici.'
-                    : 'Aucun dossier dans cette catégorie.'}
+                  {search || propertyFilter !== 'all'
+                    ? 'Essayez de modifier vos filtres.'
+                    : activeTab === 'pending'
+                      ? 'Les nouvelles candidatures apparaîtront ici.'
+                      : 'Aucun dossier dans cette catégorie.'}
                 </p>
               </CardContent>
             </Card>
           </motion.div>
         ) : (
-          <motion.div key={activeTab} variants={containerVariants} initial="hidden" animate="show" className="space-y-4">
-            {filteredData.map((rf) => (
+          <motion.div key={activeTab} variants={containerVariants} initial="hidden" animate="show" className="space-y-3">
+            {(search ? (() => {
+              const q = search.toLowerCase()
+              return filteredData.filter((rf) => {
+                if (!search) return true
+                const name = `${rf.tenant.firstName} ${rf.tenant.lastName}`.toLowerCase()
+                const propTitle = rf.leases[0]?.property?.title?.toLowerCase() || ''
+                return name.includes(q) || propTitle.includes(q)
+              })
+            })() : filteredData).map((rf) => (
               <motion.div key={rf.id} variants={itemVariants}>
-                <Card className="border-border hover:shadow-md transition-shadow">
-                  <CardContent className="p-5">
-                    {/* Top row: Tenant info + Status + Actions */}
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
-                      <div
-                        className="flex items-center gap-3 cursor-pointer group"
-                        onClick={() => {
-                          setSelectedTenant(rf)
-                          setProfileDialogOpen(true)
-                        }}
-                      >
-                        {/* Avatar */}
-                        <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-50 group-hover:bg-brand-100 transition-colors">
-                          {rf.tenant.avatarUrl ? (
-                            <img
-                              src={rf.tenant.avatarUrl}
-                              alt=""
-                              className="size-12 rounded-full object-cover"
-                            />
-                          ) : (
-                            <User className="size-6 text-brand-500" />
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground group-hover:text-brand-600 transition-colors">
-                            {rf.tenant.firstName} {rf.tenant.lastName}
-                          </h3>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] px-1.5 py-0 border ${getCategoryColor(rf.tenantCategory)}`}
-                            >
+                <Card
+                  className="border-border hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => {
+                    setSelectedTenant(rf)
+                    setProfileDialogOpen(true)
+                  }}
+                >
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex items-start gap-4">
+                      {/* Property thumbnail */}
+                      <div className="hidden sm:flex size-14 rounded-lg bg-muted overflow-hidden shrink-0">
+                        {rf.leases[0]?.property?.images?.[0]?.url ? (
+                          <img src={rf.leases[0].property.images[0].url} alt="" className="size-full object-cover" />
+                        ) : (
+                          <div className="size-full flex items-center justify-center">
+                            <Building2 className="size-6 text-muted-foreground/40" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        {/* Top row */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-foreground truncate">
+                              {rf.tenant.firstName} {rf.tenant.lastName}
+                            </h3>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <MapPin className="size-3" />
+                              {rf.leases[0]?.property?.title || 'Bien non spécifié'}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 border', getCategoryColor(rf.tenantCategory))}>
                               {getCategoryLabel(rf.tenantCategory)}
                             </Badge>
-                            <Badge className={getStatusColor(rf.status)}>
+                            <Badge className={cn('shrink-0 text-xs w-fit', getStatusColor(rf.status))}>
                               {getStatusLabel(rf.status)}
                             </Badge>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {['SUBMITTED', 'TC_REVIEW', 'VALIDATED'].includes(rf.status) && rf.leases.length === 0 && (
-                          <>
-                            <Button
-                              size="sm"
-                              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                              onClick={() => {
-                                setSelectedFileId(rf.id)
-                                setAcceptDialogOpen(true)
-                              }}
-                            >
-                              <CheckCircle2 className="size-3.5" />
-                              <span className="hidden sm:inline">Accepter</span>
-                            </Button>
+                        {/* Info rows */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                          {rf.monthlyIncome && (
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="size-3.5 shrink-0" />
+                              <span>{rf.monthlyIncome.toLocaleString('fr-FR')} FCFA/mois</span>
+                            </div>
+                          )}
+                          {rf.employer && (
+                            <div className="flex items-center gap-2">
+                              <Building2 className="size-3.5 shrink-0" />
+                              <span className="truncate">{rf.employer}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <Calendar className="size-3.5 shrink-0" />
+                            <span>Soumis le {formatDate(rf.createdAt)}</span>
+                          </div>
+                        </div>
+
+                        {/* Quick actions */}
+                        <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          {['SUBMITTED', 'TC_REVIEW', 'VALIDATED'].includes(rf.status) && rf.leases.length === 0 && (
+                            <>
+                              <Button
+                                size="sm"
+                                className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                                onClick={() => { setSelectedFileId(rf.id); setAcceptDialogOpen(true) }}
+                              >
+                                <CheckCircle2 className="size-3.5" />
+                                <span className="hidden lg:inline">Accepter</span>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 border-red-200 text-red-600 hover:bg-red-50 gap-1"
+                                onClick={() => { setSelectedFileId(rf.id); setRejectDialogOpen(true) }}
+                              >
+                                <XCircle className="size-3.5" />
+                                <span className="hidden lg:inline">Refuser</span>
+                              </Button>
+                            </>
+                          )}
+                          {rf.leases.length > 0 && rf.leases.some(l => !l.ownerSignedAt && !l.tenantSignedAt) && (
                             <Button
                               size="sm"
                               variant="outline"
-                              className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50"
+                              className="h-8 border-red-200 text-red-600 hover:bg-red-50 gap-1"
                               onClick={() => {
-                                setSelectedFileId(rf.id)
-                                setRejectDialogOpen(true)
+                                const unsignedLease = rf.leases.find(l => !l.ownerSignedAt && !l.tenantSignedAt)
+                                if (unsignedLease) handleDeleteLease(unsignedLease.id)
                               }}
                             >
-                              <XCircle className="size-3.5" />
-                              <span className="hidden sm:inline">Refuser</span>
+                              <Trash2 className="size-3.5" />
+                              <span className="hidden lg:inline">Supprimer le bail</span>
                             </Button>
-                          </>
-                        )}
-                        {rf.leases.length > 0 && rf.leases.some(l => !l.ownerSignedAt && !l.tenantSignedAt) && (
+                          )}
                           <Button
                             size="sm"
-                            variant="outline"
-                            className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50"
-                            onClick={() => {
-                              const unsignedLease = rf.leases.find(l => !l.ownerSignedAt && !l.tenantSignedAt)
-                              if (unsignedLease) handleDeleteLease(unsignedLease.id)
-                            }}
+                            variant="ghost"
+                            className="h-8 gap-1 text-muted-foreground hover:text-foreground"
+                            onClick={() => setDashboardSection('messages')}
                           >
-                            <Trash2 className="size-3.5" />
-                            <span className="hidden sm:inline">Supprimer le bail</span>
+                            <MessageSquare className="size-3.5" />
+                            <span className="hidden lg:inline">Contacter</span>
                           </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="gap-1.5 text-muted-foreground hover:text-foreground"
-                          onClick={() => setDashboardSection('messages')}
-                        >
-                          <MessageSquare className="size-3.5" />
-                          <span className="hidden sm:inline">Contacter</span>
-                        </Button>
+                        </div>
                       </div>
                     </div>
-
-                    {/* Details grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-                      {/* Income */}
-                      {rf.monthlyIncome && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <CreditCard className="size-3.5 shrink-0" />
-                          <span>{rf.monthlyIncome.toLocaleString('fr-FR')} FCFA/mois</span>
-                        </div>
-                      )}
-                      {/* Employer */}
-                      {rf.employer && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Building2 className="size-3.5 shrink-0" />
-                          <span className="truncate">{rf.employer}</span>
-                        </div>
-                      )}
-                      {/* Property */}
-                      {rf.leases[0]?.property && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <MapPin className="size-3.5 shrink-0" />
-                          <span className="truncate">{rf.leases[0].property.title}</span>
-                        </div>
-                      )}
-                      {/* Date */}
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Calendar className="size-3.5 shrink-0" />
-                        <span>Soumis le {formatDate(rf.createdAt)}</span>
-                      </div>
-                    </div>
-
-                    {/* Guarantor info */}
-                    {rf.guarantorName && (
-                      <div className="mt-3 p-3 rounded-lg bg-muted/50 border border-border">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Garant</p>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                          <span className="text-foreground">{rf.guarantorName}</span>
-                          {rf.guarantorPhone && (
-                            <span className="text-muted-foreground flex items-center gap-1">
-                              <Phone className="size-3" /> {rf.guarantorPhone}
-                            </span>
-                          )}
-                          {rf.guarantorRelation && (
-                            <span className="text-muted-foreground">{rf.guarantorRelation}</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Rejection reason */}
-                    {rf.status === 'REJECTED' && rf.rejectionReason && (
-                      <div className="mt-3 p-3 rounded-lg bg-red-50 border border-red-200">
-                        <p className="text-xs font-medium text-red-700 mb-0.5">Raison du refus</p>
-                        <p className="text-sm text-red-600">{rf.rejectionReason}</p>
-                      </div>
-                    )}
-
-                    {/* Documents */}
-                    <div className="mt-3">
-                      <p className="text-xs font-medium text-muted-foreground mb-2">
-                        Documents ({rf.documents.length})
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {rf.documents.map((doc) => (
-                          <Badge
-                            key={doc.id}
-                            variant="outline"
-                            className={`text-[10px] px-1.5 py-0 flex items-center gap-1 ${getDocStatusColor(doc.status)}`}
-                          >
-                            <FileText className="size-2.5" />
-                            {doc.name}
-                            <span className="opacity-70">({getDocStatusLabel(doc.status)})</span>
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Payment score */}
-                    {rf.tenantPaymentScore !== null && (
-                      <div className="mt-3 flex items-center gap-2">
-                        <Shield className="size-3.5 text-brand-500" />
-                        <span className="text-xs text-muted-foreground">Score de paiement :</span>
-                        <span
-                          className={`text-xs font-semibold ${
-                            rf.tenantPaymentScore >= 80
-                              ? 'text-emerald-600'
-                              : rf.tenantPaymentScore >= 50
-                                ? 'text-amber-600'
-                                : 'text-red-600'
-                          }`}
-                        >
-                          {rf.tenantPaymentScore}%
-                        </span>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               </motion.div>

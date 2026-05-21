@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   FileSignature, Plus, Building2, User, AlertTriangle, Loader2,
   MoreVertical, Eye, PenLine, Ban, CheckCircle2, Clock, XCircle,
-  Archive, Search, ChevronDown,
+  Archive, Search, ChevronDown, CalendarDays,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -37,6 +37,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -153,6 +154,7 @@ export function ProprietaireMandats() {
   // Data
   const [mandats, setMandats] = useState<MandatItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   // Properties for create form
   const [properties, setProperties] = useState<OwnerProperty[]>([])
@@ -209,6 +211,7 @@ export function ProprietaireMandats() {
         return
       }
       setMandats([])
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -263,12 +266,39 @@ export function ProprietaireMandats() {
     return () => clearTimeout(timer)
   }, [agencySearch, searchAgencies])
 
+  // ─── Filters ───────────────────────────────────────────────────────────
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('ALL')
+
   // ─── Stats ──────────────────────────────────────────────────────────────
   const stats = {
+    all: mandats.length,
     active: mandats.filter((m) => m.status === 'ACTIVE').length,
     pending: mandats.filter((m) => m.status === 'PENDING_SIGNATURE' || m.status === 'DRAFT').length,
     terminated: mandats.filter((m) => m.status === 'TERMINATED' || m.status === 'EXPIRED').length,
   }
+
+  const filteredMandats = mandats.filter((m) => {
+    if (statusFilter !== 'ALL' && (
+      statusFilter === 'active' ? m.status !== 'ACTIVE' :
+      statusFilter === 'pending' ? !['DRAFT', 'PENDING_SIGNATURE'].includes(m.status) :
+      statusFilter === 'terminated' ? !['TERMINATED', 'EXPIRED'].includes(m.status) : true
+    )) return false
+    if (search) {
+      const q = search.toLowerCase()
+      const propTitle = m.property.title.toLowerCase()
+      const agencyName = `${m.agency.firstName} ${m.agency.lastName}`.toLowerCase()
+      if (!propTitle.includes(q) && !agencyName.includes(q)) return false
+    }
+    return true
+  })
+
+  const statTabs = [
+    { key: 'ALL', label: 'Tous', count: stats.all },
+    { key: 'active', label: 'Actifs', count: stats.active },
+    { key: 'pending', label: 'En attente', count: stats.pending },
+    { key: 'terminated', label: 'Terminés', count: stats.terminated },
+  ]
 
   // ─── Reset form ─────────────────────────────────────────────────────────
   const resetForm = () => {
@@ -429,13 +459,25 @@ export function ProprietaireMandats() {
   // ─── Loading skeleton ───────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
+        <div><div className="h-8 w-48 bg-muted animate-pulse rounded" /><div className="h-4 w-64 bg-muted animate-pulse rounded mt-2" /></div>
+        <div className="flex gap-2">{[1,2,3].map((i) => <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-lg" />)}</div>
         {[1, 2, 3].map((i) => (
           <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />
         ))}
       </div>
     )
   }
+
+  // ─── Error state ────────────────────────────────────────────────────────
+  if (error) return (
+    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
+      <motion.div variants={itemVariants}>
+        <div><h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes Mandats</h1><p className="text-muted-foreground mt-1">Impossible de charger les mandats</p></div>
+      </motion.div>
+      <Card className="border-amber-200 bg-amber-50"><CardContent className="p-4"><p className="text-sm text-amber-700">Impossible de charger. Veuillez réessayer.</p></CardContent></Card>
+    </motion.div>
+  )
 
   // ─── Render ─────────────────────────────────────────────────────────────
   return (
@@ -462,72 +504,93 @@ export function ProprietaireMandats() {
       </motion.div>
 
       {/* ─── Stats Cards ─────────────────────────────────────────────────── */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        <Card className="border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-green-50">
-                <CheckCircle2 className="size-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.active}</p>
-                <p className="text-xs text-muted-foreground">Actifs</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50">
-                <Clock className="size-5 text-brand-600" />
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.pending}</p>
-                <p className="text-xs text-muted-foreground">En attente</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-neutral-100">
-                <Archive className="size-5 text-neutral-500" />
-              </div>
-              <div>
-                <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.terminated}</p>
-                <p className="text-xs text-muted-foreground">Terminés</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {statTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusFilter(tab.key)}
+            className={cn(
+              'p-3 rounded-xl border text-left transition-all',
+              statusFilter === tab.key
+                ? 'border-brand-500 bg-brand-50 shadow-sm'
+                : 'border-border bg-card hover:bg-muted/50'
+            )}
+          >
+            <p className={cn(
+              'text-2xl font-bold',
+              statusFilter === tab.key ? 'text-brand-600' : 'text-foreground'
+            )}>{tab.count}</p>
+            <p className={cn(
+              'text-xs mt-0.5',
+              statusFilter === tab.key ? 'text-brand-600 font-medium' : 'text-muted-foreground'
+            )}>{tab.label}</p>
+          </button>
+        ))}
+      </motion.div>
+
+      {/* ─── Filters ──────────────────────────────────────────────────────── */}
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par bien ou agence..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-10"
+          />
+        </div>
+      </motion.div>
+
+      {/* ─── Status tabs ────────────────────────────────────────────────── */}
+      <motion.div variants={itemVariants} className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        {statTabs.filter(t => t.key !== 'ALL').map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusFilter(tab.key)}
+            className={cn(
+              'px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors',
+              statusFilter === tab.key
+                ? 'bg-brand-500 text-white'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
+            )}
+          >
+            {tab.label} ({tab.count})
+          </button>
+        ))}
       </motion.div>
 
       {/* ─── Mandat Cards ────────────────────────────────────────────────── */}
-      {mandats.length === 0 ? (
+      {filteredMandats.length === 0 ? (
         <motion.div variants={itemVariants}>
-          <Card className="border-border">
-            <CardContent className="py-12 text-center">
-              <FileSignature className="size-12 text-muted-foreground/50 mx-auto mb-4" />
-              <p className="text-muted-foreground">Aucun mandat</p>
-              <p className="text-sm text-muted-foreground/70 mt-1">
-                Créez un mandat pour confier la gestion de vos biens à une agence
+          <Card className="border-dashed border-border bg-muted/50">
+            <CardContent className="py-12 flex flex-col items-center text-center">
+              <FileSignature className="size-12 text-muted-foreground/40 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-1">
+                {search
+                  ? 'Aucun mandat trouvé'
+                  : 'Aucun mandat'}
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                {search
+                  ? 'Essayez de modifier vos filtres.'
+                  : 'Créez un mandat pour confier la gestion de vos biens à une agence'}
               </p>
-              <Button
-                onClick={openCreateDialog}
-                className="mt-4 gap-2 bg-brand-500 hover:bg-brand-600 text-white"
-              >
-                <Plus className="size-4" />
-                Créer un mandat
-              </Button>
+              {!search && (
+                <Button
+                  onClick={openCreateDialog}
+                  className="mt-4 gap-2 bg-brand-500 hover:bg-brand-600 text-white"
+                >
+                  <Plus className="size-4" />
+                  Créer un mandat
+                </Button>
+              )}
             </CardContent>
           </Card>
         </motion.div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <AnimatePresence>
-            {mandats.map((mandat) => (
+            {filteredMandats.map((mandat) => (
               <MandatCard
                 key={mandat.id}
                 mandat={mandat}
@@ -1080,159 +1143,109 @@ function MandatCard({
       exit={{ opacity: 0, y: -10 }}
       layout
     >
-      <Card className="border-border">
-        <CardContent className="p-5">
-          {/* Top row: Property + Agency + Status */}
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-start gap-3">
-              {/* Property image */}
-              <div className="size-12 rounded-lg overflow-hidden shrink-0">
-                {mandat.property.images?.[0]?.url ? (
-                  <img
-                    src={mandat.property.images[0].url}
-                    alt={mandat.property.title}
-                    className="size-full object-cover"
-                  />
-                ) : (
-                  <div className="size-full flex items-center justify-center bg-brand-50">
-                    <Building2 className="size-5 text-brand-500" />
-                  </div>
+      <Card
+        className="border-border hover:shadow-md transition-shadow cursor-pointer"
+        onClick={onViewDetail}
+      >
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex items-start gap-4">
+            {/* Property thumbnail */}
+            <div className="hidden sm:flex size-14 rounded-lg bg-muted overflow-hidden shrink-0">
+              {mandat.property.images?.[0]?.url ? (
+                <img src={mandat.property.images[0].url} alt="" className="size-full object-cover" />
+              ) : (
+                <div className="size-full flex items-center justify-center">
+                  <Building2 className="size-6 text-muted-foreground/40" />
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              {/* Top row */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-foreground truncate">{mandat.property.title}</h3>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Building2 className="size-3" />
+                    {mandat.agency.firstName} {mandat.agency.lastName}
+                  </p>
+                </div>
+                <Badge className={cn('shrink-0 text-xs w-fit', STATUS_COLORS[mandat.status])}>
+                  <StatusIcon className="size-3 mr-1" />
+                  {STATUS_LABELS[mandat.status]}
+                </Badge>
+              </div>
+
+              {/* Info rows */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <FileSignature className="size-3.5 shrink-0" />
+                  <span>{MANDAT_TYPE_LABELS[mandat.type]}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="size-3.5 shrink-0" />
+                  <span>
+                    {mandat.commissionType === 'FIXED' && mandat.fixedCommission
+                      ? `${mandat.fixedCommission.toLocaleString('fr-FR')} FCFA`
+                      : `${mandat.commissionRate}%`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="size-3.5 shrink-0" />
+                  <span>{new Date(mandat.startDate).toLocaleDateString('fr-FR')} → {new Date(mandat.endDate).toLocaleDateString('fr-FR')}</span>
+                </div>
+              </div>
+
+              {/* Quick actions */}
+              <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                {(mandat.status === 'DRAFT' || (mandat.status === 'PENDING_SIGNATURE' && !mandat.ownerSignedAt)) && (
+                  <Button
+                    size="sm"
+                    onClick={onSign}
+                    className="h-8 bg-brand-500 hover:bg-brand-600 text-white gap-1"
+                  >
+                    <FileSignature className="size-3.5" />
+                    <span className="hidden lg:inline">Signer</span>
+                  </Button>
                 )}
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">{mandat.property.title}</h3>
-                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                  <Building2 className="size-3.5" />
-                  {mandat.agency.firstName} {mandat.agency.lastName}
-                </p>
-                <p className="text-xs text-muted-foreground">{mandat.agency.email}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Badge className={STATUS_COLORS[mandat.status]}>
-                <StatusIcon className="size-3 mr-1" />
-                {STATUS_LABELS[mandat.status]}
-              </Badge>
-              {/* Actions dropdown */}
-              {(mandat.status === 'DRAFT' || mandat.status === 'PENDING_SIGNATURE' || mandat.status === 'ACTIVE') && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="size-8 p-0">
-                      <MoreVertical className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={onViewDetail} className="cursor-pointer">
-                      <Eye className="size-4 mr-2" />
-                      Voir les détails
-                    </DropdownMenuItem>
-                    {(mandat.status === 'DRAFT' || mandat.status === 'PENDING_SIGNATURE') && !mandat.ownerSignedAt && (
-                      <DropdownMenuItem onClick={onSign} className="cursor-pointer text-brand-600 focus:text-brand-600 focus:bg-brand-50">
-                        <FileSignature className="size-4 mr-2" />
-                        Signer le mandat
-                      </DropdownMenuItem>
-                    )}
-                    {mandat.status === 'DRAFT' && (
-                      <DropdownMenuItem onClick={onEdit} className="cursor-pointer">
-                        <PenLine className="size-4 mr-2" />
-                        Modifier
-                      </DropdownMenuItem>
-                    )}
-                    {(mandat.status === 'ACTIVE' || mandat.status === 'PENDING_SIGNATURE') && (
-                      <DropdownMenuItem onClick={onTerminate} className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50">
-                        <Ban className="size-4 mr-2" />
-                        Résilier
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-              {/* For TERMINATED/EXPIRED, only show view detail */}
-              {(mandat.status === 'TERMINATED' || mandat.status === 'EXPIRED') && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 text-xs gap-1 text-brand-600 hover:text-brand-700 hover:bg-brand-50"
-                  onClick={onViewDetail}
-                >
-                  <Eye className="size-3" />
-                  Détails
+                {mandat.status === 'DRAFT' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onEdit}
+                    className="h-8 gap-1"
+                  >
+                    <PenLine className="size-3.5" />
+                    <span className="hidden lg:inline">Modifier</span>
+                  </Button>
+                )}
+                {(mandat.status === 'ACTIVE' || mandat.status === 'PENDING_SIGNATURE') && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 border-red-200 text-red-600 hover:bg-red-50 gap-1"
+                    onClick={onTerminate}
+                  >
+                    <Ban className="size-3.5" />
+                    <span className="hidden lg:inline">Résilier</span>
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" className="h-8 gap-1" onClick={onViewDetail}>
+                  <Eye className="size-3.5" />
+                  <span className="hidden lg:inline">Détails</span>
                 </Button>
+              </div>
+
+              {/* Termination reason for TERMINATED */}
+              {mandat.status === 'TERMINATED' && mandat.terminationReason && (
+                <div className="mt-3 p-2.5 rounded-lg bg-red-50 border border-red-100">
+                  <p className="text-xs text-red-600">
+                    <span className="font-medium">Raison :</span> {mandat.terminationReason}
+                  </p>
+                </div>
               )}
             </div>
           </div>
-
-          {/* Info grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-lg bg-muted">
-            <div>
-              <p className="text-xs text-muted-foreground">Type</p>
-              <Badge className={`${MANDAT_TYPE_COLORS[mandat.type]} text-[11px] mt-0.5`}>
-                {MANDAT_TYPE_LABELS[mandat.type]}
-              </Badge>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Commission</p>
-              <p className="text-sm font-semibold">
-                {mandat.commissionType === 'FIXED' && mandat.fixedCommission
-                  ? `${mandat.fixedCommission.toLocaleString('fr-FR')} FCFA`
-                  : `${mandat.commissionRate}%`}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Début</p>
-              <p className="text-sm font-semibold">{new Date(mandat.startDate).toLocaleDateString('fr-FR')}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Fin</p>
-              <p className="text-sm font-semibold">{new Date(mandat.endDate).toLocaleDateString('fr-FR')}</p>
-            </div>
-          </div>
-
-          {/* Quick action buttons for DRAFT */}
-          {mandat.status === 'DRAFT' && (
-            <div className="flex items-center gap-2 mt-3">
-              <Button
-                size="sm"
-                onClick={onSign}
-                className="gap-1.5 bg-brand-500 hover:bg-brand-600 text-white h-8 text-xs"
-              >
-                <FileSignature className="size-3.5" />
-                Signer
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onEdit}
-                className="gap-1.5 h-8 text-xs"
-              >
-                <PenLine className="size-3.5" />
-                Modifier
-              </Button>
-            </div>
-          )}
-
-          {/* Quick sign for PENDING_SIGNATURE if owner hasn't signed */}
-          {mandat.status === 'PENDING_SIGNATURE' && !mandat.ownerSignedAt && (
-            <div className="flex items-center gap-2 mt-3">
-              <Button
-                size="sm"
-                onClick={onSign}
-                className="gap-1.5 bg-brand-500 hover:bg-brand-600 text-white h-8 text-xs"
-              >
-                <FileSignature className="size-3.5" />
-                Signer le mandat
-              </Button>
-            </div>
-          )}
-
-          {/* Termination reason for TERMINATED */}
-          {mandat.status === 'TERMINATED' && mandat.terminationReason && (
-            <div className="mt-3 p-2.5 rounded-lg bg-red-50 border border-red-100">
-              <p className="text-xs text-red-600">
-                <span className="font-medium">Raison :</span> {mandat.terminationReason}
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
     </motion.div>
