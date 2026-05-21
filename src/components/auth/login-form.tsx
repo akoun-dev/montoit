@@ -59,8 +59,8 @@ export function LoginForm() {
     e.preventDefault()
     setError('')
     clearMessage()
-    if (!phone.trim()) {
-      setError('Veuillez entrer votre numéro de téléphone')
+    if (!phone.trim() || phone.length !== 10) {
+      setError('Veuillez entrer un numéro ivoirien valide (10 chiffres)')
       return
     }
     try {
@@ -255,7 +255,7 @@ export function LoginForm() {
                       type="tel"
                       placeholder="+225 XX XX XX XX XX"
                       value={phone}
-                      onChange={(e) => { setError(''); setPhone(e.target.value.replace(/\D/g, '')) }}
+                      onChange={(e) => { setError(''); setPhone(e.target.value.replace(/\D/g, '').slice(0, 10)) }}
                       className="h-11 pl-9"
                       disabled={isLoading}
                       required

@@ -144,9 +144,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (method === 'sms') {
-      if (!phone) {
+      if (!phone || phone.length !== 10) {
         return NextResponse.json(
-          { error: 'Numéro de téléphone requis' },
+          { error: 'Numéro de téléphone ivoirien invalide (10 chiffres requis)' },
           { status: 400 }
         )
       }

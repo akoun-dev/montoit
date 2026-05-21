@@ -183,6 +183,12 @@ export async function POST(request: NextRequest) {
     if (!email || typeof email !== 'string' || !email.trim()) {
       return NextResponse.json({ error: "L'email est requis" }, { status: 400 })
     }
+    if (phone && phone.length !== 10) {
+      return NextResponse.json(
+        { error: 'Numéro de téléphone ivoirien invalide (10 chiffres requis)' },
+        { status: 400 }
+      )
+    }
 
     const trimmedEmail = email.trim().toLowerCase()
     const trimmedFirstName = firstName.trim()

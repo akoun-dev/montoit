@@ -131,6 +131,12 @@ export async function POST(req: NextRequest) {
     if (!firstName || !lastName || !email) {
       return NextResponse.json({ error: 'Prénom, nom et email sont requis' }, { status: 400 })
     }
+    if (phone && phone.length !== 10) {
+      return NextResponse.json(
+        { error: 'Numéro de téléphone ivoirien invalide (10 chiffres requis)' },
+        { status: 400 }
+      )
+    }
 
     const { data: existing } = await supabase
       .from('agency_agents')

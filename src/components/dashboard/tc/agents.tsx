@@ -1181,9 +1181,9 @@ export function AgentsManagement() {
               <Label htmlFor="phone">Téléphone</Label>
               <Input
                 id="phone"
-                placeholder="+225 XX XX XX XX"
+                placeholder="07 00 00 00 00"
                 value={formData.phone}
-                onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
               />
             </div>
           </div>

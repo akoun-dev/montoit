@@ -540,8 +540,8 @@ export function TcSettings() {
                     <Input
                       id="tc-phone"
                       value={formState.phone}
-                      onChange={(e) => setFormState((prev) => ({ ...prev, phone: e.target.value }))}
-                      placeholder="+225 XX XX XX XX"
+                      onChange={(e) => setFormState((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                      placeholder="07 00 00 00 00"
                       className="h-9 text-sm"
                     />
                   </div>

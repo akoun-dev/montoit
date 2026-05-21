@@ -30,7 +30,14 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (body.phone !== undefined) {
-      updateData.phone = body.phone?.trim() || null
+      const cleanedPhone = body.phone?.trim() || null
+      if (cleanedPhone && cleanedPhone.length !== 10) {
+        return NextResponse.json(
+          { error: 'Numéro de téléphone ivoirien invalide (10 chiffres requis)' },
+          { status: 400 }
+        )
+      }
+      updateData.phone = cleanedPhone
     }
 
     if (body.bio !== undefined) {

@@ -132,8 +132,7 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
   }
 
   const handlePhoneChange = (value: string) => {
-    // Only allow digits and spaces
-    const cleaned = value.replace(/[^\d\s]/g, '')
+    const cleaned = value.replace(/\D/g, '').slice(0, 10)
     setPhoneNumber(cleaned)
     setPhoneError('')
   }

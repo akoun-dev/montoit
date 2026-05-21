@@ -479,8 +479,8 @@ export function OwnerSettings() {
                     <Input
                       id="owner-phone"
                       value={profileForm.phone}
-                      onChange={(e) => setProfileForm((prev) => ({ ...prev, phone: e.target.value }))}
-                      placeholder="+225 XX XX XX XX"
+                      onChange={(e) => setProfileForm((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                      placeholder="07 00 00 00 00"
                       className="h-9 text-sm flex-1"
                     />
                     <div className="flex items-center gap-2 shrink-0">

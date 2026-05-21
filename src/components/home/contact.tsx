@@ -174,7 +174,7 @@ export function Contact() {
                       type="tel"
                       placeholder="+225 01 02 03 04 05"
                       value={formData.phone}
-                      onChange={(e) => handleChange('phone', e.target.value.replace(/\D/g, ''))}
+                      onChange={(e) => handleChange('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
                       className="h-11 bg-muted border-border focus-visible:border-brand-500 focus-visible:ring-brand-500/30"
                     />
                   </div>

@@ -59,7 +59,14 @@ export async function PUT(req: NextRequest) {
     }
 
     if (phone !== undefined) {
-      updateData.phone = typeof phone === 'string' ? phone.trim() || null : null
+      const cleanedPhone = typeof phone === 'string' ? phone.trim() : null
+      if (cleanedPhone && cleanedPhone.length !== 10) {
+        return NextResponse.json(
+          { error: 'Numéro de téléphone ivoirien invalide (10 chiffres requis)' },
+          { status: 400 }
+        )
+      }
+      updateData.phone = cleanedPhone || null
     }
 
     if (gender !== undefined) {
