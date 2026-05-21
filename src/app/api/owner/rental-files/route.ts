@@ -62,6 +62,14 @@ export async function GET(req: NextRequest) {
 
     const appRentalFileIds = [...new Set((appsOnOwnerProperties || []).map((a: any) => a.rental_file_id).filter(Boolean))]
 
+    // Build map from applications: rental_file_id → property_id
+    const appPropertyByRentalFile: Record<string, string> = {}
+    for (const a of ((appsOnOwnerProperties || []) as any[])) {
+      if (a.rental_file_id && a.property_id && !appPropertyByRentalFile[a.rental_file_id]) {
+        appPropertyByRentalFile[a.rental_file_id] = a.property_id
+      }
+    }
+
     const allRentalFileIds = [...new Set([...leaseRentalFileIds, ...appRentalFileIds])]
 
     if (allRentalFileIds.length === 0) {
@@ -188,6 +196,28 @@ export async function GET(req: NextRequest) {
       imagesByProperty[img.property_id].push({ url: img.url, order: img.order })
     }
 
+    // Also fetch properties from applications (for files without leases)
+    const appPropertyIds = [...new Set(Object.values(appPropertyByRentalFile).filter(Boolean))]
+    const missingAppPropIds = appPropertyIds.filter(id => !rfPropMap[id])
+    if (missingAppPropIds.length > 0) {
+      const { data: appProps } = await supabase
+        .from('properties')
+        .select('id, title, city, address')
+        .in('id', missingAppPropIds)
+      for (const p of ((appProps || []) as any[])) {
+        rfPropMap[p.id] = { id: p.id, title: p.title, city: p.city, address: p.address }
+      }
+      const { data: appPropImages } = await supabase
+        .from('property_images')
+        .select('property_id, url, order')
+        .in('property_id', missingAppPropIds)
+        .order('order', { ascending: true })
+      for (const img of ((appPropImages || []) as any[])) {
+        if (!imagesByProperty[img.property_id]) imagesByProperty[img.property_id] = []
+        imagesByProperty[img.property_id].push({ url: img.url, order: img.order })
+      }
+    }
+
     const leasesByRentalFile: Record<string, any[]> = {}
     for (const l of (rfLeases || [])) {
       if (!leasesByRentalFile[l.rental_file_id]) leasesByRentalFile[l.rental_file_id] = []
@@ -203,6 +233,25 @@ export async function GET(req: NextRequest) {
           images: imagesByProperty[l.property_id]?.slice(0, 1) || [],
         },
       })
+    }
+
+    // For files without a lease (application only), synthesize a lease entry from application property
+    for (const rfId of filteredRentalFileIds) {
+      if (leasesByRentalFile[rfId]?.length) continue
+      const appPropId = appPropertyByRentalFile[rfId]
+      if (!appPropId) continue
+      const prop = rfPropMap[appPropId] || { id: appPropId, title: '', city: '', address: '' }
+      leasesByRentalFile[rfId] = [{
+        id: '',
+        status: '',
+        ownerSignedAt: null,
+        tenantSignedAt: null,
+        rentalFileId: rfId,
+        property: {
+          ...prop,
+          images: imagesByProperty[appPropId]?.slice(0, 1) || [],
+        },
+      }]
     }
 
     const allTenantIds = [...new Set(rentalFilesData.map(rf => rf.tenant_id).filter(Boolean))]

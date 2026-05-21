@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeRatings } from '@/hooks/use-realtime-ratings'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -196,9 +197,17 @@ export function OwnerReviews() {
     }
   }, [isAuthenticated])
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchReviews()
   }, [fetchReviews])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Realtime subscription for reviews
+  useRealtimeRatings({
+    userId: user?.id,
+    onRatingChange: () => { fetchReviews() },
+  })
 
   // ─── Reply handler ────────────────────────────────────────────────────────
   const handleReply = async () => {
