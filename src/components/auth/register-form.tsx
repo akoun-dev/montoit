@@ -137,14 +137,6 @@ export function RegisterForm() {
       toast.error('Veuillez accepter les conditions d\'utilisation')
       return
     }
-    if (phone && phone.length > 0 && phone.length !== 10) {
-      toast.error('Le numéro de téléphone doit faire 10 chiffres')
-      return
-    }
-    if (method === 'sms' && phone.length !== 10) {
-      toast.error('Veuillez entrer un numéro ivoirien valide (10 chiffres)')
-      return
-    }
 
     try {
       if (method === 'email') {
@@ -315,7 +307,7 @@ export function RegisterForm() {
                             type="tel"
                             placeholder="+225 XX XX XX XX XX"
                             value={phone}
-                            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                            onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                             className="h-11 pl-9"
                             disabled={isLoading}
                           />
@@ -451,7 +443,7 @@ export function RegisterForm() {
                             type="tel"
                             placeholder="+225 XX XX XX XX XX"
                             value={phone}
-                            onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                            onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                             className="h-11 pl-9"
                             disabled={isLoading || !!pendingPhone}
                           />

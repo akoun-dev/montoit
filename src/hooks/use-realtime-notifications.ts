@@ -39,7 +39,7 @@ export function useRealtimeNotifications({ userId, onNotificationChange }: UseRe
     const supabase = getSupabaseBrowserClient()
 
     const channel = supabase
-      .channel('notifications-realtime')
+      .channel(`notifications-realtime-${userId}`)
       .on<RealtimeNotificationPayload>(
         'postgres_changes',
         {
@@ -57,7 +57,7 @@ export function useRealtimeNotifications({ userId, onNotificationChange }: UseRe
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('[realtime-notifications] Subscribed')
+          console.log(`[realtime-notifications] Subscribed for user ${userId}`)
         } else if (status === 'CHANNEL_ERROR') {
           console.warn('[realtime-notifications] Channel error')
         }
