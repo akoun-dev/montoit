@@ -260,12 +260,15 @@ export async function POST(
         return applyCookies(resp)
       }
 
-      console.log('[sign/route] Edge Function sign response:', {
+      console.log('[sign/route] Edge Function sign response full:', JSON.stringify(signResult).substring(0, 2000))
+      console.log('[sign/route] Edge Function sign parsed:', {
         ok: signRes.ok,
         status: signRes.status,
         operationId: signResult?.operationId || signResult?.data?.operationId,
         error: signResult?.error,
         statusMessage: signResult?.statusMessage,
+        cryptoneoStatusCode: signResult?.cryptoneoRaw?.statusCode,
+        cryptoneoStatusMessage: signResult?.cryptoneoRaw?.statusMessage,
       })
 
       if (!signRes.ok) {

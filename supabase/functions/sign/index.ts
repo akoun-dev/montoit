@@ -242,8 +242,19 @@ serve(async (req) => {
     }
 
     const result = data as CryptoneoSignResponse
+    console.log('[sign] CRYPTONEO RAW response fields:', Object.keys(result))
+    console.log('[sign] CRYPTONEO data field:', JSON.stringify(result?.data))
+    console.log('[sign] CRYPTONEO statusMessage:', result?.statusMessage)
     console.log('[sign] Sign success:', { operationId: result?.data?.operationId, signedFileName: result?.data?.signedFileName })
-    return new Response(JSON.stringify({ operationId: result?.data?.operationId, signedFileName: result?.data?.signedFileName, data: result?.data }), {
+
+    // Retourner aussi le body CRYPTONEO brut pour debug
+    const responseData: Record<string, unknown> = {
+      operationId: result?.data?.operationId,
+      signedFileName: result?.data?.signedFileName,
+      data: result?.data,
+      cryptoneoRaw: data,
+    }
+    return new Response(JSON.stringify(responseData), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
