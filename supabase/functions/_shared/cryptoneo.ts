@@ -165,7 +165,8 @@ const CRYPTONEO_SUCCESS_CODES = new Set([200, 7000, 7002])
 /** Vérifie si un code de retour CRYPTONEO indique un succès. */
 export function isCryptoneoSuccess(data: Record<string, unknown>): boolean {
     const code = (data as any).code ?? (data as any).statusCode
-    return !code || CRYPTONEO_SUCCESS_CODES.has(code)
+    // 0 est un code erreur côté CRYPTONEO, on ne peut pas utiliser !code
+    return code === undefined || code === null || CRYPTONEO_SUCCESS_CODES.has(code)
 }
 
 /**
