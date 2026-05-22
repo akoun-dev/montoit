@@ -63,7 +63,7 @@ export async function GET(
     const [propRes, ownerRes, tenantRes, payRes, maintRes, imgRes] = await Promise.all([
       supabase.from('properties').select('id, title, address, city, type, price, currency, area, bedrooms, bathrooms').eq('id', lease.property_id).maybeSingle(),
       supabase.from('users').select('id, first_name, last_name, phone, email, avatar_url').eq('id', lease.owner_id).maybeSingle(),
-      supabase.from('users').select('id, first_name, last_name, phone, email, avatar_url').eq('id', lease.tenant_id).maybeSingle(),
+      supabase.from('users').select('id, first_name, last_name, phone, email, avatar_url').eq('id', lease.tenant_id').maybeSingle(),
       supabase.from('payments').select('id, amount, status, due_date, paid_at, reference').eq('lease_id', id).order('due_date', { ascending: false }).limit(6),
       supabase.from('maintenance_requests').select('id, title, status, priority, created_at').eq('lease_id', id).order('created_at', { ascending: false }).limit(5),
       supabase.from('property_images').select('url').eq('property_id', lease.property_id).order('order', { ascending: true }).limit(3),
@@ -71,6 +71,8 @@ export async function GET(
 
     const result = {
       ...mapLease(lease),
+      monthlyRent: lease.monthly_rent || propRes.data?.price || 0,
+      charges: lease.charges || 0,
       property: propRes.data ? {
         id: propRes.data.id,
         title: propRes.data.title,
