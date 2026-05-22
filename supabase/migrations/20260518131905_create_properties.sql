@@ -30,6 +30,7 @@ create table if not exists properties (
   rental_terms      text            not null default '{}',
   hide_owner_name   boolean         not null default false,
   virtual_tour_url  text,
+  featured          boolean         not null default false,
   views_count       integer         not null default 0,
   created_at        timestamptz     not null default now(),
   updated_at        timestamptz     not null default now(),
@@ -41,6 +42,7 @@ create index if not exists idx_properties_city on properties (city);
 create index if not exists idx_properties_type on properties (type);
 create index if not exists idx_properties_price on properties (price);
 create index if not exists idx_properties_owner_id on properties (owner_id);
+create index if not exists idx_properties_featured on properties (featured) where featured = true;
 
 alter table properties enable row level security;
 

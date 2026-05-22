@@ -91,8 +91,8 @@ export const statusConfig: Record<
 
 export const ROOM_COLUMNS = [
   { key: 'kitchen', label: 'Cuisine' },
-  { key: 'mainBathroom', label: 'SdB principale' },
-  { key: 'otherBathroom', label: 'SdB autres' },
+  { key: 'mainBathroom', label: 'Salle de bain principale' },
+  { key: 'otherBathroom', label: 'Salle de bain autres' },
   { key: 'otherRoom1', label: 'Autre pièce 1' },
   { key: 'otherRoom2', label: 'Autre pièce 2' },
 ] as const

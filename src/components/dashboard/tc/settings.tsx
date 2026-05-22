@@ -5,7 +5,7 @@ import {
   User, Shield, Bell, Mail, Phone, ShieldCheck,
   CheckCircle2, XCircle, Save, Loader2, MapPin, Users,
   Eye, EyeOff, Monitor, Smartphone, Trash2, LogOut,
-  Camera, CreditCard, FileCheck, AlertTriangle, Info, Lightbulb,
+  Camera, CreditCard, FileCheck, AlertTriangle, Info, Lightbulb, History,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +19,7 @@ import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
+import { ActivityHistory } from '@/components/dashboard/locataire/history'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -75,7 +76,7 @@ export function TcSettings() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'profil' | 'securite' | 'notifications'>('profil')
+  const [activeTab, setActiveTab] = useState<'profil' | 'securite' | 'notifications' | 'history'>('profil')
 
   // Form state (NO nni, NO birthDate)
   const [formState, setFormState] = useState({
@@ -357,8 +358,9 @@ export function TcSettings() {
     )
   }
 
-  // Tab navigation items (NO scoring tab)
+  // Tab navigation items
   const tabs = [
+    { id: 'history' as const, label: 'Activité', icon: History },
     { id: 'profil' as const, label: 'Mon Profil', icon: User },
     { id: 'securite' as const, label: 'Sécurité', icon: Shield },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell },
@@ -477,6 +479,19 @@ export function TcSettings() {
 
       {/* ── Tab Content ──────────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
+        {/* ── ACTIVITÉ TAB ──────────────────────────────────────────────── */}
+        {activeTab === 'history' && (
+          <motion.div
+            key="history"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ActivityHistory />
+          </motion.div>
+        )}
+
         {/* ── PROFIL TAB ────────────────────────────────────────────────── */}
         {activeTab === 'profil' && (
           <motion.div

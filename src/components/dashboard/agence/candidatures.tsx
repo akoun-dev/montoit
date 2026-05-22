@@ -15,6 +15,7 @@ import { motion } from 'framer-motion'
 
 interface RentalFile {
   id: string; status: string; tenantCategory: string | null; createdAt: string
+  propertyId: string | null; propertyTitle: string | null; agentIds: string[]
   tenant: { firstName: string; lastName: string; phone: string; email: string }
 }
 
@@ -22,7 +23,11 @@ interface Agent {
   id: string; firstName: string; lastName: string; email: string; role: string
 }
 
-interface AgenceData { rentalFiles: RentalFile[]; agents: Agent[] }
+interface PropertySummary {
+  id: string; title: string
+}
+
+interface AgenceData { rentalFiles: RentalFile[]; agents: Agent[]; properties: PropertySummary[] }
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
@@ -38,6 +43,7 @@ export function Candidatures() {
   const { isAuthenticated, user } = useAuthStore()
   const [rentalFiles, setRentalFiles] = useState<RentalFile[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
+  const [properties, setProperties] = useState<PropertySummary[]>([])
   const [loading, setLoading] = useState(true)
   const [propertyFilter, setPropertyFilter] = useState<string>('all')
   const [agentFilter, setAgentFilter] = useState<string>('all')
@@ -48,6 +54,7 @@ export function Candidatures() {
       const d = await authFetch<AgenceData>('/api/dashboard/agence')
       setRentalFiles(d.rentalFiles ?? [])
       setAgents(d.agents ?? [])
+      setProperties(d.properties ?? [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
     } finally { setLoading(false) }
@@ -61,7 +68,8 @@ export function Candidatures() {
   })
 
   const filtered = rentalFiles.filter((rf) => {
-    if (agentFilter !== 'all') return true // Agent filtering would need assignment data
+    if (propertyFilter !== 'all' && rf.propertyId !== propertyFilter) return false
+    if (agentFilter !== 'all' && !rf.agentIds.includes(agentFilter)) return false
     return true
   })
 
@@ -85,6 +93,9 @@ export function Candidatures() {
           <SelectTrigger className="w-48"><SelectValue placeholder="Filtrer par bien" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les biens</SelectItem>
+            {properties.map((p) => (
+              <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={agentFilter} onValueChange={setAgentFilter}>

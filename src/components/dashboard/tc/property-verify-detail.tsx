@@ -361,7 +361,7 @@ export function PropertyVerifyDetail() {
                 {property.bathrooms != null && (
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Bath className="size-4 text-brand-500" />
-                    {property.bathrooms} SDB
+                    {property.bathrooms} Salle de Bain
                   </div>
                 )}
                 {property.hasParking && (

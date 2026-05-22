@@ -177,6 +177,15 @@ export async function GET(req: NextRequest) {
 
     const propMap = new Map((rawProperties ?? []).map(p => [p.id, p]))
 
+    // Build property → agent IDs map for agent filtering
+    const propertyAgentMap = new Map<string, string[]>()
+    for (const ap of assignedProps ?? []) {
+      const propId = ap.property_id
+      if (!propId) continue
+      if (!propertyAgentMap.has(propId)) propertyAgentMap.set(propId, [])
+      propertyAgentMap.get(propId)!.push(ap.agent_id)
+    }
+
     // ─── Map active mandats ────────────────────────────────────────────
     const activeMandats = (rawActiveMandats ?? []).map(m => ({
       id: m.id,
@@ -270,6 +279,7 @@ export async function GET(req: NextRequest) {
           status: v.status,
           tenantMessage: v.tenant_message,
           createdAt: v.created_at,
+          assignedAgentId: v.assigned_agent_id,
           tenant: tenant ? { firstName: tenant.first_name, lastName: tenant.last_name, phone: tenant.phone } : null,
           property: prop ? { title: prop.title, city: prop.city } : null,
         }
@@ -324,11 +334,19 @@ export async function GET(req: NextRequest) {
       return leases.length > 0
     }).map(rf => {
       const tenant = tenantMap.get(rf.tenant_id)
+      const leases = leaseByRentalFile.get(rf.id) ?? []
+      const lease = leases[0]
+      const propertyId = lease?.property_id
+      const prop = propMap.get(propertyId)
+      const agentIds = propertyAgentMap.get(propertyId) ?? []
       return {
         id: rf.id,
         status: rf.status,
         tenantCategory: rf.tenant_category,
         createdAt: rf.created_at,
+        propertyId: propertyId || null,
+        propertyTitle: prop?.title || null,
+        agentIds,
         tenant: tenant ? {
           firstName: tenant.first_name,
           lastName: tenant.last_name,

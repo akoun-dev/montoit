@@ -12,6 +12,7 @@ create table if not exists visit_requests (
   counter_time_slot text,
   owner_comment     text,
   tenant_message    text,
+  assigned_agent_id text,
   created_at        timestamptz         not null default now(),
   updated_at        timestamptz         not null default now(),
   property_id       text                not null references properties(id) on delete cascade,
@@ -21,6 +22,11 @@ create table if not exists visit_requests (
 create index if not exists idx_visit_requests_property_id on visit_requests (property_id);
 create index if not exists idx_visit_requests_tenant_id on visit_requests (tenant_id);
 create index if not exists idx_visit_requests_status on visit_requests (status);
+create index if not exists idx_visit_requests_assigned_agent on visit_requests (assigned_agent_id);
+
+-- Foreign key constraint for assigned_agent_id
+alter table visit_requests add constraint fk_visit_requests_assigned_agent
+  foreign key (assigned_agent_id) references users(id) on delete set null;
 
 alter table visit_requests enable row level security;
 
@@ -48,6 +54,11 @@ create policy "visit_requests_select_owner"
     )
   );
 
+create policy "visit_requests_select_assigned_agent"
+  on visit_requests for select
+  to authenticated
+  using ((select auth.uid()::text) = assigned_agent_id);
+
 create policy "visit_requests_insert_own"
   on visit_requests for insert
   to authenticated
@@ -74,3 +85,9 @@ create policy "visit_requests_update_own"
   to authenticated
   using ((select auth.uid()::text) = tenant_id)
   with check ((select auth.uid()::text) = tenant_id);
+
+create policy "visit_requests_update_assigned_agent"
+  on visit_requests for update
+  to authenticated
+  using ((select auth.uid()::text) = assigned_agent_id)
+  with check ((select auth.uid()::text) = assigned_agent_id);

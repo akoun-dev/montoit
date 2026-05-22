@@ -61,6 +61,7 @@ export function AgenceMandats() {
   const [search, setSearch] = useState('')
   const [detailMandat, setDetailMandat] = useState<Mandat | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [signing, setSigning] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -354,6 +355,41 @@ export function AgenceMandats() {
                   <Clock className="size-3" />
                   Agence signé le : {detailMandat.agencySignedAt ? new Date(detailMandat.agencySignedAt).toLocaleDateString('fr-FR') : '—'}
                 </div>
+
+                {/* Action buttons */}
+                {detailMandat.status === 'PENDING_SIGNATURE' && !detailMandat.agencySignedAt && (
+                  <div className="pt-3 border-t border-border flex gap-2">
+                    <Button
+                      size="sm"
+                      className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white flex-1 gap-1"
+                      disabled={signing}
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        setSigning(true)
+                        try {
+                          await authFetch(`/api/mandats/${detailMandat.id}/sign`, {
+                            method: 'POST',
+                            body: JSON.stringify({ role: 'agency' }),
+                          })
+                          toast.success('Mandat signé avec succès')
+                          setDetailOpen(false)
+                          fetchData()
+                        } catch (err) {
+                          if (err instanceof AuthError) {
+                            toast.error(err.message || 'Erreur lors de la signature')
+                          } else {
+                            toast.error('Erreur lors de la signature')
+                          }
+                        } finally {
+                          setSigning(false)
+                        }
+                      }}
+                    >
+                      <FileSignature className="size-3.5" />
+                      {signing ? 'Signature en cours...' : 'Signer le mandat'}
+                    </Button>
+                  </div>
+                )}
               </div>
             </>
           )}

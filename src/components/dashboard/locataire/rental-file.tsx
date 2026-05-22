@@ -170,7 +170,13 @@ export function RentalFileForm() {
     }
   }
 
+  const hasDocuments = (existingFile?.documents?.filter(d => requiredDocs.some(rd => rd.type === d.type)).length ?? 0) > 0
+
   const handleSubmit = async () => {
+    if (!hasDocuments) {
+      toast.error('Ajoutez au moins un document avant de soumettre votre dossier.')
+      return
+    }
     setSubmitting(true)
     try {
       await authFetch('/api/rental-file', {
@@ -623,8 +629,8 @@ export function RentalFileForm() {
                 !isReadOnly && (
                   <Button
                     onClick={handleSubmit}
-                    disabled={submitting}
-                    className="bg-brand-500 hover:bg-brand-600 text-white gap-1 w-full sm:w-auto"
+                    disabled={submitting || !hasDocuments}
+                    className="bg-brand-500 hover:bg-brand-600 text-white gap-1 w-full sm:w-auto disabled:opacity-50"
                   >
                     {submitting ? (
                       'Envoi...'

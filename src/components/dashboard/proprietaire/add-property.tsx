@@ -1067,7 +1067,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="bathrooms" className="text-xs font-medium">SdB</Label>
+              <Label htmlFor="bathrooms" className="text-xs font-medium">Salle de Bain</Label>
               <Input
                 id="bathrooms"
                 type="number"

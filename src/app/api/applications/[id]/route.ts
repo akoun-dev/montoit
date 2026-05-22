@@ -103,28 +103,32 @@ export async function GET(
     }
 
     const steps = [
-      { status: 'DRAFT', label: 'Brouillon' },
       { status: 'SUBMITTED', label: 'Soumis' },
-      { status: 'VALIDATED', label: 'Validé' },
       { status: 'ACCEPTED', label: 'Accepté' },
     ]
 
-    const statusOrder = ['DRAFT', 'SUBMITTED', 'VALIDATED', 'ACCEPTED']
+    const statusOrder = ['SUBMITTED', 'ACCEPTED']
     const currentIndex = statusOrder.indexOf(application.status)
     const isRejected = application.status === 'REJECTED'
     const isExpired = application.status === 'EXPIRED'
 
-    const statusTimeline = steps.map((step, index) => ({
-      ...step,
-      completed: !isRejected && !isExpired && index < currentIndex,
-      active: !isRejected && !isExpired && index === currentIndex,
-    })).concat(
-      isRejected
-        ? [{ status: 'REJECTED', label: 'Rejeté', completed: false, active: true }]
-        : isExpired
-          ? [{ status: 'EXPIRED', label: 'Expiré', completed: false, active: true }]
-          : []
-    )
+    const statusTimeline = (() => {
+      if (isRejected) {
+        return steps.map((step) => ({ ...step, completed: false, active: false }))
+          .concat([{ status: 'REJECTED', label: 'Rejeté', completed: false, active: true }])
+      }
+
+      if (isExpired) {
+        return steps.map((step) => ({ ...step, completed: false, active: false }))
+          .concat([{ status: 'EXPIRED', label: 'Expiré', completed: false, active: true }])
+      }
+
+      return steps.map((step, index) => ({
+        ...step,
+        completed: index < currentIndex,
+        active: index === currentIndex,
+      }))
+    })()
 
     const linkedProperty = leases.length > 0 && leases[0].property ? {
       id: leases[0].property.id,

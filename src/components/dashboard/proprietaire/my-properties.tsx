@@ -115,11 +115,6 @@ export function MyProperties() {
     draft: properties.filter((p) => p.status === 'DRAFT').length,
   }), [properties])
 
-  const availableTypes = useMemo(
-    () => [...new Set(properties.map((p) => p.type).filter(Boolean))],
-    [properties]
-  )
-
   const handleResumeDraft = (id: string) => {
     setEditingId(id)
     setShowAddForm(true)
@@ -366,8 +361,8 @@ export function MyProperties() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tous les types</SelectItem>
-            {availableTypes.map((t) => (
-              <SelectItem key={t} value={t}>{typeLabels[t] || t}</SelectItem>
+            {Object.keys(typeLabels).map((t) => (
+              <SelectItem key={t} value={t}>{typeLabels[t]}</SelectItem>
             ))}
           </SelectContent>
         </Select>

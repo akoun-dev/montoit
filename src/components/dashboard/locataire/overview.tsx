@@ -285,7 +285,7 @@ export function LocataireOverview() {
           </div>
           {scoring && (
             <button
-              onClick={() => setDashboardSection('trust-score')}
+              onClick={() => setDashboardSection('settings')}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border ${scoreBadgeClass} text-xs font-medium hover:shadow-sm transition-all shrink-0`}
             >
               <ShieldCheck className="size-3.5" />

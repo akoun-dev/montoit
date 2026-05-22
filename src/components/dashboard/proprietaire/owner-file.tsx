@@ -2,13 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  FileText, Upload, CheckCircle2, ChevronRight, ChevronLeft,
-  Save, Send, AlertCircle, Building2, Trash2, Eye
+  FileText, Upload, CheckCircle2,
+  Save, Send, AlertCircle, Trash2, Eye, Mail, Phone, User
 } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
@@ -58,13 +56,7 @@ const ownerDocumentRequirements: DocRequirement[] = [
   { type: 'ID_CARD', label: "Carte d'identité ou Passeport", required: true, accept: '.pdf,.jpg,.jpeg,.png' },
   { type: 'PROPERTY_TITLE', label: 'Titre de propriété', description: 'Pour chaque bien que vous louez', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
   { type: 'UTILITY_BILL', label: 'Dernière facture CIE ou SODECI', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-  { type: 'BANK_ACCOUNT_DETAILS', label: 'Relevé d\'identité bancaire (RIB)', required: false, accept: '.pdf,.jpg,.jpeg,.png' },
-]
-
-// ─── Step definition ───────────────────────────────────────────────────────
-const steps = [
-  { id: 1, title: 'Informations personnelles' },
-  { id: 2, title: 'Documents' },
+  { type: 'BANK_ACCOUNT_DETAILS', label: "Relevé d'identité bancaire (RIB)", required: false, accept: '.pdf,.jpg,.jpeg,.png' },
 ]
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -80,7 +72,6 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
 export function OwnerFileForm() {
   const { user, isAuthenticated } = useAuthStore()
-  const [step, setStep] = useState(1)
   const [existingFile, setExistingFile] = useState<OwnerFileItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -132,7 +123,13 @@ export function OwnerFileForm() {
     }
   }
 
+  const hasDocuments = (existingFile?.documents?.filter(d => ownerDocumentRequirements.some(rd => rd.type === d.type)).length ?? 0) > 0
+
   const handleSubmit = async () => {
+    if (!hasDocuments) {
+      toast.error('Ajoutez au moins un document avant de soumettre votre dossier.')
+      return
+    }
     setSubmitting(true)
     try {
       await authFetch('/api/owner-file', {
@@ -233,11 +230,6 @@ export function OwnerFileForm() {
           <div className="h-8 w-48 bg-muted animate-pulse rounded" />
           <div className="h-4 w-64 bg-muted animate-pulse rounded mt-2" />
         </div>
-        <div className="flex gap-2">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-8 w-32 bg-muted animate-pulse rounded-full" />
-          ))}
-        </div>
         <div className="h-64 rounded-xl bg-muted animate-pulse" />
       </div>
     )
@@ -298,98 +290,55 @@ export function OwnerFileForm() {
         </Card>
       )}
 
-      {/* Progress Steps */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {steps.map((s, i) => (
-          <div key={s.id} className="flex items-center gap-2">
-            <button
-              onClick={() => !isReadOnly && setStep(s.id)}
-              className={`flex items-center justify-center size-8 rounded-full text-sm font-medium transition-colors ${
-                step >= s.id ? 'bg-brand-500 text-white' : 'bg-muted text-muted-foreground'
-              } ${!isReadOnly ? 'cursor-pointer' : ''}`}
-            >
-              {step > s.id ? <CheckCircle2 className="size-5" /> : s.id}
-            </button>
-            <span className={`text-sm hidden sm:inline ${
-              step >= s.id ? 'text-foreground font-medium' : 'text-muted-foreground'
-            }`}>
-              {s.title}
-            </span>
-            {i < steps.length - 1 && (
-              <div className={`hidden sm:block w-8 h-0.5 ${step > s.id ? 'bg-brand-500' : 'bg-neutral-200'}`} />
-            )}
-          </div>
-        ))}
-      </div>
-
       <Card className="border-border">
-        <CardHeader>
-          <CardTitle className="text-lg">{steps[step - 1].title}</CardTitle>
-          <CardDescription>Étape {step} sur {steps.length}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Step 1: Personal Info */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Prénom</Label>
-                  <Input value={user?.firstName || ''} disabled />
-                </div>
-                <div className="space-y-2">
-                  <Label>Nom</Label>
-                  <Input value={user?.lastName || ''} disabled />
-                </div>
+        <CardContent className="p-6 space-y-6">
+          {/* Personal info read-only section (comme rental-file) */}
+          <div className="rounded-lg bg-muted/30 border border-border p-4">
+            <p className="text-sm font-medium mb-3 text-muted-foreground flex items-center gap-2">
+              <User className="size-4" />
+              Informations personnelles
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Prénom</p>
+                <p className="text-sm font-medium">{user?.firstName || '—'}</p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Téléphone</Label>
-                  <Input value={user?.phone || 'Non renseigné'} disabled />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input value={user?.email || ''} disabled />
-                </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Nom</p>
+                <p className="text-sm font-medium">{user?.lastName || '—'}</p>
               </div>
-
-              <Card className="border-border bg-muted/30">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <Building2 className="size-5 text-brand-500 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium">Documents du propriétaire</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Pour vérifier votre profil de propriétaire, vous devrez fournir les documents suivants :
-                      </p>
-                      <ul className="mt-2 space-y-1">
-                        {ownerDocumentRequirements.map((doc) => (
-                          <li key={doc.type} className="flex items-center gap-2 text-xs">
-                            <span className={`size-1.5 rounded-full ${doc.required ? 'bg-red-400' : 'bg-neutral-300'}`} />
-                            <span>{doc.label}</span>
-                            {doc.required && <span className="text-red-500">(obligatoire)</span>}
-                            {!doc.required && <span className="text-muted-foreground">(facultatif)</span>}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <div>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Phone className="size-3" /> Téléphone
+                </p>
+                <p className="text-sm font-medium">{user?.phone || 'Non renseigné'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Mail className="size-3" /> Email
+                </p>
+                <p className="text-sm font-medium">{user?.email || '—'}</p>
+              </div>
             </div>
-          )}
+          </div>
 
-          {/* Step 2: Documents */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 text-xs text-muted-foreground mb-2">
-                <span className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-red-400 inline-block" /> Obligatoire
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-neutral-300 inline-block" /> Facultatif
-                </span>
-              </div>
+          {/* Documents section (comme rental-file step 2) */}
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="size-4 text-brand-500" />
+              <h3 className="text-sm font-semibold text-foreground">Documents requis</h3>
+            </div>
 
+            <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
+              <span className="flex items-center gap-1">
+                <span className="size-2 rounded-full bg-red-400 inline-block" /> Obligatoire
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="size-2 rounded-full bg-neutral-300 inline-block" /> Facultatif
+              </span>
+            </div>
+
+            <div className="space-y-3">
               {ownerDocumentRequirements.map((doc) => {
                 const existingDoc = existingFile?.documents?.find((d) => d.type === doc.type)
                 const isUploading = uploadingDocType === doc.type
@@ -489,8 +438,10 @@ export function OwnerFileForm() {
                   </div>
                 )
               })}
+            </div>
 
-              {/* Upload progress indicator */}
+            {/* Upload progress indicator */}
+            {ownerDocumentRequirements.length > 0 && (
               <div className="mt-4 p-3 rounded-lg bg-muted/50 border border-border">
                 <div className="flex items-center justify-between text-xs mb-2">
                   <span className="text-muted-foreground">Progression des documents</span>
@@ -507,20 +458,12 @@ export function OwnerFileForm() {
                   />
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Navigation */}
+          {/* Action buttons */}
           <div className="flex items-center justify-between pt-4 border-t border-border">
-            <Button
-              variant="outline"
-              onClick={() => setStep(Math.max(1, step - 1))}
-              disabled={step === 1}
-              className="gap-1"
-            >
-              <ChevronLeft className="size-4" />
-              Précédent
-            </Button>
+            <div />
             <div className="flex items-center gap-2">
               {!isReadOnly && (
                 <Button
@@ -533,32 +476,21 @@ export function OwnerFileForm() {
                   {saving ? 'Sauvegarde...' : 'Sauvegarder'}
                 </Button>
               )}
-              {step < steps.length ? (
+              {!isReadOnly && (
                 <Button
-                  onClick={() => setStep(step + 1)}
-                  className="bg-brand-500 hover:bg-brand-600 text-white gap-1"
-                  disabled={isReadOnly}
+                  onClick={handleSubmit}
+                  disabled={submitting || !hasDocuments}
+                  className="bg-brand-500 hover:bg-brand-600 text-white gap-1 disabled:opacity-50"
                 >
-                  Suivant
-                  <ChevronRight className="size-4" />
+                  {submitting ? (
+                    'Envoi...'
+                  ) : (
+                    <>
+                      <Send className="size-4" />
+                      Soumettre le dossier
+                    </>
+                  )}
                 </Button>
-              ) : (
-                !isReadOnly && (
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={submitting}
-                    className="bg-brand-500 hover:bg-brand-600 text-white gap-1"
-                  >
-                    {submitting ? (
-                      'Envoi...'
-                    ) : (
-                      <>
-                        <Send className="size-4" />
-                        Soumettre le dossier
-                      </>
-                    )}
-                  </Button>
-                )
               )}
             </div>
           </div>

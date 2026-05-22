@@ -33,17 +33,7 @@ import {
   CheckCircle2,
   Send,
   AlertCircle,
-  Wifi,
-  Zap,
-  Droplets,
   Flame,
-  Refrigerator,
-  WashingMachine,
-  Tv,
-  Lamp,
-  TreePalm,
-  Dog,
-  Baby,
   FileText,
   Wallet,
   Clock3,
@@ -123,7 +113,7 @@ export interface PropertyDetail {
   }
 }
 
-type TabKey = 'details' | 'commodites' | 'modalites' | 'contact' | 'reviews'
+type TabKey = 'details' | 'modalites' | 'contact' | 'reviews'
 
 // ── Parsed extras derived from API data ────────────────────────────────────
 
@@ -134,7 +124,6 @@ interface ParsedExtras {
   climate: boolean
   guardian: boolean
   images: string[]
-  amenities: string[]
   modalites: {
     caution: number
     dureeBail: string
@@ -169,31 +158,6 @@ interface Review {
   verified: boolean
 }
 
-// ── Amenity config ─────────────────────────────────────────────────────────
-
-const amenityConfig: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
-  wifi: { label: 'Wi-Fi', icon: Wifi },
-  climatisation: { label: 'Climatisation', icon: Wind },
-  parking: { label: 'Parking', icon: Car },
-  gardien: { label: 'Gardien / Sécurité', icon: Shield },
-  cuisine_equipee: { label: 'Cuisine équipée', icon: Refrigerator },
-  machine_laver: { label: 'Machine à laver', icon: WashingMachine },
-  refrigerateur: { label: 'Réfrigérateur', icon: Refrigerator },
-  television: { label: 'Télévision', icon: Tv },
-  balcon: { label: 'Balcon', icon: Lamp },
-  piscine: { label: 'Piscine', icon: Droplets },
-  ascenseur: { label: 'Ascenseur', icon: Building2 },
-  placards: { label: 'Placards intégrés', icon: FileText },
-  jardin: { label: 'Jardin', icon: TreePalm },
-  terrasse: { label: 'Terrasse', icon: Lamp },
-  garage: { label: 'Garage', icon: Car },
-  portail_motorise: { label: 'Portail motorisé', icon: Zap },
-  dressing: { label: 'Dressing', icon: FileText },
-  douche_italienne: { label: 'Douche italienne', icon: ShowerHead },
-  aire_jeux: { label: 'Aire de jeux', icon: Baby },
-  animaux: { label: 'Animaux acceptés', icon: Dog },
-}
-
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function formatJoinedDate(dateStr: string): string {
@@ -203,13 +167,6 @@ function formatJoinedDate(dateStr: string): string {
 }
 
 function parseExtras(property: PropertyDetail): ParsedExtras {
-  let amenities: string[] = []
-  try {
-    amenities = JSON.parse(property.amenities || '[]')
-  } catch {
-    amenities = []
-  }
-
   let modalites: ParsedExtras['modalites'] = {
     caution: 0,
     dureeBail: '',
@@ -250,7 +207,6 @@ function parseExtras(property: PropertyDetail): ParsedExtras {
     climate: property.hasClimate,
     guardian: property.hasGuardian,
     images: property.images.map((img) => img.url),
-    amenities,
     modalites,
     owner: {
       name: ownerName,
@@ -460,6 +416,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   const { setView, isAuthenticated, user, previousView } = useAuthStore()
   const { isFavorite: checkIsFavorite, toggleFavorite: apiToggleFavorite, checkSingle } = useFavorites([propertyId])
   const [currentImage, setCurrentImage] = useState(0)
+  const [showVideo, setShowVideo] = useState(false)
   const [activeTab, setActiveTab] = useState<TabKey>('details')
   const tabScrollRef = useRef<HTMLDivElement>(null)
 
@@ -529,6 +486,8 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
           }
           setProperty(p)
           setCurrentImage(0)
+          setShowVideo(false)
+          setActiveTab('details')
           setError(null)
           setLoading(false)
         }
@@ -620,7 +579,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
 
   const features = [
     { icon: BedDouble, label: 'Pièces', value: property.bedrooms ?? '—' },
-    { icon: ShowerHead, label: 'SdB', value: property.bathrooms ?? '—' },
+    { icon: ShowerHead, label: 'Salle de Bain', value: property.bathrooms ?? '—' },
     { icon: Maximize, label: 'Surface', value: `${property.area} m²` },
     { icon: Car, label: 'Parking', value: property.hasParking ? 'Oui' : 'Non' },
     { icon: Wind, label: 'Climatisation', value: property.hasClimate ? 'Oui' : 'Non' },
@@ -631,6 +590,12 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
 
   const images = extras.images
   const commune = property.commune || property.city
+
+  // Check if modalites has any data
+  const hasModalites = (() => {
+    const m = extras.modalites
+    return !!(m.dureeBail || m.caution > 0 || m.chargesIncluses.length > 0 || m.chargesNonIncluses.length > 0 || m.modePaiement.length > 0 || m.conditions.length > 0 || m.etatLieux || m.preavis)
+  })()
 
   // Auth-gated action helper
   const requireAuth = (action: string, callback: () => void) => {
@@ -656,8 +621,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
 
   const tabs: { key: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { key: 'details', label: 'Détails', icon: Building2 },
-    { key: 'commodites', label: 'Commodités', icon: Lamp },
-    { key: 'modalites', label: 'Modalités', icon: FileText },
+    ...(hasModalites ? [{ key: 'modalites', label: 'Modalités', icon: FileText } as const] : []),
     { key: 'contact', label: 'Contacter', icon: Phone },
     { key: 'reviews', label: `Avis (${totalReviews})`, icon: Star },
   ]
@@ -715,81 +679,118 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
         <div className="lg:grid lg:grid-cols-3 lg:gap-8">
           {/* ── Left Column (2/3) ──────────────────────────────────────── */}
           <div className="lg:col-span-2">
-            {/* Image Gallery */}
+            {/* Media Gallery (Images + Video toggle) */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
               className="relative h-64 sm:h-96 lg:h-[480px] rounded-2xl overflow-hidden bg-neutral-200 mb-6"
             >
-              {images.length > 0 ? (
-                <Image
-                  src={images[currentImage] ?? images[0]!}
-                  alt={property.title}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 66vw"
-                  priority
-                  unoptimized
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-muted">
-                  <Building2 className="size-16 text-muted-foreground" />
-                </div>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
-
-              {/* Image nav */}
-              {images.length > 1 && (
+              {/* Photos mode */}
+              {!showVideo && (
                 <>
-                  <button
-                    onClick={() => setCurrentImage((p) => (p - 1 + images.length) % images.length)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center hover:bg-card shadow-md transition-colors"
-                    aria-label="Image précédente"
-                  >
-                    <ChevronLeft className="size-4 text-muted-foreground" />
-                  </button>
-                  <button
-                    onClick={() => setCurrentImage((p) => (p + 1) % images.length)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center hover:bg-card shadow-md transition-colors"
-                    aria-label="Image suivante"
-                  >
-                    <ChevronRight className="size-4 text-muted-foreground" />
-                  </button>
+                  {images.length > 0 ? (
+                    <Image
+                      src={images[currentImage] ?? images[0]!}
+                      alt={property.title}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 1024px) 100vw, 66vw"
+                      priority
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-muted">
+                      <Building2 className="size-16 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
+
+                  {/* Image nav */}
+                  {images.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => setCurrentImage((p) => (p - 1 + images.length) % images.length)}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center hover:bg-card shadow-md transition-colors"
+                        aria-label="Image précédente"
+                      >
+                        <ChevronLeft className="size-4 text-muted-foreground" />
+                      </button>
+                      <button
+                        onClick={() => setCurrentImage((p) => (p + 1) % images.length)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 size-9 rounded-full bg-card/80 backdrop-blur-sm flex items-center justify-center hover:bg-card shadow-md transition-colors"
+                        aria-label="Image suivante"
+                      >
+                        <ChevronRight className="size-4 text-muted-foreground" />
+                      </button>
+                    </>
+                  )}
+
+                  {/* Image indicators */}
+                  {images.length > 1 && (
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                      {images.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setCurrentImage(i)}
+                          className={`size-2 rounded-full transition-all ${i === currentImage ? 'bg-white w-6' : 'bg-white/50 hover:bg-white/75'}`}
+                          aria-label={`Image ${i + 1}`}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
 
-              {/* Image indicators */}
-              {images.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
-                  {images.map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setCurrentImage(i)}
-                      className={`size-2 rounded-full transition-all ${i === currentImage ? 'bg-white w-6' : 'bg-white/50 hover:bg-white/75'}`}
-                      aria-label={`Image ${i + 1}`}
-                    />
-                  ))}
+              {/* Video mode */}
+              {showVideo && extras.virtualTourUrl && (
+                <video
+                  src={extras.virtualTourUrl}
+                  controls
+                  className="w-full h-full object-contain bg-black"
+                  playsInline
+                  preload="metadata"
+                />
+              )}
+
+              {/* Media type toggle */}
+              {extras.virtualTourUrl && (
+                <div className="absolute top-4 right-4 flex items-center gap-1 rounded-lg bg-card/90 backdrop-blur-sm p-0.5 shadow-md z-10">
+                  <button
+                    onClick={() => setShowVideo(false)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${!showVideo ? 'bg-brand-500 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Photos
+                  </button>
+                  <button
+                    onClick={() => setShowVideo(true)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${showVideo ? 'bg-brand-500 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    <Video className="size-3.5" />
+                    Vidéo
+                  </button>
                 </div>
               )}
 
-              {/* Badges */}
-              <div className="absolute top-4 left-4 flex items-center gap-1.5">
-                <Badge className={`border-0 text-xs font-semibold px-2.5 py-0.5 ${statusConfig[property.rentalStatus].className}`}>
-                  {statusConfig[property.rentalStatus].label}
-                </Badge>
-                {property.isFurnished && (
-                  <Badge className="border-0 text-xs font-medium px-2.5 py-0.5 bg-sky-500 text-white">
-                    Meublé
+              {/* Badges (only in photos mode) */}
+              {!showVideo && (
+                <div className="absolute top-4 left-4 flex items-center gap-1.5">
+                  <Badge className={`border-0 text-xs font-semibold px-2.5 py-0.5 ${statusConfig[property.rentalStatus].className}`}>
+                    {statusConfig[property.rentalStatus].label}
                   </Badge>
-                )}
-                {property.isVerified && (
-                  <Badge className="border-0 text-xs font-medium px-2.5 py-0.5 bg-card/90 backdrop-blur-sm text-foreground">
-                    <BadgeCheck className="size-3 text-brand-500 mr-0.5" />
-                    Vérifié
-                  </Badge>
-                )}
-              </div>
+                  {property.isFurnished && (
+                    <Badge className="border-0 text-xs font-medium px-2.5 py-0.5 bg-sky-500 text-white">
+                      Meublé
+                    </Badge>
+                  )}
+                  {property.isVerified && (
+                    <Badge className="border-0 text-xs font-medium px-2.5 py-0.5 bg-card/90 backdrop-blur-sm text-foreground">
+                      <BadgeCheck className="size-3 text-brand-500 mr-0.5" />
+                      Vérifié
+                    </Badge>
+                  )}
+                </div>
+              )}
             </motion.div>
 
             {/* Title & Price (mobile) */}
@@ -901,7 +902,6 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                 transition={{ duration: 0.25 }}
               >
                 {activeTab === 'details' && <DetailsTab property={property} features={features} extras={extras} />}
-                {activeTab === 'commodites' && <CommoditesTab amenities={extras.amenities} />}
                 {activeTab === 'modalites' && <ModalitesTab extras={extras} price={property.price} />}
                 {activeTab === 'contact' && <ContactTab property={property} extras={extras} />}
                 {activeTab === 'reviews' && <ReviewsTab avgRating={avgRating} reviews={reviews} totalReviews={totalReviews} propertyId={property.id} ownerId={property.ownerId} />}
@@ -1213,94 +1213,6 @@ function DetailsTab({
           {/* Mini Map */}
           <MiniMap lat={lat} lng={lng} location={commune} />
         </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Commodités Tab ──────────────────────────────────────────────────────────
-
-function CommoditesTab({ amenities }: { amenities: string[] }) {
-  const availableAmenities = amenities
-    .map((key) => ({ key, ...amenityConfig[key] }))
-    .filter((a) => a.label)
-
-  const allCategories = [
-    {
-      title: 'Confort & Climatisation',
-      keys: ['climatisation', 'chauffe_eau', 'ventilateur'],
-    },
-    {
-      title: 'Cuisine & Électroménager',
-      keys: ['cuisine_equipee', 'refrigerateur', 'machine_laver', 'lave_vaisselle', 'micro_ondes', 'four'],
-    },
-    {
-      title: 'Technologie & Connectivité',
-      keys: ['wifi', 'television'],
-    },
-    {
-      title: 'Espaces extérieurs',
-      keys: ['balcon', 'terrasse', 'jardin', 'piscine'],
-    },
-    {
-      title: 'Stationnement & Sécurité',
-      keys: ['parking', 'garage', 'gardien', 'portail_motorise', 'ascenseur'],
-    },
-    {
-      title: 'Rangements & Aménagements',
-      keys: ['placards', 'dressing', 'douche_italienne'],
-    },
-    {
-      title: 'Divers',
-      keys: ['aire_jeux', 'animaux'],
-    },
-  ]
-
-  return (
-    <div className="space-y-6 pb-24 lg:pb-6">
-      {/* Summary */}
-      <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-        <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-          <Lamp className="size-4 text-brand-500" />
-          Commodités & Équipements
-        </h3>
-        <p className="text-xs text-muted-foreground">
-          {availableAmenities.length} commodité{availableAmenities.length !== 1 ? 's' : ''} disponible{availableAmenities.length !== 1 ? 's' : ''}
-        </p>
-      </div>
-
-      {/* Categories */}
-      {allCategories.map((category) => {
-        const categoryAmenities = category.keys
-          .filter((key) => amenities.includes(key))
-          .map((key) => ({ key, ...amenityConfig[key] }))
-          .filter((a) => a.label)
-
-        if (categoryAmenities.length === 0) return null
-
-        return (
-          <div key={category.title} className="bg-card rounded-xl border border-border p-3 sm:p-5 shadow-sm">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">{category.title}</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-              {categoryAmenities.map((amenity) => (
-                <div key={amenity.key} className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-emerald-50/50 border border-emerald-100">
-                  <div className="size-7 sm:size-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                    <amenity.icon className="size-3.5 sm:size-4 text-emerald-600" />
-                  </div>
-                  <span className="text-[11px] sm:text-xs font-medium text-muted-foreground leading-tight">{amenity.label}</span>
-                  <CheckCircle2 className="size-3 sm:size-3.5 text-emerald-500 ml-auto shrink-0" />
-                </div>
-              ))}
-            </div>
-          </div>
-        )
-      })}
-
-      {/* Not available amenities hint */}
-      <div className="text-center py-2">
-        <p className="text-[11px] text-muted-foreground">
-          Les commodités listées sont celles déclarées par le propriétaire. Vérifiez lors de la visite.
-        </p>
       </div>
     </div>
   )

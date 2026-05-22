@@ -109,6 +109,7 @@ export function guessExtensionFromMime(base64DataUrl: string): string {
     'video/quicktime': 'mov',
     'video/webm': 'webm',
     'video/x-msvideo': 'avi',
+    'application/pdf': 'pdf',
   }
   return map[mime] || 'bin'
 }

@@ -26,7 +26,7 @@ export function DashboardHeader() {
   if (!user) return null
 
   const effectiveRole = user.activeRole || user.role
-  const canSwitchRole = ['LOCATAIRE', 'PROPRIETAIRE', 'AGENCE'].includes(user.role) || ['LOCATAIRE', 'PROPRIETAIRE', 'AGENCE'].includes(user.activeRole || user.role)
+  const canSwitchRole = ['LOCATAIRE', 'PROPRIETAIRE'].includes(user.role) || ['LOCATAIRE', 'PROPRIETAIRE'].includes(user.activeRole || user.role)
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
 
   const handleSwitchRole = (newRole: 'LOCATAIRE' | 'PROPRIETAIRE') => {

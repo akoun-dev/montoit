@@ -189,7 +189,6 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'owner-file': return <OwnerFileForm />
     case 'reviews': return <OwnerReviews />
     case 'maintenance': return <OwnerMaintenance />
-    case 'security': return <OwnerSecurity />
     case 'history': return <ActivityHistory />
     case 'settings': return <OwnerSettings />
     default: return <ProprietaireOverview />

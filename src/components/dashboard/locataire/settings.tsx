@@ -6,7 +6,7 @@ import {
   CheckCircle2, XCircle, ScanFace, CreditCard, FileCheck,
   Save, Loader2, MapPin, Users, ArrowRight, Lightbulb, AlertTriangle,
   Info, RefreshCw, Eye, EyeOff, Monitor, Smartphone, Trash2, LogOut,
-  Camera, ArrowLeftRight, Building2, Share, Copy,
+  Camera, ArrowLeftRight, Building2, Share, Copy, Star, Wrench, History,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +23,9 @@ import { cn } from '@/lib/utils'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useInAppBrowser } from '@/hooks/capacitor'
+import { Reviews } from './reviews'
+import { Maintenance } from './maintenance'
+import { ActivityHistory } from './history'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -833,7 +836,7 @@ export function SettingsSection() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'profil' | 'scoring' | 'securite' | 'notifications'>('profil')
+  const [activeTab, setActiveTab] = useState<'profil' | 'scoring' | 'securite' | 'notifications' | 'reviews' | 'maintenance' | 'history'>('profil')
 
   // KYC modal state
   const [kycModalOpen, setKycModalOpen] = useState(false)
@@ -853,6 +856,20 @@ export function SettingsSection() {
     birthDate: '',
     nni: '',
   })
+
+  // Email/Phone verification state
+  const [emailValue, setEmailValue] = useState('')
+  const [emailSending, setEmailSending] = useState(false)
+  const [emailOtpSent, setEmailOtpSent] = useState(false)
+  const [emailOtpCode, setEmailOtpCode] = useState('')
+  const [emailVerifyError, setEmailVerifyError] = useState<string | null>(null)
+  const [emailVerifySuccess, setEmailVerifySuccess] = useState<string | null>(null)
+
+  const [phoneSending, setPhoneSending] = useState(false)
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false)
+  const [phoneOtpCode, setPhoneOtpCode] = useState('')
+  const [phoneVerifyError, setPhoneVerifyError] = useState<string | null>(null)
+  const [phoneVerifySuccess, setPhoneVerifySuccess] = useState<string | null>(null)
 
   // ONECI verification state
   const [oneciVerifying, setOneciVerifying] = useState(false)
@@ -917,6 +934,7 @@ export function SettingsSection() {
           birthDate: p.birthDate ? new Date(p.birthDate).toISOString().split('T')[0] : '',
           nni: p.nni || '',
         })
+        setEmailValue(p.email || '')
       }
 
       if (scoringResult.status === 'fulfilled') {
@@ -948,6 +966,21 @@ export function SettingsSection() {
       return () => clearTimeout(timer)
     }
   }, [passwordSuccess])
+
+  // Auto-clear email/phone verification success
+  useEffect(() => {
+    if (emailVerifySuccess) {
+      const timer = setTimeout(() => setEmailVerifySuccess(null), 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [emailVerifySuccess])
+
+  useEffect(() => {
+    if (phoneVerifySuccess) {
+      const timer = setTimeout(() => setPhoneVerifySuccess(null), 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [phoneVerifySuccess])
 
   // Fetch sessions when security tab is active
   useEffect(() => {
@@ -1219,7 +1252,7 @@ export function SettingsSection() {
       const result = await authFetch<{ user: ProfileData }>('/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formState),
+        body: JSON.stringify({ ...formState, email: emailValue.trim() || undefined }),
       })
 
       setProfile(result.user)
@@ -1314,6 +1347,134 @@ export function SettingsSection() {
     }
   }
 
+  // ── Email verification handlers ──────────────────────────────────────
+  const handleSendEmailVerification = useCallback(async () => {
+    if (!emailValue.trim()) return
+
+    setEmailSending(true)
+    setEmailVerifyError(null)
+    setEmailVerifySuccess(null)
+    setEmailOtpSent(false)
+
+    try {
+      // First save the email to profile
+      await authFetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailValue.trim() }),
+      })
+
+      // Then send OTP to the new email
+      await authFetch('/api/auth/send-email-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: emailValue.trim(), purpose: 'email_verify' }),
+      })
+
+      setEmailOtpSent(true)
+      setEmailVerifySuccess('Code de vérification envoyé à ' + emailValue.trim())
+    } catch (err) {
+      setEmailVerifyError(err instanceof Error ? err.message : 'Erreur lors de l\'envoi du code')
+    } finally {
+      setEmailSending(false)
+    }
+  }, [emailValue])
+
+  const handleVerifyEmailCode = useCallback(async () => {
+    if (!emailOtpCode.trim() || !emailValue.trim()) return
+
+    setEmailSending(true)
+    setEmailVerifyError(null)
+
+    try {
+      const result = await authFetch<{ verified: boolean }>('/api/auth/verify-email-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: emailValue.trim(), code: emailOtpCode.trim(), purpose: 'email_verify' }),
+      })
+
+      if (result.verified) {
+        setEmailVerifySuccess('Adresse email vérifiée avec succès !')
+        setEmailOtpSent(false)
+        setEmailOtpCode('')
+        // Refresh profile
+        const profileResult = await authFetch<{ user: ProfileData }>('/api/profile')
+        setProfile(profileResult.user)
+        updateUser({ email: profileResult.user.email, isEmailVerified: true })
+      }
+    } catch (err) {
+      setEmailVerifyError(err instanceof Error ? err.message : 'Code invalide ou expiré')
+    } finally {
+      setEmailSending(false)
+    }
+  }, [emailOtpCode, emailValue, updateUser])
+
+  // ── Phone verification handlers ──────────────────────────────────────
+  const handleSendPhoneVerification = useCallback(async () => {
+    if (!formState.phone.trim()) return
+
+    setPhoneSending(true)
+    setPhoneVerifyError(null)
+    setPhoneVerifySuccess(null)
+    setPhoneOtpSent(false)
+
+    try {
+      // First save the phone to profile
+      await authFetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formState.phone.trim() }),
+      })
+
+      // Then send SMS OTP with phone_verify purpose
+      await authFetch('/api/auth/send-sms-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ phone: formState.phone.trim(), purpose: 'phone_verify' }),
+      })
+
+      setPhoneOtpSent(true)
+      setPhoneVerifySuccess('Code de vérification envoyé par SMS au ' + formState.phone.trim())
+    } catch (err) {
+      setPhoneVerifyError(err instanceof Error ? err.message : 'Erreur lors de l\'envoi du code')
+    } finally {
+      setPhoneSending(false)
+    }
+  }, [formState.phone])
+
+  const handleVerifyPhoneCode = useCallback(async () => {
+    if (!phoneOtpCode.trim() || !formState.phone.trim()) return
+
+    setPhoneSending(true)
+    setPhoneVerifyError(null)
+
+    try {
+      const result = await authFetch<{ verified: boolean; message: string }>('/api/auth/verify-phone-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ phone: formState.phone.trim(), code: phoneOtpCode.trim() }),
+      })
+
+      if (result.verified) {
+        setPhoneVerifySuccess('Numéro de téléphone vérifié avec succès !')
+        setPhoneOtpSent(false)
+        setPhoneOtpCode('')
+        // Refresh profile
+        const profileResult = await authFetch<{ user: ProfileData }>('/api/profile')
+        setProfile(profileResult.user)
+        updateUser({ phone: profileResult.user.phone, isPhoneVerified: true })
+      }
+    } catch (err) {
+      setPhoneVerifyError(err instanceof Error ? err.message : 'Code invalide ou expiré')
+    } finally {
+      setPhoneSending(false)
+    }
+  }, [phoneOtpCode, formState.phone, updateUser])
+
   // Loading state
   if (loading) {
     return (
@@ -1338,6 +1499,9 @@ export function SettingsSection() {
 
   // Scoring tab navigation items
   const tabs = [
+    { id: 'reviews' as const, label: 'Mes avis', icon: Star },
+    { id: 'maintenance' as const, label: 'Maintenance', icon: Wrench },
+    { id: 'history' as const, label: 'Activité', icon: History },
     { id: 'profil' as const, label: 'Mon Profil', icon: User },
     { id: 'scoring' as const, label: 'Vérifications', icon: ShieldCheck },
     { id: 'securite' as const, label: 'Sécurité', icon: Shield },
@@ -1497,6 +1661,45 @@ export function SettingsSection() {
 
       {/* ── Tab Content ──────────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
+        {/* ── REVIEWS TAB ──────────────────────────────────────────────── */}
+        {activeTab === 'reviews' && (
+          <motion.div
+            key="reviews"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Reviews />
+          </motion.div>
+        )}
+
+        {/* ── MAINTENANCE TAB ───────────────────────────────────────────── */}
+        {activeTab === 'maintenance' && (
+          <motion.div
+            key="maintenance"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Maintenance />
+          </motion.div>
+        )}
+
+        {/* ── HISTORY TAB ──────────────────────────────────────────────── */}
+        {activeTab === 'history' && (
+          <motion.div
+            key="history"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ActivityHistory />
+          </motion.div>
+        )}
+
         {/* ── PROFIL TAB ────────────────────────────────────────────────── */}
         {activeTab === 'profil' && (
           <motion.div
@@ -1747,13 +1950,69 @@ export function SettingsSection() {
                         </Badge>
                       )}
                     </Label>
-                    <Input
-                      id="phone"
-                      value={formState.phone}
-                      onChange={(e) => setFormState((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
-                      placeholder="07 00 00 00 00"
-                      className="h-9 text-sm"
-                    />
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Input
+                          id="phone"
+                          value={formState.phone}
+                          onChange={(e) => setFormState((prev) => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                          placeholder="07 00 00 00 00"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      {!profile?.isPhoneVerified && formState.phone && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9 text-xs shrink-0 border-brand-200 text-brand-600 hover:bg-brand-50"
+                          onClick={handleSendPhoneVerification}
+                          disabled={phoneSending}
+                        >
+                          {phoneSending ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            <><CheckCircle2 className="size-3.5 mr-1" /> Vérifier</>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Phone OTP input */}
+                    {phoneOtpSent && !profile?.isPhoneVerified && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex gap-2"
+                      >
+                        <Input
+                          placeholder="Code de vérification"
+                          value={phoneOtpCode}
+                          onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          className="h-9 text-sm text-center tracking-widest"
+                          maxLength={6}
+                          disabled={phoneSending}
+                        />
+                        <Button
+                          size="sm"
+                          className="h-9 text-xs shrink-0 bg-brand-500 hover:bg-brand-600 text-white"
+                          onClick={handleVerifyPhoneCode}
+                          disabled={phoneSending || phoneOtpCode.length < 4}
+                        >
+                          {phoneSending ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            'Confirmer'
+                          )}
+                        </Button>
+                      </motion.div>
+                    )}
+
+                    {phoneVerifyError && (
+                      <p className="text-[10px] text-red-500">{phoneVerifyError}</p>
+                    )}
+                    {phoneVerifySuccess && (
+                      <p className="text-[10px] text-emerald-600">{phoneVerifySuccess}</p>
+                    )}
                   </div>
                   {/* Gender */}
                   <div className="space-y-1.5">
@@ -1793,7 +2052,7 @@ export function SettingsSection() {
                   </div>
                 </div>
 
-                {/* Email (read-only) */}
+                {/* Email */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
                     <Mail className="size-3" /> Email
@@ -1803,12 +2062,79 @@ export function SettingsSection() {
                       </Badge>
                     )}
                   </Label>
-                  <Input
-                    value={profile?.email || user?.email || ''}
-                    disabled
-                    className="h-9 text-sm bg-muted text-muted-foreground"
-                  />
-                  <p className="text-[10px] text-muted-foreground">L&apos;email ne peut pas être modifié. Contactez le support si nécessaire.</p>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Input
+                        value={emailValue}
+                        onChange={(e) => {
+                          setEmailValue(e.target.value)
+                          setEmailVerifyError(null)
+                          setEmailVerifySuccess(null)
+                          setEmailOtpSent(false)
+                          setEmailOtpCode('')
+                        }}
+                        placeholder="email@exemple.ci"
+                        className="h-9 text-sm"
+                        disabled={emailSending}
+                      />
+                    </div>
+                    {(!profile?.isEmailVerified || emailValue !== (profile?.email || user?.email || '')) && emailValue && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 text-xs shrink-0 border-brand-200 text-brand-600 hover:bg-brand-50"
+                        onClick={handleSendEmailVerification}
+                        disabled={emailSending}
+                      >
+                        {emailSending ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : emailOtpSent ? (
+                          'Renvoyer'
+                        ) : (
+                          <><CheckCircle2 className="size-3.5 mr-1" /> Vérifier</>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Email OTP input */}
+                  {emailOtpSent && !profile?.isEmailVerified && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-2"
+                    >
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Code de vérification"
+                          value={emailOtpCode}
+                          onChange={(e) => setEmailOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          className="h-9 text-sm text-center tracking-widest"
+                          maxLength={6}
+                          disabled={emailSending}
+                        />
+                        <Button
+                          size="sm"
+                          className="h-9 text-xs shrink-0 bg-brand-500 hover:bg-brand-600 text-white"
+                          onClick={handleVerifyEmailCode}
+                          disabled={emailSending || emailOtpCode.length < 4}
+                        >
+                          {emailSending ? (
+                            <Loader2 className="size-3.5 animate-spin" />
+                          ) : (
+                            'Confirmer'
+                          )}
+                        </Button>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {emailVerifyError && (
+                    <p className="text-[10px] text-red-500">{emailVerifyError}</p>
+                  )}
+                  {emailVerifySuccess && (
+                    <p className="text-[10px] text-emerald-600">{emailVerifySuccess}</p>
+                  )}
                 </div>
 
                 {/* Error / Success messages */}

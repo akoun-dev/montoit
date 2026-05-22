@@ -22,7 +22,7 @@ begin
     create type rental_status as enum ('disponible', 'loue', 'reserve');
   end if;
   if not exists (select 1 from pg_type where typname = 'rental_file_status') then
-    create type rental_file_status as enum ('DRAFT', 'SUBMITTED', 'TC_REVIEW', 'VALIDATED', 'REJECTED', 'EXPIRED');
+    create type rental_file_status as enum ('DRAFT', 'SUBMITTED', 'TC_REVIEW', 'VALIDATED', 'ACCEPTED', 'REJECTED', 'EXPIRED');
   end if;
   if not exists (select 1 from pg_type where typname = 'employment_type') then
     create type employment_type as enum ('CDI', 'CDD', 'FREELANCE', 'RETIRED', 'OTHER');

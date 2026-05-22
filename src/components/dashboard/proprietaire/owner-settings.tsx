@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Settings, User, Bell, Sliders, Mail, Phone, ShieldCheck,
-  ChevronRight, CheckCircle2, XCircle, Save, Loader2,
+  ChevronRight, CheckCircle2, Save, Loader2,
   Eye, EyeOff, Camera, Building2, FileText, Cigarette,
   PawPrint, DollarSign, CalendarDays, ArrowUpDown, Filter,
-  Trash2,
+  Trash2, Lock, Star, History, Award,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
+import { OwnerSecurity } from './security'
+import { TrustScore } from '@/components/dashboard/locataire/trust-score'
+import { OwnerFileForm } from './owner-file'
+import { OwnerReviews } from './owner-reviews'
+import { ActivityHistory } from '@/components/dashboard/locataire/history'
 import { toast } from 'sonner'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -76,7 +81,7 @@ const itemVariants = {
 export function OwnerSettings() {
   const { user, updateUser } = useAuthStore()
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'profil' | 'notifications' | 'conditions' | 'tri'>('profil')
+  const [activeTab, setActiveTab] = useState<'trust-score' | 'owner-file' | 'reviews' | 'history' | 'profil' | 'notifications' | 'conditions' | 'tri' | 'securite'>('profil')
 
   // Profile state
   const [profile, setProfile] = useState<OwnerProfileData | null>(null)
@@ -306,10 +311,15 @@ export function OwnerSettings() {
 
   // Tab navigation items
   const tabs = [
+    { id: 'trust-score' as const, label: 'Trust Score', icon: Award },
+    { id: 'owner-file' as const, label: 'Mon dossier', icon: FileText },
+    { id: 'reviews' as const, label: 'Avis', icon: Star },
+    { id: 'history' as const, label: 'Historique', icon: History },
     { id: 'profil' as const, label: 'Mon Profil', icon: User },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell },
     { id: 'conditions' as const, label: 'Conditions', icon: FileText },
     { id: 'tri' as const, label: 'Tri & Filtres', icon: Sliders },
+    { id: 'securite' as const, label: 'Sécurité', icon: Lock },
   ]
 
   return (
@@ -414,6 +424,58 @@ export function OwnerSettings() {
 
       {/* ── Tab Content ──────────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
+
+        {/* ── TRUST SCORE TAB ──────────────────────────────────────────── */}
+        {activeTab === 'trust-score' && (
+          <motion.div
+            key="trust-score"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <TrustScore />
+          </motion.div>
+        )}
+
+        {/* ── DOSSIER PROPRIÉTAIRE TAB ─────────────────────────────────── */}
+        {activeTab === 'owner-file' && (
+          <motion.div
+            key="owner-file"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <OwnerFileForm />
+          </motion.div>
+        )}
+
+        {/* ── AVIS TAB ─────────────────────────────────────────────────── */}
+        {activeTab === 'reviews' && (
+          <motion.div
+            key="reviews"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <OwnerReviews />
+          </motion.div>
+        )}
+
+        {/* ── HISTORIQUE TAB ───────────────────────────────────────────── */}
+        {activeTab === 'history' && (
+          <motion.div
+            key="history"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ActivityHistory />
+          </motion.div>
+        )}
 
         {/* ── PROFIL TAB (US-P-111) ─────────────────────────────────────── */}
         {activeTab === 'profil' && (
@@ -803,6 +865,19 @@ export function OwnerSettings() {
                 )}
               </CardContent>
             </Card>
+          </motion.div>
+        )}
+
+        {/* ── SÉCURITÉ TAB ──────────────────────────────────────────────── */}
+        {activeTab === 'securite' && (
+          <motion.div
+            key="securite"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <OwnerSecurity />
           </motion.div>
         )}
 

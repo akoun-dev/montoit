@@ -50,11 +50,11 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
 
 const navLinks: { label: string; view: AppView; icon: React.ElementType }[] = [
-  { label: 'Accueil', view: 'home', icon: Home },
-  { label: 'Nos biens', view: 'nos-biens', icon: Search },
-  { label: 'À propos', view: 'a-propos', icon: Building2 },
+  { label: 'ACCUEIL', view: 'home', icon: Home },
+  { label: 'NOS BIENS', view: 'nos-biens', icon: Search },
+  { label: 'A PROPOS', view: 'a-propos', icon: Building2 },
   { label: 'FAQ', view: 'faq', icon: HelpCircle },
-  { label: 'Nous contacter', view: 'nous-contacter', icon: MessageSquare },
+  { label: 'NOUS CONTACTER', view: 'nous-contacter', icon: MessageSquare },
 ]
 
 // ─── Role label & color helpers ──────────────────────────────────────────────

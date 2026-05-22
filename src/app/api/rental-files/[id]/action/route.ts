@@ -133,16 +133,18 @@ export async function POST(
       }
 
       // Update rental file status
-      await supabase
-        .from('rental_files')
-        .update({ status: 'ACCEPTED' } as any)
+      const { error: rferr } = await supabase
+        .from('rental_files' as any)
+        .update({ status: 'ACCEPTED' })
         .eq('id', id)
+      if (rferr) console.error('Failed to update rental_file status:', rferr)
 
       // Sync status to applications table
-      await supabase
-        .from('applications')
-        .update({ status: 'ACCEPTED' } as any)
+      const { error: apperr } = await supabase
+        .from('applications' as any)
+        .update({ status: 'ACCEPTED' })
         .eq('rental_file_id', id)
+      if (apperr) console.error('Failed to sync application status:', apperr)
 
       await notify({
         userId: rFile.tenant_id,

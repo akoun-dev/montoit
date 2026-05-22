@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { UserCheck, FileText, Building2, Clock, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react'
+import { FileText, Building2, Clock, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -62,8 +62,6 @@ interface ApplicationsResponse {
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   DRAFT: { label: 'Brouillon', color: 'bg-muted text-muted-foreground', icon: FileText },
   SUBMITTED: { label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Clock },
-  TC_REVIEW: { label: 'En examen', color: 'bg-brand-50 text-brand-600 border-brand-200', icon: UserCheck },
-  VALIDATED: { label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
   ACCEPTED: { label: 'Accepté', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
   REJECTED: { label: 'Rejeté', color: 'bg-red-50 text-red-700 border-red-200', icon: AlertCircle },
   EXPIRED: { label: 'Expiré', color: 'bg-muted text-muted-foreground border-border', icon: Clock },
@@ -341,21 +339,6 @@ export function Applications({ onDetail }: ApplicationsProps) {
                       {/* Chevron */}
                       <ChevronRight className="size-5 text-neutral-300 shrink-0 self-center" />
                     </div>
-
-                    {/* Edit button for DRAFT */}
-                    {app.status === 'DRAFT' && (
-                      <div className="mt-3 pt-3 border-t border-border flex justify-end">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => { e.stopPropagation(); handleEditRentalFile() }}
-                          className="gap-1.5 text-brand-600 border-brand-200 hover:bg-brand-50"
-                        >
-                          <FileText className="size-3.5" />
-                          Compléter
-                        </Button>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               </motion.div>

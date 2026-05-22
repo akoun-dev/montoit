@@ -10,6 +10,7 @@ export type OtpType =
   | 'EMAIL_VERIFY'
   | 'PASSWORD_RESET'
   | 'BAIL_SIGNATURE'
+  | 'PHONE_VERIFY'
 
 export interface Database {
   public: {

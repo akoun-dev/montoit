@@ -140,6 +140,7 @@ export function EnhancedLeases() {
   const [rentalFiles, setRentalFiles] = useState<RentalFileItem[]>([])
   const [selectedRentalFileId, setSelectedRentalFileId] = useState('')
   const [selectedTenantId, setSelectedTenantId] = useState('')
+  const [leaseDurationMonths, setLeaseDurationMonths] = useState('')
   const [leaseForm, setLeaseForm] = useState({
     monthlyRent: '',
     charges: '',
@@ -150,6 +151,18 @@ export function EnhancedLeases() {
   })
   const [creating, setCreating] = useState(false)
   const [createdLeaseId, setCreatedLeaseId] = useState<string | null>(null)
+
+  // ─── Auto-calculate end date from start date + duration ────────────────
+  useEffect(() => {
+    if (leaseForm.startDate && leaseDurationMonths) {
+      const start = new Date(leaseForm.startDate)
+      if (!isNaN(start.getTime())) {
+        const end = new Date(start)
+        end.setMonth(end.getMonth() + parseInt(leaseDurationMonths, 10))
+        setLeaseForm((prev) => ({ ...prev, endDate: end.toISOString().split('T')[0] }))
+      }
+    }
+  }, [leaseForm.startDate, leaseDurationMonths])
 
   // Sign dialog
   const [signDialogOpen, setSignDialogOpen] = useState(false)
@@ -471,6 +484,7 @@ export function EnhancedLeases() {
     setSelectedPropertyId('')
     setSelectedRentalFileId('')
     setSelectedTenantId('')
+    setLeaseDurationMonths('')
     setLeaseForm({ monthlyRent: '', charges: '', deposit: '', startDate: '', endDate: '', specialConditions: '' })
     setCreatedLeaseId(null)
   }
@@ -1025,17 +1039,16 @@ export function EnhancedLeases() {
                             placeholder="25000"
                           />
                         </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="deposit">Dépôt de garantie (FCFA)</Label>
-                        <Input
-                          id="deposit"
-                          type="number"
-                          value={leaseForm.deposit}
-                          onChange={(e) => setLeaseForm((p) => ({ ...p, deposit: e.target.value }))}
-                          placeholder="300000"
-                        />
-                      </div>
+                      </div>                        <div>
+                          <Label htmlFor="deposit">Dépôt de garantie (FCFA)</Label>
+                          <Input
+                            id="deposit"
+                            type="number"
+                            value={leaseForm.deposit}
+                            onChange={(e) => setLeaseForm((p) => ({ ...p, deposit: e.target.value }))}
+                            placeholder="300000"
+                          />
+                        </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <Label htmlFor="startDate">Date de début *</Label>
@@ -1047,14 +1060,43 @@ export function EnhancedLeases() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="endDate">Date de fin *</Label>
-                          <Input
-                            id="endDate"
-                            type="date"
-                            value={leaseForm.endDate}
-                            onChange={(e) => setLeaseForm((p) => ({ ...p, endDate: e.target.value }))}
-                          />
+                          <Label htmlFor="leaseDuration">Durée du bail *</Label>
+                          <Select value={leaseDurationMonths} onValueChange={setLeaseDurationMonths}>
+                            <SelectTrigger className="h-10">
+                              <SelectValue placeholder="Sélectionnez la durée" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="6">6 mois</SelectItem>
+                              <SelectItem value="12">1 an (12 mois)</SelectItem>
+                              <SelectItem value="24">2 ans (24 mois)</SelectItem>
+                              <SelectItem value="36">3 ans (36 mois)</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="endDate">Date de fin</Label>
+                        <Input
+                          id="endDate"
+                          type="date"
+                          value={leaseForm.endDate}
+                          onChange={(e) => setLeaseForm((p) => ({ ...p, endDate: e.target.value }))}
+                          className={leaseDurationMonths ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}
+                          readOnly={!!leaseDurationMonths}
+                          tabIndex={leaseDurationMonths ? -1 : 0}
+                        />
+                        {leaseDurationMonths && leaseForm.startDate && leaseForm.endDate && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Calculée automatiquement à partir de la durée sélectionnée.{' '}
+                            <button
+                              type="button"
+                              className="text-brand-500 hover:text-brand-600 underline"
+                              onClick={() => setLeaseDurationMonths('')}
+                            >
+                              Modifier
+                            </button>
+                          </p>
+                        )}
                       </div>
                       <div>
                         <Label htmlFor="specialConditions">Conditions particulières</Label>

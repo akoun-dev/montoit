@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Settings, Building2, CreditCard, Bell, Users, FileText, Save, CheckCircle2 } from 'lucide-react'
+import { Settings, Building2, CreditCard, Bell, Users, FileText, Save, Lock } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,13 +12,14 @@ import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/lib/auth-store'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
+import { AgenceSecurity } from './security'
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
 export function AgenceSettings() {
   const { user } = useAuthStore()
-  const [activeTab, setActiveTab] = useState<'profil' | 'commissions' | 'notifications' | 'equipe'>('profil')
+  const [activeTab, setActiveTab] = useState<'profil' | 'commissions' | 'notifications' | 'equipe' | 'security'>('profil')
   const [form, setForm] = useState({
     companyName: user?.companyName || '',
     address: user?.address || '',
@@ -45,6 +46,7 @@ export function AgenceSettings() {
     { id: 'commissions' as const, label: 'Commissions', icon: CreditCard },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell },
     { id: 'equipe' as const, label: 'Équipe', icon: Users },
+    { id: 'security' as const, label: 'Sécurité', icon: Lock },
   ]
 
   return (
@@ -281,6 +283,19 @@ export function AgenceSettings() {
                 </div>
               </CardContent>
             </Card>
+          </motion.div>
+        )}
+
+        {/* ── SÉCURITÉ TAB ─────────────────────────────────────────────── */}
+        {activeTab === 'security' && (
+          <motion.div
+            key="security"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <AgenceSecurity />
           </motion.div>
         )}
       </AnimatePresence>

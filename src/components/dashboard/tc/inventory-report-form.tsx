@@ -38,8 +38,8 @@ const ROOM_COLUMNS = [
 // Shorter labels for mobile
 const ROOM_COLUMNS_SHORT = [
   'Cuisine',
-  'SdB princ.',
-  'SdB autres',
+  'Salle de bain princ.',
+  'Salle de bain autres',
   'Autre pièce 1',
   'Autre pièce 2',
 ] as const

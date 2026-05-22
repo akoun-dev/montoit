@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import ZAI from 'z-ai-web-dev-sdk'
 
 const SUTA_SYSTEM_PROMPT = `Tu es SUTA, l'assistant IA de la plateforme Mon Toit (ANSUT), la plateforme de location immobilière en Côte d'Ivoire. Tu es chaleureux, professionnel et toujours prêt à aider.
 
@@ -73,14 +72,48 @@ Règles importantes :
 - Ne invente jamais de fonctionnalités qui n'existent pas sur la plateforme
 - Si tu ne connais pas la réponse exacte, oriente l'utilisateur vers le support ou la section appropriée de la plateforme`
 
-// Keep a single ZAI instance per cold start
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null
+// ── Azure OpenAI client ──────────────────────────────────────────────────────
 
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create()
+interface AzureChoice {
+  message: { content: string }
+}
+
+interface AzureResponse {
+  choices: AzureChoice[]
+}
+
+async function callAzureOpenAI(messages: Array<{ role: string; content: string }>): Promise<AzureResponse> {
+  const endpoint = process.env.VITE_AZURE_OPENAI_ENDPOINT
+  const apiKey = process.env.VITE_AZURE_OPENAI_API_KEY
+  const deployment = process.env.VITE_AZURE_OPENAI_DEPLOYMENT_NAME
+  const apiVersion = process.env.VITE_AZURE_OPENAI_API_VERSION || '2024-10-21'
+
+  if (!endpoint || !apiKey || !deployment) {
+    throw new Error('Azure OpenAI non configuré. Vérifiez les variables d\'environnement.')
   }
-  return zaiInstance
+
+  const url = `${endpoint.replace(/\/+$/, '')}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'api-key': apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messages,
+      max_tokens: 1024,
+      temperature: 0.7,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[Azure OpenAI Error]', response.status, errorText)
+    throw new Error(`Azure OpenAI a répondu avec le statut ${response.status}`)
+  }
+
+  return response.json()
 }
 
 // In-memory conversation store (per session)
@@ -127,15 +160,10 @@ export async function POST(req: NextRequest) {
       history = history.slice(-MAX_MESSAGES)
     }
 
-    const zai = await getZAI()
-
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'assistant', content: SUTA_SYSTEM_PROMPT },
-        ...history,
-      ],
-      thinking: { type: 'disabled' },
-    })
+    const completion = await callAzureOpenAI([
+      { role: 'system', content: SUTA_SYSTEM_PROMPT },
+      ...history,
+    ])
 
     const aiResponse = completion.choices?.[0]?.message?.content || 'Désolé, je n\'ai pas pu générer une réponse. Veuillez réessayer.'
 

@@ -130,11 +130,12 @@ export async function PATCH(
 
     const { id } = await params
     const body = await req.json()
-    const { status, counterDate, counterTimeSlot, ownerComment } = body as {
+    const { status, counterDate, counterTimeSlot, ownerComment, assignedAgentId } = body as {
       status?: string
       counterDate?: string
       counterTimeSlot?: string
       ownerComment?: string
+      assignedAgentId?: string | null
     }
 
     // ─── LOCATAIRE cancellation ──────────────────────────────────────────────
@@ -202,7 +203,7 @@ export async function PATCH(
       return NextResponse.json({ data: enriched })
     }
 
-    // ─── PROPRIETAIRE / AGENCE: accept, reject, counter-propose ─────────────
+    // ─── PROPRIETAIRE / AGENCE: accept, reject, counter-propose, assign agent ─
     if (role !== 'PROPRIETAIRE' && role !== 'AGENCE') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
@@ -240,6 +241,25 @@ export async function PATCH(
       if (!mandat) {
         return NextResponse.json({ error: 'Visite introuvable ou accès refusé' }, { status: 404 })
       }
+    }
+
+    // ─── Assign agent (standalone update, no status change needed) ─────────
+    if (assignedAgentId !== undefined) {
+      const updateData: Record<string, any> = { assigned_agent_id: assignedAgentId || null }
+
+      const { data: updated } = await admin
+        .from('visit_requests')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (!updated) {
+        return NextResponse.json({ error: 'Erreur lors de l\'assignation' }, { status: 500 })
+      }
+
+      const enriched = await enrichVisitDetail(admin, updated)
+      return NextResponse.json({ data: enriched })
     }
 
     const { data: validatedTenant } = await admin
@@ -382,9 +402,7 @@ async function enrichVisitDetail(admin: ReturnType<typeof getSupabaseAdminClient
         leaseStatus: lease.status,
       }
     }
-  }
-
-  return {
+  }    return {
     id: visit.id,
     visitType: visit.visit_type,
     requestedDate: visit.requested_date,
@@ -398,6 +416,7 @@ async function enrichVisitDetail(admin: ReturnType<typeof getSupabaseAdminClient
     updatedAt: visit.updated_at,
     propertyId: visit.property_id,
     tenantId: visit.tenant_id,
+    assignedAgentId: visit.assigned_agent_id,
     property: property ? {
       id: property.id,
       title: property.title,

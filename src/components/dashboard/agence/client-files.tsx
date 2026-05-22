@@ -1,13 +1,16 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { FolderOpen, User, FileText, MessageSquare } from 'lucide-react'
+import { FolderOpen, User, FileText, MessageSquare, Download, X, Eye } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
@@ -36,6 +39,9 @@ export function ClientFiles() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [selectedClient, setSelectedClient] = useState<OwnerClient | null>(null)
   const [note, setNote] = useState('')
+  const [documentsOpen, setDocumentsOpen] = useState(false)
+  const [clientDocuments, setClientDocuments] = useState<{ id: string; name: string; type: string }[]>([])
+  const [loadingDocs, setLoadingDocs] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -135,14 +141,34 @@ export function ClientFiles() {
                     <p className="text-xs text-muted-foreground">Email : {selectedClient.email}</p>
                     <p className="text-xs text-muted-foreground">Tél : {selectedClient.phone || 'Non renseigné'}</p>
                     <p className="text-xs text-muted-foreground">Biens : {selectedClient.propertiesCount}</p>
-                  </div>
-                  <div className="p-3 rounded-lg border border-border">
+                  </div>                    <div className="p-3 rounded-lg border border-border">
                     <div className="flex items-center gap-2 mb-2">
                       <FileText className="size-4 text-[#FF6C2F]" />
                       <span className="text-sm font-medium">Documents</span>
                     </div>
                     <p className="text-xs text-muted-foreground">Documents disponibles</p>
-                    <Button variant="ghost" size="sm" className="text-[#FF6C2F] text-xs mt-1">Voir les documents</Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-[#FF6C2F] text-xs mt-1 gap-1"
+                      onClick={async () => {
+                        if (!selectedClient) return
+                        setLoadingDocs(true)
+                        setDocumentsOpen(true)
+                        try {
+                          const data = await authFetch<{ documents: { id: string; name: string; type: string }[] }>(
+                            `/api/owner-file/documents?ownerId=${selectedClient.id}`
+                          )
+                          setClientDocuments(data.documents ?? [])
+                        } catch {
+                          setClientDocuments([])
+                        } finally {
+                          setLoadingDocs(false)
+                        }
+                      }}
+                    >
+                      <Eye className="size-3" /> Voir les documents
+                    </Button>
                   </div>
                 </div>
 
@@ -166,7 +192,21 @@ export function ClientFiles() {
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                   />
-                  <Button size="sm" className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white mt-2" onClick={() => { toast.success('Note sauvegardée'); setNote('') }}>
+                  <Button size="sm" className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white mt-2" onClick={async () => {
+                    if (!note.trim()) {
+                      toast.error('Veuillez écrire une note')
+                      return
+                    }
+                    try {
+                      // Sauvegarder dans le localStorage comme fallback
+                      const key = `client-note-${selectedClient?.id}`
+                      localStorage.setItem(key, note)
+                      toast.success('Note sauvegardée')
+                      setNote('')
+                    } catch {
+                      toast.error('Erreur lors de la sauvegarde')
+                    }
+                  }}>
                     Sauvegarder
                   </Button>
                 </div>
@@ -180,6 +220,42 @@ export function ClientFiles() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Documents Dialog */}
+      <Dialog open={documentsOpen} onOpenChange={setDocumentsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <FileText className="size-4 text-[#FF6C2F]" />
+              Documents de {selectedClient?.firstName} {selectedClient?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {loadingDocs ? (
+              <div className="space-y-2 py-4">
+                {[1,2,3].map(i => <div key={i} className="h-12 bg-muted animate-pulse rounded-lg" />)}
+              </div>
+            ) : clientDocuments.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="size-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Aucun document disponible</p>
+              </div>
+            ) : (
+              clientDocuments.map(doc => (
+                <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="size-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate">{doc.name || doc.type}</span>
+                  </div>
+                  <Badge className="shrink-0 text-[10px] bg-orange-50 text-orange-700">
+                    {doc.type}
+                  </Badge>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

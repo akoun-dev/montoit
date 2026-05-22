@@ -18,7 +18,7 @@ import { toast } from 'sonner'
 
 interface VisitRequest {
   id: string; visitType: string; requestedDate: string; timeSlot: string; status: string
-  tenantMessage: string | null; createdAt: string
+  tenantMessage: string | null; createdAt: string; assignedAgentId: string | null
   tenant: { firstName: string; lastName: string; phone: string }
   property: { title: string; city: string }
 }
@@ -196,9 +196,32 @@ export function AgenceVisits() {
                       {v.visitType === 'VIRTUAL' && (
                         <Badge className="bg-purple-50 text-purple-700 text-[10px]">Virtuelle</Badge>
                       )}
-                      <Select>
+                      <Select value={v.assignedAgentId || ''} onValueChange={async (agentId) => {
+                        try {
+                          if (agentId === '__none__') {
+                            await authFetch(`/api/visits/${v.id}`, {
+                              method: 'PATCH',
+                              body: JSON.stringify({ assignedAgentId: null }),
+                            })
+                            toast.success('Agent désassigné·e')
+                            fetchData()
+                            return
+                          }
+                          const agent = agents.find(a => a.id === agentId)
+                          if (!agent) return
+                          await authFetch(`/api/visits/${v.id}`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ assignedAgentId: agentId }),
+                          })
+                          toast.success(`${agent.firstName} ${agent.lastName} assigné·e à la visite`)
+                          fetchData()
+                        } catch {
+                          toast.error("Erreur lors de l'assignation")
+                        }
+                      }}>
                         <SelectTrigger className="w-32 h-8 text-xs"><SelectValue placeholder="Assigner" /></SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="__none__">Non assigné</SelectItem>
                           {agents.map((a) => <SelectItem key={a.id} value={a.id}>{a.firstName} {a.lastName}</SelectItem>)}
                         </SelectContent>
                       </Select>

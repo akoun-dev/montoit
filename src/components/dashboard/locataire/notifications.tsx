@@ -244,7 +244,7 @@ export function Notifications() {
                   key={cat.type || 'all'}
                   variant="outline"
                   className={`${activeFilter === cat.type ? 'ring-2 ring-brand-300 ring-offset-1' : ''} ${cat.color} cursor-pointer hover:opacity-80 transition-opacity py-1.5 px-3`}
-                  onClick={() => { setActiveFilter(cat.type); setLoading(true) }}
+                  onClick={() => setActiveFilter(cat.type)}
                 >
                   {cat.label}
                 </Badge>

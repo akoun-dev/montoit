@@ -24,7 +24,7 @@ export interface SearchParams {
     propertyType: string
 }
 
-export type OtpPurpose = "login" | "email_verify" | "password_reset"
+export type OtpPurpose = "login" | "email_verify" | "password_reset" | "phone_verify"
 
 export interface AuthUser {
     id: string
@@ -87,6 +87,8 @@ interface AuthActions {
     loginWithEmail: (email: string, password: string) => Promise<void>
     loginWithSms: (phone: string) => Promise<void>
     verifySmsOtp: (phone: string, code: string) => Promise<void>
+    sendPhoneOtp: (phone: string) => Promise<void>
+    verifyPhoneOtp: (phone: string, code: string) => Promise<{ verified: boolean; message: string } | undefined>
     sendEmailOtp: (email: string, purpose: OtpPurpose) => Promise<void>
     verifyEmailOtp: (
         email: string,
@@ -274,7 +276,49 @@ export const useAuthStore = create<AuthState>()(
                 }
             },
 
-            sendEmailOtp: async (email: string, purpose: OtpPurpose) => {
+            sendPhoneOtp: async (phone: string) => {
+      set({ isLoading: true, pendingPhone: phone, otpPurpose: 'phone_verify' })
+      try {
+        const res = await apiFetch('/api/auth/send-sms-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ phone, purpose: 'phone_verify' }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Erreur')
+        set({ isLoading: false })
+      } catch (error) {
+        set({ isLoading: false })
+        throw error
+      }
+    },
+
+    verifyPhoneOtp: async (phone: string, code: string) => {
+      set({ isLoading: true })
+      try {
+        const res = await apiFetch('/api/auth/verify-phone-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ phone, code }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Code invalide')
+
+        // Update user's isPhoneVerified in store
+        set((state) => ({
+          isLoading: false,
+          user: state.user ? { ...state.user, isPhoneVerified: true } : state.user,
+        }))
+        return data
+      } catch (error) {
+        set({ isLoading: false })
+        throw error
+      }
+    },
+
+    sendEmailOtp: async (email: string, purpose: OtpPurpose) => {
                 set({
                     isLoading: true,
                     pendingEmail: email,

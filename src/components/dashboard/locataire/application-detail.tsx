@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, UserCheck, FileText, Building2, Clock, CheckCircle2, AlertCircle, ChevronRight, User, MapPin } from 'lucide-react'
+import { ArrowLeft, FileText, Building2, Clock, CheckCircle2, AlertCircle, ChevronRight, User, MapPin } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -66,8 +66,6 @@ interface ApplicationItem {
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   DRAFT: { label: 'Brouillon', color: 'bg-muted text-muted-foreground', icon: FileText },
   SUBMITTED: { label: 'Soumis', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: Clock },
-  TC_REVIEW: { label: 'En examen', color: 'bg-brand-50 text-brand-600 border-brand-200', icon: UserCheck },
-  VALIDATED: { label: 'Validé', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
   ACCEPTED: { label: 'Accepté', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
   REJECTED: { label: 'Rejeté', color: 'bg-red-50 text-red-700 border-red-200', icon: AlertCircle },
   EXPIRED: { label: 'Expiré', color: 'bg-muted text-muted-foreground border-border', icon: Clock },
@@ -110,10 +108,10 @@ function formatShortDate(dateStr: string): string {
 interface ApplicationDetailProps {
   applicationId: string
   onBack: () => void
-  onEditRentalFile: () => void
 }
 
-export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: ApplicationDetailProps) {
+export function ApplicationDetail({  applicationId, onBack
+ }: ApplicationDetailProps) {
   const { user, isAuthenticated } = useAuthStore()
   const [application, setApplication] = useState<ApplicationItem | null>(null)
   const [loading, setLoading] = useState(true)
@@ -396,24 +394,6 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
         </Card>
       )}
 
-      {/* TC Comment */}
-      {application.tcComment && (
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Commentaire du Tiers de Confiance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-foreground">{application.tcComment}</p>
-            {application.reviewedBy && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Par {application.reviewedBy.firstName} {application.reviewedBy.lastName}
-                {application.reviewedAt && ` — ${formatShortDate(application.reviewedAt)}`}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Validity */}
       {application.validUntil && (
         <Card className="border-emerald-100 bg-emerald-50/50">
@@ -428,15 +408,7 @@ export function ApplicationDetail({ applicationId, onBack, onEditRentalFile }: A
         </Card>
       )}
 
-      {/* Edit button for DRAFT */}
-      {application.status === 'DRAFT' && (
-        <div className="flex justify-end">
-          <Button onClick={onEditRentalFile} className="bg-brand-500 hover:bg-brand-600 text-white gap-2">
-            <FileText className="size-4" />
-            Compléter le dossier
-          </Button>
-        </div>
-      )}
+
     </motion.div>
   )
 }

@@ -260,7 +260,7 @@ export function TrustScore() {
     } else if (action === 'rental-file') {
       setDashboardSection('rental-file')
     } else if (action === 'owner-file') {
-      setDashboardSection('owner-file')
+      setDashboardSection('settings')
     } else if (action === 'my-properties') {
       setDashboardSection('my-properties')
     }

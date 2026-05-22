@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getSupabaseAdminClient()
-    const otpType = purpose === 'password_reset' ? 'PASSWORD_RESET' : 'LOGIN'
+    const otpType = purpose === 'password_reset' ? 'PASSWORD_RESET' : purpose === 'phone_verify' ? 'PHONE_VERIFY' : 'LOGIN'
 
     const { data: user } = await supabase
       .from('users')
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       .eq('phone', phone)
       .maybeSingle()
 
-    if (otpType === 'PASSWORD_RESET' && !user) {
+    if ((otpType === 'PASSWORD_RESET' || otpType === 'PHONE_VERIFY') && !user) {
       return NextResponse.json({ error: 'Aucun compte associé à ce numéro' }, { status: 404 })
     }
 
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     }
 
     let otpUserId = user?.id
-    if (!otpUserId && otpType === 'LOGIN') {
+    if (!otpUserId && (otpType === 'LOGIN')) {
       const { data: tempUser } = await supabase
         .from('users')
           .insert({

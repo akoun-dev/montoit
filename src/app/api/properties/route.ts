@@ -444,6 +444,7 @@ function mapProperty(p: any, images: any[], owner: any) {
     amenities: p.amenities,
     rentalTerms: p.rental_terms,
     hideOwnerName: p.hide_owner_name,
+    featured: p.featured ?? false,
     virtualTourUrl: p.virtual_tour_url,
     viewsCount: p.views_count,
     createdAt: p.created_at,

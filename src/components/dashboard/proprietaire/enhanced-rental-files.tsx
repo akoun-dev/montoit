@@ -393,7 +393,7 @@ export function EnhancedRentalFiles() {
     )
   }
 
-  const pendingCount = (stats['SUBMITTED'] || 0) + (stats['TC_REVIEW'] || 0)
+  const pendingCount = (stats['SUBMITTED'] || 0)
   const validatedCount = stats['VALIDATED'] || 0
   const rejectedCount = stats['REJECTED'] || 0
   const totalCount = Object.values(stats).reduce((a, b) => a + b, 0)
@@ -603,7 +603,7 @@ export function EnhancedRentalFiles() {
 
                         {/* Quick actions */}
                         <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          {['SUBMITTED', 'VALIDATED'].includes(rf.status) && !rf.leases.some(l => l.id) && (
+                          {rf.status === 'SUBMITTED' && !rf.leases.some(l => l.id) && (
                             <>
                               <Button
                                 size="sm"
@@ -1012,7 +1012,7 @@ export function EnhancedRentalFiles() {
                   </div>
 
                   {/* Quick actions */}
-                  {['SUBMITTED', 'VALIDATED'].includes(selectedTenant.status) && !selectedTenant.leases.some(l => l.id) && (
+                  {selectedTenant.status === 'SUBMITTED' && !selectedTenant.leases.some(l => l.id) && (
                     <>
                       <Separator />
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">

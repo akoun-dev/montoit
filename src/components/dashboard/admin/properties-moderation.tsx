@@ -373,7 +373,7 @@ export function PropertiesModeration() {
                         <span>{property.bedrooms} ch.</span>
                       )}
                       {property.bathrooms != null && (
-                        <span>{property.bathrooms} SdB</span>
+                        <span>{property.bathrooms} Salle de Bain</span>
                       )}
                       {property.isFurnished && (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0">Meublé</Badge>

@@ -5,8 +5,8 @@ import {
   Building2, ClipboardCheck, Users, Shield, 
   BarChart3, Settings, AlertTriangle, Clock, BadgeCheck,
   LayoutDashboard, ChevronLeft, ChevronRight,
-  Search, Heart, UserCheck, CreditCard, Bell, Star, Wrench, History, ShieldCheck, UserCircle, Home, MapPin, Scale, FolderOpen, Lock,
-  Award, Fingerprint, ShieldAlert, GraduationCap, Megaphone, Flag, Activity, Database, Server
+  Search, Heart, UserCheck, CreditCard, Bell, Wrench, UserCircle, Home, MapPin, Scale, FolderOpen, Lock,
+  Award, Fingerprint, ShieldAlert, GraduationCap, Megaphone, Flag, Activity, Database
 } from 'lucide-react'
 import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
@@ -56,9 +56,6 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
         {
           title: 'COMPTE',
           items: [
-            { id: 'reviews', label: 'Mes avis', icon: Star },
-            { id: 'maintenance', label: 'Maintenance', icon: Wrench },
-            { id: 'history', label: 'Mes activités', icon: History },
             { id: 'settings', label: 'Paramètres', icon: Settings },
           ],
         },
@@ -103,14 +100,9 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           ],
         },
         {
-          title: 'COMPTE',
+          title: 'PARAMÈTRES',
           items: [
-            { id: 'trust-score', label: 'Trust Score', icon: ShieldCheck },
-            { id: 'owner-file', label: 'Mon dossier', icon: FileText },
-            { id: 'reviews', label: 'Avis', icon: Star },
-            { id: 'history', label: 'Historique', icon: History },
             { id: 'settings', label: 'Paramètres', icon: Settings },
-            { id: 'security', label: 'Sécurité', icon: Lock },
           ],
         },
       ]
@@ -155,9 +147,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
         {
           title: 'COMPTE',
           items: [
-            { id: 'notifications', label: 'Notifications', icon: Bell },
             { id: 'settings', label: 'Paramètres', icon: Settings },
-            { id: 'security', label: 'Sécurité', icon: Lock },
           ],
         },
       ]
@@ -228,7 +218,6 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
         {
           title: 'COMPTE',
           items: [
-            { id: 'history', label: 'Activité', icon: History },
             { id: 'settings', label: 'Paramètres', icon: Settings },
           ],
         },

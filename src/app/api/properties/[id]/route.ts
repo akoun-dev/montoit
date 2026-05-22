@@ -148,6 +148,7 @@ export async function PATCH(
     if (hasGuardian !== undefined) updateData.has_guardian = Boolean(hasGuardian)
     if (hasClimate !== undefined) updateData.has_climate = Boolean(hasClimate)
     if (hideOwnerName !== undefined) updateData.hide_owner_name = Boolean(hideOwnerName)
+    if (body.featured !== undefined) updateData.featured = Boolean(body.featured)
     if (virtualTourUrl !== undefined) {
       if (virtualTourUrl && isBase64DataUrl(virtualTourUrl)) {
         try {
@@ -195,20 +196,25 @@ export async function PATCH(
         }
       }
 
-      // Replace all image records in DB
-      await admin.from('property_images').delete().eq('property_id', id)
-
-      // Upload new base64 images to storage in parallel, keep existing URLs as-is
+      // Upload new base64 images to storage first (individual error handling)
       const uploadedUrls: string[] = await Promise.all(
         imageArray.map(async (url: string) => {
           if (isBase64DataUrl(url)) {
             const ext = guessExtensionFromMime(url)
             const path = `properties/${id}/${generateId()}.${ext}`
-            return await uploadFromBase64(BUCKETS.PROPERTY_IMAGES, url, path)
+            try {
+              return await uploadFromBase64(BUCKETS.PROPERTY_IMAGES, url, path)
+            } catch (e) {
+              console.error('Image upload failed:', e)
+              return url
+            }
           }
           return url
         })
       )
+
+      // Replace all image records in DB (only after uploads are done)
+      await admin.from('property_images').delete().eq('property_id', id)
 
       if (uploadedUrls.length > 0) {
         const imageRows = uploadedUrls.map((url, index) => ({
@@ -411,6 +417,7 @@ async function enrichSingleProperty(admin: ReturnType<typeof getSupabaseAdminCli
     amenities: property.amenities,
     rentalTerms: property.rental_terms,
     hideOwnerName: property.hide_owner_name,
+    featured: property.featured ?? false,
     virtualTourUrl: property.virtual_tour_url,
     viewsCount: property.views_count,
     createdAt: property.created_at,

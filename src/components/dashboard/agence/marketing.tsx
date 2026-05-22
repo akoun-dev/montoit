@@ -1,11 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Megaphone, Star, Eye, Plus, Settings } from 'lucide-react'
+import { Megaphone, Star, Eye, Plus, Settings, Sparkles } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
@@ -16,7 +22,7 @@ const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transiti
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
 interface PropertyListing {
-  id: string; title: string; views: number; featured: boolean
+  id: string; title: string; viewsCount: number; featured: boolean
 }
 
 export function AgenceMarketing() {
@@ -25,12 +31,16 @@ export function AgenceMarketing() {
   const [loading, setLoading] = useState(true)
   const [agencyName, setAgencyName] = useState(user?.companyName || '')
   const [agencyAddress, setAgencyAddress] = useState(user?.address || '')
+  const [featureDialogOpen, setFeatureDialogOpen] = useState(false)
+  const [selectedPropertyId, setSelectedPropertyId] = useState('')
+  const [savingBranding, setSavingBranding] = useState(false)
+  const [featuring, setFeaturing] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
     try {
-      const data = await authFetch<{ listings: PropertyListing[] }>('/api/properties?limit=50')
-      setListings(data.listings || [])
+      const data = await authFetch<{ properties: PropertyListing[] }>('/api/properties?mine=true&limit=50') as { properties: PropertyListing[] }
+      setListings(data.properties || [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
       console.error('Failed to fetch listings:', err)
@@ -68,8 +78,8 @@ export function AgenceMarketing() {
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Star className="size-4 text-[#FF6C2F]" /> Annonces
               </CardTitle>
-              <Button size="sm" className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white gap-1" onClick={() => toast.info('Fonctionnalité à venir')}>
-                <Plus className="size-3" /> Ajouter
+              <Button size="sm" className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white gap-1" onClick={() => { setSelectedPropertyId(''); setFeatureDialogOpen(true) }}>
+                <Plus className="size-3" /> Mettre en avant
               </Button>
             </div>
           </CardHeader>
@@ -85,7 +95,7 @@ export function AgenceMarketing() {
                     </div>
                     <div>
                       <p className="text-sm font-medium">{listing.title}</p>
-                      <p className="text-xs text-muted-foreground">{listing.views} vues</p>
+                      <p className="text-xs text-muted-foreground">{listing.viewsCount} vues</p>
                     </div>
                   </div>
                   <Badge className={listing.featured ? 'bg-[#FF6C2F] text-white' : 'bg-neutral-100 text-neutral-600'}>
@@ -115,8 +125,32 @@ export function AgenceMarketing() {
               <label className="text-sm font-medium text-foreground mb-1 block">Adresse</label>
               <Input value={agencyAddress} onChange={(e) => setAgencyAddress(e.target.value)} placeholder="Adresse de l'agence" />
             </div>
-            <Button className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white" onClick={() => toast.success('Paramètres sauvegardés')}>
-              Sauvegarder
+            <Button
+              className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white"
+              disabled={savingBranding}
+              onClick={async () => {
+                if (!agencyName.trim()) {
+                  toast.error('Le nom de l\'agence est requis')
+                  return
+                }
+                setSavingBranding(true)
+                try {
+                  await authFetch('/api/user/profile', {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                      companyName: agencyName,
+                      address: agencyAddress,
+                    }),
+                  })
+                  toast.success('Paramètres sauvegardés')
+                } catch {
+                  toast.error('Erreur lors de la sauvegarde')
+                } finally {
+                  setSavingBranding(false)
+                }
+              }}
+            >
+              {savingBranding ? 'Sauvegarde...' : 'Sauvegarder'}
             </Button>
           </CardContent>
         </Card>
@@ -142,6 +176,53 @@ export function AgenceMarketing() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Feature Dialog */}
+      <Dialog open={featureDialogOpen} onOpenChange={setFeatureDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Sparkles className="size-4 text-[#FF6C2F]" />
+              Mettre une annonce en avant
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
+              <SelectTrigger><SelectValue placeholder="Sélectionnez une annonce" /></SelectTrigger>
+              <SelectContent>
+                {listings.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.title} {l.featured ? '(déjà en avant)' : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              className="w-full bg-[#FF6C2F] hover:bg-[#e55e27] text-white"
+              disabled={!selectedPropertyId || featuring}
+              onClick={async () => {
+                setFeaturing(true)
+                try {
+                  await authFetch(`/api/properties/${selectedPropertyId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ featured: true }),
+                  })
+                  toast.success('Annonce mise en avant avec succès')
+                  setFeatureDialogOpen(false)
+                  fetchData()
+                } catch {
+                  toast.error('Erreur lors de la mise en avant')
+                } finally {
+                  setFeaturing(false)
+                }
+              }}
+            >
+              <Sparkles className="size-3.5" />
+              {featuring ? 'Mise en avant...' : 'Confirmer la mise en avant'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

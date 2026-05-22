@@ -433,26 +433,30 @@ export async function GET(req: NextRequest) {
 
 function getStatusTimeline(currentStatus: string) {
   const steps = [
-    { status: 'DRAFT', label: 'Brouillon' },
     { status: 'SUBMITTED', label: 'Soumis' },
+    { status: 'TC_REVIEW', label: 'En vérification' },
     { status: 'VALIDATED', label: 'Validé' },
     { status: 'ACCEPTED', label: 'Accepté' },
   ]
 
-  const statusOrder = ['DRAFT', 'SUBMITTED', 'VALIDATED', 'ACCEPTED']
+  const statusOrder = ['SUBMITTED', 'TC_REVIEW', 'VALIDATED', 'ACCEPTED']
   const currentIndex = statusOrder.indexOf(currentStatus)
   const isRejected = currentStatus === 'REJECTED'
   const isExpired = currentStatus === 'EXPIRED'
 
-  return steps.map((step, index) => ({
+  const timelineSteps = steps.map((step, index) => ({
     ...step,
-    completed: !isRejected && !isExpired && index < currentIndex,
-    active: !isRejected && !isExpired && index === currentIndex,
-  })).concat(
-    isRejected
-      ? [{ status: 'REJECTED', label: 'Rejeté', completed: false, active: true }]
-      : isExpired
-        ? [{ status: 'EXPIRED', label: 'Expiré', completed: false, active: true }]
-        : []
-  )
+    completed: index < currentIndex,
+    active: index === currentIndex,
+  }))
+
+  if (isRejected) {
+    return timelineSteps.concat([{ status: 'REJECTED', label: 'Rejeté', completed: false, active: true }])
+  }
+
+  if (isExpired) {
+    return timelineSteps.concat([{ status: 'EXPIRED', label: 'Expiré', completed: false, active: true }])
+  }
+
+  return timelineSteps
 }
