@@ -192,7 +192,7 @@ export async function GET(req: NextRequest) {
       return {
         id: l.id,
         status: l.status,
-        monthlyRent: l.monthly_rent,
+        monthlyRent: l.monthly_rent || prop?.price || 0,
         charges: l.charges,
         deposit: l.deposit,
         startDate: l.start_date,
@@ -298,11 +298,23 @@ export async function GET(req: NextRequest) {
       const latePayments = leasePayments.filter(p => p.status === 'LATE')
       const paidPayments = leasePayments.filter(p => p.status === 'PAID')
 
-      const nextPayment = pendingPayments.length > 0
+      let nextPayment = pendingPayments.length > 0
         ? pendingPayments[0]
         : latePayments.length > 0
           ? latePayments[0]
           : null
+
+      if (!nextPayment && (lease.monthlyRent || 0) > 0) {
+        const nextDue = new Date()
+        nextDue.setMonth(nextDue.getMonth() + 1)
+        nextDue.setDate(5)
+        nextPayment = {
+          id: 'upcoming',
+          amount: lease.monthlyRent,
+          dueDate: nextDue.toISOString(),
+          status: 'PENDING',
+        }
+      }
 
       let paymentStatus: 'up_to_date' | 'late' | 'pending' = 'up_to_date'
       if (hasLate) paymentStatus = 'late'

@@ -62,7 +62,7 @@ export function useRealtimeMessages({ userId, onNewMessage }: UseRealtimeMessage
             table: 'messages',
           },
           (payload: RealtimePostgresChangesPayload<RealtimeMessagePayload>) => {
-            const msg = payload.new
+            const msg = payload.new as RealtimeMessagePayload | undefined
             if (!msg?.id) return
 
             // Only process messages sent by OTHER users (our own messages are

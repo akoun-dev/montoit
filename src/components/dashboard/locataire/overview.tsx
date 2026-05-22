@@ -1,18 +1,16 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { FileText, Eye, FileSignature, MessageSquare, ShieldCheck, ArrowRight, Home, MapPin, User, CreditCard, Calendar, Clock, CheckCircle2, AlertTriangle, Hourglass, ChevronRight } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Eye, MessageSquare, ShieldCheck, Home, MapPin, User, CreditCard, Calendar, Clock, CheckCircle2, AlertTriangle, Hourglass, ChevronRight, FileSignature } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
+import { Separator } from '@/components/ui/separator'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications'
-import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
 import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
-import { useRealtimeApplications } from '@/hooks/use-realtime-applications'
 import { ContactDialog } from '@/components/messaging/contact-dialog'
 import { motion } from 'framer-motion'
 
@@ -211,10 +209,6 @@ export function LocataireOverview() {
     userId: user?.id,
     onNotificationChange: () => fetchData(),
   })
-  useRealtimeRentalFiles({
-    userId: user?.id,
-    onRentalFileChange: () => fetchData(),
-  })
   useRealtimeLeases({
     userId: user?.id,
     onLeaseChange: () => fetchData(),
@@ -222,10 +216,6 @@ export function LocataireOverview() {
   useRealtimeVisits({
     userId: user?.id,
     onVisitChange: () => fetchData(),
-  })
-  useRealtimeApplications({
-    userId: user?.id,
-    onApplicationChange: () => fetchData(),
   })
 
   useEffect(() => {
@@ -256,10 +246,9 @@ export function LocataireOverview() {
   }
 
   const stats = [
-    { label: 'Dossiers locatifs', value: data.stats.totalRentalFiles, icon: FileText, color: 'text-teal-600 bg-teal-50' },
-    { label: 'Baux actifs', value: data.stats.activeLeases, icon: FileSignature, color: 'text-green-600 bg-green-50' },
-    { label: 'Visites en attente', value: data.stats.pendingVisits, icon: Eye, color: 'text-amber-600 bg-amber-50' },
-    { label: 'Messages non lus', value: data.stats.unreadMessages, icon: MessageSquare, color: 'text-brand-600 bg-brand-50' },
+    { label: 'Ma location', value: data.stats.activeLeases, icon: Home, color: 'text-green-600 bg-green-50' },
+    { label: 'Visites', value: data.stats.pendingVisits, icon: Eye, color: 'text-amber-600 bg-amber-50' },
+    { label: 'Messages', value: data.stats.unreadMessages, icon: MessageSquare, color: 'text-brand-600 bg-brand-50' },
   ]
 
   // Scoring status colors
@@ -285,218 +274,179 @@ export function LocataireOverview() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
-      {/* Welcome */}
+      {/* Welcome + Trust Score mini */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-          Bonjour, {user?.firstName} 👋
-        </h1>
-        <p className="text-muted-foreground mt-1">Voici un aperçu de votre espace locataire</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+              Bonjour, {user?.firstName} 👋
+            </h1>
+            <p className="text-muted-foreground mt-1">Voici un aperçu de votre espace locataire</p>
+          </div>
+          {scoring && (
+            <button
+              onClick={() => setDashboardSection('trust-score')}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border ${scoreBadgeClass} text-xs font-medium hover:shadow-sm transition-all shrink-0`}
+            >
+              <ShieldCheck className="size-3.5" />
+              {scoring.score}/100
+            </button>
+          )}
+        </div>
       </motion.div>
-
-      {/* Trust Score Mini Card — prominent at top */}
-      {scoring && (
-        <motion.div variants={itemVariants}>
-          <Card className={`border bg-gradient-to-r ${scoreBgClass} cursor-pointer hover:shadow-md transition-all group`}
-            onClick={() => setDashboardSection('trust-score')}
-          >
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex items-center gap-4">
-                {/* Mini score circle */}
-                <div className="relative size-16 shrink-0">
-                  <svg className="size-full -rotate-90" viewBox="0 0 56 56">
-                    <circle cx="28" cy="28" r="22" fill="none" stroke="#f0f0f0" strokeWidth="5" />
-                    <circle
-                      cx="28" cy="28" r="22" fill="none"
-                      stroke={scoreColor} strokeWidth="5" strokeLinecap="round"
-                      strokeDasharray={2 * Math.PI * 22}
-                      strokeDashoffset={2 * Math.PI * 22 - (scoring.score / 100) * 2 * Math.PI * 22}
-                      className="transition-all duration-1000 ease-out"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className={`text-lg font-bold ${scoreTextClass}`}>{scoring.score}</span>
-                  </div>
-                </div>
-                {/* Score info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <ShieldCheck className={`size-4 ${scoreTextClass}`} />
-                    <span className="text-sm font-semibold text-foreground">Trust Score</span>
-                    <Badge className={`border text-[10px] font-semibold px-2 py-0 ${scoreBadgeClass}`}>
-                      {scoring.statusLabel}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-2">Score de confiance {scoring.roleLabel || 'locataire'}</p>
-                  {/* Mini progress bars for each component */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {[
-                      { label: 'Profil', pct: scoring.breakdown.profile.max > 0 ? (scoring.breakdown.profile.score / scoring.breakdown.profile.max) * 100 : 0, weight: 5 },
-                      { label: 'KYC', pct: scoring.breakdown.neoface.verified ? 100 : 0, weight: 20 },
-                      { label: 'ONECI', pct: scoring.breakdown.oneci.verified ? 100 : 0, weight: 25 },
-                      { label: scoring.breakdown.roleSpecific.label || 'Dossier', pct: scoring.breakdown.roleSpecific.approved ? 100 : scoring.breakdown.roleSpecific.hasFile ? 50 : 0, weight: 50 },
-                    ].map((comp) => (
-                      <div key={comp.label}>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[9px] text-muted-foreground">{comp.label}</span>
-                          <span className="text-[9px] font-semibold text-muted-foreground">{comp.weight}%</span>
-                        </div>
-                        <div className="h-1 rounded-full bg-neutral-200/60 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-700 ${comp.pct >= 100 ? 'bg-emerald-500' : comp.pct > 0 ? 'bg-amber-400' : 'bg-neutral-200'}`}
-                            style={{ width: `${comp.pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <ArrowRight className="size-5 text-neutral-300 group-hover:text-brand-400 transition-colors shrink-0" />
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
 
       {/* ─── Ma location en cours ──────────────────────────────────────────────── */}
       {primaryLease && (
         <motion.div variants={itemVariants}>
           <Card className="border-border overflow-hidden">
-            {/* Header gradient */}
-            <div className="bg-gradient-to-r from-brand-500 to-brand-600 p-4 sm:p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Home className="size-5 text-white" />
-                  <h2 className="text-base font-semibold text-white">Ma location en cours</h2>
-                </div>
-                <Badge className="bg-white/20 text-white border-0 text-xs px-2.5 py-1">
-                  {primaryLease.monthlyRent.toLocaleString('fr-FR')} FCFA/mois
-                </Badge>
-              </div>
-            </div>
-
-            <CardContent className="p-4 sm:p-5 space-y-4">
-              {/* Property info — horizontal on all sizes */}
-              <div className="flex gap-3 sm:gap-4">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-muted overflow-hidden shrink-0">
-                  {primaryLease.property.images?.[0]?.url ? (
+            <CardContent className="p-0">
+              {/* Hero image + overlay */}
+              <div className="relative h-44 sm:h-52 bg-gradient-to-br from-brand-600 to-brand-800 overflow-hidden">
+                {primaryLease.property.images?.[0]?.url ? (
+                  <>
                     <img
                       src={primaryLease.property.images[0].url}
                       alt={primaryLease.property.title}
-                      className="size-full object-cover"
+                      className="absolute inset-0 size-full object-cover opacity-60"
                     />
-                  ) : (
-                    <div className="size-full flex items-center justify-center bg-brand-50">
-                      <Home className="size-8 text-brand-400" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-semibold text-foreground text-sm sm:text-base truncate">{primaryLease.property.title}</h3>
-                    {(primaryLease.property.address || primaryLease.property.city) && (
-                      <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <MapPin className="size-3 shrink-0" />
-                        <span className="truncate">{primaryLease.property.address || primaryLease.property.city}</span>
-                      </p>
-                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                  </>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Home className="size-16 text-white/30" />
                   </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="flex size-7 items-center justify-center rounded-full bg-muted shrink-0">
-                      <User className="size-3.5 text-muted-foreground" />
+                )}
+                <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="text-lg sm:text-xl font-bold text-white truncate">{primaryLease.property.title}</h3>
+                      {(primaryLease.property.address || primaryLease.property.city) && (
+                        <p className="text-xs sm:text-sm text-white/80 flex items-center gap-1 mt-0.5">
+                          <MapPin className="size-3 shrink-0" />
+                          <span className="truncate">{primaryLease.property.address || primaryLease.property.city}</span>
+                        </p>
+                      )}
                     </div>
-                    <span className="text-xs sm:text-sm text-muted-foreground truncate">
-                      {primaryLease.owner.firstName} {primaryLease.owner.lastName}
-                    </span>
-                    <ContactDialog
-                      defaultRecipientId={primaryLease.owner.id}
-                      onMessageSent={(convId) => {
-                        setDashboardSection('messages')
-                      }}
-                      trigger={
+                    <Badge className="bg-white/20 text-white border-0 text-xs font-semibold px-3 py-1 shrink-0 backdrop-blur-sm">
+                      {primaryLease.monthlyRent.toLocaleString('fr-FR')} FCFA/mois
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info section */}
+              <div className="p-4 sm:p-5 space-y-4">
+                {/* Owner + Contact */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-8 items-center justify-center rounded-full bg-muted">
+                      <User className="size-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Propriétaire</p>
+                      <p className="text-sm font-medium text-foreground">{primaryLease.owner.firstName} {primaryLease.owner.lastName}</p>
+                    </div>
+                  </div>
+                  <ContactDialog
+                    defaultRecipientId={primaryLease.owner.id}
+                    onMessageSent={() => setDashboardSection('messages')}
+                    trigger={
+                      <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                        <MessageSquare className="size-3.5" />
+                        Contacter
+                      </Button>
+                    }
+                  />
+                </div>
+
+                <Separator />
+
+                {/* Key metrics */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 rounded-xl bg-muted/60 border border-border/50">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <CreditCard className="size-3.5 text-brand-500" />
+                      <span className="text-[11px] font-medium text-muted-foreground">Loyer</span>
+                    </div>
+                    <p className="text-sm font-bold text-foreground">{primaryLease.monthlyRent.toLocaleString('fr-FR')}</p>
+                    <p className="text-[10px] text-muted-foreground">FCFA/mois</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-muted/60 border border-border/50">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <Calendar className="size-3.5 text-brand-500" />
+                      <span className="text-[11px] font-medium text-muted-foreground">Période</span>
+                    </div>
+                    <p className="text-sm font-bold text-foreground">
+                      {new Date(primaryLease.startDate).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      → {new Date(primaryLease.endDate).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-muted/60 border border-border/50">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <Clock className="size-3.5 text-brand-500" />
+                      <span className="text-[11px] font-medium text-muted-foreground">Prochain</span>
+                    </div>
+                    {primaryLease.nextPayment ? (
+                      <>
+                        <p className="text-sm font-bold text-foreground">{primaryLease.nextPayment.amount.toLocaleString('fr-FR')}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {new Date(primaryLease.nextPayment.dueDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                        </p>
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-7 text-[11px] gap-1 ml-auto shrink-0"
+                          className="mt-1.5 h-7 w-full text-[11px] gap-1 border-brand-200 text-brand-600 hover:bg-brand-50"
+                          onClick={() => setDashboardSection('payments')}
                         >
-                          <MessageSquare className="size-3" />
-                          <span className="hidden sm:inline">Contacter</span>
+                          Payer
                         </Button>
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Key metrics — 2 rows of 2 on mobile, 1 row of 4 on desktop */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                <div className="p-2.5 sm:p-3 rounded-lg bg-muted/70">
-                  <div className="flex items-center gap-1 mb-1">
-                    <CreditCard className="size-3 text-brand-500" />
-                    <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium">Loyer</span>
-                  </div>
-                  <p className="text-xs sm:text-sm font-bold text-foreground">{primaryLease.monthlyRent.toLocaleString('fr-FR')} <span className="text-[10px] font-normal text-muted-foreground">FCFA</span></p>
-                </div>
-                <div className="p-2.5 sm:p-3 rounded-lg bg-muted/70">
-                  <div className="flex items-center gap-1 mb-1">
-                    <Calendar className="size-3 text-brand-500" />
-                    <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium">Période</span>
-                  </div>
-                  <p className="text-xs sm:text-sm font-semibold text-foreground">
-                    {new Date(primaryLease.startDate).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    → {new Date(primaryLease.endDate).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })}
-                  </p>
-                </div>
-                <div className="p-2.5 sm:p-3 rounded-lg bg-muted/70">
-                  <div className="flex items-center gap-1 mb-1">
-                    <Clock className="size-3 text-brand-500" />
-                    <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium">Prochain paiement</span>
-                  </div>
-                  {primaryLease.nextPayment ? (
-                    <>
-                      <p className="text-xs sm:text-sm font-bold text-foreground">{primaryLease.nextPayment.amount.toLocaleString('fr-FR')} <span className="text-[10px] font-normal text-muted-foreground">FCFA</span></p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {new Date(primaryLease.nextPayment.dueDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">—</p>
-                  )}
-                </div>
-                <div className="p-2.5 sm:p-3 rounded-lg bg-muted/70">
-                  <div className="flex items-center gap-1 mb-1">
-                    {primaryLease.paymentStatus === 'up_to_date' ? (
-                      <CheckCircle2 className="size-3 text-emerald-500" />
-                    ) : primaryLease.paymentStatus === 'late' ? (
-                      <AlertTriangle className="size-3 text-red-500" />
+                      </>
                     ) : (
-                      <Hourglass className="size-3 text-amber-500" />
+                      <p className="text-sm text-muted-foreground">—</p>
                     )}
-                    <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium">Statut</span>
                   </div>
-                  <PaymentStatusIndicator status={primaryLease.paymentStatus} />
+                  <div className={`p-3 rounded-xl border ${
+                    primaryLease.paymentStatus === 'up_to_date'
+                      ? 'bg-emerald-50/60 border-emerald-200/50'
+                      : primaryLease.paymentStatus === 'late'
+                        ? 'bg-red-50/60 border-red-200/50'
+                        : 'bg-amber-50/60 border-amber-200/50'
+                  }`}>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      {primaryLease.paymentStatus === 'up_to_date' ? (
+                        <CheckCircle2 className="size-3.5 text-emerald-600" />
+                      ) : primaryLease.paymentStatus === 'late' ? (
+                        <AlertTriangle className="size-3.5 text-red-600" />
+                      ) : (
+                        <Hourglass className="size-3.5 text-amber-600" />
+                      )}
+                      <span className="text-[11px] font-medium text-muted-foreground">Statut</span>
+                    </div>
+                    <PaymentStatusIndicator status={primaryLease.paymentStatus} />
+                  </div>
                 </div>
-              </div>
 
-              {/* View details button */}
-              <Button
-                className="w-full bg-brand-500 hover:bg-brand-600 text-white gap-2"
-                onClick={() => {
-                  setSelectedItemId(primaryLease.id)
-                  setDashboardSection('my-leases')
-                }}
-              >
-                Voir les détails du bail
-                <ChevronRight className="size-4" />
-              </Button>
+                {/* View details */}
+                <Button
+                  className="w-full bg-brand-500 hover:bg-brand-600 text-white gap-2 h-11"
+                  onClick={() => {
+                    setSelectedItemId(primaryLease.id)
+                    setDashboardSection('my-leases')
+                  }}
+                >
+                  Gérer mon bail
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </motion.div>
       )}
 
       {/* Stats */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-3 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
@@ -517,70 +467,33 @@ export function LocataireOverview() {
         })}
       </motion.div>
 
-      {/* Recent Activity */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Rental Files */}
-        <motion.div variants={itemVariants}>
-          <Card className="border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Mes dossiers locatifs</CardTitle>
-              <CardDescription>Suivi de vos dossiers</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 max-h-64 overflow-y-auto">
-              {data.rentalFiles.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Aucun dossier pour le moment</p>
-              ) : (
-                data.rentalFiles.map((rf) => (
-                  <div key={rf.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent">
-                    <div className="flex items-center gap-3">
-                      <FileText className="size-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">
-                          Dossier du {new Date(rf.createdAt).toLocaleDateString('fr-FR')}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {rf.documents.length} document(s)
-                        </p>
-                      </div>
-                    </div>
-                    <StatusBadge status={rf.status} />
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Visit Requests */}
+      {/* Visit Requests */}
+      {data.visitRequests.length > 0 && (
         <motion.div variants={itemVariants}>
           <Card className="border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Demandes de visite</CardTitle>
-              <CardDescription>Vos visites planifiées</CardDescription>
+              <CardDescription>Vos visites récentes</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 max-h-64 overflow-y-auto">
-              {data.visitRequests.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Aucune visite pour le moment</p>
-              ) : (
-                data.visitRequests.map((vr) => (
-                  <div key={vr.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent">
-                    <div className="flex items-center gap-3">
-                      <Eye className="size-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{vr.property.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(vr.requestedDate).toLocaleDateString('fr-FR')} — {vr.timeSlot}
-                        </p>
-                      </div>
+              {data.visitRequests.map((vr) => (
+                <div key={vr.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent">
+                  <div className="flex items-center gap-3">
+                    <Eye className="size-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{vr.property.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(vr.requestedDate).toLocaleDateString('fr-FR')} — {vr.timeSlot}
+                      </p>
                     </div>
-                    <StatusBadge status={vr.status} />
                   </div>
-                ))
-              )}
+                  <StatusBadge status={vr.status} />
+                </div>
+              ))}
             </CardContent>
           </Card>
         </motion.div>
-      </div>
+      )}
 
       {/* Active Leases list (for multiple leases) */}
       {data.activeLeases.length > 1 && (

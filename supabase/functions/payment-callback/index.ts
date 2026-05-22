@@ -23,12 +23,15 @@ async function handleCallback(supabase: ReturnType<typeof getSupabaseAdminClient
   try {
     console.log('Payment callback received:', JSON.stringify(payload, null, 2))
 
-    const partnerTransactionId =
-      payload.partner_transaction_id ||
-      payload.transactionId ||
-      payload.id
+    // Priorité : d'abord l'ID Intouch (transactionId) qu'on stocke dans operator_transaction_id,
+    // puis partner_transaction_id (notre ID) qu'on stocke quand Intouch ne retourne pas de transactionId
+    const lookupIds = [
+      payload.transactionId,
+      payload.id,
+      payload.partner_transaction_id,
+    ].filter(Boolean) as string[]
 
-    if (!partnerTransactionId) {
+    if (lookupIds.length === 0) {
       console.error('Payment callback: missing transaction identifier')
       return new Response(JSON.stringify({ received: true }), {
         status: 200,
@@ -36,14 +39,18 @@ async function handleCallback(supabase: ReturnType<typeof getSupabaseAdminClient
       })
     }
 
-    const { data: payment, error: paymentError } = await supabase
-      .from('payments')
-      .select('*, lease:lease_id(owner_id)')
-      .eq('operator_transaction_id', String(partnerTransactionId))
-      .maybeSingle()
+    let payment: any = null
+    for (const id of lookupIds) {
+      const { data } = await supabase
+        .from('payments')
+        .select('*, lease:lease_id(owner_id)')
+        .eq('operator_transaction_id', id)
+        .maybeSingle()
+      if (data) { payment = data; break }
+    }
 
-    if (paymentError || !payment) {
-      console.error('Payment callback: payment not found for transaction:', partnerTransactionId)
+    if (!payment) {
+      console.error('Payment callback: payment not found for transaction IDs:', lookupIds.join(', '))
       return new Response(JSON.stringify({ received: true }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

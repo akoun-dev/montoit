@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Loader2, CheckCircle2, Phone, RefreshCw } from 'lucide-react'
+import { Loader2, CheckCircle2, Phone, RefreshCw, AlertCircle, Info } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -106,6 +106,12 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
       setIsSubmitting(false)
       setPaymentReference(null)
       setPollTimedOut(false)
+
+      authFetch<{ user: { phone: string | null } }>('/api/profile')
+        .then(res => {
+          if (res.user?.phone) setPhoneNumber(res.user.phone)
+        })
+        .catch(() => {})
     }
     return () => {
       clearPolling()
@@ -123,7 +129,6 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
     }
   }, [])
 
-  // Validate phone number (10 digits)
   const isPhoneValid = phoneNumber.replace(/\s/g, '').length === 10
 
   const handleSelectOperator = (operator: OperatorInfo) => {
@@ -144,7 +149,7 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
     setIsSubmitting(true)
 
     try {
-      const result = await authFetch<{ reference: string }>('/api/payments/initiate', {
+      const result = await authFetch<{ data: { partnerTransactionId?: string; status: string } }>('/api/payments/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -154,12 +159,11 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
         }),
       })
 
-      setPaymentReference(result.reference || null)
+      setPaymentReference(result.data?.partnerTransactionId || null)
       setStep(3)
       startPolling()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'initiation du paiement')
-    } finally {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'initiation du paiement', { icon: <AlertCircle className="size-4 text-red-500" /> })
       setIsSubmitting(false)
     }
   }
@@ -175,9 +179,9 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
         const result = await authFetch<{ data: { status: string; reference: string | null } }>(`/api/payments/${payment.id}`)
         if (result.data?.status === 'PAID') {
           clearPolling()
-          setPaymentReference(result.data.reference || paymentReference)
+          setPaymentReference(prev => result.data?.reference || prev)
           setStep(4)
-          toast.success('Paiement confirmé !')
+          toast.success('Paiement confirmé !', { icon: <CheckCircle2 className="size-4 text-emerald-500" /> })
         }
       } catch {
         // Silently continue polling
@@ -189,7 +193,7 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
       clearPolling()
       setPollTimedOut(true)
     }, 120000)
-  }, [payment, paymentReference, clearPolling])
+  }, [payment, clearPolling])
 
   const handleManualCheck = async () => {
     if (!payment) return
@@ -198,12 +202,12 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
       if (result.data?.status === 'PAID') {
         setPaymentReference(result.data.reference || paymentReference)
         setStep(4)
-        toast.success('Paiement confirmé !')
+        toast.success('Paiement confirmé !', { icon: <CheckCircle2 className="size-4 text-emerald-500" /> })
       } else {
-        toast.info('Le paiement n\'est pas encore confirmé. Veuillez réessayer.')
+        toast.info('Le paiement n\'est pas encore confirmé. Veuillez réessayer.', { icon: <Info className="size-4 text-blue-500" /> })
       }
     } catch {
-      toast.error('Erreur lors de la vérification du statut')
+      toast.error('Erreur lors de la vérification du statut', { icon: <AlertCircle className="size-4 text-red-500" /> })
     }
   }
 
@@ -285,7 +289,7 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
               <DialogHeader>
                 <DialogTitle>Paiement {selectedOperator.name}</DialogTitle>
                 <DialogDescription>
-                  Entrez votre numéro de téléphone pour confirmer le paiement
+                  Confirmez votre numéro de téléphone pour le paiement
                 </DialogDescription>
               </DialogHeader>
 
@@ -323,7 +327,7 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
                     <p className="text-xs text-red-500">{phoneError}</p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    Entrez les 10 chiffres de votre numéro
+                    Pré-rempli depuis votre profil. Modifiable si vous avez un autre numéro.
                   </p>
                 </div>
 

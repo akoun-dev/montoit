@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Loader2,
   Smartphone,
+  Zap,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +21,7 @@ import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { PaymentDialog } from './payment-dialog'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface PaymentItem {
@@ -29,7 +31,7 @@ interface PaymentItem {
   dueDate: string
   paidAt: string | null
   reference: string | null
-  paymentMethod: string | null
+  method: string | null
   createdAt: string
   lease: {
     id: string
@@ -63,6 +65,12 @@ interface PaymentsResponse {
     pendingCount: number
     processingCount: number
   }
+  activeLease?: {
+    id: string
+    monthlyRent: number
+    property: { title: string }
+    owner: { firstName: string; lastName: string }
+  } | null
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -118,11 +126,13 @@ export function Payments({ onDetail }: PaymentsProps) {
   const { user, isAuthenticated } = useAuthStore()
   const [payments, setPayments] = useState<PaymentItem[]>([])
   const [stats, setStats] = useState<PaymentsResponse['stats'] | null>(null)
+  const [activeLease, setActiveLease] = useState<PaymentsResponse['activeLease']>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState<FilterTab>('ALL')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedPayment, setSelectedPayment] = useState<PaymentItem | null>(null)
+  const [advancing, setAdvancing] = useState(false)
 
   const fetchPayments = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -130,6 +140,7 @@ export function Payments({ onDetail }: PaymentsProps) {
       const result = await authFetch<PaymentsResponse>('/api/payments')
       setPayments(result.data ?? [])
       setStats(result.stats ?? null)
+      setActiveLease(result.activeLease ?? null)
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) { setPayments([]); return }
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
@@ -174,6 +185,24 @@ export function Payments({ onDetail }: PaymentsProps) {
 
   const handlePaymentSuccess = () => {
     fetchPayments()
+  }
+
+  const handleAdvancePayment = async () => {
+    setAdvancing(true)
+    try {
+      const result = await authFetch<{ data: PaymentItem }>('/api/payments/advance', {
+        method: 'POST',
+      })
+      const newPayment = result.data
+      if (!newPayment) throw new Error('Aucun paiement créé')
+      setPayments((prev) => [newPayment, ...prev])
+      setSelectedPayment(newPayment)
+      setDialogOpen(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la création du paiement')
+    } finally {
+      setAdvancing(false)
+    }
   }
 
   // ─── Loading skeleton ──────────────────────────────────────────────────
@@ -308,6 +337,43 @@ export function Payments({ onDetail }: PaymentsProps) {
         </div>
       </motion.div>
 
+      {/* Advance payment banner */}
+      {activeLease && stats && stats.pendingCount === 0 && stats.latePaymentsCount === 0 && activeFilter === 'ALL' && (
+        <motion.div variants={itemVariants}>
+          <Card className="border-brand-200 bg-gradient-to-r from-brand-50/80 to-background">
+            <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-100">
+                  <Zap className="size-5 text-brand-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Vous êtes à jour !</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {activeLease.property.title} — {activeLease.monthlyRent.toLocaleString('fr-FR')} FCFA/mois
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Anticipez votre prochain loyer en payant en avance.
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={handleAdvancePayment}
+                disabled={advancing}
+                className="shrink-0 h-9 gap-1.5"
+              >
+                {advancing ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <CreditCard className="size-4" />
+                )}
+                Payer en avance
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Payments List or Empty State */}
       {filteredPayments.length === 0 ? (
         <motion.div variants={itemVariants}>
@@ -335,7 +401,7 @@ export function Payments({ onDetail }: PaymentsProps) {
             const config = statusConfig[payment.status] || statusConfig.PENDING
             const property = payment.lease?.property
             const owner = payment.lease?.owner
-            const methodConfig = payment.paymentMethod ? paymentMethodConfig[payment.paymentMethod] : null
+            const methodConfig = payment.method ? paymentMethodConfig[payment.method] : null
 
             return (
               <motion.div key={payment.id} variants={itemVariants}>

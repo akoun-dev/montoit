@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
+import { uploadAttachments, getAttachmentsForMessages, type AttachmentInput } from '@/lib/message-attachments'
 
 async function authorizeTC(request: NextRequest) {
   const { userId, applyCookies } = await resolveRequestUser(request)
@@ -81,6 +82,9 @@ export async function GET(request: NextRequest) {
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true }))
 
+      const msgIds = (updatedMessagesData ?? []).map((m: any) => m.id)
+      const attachmentsMap = await getAttachmentsForMessages(msgIds)
+
       const messages = (updatedMessagesData ?? []).map((m: any) => ({
         id: m.id,
         conversationId: m.conversation_id,
@@ -89,6 +93,7 @@ export async function GET(request: NextRequest) {
         isRead: m.is_read,
         createdAt: m.created_at,
         updatedAt: m.updated_at,
+        attachments: attachmentsMap.get(m.id) || [],
         sender: m.sender ? {
           id: m.sender.id,
           firstName: m.sender.first_name,
@@ -259,15 +264,18 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { conversationId, recipientId, content, propertyId } = body as {
+    const { conversationId, recipientId, content, propertyId, attachments } = body as {
       conversationId?: string
       recipientId?: string
       content?: string
       propertyId?: string
+      attachments?: AttachmentInput[]
     }
 
     if (!content || !content.trim()) {
-      return NextResponse.json({ error: 'Le contenu du message est requis' }, { status: 400 })
+      if (!attachments || attachments.length === 0) {
+        return NextResponse.json({ error: 'Le contenu du message est requis' }, { status: 400 })
+      }
     }
 
     let convId = conversationId
@@ -326,16 +334,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const messageId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    const messageContent = content?.trim() || ''
+
     const { data: message } = await ((supabase as any)
       .from('messages')
       .insert({
-        content: content.trim(),
+        id: messageId,
+        content: messageContent,
         conversation_id: convId,
         sender_id: userId,
         is_read: false,
       })
       .select('*, sender:users!sender_id(id, first_name, last_name, avatar_url)')
       .single())
+
+    let uploadedAttachments: any[] = []
+    if (attachments && attachments.length > 0) {
+      uploadedAttachments = await uploadAttachments(attachments, messageId)
+    }
 
     await (supabase as any)
       .from('conversations')
@@ -404,6 +421,7 @@ export async function POST(request: NextRequest) {
         isRead: message.is_read,
         createdAt: message.created_at,
         updatedAt: message.updated_at,
+        attachments: uploadedAttachments,
         sender: message.sender ? {
           id: message.sender.id,
           firstName: message.sender.first_name,

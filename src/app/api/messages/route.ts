@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notify'
+import { uploadAttachments, getAttachmentsForMessages, type AttachmentInput, type AttachmentOutput } from '@/lib/message-attachments'
 
 function generateId() {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -140,15 +141,18 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { conversationId, recipientId, content, propertyId } = body as {
+    const { conversationId, recipientId, content, propertyId, attachments } = body as {
       conversationId?: string
       recipientId?: string
       content?: string
       propertyId?: string
+      attachments?: AttachmentInput[]
     }
 
     if (!content || !content.trim()) {
-      return NextResponse.json({ error: 'Le contenu du message est requis' }, { status: 400 })
+      if (!attachments || attachments.length === 0) {
+        return NextResponse.json({ error: 'Le contenu du message ou une pièce jointe est requis' }, { status: 400 })
+      }
     }
 
     const admin = getSupabaseAdminClient()
@@ -225,11 +229,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const messageId = generateId()
+    const messageContent = content?.trim() || ''
+
     const { data: message, error: msgError } = await admin
       .from('messages')
       .insert({
-        id: generateId(),
-        content: content.trim(),
+        id: messageId,
+        content: messageContent,
         conversation_id: convId,
         sender_id: userId,
         is_read: false,
@@ -238,6 +245,11 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (msgError) throw msgError
+
+    let uploadedAttachments: AttachmentOutput[] = []
+    if (attachments && attachments.length > 0) {
+      uploadedAttachments = await uploadAttachments(attachments, messageId)
+    }
 
     await admin
       .from('conversations')
@@ -280,6 +292,7 @@ export async function POST(req: NextRequest) {
       conversationId: message.conversation_id,
       senderId: message.sender_id,
       sender,
+      attachments: uploadedAttachments,
     }
 
     const p1Summary = convData ? await getUserSummary(convData.participant1_id, admin) : null
@@ -346,13 +359,21 @@ async function enrichMessages(rows: Array<Record<string, unknown>>, admin: Retur
       senderMap.set(u.id, { id: u.id, firstName: u.first_name, lastName: u.last_name, avatarUrl: u.avatar_url })
     }
   }
-  return rows.map((r) => ({
-    id: r.id,
-    content: r.content,
-    isRead: r.is_read,
-    createdAt: r.created_at,
-    conversationId: r.conversation_id,
-    senderId: r.sender_id,
-    sender: senderMap.get(r.sender_id as string) ?? null,
-  }))
+
+  const messageIds = rows.map((r) => r.id as string).filter(Boolean)
+  const attachmentsMap = await getAttachmentsForMessages(messageIds)
+
+  return rows.map((r) => {
+    const msgId = r.id as string
+    return {
+      id: r.id,
+      content: r.content,
+      isRead: r.is_read,
+      createdAt: r.created_at,
+      conversationId: r.conversation_id,
+      senderId: r.sender_id,
+      sender: senderMap.get(r.sender_id as string) ?? null,
+      attachments: attachmentsMap.get(msgId) || [],
+    }
+  })
 }

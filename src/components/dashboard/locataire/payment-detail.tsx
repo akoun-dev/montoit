@@ -36,7 +36,7 @@ interface PaymentItem {
   dueDate: string
   paidAt: string | null
   reference: string | null
-  paymentMethod: string | null
+  method: string | null
   createdAt: string
   lease: {
     id: string
@@ -217,7 +217,7 @@ export function PaymentDetail({ paymentId, onBack }: PaymentDetailProps) {
   const config = statusConfig[payment.status] || statusConfig.PENDING
   const property = payment.lease?.property
   const owner = payment.lease?.owner
-  const methodConfig = payment.paymentMethod ? paymentMethodConfig[payment.paymentMethod] : null
+  const methodConfig = payment.method ? paymentMethodConfig[payment.method] : null
   const timelineSteps = getTimelineSteps(payment.status, payment.createdAt, payment.paidAt)
 
   const handleDownloadReceipt = () => {

@@ -7,7 +7,7 @@ import { initiateCashin, generatePartnerTransactionId, getOperatorLabel, type Pa
 interface InitiatePaymentBody {
   paymentId: string
   method: PaymentOperator
-  phoneNumber: string
+  phoneNumber?: string
 }
 
 const VALID_METHODS: PaymentOperator[] = ['ORANGE_MONEY', 'MTN_MOMO', 'MOOV_MONEY', 'WAVE']
@@ -37,7 +37,7 @@ serve(async (req) => {
 
     const { data: profile } = await supabase
       .from('users')
-      .select('active_role')
+      .select('active_role, phone')
       .eq('id', userId)
       .single()
 
@@ -52,8 +52,24 @@ serve(async (req) => {
     const body: InitiatePaymentBody = await req.json()
     const { paymentId, method, phoneNumber } = body
 
-    if (!paymentId || !method || !phoneNumber) {
-      return new Response(JSON.stringify({ error: 'Champs requis manquants: paymentId, method, phoneNumber' }), {
+    if (!paymentId || !method) {
+      return new Response(JSON.stringify({ error: 'Champs requis manquants: paymentId, method' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const rawPhone = phoneNumber || profile?.phone
+    if (!rawPhone) {
+      return new Response(JSON.stringify({ error: 'Aucun numéro de téléphone trouvé. Veuillez fournir un numéro ou enregistrer celui de votre profil.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const cleanedPhone = rawPhone.replace(/\s/g, '')
+    if (!PHONE_REGEX.test(cleanedPhone)) {
+      return new Response(JSON.stringify({ error: 'Numéro de téléphone invalide' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -61,14 +77,6 @@ serve(async (req) => {
 
     if (!VALID_METHODS.includes(method)) {
       return new Response(JSON.stringify({ error: `Méthode de paiement invalide. Méthodes acceptées: ${VALID_METHODS.join(', ')}` }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const cleanedPhone = phoneNumber.replace(/\s/g, '')
-    if (!PHONE_REGEX.test(cleanedPhone)) {
-      return new Response(JSON.stringify({ error: 'Numéro de téléphone invalide' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

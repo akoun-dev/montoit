@@ -178,6 +178,25 @@ export async function GET(req: NextRequest) {
         methodDistribution[m] = (methodDistribution[m] || 0) + 1
       })
 
+    let activeLease: { id: string; monthlyRent: number; property: { title: string }; owner: { firstName: string; lastName: string } } | null = null
+    if (effectiveRole === 'LOCATAIRE') {
+      const { data: leases } = await supabase
+        .from('leases')
+        .select('id, monthly_rent, property:property_id(title, price), owner:owner_id(first_name, last_name)')
+        .eq('tenant_id', userId)
+        .eq('status', 'ACTIVE')
+        .limit(1)
+      const lease = (leases as any[])?.[0]
+      if (lease) {
+        activeLease = {
+          id: lease.id,
+          monthlyRent: lease.monthly_rent || (lease.property as any)?.price || 0,
+          property: { title: (lease.property as any)?.title || '' },
+          owner: { firstName: (lease.owner as any)?.first_name || '', lastName: (lease.owner as any)?.last_name || '' },
+        }
+      }
+    }
+
     return applyCookies(NextResponse.json({
       data: payments,
       pagination: {
@@ -196,6 +215,7 @@ export async function GET(req: NextRequest) {
         processingCount: allPaymentsCamel.filter((p: any) => p.status === 'PROCESSING').length,
         methodDistribution,
       },
+      activeLease,
     }))
   } catch (error) {
     console.error('Payments GET error:', error)

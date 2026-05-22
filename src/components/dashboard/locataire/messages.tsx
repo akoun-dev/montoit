@@ -1,14 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MessageSquare, Send, ArrowLeft, Plus, Search } from 'lucide-react'
+import { MessageSquare, Send, ArrowLeft, Plus, Search, Paperclip, X, FileText, Image as ImageIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
-
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { ContactDialog } from '@/components/messaging/contact-dialog'
@@ -34,6 +32,14 @@ interface PropertyInfo {
   images: PropertyImage[]
 }
 
+interface MessageAttachment {
+  id: string
+  fileName: string
+  fileType: string
+  fileSize: number
+  url: string
+}
+
 interface Message {
   id: string
   content: string
@@ -41,6 +47,7 @@ interface Message {
   isRead: boolean
   senderId: string
   sender: Participant
+  attachments?: MessageAttachment[]
 }
 
 interface Conversation {
@@ -66,6 +73,8 @@ export function Messages() {
   const [sending, setSending] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [pendingFiles, setPendingFiles] = useState<{ file: File; preview: string }[]>([])
 
   const fetchConversations = useCallback(async () => {
     if (!isAuthenticated) {
@@ -90,11 +99,6 @@ export function Messages() {
   useEffect(() => {
     fetchConversations()
   }, [fetchConversations])
-
-  // Auto-scroll to bottom when selecting a conversation
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [selectedId])
 
   const selected = conversations.find((c) => c.id === selectedId)
 
@@ -182,6 +186,20 @@ export function Messages() {
       .finally(() => setLoadingMessages(false))
   }, [selectedId])
 
+  // Auto-scroll to bottom when selecting a conversation or messages change
+  useEffect(() => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }, 100)
+  }, [selectedId, fullMessages.length])
+
+  // Cleanup file previews on unmount
+  useEffect(() => {
+    return () => {
+      pendingFiles.forEach((f) => URL.revokeObjectURL(f.preview))
+    }
+  }, [pendingFiles])
+
   const otherPerson = selected
     ? selected.participant1Id === user?.id ? selected.participant2 : selected.participant1
     : null
@@ -196,14 +214,55 @@ export function Messages() {
     return name.includes(query) || propertyTitle.includes(query)
   })
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const newFiles = files.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }))
+    setPendingFiles((prev) => [...prev, ...newFiles])
+    e.target.value = ''
+  }
+
+  const removePendingFile = (index: number) => {
+    setPendingFiles((prev) => {
+      URL.revokeObjectURL(prev[index].preview)
+      return prev.filter((_, i) => i !== index)
+    })
+  }
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
   const handleSendMessage = async () => {
-    if (!messageText.trim() || sending) return
+    if ((!messageText.trim() && pendingFiles.length === 0) || sending) return
 
     setSending(true)
     try {
-      const body: Record<string, string> = { content: messageText.trim() }
+      const body: Record<string, unknown> = {}
+      if (messageText.trim()) {
+        body.content = messageText.trim()
+      }
       if (selectedId) {
         body.conversationId = selectedId
+      }
+
+      if (pendingFiles.length > 0) {
+        const attachments = await Promise.all(
+          pendingFiles.map(async (pf) => ({
+            fileName: pf.file.name,
+            fileType: pf.file.type,
+            fileSize: pf.file.size,
+            base64: await fileToBase64(pf.file),
+          }))
+        )
+        body.attachments = attachments
       }
 
       const data = await authFetch<{ message: Message; conversation: Conversation }>('/api/messages', {
@@ -224,7 +283,6 @@ export function Messages() {
           }
           return updated
         }
-        // New conversation — add it
         return [
           {
             ...data.conversation,
@@ -235,17 +293,14 @@ export function Messages() {
         ]
       })
 
-      // Add new message to fullMessages
       setFullMessages((prev) => [...prev, data.message])
-
       setMessageText('')
+      setPendingFiles([])
 
-      // If it was a new conversation, select it
       if (!selectedId && data.conversation.id) {
         setSelectedId(data.conversation.id)
       }
 
-      // Scroll to bottom
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
       }, 100)
@@ -303,10 +358,10 @@ export function Messages() {
       </div>
 
       <Card className="border-border overflow-hidden">
-        <div className="flex h-[560px]">
+        <div className="flex h-[calc(100dvh-12rem)] min-h-[400px]">
           {/* Conversation list */}
-          <div className={`w-full sm:w-80 border-r border-border flex flex-col ${selectedId ? 'hidden sm:flex' : ''}`}>
-            <div className="p-3 border-b border-border">
+          <div className={`w-full sm:w-80 border-r border-border flex flex-col min-h-0 ${selectedId ? 'hidden sm:flex' : ''}`}>
+            <div className="p-3 border-b border-border shrink-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
@@ -317,7 +372,7 @@ export function Messages() {
                 />
               </div>
             </div>
-            <div className="overflow-y-auto flex-1">
+            <div className="overflow-y-auto flex-1 min-h-0">
               {filteredConversations.length === 0 ? (
                 <div className="py-12 text-center">
                   <MessageSquare className="size-8 text-neutral-300 mx-auto mb-2" />
@@ -378,7 +433,7 @@ export function Messages() {
           </div>
 
           {/* Chat area */}
-          <div className={`flex-1 flex flex-col ${!selectedId ? 'hidden sm:flex' : ''}`}>
+          <div className={`flex-1 flex flex-col min-h-0 ${!selectedId ? 'hidden sm:flex' : ''}`}>
             <AnimatePresence mode="wait">
               {selected && otherPerson ? (
                 <motion.div
@@ -386,7 +441,7 @@ export function Messages() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="flex flex-col h-full"
+                  className="flex flex-col h-full min-h-0"
                 >
                   {/* Chat header */}
                   <div className="flex items-center gap-3 p-3 border-b border-border shrink-0">
@@ -410,7 +465,7 @@ export function Messages() {
                   </div>
 
                   {/* Messages area */}
-                  <ScrollArea className="flex-1">
+                  <div className="overflow-y-auto flex-1 min-h-0">
                     <div className="p-4 space-y-3">
                       {loadingMessages ? (
                         <div className="flex items-center justify-center py-8">
@@ -418,9 +473,10 @@ export function Messages() {
                         </div>
                       ) : fullMessages.map((msg) => {
                         const isMe = msg.senderId === user?.id
+                        const hasAttachments = msg.attachments && msg.attachments.length > 0
                         return (
                           <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            <div className="flex items-end gap-2 max-w-[75%]">
+                            <div className="flex items-end gap-2 max-w-[75%] sm:max-w-[70%]">
                               {!isMe && (
                                 <Avatar className="size-6 shrink-0">
                                   <AvatarFallback className="bg-brand-100 text-brand-700 text-[10px]">
@@ -429,10 +485,43 @@ export function Messages() {
                                 </Avatar>
                               )}
                               <div>
-                                <div className={`rounded-2xl px-4 py-2.5 text-sm ${
+                                <div className={`rounded-2xl px-4 py-2.5 text-sm break-words ${
                                   isMe ? 'bg-brand-500 text-white rounded-br-md' : 'bg-muted text-foreground rounded-bl-md'
                                 }`}>
-                                  {msg.content}
+                                  {msg.content && <p>{msg.content}</p>}
+                                  {hasAttachments && (
+                                    <div className={`space-y-1.5 ${msg.content ? 'mt-2' : ''}`}>
+                                      {msg.attachments!.map((att) => (
+                                        <div key={att.id}>
+                                          {att.fileType.startsWith('image/') ? (
+                                            <a href={att.url} target="_blank" rel="noopener noreferrer">
+                                              <img
+                                                src={att.url}
+                                                alt={att.fileName}
+                                                className="max-w-full rounded-lg max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                              />
+                                            </a>
+                                          ) : (
+                                            <a
+                                              href={att.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className={`flex items-center gap-2 rounded-lg p-2 text-xs ${
+                                                isMe ? 'bg-brand-600 text-white' : 'bg-background text-foreground border'
+                                              }`}
+                                            >
+                                              {att.fileType.startsWith('image/') ? (
+                                                <ImageIcon className="size-4 shrink-0" />
+                                              ) : (
+                                                <FileText className="size-4 shrink-0" />
+                                              )}
+                                              <span className="truncate">{att.fileName}</span>
+                                            </a>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                                 <p className={`text-[10px] mt-0.5 px-1 ${isMe ? 'text-right text-muted-foreground' : 'text-muted-foreground'}`}>
                                   {formatTime(msg.createdAt)}
@@ -444,31 +533,72 @@ export function Messages() {
                       })}
                       <div ref={messagesEndRef} />
                     </div>
-                  </ScrollArea>
+                  </div>
 
                   {/* Message input */}
-                  <div className="p-3 border-t border-border flex gap-2 shrink-0">
-                    <Input
-                      placeholder="Votre message..."
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleSendMessage()
-                        }
-                      }}
-                      className="flex-1 h-10"
-                      disabled={sending}
-                    />
-                    <Button
-                      size="icon"
-                      onClick={handleSendMessage}
-                      disabled={!messageText.trim() || sending}
-                      className="bg-brand-500 hover:bg-brand-600 text-white shrink-0"
-                    >
-                      <Send className="size-4" />
-                    </Button>
+                  <div className="p-3 border-t border-border shrink-0">
+                    {pendingFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {pendingFiles.map((pf, i) => (
+                          <div key={i} className="relative group">
+                            {pf.file.type.startsWith('image/') ? (
+                              <img src={pf.preview} alt={pf.file.name} className="size-12 rounded-lg object-cover" />
+                            ) : (
+                              <div className="size-12 rounded-lg bg-muted flex items-center justify-center">
+                                <FileText className="size-5 text-muted-foreground" />
+                              </div>
+                            )}
+                            <button
+                              onClick={() => removePendingFile(i)}
+                              className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="size-3" />
+                            </button>
+                            <p className="text-[10px] text-muted-foreground truncate max-w-12">{pf.file.name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={sending}
+                        className="shrink-0"
+                      >
+                        <Paperclip className="size-4" />
+                      </Button>
+                      <Input
+                        placeholder="Votre message..."
+                        value={messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            handleSendMessage()
+                          }
+                        }}
+                        className="flex-1 h-10"
+                        disabled={sending}
+                      />
+                      <Button
+                        size="icon"
+                        onClick={handleSendMessage}
+                        disabled={(!messageText.trim() && pendingFiles.length === 0) || sending}
+                        className="bg-brand-500 hover:bg-brand-600 text-white shrink-0"
+                      >
+                        <Send className="size-4" />
+                      </Button>
+                    </div>
                   </div>
                 </motion.div>
               ) : (

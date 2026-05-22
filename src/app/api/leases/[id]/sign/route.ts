@@ -157,7 +157,7 @@ export async function POST(
 
     const { data: property } = await supabase
       .from('properties')
-      .select('id, title, address, city')
+      .select('id, title, address, city, price')
       .eq('id', lease.property_id)
       .maybeSingle()
 
@@ -399,6 +399,40 @@ export async function POST(
 
       if (lease.owner_signed_at) {
         await notifyLeaseActivated(lease.tenant_id, lease.owner_id, property?.title || '', lease.id)
+      }
+    }
+
+    // ── Créer les paiements initiaux (caution + 1er loyer) ──
+    if (updatedLease?.status === 'ACTIVE') {
+      const actualRent = lease.monthly_rent || (property?.price || 0)
+      const depositAmount = lease.deposit || (actualRent * 2)
+      const nowISO = new Date().toISOString()
+
+      if (depositAmount > 0) {
+        const { error: depErr } = await supabase.from('payments').insert({
+          id: generateId(),
+          lease_id: id,
+          tenant_id: lease.tenant_id,
+          amount: depositAmount,
+          status: 'PENDING',
+          due_date: lease.start_date || nowISO,
+          reference: `CAUTION-${id.slice(0, 8)}`,
+        })
+        if (depErr) console.error('[sign/route] Failed to create deposit payment:', depErr)
+      }
+
+      if (actualRent > 0) {
+        const { error: rentErr } = await supabase.from('payments').insert({
+          id: generateId(),
+          lease_id: id,
+          tenant_id: lease.tenant_id,
+          amount: actualRent,
+          status: 'PENDING',
+          due_date: nowISO,
+        })
+        if (rentErr) {
+          console.error('[sign/route] Failed to create first rent payment:', rentErr)
+        }
       }
     }
 
