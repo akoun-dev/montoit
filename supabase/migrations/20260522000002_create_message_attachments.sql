@@ -26,7 +26,7 @@ create policy "Participants can view message attachments"
       select 1 from messages m
       join conversations c on c.id = m.conversation_id
       where m.id = message_id
-      and (c.participant1_id = auth.uid() or c.participant2_id = auth.uid())
+      and (c.participant1_id = auth.uid()::text or c.participant2_id = auth.uid()::text)
     )
   );
 
@@ -38,7 +38,7 @@ create policy "Users can insert attachments for their messages"
     exists (
       select 1 from messages
       where messages.id = message_id
-      and messages.sender_id = auth.uid()
+      and messages.sender_id = auth.uid()::text
     )
   );
 
