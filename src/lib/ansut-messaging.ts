@@ -52,9 +52,9 @@ export function formatPhoneForAnsut(phone: string): string {
     cleaned = cleaned.substring(1)
   }
   
-  // If starts with 0 (local CI format), replace with 225
+  // If starts with 0 (local CI format), prepend 225
   if (cleaned.startsWith('0')) {
-    cleaned = '225' + cleaned.substring(1)
+    cleaned = '225' + cleaned
   }
   
   // If doesn't start with 225, prepend it
