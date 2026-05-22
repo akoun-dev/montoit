@@ -47,9 +47,9 @@ export async function POST(req: NextRequest) {
       const normalized = normalizeEmail(email)
       const existingEmail = await getUserProfileByEmail(admin, normalized)
 
-      if (existingEmail?.is_email_verified) {
+      if (existingEmail) {
         return NextResponse.json(
-          { error: 'Un compte vérifié existe déjà avec cet email. Essayez de vous connecter.' },
+          { error: 'Un compte existe déjà avec cet email. Essayez de vous connecter.' },
           { status: 400 }
         )
       }
@@ -166,12 +166,10 @@ export async function POST(req: NextRequest) {
           .eq('email', email)
           .maybeSingle()
         if (existingEmail && existingEmail.phone !== phone) {
-          if (existingEmail.is_email_verified) {
-            return NextResponse.json(
-              { error: 'Un compte vérifié existe déjà avec cet email' },
-              { status: 400 }
-            )
-          }
+          return NextResponse.json(
+            { error: 'Un compte existe déjà avec cet email' },
+            { status: 400 }
+          )
         }
       }
 
@@ -189,21 +187,6 @@ export async function POST(req: NextRequest) {
             is_phone_verified: false,
             is_active: true,
             password_hash: await bcrypt.hash(`sms-${Date.now()}-${Math.random()}`, 12),
-          })
-          .eq('id', existingUser.id)
-          .select()
-          .single()
-        user = updated
-      } else if (existingUser && !existingUser.is_phone_verified) {
-        const { data: updated } = await supabase
-          .from('users')
-          .update({
-            first_name: firstName,
-            last_name: lastName,
-            email: email || existingUser.email,
-            role: role || existingUser.role,
-            active_role: role || existingUser.active_role,
-            is_active: true,
           })
           .eq('id', existingUser.id)
           .select()
