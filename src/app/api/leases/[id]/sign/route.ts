@@ -202,10 +202,13 @@ export async function POST(
         base64Len: pdfInfo.base64.length,
       })
 
+      const documentHash = crypto.createHash('sha256').update(pdfInfo.buffer).digest('hex')
+
       const signRequest = [{
         fileName: `bail_${id}_owner.pdf`,
         base64: pdfInfo.base64,
         urlDoc: pdfInfo.publicUrl,
+        hashDoc: documentHash,
         signataireNom: ownerInfo?.last_name || '',
         signatairePrenom: ownerInfo?.first_name || '',
         signataireEmail: ownerInfo?.email || '',
@@ -280,39 +283,14 @@ export async function POST(
 
       operationId = signResult?.operationId || signResult?.data?.operationId
       const signedFileName = signResult?.signedFileName || signResult?.data?.signedFileName
+      const edgeContractUrl = signResult?.contractUrl
 
       if (!operationId) {
         const resp = NextResponse.json({ error: 'CRYPTONEO n\'a pas retourné d\'operationId' }, { status: 500 })
         return applyCookies(resp)
       }
 
-      // ── Récupérer le PDF signé depuis CRYPTONEO ──
-      let signedPdfBuffer: Buffer | null = null
-      if (signedFileName) {
-        try {
-          const signedFileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/signed-file/${encodeURIComponent(signedFileName)}`
-          const fileRes = await fetch(signedFileUrl, {
-            headers: {
-              'Authorization': `Bearer ${bearerToken}`,
-              ...(accessToken ? {} : { 'x-user-id': userId }),
-            },
-          })
-
-          if (fileRes.ok) {
-            const arrayBuffer = await fileRes.arrayBuffer()
-            signedPdfBuffer = Buffer.from(arrayBuffer)
-          }
-        } catch (err) {
-          console.warn('Could not retrieve signed PDF from CRYPTONEO:', err)
-        }
-      }
-
-      // ── Uploader le PDF signé dans Storage ──
-      if (signedPdfBuffer) {
-        newContractUrl = await uploadSignedPdf(signedPdfBuffer, id, 'owner_signed_cryptoneo')
-      } else {
-        newContractUrl = await generateAndUploadLeasePdf(id, 'owner_signed')
-      }
+      newContractUrl = edgeContractUrl || await generateAndUploadLeasePdf(id, 'owner_signed')
     } else {
       // Locataire : signature simple sans CRYPTONEO
       newContractUrl = await generateAndUploadLeasePdf(id, 'tenant_signed')
