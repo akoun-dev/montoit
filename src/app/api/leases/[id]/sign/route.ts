@@ -214,7 +214,12 @@ export async function POST(
         callBackUrl,
       })
 
-      console.log('[sign/route] Step 10: calling edge function', { functionUrl: functionUrl?.substring(0, 50) + '...' })
+      console.log('[sign/route] Step 10: edge function URL resolution', {
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'NOT_SET',
+        functionUrl,
+        callBackUrl,
+        hasBearerToken: !!bearerToken,
+      })
       let signRes: Response
       try {
         signRes = await fetch(functionUrl, {
