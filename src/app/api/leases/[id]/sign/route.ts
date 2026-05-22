@@ -94,8 +94,11 @@ export async function POST(
     const body = await req.json()
     const { otpCode, signatureImage } = body
 
+    console.log('[sign/route] Step 1: starting sign process', { leaseId: id, userId })
+
     const supabase = getSupabaseAdminClient()
 
+    console.log('[sign/route] Step 2: fetching lease', { id })
     const { data: _lease } = await supabase
       .from('leases')
       .select('*')
@@ -103,18 +106,22 @@ export async function POST(
       .maybeSingle()
 
     if (!_lease) {
+      console.error('[sign/route] Lease not found', { id })
       const resp = NextResponse.json({ error: 'Bail introuvable' }, { status: 404 })
       return applyCookies(resp)
     }
 
     const lease = _lease as any
+    console.log('[sign/route] Step 3: lease found', { status: lease.status, ownerId: lease.owner_id, tenantId: lease.tenant_id })
 
     if (lease.tenant_id !== userId && lease.owner_id !== userId) {
+      console.error('[sign/route] Access denied', { userId, ownerId: lease.owner_id, tenantId: lease.tenant_id })
       const resp = NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
       return applyCookies(resp)
     }
 
     if (lease.status !== 'PENDING_SIGNATURE') {
+      console.error('[sign/route] Wrong status', { status: lease.status })
       const resp = NextResponse.json(
         { error: 'Ce bail ne peut pas être signé (statut: ' + lease.status + ')' },
         { status: 400 }
@@ -125,9 +132,11 @@ export async function POST(
     const isOwner = lease.owner_id === userId
     const alreadySigned = isOwner ? !!lease.owner_signed_at : !!lease.tenant_signed_at
     if (alreadySigned) {
+      console.error('[sign/route] Already signed', { isOwner, ownerSignedAt: lease.owner_signed_at, tenantSignedAt: lease.tenant_signed_at })
       const resp = NextResponse.json({ error: 'Vous avez déjà signé ce bail' }, { status: 400 })
       return applyCookies(resp)
     }
+    console.log('[sign/route] Step 4: user authorized', { isOwner })
 
     // Seul le propriétaire valide via CRYPTONEO
     let operationId: string | undefined
@@ -140,14 +149,18 @@ export async function POST(
       .maybeSingle()
 
     if (isOwner) {
+      console.log('[sign/route] Step 5: owner signing', { hasOtp: !!otpCode, hasSignature: !!signatureImage })
       if (!otpCode) {
         const resp = NextResponse.json({ error: 'Code OTP requis' }, { status: 400 })
         return applyCookies(resp)
       }
 
       // ── Obtenir le PDF à signer ──
+      console.log('[sign/route] Step 6: generating PDF')
       const pdfInfo = await getCurrentPdfInfo(supabase, id, lease)
+      console.log('[sign/route] Step 7: PDF result', { hasPdfInfo: !!pdfInfo, publicUrl: pdfInfo?.publicUrl?.substring(0, 80) })
       if (!pdfInfo) {
+        console.error('[sign/route] PDF generation failed')
         const resp = NextResponse.json(
           { error: 'Impossible de générer le document à signer. Veuillez réessayer.' },
           { status: 500 }
@@ -156,11 +169,13 @@ export async function POST(
       }
 
       // ── Récupérer les infos du signataire (propriétaire) ──
+      console.log('[sign/route] Step 8: fetching owner info')
       const { data: ownerInfo } = await supabase
         .from('users')
         .select('first_name, last_name, email, phone')
         .eq('id', userId)
         .single()
+      console.log('[sign/route] Step 9: owner info', { hasOwnerInfo: !!ownerInfo, email: ownerInfo?.email })
 
       // ── Appeler CRYPTONEO signFileBatch via la Edge Function ──
       const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign`
@@ -199,17 +214,34 @@ export async function POST(
         callBackUrl,
       })
 
-      const signRes = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${bearerToken}`,
-          'Content-Type': 'application/json',
-          ...(accessToken ? {} : { 'x-user-id': userId }),
-        },
-        body: JSON.stringify(signPayload),
-      })
+      console.log('[sign/route] Step 10: calling edge function', { functionUrl: functionUrl?.substring(0, 50) + '...' })
+      let signRes: Response
+      try {
+        signRes = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${bearerToken}`,
+            'Content-Type': 'application/json',
+            ...(accessToken ? {} : { 'x-user-id': userId }),
+          },
+          body: JSON.stringify(signPayload),
+        })
+        console.log('[sign/route] Step 11: edge function responded', { status: signRes.status })
+      } catch (fetchErr) {
+        console.error('[sign/route] Edge function fetch failed:', fetchErr)
+        const resp = NextResponse.json({ error: 'Impossible de contacter le service de signature CRYPTONEO' }, { status: 500 })
+        return applyCookies(resp)
+      }
 
-      const signResult = await signRes.json()
+      let signResult: any
+      try {
+        signResult = await signRes.json()
+      } catch (jsonErr) {
+        console.error('[sign/route] Edge function response not JSON:', jsonErr, { text: await signRes.text().catch(() => '') })
+        const resp = NextResponse.json({ error: 'Réponse invalide du service de signature' }, { status: 500 })
+        return applyCookies(resp)
+      }
+
       console.log('[sign/route] Edge Function sign response:', {
         ok: signRes.ok,
         status: signRes.status,
@@ -427,8 +459,11 @@ export async function POST(
     const resp = NextResponse.json({ data: result })
     return applyCookies(resp)
   } catch (error) {
-    console.error('Lease sign error:', error)
-    const resp = NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    const errMsg = error instanceof Error ? error.message : 'Erreur serveur'
+    const errStack = error instanceof Error ? error.stack?.split('\n').slice(0, 4).join('\n') : ''
+    console.error('[sign/route] UNCAUGHT ERROR:', errMsg, errStack)
+    console.error('[sign/route] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)))
+    const resp = NextResponse.json({ error: errMsg }, { status: 500 })
     return resp
   }
 }
