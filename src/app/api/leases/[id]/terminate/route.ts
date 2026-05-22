@@ -83,6 +83,8 @@ export async function PATCH(
 
     if (updateError) throw updateError
 
+    await supabase.from('properties').update({ rental_status: 'disponible', updated_at: new Date().toISOString() }).eq('id', lease.property_id)
+
     const { data: property } = await supabase
       .from('properties')
       .select('id, title, address, city')

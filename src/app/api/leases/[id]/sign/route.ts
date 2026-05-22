@@ -323,6 +323,10 @@ export async function POST(
         .single()
       updatedLease = updated as any
 
+      if (lease.tenant_signed_at) {
+        await supabase.from('properties').update({ rental_status: 'loue', updated_at: new Date().toISOString() }).eq('id', lease.property_id)
+      }
+
       // Si les deux ont signé, générer la version finale
       if (lease.tenant_signed_at) {
         generateAndUploadLeasePdf(id, 'final').then((url) => {
@@ -367,6 +371,10 @@ export async function POST(
         .select()
         .single()
       updatedLease = updated as any
+
+      if (lease.owner_signed_at) {
+        await supabase.from('properties').update({ rental_status: 'loue', updated_at: new Date().toISOString() }).eq('id', lease.property_id)
+      }
 
       // Si les deux ont signé, générer la version finale
       if (lease.owner_signed_at) {

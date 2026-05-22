@@ -213,6 +213,18 @@ export async function POST(req: NextRequest) {
       return applyCookies(resp)
     }
 
+    if (propertyId) {
+      const { data: msgProperty } = await admin
+        .from('properties')
+        .select('id, rental_status, owner_id')
+        .eq('id', propertyId)
+        .maybeSingle()
+
+      if (msgProperty && msgProperty.rental_status === 'loue' && msgProperty.owner_id !== userId) {
+        return NextResponse.json({ error: 'Ce bien est déjà loué' }, { status: 400 })
+      }
+    }
+
     const { data: message, error: msgError } = await admin
       .from('messages')
       .insert({

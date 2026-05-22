@@ -266,6 +266,10 @@ export async function PATCH(
           .single()
         updatedLease = updated
 
+        if (lease.owner_signed_at) {
+          await supabase.from('properties').update({ rental_status: 'loue', updated_at: new Date().toISOString() }).eq('id', lease.property_id)
+        }
+
         await notify({
           userId: lease.owner_id,
           type: 'LEASE_UPDATE',
@@ -302,6 +306,10 @@ export async function PATCH(
           .select()
           .single()
         updatedLease = updated
+
+        if (lease.tenant_signed_at) {
+          await supabase.from('properties').update({ rental_status: 'loue', updated_at: new Date().toISOString() }).eq('id', lease.property_id)
+        }
 
         await notify({
           userId: lease.tenant_id,

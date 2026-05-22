@@ -604,6 +604,8 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
     )
   }
 
+  const isRented = property.rentalStatus === 'loue'
+
   // Derive extras from API data
   const extras = parseExtras(property)
 
@@ -997,29 +999,33 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                     )}
                   </div>
                 </div>
-                <Button
-                  className="w-full bg-brand-500 hover:bg-brand-600 text-white h-11 text-sm font-semibold mb-2"
-                  onClick={() => requireAuth('planifier une visite', () => setVisitModalOpen(true))}
-                >
-                  <Calendar className="size-4 mr-1.5" />
-                  Planifier une visite
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600 h-10 text-sm mb-2"
-                  onClick={() => setActiveTab('contact')}
-                >
-                  <Phone className="size-4 mr-1.5" />
-                  Contacter le propriétaire
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 h-10 text-sm font-semibold"
-                  onClick={handleApply}
-                >
-                  <FileText className="size-4 mr-1.5" />
-                  Soumettre ma candidature
-                </Button>
+                {!isRented && (
+                  <>
+                    <Button
+                      className="w-full bg-brand-500 hover:bg-brand-600 text-white h-11 text-sm font-semibold mb-2"
+                      onClick={() => requireAuth('planifier une visite', () => setVisitModalOpen(true))}
+                    >
+                      <Calendar className="size-4 mr-1.5" />
+                      Planifier une visite
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full text-brand-500 border-brand-200 hover:bg-brand-50 hover:text-brand-600 h-10 text-sm mb-2"
+                      onClick={() => setActiveTab('contact')}
+                    >
+                      <Phone className="size-4 mr-1.5" />
+                      Contacter le propriétaire
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 h-10 text-sm font-semibold"
+                      onClick={handleApply}
+                    >
+                      <FileText className="size-4 mr-1.5" />
+                      Soumettre ma candidature
+                    </Button>
+                  </>
+                )}
               </div>
 
               {/* États des Lieux (visible si des rapports existent) */}
@@ -1097,29 +1103,33 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                 {property.price.toLocaleString('fr-FR')} <span className="text-[10px] sm:text-xs font-normal text-muted-foreground">F CFA/mois</span>
               </p>
             </div>
-            <Button
-              className="bg-brand-500 hover:bg-brand-600 text-white h-11 min-w-[5.5rem] text-sm font-semibold shadow-sm"
-              onClick={() => requireAuth('planifier une visite', () => setVisitModalOpen(true))}
-            >
-              <Calendar className="size-4 mr-1.5" />
-              Visiter
-            </Button>
-            <Button
-              variant="outline"
-              className="text-brand-500 border-brand-200 hover:bg-brand-50 h-11 px-3 text-sm"
-              onClick={() => setActiveTab('contact')}
-            >
-              <Phone className="size-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Appeler</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="border-emerald-200 text-emerald-600 hover:bg-emerald-50 h-11 px-3 text-sm"
-              onClick={handleApply}
-            >
-              <FileText className="size-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Candidature</span>
-            </Button>
+            {!isRented && (
+              <>
+                <Button
+                  className="bg-brand-500 hover:bg-brand-600 text-white h-11 min-w-[5.5rem] text-sm font-semibold shadow-sm"
+                  onClick={() => requireAuth('planifier une visite', () => setVisitModalOpen(true))}
+                >
+                  <Calendar className="size-4 mr-1.5" />
+                  Visiter
+                </Button>
+                <Button
+                  variant="outline"
+                  className="text-brand-500 border-brand-200 hover:bg-brand-50 h-11 px-3 text-sm"
+                  onClick={() => setActiveTab('contact')}
+                >
+                  <Phone className="size-4 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Appeler</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-emerald-200 text-emerald-600 hover:bg-emerald-50 h-11 px-3 text-sm"
+                  onClick={handleApply}
+                >
+                  <FileText className="size-4 sm:mr-1.5" />
+                  <span className="hidden sm:inline">Candidature</span>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>

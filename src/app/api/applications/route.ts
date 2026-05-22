@@ -42,12 +42,16 @@ export async function POST(req: NextRequest) {
     // Check property exists
     const { data: property } = await supabase
       .from('properties')
-      .select('id, owner_id')
+      .select('id, owner_id, rental_status')
       .eq('id', propertyId)
       .single()
 
     if (!property) {
       return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
+    }
+
+    if (property.rental_status === 'loue') {
+      return NextResponse.json({ error: 'Ce bien est déjà loué' }, { status: 400 })
     }
 
     // Check if tenant already applied to this property
