@@ -56,6 +56,7 @@ import {
   EyeOff,
   Check,
 } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -149,6 +150,7 @@ interface ParsedExtras {
     phone: string
     email: string
     avatar: string
+    avatarUrl: string | null
     joinedDate: string
   }
   virtualTourUrl: string | null
@@ -255,6 +257,7 @@ function parseExtras(property: PropertyDetail): ParsedExtras {
       phone: property.hideOwnerName ? '' : (property.owner.phone || ''),
       email: property.hideOwnerName ? '' : property.owner.email,
       avatar: ownerAvatar,
+      avatarUrl: property.hideOwnerName ? null : (property.owner.avatarUrl || null),
       joinedDate: formatJoinedDate(property.owner.createdAt),
     },
     virtualTourUrl: property.virtualTourUrl,
@@ -985,9 +988,14 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                 <Separator className="mb-4" />
                 {/* Owner mini card */}
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="size-11 rounded-full bg-brand-500 text-white flex items-center justify-center text-sm font-bold shrink-0">
-                    {extras.owner.avatar}
-                  </div>
+                  <Avatar className="size-11 shrink-0">
+                    {extras.owner.avatarUrl && (
+                      <AvatarImage src={extras.owner.avatarUrl} alt={extras.owner.name} className="object-cover" />
+                    )}
+                    <AvatarFallback className="bg-brand-500 text-white text-sm font-bold">
+                      {extras.owner.avatar}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground">{extras.owner.name}</p>
                     <p className="text-[11px] text-muted-foreground">Propriétaire · Depuis {extras.owner.joinedDate}</p>
@@ -1499,9 +1507,14 @@ function ContactTab({
       {/* Owner card */}
       <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
         <div className="flex items-center gap-4 mb-4">
-          <div className="size-14 rounded-full bg-brand-500 text-white flex items-center justify-center text-lg font-bold shrink-0">
-            {extras.owner.avatar}
-          </div>
+          <Avatar className="size-14 shrink-0">
+            {extras.owner.avatarUrl && (
+              <AvatarImage src={extras.owner.avatarUrl} alt={extras.owner.name} className="object-cover" />
+            )}
+            <AvatarFallback className="bg-brand-500 text-white text-lg font-bold">
+              {extras.owner.avatar}
+            </AvatarFallback>
+          </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-base font-semibold text-foreground">{extras.owner.name}</p>
             <p className="text-xs text-muted-foreground">Propriétaire · Membre depuis {extras.owner.joinedDate}</p>
