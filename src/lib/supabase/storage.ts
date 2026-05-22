@@ -14,6 +14,25 @@ export const BUCKETS = {
 
 export type BucketName = (typeof BUCKETS)[keyof typeof BUCKETS]
 
+async function ensureBucketExists(bucket: BucketName): Promise<void> {
+  const supabase = getSupabaseAdminClient()
+  const { data: buckets } = await supabase.storage.listBuckets()
+  if (buckets?.some((b) => b.name === bucket)) return
+
+  await supabase.storage.createBucket(bucket, {
+    public: true,
+    fileSizeLimit: 52428800,
+    allowedMimeTypes: [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+      'application/pdf', 'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain', 'application/zip',
+    ],
+  })
+}
+
 export async function uploadFromBase64(
   bucket: BucketName,
   base64Data: string,
@@ -25,6 +44,8 @@ export async function uploadFromBase64(
   for (let i = 0; i < binaryStr.length; i++) {
     bytes[i] = binaryStr.charCodeAt(i)
   }
+
+  await ensureBucketExists(bucket)
 
   const { error } = await getSupabaseAdminClient()
     .storage
