@@ -52,11 +52,24 @@ async function getCurrentPdfInfo(supabase: ReturnType<typeof getSupabaseAdminCli
     await supabase.from('leases').update({ contract_url: contractUrl, updated_at: new Date().toISOString() } as any).eq('id', leaseId)
   }
 
-  // Download the PDF from the public URL
+  // Try signed URL first (private bucket), fallback to public URL
+  let pdfUrl = contractUrl
+  const pathMatch = contractUrl.match(/\/object\/public\/[^/]+\/(.+)/)
+  const storagePath = pathMatch?.[1]
+  if (storagePath) {
+    try {
+      const { data: signedData } = await supabase
+        .storage
+        .from('lease-documents')
+        .createSignedUrl(storagePath, 300)
+      if (signedData?.signedUrl) pdfUrl = signedData.signedUrl
+    } catch { /* fallback to public URL */ }
+  }
+
   try {
-    const res = await fetch(contractUrl)
+    const res = await fetch(pdfUrl)
     if (!res.ok) {
-      console.error(`Failed to download PDF from ${contractUrl}`)
+      console.error(`Failed to download PDF from ${contractUrl} (status: ${res.status})`)
       return null
     }
     const arrayBuffer = await res.arrayBuffer()
