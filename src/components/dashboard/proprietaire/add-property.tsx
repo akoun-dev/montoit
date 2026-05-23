@@ -357,6 +357,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
     e.target.value = ''
 
     const remaining = 10 - imagePreviews.length - existingImages.length
+    console.log('[ImageSelect] remaining:', remaining, 'imagePreviews.length:', imagePreviews.length, 'existingImages.length:', existingImages.length)
     if (remaining <= 0) {
       console.log('[ImageSelect] max reached')
       setImageError('Maximum 10 photos autorisées')
@@ -366,27 +367,40 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
     const newImages: Array<{ dataUrl: string; file: File }> = []
     let error = ''
 
-    Array.from(files).slice(0, remaining).forEach((file) => {
+    const fileArray = Array.from(files)
+    console.log('[ImageSelect] fileArray length:', fileArray.length)
+    const sliced = fileArray.slice(0, remaining)
+    console.log('[ImageSelect] sliced length:', sliced.length)
+
+    for (const file of sliced) {
+      console.log('[ImageSelect] processing file:', file.name, file.type, file.size)
       if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
         console.log('[ImageSelect] invalid type:', file.type, file.name)
         error = 'Format invalide. Utilisez JPG, PNG ou WEBP.'
-        return
+        continue
       }
       if (file.size > 5 * 1024 * 1024) {
         console.log('[ImageSelect] too large:', file.size, file.name)
         error = 'Chaque image doit faire moins de 5 Mo.'
-        return
+        continue
       }
-      const url = URL.createObjectURL(file)
+      let url: string
+      try {
+        url = URL.createObjectURL(file)
+      } catch (e) {
+        console.error('[ImageSelect] createObjectURL failed:', e, file.name)
+        error = "Erreur lors du chargement de l'image"
+        continue
+      }
       console.log('[ImageSelect] blob url created:', url, file.name)
       newImages.push({ dataUrl: url, file })
-    })
+    }
+    console.log('[ImageSelect] newImages after loop:', newImages.length, 'error:', error)
 
     if (error) {
-      console.log('[ImageSelect] error:', error)
+      console.log('[ImageSelect] error set:', error)
       setImageError(error)
-      newImages.forEach((img) => URL.revokeObjectURL(img.dataUrl))
-      return
+      if (newImages.length === 0) return
     }
 
     console.log('[ImageSelect] setting previews:', newImages.length)
