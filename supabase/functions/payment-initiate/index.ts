@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
 import { getSupabaseAdminClient } from '../_shared/supabase-admin.ts'
 import { resolveUserFromRequest } from '../_shared/auth.ts'
-import { initiateCashin, generatePartnerTransactionId, getOperatorLabel, type PaymentOperator } from '../_shared/intouch.ts'
+import { initiatePaiement, generatePartnerTransactionId, getOperatorLabel, type PaymentOperator } from '../_shared/intouch.ts'
 
 interface InitiatePaymentBody {
   paymentId: string
@@ -37,7 +37,7 @@ serve(async (req) => {
 
     const { data: profile } = await supabase
       .from('users')
-      .select('active_role, phone')
+      .select('active_role, phone, first_name, last_name, email')
       .eq('id', userId)
       .single()
 
@@ -84,7 +84,7 @@ serve(async (req) => {
 
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
-      .select('*, lease:lease_id(id, owner_id, owner:owner_id(id, first_name, last_name, phone))')
+      .select('id, amount, status')
       .eq('id', paymentId)
       .eq('tenant_id', userId)
       .maybeSingle()
@@ -103,34 +103,36 @@ serve(async (req) => {
       })
     }
 
-    const owner = payment.lease?.owner
-    const recipientPhone = owner?.phone
-
-    if (!recipientPhone) {
-      return new Response(JSON.stringify({ error: "Le propriétaire n'a pas de numéro de téléphone enregistré pour recevoir le paiement" }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
     const partnerTransactionId = generatePartnerTransactionId()
 
-    const cashinResult = await initiateCashin({
+    const tenantPhone = cleanedPhone.startsWith('+225') ? cleanedPhone.slice(4) : cleanedPhone
+
+    const paiementResult = await initiatePaiement({
       operator: method,
-      recipientPhoneNumber: recipientPhone,
+      recipientNumber: tenantPhone,
       amount: payment.amount,
-      partnerTransactionId,
+      idFromClient: partnerTransactionId,
+      recipientEmail: profile?.email || '',
+      recipientFirstName: profile?.first_name || '',
+      recipientLastName: profile?.last_name || '',
+      destinataire: tenantPhone,
+      callback: Deno.env.get('INTOUCH_CALLBACK_URL') || 'https://mon-toit.ci/api/payments/callback',
+      ...(method === 'WAVE' ? {
+        partnerName: 'Mon Toit',
+        returnUrl: Deno.env.get('INTOUCH_WAVE_RETURN_URL') || 'https://mon-toit.ci/api/payments/callback',
+        cancelUrl: Deno.env.get('INTOUCH_WAVE_CANCEL_URL') || 'https://mon-toit.ci/api/payments/callback',
+      } : {}),
     })
 
-    if (!cashinResult.success) {
-      return new Response(JSON.stringify({ error: "Échec de l'initiation du paiement", details: cashinResult.error }), {
+    if (!paiementResult.success) {
+      return new Response(JSON.stringify({ error: "Échec de l'initiation du paiement", details: paiementResult.error }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const operatorData = cashinResult.data || cashinResult.raw
-    const operatorRaw = cashinResult.data as Record<string, unknown> | null
+    const operatorData = paiementResult.data || paiementResult.raw
+    const operatorRaw = paiementResult.data as Record<string, unknown> | null
     const operatorTransactionId =
       (operatorRaw?.transactionId as string) ||
       (operatorRaw?.id as string) ||
@@ -160,7 +162,7 @@ serve(async (req) => {
         operatorTransactionId,
         amount: updatedPayment.amount,
         operator: methodLabel,
-        message: 'Paiement initié avec succès. Vous recevrez une confirmation sous peu.',
+        message: 'Paiement initié avec succès. Vous recevrez une notification sur votre téléphone.',
       },
     }), {
       status: 200,
