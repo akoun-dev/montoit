@@ -61,9 +61,15 @@ ANSUT CI INTOUCH.postman_collection.json
 CRYPTONEO - API Signature Electronique ANSUT TEST.postman_collection.json
 
 # Capacitor / Android APK
-android/
-!android/app/src/main/AndroidManifest.xml
-!android/app/src/main/res/
+android/app/build/
+android/app/release/
+android/.gradle/
+android/build/
+android/app/src/main/assets/
+android/capacitor-cordova-android-plugins/
+android/app/capacitor.build.gradle
+android/app/google-services.json
+capacitor.config.local.*
 capacitor-cordova-android-plugins/
 capacitor.config.local.*
 CRYPTONEO - API Signature Electronique ANSUT NEW.postman_collection.json
