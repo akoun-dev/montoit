@@ -265,14 +265,23 @@ export async function POST(req: NextRequest) {
     }
 
     const propertyId = generateId()
+    console.log('[POST /api/properties] creating property:', propertyId, 'images count:', imageArray.length)
 
     // Upload images to Supabase Storage in parallel
     const uploadedImageUrls: string[] = await Promise.all(
-      imageArray.map(async (url: string) => {
+      imageArray.map(async (url: string, idx: number) => {
         if (isBase64DataUrl(url)) {
           const ext = guessExtensionFromMime(url)
           const path = `properties/${propertyId}/${generateId()}.${ext}`
-          return await uploadFromBase64(BUCKETS.PROPERTY_IMAGES, url, path)
+          console.log('[POST /api/properties] uploading image', idx, '->', path)
+          try {
+            const result = await uploadFromBase64(BUCKETS.PROPERTY_IMAGES, url, path)
+            console.log('[POST /api/properties] image', idx, 'uploaded:', result)
+            return result
+          } catch (e) {
+            console.error('[POST /api/properties] image', idx, 'upload failed:', e)
+            throw e
+          }
         }
         return url
       })
@@ -283,7 +292,14 @@ export async function POST(req: NextRequest) {
     if (videoUrl && isBase64DataUrl(videoUrl)) {
       const ext = guessExtensionFromMime(videoUrl)
       const path = `properties/${propertyId}/video-${generateId()}.${ext}`
-      videoUrl = await uploadFromBase64(BUCKETS.PROPERTY_VIDEOS, videoUrl, path)
+      console.log('[POST /api/properties] uploading video ->', path)
+      try {
+        videoUrl = await uploadFromBase64(BUCKETS.PROPERTY_VIDEOS, videoUrl, path)
+        console.log('[POST /api/properties] video uploaded:', videoUrl)
+      } catch (e) {
+        console.error('[POST /api/properties] video upload failed:', e)
+        throw e
+      }
     }
 
     const { data: property, error } = await admin
@@ -352,7 +368,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ property: result }, { status: 201 })
   } catch (error) {
-    console.error('Property creation error:', error)
+    console.error('[POST /api/properties] error:', error instanceof Error ? error.message : error)
+    if (error instanceof Error && error.stack) console.error('[POST /api/properties] stack:', error.stack)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }

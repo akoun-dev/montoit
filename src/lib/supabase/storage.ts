@@ -17,10 +17,18 @@ export type BucketName = (typeof BUCKETS)[keyof typeof BUCKETS]
 
 async function ensureBucketExists(bucket: BucketName): Promise<void> {
   const supabase = getSupabaseAdminClient()
-  const { data: buckets } = await supabase.storage.listBuckets()
-  if (buckets?.some((b) => b.name === bucket)) return
+  const { data: buckets, error: listError } = await supabase.storage.listBuckets()
+  if (listError) {
+    console.error('[ensureBucketExists] listBuckets error:', listError)
+    throw listError
+  }
+  if (buckets?.some((b) => b.name === bucket)) {
+    console.log('[ensureBucketExists] bucket already exists:', bucket)
+    return
+  }
 
-  await supabase.storage.createBucket(bucket, {
+  console.log('[ensureBucketExists] creating bucket:', bucket)
+  const { error } = await supabase.storage.createBucket(bucket, {
     public: true,
     fileSizeLimit: 52428800,
     allowedMimeTypes: [
@@ -32,6 +40,11 @@ async function ensureBucketExists(bucket: BucketName): Promise<void> {
       'text/plain', 'application/zip',
     ],
   })
+  if (error) {
+    console.error('[ensureBucketExists] createBucket error:', error)
+    throw error
+  }
+  console.log('[ensureBucketExists] bucket created:', bucket)
 }
 
 export async function uploadFromBase64(
@@ -39,14 +52,26 @@ export async function uploadFromBase64(
   base64Data: string,
   filePath: string
 ): Promise<string> {
+  console.log('[uploadFromBase64] start:', bucket, filePath, 'base64 length:', base64Data.length)
+
   const base64Payload = base64Data.split(',')[1] || base64Data
-  const binaryStr = atob(base64Payload)
+  console.log('[uploadFromBase64] payload length after split:', base64Payload.length)
+
+  let binaryStr: string
+  try {
+    binaryStr = atob(base64Payload)
+  } catch (e) {
+    console.error('[uploadFromBase64] atob failed:', e)
+    throw e
+  }
   const bytes = new Uint8Array(binaryStr.length)
   for (let i = 0; i < binaryStr.length; i++) {
     bytes[i] = binaryStr.charCodeAt(i)
   }
+  console.log('[uploadFromBase64] decoded bytes:', bytes.length)
 
   await ensureBucketExists(bucket)
+  console.log('[uploadFromBase64] bucket ensured')
 
   const { error } = await getSupabaseAdminClient()
     .storage
@@ -57,10 +82,13 @@ export async function uploadFromBase64(
     })
 
   if (error) {
+    console.error('[uploadFromBase64] upload error:', error)
     throw error
   }
 
-  return getPublicUrl(bucket, filePath)
+  const url = getPublicUrl(bucket, filePath)
+  console.log('[uploadFromBase64] success:', url)
+  return url
 }
 
 export async function deleteFromStorage(bucket: BucketName | string, filePath: string): Promise<void> {

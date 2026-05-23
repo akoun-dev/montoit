@@ -349,11 +349,16 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
   // ── Image handling ─────────────────────────────────────────────────────────
   const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
-    if (!files) return
+    if (!files) {
+      console.log('[ImageSelect] no files')
+      return
+    }
+    console.log('[ImageSelect] files selected:', files.length, Array.from(files).map(f => ({ name: f.name, type: f.type, size: f.size })))
     e.target.value = ''
 
     const remaining = 10 - imagePreviews.length - existingImages.length
     if (remaining <= 0) {
+      console.log('[ImageSelect] max reached')
       setImageError('Maximum 10 photos autorisées')
       return
     }
@@ -363,23 +368,28 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
 
     Array.from(files).slice(0, remaining).forEach((file) => {
       if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
+        console.log('[ImageSelect] invalid type:', file.type, file.name)
         error = 'Format invalide. Utilisez JPG, PNG ou WEBP.'
         return
       }
       if (file.size > 5 * 1024 * 1024) {
+        console.log('[ImageSelect] too large:', file.size, file.name)
         error = 'Chaque image doit faire moins de 5 Mo.'
         return
       }
       const url = URL.createObjectURL(file)
+      console.log('[ImageSelect] blob url created:', url, file.name)
       newImages.push({ dataUrl: url, file })
     })
 
     if (error) {
+      console.log('[ImageSelect] error:', error)
       setImageError(error)
       newImages.forEach((img) => URL.revokeObjectURL(img.dataUrl))
       return
     }
 
+    console.log('[ImageSelect] setting previews:', newImages.length)
     setImageError(null)
     setImagePreviews((prev) => [...prev, ...newImages])
   }, [imagePreviews.length, existingImages.length])
@@ -474,9 +484,10 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
   // ── Compress image before base64 conversion ────────────────────────────────
   // Limits max dimension to 1600px and quality to 0.7 to reduce payload size
   const compressImage = (file: File): Promise<string> => {
+    console.log('[compressImage] start:', file.name, file.type, file.size)
     return new Promise((resolve, reject) => {
       if (!file.type.startsWith('image/')) {
-        // For non-image files (e.g. video), skip compression
+        console.log('[compressImage] non-image, skip compression')
         const reader = new FileReader()
         reader.onload = () => resolve(reader.result as string)
         reader.onerror = () => reject(new Error('Erreur de lecture du fichier'))
@@ -487,6 +498,8 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
       const img = new Image()
       img.onload = () => {
         URL.revokeObjectURL(img.src)
+        const origW = img.width
+        const origH = img.height
         const MAX_DIM = 1600
         let { width, height } = img
         if (width > MAX_DIM || height > MAX_DIM) {
@@ -494,19 +507,30 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
           width = Math.round(width * ratio)
           height = Math.round(height * ratio)
         }
+        console.log('[compressImage] dimensions:', origW + 'x' + origH, '->', width + 'x' + height)
 
         const canvas = document.createElement('canvas')
         canvas.width = width
         canvas.height = height
-        const ctx = canvas.getContext('2d')!
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          console.error('[compressImage] canvas context null, fallback FileReader')
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = () => reject(new Error('Erreur de lecture du fichier'))
+          reader.readAsDataURL(file)
+          return
+        }
         ctx.drawImage(img, 0, 0, width, height)
 
         const quality = file.type === 'image/png' ? 0.8 : 0.7
-        resolve(canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', quality))
+        const result = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', quality)
+        console.log('[compressImage] done, base64 length:', result.length)
+        resolve(result)
       }
-      img.onerror = () => {
+      img.onerror = (err) => {
+        console.error('[compressImage] image load error:', err, file.name)
         URL.revokeObjectURL(img.src)
-        // Fallback: read as-is if image loading fails
         const reader = new FileReader()
         reader.onload = () => resolve(reader.result as string)
         reader.onerror = () => reject(new Error('Erreur de lecture du fichier'))
@@ -532,6 +556,8 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
     setError(null)
 
     try {
+      console.log('[SaveDraft] imagePreviews:', imagePreviews.length, 'existingImages:', existingImages.length)
+
       // Convert new images to base64 (with compression)
       const newImagesBase64: string[] = []
       for (const img of imagePreviews) {
@@ -541,6 +567,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
 
       // Combine existing images + new images
       const allImages = [...existingImages.map((img) => img.url), ...newImagesBase64]
+      console.log('[SaveDraft] total images to send:', allImages.length, 'payload size est:', JSON.stringify({ images: allImages.map(() => '...') }).length)
 
       // Convert video to base64 (only if new video selected)
       let virtualTourUrl: string | null | undefined = undefined
@@ -660,6 +687,8 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
     setProcessingStatus('Préparation des images...')
 
     try {
+      console.log('[Publish] imagePreviews:', imagePreviews.length, 'existingImages:', existingImages.length)
+
       // Convert images to base64 in PARALLEL for speed
       const totalImages = imagePreviews.length
       const newImagesBase64: string[] = []
@@ -679,6 +708,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
       }
 
       const allImages = [...existingImages.map((img) => img.url), ...newImagesBase64]
+      console.log('[Publish] total images to send:', allImages.length)
 
       // Convert video to base64
       let virtualTourUrl: string | null | undefined = undefined

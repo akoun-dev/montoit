@@ -169,6 +169,8 @@ export async function PATCH(
 
     if (images !== undefined) {
       const imageArray: string[] = Array.isArray(images) ? images : []
+      console.log('[PATCH /api/properties] images count:', imageArray.length, 'base64 count:', imageArray.filter(isBase64DataUrl).length)
+
       if (imageArray.length > MAX_IMAGES) {
         return NextResponse.json(
           { error: `Maximum ${MAX_IMAGES} images autorisées` },
@@ -181,6 +183,7 @@ export async function PATCH(
         .from('property_images')
         .select('url')
         .eq('property_id', id)
+      console.log('[PATCH /api/properties] old images count:', oldImages?.length ?? 0)
 
       // Only delete old storage files that are NOT in the new image set
       // (images kept by the user keep their existing storage URL)
@@ -190,7 +193,8 @@ export async function PATCH(
           if (!newUrlSet.has(img.url)) {
             const parsed = extractBucketAndPath(img.url)
             if (parsed) {
-              await deleteFromStorage(parsed.bucket, parsed.path).catch(() => {})
+              console.log('[PATCH /api/properties] deleting old image from storage:', parsed.bucket, parsed.path)
+              await deleteFromStorage(parsed.bucket, parsed.path).catch((e) => console.error('[PATCH] delete failed:', e))
             }
           }
         }
@@ -198,14 +202,17 @@ export async function PATCH(
 
       // Upload new base64 images to storage first (individual error handling)
       const uploadedUrls: string[] = await Promise.all(
-        imageArray.map(async (url: string) => {
+        imageArray.map(async (url: string, idx: number) => {
           if (isBase64DataUrl(url)) {
             const ext = guessExtensionFromMime(url)
             const path = `properties/${id}/${generateId()}.${ext}`
+            console.log('[PATCH /api/properties] uploading image', idx, '->', path)
             try {
-              return await uploadFromBase64(BUCKETS.PROPERTY_IMAGES, url, path)
+              const result = await uploadFromBase64(BUCKETS.PROPERTY_IMAGES, url, path)
+              console.log('[PATCH /api/properties] image', idx, 'uploaded:', result)
+              return result
             } catch (e) {
-              console.error('Image upload failed:', e)
+              console.error('[PATCH /api/properties] image', idx, 'upload failed:', e)
               return url
             }
           }
@@ -214,6 +221,7 @@ export async function PATCH(
       )
 
       // Replace all image records in DB (only after uploads are done)
+      console.log('[PATCH /api/properties] replacing images in DB')
       await admin.from('property_images').delete().eq('property_id', id)
 
       if (uploadedUrls.length > 0) {
@@ -224,6 +232,7 @@ export async function PATCH(
           property_id: id,
         }))
         await admin.from('property_images').insert(imageRows)
+        console.log('[PATCH /api/properties] images inserted:', imageRows.length)
       }
     }
 
