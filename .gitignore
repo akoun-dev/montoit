@@ -71,3 +71,5 @@ CRYPTONEO - API Signature Electronique ANSUT.postman_collection.json
 CRYPTONEO - API Signature Electronique ANSUT.postman_environment.json
 compte.md
 token.txt
+docs/architecture/api-gateway.md
+public/manifest.webmanifest

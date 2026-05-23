@@ -64,7 +64,6 @@ function PropertyCard({ property, isFavorite, onToggleFavorite }: { property: Pr
 
   const handleClick = () => {
     setSelectedPropertyId(property.id)
-    window.scrollTo({ top: 0, behavior: 'auto' })
     setView('property-detail')
   }
 

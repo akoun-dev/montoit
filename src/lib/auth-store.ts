@@ -563,15 +563,20 @@ export const useAuthStore = create<AuthState>()(
                 }
             },
 
-            setView: view =>
+            setView: view => {
+                if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'auto' })
                 set(state => ({
                     previousView: state.currentView,
                     currentView: view,
-                })),
+                }))
+            },
             setAuthMethod: method => set({ authMethod: method }),
             setOtpPurpose: purpose => set({ otpPurpose: purpose }),
             setPendingRole: role => set({ pendingRole: role }),
-            setDashboardSection: section => set({ dashboardSection: section }),
+            setDashboardSection: section => {
+                if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'auto' })
+                set({ dashboardSection: section })
+            },
             setSelectedPropertyId: id => set({ selectedPropertyId: id }),
             setSelectedItemId: id => set({ selectedItemId: id }),
             setSearchParams: params => set({ searchParams: params }),

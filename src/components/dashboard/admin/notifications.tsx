@@ -12,6 +12,7 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications'
+import { useNotificationStore } from '@/lib/notification-store'
 
 interface NotificationItem {
   id: string
@@ -147,7 +148,9 @@ export function AdminNotifications() {
       })
       setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n))
       setUnreadCount(prev => Math.max(0, prev - 1))
-      // Navigate to the relevant dashboard section if actionUrl exists
+      useNotificationStore.setState((state) => ({
+        unreadCount: Math.max(0, state.unreadCount - 1),
+      }))
       if (notification.actionUrl) {
         setDashboardSection(notification.actionUrl)
       }
@@ -166,6 +169,7 @@ export function AdminNotifications() {
       })
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
       setUnreadCount(0)
+      useNotificationStore.setState({ unreadCount: 0 })
       toast.success('Toutes marquées comme lues')
     } catch {
       toast.error('Erreur lors de la mise à jour')

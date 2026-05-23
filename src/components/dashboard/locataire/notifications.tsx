@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications'
+import { useNotificationStore } from '@/lib/notification-store'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -136,7 +137,9 @@ export function Notifications() {
       })
       setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, isRead: true } : n))
       setUnreadCount((prev) => Math.max(0, prev - 1))
-      // Navigate to the relevant dashboard section if actionUrl exists
+      useNotificationStore.setState((state) => ({
+        unreadCount: Math.max(0, state.unreadCount - 1),
+      }))
       if (notif.actionUrl) {
         setDashboardSection(notif.actionUrl)
       }
@@ -155,6 +158,7 @@ export function Notifications() {
       })
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
       setUnreadCount(0)
+      useNotificationStore.setState({ unreadCount: 0 })
     } catch {
       // Silently fail
     } finally {

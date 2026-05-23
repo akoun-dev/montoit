@@ -867,7 +867,6 @@ export function NosBiensView() {
 
   const openDetail = (propertyId: string) => {
     setSelectedPropertyId(propertyId)
-    window.scrollTo({ top: 0, behavior: 'auto' })
     setView('property-detail')
   }
 
