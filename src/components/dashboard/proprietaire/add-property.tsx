@@ -349,12 +349,16 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
   // ── Image handling ─────────────────────────────────────────────────────────
   const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
-    if (!files) {
+    if (!files || files.length === 0) {
       console.log('[ImageSelect] no files')
       return
     }
-    console.log('[ImageSelect] files selected:', files.length, Array.from(files).map(f => ({ name: f.name, type: f.type, size: f.size })))
+    // Snapshot the FileList into an array BEFORE clearing the input value,
+    // otherwise e.target.value = '' can invalidate the live FileList reference
+    // on some browsers (fileArray.length = 0 despite files.length > 0).
+    const fileArray = Array.from(files)
     e.target.value = ''
+    console.log('[ImageSelect] files selected:', files.length, fileArray.map(f => ({ name: f.name, type: f.type, size: f.size })))
 
     const remaining = 10 - imagePreviews.length - existingImages.length
     console.log('[ImageSelect] remaining:', remaining, 'imagePreviews.length:', imagePreviews.length, 'existingImages.length:', existingImages.length)
@@ -367,8 +371,6 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
     const newImages: Array<{ dataUrl: string; file: File }> = []
     let error = ''
 
-    const fileArray = Array.from(files)
-    console.log('[ImageSelect] fileArray length:', fileArray.length)
     const sliced = fileArray.slice(0, remaining)
     console.log('[ImageSelect] sliced length:', sliced.length)
 
