@@ -70,6 +70,22 @@ export async function GET(req: NextRequest) {
       query = query.eq('owner_id', mineUserId!)
     } else if (isTCRequestingPending) {
       query = query.eq('status', 'PENDING_VERIFICATION')
+    } else if (all === 'true') {
+      // Pour "Nos biens" public : inclure les biens gérés par mandat
+      // 1. Biens ACTIFS
+      // 2. Biens associés à des mandats ACTIFS ou PENDING_SIGNATURE (gérés par agence)
+      const { data: activeMandats } = await admin
+        .from('mandats')
+        .select('property_id')
+        .in('status', ['ACTIVE', 'PENDING_SIGNATURE'])
+
+      if (activeMandats && activeMandats.length > 0) {
+        const mandatPropIds = activeMandats.map((m: any) => `'${m.property_id}'`).join(',')
+
+        query = query.or(`status.eq.ACTIVE,id.in.(${mandatPropIds})`)
+      } else {
+        query = query.eq('status', 'ACTIVE')
+      }
     } else {
       query = query.eq('status', 'ACTIVE')
     }

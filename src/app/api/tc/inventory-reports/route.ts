@@ -107,8 +107,8 @@ export async function GET(req: NextRequest) {
         kitchen: item.kitchen,
         mainBathroom: item.main_bathroom,
         otherBathroom: item.other_bathroom,
-        otherRoom1: item.other_room_1,
-        otherRoom2: item.other_room_2,
+        otherRoom1: item.other_room1,
+        otherRoom2: item.other_room2,
         observations: item.observations,
         createdAt: item.created_at,
       }))
@@ -272,22 +272,30 @@ export async function POST(req: NextRequest) {
       .single() as any)
 
     const inventoryItems = items.map((item: any, index: number) => ({
+      id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${index}`,
       report_id: report.id,
       designation: item.designation,
       designation_order: item.designationOrder !== undefined ? Number(item.designationOrder) : index + 1,
       kitchen: item.kitchen || null,
       main_bathroom: item.mainBathroom || null,
       other_bathroom: item.otherBathroom || null,
-      other_room_1: item.otherRoom1 || null,
-      other_room_2: item.otherRoom2 || null,
+      other_room1: item.otherRoom1 || null,
+      other_room2: item.otherRoom2 || null,
       observations: item.observations || null,
     }))
 
-    const { data: createdItems } = await ((supabase as any)
+    const { data: createdItems, error: itemsError } = await ((supabase as any)
       .from('inventory_report_items')
       .insert(inventoryItems)
       .select()
       .order('designation_order', { ascending: true }))
+
+    if (itemsError) {
+      console.error('Failed to insert inventory items:', itemsError)
+      // Cleanup: remove the report since items failed
+      await (supabase.from('inventory_reports') as any).delete().eq('id', report.id)
+      return NextResponse.json({ error: 'Erreur lors de la création des éléments' }, { status: 500 })
+    }
 
     await (supabase.from('audit_logs') as any).insert({
       action: 'INVENTORY_REPORT_CREATED',
@@ -305,8 +313,8 @@ export async function POST(req: NextRequest) {
       kitchen: item.kitchen,
       mainBathroom: item.main_bathroom,
       otherBathroom: item.other_bathroom,
-      otherRoom1: item.other_room_1,
-      otherRoom2: item.other_room_2,
+      otherRoom1: item.other_room1,
+      otherRoom2: item.other_room2,
       observations: item.observations,
     }))
 
@@ -379,7 +387,10 @@ export async function PATCH(req: NextRequest) {
           return NextResponse.json({ error: 'items doit être un tableau' }, { status: 400 })
         }
 
-        await (supabase.from('inventory_report_items') as any).delete().eq('report_id', reportId)
+        const { error: deleteError } = await (supabase.from('inventory_report_items') as any).delete().eq('report_id', reportId)
+        if (deleteError) {
+          return NextResponse.json({ error: 'Erreur lors de la suppression des anciens éléments' }, { status: 500 })
+        }
 
         for (let i = 0; i < items.length; i++) {
           const item = items[i]
@@ -403,18 +414,22 @@ export async function PATCH(req: NextRequest) {
         }
 
         const newItems = items.map((item: any, index: number) => ({
+          id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${index}`,
           report_id: reportId,
           designation: item.designation,
           designation_order: item.designationOrder !== undefined ? Number(item.designationOrder) : index + 1,
           kitchen: item.kitchen || null,
           main_bathroom: item.mainBathroom || null,
           other_bathroom: item.otherBathroom || null,
-          other_room_1: item.otherRoom1 || null,
-          other_room_2: item.otherRoom2 || null,
+          other_room1: item.otherRoom1 || null,
+          other_room2: item.otherRoom2 || null,
           observations: item.observations || null,
         }))
 
-        await (supabase.from('inventory_report_items') as any).insert(newItems)
+        const { error: insertError } = await (supabase.from('inventory_report_items') as any).insert(newItems)
+        if (insertError) {
+          return NextResponse.json({ error: 'Erreur lors de la mise à jour des éléments' }, { status: 500 })
+        }
       }
 
       if (generalObservations !== undefined) {
@@ -507,8 +522,8 @@ export async function PATCH(req: NextRequest) {
       kitchen: item.kitchen,
       mainBathroom: item.main_bathroom,
       otherBathroom: item.other_bathroom,
-      otherRoom1: item.other_room_1,
-      otherRoom2: item.other_room_2,
+      otherRoom1: item.other_room1,
+      otherRoom2: item.other_room2,
       observations: item.observations,
     }))
 

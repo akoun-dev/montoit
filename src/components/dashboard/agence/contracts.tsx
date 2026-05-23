@@ -50,8 +50,11 @@ export function AgenceContracts() {
       setLeases(d.activeLeases ?? [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
+      console.error('Failed to fetch contracts:', err)
     } finally { setLoading(false) }
   }, [isAuthenticated])
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   // Realtime subscription
   useRealtimeLeases({

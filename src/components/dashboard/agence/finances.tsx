@@ -51,11 +51,14 @@ export function AgenceFinances() {
       }
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
+      console.error('Failed to fetch agence data:', err)
     } finally { setLoading(false) }
   }, [isAuthenticated])
 
   // Track lease IDs for Realtime filtering
   const leaseIds = (data?.activeLeases ?? []).map(l => l.id)
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   // Realtime subscription
   useRealtimePayments({

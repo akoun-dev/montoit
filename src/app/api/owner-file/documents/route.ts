@@ -4,6 +4,59 @@ import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notifyMany } from '@/lib/notify'
 import { BUCKETS, deleteFromStorage, extractBucketAndPath, uploadFromBase64 } from '@/lib/supabase/storage'
 
+export async function GET(req: NextRequest) {
+  try {
+    const { userId, applyCookies } = await resolveRequestUser(req)
+    if (!userId) {
+      const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+      return applyCookies(resp)
+    }
+
+    const { searchParams } = new URL(req.url)
+    const ownerId = searchParams.get('ownerId')
+
+    if (!ownerId) {
+      return NextResponse.json({ error: 'ownerId requis' }, { status: 400 })
+    }
+
+    const supabase = getSupabaseAdminClient()
+
+    // Récupérer les documents du propriétaire via owner_file
+    const { data: ownerFiles } = await supabase
+      .from('owner_files')
+      .select('id')
+      .eq('owner_id', ownerId)
+
+    if (!ownerFiles || ownerFiles.length === 0) {
+      const resp = NextResponse.json({ documents: [] })
+      return applyCookies(resp)
+    }
+
+    const ownerFileIds = ownerFiles.map(of => of.id)
+
+    // Récupérer les documents associés
+    const { data: documents } = await supabase
+      .from('owner_documents')
+      .select('id, name, type, url, status')
+      .in('owner_file_id', ownerFileIds)
+
+    const mappedDocs = documents?.map(doc => ({
+      id: doc.id,
+      name: doc.name || '',
+      type: doc.type || 'OTHER',
+      url: doc.url,
+      status: doc.status,
+    })) || []
+
+    const resp = NextResponse.json({ documents: mappedDocs })
+    return applyCookies(resp)
+  } catch (error) {
+    console.error('[API /owner-file/documents GET] Error:', error)
+    const resp = NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return applyCookies(resp)
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { userId, applyCookies } = await resolveRequestUser(req)

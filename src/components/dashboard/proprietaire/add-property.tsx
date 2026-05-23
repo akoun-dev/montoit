@@ -471,7 +471,52 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
     }
   }
 
-  // ── Convert file to base64 ─────────────────────────────────────────────────
+  // ── Compress image before base64 conversion ────────────────────────────────
+  // Limits max dimension to 1600px and quality to 0.7 to reduce payload size
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!file.type.startsWith('image/')) {
+        // For non-image files (e.g. video), skip compression
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = () => reject(new Error('Erreur de lecture du fichier'))
+        reader.readAsDataURL(file)
+        return
+      }
+
+      const img = new Image()
+      img.onload = () => {
+        URL.revokeObjectURL(img.src)
+        const MAX_DIM = 1600
+        let { width, height } = img
+        if (width > MAX_DIM || height > MAX_DIM) {
+          const ratio = Math.min(MAX_DIM / width, MAX_DIM / height)
+          width = Math.round(width * ratio)
+          height = Math.round(height * ratio)
+        }
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, width, height)
+
+        const quality = file.type === 'image/png' ? 0.8 : 0.7
+        resolve(canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', quality))
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(img.src)
+        // Fallback: read as-is if image loading fails
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = () => reject(new Error('Erreur de lecture du fichier'))
+        reader.readAsDataURL(file)
+      }
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
+  // ── Convert file to base64 (no compression — kept for non-image files) ─────
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -487,10 +532,10 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
     setError(null)
 
     try {
-      // Convert new images to base64
+      // Convert new images to base64 (with compression)
       const newImagesBase64: string[] = []
       for (const img of imagePreviews) {
-        const base64 = await fileToBase64(img.file)
+        const base64 = await compressImage(img.file)
         newImagesBase64.push(base64)
       }
 
@@ -624,7 +669,7 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
         for (let i = 0; i < totalImages; i += chunkSize) {
           const chunk = imagePreviews.slice(i, i + chunkSize)
           const results = await Promise.all(
-            chunk.map((img) => fileToBase64(img.file))
+            chunk.map((img) => compressImage(img.file))
           )
           newImagesBase64.push(...results)
           setProcessingStatus(

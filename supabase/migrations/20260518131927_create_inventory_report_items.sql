@@ -3,14 +3,14 @@
 -- Each item tracks conditions for kitchen, bathrooms, and other rooms.
 
 create table if not exists inventory_report_items (
-  id                 text         primary key,
+  id                 text         primary key default gen_random_uuid(),
   designation        text         not null,
   designation_order  integer      not null,
-  kitchen            room_condition,
-  main_bathroom      room_condition,
-  other_bathroom     room_condition,
-  other_room1        room_condition,
-  other_room2        room_condition,
+  kitchen            text,
+  main_bathroom      text,
+  other_bathroom     text,
+  other_room1        text,
+  other_room2        text,
   observations       text,
   report_id          text         not null references inventory_reports(id) on delete cascade
 );
@@ -29,9 +29,12 @@ create policy "inventory_report_items_select_participant"
   using (
     exists (
       select 1 from inventory_reports ir
-      join leases l on l.id = ir.lease_id
+      left join leases l on l.id = ir.lease_id
       where ir.id = report_id
-        and (select auth.uid()::text) in (l.tenant_id, l.owner_id)
+        and (
+          (l.id is not null and (select auth.uid()::text) in (l.tenant_id, l.owner_id))
+          or (l.id is null and (select auth.uid()::text) = ir.reviewer_id)
+        )
     )
   );
 

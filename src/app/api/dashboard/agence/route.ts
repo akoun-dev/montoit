@@ -33,11 +33,11 @@ export async function GET(req: NextRequest) {
       { data: rawAllMandatsData },
     ] = await Promise.all([
       admin.from('properties').select('*').eq('owner_id', userId).order('created_at', { ascending: false }),
-      admin.from('property_mandats').select('*').eq('agency_id', userId).eq('status', 'ACTIVE'),
+      admin.from('mandats').select('*').eq('agency_id', userId).eq('status', 'ACTIVE'),
       admin.from('agency_agents').select('*').eq('agency_id', userId),
       admin.from('commissions').select('*').eq('agency_id', userId).order('created_at', { ascending: false }),
       admin.from('signalements').select('*').eq('reporter_id', userId).order('created_at', { ascending: false }).limit(10),
-      admin.from('property_mandats').select('*').eq('agency_id', userId).order('created_at', { ascending: false }),
+      admin.from('mandats').select('*').eq('agency_id', userId).order('created_at', { ascending: false }),
     ])
 
     const rawProperties = (rawPropertiesData ?? []) as any[]
@@ -56,6 +56,9 @@ export async function GET(req: NextRequest) {
     const commissionAgentIds = [...new Set(rawCommissions.map(c => c.agent_id).filter(Boolean))]
     const commissionMandatIds = [...new Set(rawCommissions.map(m => m.mandat_id).filter(Boolean))]
 
+    // All properties the agency manages (owned + mandat)
+    const allAgencyPropIds = [...new Set([...propertyIds, ...mandatPropIds])]
+
     const [
       { data: allPropImgsData },
       { data: allMandatPropsData },
@@ -67,12 +70,13 @@ export async function GET(req: NextRequest) {
       { data: rawVisitRequestsData },
       { data: rawActiveLeasesData },
       { data: rawRentalFilesData },
+      { data: rawApplicationsData },
     ] = await Promise.all([
       propertyIds.length > 0
         ? admin.from('property_images').select('*').in('property_id', propertyIds).order('order', { ascending: true })
         : { data: [] as any[] },
       mandatPropIds.length > 0
-        ? admin.from('properties').select('id, title, city').in('id', mandatPropIds)
+        ? admin.from('properties').select('*').in('id', mandatPropIds)
         : { data: [] as any[] },
       mandatOwnerIds.length > 0
         ? admin.from('users').select('id, first_name, last_name, email').in('id', mandatOwnerIds)
@@ -81,7 +85,7 @@ export async function GET(req: NextRequest) {
         ? admin.from('users').select('id, first_name, last_name, email').in('id', commissionAgentIds)
         : { data: [] as any[] },
       commissionMandatIds.length > 0
-        ? admin.from('property_mandats').select('id, commission_rate, property_id').in('id', commissionMandatIds)
+        ? admin.from('mandats').select('id, commission_rate, property_id').in('id', commissionMandatIds)
         : { data: [] as any[] },
       agentIds.length > 0
         ? admin.from('assigned_properties').select('*, properties!inner(id, title)').in('agent_id', agentIds)
@@ -89,13 +93,18 @@ export async function GET(req: NextRequest) {
       agentIds.length > 0
         ? admin.from('commissions').select('*').in('agent_id', agentIds).eq('status', 'PAID')
         : { data: [] as any[] },
-      propertyIds.length > 0
-        ? admin.from('visit_requests').select('*').in('property_id', propertyIds).order('created_at', { ascending: false }).limit(20)
+      allAgencyPropIds.length > 0
+        ? admin.from('visit_requests').select('*').in('property_id', allAgencyPropIds).order('created_at', { ascending: false }).limit(20)
         : { data: [] as any[] },
-      propertyIds.length > 0
-        ? admin.from('leases').select('*').in('property_id', propertyIds).order('created_at', { ascending: false })
+      allAgencyPropIds.length > 0
+        ? admin.from('leases').select('*').in('property_id', allAgencyPropIds).order('created_at', { ascending: false })
         : { data: [] as any[] },
+      // Fetch rental files scoped to agency properties via applications + leases
+      // We fetch all recent rental files first, then filter by agency linkage below
       admin.from('rental_files').select('*').in('status', ['SUBMITTED', 'TC_REVIEW', 'VALIDATED']).order('updated_at', { ascending: false }).limit(20),
+      allAgencyPropIds.length > 0
+        ? admin.from('applications').select('*').in('property_id', allAgencyPropIds).order('created_at', { ascending: false })
+        : { data: [] as any[] },
     ])
 
     const allPropImgs = (allPropImgsData ?? []) as any[]
@@ -108,6 +117,7 @@ export async function GET(req: NextRequest) {
     const rawVisitRequests = (rawVisitRequestsData ?? []) as any[]
     const rawActiveLeases = (rawActiveLeasesData ?? []) as any[]
     const rawRentalFiles = (rawRentalFilesData ?? []) as any[]
+    const rawApplications = (rawApplicationsData ?? []) as any[]
 
     // Fetch tenant IDs for visit requests and rental files
     const vrTenantIds = [...new Set(rawVisitRequests.map(v => v.tenant_id).filter((id): id is string => !!id))]
@@ -145,25 +155,38 @@ export async function GET(req: NextRequest) {
       leasePropImgs = [...(allPropImgs ?? []), ...(extraImgs ?? [])]
     }
 
+    // Fetch images for mandate properties not already covered
+    const mandatPropIdsWithoutImgs = mandatPropIds.filter(id => !leasePropImgs.some(i => i.property_id === id))
+    if (mandatPropIdsWithoutImgs.length > 0) {
+      const { data: mandatImgs } = await admin
+        .from('property_images')
+        .select('*')
+        .in('property_id', mandatPropIdsWithoutImgs)
+        .order('order', { ascending: true })
+      leasePropImgs = [...leasePropImgs, ...(mandatImgs ?? [])]
+    }
+
     // Build maps
     const propImgMap = groupBy(leasePropImgs, 'property_id')
     const mandatPropMap = new Map((allMandatProps ?? []).map(p => [p.id, p]))
+
+    // Build application → rental_file + property map
+    const applicationByRentalFile = groupBy(rawApplications ?? [], 'rental_file_id')
     const mandatOwnerMap = new Map((allMandatOwners ?? []).map(o => [o.id, o]))
     const commissionAgentMap = new Map((allCommissionAgents ?? []).map(a => [a.id, a]))
     const commissionMandatMap = new Map((allCommissionMandats ?? []).map(m => [m.id, m]))
     const assignedByAgent = groupBy(assignedProps ?? [], 'agent_id')
     const commissionByAgent = groupBy(agentCommissions ?? [], 'agent_id')
-    const rfLeaseMap = groupBy(rawRentalFiles ?? [], 'id')
 
-    // Fetch lease-property mapping for rental files
+    // Fetch lease-property mapping for rental files (scoped to ALL agency properties)
     let rfPropertyLeases: any[] = []
     const allRfIds = (rawRentalFiles ?? []).map(f => f.id)
-    if (allRfIds.length > 0 && propertyIds.length > 0) {
+    if (allRfIds.length > 0 && allAgencyPropIds.length > 0) {
       const { data: leases } = await admin
         .from('leases')
         .select('id, property_id, rental_file_id')
         .in('rental_file_id', allRfIds)
-        .in('property_id', propertyIds)
+        .in('property_id', allAgencyPropIds)
       rfPropertyLeases = leases ?? []
     }
     const leaseByRentalFile = groupBy(rfPropertyLeases, 'rental_file_id')
@@ -176,6 +199,9 @@ export async function GET(req: NextRequest) {
     const paymentByLease = groupBy(leasePayments ?? [], 'lease_id')
 
     const propMap = new Map((rawProperties ?? []).map(p => [p.id, p]))
+
+    // Combined map of all properties the agency manages (owned + mandat)
+    const allAgencyPropMap = new Map([...Array.from(propMap.entries()), ...Array.from(mandatPropMap.entries())])
 
     // Build property → agent IDs map for agent filtering
     const propertyAgentMap = new Map<string, string[]>()
@@ -328,16 +354,20 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // ─── Map rental files (filtered to agency properties) ──────────────
+    // ─── Map rental files (filtered to agency properties via applications or leases) ─
     const agencyRentalFiles = (rawRentalFiles ?? []).filter(rf => {
       const leases = leaseByRentalFile.get(rf.id) ?? []
-      return leases.length > 0
+      if (leases.length > 0) return true
+      const apps = applicationByRentalFile.get(rf.id) ?? []
+      return apps.length > 0
     }).map(rf => {
       const tenant = tenantMap.get(rf.tenant_id)
       const leases = leaseByRentalFile.get(rf.id) ?? []
       const lease = leases[0]
-      const propertyId = lease?.property_id
-      const prop = propMap.get(propertyId)
+      const apps = applicationByRentalFile.get(rf.id) ?? []
+      const app = apps[0]
+      const propertyId = lease?.property_id || app?.property_id
+      const prop = allAgencyPropMap.get(propertyId) || propMap.get(propertyId)
       const agentIds = propertyAgentMap.get(propertyId) ?? []
       return {
         id: rf.id,
@@ -356,8 +386,8 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // ─── Map properties ────────────────────────────────────────────────
-    const properties = (rawProperties ?? []).map(p => {
+    // ─── Map properties (owned + mandate) ──────────────────────────────
+    const ownedProps = (rawProperties ?? []).map(p => {
       const images = propImgMap.get(p.id) ?? []
       const mandats = (rawActiveMandats ?? []).filter(m => m.property_id === p.id)
       return {
@@ -371,6 +401,8 @@ export async function GET(req: NextRequest) {
         rentalStatus: p.rental_status,
         bedrooms: p.bedrooms,
         area: p.area,
+        latitude: p.latitude,
+        longitude: p.longitude,
         viewsCount: p.views_count,
         images: images.map(i => ({
           id: i.id,
@@ -382,6 +414,38 @@ export async function GET(req: NextRequest) {
         hasMandat: mandats.length > 0,
       }
     })
+
+    const ownedPropIds = new Set(ownedProps.map(p => p.id))
+    const mandateProps = (allMandatProps ?? [])
+      .filter(p => !ownedPropIds.has(p.id))
+      .map(p => {
+        const images = propImgMap.get(p.id) ?? []
+        return {
+          id: p.id,
+          title: p.title,
+          type: p.type,
+          price: p.price,
+          city: p.city,
+          commune: p.commune,
+          status: p.status,
+          rentalStatus: p.rental_status,
+          bedrooms: p.bedrooms,
+          area: p.area,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          viewsCount: p.views_count,
+          images: images.map((i: any) => ({
+            id: i.id,
+            url: i.url,
+            order: i.order,
+            createdAt: i.created_at,
+            propertyId: i.property_id,
+          })),
+          hasMandat: true,
+        }
+      })
+
+    const properties = [...ownedProps, ...mandateProps]
 
     // ─── Map all mandats ───────────────────────────────────────────────
     const allMandats = (rawAllMandats ?? []).map(m => ({
@@ -448,6 +512,67 @@ export async function GET(req: NextRequest) {
       return sum + (l.payments?.filter((p: any) => p.status === 'LATE').length ?? 0)
     }, 0)
 
+    // ─── Today's visits (agenda) ───────────────────────────────────────────────
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const todayEnd = new Date()
+    todayEnd.setHours(23, 59, 59, 999)
+
+    const todaysVisits = (rawVisitRequestsData ?? [])
+      .filter((v: any) => {
+        const d = new Date(v.requested_date)
+        return d >= todayStart && d <= todayEnd
+      })
+      .map((v: any) => {
+        const tenant = tenantMap.get(v.tenant_id)
+        const prop = propMap.get(v.property_id)
+        return {
+          id: v.id,
+          timeSlot: v.time_slot,
+          status: v.status,
+          visitType: v.visit_type,
+          tenant: tenant ? { firstName: tenant.first_name, lastName: tenant.last_name, phone: tenant.phone } : null,
+          property: prop ? { title: prop.title, city: prop.city, address: prop.address } : null,
+        }
+      })
+
+    // ─── Pipeline stats ────────────────────────────────────────────────────────
+    const pipelineStats = {
+      leads: rawVisitRequests.filter((v: any) => v.status === 'PENDING').length,
+      visits: rawVisitRequests.filter((v: any) => v.status === 'ACCEPTED' || v.status === 'COMPLETED').length,
+      negotiations: rawActiveMandats.filter((m: any) => m.status === 'ACTIVE').length,
+      signatures: activeLeaseList.length,
+    }
+
+    // ─── Client demands (rental files needing attention, scoped to agency) ─────
+    const clientDemands = (rawRentalFiles ?? [])
+      .filter((rf: any) => {
+        // Only show rental files linked to this agency
+        const leases = leaseByRentalFile.get(rf.id) ?? []
+        if (leases.length > 0) return true
+        const apps = applicationByRentalFile.get(rf.id) ?? []
+        return apps.length > 0
+      })
+      .filter((rf: any) => rf.status === 'SUBMITTED' || rf.status === 'TC_REVIEW')
+      .slice(0, 10)
+      .map((rf: any) => {
+        const tenant = tenantMap.get(rf.tenant_id)
+        const leases = leaseByRentalFile.get(rf.id) ?? []
+        const lease = leases[0]
+        const apps = applicationByRentalFile.get(rf.id) ?? []
+        const app = apps[0]
+        const propertyId = lease?.property_id || app?.property_id
+        const prop = allAgencyPropMap.get(propertyId)
+        return {
+          id: rf.id,
+          status: rf.status,
+          tenantCategory: rf.tenant_category,
+          createdAt: rf.created_at,
+          tenant: tenant ? { firstName: tenant.first_name, lastName: tenant.last_name, phone: tenant.phone } : null,
+          property: prop ? { title: prop.title } : null,
+        }
+      })
+
     const resp = NextResponse.json({
       stats: {
         totalProperties: properties.length,
@@ -477,6 +602,9 @@ export async function GET(req: NextRequest) {
         property: m.property,
         owner: m.owner,
       })),
+      todaysVisits,
+      pipelineStats,
+      clientDemands,
     })
     return applyCookies(resp)
   } catch (error) {

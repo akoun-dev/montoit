@@ -1,7 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { Users, Building2, FileSignature, AlertTriangle, TrendingUp, DollarSign, Shield, Activity, Flag, ArrowRight } from 'lucide-react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { 
+  Users, Building2, FileSignature, AlertTriangle, TrendingUp, DollarSign, 
+  Shield, Activity, Flag, ArrowRight,
+  Search, CheckCircle2, XCircle,
+  Clock, Database, Server, HardDrive, MapPin, Layers,
+} from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +17,35 @@ import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { useRealtimeDisputes } from '@/hooks/use-realtime-disputes'
 import { useRealtimeSignalements } from '@/hooks/use-realtime-signalements'
 import { motion } from 'framer-motion'
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+interface ModerationItem {
+  id: string
+  title: string
+  type: string
+  price: number
+  city: string
+  commune: string | null
+  createdAt: string
+  owner: { firstName: string; lastName: string } | null
+}
+
+interface SystemActivity {
+  id: string
+  action: string
+  entity: string
+  entityId: string
+  createdAt: string
+}
+
+interface HeatmapPoint {
+  city: string
+  commune: string | null
+  lat: number
+  lng: number
+  count: number
+}
 
 interface AdminData {
   stats: {
@@ -38,6 +72,9 @@ interface AdminData {
     reportedBy: { firstName: string; lastName: string }
     lease: { property: { title: string } }
   }>
+  moderationQueue: ModerationItem[]
+  recentSystemActivities: SystemActivity[]
+  heatmapData: HeatmapPoint[]
 }
 
 interface ApiAdminResponse {
@@ -65,6 +102,9 @@ interface ApiAdminResponse {
     reportedBy: { firstName: string; lastName: string }
     lease: { property: { title: string } }
   }>
+  moderationQueue?: ModerationItem[]
+  recentSystemActivities?: SystemActivity[]
+  heatmapData?: HeatmapPoint[]
 }
 
 const defaultData: AdminData = {
@@ -76,6 +116,9 @@ const defaultData: AdminData = {
   failedLogins: 0,
   recentUsers: [],
   disputes: [],
+  moderationQueue: [],
+  recentSystemActivities: [],
+  heatmapData: [],
 }
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } }
@@ -94,15 +137,50 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 const monthLabels: Record<string, string> = {
-  '01': 'Jan', '02': 'Fév', '03': 'Mar', '04': 'Avr', '05': 'Mai', '06': 'Juin',
-  '07': 'Juil', '08': 'Août', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Déc',
+  '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Avr', '05': 'Mai', '06': 'Juin',
+  '07': 'Juil', '08': 'Aout', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec',
 }
+
+const actionLabels: Record<string, string> = {
+  LOGIN_FAILED: 'Connexion échouée',
+  LOGIN_SUCCESS: 'Connexion réussie',
+  USER_CREATED: 'Utilisateur créé',
+  PROPERTY_CREATED: 'Bien créé',
+  PROPERTY_APPROVED: 'Bien approuvé',
+  PROPERTY_REJECTED: 'Bien rejeté',
+  LEASE_CREATED: 'Bail créé',
+  LEASE_SIGNED: 'Bail signé',
+  LEASE_TERMINATED: 'Bail résilié',
+  PAYMENT_RECEIVED: 'Paiement reçu',
+  PAYMENT_FAILED: 'Paiement échoué',
+  SIGNALEMENT_CREATED: 'Signalement créé',
+  DISPUTE_OPENED: 'Litige ouvert',
+}
+
+const actionIcons: Record<string, React.ElementType> = {
+  LOGIN_FAILED: XCircle,
+  LOGIN_SUCCESS: CheckCircle2,
+  USER_CREATED: Users,
+  PROPERTY_CREATED: Building2,
+  PROPERTY_APPROVED: CheckCircle2,
+  PROPERTY_REJECTED: XCircle,
+  LEASE_CREATED: FileSignature,
+  LEASE_SIGNED: FileSignature,
+  LEASE_TERMINATED: XCircle,
+  PAYMENT_RECEIVED: DollarSign,
+  PAYMENT_FAILED: AlertTriangle,
+  SIGNALEMENT_CREATED: Flag,
+  DISPUTE_OPENED: AlertTriangle,
+}
+
+// ─── Component ──────────────────────────────────────────────────────────────
 
 export function AdminOverview() {
   const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const [data, setData] = useState<AdminData>(defaultData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const heatmapRef = useRef<HTMLDivElement>(null)
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -121,6 +199,9 @@ export function AdminOverview() {
         failedLogins: d.failedLogins ?? 0,
         recentUsers: d.recentUsers ?? [],
         disputes: d.disputes ?? [],
+        moderationQueue: d.moderationQueue ?? [],
+        recentSystemActivities: d.recentSystemActivities ?? [],
+        heatmapData: d.heatmapData ?? [],
       })
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) {
@@ -134,28 +215,42 @@ export function AdminOverview() {
     }
   }, [isAuthenticated])
 
-  useRealtimeUsers({
-    userId: user?.id,
-    watchAll: true,
-    onUserChange: () => { fetchData() },
-  })
-  useRealtimeProperties({
-    userId: user?.id,
-    watchAll: true,
-    onPropertyChange: () => { fetchData() },
-  })
-  useRealtimeDisputes({
-    userId: user?.id,
-    watchAll: true,
-    onDisputeChange: () => { fetchData() },
-  })
-  useRealtimeSignalements({
-    userId: user?.id,
-    watchAll: true,
-    onSignalementChange: () => { fetchData() },
-  })
+  useRealtimeUsers({ userId: user?.id, watchAll: true, onUserChange: () => { fetchData() } })
+  useRealtimeProperties({ userId: user?.id, watchAll: true, onPropertyChange: () => { fetchData() } })
+  useRealtimeDisputes({ userId: user?.id, watchAll: true, onDisputeChange: () => { fetchData() } })
+  useRealtimeSignalements({ userId: user?.id, watchAll: true, onSignalementChange: () => { fetchData() } })
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // ─── Leaflet heatmap ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (data.heatmapData.length === 0 || !heatmapRef.current) return
+    let map: any = null
+    import('leaflet').then((L) => {
+      if (!heatmapRef.current) return
+      map = L.map(heatmapRef.current, { zoomControl: true }).setView([5.317066, -4.028636], 10)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 18,
+      }).addTo(map)
+
+      const maxCount = Math.max(...data.heatmapData.map(p => p.count), 1)
+      data.heatmapData.forEach((point) => {
+        const radius = 10 + (point.count / maxCount) * 30
+        const opacity = 0.4 + (point.count / maxCount) * 0.6
+        L.circleMarker([point.lat, point.lng], {
+          radius,
+          color: '#FF6C2F',
+          fillColor: '#FF6C2F',
+          fillOpacity: opacity,
+          weight: 1,
+          opacity: 0.3,
+        }).bindPopup(`<b>${point.city}</b>${point.commune ? ' - ' + point.commune : ''}<br/>${point.count} bien(s)`)
+          .addTo(map)
+      })
+    }).catch(console.error)
+    return () => { if (map) map.remove() }
+  }, [data.heatmapData])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3, 4].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 
@@ -177,10 +272,10 @@ export function AdminOverview() {
     { label: 'Biens immobiliers', value: data.stats.totalProperties, icon: Building2, color: 'text-green-600 bg-green-50' },
     { label: 'Baux actifs', value: data.stats.totalLeases, icon: FileSignature, color: 'text-orange-600 bg-orange-50' },
     { label: 'Litiges ouverts', value: data.stats.totalDisputes, icon: AlertTriangle, color: 'text-red-600 bg-red-50' },
-    { label: 'Signalements en attente', value: data.signalements.pendingCount, icon: Flag, color: 'text-amber-600 bg-amber-50' },
-    { label: 'Revenus mensuels', value: `${(data.stats.totalRevenue / 1000).toFixed(0)}K FCFA`, icon: DollarSign, color: 'text-emerald-600 bg-emerald-50' },
+    { label: 'Signalements', value: data.signalements.pendingCount, icon: Flag, color: 'text-amber-600 bg-amber-50' },
+    { label: 'Revenus mensuels', value: `${(data.stats.totalRevenue / 1000).toFixed(0)}K`, icon: DollarSign, color: 'text-emerald-600 bg-emerald-50' },
     { label: 'Tentatives échouées', value: data.failedLogins, icon: Shield, color: 'text-rose-600 bg-rose-50' },
-    { label: 'Taux d\'erreur', value: `${data.errorRate}%`, icon: Activity, color: 'text-purple-600 bg-purple-50' },
+    { label: "Taux d'erreur", value: `${data.errorRate}%`, icon: Activity, color: 'text-purple-600 bg-purple-50' },
   ]
 
   const roleLabels: Record<string, string> = {
@@ -192,15 +287,17 @@ export function AdminOverview() {
   }
 
   const maxBarValue = Math.max(...data.monthlyNewUsers.map((m) => m.count), 1)
+  const totalActivities = data.recentSystemActivities.length
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
+      {/* Header */}
       <motion.div variants={itemVariants}>
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Tableau de bord Admin</h1>
-        <p className="text-muted-foreground mt-1">Vue d&apos;ensemble de la plateforme Mon Toit</p>
+        <p className="text-muted-foreground mt-1">Supervision globale de la plateforme Mon Toit</p>
       </motion.div>
 
-      {/* KPIs */}
+      {/* ─── KPIs ────────────────────────────────────────────────────────────── */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon
@@ -222,7 +319,7 @@ export function AdminOverview() {
         })}
       </motion.div>
 
-      {/* Alertes et actions urgentes */}
+      {/* ─── Alertes ───────────────────────────────────────────────────────── */}
       {(data.signalements.pendingCount > 0 || data.stats.totalDisputes > 0 || data.failedLogins > 5) && (
         <motion.div variants={itemVariants}>
           <Card className="border-amber-200 bg-amber-50/50">
@@ -235,20 +332,20 @@ export function AdminOverview() {
             <CardContent className="space-y-2">
               {data.signalements.pendingCount > 0 && (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded-lg bg-white border border-amber-100">
-                  <span className="text-sm text-amber-700">{data.signalements.pendingCount} signalement(s) en attente de traitement</span>
-                  <Button variant="outline" size="sm" className="text-amber-700 border-amber-200 hover:bg-amber-50" onClick={() => setDashboardSection('signalements')}>Voir <ArrowRight className="size-3 ml-1" /></Button>
+                  <span className="text-sm text-amber-700">{data.signalements.pendingCount} signalement(s) en attente</span>
+                  <Button variant="outline" size="sm" className="text-amber-700 border-amber-200 shrink-0" onClick={() => setDashboardSection('signalements')}>Voir <ArrowRight className="size-3 ml-1" /></Button>
                 </div>
               )}
               {data.stats.totalDisputes > 0 && (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded-lg bg-white border border-amber-100">
                   <span className="text-sm text-amber-700">{data.stats.totalDisputes} litige(s) ouvert(s)</span>
-                  <Button variant="outline" size="sm" className="text-amber-700 border-amber-200 hover:bg-amber-50" onClick={() => setDashboardSection('disputes')}>Voir <ArrowRight className="size-3 ml-1" /></Button>
+                  <Button variant="outline" size="sm" className="text-amber-700 border-amber-200 shrink-0" onClick={() => setDashboardSection('disputes')}>Voir <ArrowRight className="size-3 ml-1" /></Button>
                 </div>
               )}
               {data.failedLogins > 5 && (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded-lg bg-white border border-amber-100">
                   <span className="text-sm text-amber-700">{data.failedLogins} tentatives de connexion échouées</span>
-                  <Button variant="outline" size="sm" className="text-amber-700 border-amber-200 hover:bg-amber-50" onClick={() => setDashboardSection('security')}>Voir <ArrowRight className="size-3 ml-1" /></Button>
+                  <Button variant="outline" size="sm" className="text-amber-700 border-amber-200 shrink-0" onClick={() => setDashboardSection('users')}>Voir <ArrowRight className="size-3 ml-1" /></Button>
                 </div>
               )}
             </CardContent>
@@ -256,13 +353,10 @@ export function AdminOverview() {
         </motion.div>
       )}
 
-      {/* Quick Actions */}
+      {/* ─── Quick Actions ─────────────────────────────────────────────────── */}
       <motion.div variants={itemVariants}>
         <Card className="border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Actions rapides</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="p-4">
             <div className="flex flex-wrap gap-3">
               <Button className="bg-[#FF6C2F] hover:bg-[#e55f28] text-white gap-2" onClick={() => setDashboardSection('users')}>
                 <Users className="size-4" /> Gérer utilisateurs
@@ -278,8 +372,8 @@ export function AdminOverview() {
         </Card>
       </motion.div>
 
+      {/* ─── 2-col: Croissance + Repartition ───────────────────────────────── */}
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Monthly User Growth Chart */}
         <motion.div variants={itemVariants}>
           <Card className="border-border">
             <CardHeader className="pb-3">
@@ -298,10 +392,7 @@ export function AdminOverview() {
                     return (
                       <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
                         <span className="text-xs font-medium text-foreground">{m.count}</span>
-                        <div
-                          className="w-full rounded-t-md bg-[#FF6C2F] transition-all duration-500"
-                          style={{ height: `${Math.max(height, 4)}%` }}
-                        />
+                        <div className="w-full rounded-t-md bg-gradient-to-t from-[#FF6C2F] to-orange-400 transition-all duration-500" style={{ height: `${Math.max(height, 4)}%` }} />
                         <span className="text-xs text-muted-foreground">{label}</span>
                       </div>
                     )
@@ -312,18 +403,18 @@ export function AdminOverview() {
           </Card>
         </motion.div>
 
-        {/* Users by Role */}
         <motion.div variants={itemVariants}>
           <Card className="border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold">Répartition des utilisateurs</CardTitle>
+              <CardDescription>Par type de compte</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {Object.entries(data.stats.usersByRole).length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">Aucune donnée</p>
               ) : (
                 Object.entries(data.stats.usersByRole).map(([role, count]) => (
-                  <div key={role} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
+                  <div key={role} className="flex items-center justify-between p-3 rounded-lg border border-border">
                     <div className="flex items-center gap-3">
                       <RoleBadge role={role} />
                       <span className="text-sm text-foreground">{roleLabels[role] || role}</span>
@@ -337,36 +428,170 @@ export function AdminOverview() {
         </motion.div>
       </div>
 
-      {/* System Health */}
-      <motion.div variants={itemVariants}>
-        <Card className="border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Activity className="size-5 text-green-600" />
-              Santé du système
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {Object.entries(data.systemHealth).map(([key, value]) => (
-                <div key={key} className="flex items-center gap-3 p-3 rounded-lg border border-border">
-                  <div className={`size-3 rounded-full ${value === 'OK' ? 'bg-green-500' : 'bg-red-500'}`} />
-                  <div>
-                    <p className="text-sm font-medium text-foreground capitalize">{key === 'api' ? 'API' : key === 'db' ? 'Base de données' : key}</p>
-                    <p className="text-xs text-muted-foreground">{value === 'OK' ? 'Opérationnel' : value}</p>
-                  </div>
+      {/* ─── 2-col: Moderation + Activites systeme ─────────────────────────── */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Moderation */}
+        <motion.div variants={itemVariants}>
+          <Card className="border-border h-full">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield className="size-5 text-[#FF6C2F]" />
+                  <CardTitle className="text-base font-semibold">Modération</CardTitle>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+                <Badge className={data.moderationQueue.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}>
+                  {data.moderationQueue.length} en attente
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2 max-h-64 overflow-y-auto">
+              {data.moderationQueue.length === 0 ? (
+                <div className="py-6 text-center">
+                  <Shield className="size-10 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Aucune annonce à modérer</p>
+                </div>
+              ) : (
+                data.moderationQueue.slice(0, 5).map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
+                    onClick={() => setDashboardSection('moderation')}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="size-8 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                        <Building2 className="size-4 text-orange-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
+                        <p className="text-xs text-muted-foreground">{item.city} · {item.owner?.firstName} {item.owner?.lastName}</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-amber-100 text-amber-700">{item.type}</Badge>
+                  </div>
+                ))
+              )}
+              {data.moderationQueue.length > 5 && (
+                <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={() => setDashboardSection('moderation')}>
+                  Voir les {data.moderationQueue.length} annonces
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
 
-      {/* Recent Users */}
+        {/* Activites systeme */}
+        <motion.div variants={itemVariants}>
+          <Card className="border-border h-full">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Activity className="size-5 text-[#FF6C2F]" />
+                  <CardTitle className="text-base font-semibold">Activités système</CardTitle>
+                </div>
+                <span className="text-xs text-muted-foreground">{totalActivities} récentes</span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1 max-h-64 overflow-y-auto">
+              {totalActivities === 0 ? (
+                <div className="py-6 text-center">
+                  <Activity className="size-10 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Aucune activité récente</p>
+                </div>
+              ) : (
+                data.recentSystemActivities.slice(0, 8).map((a) => {
+                  const Icon = actionIcons[a.action] || Activity
+                  const label = actionLabels[a.action] || a.action
+                  return (
+                    <div key={a.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors">
+                      <div className="size-7 rounded-full bg-neutral-50 flex items-center justify-center shrink-0">
+                        <Icon className="size-3.5 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">{label}</p>
+                        <p className="text-[10px] text-muted-foreground">{a.entity}</p>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {new Date(a.createdAt).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  )
+                })
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* ─── 2-col: Sante systeme + Carte ──────────────────────────────────── */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Santé système */}
+        <motion.div variants={itemVariants}>
+          <Card className="border-border h-full">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Activity className="size-5 text-green-600" />
+                <CardTitle className="text-base font-semibold">Santé du système</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[
+                  { key: 'database', label: 'Base de données', icon: Database },
+                  { key: 'api', label: 'API / Edge Functions', icon: Server },
+                  { key: 'storage', label: 'Stockage fichiers', icon: HardDrive },
+                ].map(({ key, label, icon: Icon }) => {
+                  const value = data.systemHealth[key as keyof typeof data.systemHealth] || 'UNKNOWN'
+                  return (
+                    <div key={key} className="flex items-center gap-3 p-3 rounded-lg border border-border">
+                      <div className={`size-9 flex items-center justify-center rounded-lg ${value === 'OK' ? 'bg-green-50' : value === 'DEGRADED' ? 'bg-amber-50' : 'bg-red-50'}`}>
+                        <Icon className={`size-5 ${value === 'OK' ? 'text-green-600' : value === 'DEGRADED' ? 'text-amber-600' : 'text-red-600'}`} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground">{label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {value === 'OK' ? 'Opérationnel' : value === 'DEGRADED' ? 'Dégradé' : 'Erreur'}
+                        </p>
+                      </div>
+                      <div className={`size-2.5 rounded-full ${value === 'OK' ? 'bg-green-500' : value === 'DEGRADED' ? 'bg-amber-500' : 'bg-red-500'}`} />
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Carte heatmap */}
+        <motion.div variants={itemVariants}>
+          <Card className="border-border h-full overflow-hidden">
+            <CardHeader className="pb-3 border-b border-border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MapPin className="size-5 text-[#FF6C2F]" />
+                  <CardTitle className="text-base font-semibold">Cartographie des biens</CardTitle>
+                </div>
+                <span className="text-xs text-muted-foreground">{data.heatmapData.length} zones</span>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div ref={heatmapRef} className="h-64 w-full" />
+              {data.heatmapData.length === 0 && (
+                <div className="h-64 flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Aucune donnée de localisation</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* ─── Utilisateurs récents ──────────────────────────────────────────── */}
       <motion.div variants={itemVariants}>
         <Card className="border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">Utilisateurs récents</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold">Utilisateurs récents</CardTitle>
+              <Button variant="ghost" size="sm" className="text-brand-500 gap-1" onClick={() => setDashboardSection('users')}>
+                Gérer <ArrowRight className="size-3" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {data.recentUsers.length === 0 ? (
@@ -401,6 +626,37 @@ export function AdminOverview() {
                 </table>
               </div>
             )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ─── Accès rapide ──────────────────────────────────────────────────── */}
+      <motion.div variants={itemVariants}>
+        <Card className="border-border">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {[
+                { id: 'users', label: 'Utilisateurs', icon: Users, color: 'bg-teal-50 text-teal-600' },
+                { id: 'moderation', label: 'Modération', icon: Shield, color: 'bg-orange-50 text-orange-600' },
+                { id: 'signalements', label: 'Signalements', icon: Flag, color: 'bg-amber-50 text-amber-600' },
+                { id: 'disputes', label: 'Litiges', icon: AlertTriangle, color: 'bg-red-50 text-red-600' },
+                { id: 'system', label: 'Système', icon: Activity, color: 'bg-green-50 text-green-600' },
+              ].map((link) => {
+                const Icon = link.icon
+                return (
+                  <button
+                    key={link.id}
+                    onClick={() => setDashboardSection(link.id)}
+                    className="flex flex-col items-center gap-2 p-3 rounded-lg border border-border hover:bg-accent hover:shadow-sm transition-all"
+                  >
+                    <div className={`flex size-10 items-center justify-center rounded-lg ${link.color}`}>
+                      <Icon className="size-5" />
+                    </div>
+                    <span className="text-xs font-medium text-foreground text-center">{link.label}</span>
+                  </button>
+                )
+              })}
+            </div>
           </CardContent>
         </Card>
       </motion.div>

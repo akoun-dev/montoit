@@ -279,6 +279,72 @@ export async function GET(req: NextRequest) {
     const totalRevenueFromPayments = activeLeaseList.reduce((sum, l) => sum + (l as any).totalPaid, 0)
     const overallLatePayments = activeLeaseList.reduce((sum, l) => sum + (l as any).latePaymentsCount, 0)
 
+    // ─── Monthly revenue for chart (last 12 months) ────────────────────────────
+    const now = new Date()
+    const monthlyRevenue: Array<{ month: string; revenue: number }> = []
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      const monthPayments = (allPayments ?? []).filter((p: any) => {
+        if (p.status !== 'PAID') return false
+        const pd = new Date(p.paid_at || p.due_date)
+        return pd.getMonth() === d.getMonth() && pd.getFullYear() === d.getFullYear()
+      })
+      const revenue = monthPayments.reduce((sum: number, p: any) => sum + p.amount, 0)
+      monthlyRevenue.push({ month: key, revenue })
+    }
+
+    // ─── Performance stats (views, favorites, contacts) ────────────────────────
+    let totalViews = 0
+    let totalFavorites = 0
+    if (propertyIds.length > 0) {
+      const { data: viewCounts } = await admin
+        .from('properties')
+        .select('views_count')
+        .in('id', propertyIds)
+      totalViews = (viewCounts ?? []).reduce((sum: number, p: any) => sum + (p.views_count || 0), 0)
+
+      const { count: favCount } = await admin
+        .from('favorites')
+        .select('id', { count: 'exact', head: true })
+        .in('property_id', propertyIds)
+      totalFavorites = favCount ?? 0
+    }
+
+    const totalVisitRequests = (rawVisitRequests ?? []).length
+    const conversionRate = totalVisitRequests > 0
+      ? Math.round((activeLeaseList.length / totalVisitRequests) * 100)
+      : 0
+
+    // ─── Expiring contracts (within 30 days) ───────────────────────────────────
+    const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    const expiringContracts = activeLeasesEnhanced.filter(l => l.status === 'ACTIVE' && new Date(l.endDate) <= thirtyDaysFromNow)
+
+    // ─── Recent payments ────────────────────────────────────────────────────────
+    const recentPayments = (allPayments ?? [])
+      .sort((a: any, b: any) => new Date(b.created_at || b.due_date).getTime() - new Date(a.created_at || a.due_date).getTime())
+      .slice(0, 10)
+      .map((p: any) => {
+        const lease = (rawAllLeases ?? []).find((l: any) => l.id === p.lease_id)
+        const prop = propMap.get(lease?.property_id)
+        const tenant = lease ? tenantMap.get(lease.tenant_id) : null
+        return {
+          id: p.id,
+          amount: p.amount,
+          status: p.status,
+          dueDate: p.due_date,
+          paidAt: p.paid_at,
+          tenant: tenant ? { firstName: tenant.first_name, lastName: tenant.last_name } : null,
+          property: prop ? { title: prop.title } : null,
+        }
+      })
+
+    // ─── Housing type distribution for stats ───────────────────────────────────
+    const housingTypeDistribution: Record<string, number> = {}
+    for (const p of rawProperties ?? []) {
+      housingTypeDistribution[p.type] = (housingTypeDistribution[p.type] || 0) + 1
+    }
+
     const resp = NextResponse.json({
       properties,
       visitRequests,
@@ -292,7 +358,27 @@ export async function GET(req: NextRequest) {
         totalRevenue,
         totalRevenueFromPayments,
         latePaymentsCount: overallLatePayments,
+        totalViews,
+        totalFavorites,
+        conversionRate,
+        occupiedProperties: properties.filter(p => p.rentalStatus === 'RENTED' || p.status === 'RENTED').length,
+        availableProperties: properties.filter(p => p.status === 'ACTIVE' && p.rentalStatus !== 'RENTED').length,
+        occupancyRate: properties.length > 0 ? Math.round((properties.filter(p => p.rentalStatus === 'RENTED' || p.status === 'RENTED').length / properties.length) * 100) : 0,
+        monthlyRevenue,
+        expiringContractsCount: expiringContracts.length,
+        recentPayments: recentPayments,
+        housingTypeDistribution,
       },
+      monthlyRevenue,
+      expiringContracts: expiringContracts.map(l => ({
+        id: l.id,
+        monthlyRent: l.monthlyRent,
+        startDate: l.startDate,
+        endDate: l.endDate,
+        property: l.property ? { title: l.property.title } : null,
+        tenant: l.tenant ? { firstName: l.tenant.firstName, lastName: l.tenant.lastName } : null,
+        contractStatus: l.status,
+      })),
     })
     return applyCookies(resp)
   } catch (error) {

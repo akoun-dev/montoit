@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   FileSignature, Plus, Building2, User, AlertTriangle, Loader2,
   MoreVertical, Eye, PenLine, Ban, CheckCircle2, Clock, XCircle,
-  Archive, Search, ChevronDown, CalendarDays,
+  Archive, Search, ChevronDown, CalendarDays, Shield, Mail,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -33,12 +33,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeMandats } from '@/hooks/use-realtime-mandats'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { SignaturePad } from '@/components/ui/signature-pad'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -164,6 +178,7 @@ export function ProprietaireMandats() {
   const [agencies, setAgencies] = useState<AgencyUser[]>([])
   const [agencySearch, setAgencySearch] = useState('')
   const [agencySearchLoading, setAgencySearchLoading] = useState(false)
+  const [agencyPopoverOpen, setAgencyPopoverOpen] = useState(false)
 
   // Dialogs
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -196,6 +211,13 @@ export function ProprietaireMandats() {
   const [creating, setCreating] = useState(false)
   const [signing, setSigning] = useState(false)
   const [terminating, setTerminating] = useState(false)
+
+  // Signature state
+  const [signStep, setSignStep] = useState<'signature' | 'otp' | 'confirm'>('signature')
+  const [signatureDataUrl, setSignatureDataUrl] = useState('')
+  const [otpCode, setOtpCode] = useState('')
+  const [sendingOtp, setSendingOtp] = useState(false)
+  const [otpSentTo, setOtpSentTo] = useState('')
 
   // ─── Fetch mandats ──────────────────────────────────────────────────────
   const fetchMandats = useCallback(async () => {
@@ -230,14 +252,14 @@ export function ProprietaireMandats() {
   }, [isAuthenticated])
 
   // ─── Search agencies ────────────────────────────────────────────────────
-  const searchAgencies = useCallback(async (query: string) => {
-    if (!query || query.length < 2) {
-      setAgencies([])
-      return
-    }
+  const searchAgencies = useCallback(async (rawQuery: string) => {
+    const query = rawQuery.trim()
     setAgencySearchLoading(true)
     try {
-      const d = await authFetch<{ users: AgencyUser[] }>(`/api/users?role=AGENCE&q=${encodeURIComponent(query)}`)
+      const url = query.length >= 2
+        ? `/api/users?role=AGENCE&q=${encodeURIComponent(query)}`
+        : '/api/users?role=AGENCE'
+      const d = await authFetch<{ users: AgencyUser[] }>(url)
       setAgencies(d.users || [])
     } catch {
       setAgencies([])
@@ -260,16 +282,16 @@ export function ProprietaireMandats() {
   useEffect(() => {
     if (showCreateDialog) {
       fetchProperties()
+      searchAgencies('')
     }
-  }, [showCreateDialog, fetchProperties])
+  }, [showCreateDialog, fetchProperties, searchAgencies])
 
   useEffect(() => {
     const timer = setTimeout(() => {
       if (agencySearch.length >= 2) {
         searchAgencies(agencySearch)
-      } else {
-        setAgencies([])
       }
+      // Keep preloaded agencies visible when search < 2 chars
     }, 350)
     return () => clearTimeout(timer)
   }, [agencySearch, searchAgencies])
@@ -410,18 +432,42 @@ export function ProprietaireMandats() {
   }
 
   // ─── Sign mandat ────────────────────────────────────────────────────────
-  const handleSign = async () => {
+  const handleSendOtp = async () => {
     if (!selectedMandat) return
+    setSendingOtp(true)
+    try {
+      const res = await authFetch<{ sentTo: string }>(`/api/mandats/${selectedMandat.id}/request-sign-otp`, {
+        method: 'POST',
+      })
+      setOtpSentTo(res.sentTo || '')
+      setSignStep('otp')
+      toast.success('Code de vérification envoyé par email')
+    } catch (err) {
+      if (err instanceof AuthError) {
+        toast.error(err.message || 'Erreur lors de l\'envoi du code')
+      } else {
+        toast.error('Erreur lors de l\'envoi du code de vérification')
+      }
+    } finally {
+      setSendingOtp(false)
+    }
+  }
+
+  const handleSign = async () => {
+    if (!selectedMandat || !signatureDataUrl) return
     setSigning(true)
     try {
       await authFetch(`/api/mandats/${selectedMandat.id}/sign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'owner' }),
+        body: JSON.stringify({ role: 'owner', signatureImage: signatureDataUrl, otpCode }),
       })
       toast.success('Mandat signé avec succès')
       setShowSignDialog(false)
       setSelectedMandat(null)
+      setSignatureDataUrl('')
+      setOtpCode('')
+      setSignStep('signature')
       fetchMandats()
     } catch (err) {
       if (err instanceof AuthError) {
@@ -671,54 +717,96 @@ export function ProprietaireMandats() {
             {/* Agency selection */}
             <div className="space-y-2">
               <Label htmlFor="agency">Agence *</Label>
-              <div className="relative">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                  <Input
+              <Popover open={agencyPopoverOpen && !editMode} onOpenChange={(open) => {
+                if (!open) {
+                  setAgencyPopoverOpen(false)
+                  setAgencySearch('')
+                }
+              }}>
+                <PopoverTrigger asChild>
+                  <Button
                     id="agency"
-                    placeholder="Rechercher une agence par nom ou email..."
-                    value={agencySearch}
-                    onChange={(e) => {
-                      setAgencySearch(e.target.value)
-                      setFormAgencyId('')
-                    }}
-                    className="pl-9 pr-3"
+                    variant="outline"
+                    role="combobox"
+                    className={cn(
+                      'justify-between w-full',
+                      !formAgencyId && 'text-muted-foreground',
+                      editMode && 'cursor-not-allowed'
+                    )}
                     disabled={editMode}
-                  />
-                </div>
-                {agencySearchLoading && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                  </div>
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setAgencyPopoverOpen(true)
+                    }}
+                  >
+                    {formAgencyId ? (
+                      (() => {
+                        const selected = agencies.find(a => a.id === formAgencyId)
+                        return selected
+                          ? `${selected.firstName} ${selected.lastName} (${selected.email})`
+                          : agencySearch || 'Agence sélectionnée'
+                      })()
+                    ) : (
+                      <span>Rechercher une agence par nom ou email...</span>
+                    )}
+                    <ChevronDown className="opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                {agencyPopoverOpen && !editMode && (
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+                        <CommandInput
+                          placeholder="Rechercher par nom ou email..."
+                          className="pl-9"
+                          value={agencySearch}
+                          onValueChange={(value) => {
+                            setAgencySearch(value)
+                            setFormAgencyId('')
+                          }}
+                        />
+                        {agencySearchLoading && (
+                          <Loader2 className="absolute right-2.5 top-2.5 size-4 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                      <CommandList>
+                        {agencies.length === 0 && agencySearch.length < 2 && (
+                          <CommandEmpty>Saisissez au moins 2 caractères pour chercher</CommandEmpty>
+                        )}
+                        {agencies.length === 0 && agencySearch.length >= 2 && (
+                          <CommandEmpty>Aucune agence trouvée</CommandEmpty>
+                        )}
+                        {agencies.length > 0 && (
+                          <CommandGroup>
+                            {agencies.map((agency) => (
+                              <CommandItem
+                                key={agency.id}
+                                value={agency.id}
+                                onSelect={() => {
+                                  setFormAgencyId(agency.id)
+                                  setAgencySearch(`${agency.firstName} ${agency.lastName} (${agency.email})`)
+                                  setAgencyPopoverOpen(false)
+                                }}
+                              >
+                                <Building2 className="mr-2 size-4 shrink-0 text-teal-600" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="truncate text-sm font-medium">
+                                    {agency.firstName} {agency.lastName}
+                                  </p>
+                                  <p className="truncate text-xs text-muted-foreground">
+                                    {agency.email}
+                                  </p>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
                 )}
-              </div>
-              {/* Agency results dropdown */}
-              {agencies.length > 0 && !editMode && (
-                <div className="border rounded-lg max-h-40 overflow-y-auto">
-                  {agencies.map((agency) => (
-                    <button
-                      key={agency.id}
-                      type="button"
-                      onClick={() => {
-                        setFormAgencyId(agency.id)
-                        setAgencySearch(`${agency.firstName} ${agency.lastName} (${agency.email})`)
-                        setAgencies([])
-                      }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent transition-colors ${
-                        formAgencyId === agency.id ? 'bg-brand-50 text-brand-700' : ''
-                      }`}
-                    >
-                      <div className="size-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
-                        <Building2 className="size-4 text-teal-600" />
-                      </div>
-                      <div className="text-left min-w-0">
-                        <p className="font-medium truncate">{agency.firstName} {agency.lastName}</p>
-                        <p className="text-xs text-muted-foreground truncate">{agency.email}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+              </Popover>
               {formAgencyId && (
                 <p className="text-xs text-green-600 flex items-center gap-1">
                   <CheckCircle2 className="size-3" /> Agence sélectionnée
@@ -756,10 +844,10 @@ export function ProprietaireMandats() {
             </div>
 
             {/* Commission rate / fixed amount */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
               <div className="space-y-2">
                 <Label htmlFor="commission-rate">
-                  {formCommissionType === 'PERCENTAGE' ? 'Taux (%) *' : 'Taux de référence (%)'}
+                  {formCommissionType === 'PERCENTAGE' ? 'Taux (%) *' : 'Taux de référence (%) *'}
                 </Label>
                 <Input
                   id="commission-rate"
@@ -774,7 +862,7 @@ export function ProprietaireMandats() {
               </div>
               {formCommissionType === 'FIXED' && (
                 <div className="space-y-2">
-                  <Label htmlFor="fixed-commission">Montant fixe (FCFA) *</Label>
+                  <Label htmlFor="fixed-commission">Montant fixe (FCFA)</Label>
                   <Input
                     id="fixed-commission"
                     type="number"
@@ -852,7 +940,16 @@ export function ProprietaireMandats() {
       </Dialog>
 
       {/* ─── Sign Mandat Dialog ──────────────────────────────────────────── */}
-      <Dialog open={showSignDialog} onOpenChange={setShowSignDialog}>
+      <Dialog open={showSignDialog} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedMandat(null)
+          setSignatureDataUrl('')
+          setOtpCode('')
+          setSignStep('signature')
+          setOtpSentTo('')
+        }
+        setShowSignDialog(open)
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -865,11 +962,7 @@ export function ProprietaireMandats() {
               <span className="font-semibold text-foreground"> {selectedMandat?.agency?.firstName} {selectedMandat?.agency?.lastName}</span>.
             </DialogDescription>
           </DialogHeader>
-          <div className="p-3 rounded-lg bg-brand-50 border border-brand-100 my-2">
-            <p className="text-xs text-brand-700">
-              En signant ce mandat, vous autorisez l&apos;agence à gérer votre bien selon les conditions définies. Votre signature électronique a la même valeur légale qu&apos;une signature manuscrite.
-            </p>
-          </div>
+
           {selectedMandat?.agencySignedAt && (
             <div className="p-3 rounded-lg bg-green-50 border border-green-100">
               <p className="text-xs text-green-700 flex items-center gap-1">
@@ -878,35 +971,128 @@ export function ProprietaireMandats() {
               </p>
             </div>
           )}
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowSignDialog(false)
-                setSelectedMandat(null)
-              }}
-              disabled={signing}
-            >
-              Annuler
-            </Button>
-            <Button
-              onClick={handleSign}
-              disabled={signing}
-              className="gap-2 bg-brand-500 hover:bg-brand-600 text-white"
-            >
-              {signing ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Signature...
-                </>
-              ) : (
-                <>
-                  <FileSignature className="size-4" />
-                  Confirmer la signature
-                </>
-              )}
-            </Button>
-          </DialogFooter>
+
+          {signStep === 'signature' && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-brand-50 border border-brand-100">
+                <p className="text-xs text-brand-700">
+                  En signant ce mandat, vous autorisez l&apos;agence à gérer votre bien selon les conditions définies. Votre signature électronique a la même valeur légale qu&apos;une signature manuscrite.
+                </p>
+              </div>
+              <SignaturePad
+                onConfirm={(dataUrl) => {
+                  setSignatureDataUrl(dataUrl)
+                  setSignStep('confirm')
+                }}
+                onCancel={() => {
+                  setShowSignDialog(false)
+                  setSelectedMandat(null)
+                }}
+                signatoryName={user ? `${user.firstName} ${user.lastName}` : undefined}
+                signatoryRole="Propriétaire"
+              />
+            </div>
+          )}
+
+          {signStep === 'confirm' && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-muted">
+                <p className="text-xs text-muted-foreground mb-2">Signature apposée :</p>
+                <img src={signatureDataUrl} alt="Signature" className="max-h-16 rounded border bg-white" />
+              </div>
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
+                <p className="text-xs text-amber-700 flex items-center gap-1">
+                  <Shield className="size-3.5" />
+                  Vous allez recevoir un code de vérification par email pour valider votre signature via CRYPTONEO.
+                </p>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSignatureDataUrl('')
+                    setSignStep('signature')
+                  }}
+                  disabled={sendingOtp}
+                >
+                  Modifier la signature
+                </Button>
+                <Button
+                  onClick={handleSendOtp}
+                  disabled={sendingOtp}
+                  className="gap-2 bg-brand-500 hover:bg-brand-600 text-white"
+                >
+                  {sendingOtp ? (
+                    <><Loader2 className="size-4 animate-spin" /> Envoi...</>
+                  ) : (
+                    <><Mail className="size-4" /> Envoyer le code de vérification</>
+                  )}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {signStep === 'otp' && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-muted">
+                <p className="text-xs text-muted-foreground mb-2">Signature apposée :</p>
+                <img src={signatureDataUrl} alt="Signature" className="max-h-16 rounded border bg-white" />
+              </div>
+              <div className="p-3 rounded-lg bg-green-50 border border-green-100">
+                <p className="text-xs text-green-700 flex items-center gap-1">
+                  <Mail className="size-3.5" />
+                  Un code vous a été envoyé à {otpSentTo || 'votre adresse email'}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="otp">Code de vérification</Label>
+                <Input
+                  id="otp"
+                  type="text"
+                  placeholder="Entrez le code reçu par email"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                  maxLength={10}
+                  className="text-center text-lg tracking-widest"
+                />
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setOtpCode('')
+                    setOtpSentTo('')
+                    setSignStep('signature')
+                    setSignatureDataUrl('')
+                  }}
+                  disabled={signing}
+                >
+                  Annuler
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={handleSendOtp}
+                    disabled={sendingOtp}
+                    size="sm"
+                  >
+                    {sendingOtp ? 'Envoi...' : 'Renvoyer'}
+                  </Button>
+                  <Button
+                    onClick={handleSign}
+                    disabled={signing || !otpCode}
+                    className="gap-2 bg-brand-500 hover:bg-brand-600 text-white"
+                  >
+                    {signing ? (
+                      <><Loader2 className="size-4 animate-spin" /> Signature...</>
+                    ) : (
+                      <><Shield className="size-4" /> Valider et signer</>
+                    )}
+                  </Button>
+                </div>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

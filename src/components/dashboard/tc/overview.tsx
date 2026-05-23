@@ -859,22 +859,22 @@ export function TcOverview() {
         <Card className="border-border">
           <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50 shrink-0">
                   <Shield className="size-5 text-brand-500" />
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Conformité SLA</p>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">Conformité SLA</p>
                   <p className="text-xs text-muted-foreground">Objectif : 100% sous 48h</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                 {stats.slaCompliance >= 90 ? (
-                  <Badge className="bg-green-100 text-green-700">✓ Conforme</Badge>
+                  <Badge className="bg-green-100 text-green-700 text-[10px] sm:text-xs">✓ Conforme</Badge>
                 ) : (
-                  <Badge className="bg-amber-100 text-amber-700">⚠ En dessous</Badge>
+                  <Badge className="bg-amber-100 text-amber-700 text-[10px] sm:text-xs">⚠ En dessous</Badge>
                 )}
-                <span className="text-xl sm:text-2xl font-bold text-foreground">{stats.slaCompliance}%</span>
+                <span className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">{stats.slaCompliance}%</span>
               </div>
             </div>
             <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden">

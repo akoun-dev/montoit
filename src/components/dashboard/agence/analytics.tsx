@@ -10,6 +10,10 @@ import {
 } from '@/components/ui/table'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
+import { useRealtimeMandats } from '@/hooks/use-realtime-mandats'
+import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
+import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -39,7 +43,7 @@ const trendData = [
 ]
 
 export function AgenceAnalytics() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const [data, setData] = useState<AgenceData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -54,6 +58,23 @@ export function AgenceAnalytics() {
   }, [isAuthenticated])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useRealtimeProperties({
+    userId: user?.id,
+    onPropertyChange: useCallback(() => { fetchData() }, [fetchData]),
+  })
+  useRealtimeMandats({
+    userId: user?.id,
+    onMandatChange: useCallback(() => { fetchData() }, [fetchData]),
+  })
+  useRealtimeLeases({
+    userId: user?.id,
+    onLeaseChange: useCallback(() => { fetchData() }, [fetchData]),
+  })
+  useRealtimePayments({
+    userId: user?.id,
+    onPaymentChange: useCallback(() => { fetchData() }, [fetchData]),
+  })
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 

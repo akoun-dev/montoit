@@ -136,6 +136,61 @@ export async function GET(req: NextRequest) {
       createdAt: d.created_at,
     }))
 
+    // ─── Moderation queue (properties pending verification) ─────────────────────
+    const { data: pendingModerationData } = await admin
+      .from('properties')
+      .select('*, owner:users!properties_owner_id_fkey(first_name, last_name)')
+      .eq('status', 'PENDING_VERIFICATION')
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    const moderationQueue = ((pendingModerationData ?? []) as any[]).map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      type: p.type,
+      price: p.price,
+      city: p.city,
+      commune: p.commune,
+      createdAt: p.created_at,
+      owner: p.owner ? { firstName: p.owner.first_name, lastName: p.owner.last_name } : null,
+    }))
+
+    // ─── Recent system activities (audit logs) ─────────────────────────────────
+    const { data: auditLogs } = await admin
+      .from('audit_logs')
+      .select('id, action, entity, entity_id, user_id, created_at')
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    const recentSystemActivities = ((auditLogs ?? []) as any[]).map((a: any) => ({
+      id: a.id,
+      action: a.action,
+      entity: a.entity,
+      entityId: a.entity_id,
+      createdAt: a.created_at,
+    }))
+
+    // ─── Property heatmap data (by commune) ────────────────────────────────────
+    const { data: propertiesByLocation } = await admin
+      .from('properties')
+      .select('city, commune, latitude, longitude')
+      .not('latitude', 'is', null)
+      .not('longitude', 'is', null)
+
+    const heatmapData: Array<{ city: string; commune: string | null; lat: number; lng: number; count: number }> = []
+    const locationCount = new Map<string, { city: string; commune: string | null; lat: number; lng: number; count: number }>()
+    for (const p of ((propertiesByLocation ?? []) as any[])) {
+      const key = `${p.latitude},${p.longitude}`
+      if (locationCount.has(key)) {
+        locationCount.get(key)!.count++
+      } else {
+        locationCount.set(key, { city: p.city, commune: p.commune, lat: p.latitude, lng: p.longitude, count: 1 })
+      }
+    }
+    for (const [, v] of locationCount) {
+      heatmapData.push(v)
+    }
+
     const resp = NextResponse.json({
       stats: {
         totalUsers,
@@ -156,6 +211,9 @@ export async function GET(req: NextRequest) {
       recentUsers: mappedRecentUsers,
       recentProperties: mappedRecentProperties,
       disputes: mappedDisputes,
+      moderationQueue,
+      recentSystemActivities,
+      heatmapData,
     })
     return applyCookies(resp)
   } catch (error) {

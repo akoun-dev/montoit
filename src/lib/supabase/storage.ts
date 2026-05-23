@@ -10,6 +10,7 @@ export const BUCKETS = {
   MAINTENANCE_IMAGES: 'maintenance-images',
   LEASE_DOCUMENTS: 'lease-documents',
   MESSAGE_ATTACHMENTS: 'message-attachments',
+  MANDAT_DOCUMENTS: 'mandat-documents',
 } as const
 
 export type BucketName = (typeof BUCKETS)[keyof typeof BUCKETS]
@@ -103,6 +104,7 @@ export function guessExtensionFromMime(base64DataUrl: string): string {
   const mime = match[1]
   const map: Record<string, string> = {
     'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
     'image/png': 'png',
     'image/webp': 'webp',
     'video/mp4': 'mp4',

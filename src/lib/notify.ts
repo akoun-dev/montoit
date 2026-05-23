@@ -445,6 +445,49 @@ export async function notifyMandatStatusUpdate(ownerId: string, status: string, 
   })
 }
 
+export async function notifyMandatSigned(
+  userId: string,
+  signedByLabel: string,
+  propertyTitle: string,
+  mandatId: string,
+  bothSigned: boolean
+) {
+  await notify({
+    userId,
+    type: 'LEASE_UPDATE',
+    title: bothSigned ? 'Mandat signé et activé' : 'Mandat signé',
+    message: bothSigned
+      ? `Le mandat pour "${propertyTitle}" est maintenant actif. Les deux parties ont signé.`
+      : `${signedByLabel} a signé le mandat pour "${propertyTitle}". En attente de votre signature.`,
+    actionUrl: 'mandats',
+    entityId: mandatId,
+  })
+}
+
+export async function notifyMandatActivated(
+  ownerId: string,
+  agencyId: string,
+  propertyTitle: string,
+  mandatId: string
+) {
+  await notify({
+    userId: ownerId,
+    type: 'LEASE_UPDATE',
+    title: 'Mandat activé',
+    message: `Le mandat pour "${propertyTitle}" est maintenant actif.`,
+    actionUrl: 'mandats',
+    entityId: mandatId,
+  })
+  await notify({
+    userId: agencyId,
+    type: 'LEASE_UPDATE',
+    title: 'Mandat activé',
+    message: `Le mandat pour "${propertyTitle}" est maintenant actif.`,
+    actionUrl: 'mandats',
+    entityId: mandatId,
+  })
+}
+
 // ─── Owner file review notification ─────────────────────────────────────────
 
 export async function notifyOwnerFileValidated(ownerId: string, fileId: string) {

@@ -60,8 +60,11 @@ export function AgenceCommunication() {
       setConversations(d.conversations ?? [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
+      console.error('Failed to fetch conversations:', err)
     } finally { setLoading(false) }
   }, [isAuthenticated, user])
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   // Realtime subscription — refresh on new incoming messages
   useRealtimeMessages({

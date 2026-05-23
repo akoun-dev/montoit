@@ -39,7 +39,8 @@ export function AgenceMarketing() {
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
     try {
-      const data = await authFetch<{ properties: PropertyListing[] }>('/api/properties?mine=true&limit=50') as { properties: PropertyListing[] }
+      // Pour les agences, utiliser /api/dashboard/agence qui inclut properties via les mandats
+      const data = await authFetch<{ properties: PropertyListing[] }>('/api/dashboard/agence')
       setListings(data.properties || [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return

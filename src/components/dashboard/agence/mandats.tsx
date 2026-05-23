@@ -3,20 +3,22 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   FileSignature, Plus, AlertTriangle, Search, Building2, Calendar,
-  User, Percent, Clock, ArrowRight, X,
+  User, Percent, Clock, ArrowRight, X, Loader2, CheckCircle2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useRealtimeMandats } from '@/hooks/use-realtime-mandats'
+import { SignaturePad } from '@/components/ui/signature-pad'
 
 interface Mandat {
   id: string; type: string; status: string; commissionRate: number; commissionType: string
@@ -53,7 +55,7 @@ const typeLabels: Record<string, string> = {
 }
 
 export function AgenceMandats() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const [mandats, setMandats] = useState<Mandat[]>([])
   const [expiring, setExpiring] = useState<AgenceData['expiringMandats']>([])
   const [loading, setLoading] = useState(true)
@@ -62,6 +64,8 @@ export function AgenceMandats() {
   const [detailMandat, setDetailMandat] = useState<Mandat | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [signing, setSigning] = useState(false)
+  const [signDialogMandat, setSignDialogMandat] = useState<Mandat | null>(null)
+  const [signatureDataUrl, setSignatureDataUrl] = useState('')
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -71,10 +75,18 @@ export function AgenceMandats() {
       setExpiring(d.expiringMandats ?? [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
+      console.error('Failed to fetch mandats:', err)
     } finally { setLoading(false) }
   }, [isAuthenticated])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  useRealtimeMandats({
+    userId: user?.id,
+    onMandatChange: useCallback(() => {
+      fetchData()
+    }, [fetchData]),
+  })
 
   const stats = {
     all: mandats.length,
@@ -362,36 +374,110 @@ export function AgenceMandats() {
                     <Button
                       size="sm"
                       className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white flex-1 gap-1"
-                      disabled={signing}
-                      onClick={async (e) => {
+                      onClick={(e) => {
                         e.stopPropagation()
-                        setSigning(true)
-                        try {
-                          await authFetch(`/api/mandats/${detailMandat.id}/sign`, {
-                            method: 'POST',
-                            body: JSON.stringify({ role: 'agency' }),
-                          })
-                          toast.success('Mandat signé avec succès')
-                          setDetailOpen(false)
-                          fetchData()
-                        } catch (err) {
-                          if (err instanceof AuthError) {
-                            toast.error(err.message || 'Erreur lors de la signature')
-                          } else {
-                            toast.error('Erreur lors de la signature')
-                          }
-                        } finally {
-                          setSigning(false)
-                        }
+                        setSignatureDataUrl('')
+                        setSignDialogMandat(detailMandat)
                       }}
                     >
                       <FileSignature className="size-3.5" />
-                      {signing ? 'Signature en cours...' : 'Signer le mandat'}
+                      Signer le mandat
                     </Button>
                   </div>
                 )}
               </div>
             </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Sign dialog with signature pad */}
+      <Dialog open={!!signDialogMandat} onOpenChange={(open) => {
+        if (!open) { setSignDialogMandat(null); setSignatureDataUrl('') }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSignature className="size-5 text-[#FF6C2F]" />
+              Signer le mandat
+            </DialogTitle>
+            <DialogDescription>
+              Vous allez signer le mandat pour <span className="font-semibold text-foreground">{signDialogMandat?.property?.title}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {signDialogMandat?.ownerSignedAt ? (
+            <div className="p-3 rounded-lg bg-green-50 border border-green-100">
+              <p className="text-xs text-green-700 flex items-center gap-1">
+                <CheckCircle2 className="size-3.5" />
+                Le propriétaire a déjà signé. Votre signature activera le mandat.
+              </p>
+            </div>
+          ) : (
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
+              <p className="text-xs text-amber-700 flex items-center gap-1">
+                <Clock className="size-3.5" />
+                En attente de la signature du propriétaire également.
+              </p>
+            </div>
+          )}
+
+          {!signatureDataUrl ? (
+            <SignaturePad
+              onConfirm={(dataUrl) => setSignatureDataUrl(dataUrl)}
+              onCancel={() => { setSignDialogMandat(null); setSignatureDataUrl('') }}
+              signatoryName={signDialogMandat ? `Agence` : undefined}
+              signatoryRole="Agence"
+            />
+          ) : (
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-muted">
+                <p className="text-xs text-muted-foreground mb-2">Signature apposée :</p>
+                <img src={signatureDataUrl} alt="Signature" className="max-h-16 rounded border bg-white" />
+              </div>
+              <DialogFooter className="gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setSignatureDataUrl('')}
+                  disabled={signing}
+                >
+                  Modifier
+                </Button>
+                <Button
+                  className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white gap-2"
+                  disabled={signing}
+                  onClick={async () => {
+                    if (!signDialogMandat) return
+                    setSigning(true)
+                    try {
+                      await authFetch(`/api/mandats/${signDialogMandat.id}/sign`, {
+                        method: 'POST',
+                        body: JSON.stringify({ role: 'agency', signatureImage: signatureDataUrl }),
+                      })
+                      toast.success('Mandat signé avec succès')
+                      setSignDialogMandat(null)
+                      setSignatureDataUrl('')
+                      setDetailOpen(false)
+                      fetchData()
+                    } catch (err) {
+                      if (err instanceof AuthError) {
+                        toast.error(err.message || 'Erreur lors de la signature')
+                      } else {
+                        toast.error('Erreur lors de la signature')
+                      }
+                    } finally {
+                      setSigning(false)
+                    }
+                  }}
+                >
+                  {signing ? (
+                    <><Loader2 className="size-4 animate-spin" /> Signature...</>
+                  ) : (
+                    <><FileSignature className="size-4" /> Confirmer la signature</>
+                  )}
+                </Button>
+              </DialogFooter>
+            </div>
           )}
         </DialogContent>
       </Dialog>

@@ -57,8 +57,11 @@ export function AgenceVisits() {
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
       setError(true)
+      console.error('Failed to fetch visits:', err)
     } finally { setLoading(false) }
   }, [isAuthenticated])
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   // Realtime subscription
   useRealtimeVisits({

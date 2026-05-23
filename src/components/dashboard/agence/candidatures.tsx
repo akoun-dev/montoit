@@ -57,8 +57,11 @@ export function Candidatures() {
       setProperties(d.properties ?? [])
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
+      console.error('Failed to fetch candidatures:', err)
     } finally { setLoading(false) }
   }, [isAuthenticated])
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   // Realtime subscription
   useRealtimeRentalFiles({

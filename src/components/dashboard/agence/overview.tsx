@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
-  Building2, FileSignature, Users, TrendingUp, Eye, CreditCard,
-  AlertTriangle, Plus, Calendar, Clock, ChevronRight, Home, User
+  Building2, FileSignature, Users, TrendingUp, CreditCard,
+  AlertTriangle, Plus, Calendar, Clock, ChevronRight, Home, User,
+  Target, CheckCircle2, MessageSquare, MapPin,
+  Eye, Layers,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
@@ -15,7 +17,33 @@ import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
 import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
 import { motion } from 'framer-motion'
-import { toast } from 'sonner'
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+interface PipelineStats {
+  leads: number
+  visits: number
+  negotiations: number
+  signatures: number
+}
+
+interface TodaysVisit {
+  id: string
+  timeSlot: string
+  status: string
+  visitType: string
+  tenant: { firstName: string; lastName: string; phone: string } | null
+  property: { title: string; city: string; address: string } | null
+}
+
+interface ClientDemand {
+  id: string
+  status: string
+  tenantCategory: string
+  createdAt: string
+  tenant: { firstName: string; lastName: string; phone: string } | null
+  property: { title: string } | null
+}
 
 interface AgenceData {
   stats: {
@@ -35,6 +63,7 @@ interface AgenceData {
   properties: Array<{
     id: string; title: string; type: string; price: number; city: string; status: string
     images: Array<{ url: string }>; hasMandat: boolean; viewsCount: number
+    latitude: number | null; longitude: number | null
   }>
   visitRequests: Array<{
     id: string; status: string; createdAt: string; requestedDate: string; timeSlot: string
@@ -50,37 +79,59 @@ interface AgenceData {
     id: string; endDate: string
     property: { title: string }; owner: { firstName: string; lastName: string }
   }>
+  todaysVisits: TodaysVisit[]
+  pipelineStats: PipelineStats
+  clientDemands: ClientDemand[]
 }
+
+const defaultPipeline: PipelineStats = { leads: 0, visits: 0, negotiations: 0, signatures: 0 }
 
 const defaultData: AgenceData = {
   stats: { totalProperties: 0, activeProperties: 0, activeMandats: 0, activeLeases: 0, totalAgents: 0, totalCommissions: 0, paidCommissions: 0, pendingCommissions: 0, totalRevenue: 0, pendingVisits: 0, latePaymentsCount: 0, expiringMandatsCount: 0 },
   properties: [], visitRequests: [], activeLeases: [], expiringMandats: [],
+  todaysVisits: [], pipelineStats: defaultPipeline, clientDemands: [],
 }
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } }
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
+
+const timeSlotLabels: Record<string, string> = {
+  MORNING: 'Matin (9h-12h)',
+  AFTERNOON: 'Après-midi (14h-17h)',
+  EVENING: 'Soir (17h-20h)',
+}
+
+const pipelineSteps = [
+  { key: 'leads', label: 'Nouveaux leads', icon: Target, color: 'bg-orange-100 text-orange-600' },
+  { key: 'visits', label: 'Visites', icon: MapPin, color: 'bg-amber-100 text-amber-600' },
+  { key: 'negotiations', label: 'Négociations', icon: FileSignature, color: 'bg-emerald-100 text-emerald-600' },
+  { key: 'signatures', label: 'Signatures', icon: CheckCircle2, color: 'bg-green-100 text-green-600' },
+]
+
+// ─── Component ──────────────────────────────────────────────────────────────
 
 export function AgenceOverview() {
   const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const [data, setData] = useState<AgenceData>(defaultData)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const mapRef = useRef<HTMLDivElement>(null)
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
     try {
       const d = await authFetch<AgenceData>('/api/dashboard/agence')
-      setData(d)
+      setData({ ...defaultData, ...d, pipelineStats: d.pipelineStats || defaultPipeline })
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) { setData(defaultData); return }
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
     } finally { setLoading(false) }
   }, [isAuthenticated])
 
-  // Track property IDs for Realtime filtering
+  useEffect(() => { fetchData() }, [fetchData])
+
   const propertyIds = data.properties.map(p => p.id)
 
-  // Realtime subscriptions
   useRealtimeProperties({
     userId: user?.id,
     onPropertyChange: () => { fetchData() },
@@ -100,6 +151,42 @@ export function AgenceOverview() {
     onVisitChange: () => { fetchData() },
   })
 
+  // ─── Leaflet map for agency properties ───────────────────────────────────
+  useEffect(() => {
+    if (data.properties.length === 0 || !mapRef.current) return
+    let map: any = null
+    import('leaflet').then((L) => {
+      if (!mapRef.current) return
+      map = L.map(mapRef.current, { zoomControl: true }).setView([5.317066, -4.028636], 11)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 18,
+      }).addTo(map)
+
+      const markersLayer = L.layerGroup().addTo(map)
+      const propertiesWithCoords = data.properties.filter(p => p.latitude != null && p.longitude != null)
+      if (propertiesWithCoords.length > 0) {
+        // Auto-fit map to show all markers
+        const bounds = L.latLngBounds(propertiesWithCoords.map(p => [p.latitude!, p.longitude!]))
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 })
+      }
+      data.properties.forEach((p) => {
+        if (p.latitude != null && p.longitude != null) {
+          const marker = L.marker([p.latitude, p.longitude], {
+            icon: L.divIcon({
+              className: 'custom-marker',
+              html: `<div style="background:#FF6C2F;color:white;padding:4px 8px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.15)">${p.title?.substring(0, 12) || 'Bien'}</div>`,
+            }),
+          })
+          marker.bindPopup(`<b>${p.title}</b><br/>${p.city}<br/>${p.price.toLocaleString('fr-FR')} FCFA`)
+          marker.on('click', () => setDashboardSection('portfolio'))
+          markersLayer.addLayer(marker)
+        }
+      })
+    }).catch(console.error)
+    return () => { if (map) map.remove() }
+  }, [data.properties, setDashboardSection])
+
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 
   if (error) {
@@ -113,6 +200,10 @@ export function AgenceOverview() {
     )
   }
 
+  const pipeline = data.pipelineStats || defaultPipeline
+  const maxPipeline = Math.max(pipeline.leads, pipeline.visits, pipeline.negotiations, pipeline.signatures, 1)
+  const activeLeasesOnly = data.activeLeases.filter((l) => l.status === 'ACTIVE')
+
   const kpis = [
     { label: 'Biens gérés', value: data.stats.totalProperties, icon: Building2, color: 'text-orange-600 bg-orange-50' },
     { label: 'Mandats actifs', value: data.stats.activeMandats, icon: FileSignature, color: 'text-emerald-600 bg-emerald-50' },
@@ -122,16 +213,15 @@ export function AgenceOverview() {
     { label: 'Commissions', value: `${(data.stats.totalCommissions / 1000).toFixed(0)}k`, icon: CreditCard, color: 'text-violet-600 bg-violet-50' },
   ]
 
-  const activeLeasesOnly = data.activeLeases.filter((l) => l.status === 'ACTIVE')
-
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
+      {/* Header */}
       <motion.div variants={itemVariants}>
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
-        <p className="text-muted-foreground mt-1">Voici un aperçu de votre espace agence</p>
+        <p className="text-muted-foreground mt-1">Espace Agence — Portefeuille, clients et performances</p>
       </motion.div>
 
-      {/* KPIs */}
+      {/* ─── KPIs ────────────────────────────────────────────────────────────── */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {kpis.map((kpi) => {
           const Icon = kpi.icon
@@ -153,7 +243,55 @@ export function AgenceOverview() {
         })}
       </motion.div>
 
-      {/* Quick Actions */}
+      {/* ─── Pipeline commercial ──────────────────────────────────────────── */}
+      <motion.div variants={itemVariants}>
+        <Card className="border-border overflow-hidden">
+          <CardHeader className="pb-3 bg-gradient-to-r from-orange-50 to-amber-50 border-b border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="size-5 text-[#FF6C2F]" />
+                <CardTitle className="text-base font-semibold">Pipeline commercial</CardTitle>
+              </div>
+              <Badge className="bg-[#FF6C2F]/10 text-[#FF6C2F] border-0">
+                {pipeline.leads + pipeline.visits + pipeline.negotiations + pipeline.signatures} total
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row items-stretch gap-4">
+              {pipelineSteps.map((step, idx) => {
+                const Icon = step.icon
+                const count = pipeline[step.key as keyof typeof pipeline] || 0
+                const pct = maxPipeline > 0 ? (count / maxPipeline) * 100 : 0
+                return (
+                  <div key={step.key} className="flex-1 relative">
+                    {idx < pipelineSteps.length - 1 && (
+                      <div className="hidden sm:block absolute top-5 left-[calc(50%+20px)] right-0 h-[2px] bg-border z-0" />
+                    )}
+                    <div className="flex flex-col items-center text-center gap-2 relative z-10">
+                      <div className={`flex size-10 items-center justify-center rounded-full ${step.color}`}>
+                        <Icon className="size-5" />
+                      </div>
+                      <div>
+                        <p className="text-xl font-bold text-foreground">{count}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">{step.label}</p>
+                      </div>
+                      <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${step.color.split(' ')[0]}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* ─── Quick Actions ─────────────────────────────────────────────────── */}
       <motion.div variants={itemVariants} className="flex flex-wrap gap-2">
         <Button onClick={() => setDashboardSection('portfolio')} className="bg-[#FF6C2F] hover:bg-[#e55e27] text-white gap-2">
           <Plus className="size-4" /> Ajouter un bien
@@ -166,7 +304,7 @@ export function AgenceOverview() {
         </Button>
       </motion.div>
 
-      {/* Alerts */}
+      {/* ─── Alertes ───────────────────────────────────────────────────────── */}
       {(data.stats.expiringMandatsCount > 0 || data.stats.latePaymentsCount > 0) && (
         <motion.div variants={itemVariants} className="space-y-2">
           {data.stats.expiringMandatsCount > 0 && (
@@ -200,25 +338,97 @@ export function AgenceOverview() {
         </motion.div>
       )}
 
+      {/* ─── 2-col: Agenda + Annonces ───────────────────────────────────────── */}
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Recent Properties */}
+        {/* Agenda - Visites du jour */}
         <motion.div variants={itemVariants}>
-          <Card className="border-border">
-            <CardHeader className="pb-3">
+          <Card className="border-border h-full">
+            <CardHeader className="pb-3 border-b border-border">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold">Derniers biens</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Calendar className="size-5 text-[#FF6C2F]" />
+                  <CardTitle className="text-base font-semibold">Aujourd&apos;hui</CardTitle>
+                </div>
+                <Badge variant="outline" className="text-muted-foreground">
+                  {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              {data.todaysVisits.length === 0 ? (
+                <div className="py-6 text-center">
+                  <Calendar className="size-10 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Aucune visite aujourd&apos;hui</p>
+                  <Button variant="outline" size="sm" className="mt-2" onClick={() => setDashboardSection('visits')}>
+                    Planifier une visite
+                  </Button>
+                </div>
+              ) : (
+                data.todaysVisits.map((v) => (
+                  <div key={v.id} className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
+                    <div className="flex size-10 items-center justify-center rounded-full bg-orange-50 shrink-0">
+                      <Clock className="size-5 text-[#FF6C2F]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">
+                        {v.tenant?.firstName} {v.tenant?.lastName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{v.property?.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge className="bg-brand-50 text-brand-700 text-[10px]">
+                          {timeSlotLabels[v.timeSlot] || v.timeSlot}
+                        </Badge>
+                        {v.tenant?.phone && (
+                          <span className="text-[10px] text-muted-foreground">📞 {v.tenant.phone}</span>
+                        )}
+                      </div>
+                    </div>
+                    <Badge className={v.status === 'CONFIRMED' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}>
+                      {v.status === 'CONFIRMED' ? 'Confirmée' : v.status === 'PENDING' ? 'En attente' : v.status}
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Mes annonces */}
+        <motion.div variants={itemVariants}>
+          <Card className="border-border h-full">
+            <CardHeader className="pb-3 border-b border-border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Building2 className="size-5 text-[#FF6C2F]" />
+                  <CardTitle className="text-base font-semibold">Mes annonces</CardTitle>
+                </div>
                 <Button variant="ghost" size="sm" className="text-[#FF6C2F] gap-1" onClick={() => setDashboardSection('portfolio')}>
-                  Voir tout <ChevronRight className="size-3" />
+                  Gérer <ChevronRight className="size-3" />
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-2 max-h-64 overflow-y-auto">
+            <CardContent className="p-4 space-y-3">
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                {[
+                  { label: 'Actives', count: data.properties.filter(p => p.status === 'ACTIVE').length, color: 'bg-green-50 text-green-600 border-green-200' },
+                  { label: 'Louées', count: data.properties.filter(p => p.status === 'RENTED').length, color: 'bg-orange-50 text-orange-600 border-orange-200' },
+                  { label: 'Suspendues', count: data.properties.filter(p => p.status !== 'ACTIVE' && p.status !== 'RENTED').length, color: 'bg-neutral-50 text-neutral-600 border-neutral-200' },
+                ].map((cat) => (
+                  <div key={cat.label} className={`flex flex-col items-center p-3 rounded-lg border ${cat.color} cursor-pointer hover:shadow-sm transition-shadow`}
+                    onClick={() => setDashboardSection('portfolio')}>
+                    <p className="text-lg font-bold">{cat.count}</p>
+                    <p className="text-[10px] font-medium">{cat.label}</p>
+                  </div>
+                ))}
+              </div>
+
               {data.properties.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">Aucun bien pour le moment</p>
               ) : (
-                data.properties.slice(0, 5).map((p) => (
-                  <div key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                    <div className="flex items-center gap-3">
+                data.properties.slice(0, 4).map((p) => (
+                  <div key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
+                    onClick={() => setDashboardSection('portfolio')}>
+                    <div className="flex items-center gap-3 min-w-0">
                       {p.images?.[0] ? (
                         <img src={p.images[0].url} alt="" className="size-10 rounded-lg object-cover" />
                       ) : (
@@ -226,54 +436,113 @@ export function AgenceOverview() {
                           <Building2 className="size-4 text-[#FF6C2F]" />
                         </div>
                       )}
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{p.title || 'Sans titre'}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{p.title || 'Sans titre'}</p>
                         <p className="text-xs text-muted-foreground">{p.city} · {p.price.toLocaleString('fr-FR')} FCFA</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Eye className="size-3" />
+                        {p.viewsCount || 0}
+                      </div>
                       <Badge className={p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : p.status === 'RENTED' ? 'bg-orange-100 text-orange-700' : 'bg-neutral-100 text-neutral-600'}>
-                        {p.status === 'ACTIVE' ? 'Actif' : p.status === 'RENTED' ? 'Loué' : p.status}
+                        {p.status === 'ACTIVE' ? 'Actif' : p.status === 'RENTED' ? 'Loué' : 'Inactif'}
                       </Badge>
                     </div>
                   </div>
                 ))
               )}
-            </CardContent>
-          </Card>
-        </motion.div>
 
-        {/* Pending Visits */}
-        <motion.div variants={itemVariants}>
-          <Card className="border-border">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold">Visites en attente</CardTitle>
-                <Button variant="ghost" size="sm" className="text-[#FF6C2F] gap-1" onClick={() => setDashboardSection('visits')}>
-                  Voir tout <ChevronRight className="size-3" />
+              {data.properties.length > 4 && (
+                <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={() => setDashboardSection('portfolio')}>
+                  Voir les {data.properties.length} biens
                 </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2 max-h-64 overflow-y-auto">
-              {data.visitRequests.filter((v) => v.status === 'PENDING').length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Aucune visite en attente</p>
-              ) : (
-                data.visitRequests.filter((v) => v.status === 'PENDING').slice(0, 5).map((vr) => (
-                  <div key={vr.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{vr.tenant.firstName} {vr.tenant.lastName}</p>
-                      <p className="text-xs text-muted-foreground">{vr.property.title} · {new Date(vr.requestedDate).toLocaleDateString('fr-FR')}</p>
-                    </div>
-                    <Badge className="bg-amber-100 text-amber-700">En attente</Badge>
-                  </div>
-                ))
               )}
             </CardContent>
           </Card>
         </motion.div>
       </div>
 
-      {/* Active Leases */}
+      {/* ─── 2-col: Demandes clients + Carte ───────────────────────────────── */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Demandes clients */}
+        <motion.div variants={itemVariants}>
+          <Card className="border-border h-full">
+            <CardHeader className="pb-3 border-b border-border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="size-5 text-[#FF6C2F]" />
+                  <CardTitle className="text-base font-semibold">Demandes clients</CardTitle>
+                </div>
+                <Button variant="ghost" size="sm" className="text-[#FF6C2F] gap-1" onClick={() => setDashboardSection('candidatures')}>
+                  Voir tout <ChevronRight className="size-3" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-2 max-h-64 overflow-y-auto">
+              {(data.clientDemands?.length || 0) === 0 ? (
+                <div className="py-6 text-center">
+                  <MessageSquare className="size-10 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Aucune demande client en attente</p>
+                </div>
+              ) : (
+                data.clientDemands.map((d) => (
+                  <div key={d.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer"
+                    onClick={() => setDashboardSection('candidatures')}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="size-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                        <User className="size-4 text-amber-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {d.tenant?.firstName} {d.tenant?.lastName}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {d.property?.title || 'Bien non assigné'} · {new Date(d.createdAt).toLocaleDateString('fr-FR')}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className={d.status === 'SUBMITTED' ? 'bg-amber-100 text-amber-700' : 'bg-brand-100 text-brand-700'}>
+                      {d.status === 'SUBMITTED' ? 'Soumis' : d.status === 'TC_REVIEW' ? 'En revue' : d.status}
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Carte */}
+        <motion.div variants={itemVariants}>
+          <Card className="border-border h-full overflow-hidden">
+            <CardHeader className="pb-3 border-b border-border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MapPin className="size-5 text-[#FF6C2F]" />
+                  <CardTitle className="text-base font-semibold">Carte des biens</CardTitle>
+                </div>
+                <Button variant="ghost" size="sm" className="text-[#FF6C2F] gap-1" onClick={() => setDashboardSection('portfolio')}>
+                  Voir tout <ChevronRight className="size-3" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div ref={mapRef} className="h-64 w-full" />
+              {data.properties.length === 0 && (
+                <div className="h-64 flex items-center justify-center">
+                  <div className="text-center">
+                    <MapPin className="size-10 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Aucun bien à afficher</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* ─── Locations en cours ────────────────────────────────────────────── */}
       {activeLeasesOnly.length > 0 && (
         <motion.div variants={itemVariants}>
           <Card className="border-border overflow-hidden">
@@ -311,14 +580,14 @@ export function AgenceOverview() {
                       <p className="text-xs text-muted-foreground truncate">{lease.property.title}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                     <div className="flex items-center gap-1.5">
                       <CreditCard className="size-3.5 text-[#FF6C2F] shrink-0" />
-                      <p className="text-sm font-semibold text-foreground">{lease.monthlyRent.toLocaleString('fr-FR')} FCFA</p>
+                      <p className="text-sm font-semibold text-foreground whitespace-nowrap">{lease.monthlyRent.toLocaleString('fr-FR')} FCFA</p>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Clock className="size-3.5 text-muted-foreground shrink-0" />
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(lease.startDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })} → {new Date(lease.endDate).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
                       </p>
                     </div>
@@ -329,6 +598,39 @@ export function AgenceOverview() {
           </Card>
         </motion.div>
       )}
+
+      {/* ─── Accès rapide ──────────────────────────────────────────────────── */}
+      <motion.div variants={itemVariants}>
+        <Card className="border-border">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+              {[
+                { id: 'portfolio', label: 'Portfolio', icon: Building2, color: 'bg-orange-50 text-orange-600' },
+                { id: 'mandats', label: 'Mandats', icon: FileSignature, color: 'bg-emerald-50 text-emerald-600' },
+                { id: 'contracts', label: 'Contrats', icon: Home, color: 'bg-teal-50 text-teal-600' },
+                { id: 'candidatures', label: 'Candidatures', icon: User, color: 'bg-amber-50 text-amber-600' },
+                { id: 'visits', label: 'Visites', icon: Calendar, color: 'bg-brand-50 text-brand-600' },
+                { id: 'communication', label: 'Communication', icon: MessageSquare, color: 'bg-blue-50 text-blue-600' },
+                { id: 'finances', label: 'Finances', icon: CreditCard, color: 'bg-violet-50 text-violet-600' },
+              ].map((link) => {
+                const Icon = link.icon
+                return (
+                  <button
+                    key={link.id}
+                    onClick={() => setDashboardSection(link.id)}
+                    className="flex flex-col items-center gap-2 p-3 rounded-lg border border-border hover:bg-accent hover:shadow-sm transition-all"
+                  >
+                    <div className={`flex size-10 items-center justify-center rounded-lg ${link.color}`}>
+                      <Icon className="size-5" />
+                    </div>
+                    <span className="text-xs font-medium text-foreground text-center">{link.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </motion.div>
   )
 }
