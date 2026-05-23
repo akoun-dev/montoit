@@ -1308,10 +1308,10 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div
-            onClick={() => imageInputRef.current?.click()}
+          <label
+            htmlFor="property-image-upload"
             className={cn(
-              'border-2 border-dashed rounded-xl p-4 sm:p-6 text-center cursor-pointer transition-colors',
+              'border-2 border-dashed rounded-xl p-4 sm:p-6 text-center cursor-pointer transition-colors block',
               'hover:border-brand-400 hover:bg-brand-50/20',
               (imagePreviews.length + existingImages.length) >= 10 ? 'opacity-50 pointer-events-none' : 'border-border'
             )}
@@ -1321,9 +1321,10 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
             <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 leading-relaxed">
               JPG, PNG, WEBP — Max 5 Mo — 10 photos max
             </p>
-          </div>
+          </label>
 
           <input
+            id="property-image-upload"
             ref={imageInputRef}
             type="file"
             accept="image/jpeg,image/jpg,image/png,image/webp"
