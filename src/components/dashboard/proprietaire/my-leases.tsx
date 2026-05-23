@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
 import { FileSignature, Building2, User, AlertTriangle, Loader2, MoreVertical } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +22,7 @@ import {
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { toast } from 'sonner'
@@ -47,6 +48,8 @@ export function ProprietaireLeases() {
   const [loading, setLoading] = useState(true)
   const [terminating, setTerminating] = useState(false)
   const [showTerminateDialog, setShowTerminateDialog] = useState(false)
+  const [page, setPage] = useState(1)
+  const limit = 10
   const [leaseToTerminate, setLeaseToTerminate] = useState<LeaseItem | null>(null)
 
   const fetchData = useCallback(async () => {
@@ -112,6 +115,11 @@ export function ProprietaireLeases() {
     }
   }
 
+  const paginatedLeases = useMemo(() => {
+    const start = (page - 1) * limit
+    return data.slice(start, start + limit)
+  }, [data, page, limit])
+
   if (loading) return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
 
   return (
@@ -130,7 +138,7 @@ export function ProprietaireLeases() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {data.map((lease) => (
+          {paginatedLeases.map((lease) => (
             <Card key={lease.id} className="border-border">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-3">
@@ -201,6 +209,13 @@ export function ProprietaireLeases() {
               </CardContent>
             </Card>
           ))}
+          {data.length > limit && (
+            <PaginationControls
+              page={page}
+              totalPages={Math.ceil(data.length / limit)}
+              onPageChange={setPage}
+            />
+          )}
         </div>
       )}
 

@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Heart, MapPin, Building2, Eye, ArrowRight } from 'lucide-react'
 import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
@@ -50,6 +51,8 @@ export function Favorites() {
   const { user, isAuthenticated, setView, setSelectedPropertyId } = useAuthStore()
   const [favorites, setFavorites] = useState<FavoriteProperty[]>([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const limit = 12
   const [error, setError] = useState<string | null>(null)
 
   const fetchFavorites = useCallback(async () => {
@@ -76,6 +79,11 @@ export function Favorites() {
   useEffect(() => {
     fetchFavorites()
   }, [fetchFavorites])
+
+  const paginatedFavorites = useMemo(() => {
+    const start = (page - 1) * limit
+    return favorites.slice(start, start + limit)
+  }, [favorites, page, limit])
 
   // Realtime — refresh when properties change
   useRealtimeProperties({
@@ -182,7 +190,7 @@ export function Favorites() {
       ) : (
         /* Favorites Grid */
         <motion.div variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {favorites.map((fav) => {
+          {paginatedFavorites.map((fav) => {
             const p = fav.property
             const image = p.images?.[0]?.url
             const bedroomsLabel = p.bedrooms
@@ -273,6 +281,15 @@ export function Favorites() {
             )
           })}
         </motion.div>
+      )}
+
+      {/* Pagination */}
+      {favorites.length > limit && (
+        <PaginationControls
+          page={page}
+          totalPages={Math.ceil(favorites.length / limit)}
+          onPageChange={setPage}
+        />
       )}
     </motion.div>
   )

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
 import { Search, UserCircle, Building2, CreditCard, AlertTriangle, ChevronRight, Users } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 
@@ -113,6 +114,8 @@ export function TenantsList({ onDetail }: TenantsListProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const limit = 10
 
   const fetchTenants = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
@@ -129,6 +132,14 @@ export function TenantsList({ onDetail }: TenantsListProps) {
       setLoading(false)
     }
   }, [isAuthenticated, search])
+
+  const paginatedTenants = useMemo(() => {
+    const start = (page - 1) * limit
+    return tenants.slice(start, start + limit)
+  }, [tenants, page, limit])
+
+  // Reset page on search
+  useEffect(() => { setPage(1) }, [search])
 
   useEffect(() => { fetchTenants() }, [fetchTenants])
 
@@ -234,7 +245,7 @@ export function TenantsList({ onDetail }: TenantsListProps) {
         </motion.div>
       ) : (
         <motion.div variants={containerVariants} className="space-y-3">
-          {tenants.map(tenant => {
+          {paginatedTenants.map(tenant => {
             const activeLease = tenant.leases.find(l => l.status === 'ACTIVE')
             const property = activeLease?.property || tenant.leases[0]?.property
             const leaseConfig = leaseStatusConfig[activeLease?.status || tenant.leases[0]?.status || 'DRAFT']
@@ -316,6 +327,13 @@ export function TenantsList({ onDetail }: TenantsListProps) {
               </motion.div>
             )
           })}
+          {tenants.length > limit && (
+            <PaginationControls
+              page={page}
+              totalPages={Math.ceil(tenants.length / limit)}
+              onPageChange={setPage}
+            />
+          )}
         </motion.div>
       )}
     </motion.div>

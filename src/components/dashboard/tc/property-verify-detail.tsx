@@ -17,6 +17,7 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useBackHandler } from '@/hooks/use-back-handler'
 import { ReportDetailDialog, statusConfig, typeLabels as inventoryTypeLabels } from './report-detail-dialog'
 import type { InventoryReport } from './report-detail-dialog'
 
@@ -102,6 +103,9 @@ export function PropertyVerifyDetail() {
     setSelectedItemId('')
     setDashboardSection('property-verifications')
   }
+
+  // Register hardware back button handler (Android Capacitor)
+  useBackHandler('property-verify-detail', goBack)
 
   const goToInventoryForm = () => {
     setSelectedPropertyId(selectedItemId)

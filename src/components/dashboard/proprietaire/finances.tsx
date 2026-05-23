@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   TrendingUp, Clock, AlertTriangle, Percent,
   Building2, ChevronRight, Send, CreditCard,
@@ -15,6 +15,7 @@ import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { apiFetch } from '@/lib/capacitor'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface MonthlyRevenue {
@@ -145,6 +146,8 @@ export function OwnerFinances() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sendingReminder, setSendingReminder] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const limit = 10
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -178,6 +181,11 @@ export function OwnerFinances() {
       fetchData()
     },
   })
+
+  const paginatedPayments = useMemo(() => {
+    const start = (page - 1) * limit
+    return (data?.recentPayments ?? []).slice(start, start + limit)
+  }, [data?.recentPayments, page, limit])
 
   const handleSendReminder = async (reminder: PaymentReminder) => {
     setSendingReminder(reminder.paymentId)
@@ -656,7 +664,7 @@ export function OwnerFinances() {
                 <p className="text-xs text-muted-foreground">Vos paiements apparaîtront ici une fois vos baux actifs.</p>
               </div>
             ) : (
-              recentPayments.map((payment) => {
+              paginatedPayments.map((payment) => {
                 const config = statusConfig[payment.status] || statusConfig.PENDING
                 const property = payment.lease?.property
                 const tenant = payment.lease?.tenant
@@ -698,6 +706,15 @@ export function OwnerFinances() {
                   </div>
                 )
               })
+            )}
+            {recentPayments.length > limit && (
+              <div className="pt-2">
+                <PaginationControls
+                  page={page}
+                  totalPages={Math.ceil(recentPayments.length / limit)}
+                  onPageChange={setPage}
+                />
+              </div>
             )}
           </CardContent>
         </Card>

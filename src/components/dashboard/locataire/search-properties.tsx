@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   Search,
   MapPin,
@@ -42,6 +42,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import { apiFetch } from '@/lib/capacitor'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface PropertyItem {
@@ -145,6 +146,19 @@ export function SearchProperties() {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Pagination
+  const [page, setPage] = useState(1)
+  const limit = 12
+
+  const paginatedResults = useMemo(() => {
+    const start = (page - 1) * limit
+    return results.slice(start, start + limit)
+  }, [results, page, limit])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search, city, minPrice, maxPrice, propertyType])
 
   // Visit dialog state
   const [visitDialog, setVisitDialog] = useState<VisitDialogState>({
@@ -410,7 +424,7 @@ export function SearchProperties() {
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {results.map((property) => {
+              {paginatedResults.map((property) => {
                 const bedroomsLabel = property.bedrooms
                   ? property.bedrooms === 1
                     ? '1 pièce'
@@ -459,21 +473,23 @@ export function SearchProperties() {
                             Vérifié
                           </Badge>
                         )}
-                        {/* Favorite heart button */}
-                        <button
-                          type="button"
-                          onClick={(e) => handleToggleFavorite(e, property.id)}
-                          className="absolute top-3 right-3 flex size-8 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-colors shadow-sm"
-                          aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-                        >
-                          <Heart
-                            className={`size-4 transition-colors ${
-                              isFavorite(property.id)
-                                ? 'fill-red-500 text-red-500'
-                                : 'text-neutral-500 hover:text-red-400'
-                            }`}
-                          />
-                        </button>
+                        {/* Favorite heart button — visible uniquement pour les utilisateurs connectés */}
+                        {isAuthenticated && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleFavorite(e, property.id)}
+                            className="absolute top-3 right-3 flex size-8 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white transition-colors shadow-sm"
+                            aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                          >
+                            <Heart
+                              className={`size-4 transition-colors ${
+                                isFavorite(property.id)
+                                  ? 'fill-red-500 text-red-500'
+                                  : 'text-neutral-500 hover:text-red-400'
+                              }`}
+                            />
+                          </button>
+                        )}
                       </div>
 
                       {/* Content */}
@@ -528,6 +544,13 @@ export function SearchProperties() {
                 )
               })}
             </div>
+            <PaginationControls
+              page={page}
+              totalPages={Math.ceil(results.length / limit)}
+              total={results.length}
+              limit={limit}
+              onPageChange={setPage}
+            />
           </motion.div>
         ) : !searched ? (
           /* Initial empty state */

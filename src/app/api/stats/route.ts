@@ -37,7 +37,7 @@ export async function GET() {
       .from('ratings')
       .select('score')
 
-    let satisfactionRate = 0
+    let satisfactionRate: number | null = null
     if (ratings && ratings.length > 0) {
       const avgScore = ratings.reduce((sum: number, r: { score: number }) => sum + r.score, 0) / ratings.length
       satisfactionRate = Math.round((avgScore / 5) * 100)

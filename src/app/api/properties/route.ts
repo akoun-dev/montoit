@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
 
     const limitParam = searchParams.get('limit')
+    const pageParam = searchParams.get('page')
     const sort = searchParams.get('sort')
     const type = searchParams.get('type')
     const commune = searchParams.get('commune')
@@ -34,7 +35,9 @@ export async function GET(req: NextRequest) {
     const pending = searchParams.get('pending')
     const mine = searchParams.get('mine')
 
-    const limit = limitParam ? parseInt(limitParam) : 6
+    const limit = limitParam ? parseInt(limitParam) : 12
+    const page = pageParam ? Math.max(1, parseInt(pageParam)) : 1
+    const offset = (page - 1) * limit
 
     let isMineRequest = false
     let mineUserId: string | null = null
@@ -64,16 +67,18 @@ export async function GET(req: NextRequest) {
 
     const admin = getSupabaseAdminClient()
 
-    let query = admin.from('properties').select('*')
+    // Build count query in parallel
+    let countQuery = admin.from('properties').select('*', { count: 'exact', head: true })
+    let dataQuery = admin.from('properties').select('*')
 
     if (isMineRequest) {
-      query = query.eq('owner_id', mineUserId!)
+      countQuery = countQuery.eq('owner_id', mineUserId!)
+      dataQuery = dataQuery.eq('owner_id', mineUserId!)
     } else if (isTCRequestingPending) {
-      query = query.eq('status', 'PENDING_VERIFICATION')
+      countQuery = countQuery.eq('status', 'PENDING_VERIFICATION')
+      dataQuery = dataQuery.eq('status', 'PENDING_VERIFICATION')
     } else if (all === 'true') {
       // Pour "Nos biens" public : inclure les biens gérés par mandat
-      // 1. Biens ACTIFS
-      // 2. Biens associés à des mandats ACTIFS ou PENDING_SIGNATURE (gérés par agence)
       const { data: activeMandats } = await admin
         .from('mandats')
         .select('property_id')
@@ -81,59 +86,87 @@ export async function GET(req: NextRequest) {
 
       if (activeMandats && activeMandats.length > 0) {
         const mandatPropIds = activeMandats.map((m: any) => `'${m.property_id}'`).join(',')
-
-        query = query.or(`status.eq.ACTIVE,id.in.(${mandatPropIds})`)
+        countQuery = countQuery.or(`status.eq.ACTIVE,id.in.(${mandatPropIds})`)
+        dataQuery = dataQuery.or(`status.eq.ACTIVE,id.in.(${mandatPropIds})`)
       } else {
-        query = query.eq('status', 'ACTIVE')
+        countQuery = countQuery.eq('status', 'ACTIVE')
+        dataQuery = dataQuery.eq('status', 'ACTIVE')
       }
     } else {
-      query = query.eq('status', 'ACTIVE')
+      countQuery = countQuery.eq('status', 'ACTIVE')
+      dataQuery = dataQuery.eq('status', 'ACTIVE')
     }
 
+    // Apply filters to both queries
     if (type) {
-      query = query.eq('type', type)
+      countQuery = countQuery.eq('type', type)
+      dataQuery = dataQuery.eq('type', type)
     }
 
     if (commune) {
-      query = query.ilike('commune', `%${commune}%`)
+      countQuery = countQuery.ilike('commune', `%${commune}%`)
+      dataQuery = dataQuery.ilike('commune', `%${commune}%`)
     }
 
     if (search) {
-      query = query.or(
+      countQuery = countQuery.or(
+        `title.ilike.%${search}%,address.ilike.%${search}%,commune.ilike.%${search}%`
+      )
+      dataQuery = dataQuery.or(
         `title.ilike.%${search}%,address.ilike.%${search}%,commune.ilike.%${search}%`
       )
     }
 
     if (minPrice || maxPrice) {
-      if (minPrice) query = query.gte('price', parseFloat(minPrice))
-      if (maxPrice) query = query.lte('price', parseFloat(maxPrice))
+      if (minPrice) {
+        countQuery = countQuery.gte('price', parseFloat(minPrice))
+        dataQuery = dataQuery.gte('price', parseFloat(minPrice))
+      }
+      if (maxPrice) {
+        countQuery = countQuery.lte('price', parseFloat(maxPrice))
+        dataQuery = dataQuery.lte('price', parseFloat(maxPrice))
+      }
     }
 
     if (minBedrooms) {
-      query = query.gte('bedrooms', parseInt(minBedrooms))
+      countQuery = countQuery.gte('bedrooms', parseInt(minBedrooms))
+      dataQuery = dataQuery.gte('bedrooms', parseInt(minBedrooms))
     }
 
     if (furnished === 'true') {
-      query = query.eq('is_furnished', true)
+      countQuery = countQuery.eq('is_furnished', true)
+      dataQuery = dataQuery.eq('is_furnished', true)
     } else if (furnished === 'false') {
-      query = query.eq('is_furnished', false)
+      countQuery = countQuery.eq('is_furnished', false)
+      dataQuery = dataQuery.eq('is_furnished', false)
     }
 
+    // Get total count
+    const { count: total, error: countError } = await countQuery
+    if (countError) {
+      console.error('Properties count error:', countError)
+      return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    }
+
+    // Sort
     if (sort === 'price-asc') {
-      query = query.order('price', { ascending: true })
+      dataQuery = dataQuery.order('price', { ascending: true })
     } else if (sort === 'price-desc') {
-      query = query.order('price', { ascending: false })
+      dataQuery = dataQuery.order('price', { ascending: false })
     } else if (sort === 'popular') {
-      query = query.order('views_count', { ascending: false })
+      dataQuery = dataQuery.order('views_count', { ascending: false })
     } else {
-      query = query.order('created_at', { ascending: false })
+      dataQuery = dataQuery.order('created_at', { ascending: false })
     }
 
-    if (all !== 'true') {
-      query = query.limit(limit)
+    // Pagination
+    if (all === 'true') {
+      dataQuery = dataQuery.range(offset, offset + limit - 1)
+    } else {
+      dataQuery = dataQuery.limit(limit)
     }
 
-    const { data: properties, error } = await query
+    const { data: properties, error } = await dataQuery
 
     if (error) {
       console.error('Properties error:', error)
@@ -141,8 +174,18 @@ export async function GET(req: NextRequest) {
     }
 
     const enriched = await enrichProperties(admin, properties ?? [])
+    const totalPages = Math.ceil((total ?? 0) / limit)
 
-    return NextResponse.json({ properties: enriched })
+    return NextResponse.json({
+      properties: enriched,
+      pagination: {
+        page,
+        limit,
+        total: total ?? 0,
+        totalPages,
+        hasMore: page < totalPages,
+      },
+    })
   } catch (error) {
     console.error('Properties error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

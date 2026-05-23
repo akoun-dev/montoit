@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
 import {
   Eye, Check, X, Clock, MapPin, Calendar, User, Phone, Mail,
   Building2, Search, ChevronDown, MessageSquare, FileText,
@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -116,6 +117,8 @@ export function VisitRequests() {
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [propertyFilter, setPropertyFilter] = useState('ALL')
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const limit = 12
 
   // Detail modal
   const [detailVisit, setDetailVisit] = useState<VisitItem | null>(null)
@@ -210,6 +213,14 @@ export function VisitRequests() {
     }
     return true
   })
+
+  const paginatedVisits = useMemo(() => {
+    const start = (page - 1) * limit
+    return filteredVisits.slice(start, start + limit)
+  }, [filteredVisits, page, limit])
+
+  // Reset page on filter change
+  useEffect(() => { setPage(1) }, [statusFilter, propertyFilter, search])
 
   const stats = {
     total: visits.length,
@@ -483,7 +494,7 @@ export function VisitRequests() {
             animate={{ opacity: 1 }}
             className="space-y-3"
           >
-            {filteredVisits.map((visit) => {
+            {paginatedVisits.map((visit) => {
               const config = statusConfig[visit.status] || statusConfig.PENDING
               const StatusIcon = config.icon
               const matchingFile = findRentalFile(visit)
@@ -593,6 +604,13 @@ export function VisitRequests() {
               )
             })}
           </motion.div>
+          {filteredVisits.length > limit && (
+            <PaginationControls
+              page={page}
+              totalPages={Math.ceil(filteredVisits.length / limit)}
+              onPageChange={setPage}
+            />
+          )}
         </AnimatePresence>
       )}
 

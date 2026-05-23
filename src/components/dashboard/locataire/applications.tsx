@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { FileText, Building2, Clock, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { FileText, Building2, Clock, CheckCircle2, AlertCircle, ChevronRight, UserCheck } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeApplications } from '@/hooks/use-realtime-applications'
 import { motion } from 'framer-motion'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface TimelineStep {
@@ -89,6 +90,8 @@ export function Applications({ onDetail }: ApplicationsProps) {
   const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const [applications, setApplications] = useState<ApplicationItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const limit = 10
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<Record<string, number>>({})
 
@@ -108,6 +111,11 @@ export function Applications({ onDetail }: ApplicationsProps) {
   }, [isAuthenticated])
 
   useEffect(() => { fetchApplications() }, [fetchApplications])
+
+  const paginatedApplications = useMemo(() => {
+    const start = (page - 1) * limit
+    return applications.slice(start, start + limit)
+  }, [applications, page, limit])
 
   // Realtime subscription for applications
   useRealtimeApplications({
@@ -241,7 +249,7 @@ export function Applications({ onDetail }: ApplicationsProps) {
       ) : (
         /* Applications List */
         <motion.div variants={containerVariants} className="space-y-3">
-          {applications.map((app) => {
+          {paginatedApplications.map((app) => {
             const config = statusConfig[app.status] || statusConfig.DRAFT
             const StatusIcon = config.icon
             const property = app.linkedProperty
@@ -367,6 +375,15 @@ export function Applications({ onDetail }: ApplicationsProps) {
             )
           })}
         </motion.div>
+      )}
+
+      {/* Pagination */}
+      {applications.length > limit && (
+        <PaginationControls
+          page={page}
+          totalPages={Math.ceil(applications.length / limit)}
+          onPageChange={setPage}
+        />
       )}
     </motion.div>
   )

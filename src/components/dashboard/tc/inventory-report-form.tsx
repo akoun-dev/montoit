@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Save, CheckCircle2, FileText, Building2, Key } from 'lucide-react'
+import { ArrowLeft, Save, CheckCircle2, FileText, Building2, Key, Clock, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,8 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useBackHandler } from '@/hooks/use-back-handler'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -147,14 +149,29 @@ export function InventoryReportForm() {
   const [leaseId, setLeaseId] = useState('')
   const [saving, setSaving] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
+  const [showPublishDialog, setShowPublishDialog] = useState(false)
+  const [publishLoading, setPublishLoading] = useState(false)
 
   const effectivePropertyId = selectedPropertyId || selectedItemId
 
-  const goBack = () => {
-    setSelectedItemId('')
-    setSelectedPropertyId('')
-    setDashboardSection('inventory-reports')
+  const navigateBack = () => {
+    if (selectedPropertyId && !selectedItemId) {
+      // Venue de property-verify-detail → retour à la liste des biens à vérifier
+      setSelectedItemId('')
+      setSelectedPropertyId('')
+      setDashboardSection('property-verifications')
+    } else {
+      // Sinon → retour à la liste des rapports (comportement par défaut)
+      setSelectedItemId('')
+      setSelectedPropertyId('')
+      setDashboardSection('inventory-reports')
+    }
   }
+
+  const goBack = () => navigateBack()
+
+  // Register hardware back button handler (Android Capacitor)
+  useBackHandler('inventory-report-form', goBack)
 
   // Load existing report data into the grid
   const loadReportIntoGrid = useCallback((report: ExistingReport) => {
@@ -411,12 +428,37 @@ export function InventoryReportForm() {
         })
       }
       toast.success('État des lieux validé avec succès !')
-      goBack()
+      setSaving(false)
+      setShowPublishDialog(true)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de la validation')
-    } finally {
       setSaving(false)
     }
+  }
+
+  const handlePublishNow = async () => {
+    if (!effectivePropertyId) {
+      toast.error('Aucun bien associé à cet état des lieux')
+      return
+    }
+    setPublishLoading(true)
+    try {
+      await authFetch('/api/tc/verifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyId: effectivePropertyId, action: 'APPROVE' }),
+      })
+      toast.success('Bien publié avec succès !')
+      goBack()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la publication')
+    } finally {
+      setPublishLoading(false)
+    }
+  }
+
+  const handlePublishLater = () => {
+    goBack()
   }
 
   if (initialLoading) {
@@ -820,6 +862,72 @@ export function InventoryReportForm() {
           <CheckCircle2 className="size-4" /> Valider l&apos;état des lieux
         </Button>
       </div>
+
+      {/* Publish confirmation dialog */}
+      <Dialog open={showPublishDialog} onOpenChange={(open) => {
+        if (!open && !publishLoading) goBack()
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-green-50 sm:mx-0">
+              <CheckCircle2 className="size-7 text-green-600" />
+            </div>
+            <DialogTitle className="text-center sm:text-left">
+              État des lieux validé ✓
+            </DialogTitle>
+            <DialogDescription className="text-center sm:text-left">
+              L&apos;état des lieux a été validé avec succès.
+              {propertyInfo ? (
+                <> Souhaitez-vous <strong>publier</strong> le bien <strong>{propertyInfo.title}</strong> dès maintenant ?</>
+              ) : (
+                <> Souhaitez-vous publier le bien dès maintenant ?</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-4">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-green-50 border border-green-200">
+              <Building2 className="size-5 text-green-600 shrink-0 mt-0.5" />
+              <div className="text-sm text-green-800">
+                <p className="font-medium">Publier le bien maintenant</p>
+                <p className="text-green-700 mt-0.5">
+                  Le bien sera visible sur la plateforme et les locataires pourront le consulter et postuler.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted border border-border">
+              <Clock className="size-5 text-muted-foreground shrink-0 mt-0.5" />
+              <div className="text-sm text-muted-foreground">
+                <p className="font-medium text-foreground">Publier plus tard</p>
+                <p className="mt-0.5">
+                  Vous pourrez publier ce bien depuis la liste des biens à vérifier.
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={handlePublishLater}
+              disabled={publishLoading}
+              className="gap-2 order-2 sm:order-1"
+            >
+              <Clock className="size-4" /> Plus tard
+            </Button>
+            <Button
+              onClick={handlePublishNow}
+              disabled={publishLoading}
+              className="bg-green-600 hover:bg-green-700 text-white gap-2 order-1 sm:order-2"
+            >
+              {publishLoading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="size-4" />
+              )}
+              {publishLoading ? 'Publication...' : 'Publier le bien'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

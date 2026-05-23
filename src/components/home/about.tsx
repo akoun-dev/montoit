@@ -148,7 +148,7 @@ const values = [
 interface StatsData {
   totalProperties: number
   totalUsers: number
-  satisfactionRate: number
+  satisfactionRate: number | null
 }
 
 const trustPoints = [
@@ -274,10 +274,10 @@ function MissionVisionSection() {
 
 function StatsSection({ stats }: { stats: StatsData | null }) {
   const items = [
-    { value: stats?.totalProperties ?? 0, suffix: '+', label: 'Biens disponibles', icon: Building2 },
-    { value: stats?.totalUsers ?? 0, suffix: '+', label: 'Utilisateurs inscrits', icon: Users },
-    { value: stats?.satisfactionRate ?? 0, suffix: '%', label: 'Taux de satisfaction', icon: Award },
-    { value: 48, suffix: 'h', label: 'Délai max de validation', icon: Clock },
+    { value: stats?.totalProperties ?? 0, suffix: '+', label: 'Biens disponibles', icon: Building2, showAnimated: true },
+    { value: stats?.totalUsers ?? 0, suffix: '+', label: 'Utilisateurs inscrits', icon: Users, showAnimated: true },
+    { value: stats?.satisfactionRate, suffix: '%', label: 'Taux de satisfaction', icon: Award, showAnimated: false },
+    { value: 48, suffix: 'h', label: 'Délai max de validation', icon: Clock, showAnimated: true },
   ]
 
   return (
@@ -321,7 +321,13 @@ function StatsSection({ stats }: { stats: StatsData | null }) {
 
                 {/* Animated value */}
                 <p className="relative text-3xl sm:text-4xl font-bold text-brand-500 mb-1 tabular-nums">
-                  <AnimatedCounter end={item.value} suffix={item.suffix} />
+                  {item.showAnimated ? (
+                    <AnimatedCounter end={item.value as number} suffix={item.suffix} />
+                  ) : (
+                    <span>
+                      {item.value != null ? `${item.value}${item.suffix}` : '—'}
+                    </span>
+                  )}
                 </p>
 
                 {/* Label */}

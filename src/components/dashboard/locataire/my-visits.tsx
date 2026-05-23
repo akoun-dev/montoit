@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
 import { Eye, Calendar, Clock, MapPin, ChevronRight, Search, Building2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +10,7 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 
 interface VisitData {
   visitRequests: Array<{
@@ -125,6 +126,9 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
     { key: 'REJECTED', label: 'Refusées', count: stats.REJECTED },
   ]
 
+  const [page, setPage] = useState(1)
+  const limit = 10
+
   const filtered = visits.filter((vr) => {
     if (statusFilter !== 'ALL' && vr.status !== statusFilter) return false
     if (search) {
@@ -134,6 +138,15 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
     }
     return true
   })
+
+  const paginatedVisits = useMemo(() => {
+    const start = (page - 1) * limit
+    return filtered.slice(start, start + limit)
+  }, [filtered, page, limit])
+
+  useEffect(() => {
+    setPage(1)
+  }, [statusFilter, search])
 
   if (loading) {
     return <div className="space-y-6">
@@ -259,7 +272,7 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filtered.map((vr) => (
+          {paginatedVisits.map((vr) => (
             <Card
               key={vr.id}
               className="border-border hover:shadow-md transition-all cursor-pointer"
@@ -315,6 +328,14 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
           ))}
         </div>
       )}
+
+      <PaginationControls
+        page={page}
+        totalPages={Math.ceil(filtered.length / limit)}
+        total={filtered.length}
+        limit={limit}
+        onPageChange={setPage}
+      />
     </motion.div>
   )
 }

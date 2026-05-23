@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Settings, Building2, CreditCard, Bell, Users, FileText, Save, Lock } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Settings, Building2, CreditCard, Bell, Users, FileText, Save, Lock, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/lib/auth-store'
+import { authFetch } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { AgenceSecurity } from './security'
@@ -18,17 +19,25 @@ const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transiti
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
 export function AgenceSettings() {
-  const { user } = useAuthStore()
+  const { user, updateUser } = useAuthStore()
   const [activeTab, setActiveTab] = useState<'profil' | 'commissions' | 'notifications' | 'equipe' | 'security'>('profil')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [notifLoading, setNotifLoading] = useState(false)
+
   const [form, setForm] = useState({
     companyName: user?.companyName || '',
     address: user?.address || '',
     city: user?.city || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    defaultCommissionRate: '8.5',
-    defaultCommissionType: 'PERCENTAGE',
   })
+
+  const [commission, setCommission] = useState({
+    rate: '8.5',
+    type: 'PERCENTAGE',
+  })
+
   const [notifications, setNotifications] = useState({
     messages: true,
     dossierUpdates: true,
@@ -36,10 +45,138 @@ export function AgenceSettings() {
     paymentAlerts: true,
     promotions: false,
   })
+  const [notifSaving, setNotifSaving] = useState<Record<string, boolean>>({})
 
-  const handleSave = () => {
-    toast.success('Paramètres sauvegardés avec succès')
+  // Fetch profile from API
+  const fetchProfile = useCallback(async () => {
+    if (!user) return
+    try {
+      const result = await authFetch<{ user: any }>('/api/profile')
+      const p = result.user
+      setForm({
+        companyName: p.companyName || user?.companyName || '',
+        address: p.address || user?.address || '',
+        city: p.city || user?.city || '',
+        email: p.email || user?.email || '',
+        phone: p.phone || user?.phone || '',
+      })
+    } catch {}
+    setLoading(false)
+  }, [user])
+
+  useEffect(() => { fetchProfile() }, [fetchProfile])
+
+  // Fetch commission settings from API
+  const fetchCommissionSettings = useCallback(async () => {
+    try {
+      const data = await authFetch<{ settings: any }>('/api/agence/settings')
+      if (data.settings) {
+        setCommission({
+          rate: data.settings.commissionRate || '8.5',
+          type: data.settings.commissionType || 'PERCENTAGE',
+        })
+      }
+    } catch {}
+  }, [])
+
+  // Fetch notification preferences when tab changes
+  useEffect(() => {
+    if (activeTab === 'notifications' && user) {
+      setNotifLoading(true)
+      authFetch<{ preferences: any }>('/api/settings/notifications')
+        .then((data) => {
+          if (data.preferences) {
+            setNotifications({
+              messages: data.preferences.messages ?? true,
+              dossierUpdates: data.preferences.dossierUpdates ?? true,
+              visitReminders: data.preferences.visitReminders ?? true,
+              paymentAlerts: data.preferences.paymentAlerts ?? true,
+              promotions: data.preferences.promotions ?? false,
+            })
+          }
+        })
+        .catch(() => {})
+        .finally(() => setNotifLoading(false))
+    }
+  }, [activeTab, user])
+
+  // Save profile
+  const handleSaveProfile = async () => {
+    setSaving(true)
+    try {
+      const result = await authFetch<{ user: any }>('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+          phone: form.phone,
+          companyName: form.companyName,
+          address: form.address,
+          city: form.city,
+        }),
+      })
+      if (result.user) {
+        updateUser({
+          firstName: result.user.firstName,
+          lastName: result.user.lastName,
+          avatarUrl: result.user.avatarUrl,
+        })
+      }
+      toast.success('Profil mis à jour avec succès')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde')
+    } finally {
+      setSaving(false)
+    }
   }
+
+  // Load commission settings when tab changes
+  useEffect(() => {
+    if (activeTab === 'commissions') {
+      fetchCommissionSettings()
+    }
+  }, [activeTab, fetchCommissionSettings])
+
+  // Save commission settings
+  const handleSaveCommission = async () => {
+    setSaving(true)
+    try {
+      await authFetch('/api/agence/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          commissionRate: commission.rate,
+          commissionType: commission.type,
+        }),
+      })
+      toast.success('Taux de commission sauvegardé')
+    } catch {
+      toast.error('Erreur lors de la sauvegarde')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Toggle notification
+  const handleToggleNotif = useCallback(async (key: string, value: boolean) => {
+    setNotifSaving((prev) => ({ ...prev, [key]: true }))
+    try {
+      await authFetch('/api/settings/notifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value }),
+      })
+      setNotifications((prev) => ({ ...prev, [key]: value }))
+      toast.success('Préférence mise à jour')
+    } catch {
+      toast.error('Erreur lors de la mise à jour')
+      // Revert on error
+      setNotifications((prev) => ({ ...prev, [key]: !value }))
+    } finally {
+      setNotifSaving((prev) => ({ ...prev, [key]: false }))
+    }
+  }, [])
 
   const tabs = [
     { id: 'profil' as const, label: 'Profil', icon: Building2 },
@@ -109,7 +246,7 @@ export function AgenceSettings() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-foreground">Email</label>
-                    <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-9 text-sm" />
+                    <Input value={form.email} disabled className="h-9 text-sm bg-muted text-muted-foreground" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-foreground">Téléphone</label>
@@ -126,8 +263,8 @@ export function AgenceSettings() {
                 </div>
 
                 <div className="flex justify-end pt-2">
-                  <Button onClick={handleSave} className="bg-brand-500 hover:bg-brand-600 text-white">
-                    <Save className="size-4 mr-2" /> Sauvegarder
+                  <Button onClick={handleSaveProfile} disabled={saving} className="bg-brand-500 hover:bg-brand-600 text-white">
+                    {saving ? <><Loader2 className="size-4 mr-2 animate-spin" /> Sauvegarde...</> : <><Save className="size-4 mr-2" /> Sauvegarder</>}
                   </Button>
                 </div>
               </CardContent>
@@ -183,13 +320,13 @@ export function AgenceSettings() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-foreground">Taux de commission</label>
-                    <Input type="number" step="0.5" value={form.defaultCommissionRate}
-                      onChange={(e) => setForm({ ...form, defaultCommissionRate: e.target.value })}
+                    <Input type="number" step="0.5" value={commission.rate}
+                      onChange={(e) => setCommission({ ...commission, rate: e.target.value })}
                       className="h-9 text-sm" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-foreground">Type</label>
-                    <Select value={form.defaultCommissionType} onValueChange={(v) => setForm({ ...form, defaultCommissionType: v })}>
+                    <Select value={commission.type} onValueChange={(v) => setCommission({ ...commission, type: v })}>
                       <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="PERCENTAGE">Pourcentage</SelectItem>
@@ -200,8 +337,8 @@ export function AgenceSettings() {
                 </div>
 
                 <div className="flex justify-end pt-2">
-                  <Button onClick={handleSave} className="bg-brand-500 hover:bg-brand-600 text-white">
-                    <Save className="size-4 mr-2" /> Enregistrer
+                  <Button onClick={handleSaveCommission} disabled={saving} className="bg-brand-500 hover:bg-brand-600 text-white">
+                    {saving ? <><Loader2 className="size-4 mr-2 animate-spin" /> Sauvegarde...</> : <><Save className="size-4 mr-2" /> Enregistrer</>}
                   </Button>
                 </div>
               </CardContent>
@@ -227,23 +364,31 @@ export function AgenceSettings() {
                 <CardDescription>Configurez les notifications envoyées à vos clients</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {Object.entries(notifications).map(([key, enabled]) => (
-                  <div key={key} className="flex items-center justify-between p-3 rounded-xl border border-border hover:bg-accent/30 transition-colors">
-                    <span className="text-sm font-medium text-foreground">
-                      {key === 'messages' ? 'Nouveaux messages' : key === 'dossierUpdates' ? 'Mises à jour de dossier' : key === 'visitReminders' ? 'Rappels de visite' : key === 'paymentAlerts' ? 'Alertes de paiement' : 'Promotions'}
-                    </span>
-                    <Switch
-                      checked={enabled}
-                      onCheckedChange={(v) => setNotifications({ ...notifications, [key]: v })}
-                    />
+                {notifLoading ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="h-14 bg-muted rounded-lg animate-pulse" />
+                    ))}
                   </div>
-                ))}
-
-                <div className="flex justify-end pt-2">
-                  <Button onClick={handleSave} className="bg-brand-500 hover:bg-brand-600 text-white">
-                    <Save className="size-4 mr-2" /> Enregistrer
-                  </Button>
-                </div>
+                ) : (
+                  <div className="space-y-1">
+                    {Object.entries(notifications).map(([key, enabled]) => (
+                      <div key={key} className="flex items-center justify-between p-3 rounded-xl border border-border hover:bg-accent/30 transition-colors">
+                        <span className="text-sm font-medium text-foreground">
+                          {key === 'messages' ? 'Nouveaux messages' : key === 'dossierUpdates' ? 'Mises à jour de dossier' : key === 'visitReminders' ? 'Rappels de visite' : key === 'paymentAlerts' ? 'Alertes de paiement' : 'Promotions'}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {notifSaving[key] && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+                          <Switch
+                            checked={enabled}
+                            onCheckedChange={(v) => handleToggleNotif(key, v)}
+                            disabled={notifSaving[key]}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>

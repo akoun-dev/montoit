@@ -33,7 +33,7 @@ interface Stats {
   totalProperties: number
   monthlyVisitors: number
   newToday: number
-  satisfactionRate: number
+  satisfactionRate: number | null
 }
 
 const fadeUp = {
@@ -88,7 +88,7 @@ export function Hero() {
         { value: formatNumber(stats.totalProperties), label: 'Biens disponibles' },
         { value: formatNumber(stats.monthlyVisitors), label: 'Visiteurs mensuels' },
         { value: formatNumber(stats.newToday), label: "Nouveaux aujourd'hui" },
-        { value: `${stats.satisfactionRate}%`, label: 'Taux de satisfaction' },
+        { value: stats.satisfactionRate !== null ? `${stats.satisfactionRate}%` : '—', label: 'Taux de satisfaction' },
       ]
     : [
         { value: '—', label: 'Biens disponibles' },

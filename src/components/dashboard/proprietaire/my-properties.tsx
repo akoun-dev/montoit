@@ -21,6 +21,7 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
 import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { toast } from 'sonner'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { AddProperty } from './add-property'
 
 interface PropertyItem {
@@ -61,6 +62,8 @@ export function MyProperties() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [page, setPage] = useState(1)
+  const limit = 15
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -107,6 +110,14 @@ export function MyProperties() {
     }
     return list
   }, [properties, search, statusFilter, typeFilter])
+
+  const paginatedProperties = useMemo(() => {
+    const start = (page - 1) * limit
+    return filtered.slice(start, start + limit)
+  }, [filtered, page, limit])
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1) }, [search, statusFilter, typeFilter])
 
   const stats = useMemo(() => ({
     total: properties.length,
@@ -412,7 +423,14 @@ export function MyProperties() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {filtered.map(renderPropertyRow)}
+          {paginatedProperties.map(renderPropertyRow)}
+          {filtered.length > limit && (
+            <PaginationControls
+              page={page}
+              totalPages={Math.ceil(filtered.length / limit)}
+              onPageChange={setPage}
+            />
+          )}
         </div>
       )}
     </motion.div>

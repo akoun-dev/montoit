@@ -2,6 +2,8 @@
 
 import { useAuthStore } from '@/lib/auth-store'
 import { DashboardLayout } from './dashboard-layout'
+import { useBackHandler } from '@/hooks/use-back-handler'
+import { type ReactNode } from 'react'
 import { LocataireOverview } from './locataire/overview'
 import { RentalFileForm } from './locataire/rental-file'
 import { MyVisits } from './locataire/my-visits'
@@ -89,6 +91,11 @@ import { ClientFiles } from './agence/client-files'
 import { AgenceSettings } from './agence/settings'
 import { AgenceSecurity } from './agence/security'
 
+function BackableSection({ sectionKey, onBack, children }: { sectionKey: string; onBack: () => void; children: ReactNode }) {
+  useBackHandler(sectionKey, onBack)
+  return <>{children}</>
+}
+
 function LocataireDashboard({ section }: { section: string }) {
   const { selectedItemId, setDashboardSection, setSelectedItemId } = useAuthStore()
 
@@ -124,19 +131,21 @@ function LocataireDashboard({ section }: { section: string }) {
 
   const goToRentalFile = () => setDashboardSection('rental-file')
 
+  const goBackFromRentalFile = () => goBackToList('applications')
+
   switch (section) {
     case 'overview': return <LocataireOverview />
     case 'search-properties': return <SearchProperties />
     case 'favorites': return <Favorites />
     case 'applications': return <Applications onDetail={goToApplicationDetail} />
-    case 'application-detail': return <ApplicationDetail applicationId={selectedItemId} onBack={goBackToApplications} onEditRentalFile={goToRentalFile} />
-    case 'rental-file': return <RentalFileForm />
+    case 'application-detail': return <BackableSection sectionKey="application-detail" onBack={goBackToApplications}><ApplicationDetail applicationId={selectedItemId} onBack={goBackToApplications} onEditRentalFile={goToRentalFile} /></BackableSection>
+    case 'rental-file': return <BackableSection sectionKey="rental-file" onBack={goBackFromRentalFile}><RentalFileForm /></BackableSection>
     case 'my-visits': return <MyVisits onDetail={goToVisitDetail} />
-    case 'visit-detail': return <VisitDetail visitId={selectedItemId} onBack={goBackToVisits} />
+    case 'visit-detail': return <BackableSection sectionKey="visit-detail" onBack={goBackToVisits}><VisitDetail visitId={selectedItemId} onBack={goBackToVisits} /></BackableSection>
     case 'my-leases': return <MyLeases onDetail={goToLeaseDetail} />
-    case 'lease-detail': return <LeaseDetail leaseId={selectedItemId} onBack={goBackToLeases} />
+    case 'lease-detail': return <BackableSection sectionKey="lease-detail" onBack={goBackToLeases}><LeaseDetail leaseId={selectedItemId} onBack={goBackToLeases} /></BackableSection>
     case 'payments': return <Payments onDetail={goToPaymentDetail} />
-    case 'payment-detail': return <PaymentDetail paymentId={selectedItemId} onBack={goBackToPayments} />
+    case 'payment-detail': return <BackableSection sectionKey="payment-detail" onBack={goBackToPayments}><PaymentDetail paymentId={selectedItemId} onBack={goBackToPayments} /></BackableSection>
     case 'messages': return <Messages />
     case 'notifications': return <Notifications />
     case 'reviews': return <Reviews />
@@ -166,12 +175,13 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'overview': return <ProprietaireOverview />
     case 'my-properties': return <MyProperties />
     case 'my-tenants': return <TenantsList onDetail={goToTenantDetail} />
-    case 'tenant-detail': return <TenantDetail tenantId={selectedItemId} onBack={goBackToTenants} />
+    case 'tenant-detail': return <BackableSection sectionKey="tenant-detail" onBack={goBackToTenants}><TenantDetail tenantId={selectedItemId} onBack={goBackToTenants} /></BackableSection>
     case 'visit-requests': return <VisitRequests />
     case 'candidatures': return <EnhancedRentalFiles />
     case 'disputes': return <MyDisputes />
     case 'my-leases': return <EnhancedLeases />
     case 'mandats': return <ProprietaireMandats />
+    case 'owner-file': return <BackableSection sectionKey="owner-file" onBack={() => { setSelectedItemId(''); setDashboardSection('candidatures') }}><OwnerFileForm /></BackableSection>
     case 'payments': return <OwnerFinances />
     case 'payment-detail': return <OwnerFinances />
     case 'finances': return <OwnerFinances />
@@ -179,7 +189,6 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'messages': return <ProprietaireMessages />
     case 'notifications': return <Notifications />
     case 'trust-score': return <TrustScore />
-    case 'owner-file': return <OwnerFileForm />
     case 'reviews': return <OwnerReviews />
     case 'maintenance': return <OwnerMaintenance />
     case 'history': return <ActivityHistory />

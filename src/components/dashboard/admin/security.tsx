@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Shield, AlertTriangle, Clock, Ban, Lock, FileText, Settings } from 'lucide-react'
+import { Shield, AlertTriangle, Clock, Ban, Lock, FileText, Settings, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -37,13 +37,31 @@ export function AdminSecurity() {
   const [maxAttempts, setMaxAttempts] = useState('5')
   const [ipWhitelist, setIpWhitelist] = useState('')
   const [ipBlacklist, setIpBlacklist] = useState('')
+  const [whitelistIps, setWhitelistIps] = useState<string[]>([])
+  const [blacklistIps, setBlacklistIps] = useState<string[]>([])
+  const [savingRules, setSavingRules] = useState(false)
+  const [savingIp, setSavingIp] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) { setLoading(false); return }
     try {
-      const d = await authFetch<SecurityData>('/api/admin/audit-logs?limit=50')
-      setFailedLogins(d.failedLogins || [])
-      setAdminActions(d.adminActions || [])
+      const [auditData, settingsData] = await Promise.all([
+        authFetch<SecurityData>('/api/admin/audit-logs?limit=50'),
+        authFetch<any>('/api/admin/settings'),
+      ])
+      setFailedLogins(auditData.failedLogins || [])
+      setAdminActions(auditData.adminActions || [])
+
+      // Load IP rules from platform settings
+      if (settingsData.ipRules) {
+        setWhitelistIps(settingsData.ipRules.whitelist || [])
+        setBlacklistIps(settingsData.ipRules.blacklist || [])
+      }
+      // Load security settings
+      if (settingsData.security) {
+        setSessionDuration(String(settingsData.security.sessionDurationDays || 30))
+        setMaxAttempts(String(settingsData.security.maxLoginAttempts || 5))
+      }
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) return
       console.error('Failed to fetch security data:', err)
@@ -73,10 +91,22 @@ export function AdminSecurity() {
 
       <Tabs defaultValue="failed-logins" className="w-full">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-muted">
-          <TabsTrigger value="failed-logins">Connexions échouées</TabsTrigger>
-          <TabsTrigger value="admin-actions">Actions admin</TabsTrigger>
-          <TabsTrigger value="rules">Règles</TabsTrigger>
-          <TabsTrigger value="ip">IP</TabsTrigger>
+          <TabsTrigger value="failed-logins" className="text-xs sm:text-sm px-1 sm:px-3">
+            <AlertTriangle className="size-3.5 sm:hidden mr-1" />
+            <span className="sm:inline">Connexions échouées</span>
+          </TabsTrigger>
+          <TabsTrigger value="admin-actions" className="text-xs sm:text-sm px-1 sm:px-3">
+            <Shield className="size-3.5 sm:hidden mr-1" />
+            <span className="sm:inline">Actions admin</span>
+          </TabsTrigger>
+          <TabsTrigger value="rules" className="text-xs sm:text-sm px-1 sm:px-3">
+            <Lock className="size-3.5 sm:hidden mr-1" />
+            <span>Règles</span>
+          </TabsTrigger>
+          <TabsTrigger value="ip" className="text-xs sm:text-sm px-1 sm:px-3">
+            <Ban className="size-3.5 sm:hidden mr-1" />
+            <span>IP</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="failed-logins" className="mt-4 space-y-4">
@@ -165,17 +195,39 @@ export function AdminSecurity() {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Durée de session (jours)</Label>
-                  <Input type="number" value={sessionDuration} onChange={(e) => setSessionDuration(e.target.value)} className="w-32" />
+                  <Input type="number" value={sessionDuration} onChange={(e) => setSessionDuration(e.target.value.replace(/\D/g, '').slice(0, 3))} className="w-32" />
                   <p className="text-xs text-muted-foreground">Durée avant expiration de la session</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Tentatives max avant blocage</Label>
-                  <Input type="number" value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} className="w-32" />
+                  <Input type="number" value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value.replace(/\D/g, '').slice(0, 2))} className="w-32" />
                   <p className="text-xs text-muted-foreground">Nombre max de tentatives de connexion</p>
                 </div>
               </div>
-              <Button className="bg-[#FF6C2F] hover:bg-[#e55f28] text-white gap-2" onClick={() => toast.success('Règles mises à jour')}>
-                <Settings className="size-4" /> Sauvegarder
+              <Button
+                className="bg-brand-500 hover:bg-brand-600 text-white gap-2"
+                onClick={async () => {
+                  setSavingRules(true)
+                  try {
+                    await authFetch('/api/admin/settings', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        section: 'security',
+                        values: { sessionDurationDays: parseInt(sessionDuration) || 30, maxLoginAttempts: parseInt(maxAttempts) || 5 },
+                      }),
+                    })
+                    toast.success('Règles de sécurité mises à jour')
+                  } catch {
+                    toast.error('Erreur lors de la sauvegarde')
+                  } finally {
+                    setSavingRules(false)
+                  }
+                }}
+                disabled={savingRules}
+              >
+                {savingRules ? <Loader2 className="size-4 animate-spin" /> : <Settings className="size-4" />}
+                {savingRules ? 'Sauvegarde...' : 'Sauvegarder'}
               </Button>
             </CardContent>
           </Card>
@@ -184,38 +236,144 @@ export function AdminSecurity() {
         <TabsContent value="ip" className="mt-4 space-y-4">
           <Card className="border-border">
             <CardHeader>
-              <CardTitle className="text-base font-semibold">Liste blanche IP</CardTitle>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Shield className="size-5 text-green-600" />
+                Liste blanche IP
+              </CardTitle>
               <CardDescription>Adresses IP autorisées pour l&apos;administration</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex gap-2">
                 <Input placeholder="Adresse IP (ex: 192.168.1.1)" value={ipWhitelist} onChange={(e) => setIpWhitelist(e.target.value)} className="max-w-xs" />
-                <Button variant="outline" onClick={() => { toast.success('IP ajoutée à la liste blanche'); setIpWhitelist('') }}>Ajouter</Button>
+                <Button
+                  variant="outline"
+                  className="text-green-700 border-green-200 hover:bg-green-50 shrink-0"
+                  disabled={!ipWhitelist.trim() || savingIp}
+                  onClick={async () => {
+                    if (!ipWhitelist.trim()) return
+                    setSavingIp(true)
+                    const newList = [...whitelistIps, ipWhitelist.trim()]
+                    try {
+                      await authFetch('/api/admin/settings', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ section: 'ipRules', values: { whitelist: newList, blacklist: blacklistIps } }),
+                      })
+                      setWhitelistIps(newList)
+                      setIpWhitelist('')
+                      toast.success('IP ajoutée à la liste blanche')
+                    } catch {
+                      toast.error('Erreur lors de l\'ajout')
+                    } finally {
+                      setSavingIp(false)
+                    }
+                  }}
+                >
+                  {savingIp ? <Loader2 className="size-4 animate-spin" /> : 'Ajouter'}
+                </Button>
               </div>
               <div className="space-y-2">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded border border-border">
-                  <span className="text-sm text-foreground">192.168.1.0/24</span>
-                  <Badge className="bg-green-100 text-green-700">Actif</Badge>
-                </div>
+                {whitelistIps.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-3">Aucune IP autorisée</p>
+                ) : (
+                  whitelistIps.map((ip) => (
+                    <div key={ip} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-green-200 bg-green-50/30">
+                      <span className="text-sm font-mono text-foreground">{ip}</span>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-green-100 text-green-700">Autorisé</Badge>
+                        <button
+                          onClick={async () => {
+                            const newList = whitelistIps.filter((i) => i !== ip)
+                            try {
+                              await authFetch('/api/admin/settings', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ section: 'ipRules', values: { whitelist: newList, blacklist: blacklistIps } }),
+                              })
+                              setWhitelistIps(newList)
+                              toast.success('IP retirée de la liste blanche')
+                            } catch { toast.error('Erreur') }
+                          }}
+                          className="text-xs text-red-500 hover:text-red-700 font-medium"
+                        >
+                          Retirer
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-border">
             <CardHeader>
-              <CardTitle className="text-base font-semibold text-red-700">Liste noire IP</CardTitle>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Ban className="size-5 text-red-600" />
+                Liste noire IP
+              </CardTitle>
               <CardDescription>Adresses IP bloquées</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex gap-2">
                 <Input placeholder="Adresse IP à bloquer" value={ipBlacklist} onChange={(e) => setIpBlacklist(e.target.value)} className="max-w-xs" />
-                <Button variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => { toast.success('IP bloquée'); setIpBlacklist('') }}>Bloquer</Button>
+                <Button
+                  variant="outline"
+                  className="text-red-600 border-red-200 hover:bg-red-50 shrink-0"
+                  disabled={!ipBlacklist.trim() || savingIp}
+                  onClick={async () => {
+                    if (!ipBlacklist.trim()) return
+                    setSavingIp(true)
+                    const newList = [...blacklistIps, ipBlacklist.trim()]
+                    try {
+                      await authFetch('/api/admin/settings', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ section: 'ipRules', values: { whitelist: whitelistIps, blacklist: newList } }),
+                      })
+                      setBlacklistIps(newList)
+                      setIpBlacklist('')
+                      toast.success('IP bloquée avec succès')
+                    } catch {
+                      toast.error('Erreur lors du blocage')
+                    } finally {
+                      setSavingIp(false)
+                    }
+                  }}
+                >
+                  {savingIp ? <Loader2 className="size-4 animate-spin" /> : 'Bloquer'}
+                </Button>
               </div>
               <div className="space-y-2">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded border border-red-100 bg-red-50/50">
-                  <span className="text-sm text-red-700">10.0.0.99</span>
-                  <Badge className="bg-red-100 text-red-700">Bloqué</Badge>
-                </div>
+                {blacklistIps.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-3">Aucune IP bloquée</p>
+                ) : (
+                  blacklistIps.map((ip) => (
+                    <div key={ip} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-red-200 bg-red-50/30">
+                      <span className="text-sm font-mono text-foreground">{ip}</span>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-red-100 text-red-700">Bloqué</Badge>
+                        <button
+                          onClick={async () => {
+                            const newList = blacklistIps.filter((i) => i !== ip)
+                            try {
+                              await authFetch('/api/admin/settings', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ section: 'ipRules', values: { whitelist: whitelistIps, blacklist: newList } }),
+                              })
+                              setBlacklistIps(newList)
+                              toast.success('IP retirée de la liste noire')
+                            } catch { toast.error('Erreur') }
+                          }}
+                          className="text-xs text-red-500 hover:text-red-700 font-medium"
+                        >
+                          Débloquer
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -234,14 +392,14 @@ export function AdminSecurity() {
           <div className="grid sm:grid-cols-3 gap-4">
             <div className="p-4 rounded-lg border border-border text-center">
               <p className="text-xl sm:text-2xl font-bold text-red-600">{failedLogins.length}</p>
-              <p className="text-xs text-muted-foreground">Tentatives échouées</p>
+              <p className="text-xs text-muted-foreground">Tentatives échouées (30j)</p>
             </div>
             <div className="p-4 rounded-lg border border-border text-center">
-              <p className="text-xl sm:text-2xl font-bold text-amber-600">0</p>
+              <p className="text-xl sm:text-2xl font-bold text-amber-600">—</p>
               <p className="text-xs text-muted-foreground">Comptes bloqués</p>
             </div>
             <div className="p-4 rounded-lg border border-border text-center">
-              <p className="text-xl sm:text-2xl font-bold text-green-600">1</p>
+              <p className="text-xl sm:text-2xl font-bold text-green-600">{blacklistIps.length}</p>
               <p className="text-xs text-muted-foreground">IPs bloquées</p>
             </div>
           </div>

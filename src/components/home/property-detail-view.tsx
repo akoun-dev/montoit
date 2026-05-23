@@ -653,13 +653,15 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
             <span className="sm:hidden">Retour</span>
           </button>
           <div className="flex items-center gap-2">
-            <button
-              onClick={toggleFavorite}
-              className="size-9 rounded-full bg-muted border border-border flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-all"
-              aria-label={checkIsFavorite(propertyId) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-            >
-              <Heart className={`size-4 ${checkIsFavorite(propertyId) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
-            </button>
+            {isAuthenticated && (
+              <button
+                onClick={toggleFavorite}
+                className="size-9 rounded-full bg-muted border border-border flex items-center justify-center hover:bg-red-50 hover:border-red-200 transition-all"
+                aria-label={checkIsFavorite(propertyId) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              >
+                <Heart className={`size-4 ${checkIsFavorite(propertyId) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
+              </button>
+            )}
             <button
               onClick={handleShare}
               className="size-9 rounded-full bg-muted border border-border flex items-center justify-center hover:bg-brand-50 hover:border-brand-200 transition-all"

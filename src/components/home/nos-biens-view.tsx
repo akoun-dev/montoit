@@ -30,6 +30,7 @@ import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/lib/auth-store'
 import { useFavorites } from '@/lib/use-favorites'
 import { apiFetch } from '@/lib/capacitor'
+import { PaginationControls } from '@/components/ui/pagination-controls';
 import { PropertyMapLeaflet } from '@/components/home/property-map'
 import {
   Select,
@@ -508,23 +509,24 @@ function PropertyCard({ property, onClick, isFavorite, toggleFavorite, distance 
           </div>
         )}
 
-        {/* Favorite button */}
-        <button
-          onClick={async (e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            if (!isAuthenticated) { setView('login'); return }
-            toggleFavorite(property.id)
-          }}
-          className="absolute top-3 right-3 size-8 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center hover:bg-card shadow-sm transition-all"
-          aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-        >
-          <Heart
-            className={`size-4 transition-colors ${
-              isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'
-            }`}
-          />
-        </button>
+        {/* Favorite button — visible uniquement pour les utilisateurs connectés */}
+        {isAuthenticated && (
+          <button
+            onClick={async (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              toggleFavorite(property.id)
+            }}
+            className="absolute top-3 right-3 size-8 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center hover:bg-card shadow-sm transition-all"
+            aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          >
+            <Heart
+              className={`size-4 transition-colors ${
+                isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'
+              }`}
+            />
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -617,13 +619,15 @@ function PropertyListItem({ property, onClick, isFavorite, toggleFavorite, dista
         <div>
           <div className="flex items-start justify-between gap-2 mb-1">
             <h3 className="font-semibold text-foreground text-sm line-clamp-1">{property.title}</h3>
-            <button
-              onClick={async (e) => { e.preventDefault(); e.stopPropagation(); if (!isAuthenticated) { setView('login'); return } toggleFavorite(property.id) }}
-              className="shrink-0 size-7 sm:size-8 rounded-full bg-muted flex items-center justify-center hover:bg-accent transition-colors"
-              aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-            >
-              <Heart className={`size-3.5 sm:size-4 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
-            </button>
+            {isAuthenticated && (
+              <button
+                onClick={async (e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(property.id) }}
+                className="shrink-0 size-7 sm:size-8 rounded-full bg-muted flex items-center justify-center hover:bg-accent transition-colors"
+                aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              >
+                <Heart className={`size-3.5 sm:size-4 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-1 text-muted-foreground text-xs mb-2">
             <MapPin className="size-3 shrink-0" />
@@ -752,13 +756,15 @@ function MapListItem({ property, onClick, isFavorite, toggleFavorite, distance }
             <p className="text-xs font-bold text-brand-500">
               {formatPrice(property.price)} <span className="text-[9px] font-normal text-muted-foreground">F CFA</span>
             </p>
-            <button
-              onClick={async (e) => { e.preventDefault(); e.stopPropagation(); if (!isAuthenticated) { setView('login'); return } toggleFavorite(property.id) }}
-              className="size-5 rounded-full flex items-center justify-center hover:bg-accent transition-colors"
-              aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-            >
-              <Heart className={`size-3 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
-            </button>
+            {isAuthenticated && (
+              <button
+                onClick={async (e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(property.id) }}
+                className="size-5 rounded-full flex items-center justify-center hover:bg-accent transition-colors"
+                aria-label={isFavorite(property.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+              >
+                <Heart className={`size-3 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -799,6 +805,9 @@ export function NosBiensView() {
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid')
   const [sortBy, setSortBy] = useState('recent')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  const [page, setPage] = useState(1)
+
+  const ITEMS_PER_PAGE = viewMode === 'grid' ? 12 : 15
 
   // Request user geolocation
   const requestGeolocation = () => {
@@ -960,6 +969,18 @@ export function NosBiensView() {
     roomsMin !== '0' ||
     meubleOnly ||
     radiusFilter !== '0'
+
+  // Paginate after filtering
+  const totalPages = Math.ceil(filteredProperties.length / ITEMS_PER_PAGE)
+  const paginatedProperties = useMemo(() => {
+    const start = (page - 1) * ITEMS_PER_PAGE
+    return filteredProperties.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredProperties, page, ITEMS_PER_PAGE])
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1)
+  }, [searchQuery, typeFilter, cityFilter, communeFilter, priceMin, priceMax, roomsMin, meubleOnly, sortBy, radiusFilter])
 
   const resetFilters = () => {
     setTypeFilter('Tous')
@@ -1333,7 +1354,7 @@ export function NosBiensView() {
 
             {/* Content */}
             <div className="flex-1 min-w-0">
-              {filteredProperties.length > 0 ? (
+              {paginatedProperties.length > 0 ? (
                 viewMode === 'grid' ? (
                   /* Grid view */
                   <motion.div
@@ -1342,7 +1363,7 @@ export function NosBiensView() {
                     transition={{ duration: 0.3 }}
                     className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
                   >
-                    {filteredProperties.map((property, i) => (
+                    {paginatedProperties.map((property, i) => (
                       <motion.div
                         key={property.id}
                         initial={{ opacity: 0, y: 20 }}
@@ -1367,7 +1388,7 @@ export function NosBiensView() {
                     transition={{ duration: 0.3 }}
                     className="space-y-4"
                   >
-                    {filteredProperties.map((property, i) => (
+                    {paginatedProperties.map((property, i) => (
                       <motion.div
                         key={property.id}
                         initial={{ opacity: 0, y: 15 }}
@@ -1410,6 +1431,17 @@ export function NosBiensView() {
                     Réinitialiser les filtres
                   </Button>
                 </motion.div>
+              )}
+              {/* Pagination */}
+              {filteredProperties.length > ITEMS_PER_PAGE && viewMode !== 'map' && (
+                <PaginationControls
+                  page={page}
+                  totalPages={totalPages}
+                  total={filteredProperties.length}
+                  limit={ITEMS_PER_PAGE}
+                  onPageChange={setPage}
+                  className="pt-6"
+                />
               )}
             </div>
           </div>

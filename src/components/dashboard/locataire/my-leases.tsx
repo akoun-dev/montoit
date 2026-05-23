@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
 import { FileSignature, Building2, User, ChevronRight, Clock, XCircle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -8,6 +8,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { motion } from 'framer-motion'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface LeaseItem {
@@ -61,6 +62,8 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
   const [allLeases, setAllLeases] = useState<LeaseItem[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabType>('active')
+  const [page, setPage] = useState(1)
+  const limit = 10
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -112,6 +115,14 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
     (l) => l.status === 'TERMINATED' || l.status === 'EXPIRED'
   )
   const displayedLeases = activeTab === 'active' ? activeLeases : previousLeases
+
+  const paginatedLeases = useMemo(() => {
+    const start = (page - 1) * limit
+    return displayedLeases.slice(start, start + limit)
+  }, [displayedLeases, page, limit])
+
+  // Reset page when tab changes
+  useEffect(() => { setPage(1) }, [activeTab])
 
   if (loading) {
     return <div className="space-y-4">{[1, 2].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
@@ -185,7 +196,7 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
         </Card>
       ) : (
         <div className="space-y-3">
-          {displayedLeases.map((lease) => {
+          {paginatedLeases.map((lease) => {
             const statusInfo = statusConfig[lease.status] || statusConfig.ACTIVE
             return (
               <Card
@@ -248,6 +259,15 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
             )
           })}
         </div>
+      )}
+
+      {/* Pagination */}
+      {displayedLeases.length > limit && (
+        <PaginationControls
+          page={page}
+          totalPages={Math.ceil(displayedLeases.length / limit)}
+          onPageChange={setPage}
+        />
       )}
     </motion.div>
   )

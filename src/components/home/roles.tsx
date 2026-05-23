@@ -151,57 +151,57 @@ function RoleModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-lg p-0 overflow-hidden rounded-2xl">
         {/* Header with gradient */}
-        <div className="relative bg-gradient-to-br from-brand-500 to-brand-600 px-6 pt-6 pb-8 text-white">
+        <div className="relative bg-gradient-to-br from-brand-500 to-brand-600 px-4 sm:px-6 pt-5 sm:pt-6 pb-6 sm:pb-8 text-white">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 size-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 size-7 sm:size-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-sm z-10"
             aria-label="Fermer"
           >
-            <X className="size-4 text-white" />
+            <X className="size-3.5 sm:size-4 text-white" />
           </button>
-          <div className="size-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-4">
-            <Icon className="size-7 text-white" />
+          <div className="size-10 sm:size-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-3 sm:mb-4">
+            <Icon className="size-5 sm:size-7 text-white" />
           </div>
           <DialogHeader className="p-0 space-y-0">
-            <DialogTitle className="text-xl font-bold text-white">
+            <DialogTitle className="text-lg sm:text-xl font-bold text-white leading-tight">
               {role.title}
             </DialogTitle>
-            <DialogDescription className="text-white/80 text-sm mt-2">
+            <DialogDescription className="text-white/80 text-xs sm:text-sm mt-1.5 sm:mt-2 leading-relaxed">
               {role.modalDescription}
             </DialogDescription>
           </DialogHeader>
         </div>
 
         {/* Benefits */}
-        <div className="px-6 py-5">
-          <p className="text-sm font-semibold text-foreground mb-3">
+        <div className="px-4 sm:px-6 py-4 sm:py-5">
+          <p className="text-xs sm:text-sm font-semibold text-foreground mb-2.5 sm:mb-3">
             Ce que vous pouvez faire
           </p>
-          <ul className="space-y-2.5">
+          <ul className="space-y-2 sm:space-y-2.5">
             {role.benefits.map((benefit, i) => (
-              <li key={i} className="flex items-start gap-2.5">
-                <CheckCircle2 className="size-4 text-brand-500 mt-0.5 shrink-0" />
-                <span className="text-sm text-muted-foreground leading-snug">{benefit}</span>
+              <li key={i} className="flex items-start gap-2 sm:gap-2.5">
+                <CheckCircle2 className="size-3.5 sm:size-4 text-brand-500 mt-0.5 shrink-0" />
+                <span className="text-xs sm:text-sm text-muted-foreground leading-snug">{benefit}</span>
               </li>
             ))}
           </ul>
         </div>
 
         {/* Actions */}
-        <div className="px-6 pb-6 flex flex-col gap-2.5">
+        <div className="px-4 sm:px-6 pb-4 sm:pb-6 flex flex-col gap-2 sm:gap-2.5">
           <Button
             onClick={handleRegister}
-            className="w-full h-11 bg-brand-500 hover:bg-brand-600 text-white font-semibold"
+            className="w-full h-10 sm:h-11 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm sm:text-base"
           >
             Créer un compte {role.title}
-            <ArrowRight className="size-4 ml-2" />
+            <ArrowRight className="size-3.5 sm:size-4 ml-2" />
           </Button>
           <Button
             variant="outline"
             onClick={handleLogin}
-            className="w-full h-10 text-muted-foreground border-border hover:text-foreground"
+            className="w-full h-9 sm:h-10 text-xs sm:text-sm text-muted-foreground border-border hover:text-foreground"
           >
             J&apos;ai déjà un compte — Se connecter
           </Button>

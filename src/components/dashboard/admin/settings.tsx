@@ -1,20 +1,117 @@
 'use client'
 
-import { useState } from 'react'
-import { Settings, Shield, Bell, Globe, Save } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Settings, Shield, Bell, Globe, Save, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { useAuthStore } from '@/lib/auth-store'
+import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 
 const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }
 const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }
 
+interface AdminSecuritySettings {
+  otpRequired: boolean
+  otpExpiryMinutes: number
+  sessionPersistent: boolean
+  sessionDurationDays: number
+  maxLoginAttempts: number
+}
+
+interface AdminNotificationSettings {
+  emailEnabled: boolean
+  smsEnabled: boolean
+  pushEnabled: boolean
+}
+
+interface AdminSlaSettings {
+  tcValidationHours: number
+  ownerResponseHours: number
+  signalementHours: number
+  autoValidationEnabled: boolean
+  autoValidationThreshold: number
+}
+
 export function AdminSettings() {
+  const { isAuthenticated } = useAuthStore()
   const [activeTab, setActiveTab] = useState<'securite' | 'notifications' | 'sla'>('securite')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  const [security, setSecurity] = useState<AdminSecuritySettings>({
+    otpRequired: true,
+    otpExpiryMinutes: 5,
+    sessionPersistent: true,
+    sessionDurationDays: 30,
+    maxLoginAttempts: 5,
+  })
+  const [notifications, setNotifications] = useState<AdminNotificationSettings>({
+    emailEnabled: true,
+    smsEnabled: false,
+    pushEnabled: true,
+  })
+  const [sla, setSla] = useState<AdminSlaSettings>({
+    tcValidationHours: 48,
+    ownerResponseHours: 24,
+    signalementHours: 72,
+    autoValidationEnabled: true,
+    autoValidationThreshold: 70,
+  })
+
+  const fetchSettings = useCallback(async () => {
+    if (!isAuthenticated) { setLoading(false); return }
+    try {
+      const data = await authFetch<{
+        security: AdminSecuritySettings
+        notifications: AdminNotificationSettings
+        sla: AdminSlaSettings
+      }>('/api/admin/settings')
+      if (data.security) setSecurity(data.security)
+      if (data.notifications) setNotifications(data.notifications)
+      if (data.sla) setSla(data.sla)
+    } catch (err) {
+      if (err instanceof AuthError && err.status === 401) return
+      console.error('Failed to fetch admin settings:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => { fetchSettings() }, [fetchSettings])
+
+  const handleSave = async (section: string, values: any) => {
+    setSaving(true)
+    try {
+      await authFetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section, values }),
+      })
+      toast.success('Paramètres sauvegardés')
+    } catch {
+      toast.error('Erreur lors de la sauvegarde')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-8 w-48 bg-muted rounded-lg animate-pulse" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-32 bg-muted rounded-xl animate-pulse" />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   const tabs = [
     { id: 'securite' as const, label: 'Sécurité', icon: Shield },
@@ -81,28 +178,46 @@ export function AdminSettings() {
                     <p className="text-sm font-medium text-foreground">OTP obligatoire</p>
                     <p className="text-xs text-muted-foreground">Exiger un code OTP pour chaque connexion</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={security.otpRequired}
+                    onCheckedChange={(v) => setSecurity({ ...security, otpRequired: v })}
+                  />
                 </div>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                   <div>
                     <p className="text-sm font-medium text-foreground">Expiration OTP (minutes)</p>
                     <p className="text-xs text-muted-foreground">Durée de validité du code OTP</p>
                   </div>
-                  <Input type="number" defaultValue="5" className="w-20 h-9" />
+                  <Input
+                    type="number"
+                    value={security.otpExpiryMinutes}
+                    onChange={(e) => setSecurity({ ...security, otpExpiryMinutes: parseInt(e.target.value) || 5 })}
+                    className="w-20 h-9 text-sm"
+                    min={1}
+                    max={60}
+                  />
                 </div>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                   <div>
                     <p className="text-sm font-medium text-foreground">Session persistante</p>
                     <p className="text-xs text-muted-foreground">Maintenir la session active après fermeture du navigateur</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={security.sessionPersistent}
+                    onCheckedChange={(v) => setSecurity({ ...security, sessionPersistent: v })}
+                  />
                 </div>
               </CardContent>
             </Card>
 
             <div className="flex justify-end">
-              <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2" onClick={() => toast.success('Paramètres de sécurité sauvegardés')}>
-                <Save className="size-4" /> Sauvegarder
+              <Button
+                className="bg-brand-500 hover:bg-brand-600 text-white gap-2"
+                onClick={() => handleSave('security', security)}
+                disabled={saving}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                Sauvegarder
               </Button>
             </div>
           </motion.div>
@@ -132,28 +247,42 @@ export function AdminSettings() {
                     <p className="text-sm font-medium text-foreground">Notifications email</p>
                     <p className="text-xs text-muted-foreground">Envoyer des alertes par email</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={notifications.emailEnabled}
+                    onCheckedChange={(v) => setNotifications({ ...notifications, emailEnabled: v })}
+                  />
                 </div>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                   <div>
                     <p className="text-sm font-medium text-foreground">Notifications SMS</p>
                     <p className="text-xs text-muted-foreground">Envoyer des alertes par SMS</p>
                   </div>
-                  <Switch />
+                  <Switch
+                    checked={notifications.smsEnabled}
+                    onCheckedChange={(v) => setNotifications({ ...notifications, smsEnabled: v })}
+                  />
                 </div>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                   <div>
                     <p className="text-sm font-medium text-foreground">Notifications push</p>
                     <p className="text-xs text-muted-foreground">Envoyer des notifications dans l'application</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={notifications.pushEnabled}
+                    onCheckedChange={(v) => setNotifications({ ...notifications, pushEnabled: v })}
+                  />
                 </div>
               </CardContent>
             </Card>
 
             <div className="flex justify-end">
-              <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2" onClick={() => toast.success('Paramètres de notification sauvegardés')}>
-                <Save className="size-4" /> Sauvegarder
+              <Button
+                className="bg-brand-500 hover:bg-brand-600 text-white gap-2"
+                onClick={() => handleSave('notifications', notifications)}
+                disabled={saving}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                Sauvegarder
               </Button>
             </div>
           </motion.div>
@@ -180,17 +309,38 @@ export function AdminSettings() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-medium text-foreground">Délai de validation TC (heures)</Label>
-                  <Input type="number" defaultValue="48" className="w-32 h-9 text-sm" />
+                  <Input
+                    type="number"
+                    value={sla.tcValidationHours}
+                    onChange={(e) => setSla({ ...sla, tcValidationHours: parseInt(e.target.value) || 48 })}
+                    className="w-32 h-9 text-sm"
+                    min={1}
+                    max={720}
+                  />
                   <p className="text-[10px] text-muted-foreground">Temps maximum pour qu'un TC valide un dossier</p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-medium text-foreground">Délai de réponse propriétaire (heures)</Label>
-                  <Input type="number" defaultValue="24" className="w-32 h-9 text-sm" />
+                  <Input
+                    type="number"
+                    value={sla.ownerResponseHours}
+                    onChange={(e) => setSla({ ...sla, ownerResponseHours: parseInt(e.target.value) || 24 })}
+                    className="w-32 h-9 text-sm"
+                    min={1}
+                    max={720}
+                  />
                   <p className="text-[10px] text-muted-foreground">Temps maximum pour qu'un propriétaire réponde</p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-medium text-foreground">Délai de traitement des signalements (heures)</Label>
-                  <Input type="number" defaultValue="72" className="w-32 h-9 text-sm" />
+                  <Input
+                    type="number"
+                    value={sla.signalementHours}
+                    onChange={(e) => setSla({ ...sla, signalementHours: parseInt(e.target.value) || 72 })}
+                    className="w-32 h-9 text-sm"
+                    min={1}
+                    max={720}
+                  />
                   <p className="text-[10px] text-muted-foreground">Temps maximum pour traiter un signalement</p>
                 </div>
               </CardContent>
@@ -208,20 +358,35 @@ export function AdminSettings() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-lg border border-border">
                   <div>
                     <p className="text-sm font-medium text-foreground">Validation automatique des dossiers</p>
-                    <p className="text-xs text-muted-foreground">Approuver automatiquement les dossiers avec Trust Score ≥ 70</p>
+                    <p className="text-xs text-muted-foreground">Approuver automatiquement les dossiers avec Trust Score ≥ seuil</p>
                   </div>
-                  <Switch defaultChecked />
+                  <Switch
+                    checked={sla.autoValidationEnabled}
+                    onCheckedChange={(v) => setSla({ ...sla, autoValidationEnabled: v })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-medium text-foreground">Seuil Trust Score pour auto-validation</Label>
-                  <Input type="number" defaultValue="70" className="w-20 h-9 text-sm" />
+                  <Input
+                    type="number"
+                    value={sla.autoValidationThreshold}
+                    onChange={(e) => setSla({ ...sla, autoValidationThreshold: parseInt(e.target.value) || 70 })}
+                    className="w-20 h-9 text-sm"
+                    min={0}
+                    max={100}
+                  />
                 </div>
               </CardContent>
             </Card>
 
             <div className="flex justify-end">
-              <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2" onClick={() => toast.success('Paramètres SLA sauvegardés')}>
-                <Save className="size-4" /> Sauvegarder
+              <Button
+                className="bg-brand-500 hover:bg-brand-600 text-white gap-2"
+                onClick={() => handleSave('sla', sla)}
+                disabled={saving}
+              >
+                {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                Sauvegarder
               </Button>
             </div>
           </motion.div>

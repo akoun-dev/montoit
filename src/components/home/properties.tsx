@@ -119,23 +119,24 @@ function PropertyCard({ property, isFavorite, onToggleFavorite }: { property: Pr
             </Badge>
           )}
         </div>
-        {/* Favorite button */}
-        <button
-          onClick={async (e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            if (!isAuthenticated) { setView('login'); return }
-            onToggleFavorite(property.id)
-          }}
-          className="absolute top-3 right-3 size-8 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center transition-opacity hover:bg-card shadow-sm"
-          aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-        >
-          <Heart
-            className={`size-4 transition-colors ${
-              isFavorite ? 'fill-red-500 text-red-500' : 'text-muted-foreground'
-            }`}
-          />
-        </button>
+        {/* Favorite button — visible uniquement pour les utilisateurs connectés */}
+        {isAuthenticated && (
+          <button
+            onClick={async (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onToggleFavorite(property.id)
+            }}
+            className="absolute top-3 right-3 size-8 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center transition-opacity hover:bg-card shadow-sm"
+            aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          >
+            <Heart
+              className={`size-4 transition-colors ${
+                isFavorite ? 'fill-red-500 text-red-500' : 'text-muted-foreground'
+              }`}
+            />
+          </button>
+        )}
       </div>
 
       {/* Content */}

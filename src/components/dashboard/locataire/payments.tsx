@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   CreditCard,
   Calendar,
@@ -19,6 +19,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { PaymentDialog } from './payment-dialog'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -130,6 +131,8 @@ export function Payments({ onDetail }: PaymentsProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState<FilterTab>('ALL')
+  const [page, setPage] = useState(1)
+  const limit = 10
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedPayment, setSelectedPayment] = useState<PaymentItem | null>(null)
   const [advancing, setAdvancing] = useState(false)
@@ -151,6 +154,10 @@ export function Payments({ onDetail }: PaymentsProps) {
   }, [isAuthenticated])
 
   useEffect(() => { fetchPayments() }, [fetchPayments])
+
+  useEffect(() => {
+    setPage(1)
+  }, [activeFilter])
 
   // Realtime subscription for payments
   useRealtimePayments({
@@ -176,6 +183,11 @@ export function Payments({ onDetail }: PaymentsProps) {
     if (activeFilter === 'LATE') return p.status === 'LATE'
     return p.status === activeFilter
   })
+
+  const paginatedPayments = useMemo(() => {
+    const start = (page - 1) * limit
+    return filteredPayments.slice(start, start + limit)
+  }, [filteredPayments, page, limit])
 
   const handlePay = (e: React.MouseEvent, payment: PaymentItem) => {
     e.stopPropagation()
@@ -419,8 +431,9 @@ export function Payments({ onDetail }: PaymentsProps) {
           </Card>
         </motion.div>
       ) : (
+        <>
         <motion.div variants={containerVariants} className="space-y-3">
-          {filteredPayments.map((payment) => {
+          {paginatedPayments.map((payment) => {
             const config = statusConfig[payment.status] || statusConfig.PENDING
             const property = payment.lease?.property
             const owner = payment.lease?.owner
@@ -516,6 +529,14 @@ export function Payments({ onDetail }: PaymentsProps) {
             )
           })}
         </motion.div>
+        <PaginationControls
+          page={page}
+          totalPages={Math.ceil(filteredPayments.length / limit)}
+          total={filteredPayments.length}
+          limit={limit}
+          onPageChange={setPage}
+        />
+        </>
       )}
 
       {/* Payment Dialog */}

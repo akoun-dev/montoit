@@ -7,6 +7,7 @@ import {
   Pause, Play, AlertTriangle, Flame, CircleDot, Loader2,
   ChevronLeft, ChevronRight, Shield,
 } from 'lucide-react'
+import { useBackHandler } from '@/hooks/use-back-handler'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -156,6 +157,8 @@ export function RentalFileDetail() {
     setSelectedItemId('')
     setDashboardSection('rental-files-queue')
   }
+
+  useBackHandler('rental-file-detail', goBack)
 
   const fetchFile = useCallback(async (skipCache?: boolean) => {
     if (!isAuthenticated || !selectedItemId) {

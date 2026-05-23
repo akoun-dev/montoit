@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Building2, Grid3X3, List, Eye, Filter } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +12,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { motion } from 'framer-motion'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 
 interface Property {
   id: string; title: string; type: string; price: number; city: string; commune: string | null
@@ -41,6 +42,8 @@ export function Portfolio() {
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [page, setPage] = useState(1)
+  const limit = 12
   const [communeFilter, setCommuneFilter] = useState<string>('all')
 
   const fetchData = useCallback(async () => {
@@ -70,6 +73,14 @@ export function Portfolio() {
   })
   const mostViewed = [...properties].sort((a, b) => b.viewsCount - a.viewsCount).slice(0, 3)
   const mostViewedIds = new Set(mostViewed.map((p) => p.id))
+
+  const paginatedFiltered = useMemo(() => {
+    const start = (page - 1) * limit
+    return filtered.slice(start, start + limit)
+  }, [filtered, page, limit])
+
+  // Reset page on filter change
+  useEffect(() => { setPage(1) }, [statusFilter, communeFilter])
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-40 rounded-xl bg-muted animate-pulse" />)}</div>
 
@@ -141,7 +152,7 @@ export function Portfolio() {
         <Card className="border-border"><CardContent className="p-8 text-center text-muted-foreground">Aucun bien trouvé avec ces filtres</CardContent></Card>
       ) : viewMode === 'grid' ? (
         <motion.div variants={containerVariants} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((p) => (
+          {paginatedFiltered.map((p) => (
             <motion.div key={p.id} variants={itemVariants}>
               <Card className={`border-border overflow-hidden hover:shadow-md transition-shadow ${mostViewedIds.has(p.id) ? 'ring-1 ring-[#FF6C2F]/30' : ''}`}>
                 <div className="relative h-40 sm:h-48 bg-muted">
@@ -175,7 +186,7 @@ export function Portfolio() {
           <Card className="border-border">
             <CardContent className="p-0">
               <div className="divide-y">
-                {filtered.map((p) => (
+                {paginatedFiltered.map((p) => (
                   <div key={p.id} className={`flex items-center gap-3 p-3 hover:bg-accent/50 transition-colors ${mostViewedIds.has(p.id) ? 'bg-orange-50/50' : ''}`}>
                     <div className="size-12 rounded-lg bg-muted overflow-hidden shrink-0">
                       {p.images?.[0] ? <img src={p.images[0].url} alt="" className="size-full object-cover" /> : <Building2 className="size-5 text-muted-foreground m-3" />}
@@ -198,6 +209,15 @@ export function Portfolio() {
               </div>
             </CardContent>
           </Card>
+          {filtered.length > limit && (
+            <div className="mt-4">
+              <PaginationControls
+                page={page}
+                totalPages={Math.ceil(filtered.length / limit)}
+                onPageChange={setPage}
+              />
+            </div>
+          )}
         </motion.div>
       )}
     </motion.div>
