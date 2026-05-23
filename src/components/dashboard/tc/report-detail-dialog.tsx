@@ -90,11 +90,11 @@ export const statusConfig: Record<
 }
 
 export const ROOM_COLUMNS = [
-  { key: 'kitchen', label: 'Cuisine' },
-  { key: 'mainBathroom', label: 'Salle de bain principale' },
-  { key: 'otherBathroom', label: 'Salle de bain autres' },
-  { key: 'otherRoom1', label: 'Autre pièce 1' },
-  { key: 'otherRoom2', label: 'Autre pièce 2' },
+  { key: 'kitchen', label: 'Cuisine', shortLabel: 'Cuis.' },
+  { key: 'mainBathroom', label: 'Salle de bain principale', shortLabel: 'SdB princ.' },
+  { key: 'otherBathroom', label: 'Salle de bain autres', shortLabel: 'SdB autres' },
+  { key: 'otherRoom1', label: 'Autre pièce 1', shortLabel: 'Pièce 1' },
+  { key: 'otherRoom2', label: 'Autre pièce 2', shortLabel: 'Pièce 2' },
 ] as const
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────────
@@ -113,19 +113,19 @@ function renderConditionCell(value: string | null) {
   const upper = value.toUpperCase().trim()
   if (upper === 'BON') {
     return (
-      <span className="inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[9px] sm:text-[11px] font-bold bg-green-500 text-white">
+      <span className="inline-flex items-center justify-center rounded px-1 sm:px-1.5 py-0.5 text-[8px] sm:text-[11px] font-bold bg-green-500 text-white leading-tight">
         BON
       </span>
     )
   }
   if (upper === 'MAUVAIS') {
     return (
-      <span className="inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[9px] sm:text-[11px] font-bold bg-red-500 text-white">
+      <span className="inline-flex items-center justify-center rounded px-1 sm:px-1.5 py-0.5 text-[8px] sm:text-[11px] font-bold bg-red-500 text-white leading-tight">
         MAUVAIS
       </span>
     )
   }
-  return <span className="text-[10px] sm:text-sm">{value}</span>
+  return <span className="text-[9px] sm:text-sm">{value}</span>
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────────
@@ -148,35 +148,34 @@ export function ReportDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col w-full p-4 sm:p-6">
-        <DialogHeader>
-          <DialogTitle className="flex flex-col sm:flex-row sm:items-center gap-2 text-base sm:text-lg">
-            <FileText className="size-5 text-brand-500 shrink-0" />
-            <span className="truncate">{report.property?.title || 'Bien sans titre'}</span>
+      <DialogContent className="sm:max-w-4xl w-full max-h-[90vh] flex flex-col p-3 sm:p-6">
+        <DialogHeader className="gap-1">
+          <DialogTitle className="flex flex-col sm:flex-row sm:items-center gap-1.5 text-sm sm:text-lg">
+            <FileText className="size-4 sm:size-5 text-brand-500 shrink-0" />
+            <span className="truncate text-sm sm:text-base">{report.property?.title || 'Bien sans titre'}</span>
           </DialogTitle>
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2">
-            <Badge variant="outline" className="text-[10px] sm:text-xs">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+            <Badge variant="outline" className="text-[9px] sm:text-xs leading-tight">
               {typeLabels[report.type] || report.type}
             </Badge>
-            <Badge className={cn('text-[10px] sm:text-xs', config.className)}>
-              <StatusIcon className="size-3 mr-1" />
+            <Badge className={cn('text-[9px] sm:text-xs leading-tight', config.className)}>
+              <StatusIcon className="size-2.5 sm:size-3 mr-0.5 sm:mr-1" />
               {config.label}
             </Badge>
             {report.totalKeys != null && report.totalKeys > 0 && (
-              <Badge variant="outline" className="text-[10px] sm:text-xs gap-1">
-                <Key className="size-3" />
+              <Badge variant="outline" className="text-[9px] sm:text-xs leading-tight gap-0.5 sm:gap-1">
+                <Key className="size-2.5 sm:size-3" />
                 {report.totalKeys} clé(s)
               </Badge>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1 text-[10px] sm:text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-[9px] sm:text-xs text-muted-foreground leading-tight">
             <span className="flex items-center gap-1">
-              <Building2 className="size-3" />
-              {report.property?.address}, {report.property?.city}
-              {report.property?.commune ? ` — ${report.property.commune}` : ''}
+              <Building2 className="size-2.5 sm:size-3 shrink-0" />
+              <span className="truncate max-w-[180px] sm:max-w-none">{report.property?.address}, {report.property?.city}{report.property?.commune ? ` — ${report.property.commune}` : ''}</span>
             </span>
-            <span className="flex items-center gap-1">
-              <Calendar className="size-3" />
+            <span className="flex items-center gap-1 shrink-0">
+              <Calendar className="size-2.5 sm:size-3" />
               Créé le {formatDate(report.createdAt)}
             </span>
           </div>
@@ -185,26 +184,27 @@ export function ReportDetailDialog({
         {/* Inventory Grid */}
         <div className="flex-1 min-h-0 overflow-y-auto">
           {report.items && report.items.length > 0 ? (
-            <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
-              <table className="w-full min-w-[700px] border-collapse text-xs sm:text-sm">
+            <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
+              <table className="w-full min-w-[550px] sm:min-w-[700px] border-collapse text-[10px] sm:text-sm">
                 <thead>
                   <tr className="bg-muted/50">
-                    <th className="px-2 py-1.5 sm:py-2.5 text-left text-[10px] sm:text-xs font-bold text-foreground border-b border-r border-border w-8">
+                    <th className="px-1 sm:px-2 py-1 sm:py-2.5 text-left text-[9px] sm:text-xs font-bold text-foreground border-b border-r border-border w-5 sm:w-8">
                       N°
                     </th>
-                    <th className="px-2 py-1.5 sm:py-2.5 text-left text-[10px] sm:text-xs font-bold text-foreground border-b border-r border-border min-w-[100px] sm:min-w-[130px]">
+                    <th className="px-1 sm:px-2 py-1 sm:py-2.5 text-left text-[9px] sm:text-xs font-bold text-foreground border-b border-r border-border min-w-[80px] sm:min-w-[130px]">
                       DÉSIGNATIONS
                     </th>
                     {ROOM_COLUMNS.map((col) => (
                       <th
                         key={col.key}
-                        className="px-1.5 py-1.5 sm:py-2.5 text-center text-[9px] sm:text-[10px] font-bold text-foreground border-b border-r border-border min-w-[70px] sm:min-w-[90px] leading-tight"
+                        className="px-1 py-1 sm:py-2.5 text-center text-[8px] sm:text-[10px] font-bold text-foreground border-b border-r border-border min-w-[55px] sm:min-w-[90px] leading-tight"
                       >
-                        {col.label}
+                        <span className="hidden sm:inline">{col.label}</span>
+                        <span className="sm:hidden">{col.shortLabel}</span>
                       </th>
                     ))}
-                    <th className="px-2 py-1.5 sm:py-2.5 text-left text-[10px] sm:text-xs font-bold text-foreground border-b border-border min-w-[90px] sm:min-w-[120px]">
-                      OBSERVATIONS
+                    <th className="px-1 sm:px-2 py-1 sm:py-2.5 text-left text-[9px] sm:text-xs font-bold text-foreground border-b border-border min-w-[70px] sm:min-w-[120px]">
+                      OBS.
                     </th>
                   </tr>
                 </thead>
@@ -223,26 +223,26 @@ export function ReportDetailDialog({
                             isKeyRow && 'bg-amber-50/50'
                           )}
                         >
-                          <td className="px-2 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-sm text-muted-foreground border-b border-r border-border text-center font-medium">
+                          <td className="px-1 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-sm text-muted-foreground border-b border-r border-border text-center font-medium">
                             {idx + 1}
                           </td>
-                          <td className="px-2 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-sm font-semibold text-foreground border-b border-r border-border whitespace-nowrap">
+                          <td className="px-1 sm:px-3 py-1 sm:py-2 text-[10px] sm:text-sm font-semibold text-foreground border-b border-r border-border whitespace-nowrap">
                             {isKeyRow && (
-                              <Key className="size-3 inline mr-1 text-brand-500" />
+                              <Key className="size-2.5 sm:size-3 inline mr-0.5 sm:mr-1 text-brand-500" />
                             )}
                             {item.designation}
                           </td>
                           {ROOM_COLUMNS.map((col) => (
                             <td
                               key={col.key}
-                              className="px-1.5 py-1.5 sm:px-2 sm:py-2 border-b border-r border-border text-center"
+                              className="px-0.5 sm:px-2 py-1 sm:py-2 border-b border-r border-border text-center"
                             >
                               {renderConditionCell(
                                 item[col.key as keyof InventoryReportItem] as string | null
                               )}
                             </td>
                           ))}
-                          <td className="px-2 py-1.5 sm:px-2 sm:py-2 border-b border-border text-[11px] sm:text-sm text-muted-foreground">
+                          <td className="px-1 sm:px-2 py-1 sm:py-2 border-b border-border text-[10px] sm:text-sm text-muted-foreground">
                             {item.observations || '—'}
                           </td>
                         </tr>
@@ -252,12 +252,12 @@ export function ReportDetailDialog({
               </table>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <FileText className="size-10 text-muted-foreground/40 mb-3" />
-              <p className="text-sm font-medium text-muted-foreground">
+            <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-center">
+              <FileText className="size-8 sm:size-10 text-muted-foreground/40 mb-2 sm:mb-3" />
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground">
                 Aucun élément d&apos;inventaire
               </p>
-              <p className="text-xs text-muted-foreground/60 mt-1 max-w-xs">
+              <p className="text-[10px] sm:text-xs text-muted-foreground/60 mt-1 max-w-[200px] sm:max-w-xs">
                 Ce rapport a été créé mais aucun élément (pièces, équipements) n&apos;a encore été renseigné.
               </p>
             </div>
@@ -266,11 +266,11 @@ export function ReportDetailDialog({
 
         {/* General observations */}
         {report.generalObservations && (
-          <div className="mt-3 rounded-lg border border-border bg-muted/30 p-2.5 sm:p-3">
-            <p className="text-[10px] sm:text-xs font-semibold text-foreground mb-1">
+          <div className="mt-3 rounded-lg border border-border bg-muted/30 p-2 sm:p-3">
+            <p className="text-[9px] sm:text-xs font-semibold text-foreground mb-0.5 sm:mb-1">
               Observations générales
             </p>
-            <p className="text-[11px] sm:text-sm text-muted-foreground whitespace-pre-wrap">
+            <p className="text-[10px] sm:text-sm text-muted-foreground whitespace-pre-wrap">
               {report.generalObservations}
             </p>
           </div>
