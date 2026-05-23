@@ -12,6 +12,10 @@ import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion } from 'framer-motion'
+import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
+import { useRealtimeMandats } from '@/hooks/use-realtime-mandats'
+import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
+import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface MonthlyRevenue {
@@ -126,7 +130,7 @@ function CircularProgress({ value, size = 80, strokeWidth = 6 }: { value: number
 
 // ─── Component ──────────────────────────────────────────────────────────────
 export function OwnerAnalytics() {
-  const { isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -156,6 +160,11 @@ export function OwnerAnalytics() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useRealtimeProperties({ userId: user?.id, onPropertyChange: () => { fetchData() } })
+  useRealtimeMandats({ userId: user?.id, onMandatChange: () => { fetchData() } })
+  useRealtimeLeases({ userId: user?.id, onLeaseChange: () => { fetchData() } })
+  useRealtimePayments({ userId: user?.id, onPaymentChange: () => { fetchData() } })
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {

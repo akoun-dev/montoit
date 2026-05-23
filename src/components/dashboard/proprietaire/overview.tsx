@@ -18,6 +18,10 @@ import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
 import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { useRealtimePayments } from '@/hooks/use-realtime-payments'
+import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
+import { useRealtimeMaintenance } from '@/hooks/use-realtime-maintenance'
+import { useRealtimeMandats } from '@/hooks/use-realtime-mandats'
+import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications'
 
 interface ProprietaireData {
   stats: {
@@ -115,6 +119,10 @@ export function ProprietaireOverview() {
   useRealtimeVisits({ userId: user?.id, onVisitChange: () => { fetchData() } })
   useRealtimeLeases({ userId: user?.id, onLeaseChange: () => { fetchData() } })
   useRealtimePayments({ userId: user?.id, onPaymentChange: () => { fetchData() } })
+  useRealtimeRentalFiles({ userId: user?.id, onRentalFileChange: () => { fetchData() } })
+  useRealtimeMaintenance({ userId: user?.id, onMaintenanceChange: () => { fetchData() } })
+  useRealtimeMandats({ userId: user?.id, onMandatChange: () => { fetchData() } })
+  useRealtimeNotifications({ userId: user?.id, onNotificationChange: () => { fetchData() } })
 
   if (loading) return <div className="space-y-4">{[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
   if (error) return (

@@ -16,6 +16,8 @@ import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
 import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
+import { useRealtimeMandats } from '@/hooks/use-realtime-mandats'
+import { useRealtimePayments } from '@/hooks/use-realtime-payments'
 import { motion } from 'framer-motion'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -149,6 +151,14 @@ export function AgenceOverview() {
     userId: user?.id,
     ownedPropertyIds: propertyIds,
     onVisitChange: () => { fetchData() },
+  })
+  useRealtimeMandats({
+    userId: user?.id,
+    onMandatChange: () => { fetchData() },
+  })
+  useRealtimePayments({
+    userId: user?.id,
+    onPaymentChange: () => { fetchData() },
   })
 
   // ─── Leaflet map for agency properties ───────────────────────────────────

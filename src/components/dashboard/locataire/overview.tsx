@@ -16,6 +16,10 @@ import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeNotifications } from '@/hooks/use-realtime-notifications'
 import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
 import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
+import { useRealtimePayments } from '@/hooks/use-realtime-payments'
+import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
+import { useRealtimeApplications } from '@/hooks/use-realtime-applications'
+import { useRealtimeMaintenance } from '@/hooks/use-realtime-maintenance'
 import { ContactDialog } from '@/components/messaging/contact-dialog'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -129,6 +133,10 @@ export function LocataireOverview() {
   useRealtimeNotifications({ userId: user?.id, onNotificationChange: () => fetchData() })
   useRealtimeLeases({ userId: user?.id, onLeaseChange: () => fetchData() })
   useRealtimeVisits({ userId: user?.id, onVisitChange: () => fetchData() })
+  useRealtimePayments({ userId: user?.id, onPaymentChange: () => fetchData() })
+  useRealtimeRentalFiles({ userId: user?.id, onRentalFileChange: () => fetchData() })
+  useRealtimeApplications({ userId: user?.id, onApplicationChange: () => fetchData() })
+  useRealtimeMaintenance({ userId: user?.id, onMaintenanceChange: () => fetchData() })
 
   useEffect(() => { fetchData() }, [fetchData])
 
