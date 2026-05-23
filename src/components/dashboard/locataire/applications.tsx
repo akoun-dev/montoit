@@ -159,9 +159,31 @@ export function Applications({ onDetail }: ApplicationsProps) {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
-      <motion.div variants={itemVariants}>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes Candidatures</h1>
-        <p className="text-muted-foreground mt-1">Suivez vos candidatures de location</p>
+      <motion.div variants={itemVariants} className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+            <FileText className="size-6 text-brand-500" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes Candidatures</h1>
+            <p className="text-muted-foreground mt-0.5">Suivez vos candidatures de location</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Badge variant="secondary" className="bg-brand-50 text-brand-700">
+            <FileText className="size-3 mr-1" /> {applications.length} candidature{applications.length > 1 ? 's' : ''}
+          </Badge>
+          {(stats.SUBMITTED ?? 0) > 0 && (
+            <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+              {stats.SUBMITTED} en attente
+            </Badge>
+          )}
+          {(stats.ACCEPTED ?? 0) > 0 && (
+            <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
+              {stats.ACCEPTED} acceptée{(stats.ACCEPTED ?? 0) > 1 ? 's' : ''}
+            </Badge>
+          )}
+        </div>
       </motion.div>
 
       {applications.length === 0 ? (

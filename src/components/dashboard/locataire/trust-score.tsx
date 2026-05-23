@@ -317,9 +317,31 @@ export function TrustScore() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
-      <motion.div variants={itemVariants}>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Trust Score</h1>
-        <p className="text-muted-foreground mt-1">Votre score de confiance {data.roleLabel || 'locataire'}</p>
+      <motion.div variants={itemVariants} className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+            <ShieldCheck className="size-6 text-brand-500" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Trust Score</h1>
+            <p className="text-muted-foreground mt-0.5">Votre score de confiance {data.roleLabel || 'locataire'}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Badge className={`border text-[10px] px-2 py-0.5 ${statusBadgeClass}`}>
+            {statusColor === 'emerald' ? (
+              <ShieldCheck className="size-3 mr-1" />
+            ) : statusColor === 'amber' ? (
+              <AlertTriangle className="size-3 mr-1" />
+            ) : (
+              <XCircle className="size-3 mr-1" />
+            )}
+            {statusLabel}
+          </Badge>
+          <Badge variant="secondary" className="bg-brand-50 text-brand-700">
+            Score: {score}/100
+          </Badge>
+        </div>
       </motion.div>
 
       {/* ── Score Overview Card ──────────────────────────────────────────── */}

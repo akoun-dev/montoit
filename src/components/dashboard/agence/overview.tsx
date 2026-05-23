@@ -225,10 +225,28 @@ export function AgenceOverview() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
-      {/* Header */}
-      <motion.div variants={itemVariants}>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
-        <p className="text-muted-foreground mt-1">Espace Agence — Portefeuille, clients et performances</p>
+      {/* Header with gradient */}
+      <motion.div variants={itemVariants} className="relative overflow-hidden rounded-xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-6 sm:p-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.08),transparent_50%)]" />
+        <div className="relative z-10">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Bonjour, {user?.firstName} 👋</h1>
+          <p className="text-brand-100 mt-1.5 text-sm sm:text-base">Espace Agence — Portefeuille, clients et performances</p>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <Building2 className="size-3.5" />
+              {data.stats.totalProperties} bien{data.stats.totalProperties !== 1 ? 's' : ''} géré{data.stats.totalProperties !== 1 ? 's' : ''}
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <FileSignature className="size-3.5" />
+              {data.stats.activeMandats} mandat{data.stats.activeMandats !== 1 ? 's' : ''} actif{data.stats.activeMandats !== 1 ? 's' : ''}
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <TrendingUp className="size-3.5" />
+              {data.stats.totalRevenue.toLocaleString('fr-FR')} FCFA/mois
+            </span>
+          </div>
+        </div>
       </motion.div>
 
       {/* ─── KPIs ────────────────────────────────────────────────────────────── */}

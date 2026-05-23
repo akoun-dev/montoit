@@ -421,16 +421,22 @@ export function AllProperties() {
       className="space-y-4 sm:space-y-6 px-1 sm:px-0"
     >
       {/* ─── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-lg sm:text-xl xl:text-2xl font-bold text-foreground truncate">
-            Tous les biens
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            {total} bien{total !== 1 ? 's' : ''} sur la plateforme
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
+      <div className="bg-gradient-to-r from-brand-500/10 to-transparent p-4 sm:p-6 rounded-xl border border-border/50">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+              <Building2 className="size-6 text-brand-500" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl xl:text-2xl font-bold text-foreground truncate">
+                Tous les biens
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                {total} bien{total !== 1 ? 's' : ''} sur la plateforme
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
           {/* View toggle */}
           <div className="flex items-center border border-border rounded-lg overflow-hidden">
             <button
@@ -489,6 +495,7 @@ export function AllProperties() {
           </Button>
         </div>
       </div>
+    </div>
 
       {/* ─── Search Bar ──────────────────────────────────────────────────── */}
       <div className="relative w-full">

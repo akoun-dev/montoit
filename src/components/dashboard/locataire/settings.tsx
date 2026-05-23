@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  User, Shield, Bell, Mail, Phone, ShieldCheck,
+  User, Shield, Bell, Mail, Phone, ShieldCheck, Settings,
   CheckCircle2, XCircle, ScanFace, CreditCard, FileCheck,
   Save, Loader2, MapPin, Users, ArrowRight, Lightbulb, AlertTriangle,
   Info, RefreshCw, Eye, EyeOff, Monitor, Smartphone, Trash2, LogOut,
@@ -1511,10 +1511,17 @@ export function SettingsSection() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
-      <motion.div variants={itemVariants}>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Paramètres</h1>
-        <p className="text-muted-foreground mt-1">Gérez votre compte et vos préférences</p>
-      </motion.div>
+      <div className="bg-gradient-to-r from-brand-500/10 to-transparent -mx-4 sm:-mx-6 px-4 sm:px-6 py-4 rounded-none">
+        <div className="flex items-center gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+            <Settings className="size-6 text-brand-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Paramètres</h1>
+            <p className="text-muted-foreground mt-1">Gérez votre compte et vos préférences</p>
+          </div>
+        </div>
+      </div>
 
       {/* User Info Card with integrated scoring + role switch */}
       <motion.div variants={itemVariants}>

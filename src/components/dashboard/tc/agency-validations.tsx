@@ -125,9 +125,28 @@ export function AgencyValidations() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Validations agences</h1>
-        <p className="text-muted-foreground mt-1">Vérifiez les agréments et RCCM des agences immobilières</p>
+      {/* Header with gradient */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-rose-500 via-rose-600 to-pink-700 p-6 sm:p-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.08),transparent_50%)]" />
+        <div className="relative z-10">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Validations agences</h1>
+          <p className="text-rose-100 mt-1.5 text-sm sm:text-base">Vérifiez les agréments et RCCM des agences immobilières</p>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <Building2 className="size-3.5" />
+              {filteredDocs.length} document{filteredDocs.length !== 1 ? 's' : ''}
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <FileText className="size-3.5" />
+              {filteredDocs.filter(d => d.type === 'AGREMENT').length} agrément{filteredDocs.filter(d => d.type === 'AGREMENT').length !== 1 ? 's' : ''}
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <FileText className="size-3.5" />
+              {filteredDocs.filter(d => d.type === 'RCCM').length} RCCM
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Search + View Toggle */}

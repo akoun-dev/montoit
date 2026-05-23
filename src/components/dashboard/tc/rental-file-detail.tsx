@@ -340,27 +340,43 @@ export function RentalFileDetail() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      {/* Back button */}
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={goBack} className="gap-2 -ml-2">
-          <ArrowLeft className="size-4" /> Retour
-        </Button>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
+        <div className="flex items-center justify-between mb-3">
+          <Button variant="ghost" onClick={goBack} className="gap-2 -ml-2">
+            <ArrowLeft className="size-4" /> Retour
+          </Button>
 
-        {/* Status badge */}
-        <div className="flex items-center gap-2">
-          {file.onHold && (
-            <Badge className="bg-amber-100 text-amber-700 gap-1">
-              <Pause className="size-3" /> En attente
-            </Badge>
-          )}
-          {file.sla?.isOverdue && (
-            <Badge className="bg-red-100 text-red-700 gap-1">
-              <AlertTriangle className="size-3" /> SLA dépassé
-            </Badge>
-          )}
-          <Badge className={statusColors[file.status]}>{statusLabels[file.status]}</Badge>
+          {/* Status badge */}
+          <div className="flex items-center gap-2">
+            {file.onHold && (
+              <Badge className="bg-amber-100 text-amber-700 gap-1">
+                <Pause className="size-3" /> En attente
+              </Badge>
+            )}
+            {file.sla?.isOverdue && (
+              <Badge className="bg-red-100 text-red-700 gap-1">
+                <AlertTriangle className="size-3" /> SLA dépassé
+              </Badge>
+            )}
+            <Badge className={statusColors[file.status]}>{statusLabels[file.status]}</Badge>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-lg bg-brand-100 shrink-0">
+            <FileText className="size-5 text-brand-500" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-foreground truncate">
+              {file.tenant.firstName} {file.tenant.lastName}
+            </h2>
+            <p className="text-sm text-muted-foreground">Détail du dossier locatif</p>
+          </div>
         </div>
       </div>
+
+
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main column */}

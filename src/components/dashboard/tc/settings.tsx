@@ -370,8 +370,24 @@ export function TcSettings() {
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Paramètres</h1>
-        <p className="text-muted-foreground mt-1">Gérez votre compte Tiers de Confiance</p>
+        <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+                <Shield className="size-6 text-brand-600" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Paramètres</h1>
+                <p className="text-muted-foreground text-sm">Gérez votre compte Tiers de Confiance</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge className="bg-brand-50 text-brand-700 border-brand-200 border text-[10px]">
+                    <ShieldCheck className="size-3 mr-0.5" /> Tiers de Confiance
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* User Info Card — NO Trust Score circle, NO role switch */}

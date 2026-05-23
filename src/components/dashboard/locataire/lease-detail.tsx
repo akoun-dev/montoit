@@ -263,20 +263,25 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-      {/* Back button */}
-      <Button variant="ghost" onClick={onBack} className="gap-2 text-muted-foreground -ml-2">
-        <ArrowLeft className="size-4" /> Retour aux baux
-      </Button>
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Détail du bail</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Du {formatShortDate(lease.startDate)} au {formatShortDate(lease.endDate)}
-          </p>
+      {/* Header with gradient */}
+      <div className="bg-gradient-to-r from-brand-500/10 to-transparent -mx-4 sm:-mx-6 px-4 sm:px-6 py-4 rounded-none">
+        <Button variant="ghost" onClick={onBack} className="gap-2 text-muted-foreground -ml-2 mb-3">
+          <ArrowLeft className="size-4" /> Retour aux baux
+        </Button>
+        <div className="flex items-center gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+            <FileSignature className="size-6 text-brand-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Détail du bail</h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Du {formatShortDate(lease.startDate)} au {formatShortDate(lease.endDate)}
+            </p>
+          </div>
         </div>
-        <Badge className={`shrink-0 ${statusInfo.color} w-fit`}>{statusInfo.label}</Badge>
+        <div className="mt-3">
+          <Badge className={`text-xs px-3 py-1 ${statusInfo.color} w-fit`}>{statusInfo.label}</Badge>
+        </div>
       </div>
 
       {/* Key metrics */}

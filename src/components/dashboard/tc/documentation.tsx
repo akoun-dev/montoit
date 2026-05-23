@@ -282,9 +282,27 @@ export function DocumentationCenter() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Centre de documentation</h1>
-        <p className="text-muted-foreground mt-1">Guides, formations et ressources pour les Tiers de Confiance</p>
+      <div className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+            <BookOpen className="size-6 text-brand-500" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Centre de documentation</h1>
+            <p className="text-muted-foreground mt-0.5">Guides, formations et ressources pour les Tiers de Confiance</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Badge variant="secondary" className="bg-brand-50 text-brand-700">
+            <BookOpen className="size-3 mr-1" /> {verificationGuides.length} guides
+          </Badge>
+          <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
+            <GraduationCap className="size-3 mr-1" /> {trainingModules.length} formations
+          </Badge>
+          <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+            <HelpCircle className="size-3 mr-1" /> {faqItems.length} FAQ
+          </Badge>
+        </div>
       </div>
 
       {/* Tabs */}

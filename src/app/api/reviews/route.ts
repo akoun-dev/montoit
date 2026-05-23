@@ -322,9 +322,9 @@ export async function POST(req: NextRequest) {
         } : null,
       },
       toUser: {
-        id: leaseCheck.to_user_id || leaseCheck.owner_id,
-        firstName: leaseCheck.owner?.first_name || '',
-        lastName: leaseCheck.owner?.last_name || '',
+        id: toUserId,
+        firstName: '',
+        lastName: '',
       },
       property: rating.property_id ? { id: rating.property_id, title: propertyTitle } : null,
     }

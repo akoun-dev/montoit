@@ -314,17 +314,37 @@ export function OwnerValidations() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      {/* ─── Header ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-            Validations propriétaires
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Vérifiez les documents de propriété
-          </p>
+      {/* ─── Header with gradient ──────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-700 p-6 sm:p-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.08),transparent_50%)]" />
+        <div className="relative z-10">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">
+                Validations propriétaires
+              </h1>
+              <p className="text-emerald-100 mt-1.5 text-sm sm:text-base">
+                Vérifiez les documents de propriété
+              </p>
+            </div>
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          </div>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <BadgeCheck className="size-3.5" />
+              {total} document{total !== 1 ? 's' : ''}
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <FileText className="size-3.5" />
+              {docs.filter(d => d.type === 'TITRE_FONCIER').length} titre{docs.filter(d => d.type === 'TITRE_FONCIER').length !== 1 ? 's' : ''} foncier{docs.filter(d => d.type === 'TITRE_FONCIER').length !== 1 ? 's' : ''}
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <FileText className="size-3.5" />
+              {docs.filter(d => d.type === 'ACTE_NOTARIE').length} acte{docs.filter(d => d.type === 'ACTE_NOTARIE').length !== 1 ? 's' : ''} notarié{docs.filter(d => d.type === 'ACTE_NOTARIE').length !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
-        <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
       </div>
 
       {/* ─── Filter bar ───────────────────────────────────────────────────── */}

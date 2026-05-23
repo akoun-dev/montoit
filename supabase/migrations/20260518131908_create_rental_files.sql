@@ -29,6 +29,10 @@ create table if not exists rental_files (
 create index if not exists idx_rental_files_status on rental_files (status);
 create index if not exists idx_rental_files_tenant_id on rental_files (tenant_id);
 
+-- Un seul dossier brouillon (DRAFT) par locataire
+create unique index if not exists idx_rental_files_one_draft_per_tenant
+  on rental_files (tenant_id) where status = 'DRAFT';
+
 alter table rental_files enable row level security;
 
 create trigger trg_rental_files_updated_at

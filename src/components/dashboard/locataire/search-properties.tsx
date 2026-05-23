@@ -273,10 +273,17 @@ export function SearchProperties() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
-      <motion.div variants={itemVariants}>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Chercher un bien</h1>
-        <p className="text-muted-foreground mt-1">Trouvez votre futur logement</p>
-      </motion.div>
+      <div className="bg-gradient-to-r from-brand-500/10 to-transparent -mx-4 sm:-mx-6 px-4 sm:px-6 py-4 rounded-none">
+        <div className="flex items-center gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+            <Search className="size-6 text-brand-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Chercher un bien</h1>
+            <p className="text-muted-foreground mt-1">Trouvez votre futur logement</p>
+          </div>
+        </div>
+      </div>
 
       {/* Search Card */}
       <motion.div variants={itemVariants}>

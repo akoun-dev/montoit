@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MessageSquare, Send, ArrowLeft, Plus, Search, X, User as UserIcon, Paperclip, FileText, Image as ImageIcon } from 'lucide-react'
+import { MessageSquare, Send, ArrowLeft, Plus, Search, X, User as UserIcon, Paperclip, FileText, Image as ImageIcon, ShieldCheck } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRealtimeMessages, type RealtimeMessagePayload } from '@/hooks/use-realtime-messages'
+import { ContactTcDialog } from '@/components/messaging/contact-tc-dialog'
 
 interface Participant {
   id: string
@@ -410,13 +411,26 @@ export function ProprietaireMessages() {
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">Messages</h1>
           <p className="text-muted-foreground mt-1">Vos conversations avec les locataires</p>
         </div>
-        <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2">
-              <Plus className="size-4" />
-              Nouvelle conversation
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <ContactTcDialog
+            onMessageSent={(convId) => {
+              fetchConversations()
+              setSelectedId(convId)
+            }}
+            trigger={
+              <Button variant="outline" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 shrink-0">
+                <ShieldCheck className="size-4" />
+                <span className="hidden sm:inline">TC</span>
+              </Button>
+            }
+          />
+          <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2">
+                <Plus className="size-4" />
+                Nouvelle conversation
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Nouvelle conversation</DialogTitle>
@@ -537,7 +551,8 @@ export function ProprietaireMessages() {
               </div>
             </div>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       <Card className="border-border overflow-hidden">

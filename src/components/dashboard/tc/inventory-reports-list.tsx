@@ -143,13 +143,25 @@ export function InventoryReportsList() {
     >
       {/* Header + View toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-            Rapports d&apos;état des lieux
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Consultez et gérez les rapports existants
-          </p>
+        <div className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6 flex-1">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+              <FileText className="size-6 text-brand-500" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+                Rapports d&apos;état des lieux
+              </h1>
+              <p className="text-muted-foreground mt-0.5">
+                Consultez et gérez les rapports existants
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <Badge variant="secondary" className="bg-brand-50 text-brand-700">
+              <FileText className="size-3 mr-1" /> {reports.length} rapport{reports.length !== 1 ? 's' : ''}
+            </Badge>
+          </div>
         </div>
         <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
       </div>
@@ -201,11 +213,6 @@ export function InventoryReportsList() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Count */}
-      <Badge variant="secondary" className="bg-brand-50 text-brand-700">
-        {reports.length} rapport{reports.length !== 1 ? 's' : ''}
-      </Badge>
 
       {/* Empty state */}
       {reports.length === 0 ? (

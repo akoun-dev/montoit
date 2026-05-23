@@ -193,6 +193,20 @@ export async function PATCH(req: NextRequest) {
     let updatedProperty
 
     if (action === 'APPROVE') {
+      // Vérifier qu'il existe au moins un état des lieux COMPLETED
+      const { data: inventoryReports, count: inventoryCount } = await (supabase
+        .from('inventory_reports') as any)
+        .select('id', { count: 'exact', head: true })
+        .eq('property_id', propertyId)
+        .eq('status', 'COMPLETED')
+
+      if (!inventoryCount || inventoryCount === 0) {
+        return NextResponse.json(
+          { error: 'Un état des lieux (inventaire) COMPLETED est obligatoire avant de pouvoir approuver ce bien. Veuillez d\'abord créer un état des lieux.' },
+          { status: 400 }
+        )
+      }
+
       const { data: updated } = await ((supabase as any)
         .from('properties')
         .update({
@@ -221,6 +235,27 @@ export async function PATCH(req: NextRequest) {
         actionUrl: 'my-properties',
         entityId: propertyId,
       })
+
+      // Notifier l'agence si le bien est géré via un mandat actif
+      const { data: activeMandats } = await (supabase
+        .from('mandats') as any)
+        .select('agency_id')
+        .eq('property_id', propertyId)
+        .eq('status', 'ACTIVE')
+
+      if (activeMandats && activeMandats.length > 0) {
+        const agencyIds = [...new Set(activeMandats.map((m: any) => m.agency_id))]
+        for (const agencyId of agencyIds) {
+          await notify({
+            userId: agencyId,
+            type: 'DOSSIER_UPDATE',
+            title: 'Bien sous gestion approuvé',
+            message: `Le bien "${property.title}" que vous gérez a été approuvé par le Tiers de Confiance et est maintenant visible.`,
+            actionUrl: 'my-properties',
+            entityId: propertyId,
+          })
+        }
+      }
     } else {
       const existingTerms = property.rental_terms
         ? (typeof property.rental_terms === 'string' ? JSON.parse(property.rental_terms) : property.rental_terms)
@@ -259,6 +294,27 @@ export async function PATCH(req: NextRequest) {
         actionUrl: 'my-properties',
         entityId: propertyId,
       })
+
+      // Notifier l'agence si le bien est géré via un mandat actif
+      const { data: activeMandatsRej } = await (supabase
+        .from('mandats') as any)
+        .select('agency_id')
+        .eq('property_id', propertyId)
+        .eq('status', 'ACTIVE')
+
+      if (activeMandatsRej && activeMandatsRej.length > 0) {
+        const agencyIds = [...new Set(activeMandatsRej.map((m: any) => m.agency_id))]
+        for (const agencyId of agencyIds) {
+          await notify({
+            userId: agencyId,
+            type: 'DOSSIER_UPDATE',
+            title: 'Bien sous gestion rejeté',
+            message: `Le bien "${property.title}" que vous gérez a été rejeté par le Tiers de Confiance. Raison : ${comment || 'Non spécifié'}`,
+            actionUrl: 'my-properties',
+            entityId: propertyId,
+          })
+        }
+      }
     }
 
     const mappedProperty = {

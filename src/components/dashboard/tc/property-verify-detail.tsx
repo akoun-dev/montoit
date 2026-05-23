@@ -261,9 +261,20 @@ export function PropertyVerifyDetail() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Back button */}
-      <Button variant="ghost" onClick={goBack} className="gap-2 -ml-2">
-        <ArrowLeft className="size-4" /> Retour
-      </Button>
+      <div className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
+        <Button variant="ghost" onClick={goBack} className="gap-2 -ml-2 mb-3">
+          <ArrowLeft className="size-4" /> Retour
+        </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-lg bg-brand-100 shrink-0">
+            <Building2 className="size-5 text-brand-500" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-foreground truncate">{property.title}</h2>
+            <p className="text-sm text-muted-foreground">Détail du bien à vérifier</p>
+          </div>
+        </div>
+      </div>
 
       {/* Image Gallery */}
       <Card className="border-border overflow-hidden">

@@ -436,63 +436,86 @@ export function InventoryReportForm() {
       </Button>
 
       {/* Header */}
-      <Card className="border-border">
-        <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <CardTitle className="text-lg sm:text-xl font-bold text-foreground flex items-center flex-wrap gap-2">
-                <FileText className="size-5 text-brand-500" />
-                <span>{reportId ? 'Modifier l\'État des Lieux' : 'État des Lieux'}</span>
-                {existingReport && (
-                  <Badge variant="outline" className="text-xs">Brouillon</Badge>
-                )}
-              </CardTitle>
-              {propertyInfo && (
-                <div className="flex items-center gap-2 mt-2 min-w-0">
-                  <Building2 className="size-4 text-muted-foreground shrink-0" />
-                  <span className="text-sm text-muted-foreground truncate">{propertyInfo.title} — {propertyInfo.commune}</span>
-                </div>
+      <div className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+            <FileText className="size-6 text-brand-500" />
+          </div>
+          <div>
+            <div className="flex items-center flex-wrap gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+                {reportId ? 'Modifier l\'État des Lieux' : 'État des Lieux'}
+              </h1>
+              {existingReport && (
+                <Badge variant="outline" className="text-xs">Brouillon</Badge>
               )}
             </div>
+            {propertyInfo ? (
+              <div className="flex items-center gap-2 mt-1 min-w-0">
+                <Building2 className="size-4 text-muted-foreground shrink-0" />
+                <span className="text-sm text-muted-foreground truncate">{propertyInfo.title} — {propertyInfo.commune || propertyInfo.type}</span>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {reportId ? 'Modifier le rapport d\'état des lieux existant' : 'Créez un nouvel état des lieux pour un bien'}
+              </p>
+            )}
+          </div>
+        </div>
 
-            {/* Type selector */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setInventoryType('INVENTORY_ENTRANCE')}
-                className={cn(
-                  'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  inventoryType === 'INVENTORY_ENTRANCE'
-                    ? 'bg-brand-500 text-white'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                )}
-              >
-                Entrée
-              </button>
-              <button
-                onClick={() => setInventoryType('INVENTORY_EXIT')}
-                className={cn(
-                  'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  inventoryType === 'INVENTORY_EXIT'
-                    ? 'bg-brand-500 text-white'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                )}
-              >
-                Sortie
-              </button>
+        {/* Stat badges */}
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Badge variant="secondary" className="bg-brand-50 text-brand-700">
+            <FileText className="size-3 mr-1" /> {inventoryType === 'INVENTORY_ENTRANCE' ? 'Entrée des lieux' : 'Sortie des lieux'}
+          </Badge>
+          <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+            <Key className="size-3 mr-1" /> {totalKeys} clé{totalKeys > 1 ? 's' : ''}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Options row: Type selector + Lease */}
+      <Card className="border-border">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="text-xs font-medium text-muted-foreground block mb-2">Type d&apos;état des lieux</label>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setInventoryType('INVENTORY_ENTRANCE')}
+                  className={cn(
+                    'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    inventoryType === 'INVENTORY_ENTRANCE'
+                      ? 'bg-brand-500 text-white'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  )}
+                >
+                  Entrée
+                </button>
+                <button
+                  onClick={() => setInventoryType('INVENTORY_EXIT')}
+                  className={cn(
+                    'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    inventoryType === 'INVENTORY_EXIT'
+                      ? 'bg-brand-500 text-white'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  )}
+                >
+                  Sortie
+                </button>
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="text-xs font-medium text-muted-foreground block mb-2">Bail associé (optionnel)</label>
+              <Input
+                placeholder="ID du bail..."
+                value={leaseId}
+                onChange={(e) => setLeaseId(e.target.value)}
+                className="w-full"
+              />
             </div>
           </div>
-
-          {/* Optional lease selector */}
-          <div className="mt-3">
-            <label className="text-xs text-muted-foreground">Bail associé (optionnel)</label>
-            <Input
-              placeholder="ID du bail..."
-              value={leaseId}
-              onChange={(e) => setLeaseId(e.target.value)}
-              className="mt-1 w-full sm:max-w-xs"
-            />
-          </div>
-        </CardHeader>
+        </CardContent>
       </Card>
 
       {/* Desktop Table */}

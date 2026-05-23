@@ -14,6 +14,7 @@ import { Payments } from './locataire/payments'
 import { Notifications } from './locataire/notifications'
 import { Reviews } from './locataire/reviews'
 import { Maintenance } from './locataire/maintenance'
+import { MyDisputes } from './shared/my-disputes'
 import { ActivityHistory } from './locataire/history'
 import { SettingsSection } from './locataire/settings'
 import { TrustScore } from './locataire/trust-score'
@@ -139,6 +140,7 @@ function LocataireDashboard({ section }: { section: string }) {
     case 'messages': return <Messages />
     case 'notifications': return <Notifications />
     case 'reviews': return <Reviews />
+    case 'disputes': return <MyDisputes />
     case 'maintenance': return <Maintenance />
     case 'history': return <ActivityHistory />
     case 'trust-score': return <TrustScore />
@@ -167,6 +169,7 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'tenant-detail': return <TenantDetail tenantId={selectedItemId} onBack={goBackToTenants} />
     case 'visit-requests': return <VisitRequests />
     case 'candidatures': return <EnhancedRentalFiles />
+    case 'disputes': return <MyDisputes />
     case 'my-leases': return <EnhancedLeases />
     case 'mandats': return <ProprietaireMandats />
     case 'payments': return <OwnerFinances />
@@ -222,6 +225,7 @@ function AgenceDashboard({ section }: { section: string }) {
     case 'mandats': return <AgenceMandats />
     case 'candidatures': return <Candidatures />
     case 'finances': return <AgenceFinances />
+    case 'disputes': return <MyDisputes />
     case 'visits': return <AgenceVisits />
     case 'analytics': return <AgenceAnalytics />
     case 'contracts': return <AgenceContracts />

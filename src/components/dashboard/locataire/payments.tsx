@@ -247,9 +247,32 @@ export function Payments({ onDetail }: PaymentsProps) {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
-      <motion.div variants={itemVariants}>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes Paiements</h1>
-        <p className="text-muted-foreground mt-1">Historique et suivi de vos paiements</p>
+      <motion.div variants={itemVariants} className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+            <CreditCard className="size-6 text-brand-500" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes Paiements</h1>
+            <p className="text-muted-foreground mt-0.5">Historique et suivi de vos paiements</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Badge variant="secondary" className="bg-brand-50 text-brand-700">
+            <TrendingUp className="size-3 mr-1" /> {stats?.totalPayments ?? 0} total
+          </Badge>
+          <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
+            {stats?.paidCount ?? 0} payés
+          </Badge>
+          <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+            {stats?.pendingCount ?? 0} en attente
+          </Badge>
+          {(stats?.latePaymentsCount ?? 0) > 0 && (
+            <Badge variant="secondary" className="bg-red-50 text-red-700">
+              <AlertTriangle className="size-3 mr-1" /> {stats!.latePaymentsCount} retard
+            </Badge>
+          )}
+        </div>
       </motion.div>
 
       {/* Stats Cards */}

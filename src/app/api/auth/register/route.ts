@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
           .insert({
             id: crypto.randomUUID(),
             phone,
-            email: email || `sms-${Date.now()}@temp.ci`,
+            email: email || `sms-${Date.now()}@montoit.ci`,
             password_hash: await bcrypt.hash(`sms-${Date.now()}-${Math.random()}`, 12),
             first_name: firstName,
             last_name: lastName,

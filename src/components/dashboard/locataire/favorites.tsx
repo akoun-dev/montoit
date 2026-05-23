@@ -132,13 +132,27 @@ export function Favorites() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
-      <motion.div variants={itemVariants}>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes favoris</h1>
-        <p className="text-muted-foreground mt-1">
-          {favorites.length > 0
-            ? `${favorites.length} bien${favorites.length > 1 ? 's' : ''} sauvegardé${favorites.length > 1 ? 's' : ''}`
-            : 'Les biens que vous avez sauvegardés'}
-        </p>
+      <motion.div variants={itemVariants} className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+            <Heart className="size-6 text-brand-500" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes favoris</h1>
+            <p className="text-muted-foreground mt-0.5">
+              {favorites.length > 0
+                ? `${favorites.length} bien${favorites.length > 1 ? 's' : ''} sauvegardé${favorites.length > 1 ? 's' : ''}`
+                : 'Les biens que vous avez sauvegardés'}
+            </p>
+          </div>
+        </div>
+        {favorites.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            <Badge variant="secondary" className="bg-brand-50 text-brand-700">
+              <Heart className="size-3 mr-1" /> {favorites.length} favoris
+            </Badge>
+          </div>
+        )}
       </motion.div>
 
       {favorites.length === 0 ? (

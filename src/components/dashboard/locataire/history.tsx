@@ -158,13 +158,35 @@ export function ActivityHistory() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
-      <motion.div variants={itemVariants}>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Activité</h1>
-        <p className="text-muted-foreground mt-1">
-          {logs.length > 0
-            ? `${total} activité${total > 1 ? 's' : ''} récente${total > 1 ? 's' : ''}`
-            : 'Vos activités récentes'}
-        </p>
+      <motion.div variants={itemVariants} className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+            <HistoryIcon className="size-6 text-brand-500" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Activité</h1>
+            <p className="text-muted-foreground mt-0.5">
+              {logs.length > 0
+                ? `${total} activité${total > 1 ? 's' : ''} récente${total > 1 ? 's' : ''}`
+                : 'Vos activités récentes'}
+            </p>
+          </div>
+        </div>
+        {logs.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            <Badge variant="secondary" className="bg-brand-50 text-brand-700">
+              <HistoryIcon className="size-3 mr-1" /> {logs.length} activités
+            </Badge>
+            {Object.entries(actionCounts).slice(0, 2).map(([action, count]) => {
+              const cfg = getActionConfig(action)
+              return (
+                <Badge key={action} variant="secondary" className="bg-muted text-muted-foreground">
+                  {cfg.label}: {count}
+                </Badge>
+              )
+            })}
+          </div>
+        )}
       </motion.div>
 
       {logs.length > 0 && (

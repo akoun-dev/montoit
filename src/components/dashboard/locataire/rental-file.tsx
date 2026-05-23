@@ -59,6 +59,7 @@ interface RentalFileResponse {
   stats: Record<string, number>
 }
 
+
 // ─── Document requirements ───────────────────────────────────────────────────
 interface DocRequirement {
   type: string
@@ -106,6 +107,9 @@ export function RentalFileForm() {
   const [uploadingDocType, setUploadingDocType] = useState<string | null>(null)
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const rentalFileIdRef = useRef<string | null>(null)
+  const isCreatingDraftRef = useRef(false)
+  const submittingRef = useRef(false)
 
   const [formData, setFormData] = useState({
     guarantorName: '',
@@ -121,11 +125,14 @@ export function RentalFileForm() {
       const draft = files.find((f) => f.status === 'DRAFT') || files[0]
       if (draft) {
         setExistingFile(draft)
+        rentalFileIdRef.current = draft.id
         setFormData({
           guarantorName: draft.guarantorName || '',
           guarantorPhone: draft.guarantorPhone || '',
           guarantorRelation: draft.guarantorRelation || '',
         })
+      } else {
+        rentalFileIdRef.current = null
       }
     } catch (err) {
       if (err instanceof AuthError && err.status === 401) { return }
@@ -177,6 +184,8 @@ export function RentalFileForm() {
       toast.error('Ajoutez au moins un document avant de soumettre votre dossier.')
       return
     }
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     try {
       await authFetch('/api/rental-file', {
@@ -194,7 +203,84 @@ export function RentalFileForm() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de la soumission')
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
+    }
+  }
+
+  // ─── Helper: ensure a draft rental file exists, returns its ID ────────
+  const ensureDraftExists = async (): Promise<string | null> => {
+    // Fast path: already have the ID in the ref
+    if (rentalFileIdRef.current) return rentalFileIdRef.current
+
+    // Second path: might exist in DB but not in ref (e.g. fresh page load)
+    if (existingFile) {
+      rentalFileIdRef.current = existingFile.id
+      return existingFile.id
+    }
+
+    // Lock to prevent concurrent draft creation
+    if (isCreatingDraftRef.current) {
+      // Wait for the other call to finish, with timeout
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          clearInterval(check)
+          reject(new Error('Timeout waiting for draft creation'))
+        }, 10000)
+        const check = setInterval(() => {
+          if (!isCreatingDraftRef.current) {
+            clearInterval(check)
+            clearTimeout(timeout)
+            resolve()
+          }
+        }, 100)
+      }).catch(() => {}) // fall through to DB fetch on timeout
+      
+      // After waiting, try the ref again
+      if (rentalFileIdRef.current) return rentalFileIdRef.current
+      // Fetch from DB (the other call may have created the draft)
+
+      const result = await authFetch<RentalFileResponse>('/api/rental-file')
+      const files = result.data ?? []
+      const draft = files.find((f) => f.status === 'DRAFT') || files[0]
+      if (draft?.id) {
+        rentalFileIdRef.current = draft.id
+        setExistingFile(draft)
+        return draft.id
+      }
+      return null
+    }
+
+    // Create the draft
+    isCreatingDraftRef.current = true
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw: any = await authFetch('/api/rental-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const draftId: string | undefined = raw?.data?.id
+      if (draftId) {
+        setExistingFile(raw.data as RentalFileItem)
+        rentalFileIdRef.current = draftId
+        return draftId
+      }
+      // Fallback: refetch
+      const fetchResult = await authFetch<RentalFileResponse>('/api/rental-file')
+      const files = fetchResult.data ?? []
+      const draft = files.find((f) => f.status === 'DRAFT') || files[0]
+      if (draft?.id) {
+        rentalFileIdRef.current = draft.id
+        setExistingFile(draft)
+        return draft.id
+      }
+      return null
+    } catch {
+      toast.error('Erreur lors de la création du dossier')
+      return null
+    } finally {
+      isCreatingDraftRef.current = false
     }
   }
 
@@ -205,21 +291,10 @@ export function RentalFileForm() {
       return
     }
 
-    // Ensure rental file exists first
-    if (!existingFile) {
-      // Auto-save draft first
-      try {
-        await authFetch('/api/rental-file', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        })
-        // Re-fetch to get the ID
-        await fetchRentalFile()
-      } catch {
-        toast.error('Erreur lors de la création du dossier')
-        return
-      }
+    const draftId = await ensureDraftExists()
+    if (!draftId) {
+      toast.error('Impossible de créer le dossier. Réessayez.')
+      return
     }
 
     setUploadingDocType(docType)
@@ -235,21 +310,11 @@ export function RentalFileForm() {
 
       const base64Content = await base64Promise
 
-      // Get the current rental file (may have just been created)
-      const result = await authFetch<RentalFileResponse>('/api/rental-file')
-      const files = result.data ?? []
-      const currentFile = files.find((f) => f.status === 'DRAFT') || files[0]
-
-      if (!currentFile) {
-        toast.error('Dossier non trouvé')
-        return
-      }
-
       await authFetch('/api/rental-file/documents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          rentalFileId: currentFile.id,
+          rentalFileId: draftId,
           type: docType,
           name: file.name,
           content: base64Content,

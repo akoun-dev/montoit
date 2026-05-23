@@ -11,21 +11,42 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { recipientId, content, propertyId } = body as {
+    const { recipientId, content, propertyId, contactTc } = body as {
       recipientId?: string
       content?: string
       propertyId?: string
-    }
-
-    if (!recipientId) {
-      return NextResponse.json({ error: 'Destinataire requis' }, { status: 400 })
+      contactTc?: boolean
     }
 
     if (!content || !content.trim()) {
       return NextResponse.json({ error: 'Le contenu du message est requis' }, { status: 400 })
     }
 
-    if (recipientId === userId) {
+    let actualRecipientId = recipientId
+
+    // If contactTc flag is set, find a TC user automatically
+    if (contactTc) {
+      const admin = getSupabaseAdminClient()
+      const { data: tcUsers } = await admin
+        .from('users')
+        .select('id')
+        .eq('role', 'TIERS_CONFIANCE')
+        .limit(1)
+
+      if (!tcUsers || tcUsers.length === 0) {
+        return NextResponse.json(
+          { error: 'Aucun Tiers de Confiance disponible pour le moment' },
+          { status: 503 }
+        )
+      }
+      actualRecipientId = tcUsers[0].id
+    }
+
+    if (!actualRecipientId) {
+      return NextResponse.json({ error: 'Destinataire requis' }, { status: 400 })
+    }
+
+    if (actualRecipientId === userId) {
       return NextResponse.json({ error: 'Vous ne pouvez pas vous envoyer un message' }, { status: 400 })
     }
 
@@ -34,7 +55,7 @@ export async function POST(req: NextRequest) {
     const { data: recipient } = await admin
       .from('users')
       .select('id')
-      .eq('id', recipientId)
+      .eq('id', actualRecipientId)
       .maybeSingle()
 
     if (!recipient) {
@@ -44,7 +65,7 @@ export async function POST(req: NextRequest) {
     const { data: existingConvs } = await admin
       .from('conversations')
       .select('id')
-      .or(`and(participant1_id.eq.${userId},participant2_id.eq.${recipientId}),and(participant1_id.eq.${recipientId},participant2_id.eq.${userId})`)
+      .or(`and(participant1_id.eq.${userId},participant2_id.eq.${actualRecipientId}),and(participant1_id.eq.${actualRecipientId},participant2_id.eq.${userId})`)
 
     let convId: string
     if (existingConvs && existingConvs.length > 0) {
@@ -54,7 +75,7 @@ export async function POST(req: NextRequest) {
         .from('conversations')
         .insert({
           participant1_id: userId,
-          participant2_id: recipientId,
+          participant2_id: actualRecipientId,
           property_id: propertyId || null,
         })
         .select()
@@ -102,7 +123,7 @@ export async function POST(req: NextRequest) {
 
     if (senderData.data) {
       await notify({
-        userId: recipientId,
+        userId: actualRecipientId,
         type: 'MESSAGE',
         title: 'Nouveau message',
         message: `${senderData.data.first_name} ${senderData.data.last_name} vous a envoyé un message`,

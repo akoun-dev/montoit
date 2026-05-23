@@ -500,15 +500,38 @@ export function MissionsManagement() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Missions de vérification</h1>
-          <p className="text-muted-foreground mt-1">Planifiez et suivez les missions terrain</p>
-        </div>
-        <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2 shrink-0" onClick={openCreateDialog}>
-          <Plus className="size-4" /> Nouvelle mission
-        </Button>
-      </div>
+      <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+                <MapPin className="size-6 text-brand-600" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Missions de vérification</h1>
+                <p className="text-muted-foreground text-sm">Planifiez et suivez les missions terrain</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 border text-[10px]">
+                    <Clock className="size-3 mr-0.5" /> {missions.filter(m => m.status === 'ASSIGNED').length} assignées
+                  </Badge>
+                  <Badge className="bg-brand-50 text-brand-700 border-brand-200 border text-[10px]">
+                    <CircleDot className="size-3 mr-0.5" /> {missions.filter(m => m.status === 'IN_PROGRESS').length} en cours
+                  </Badge>
+                  <Badge className="bg-green-50 text-green-700 border-green-200 border text-[10px]">
+                    <CheckCircle2 className="size-3 mr-0.5" /> {missions.filter(m => m.status === 'COMPLETED').length} terminées
+                  </Badge>
+                  <Badge className="bg-slate-50 text-slate-700 border-slate-200 border text-[10px]">
+                    <MapPin className="size-3 mr-0.5" /> {missions.length} total
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2 shrink-0 shadow-sm" onClick={openCreateDialog}>
+              <Plus className="size-4" /> Nouvelle mission
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* View Toggle: Calendar / List */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>

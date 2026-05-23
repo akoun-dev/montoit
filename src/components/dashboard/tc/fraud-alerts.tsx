@@ -241,18 +241,37 @@ export function FraudAlertsManagement() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Alertes fraude</h1>
-          <p className="text-muted-foreground mt-1">Gérez les alertes de fraude et les investigations</p>
+      {/* Header with gradient */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-red-500 via-red-600 to-rose-700 p-6 sm:p-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.08),transparent_50%)]" />
+        <div className="relative z-10">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Alertes fraude</h1>
+              <p className="text-red-100 mt-1.5 text-sm sm:text-base">Gérez les alertes de fraude et les investigations</p>
+            </div>
+            <Button
+              className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm gap-2 shrink-0"
+              onClick={() => setCreateDialog(true)}
+            >
+              <Plus className="size-4" /> Nouvelle alerte
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <AlertTriangle className="size-3.5" />
+              {stats.OPEN} ouverte{stats.OPEN !== 1 ? 's' : ''}
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <ShieldAlert className="size-3.5" />
+              {stats.INVESTIGATING} en investigation
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              {stats.CONFIRMED} confirmée{stats.CONFIRMED !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
-        <Button
-          className="bg-brand-500 hover:bg-brand-600 text-white gap-2 shrink-0"
-          onClick={() => setCreateDialog(true)}
-        >
-          <Plus className="size-4" /> Nouvelle alerte
-        </Button>
       </div>
 
       {/* Stats Row */}

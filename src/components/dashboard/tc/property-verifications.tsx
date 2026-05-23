@@ -217,10 +217,24 @@ export function PropertyVerifications() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Vérification des biens</h1>
-        <p className="text-muted-foreground mt-1">Biens en attente de vérification par le Tiers de Confiance</p>
+      {/* Header with gradient */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 p-6 sm:p-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.08),transparent_50%)]" />
+        <div className="relative z-10">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Vérification des biens</h1>
+          <p className="text-emerald-100 mt-1.5 text-sm sm:text-base">Biens en attente de vérification par le Tiers de Confiance</p>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <Home className="size-3.5" />
+              {properties.length} bien{properties.length !== 1 ? 's' : ''} à vérifier
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <MapPin className="size-3.5" />
+              {new Set(properties.map(p => p.commune)).size} commune{new Set(properties.map(p => p.commune)).size !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Search, filter & view toggle */}
@@ -244,13 +258,6 @@ export function PropertyVerifications() {
           />
         </div>
         <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
-      </div>
-
-      {/* Property count */}
-      <div className="flex items-center gap-2">
-        <Badge variant="secondary" className="bg-brand-50 text-brand-700">
-          {properties.length} bien{properties.length !== 1 ? 's' : ''} en attente
-        </Badge>
       </div>
 
       {/* Content */}

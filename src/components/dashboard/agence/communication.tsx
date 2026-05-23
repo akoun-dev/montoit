@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { MessageSquare, Send, FileText, Search, Paperclip, Image as ImageIcon, X } from 'lucide-react'
+import { MessageSquare, Send, FileText, Search, Paperclip, Image as ImageIcon, X, ShieldCheck } from 'lucide-react'
+import { ContactTcDialog } from '@/components/messaging/contact-tc-dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -120,11 +121,25 @@ export function AgenceCommunication() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
-      <motion.div variants={itemVariants}>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-          <MessageSquare className="size-5 sm:size-6 text-[#FF6C2F]" /> Communication
-        </h1>
-        <p className="text-muted-foreground mt-1">{conversations.length} conversation{conversations.length > 1 ? 's' : ''}</p>
+      <motion.div variants={itemVariants} className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <MessageSquare className="size-5 sm:size-6 text-[#FF6C2F]" /> Communication
+          </h1>
+          <p className="text-muted-foreground mt-1">{conversations.length} conversation{conversations.length > 1 ? 's' : ''}</p>
+        </div>
+        <ContactTcDialog
+          onMessageSent={(convId) => {
+            fetchData()
+            setSelectedConv(convId)
+          }}
+          trigger={
+            <Button variant="outline" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50 shrink-0">
+              <ShieldCheck className="size-4" />
+              <span className="hidden sm:inline">TC</span>
+            </Button>
+          }
+        />
       </motion.div>
 
       <motion.div variants={itemVariants} className="grid lg:grid-cols-3 gap-4">

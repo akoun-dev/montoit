@@ -410,10 +410,28 @@ export function RentalFilesQueue() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dossiers à valider</h1>
-        <p className="text-muted-foreground mt-1">File d&apos;attente des dossiers locatifs</p>
+      {/* Header with gradient */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 p-6 sm:p-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.08),transparent_50%)]" />
+        <div className="relative z-10">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Dossiers à valider</h1>
+          <p className="text-amber-100 mt-1.5 text-sm sm:text-base">File d&apos;attente des dossiers locatifs — validez, rejetez ou demandez des informations</p>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <ClipboardCheck className="size-3.5" />
+              {files.length} dossier{files.length !== 1 ? 's' : ''}
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <Flame className="size-3.5" />
+              {files.filter(f => f.priority === 'URGENT').length} urgent{files.filter(f => f.priority === 'URGENT').length !== 1 ? 's' : ''}
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
+              <Pause className="size-3.5" />
+              {files.filter(f => f.onHold).length} en attente
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Toolbar: Search + Status Filters + View Toggle */}
@@ -430,14 +448,20 @@ export function RentalFilesQueue() {
             />
           </div>
 
-          {/* Status filter pills */}
+          {/* Status filter pills with icons */}
           <div className="flex gap-2 flex-wrap">
             <Button
               size="sm"
               variant={statusFilter === 'ALL' ? 'default' : 'outline'}
-              className={statusFilter === 'ALL' ? 'bg-brand-500 hover:bg-brand-600 text-white' : ''}
+              className={cn(
+                'gap-1.5',
+                statusFilter === 'ALL'
+                  ? 'bg-brand-500 hover:bg-brand-600 text-white'
+                  : 'hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200'
+              )}
               onClick={() => setStatusFilter('ALL')}
             >
+              <ClipboardCheck className="size-3.5" />
               Tous
             </Button>
             {filterableStatuses.map((s) => (
@@ -445,9 +469,18 @@ export function RentalFilesQueue() {
                 key={s}
                 size="sm"
                 variant={statusFilter === s ? 'default' : 'outline'}
-                className={statusFilter === s ? 'bg-brand-500 hover:bg-brand-600 text-white' : ''}
+                className={cn(
+                  'gap-1.5',
+                  statusFilter === s
+                    ? 'bg-brand-500 hover:bg-brand-600 text-white'
+                    : 'hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200'
+                )}
                 onClick={() => setStatusFilter(s)}
               >
+                {s === 'SUBMITTED' && <FileText className="size-3.5" />}
+                {s === 'TC_REVIEW' && <Eye className="size-3.5" />}
+                {s === 'VALIDATED' && <Check className="size-3.5" />}
+                {s === 'REJECTED' && <X className="size-3.5" />}
                 {statusLabels[s]}
               </Button>
             ))}

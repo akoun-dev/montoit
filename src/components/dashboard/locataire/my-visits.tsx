@@ -161,9 +161,33 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes visites</h1>
-        <p className="text-muted-foreground mt-1">Suivez vos demandes de visite</p>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-brand-500/10 to-transparent -mx-4 sm:-mx-6 px-4 sm:px-6 py-4 rounded-none">
+        <div className="flex items-center gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+            <Eye className="size-6 text-brand-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes visites</h1>
+            <p className="text-muted-foreground mt-1">Suivez vos demandes de visite</p>
+          </div>
+        </div>
+        {/* Badges stats */}
+        <div className="flex flex-wrap gap-2 mt-3">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 text-brand-700 text-xs font-medium border border-brand-100">
+            <Eye className="size-3" /> {stats.total} total
+          </span>
+          {stats.PENDING > 0 && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium border border-amber-100">
+              {stats.PENDING} en attente
+            </span>
+          )}
+          {stats.ACCEPTED > 0 && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-100">
+              {stats.ACCEPTED} acceptée{stats.ACCEPTED > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Stats cards */}

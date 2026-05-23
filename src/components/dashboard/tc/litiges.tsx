@@ -532,10 +532,35 @@ export function LitigesManagement() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Gestion des litiges</h1>
-        <p className="text-muted-foreground mt-1">Traitez et résolvez les litiges signalés</p>
-      </div>
+      <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-rose-100">
+                <AlertTriangle className="size-6 text-rose-600" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Gestion des litiges</h1>
+                <p className="text-muted-foreground text-sm">Traitez et résolvez les litiges signalés</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge className="bg-red-50 text-red-700 border-red-200 border text-[10px]">
+                    <AlertTriangle className="size-3 mr-0.5" /> {openCount} ouverts
+                  </Badge>
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 border text-[10px]">
+                    <Clock className="size-3 mr-0.5" /> {inReviewCount} en cours
+                  </Badge>
+                  <Badge className="bg-green-50 text-green-700 border-green-200 border text-[10px]">
+                    <CheckCircle2 className="size-3 mr-0.5" /> {resolvedCount} résolus
+                  </Badge>
+                  <Badge className="bg-slate-50 text-slate-700 border-slate-200 border text-[10px]">
+                    <FileText className="size-3 mr-0.5" /> {totalCount} total
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">

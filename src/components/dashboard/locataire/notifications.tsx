@@ -205,30 +205,47 @@ export function Notifications() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-            Mes notifications
-            {unreadCount > 0 && (
-              <Badge className="ml-2 bg-brand-500 text-white border-0 text-xs px-2 py-0.5">
-                {unreadCount}
-              </Badge>
-            )}
-          </h1>
-          <p className="text-muted-foreground mt-1">Restez informé de vos démarches</p>
+      <motion.div variants={itemVariants} className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+              <Bell className="size-6 text-brand-500" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+                Mes notifications
+                {unreadCount > 0 && (
+                  <Badge className="ml-2 bg-brand-500 text-white border-0 text-xs px-2 py-0.5">
+                    {unreadCount}
+                  </Badge>
+                )}
+              </h1>
+              <p className="text-muted-foreground mt-0.5">Restez informé de vos démarches</p>
+            </div>
+          </div>
+          {unreadCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleMarkAllRead}
+              disabled={markingRead}
+              className="gap-1.5 text-brand-600 border-brand-200 hover:bg-brand-50 shrink-0"
+            >
+              <CheckCheck className="size-4" />
+              Tout marquer lu
+            </Button>
+          )}
         </div>
-        {unreadCount > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleMarkAllRead}
-            disabled={markingRead}
-            className="gap-1.5 text-brand-600 border-brand-200 hover:bg-brand-50"
-          >
-            <CheckCheck className="size-4" />
-            Tout marquer lu
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Badge variant="secondary" className="bg-brand-50 text-brand-700">
+            <Bell className="size-3 mr-1" /> {notifications.length} total
+          </Badge>
+          {unreadCount > 0 && (
+            <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+              {unreadCount} non lu{unreadCount > 1 ? 's' : ''}
+            </Badge>
+          )}
+        </div>
       </motion.div>
 
       {/* Category Badges */}

@@ -123,70 +123,102 @@ export async function POST(req: NextRequest) {
         ? employmentType
         : undefined
 
-    // Check if a DRAFT rental file exists
-    const { data: existingDraft } = await admin
-      .from('rental_files')
-      .select('*')
-      .eq('tenant_id', userId)
-      .eq('status', 'DRAFT')
-      .maybeSingle()
+    // Atomic upsert : utilise l'index unique partiel idx_rental_files_one_draft_per_tenant
+    // pour garantir qu'un seul DRAFT existe par locataire, même en concurrence
+    const id = generateId()
+    const status = submit ? 'SUBMITTED' : 'DRAFT'
+
+    const insertData: any = {
+      id,
+      tenant_id: userId,
+      status,
+    }
+    if (resolvedTenantCategory) insertData.tenant_category = resolvedTenantCategory
+    if (monthlyIncome !== undefined) insertData.monthly_income = monthlyIncome
+    if (employer !== undefined) insertData.employer = employer
+    if (resolvedEmploymentType) insertData.employment_type = resolvedEmploymentType
+    if (guarantorName !== undefined) insertData.guarantor_name = guarantorName
+    if (guarantorPhone !== undefined) insertData.guarantor_phone = guarantorPhone
+    if (guarantorRelation !== undefined) insertData.guarantor_relation = guarantorRelation
 
     let rentalFile: any
 
-    if (existingDraft) {
-      // Update existing draft
-      const updateData: any = {}
-      if (resolvedTenantCategory) updateData.tenant_category = resolvedTenantCategory
-      if (monthlyIncome !== undefined) updateData.monthly_income = monthlyIncome
-      if (employer !== undefined) updateData.employer = employer
-      if (resolvedEmploymentType) updateData.employment_type = resolvedEmploymentType
-      if (guarantorName !== undefined) updateData.guarantor_name = guarantorName
-      if (guarantorPhone !== undefined) updateData.guarantor_phone = guarantorPhone
-      if (guarantorRelation !== undefined) updateData.guarantor_relation = guarantorRelation
-      if (submit) updateData.status = 'SUBMITTED'
-
-      const { data: updated } = await admin
+    if (status === 'DRAFT') {
+      // Vérifier d'abord si un DRAFT existe déjà (évite les doublons même sans index unique)
+      const { data: existingDraft } = await admin
         .from('rental_files')
-        .update(updateData as any)
-        .eq('id', existingDraft.id)
-        .select()
-        .single()
+        .select('*')
+        .eq('tenant_id', userId)
+        .eq('status', 'DRAFT')
+        .maybeSingle()
 
-      rentalFile = updated
+      if (existingDraft) {
+        // Mettre à jour l'existant
+        const updateData: any = {}
+        if (resolvedTenantCategory) updateData.tenant_category = resolvedTenantCategory
+        if (monthlyIncome !== undefined) updateData.monthly_income = monthlyIncome
+        if (employer !== undefined) updateData.employer = employer
+        if (resolvedEmploymentType) updateData.employment_type = resolvedEmploymentType
+        if (guarantorName !== undefined) updateData.guarantor_name = guarantorName
+        if (guarantorPhone !== undefined) updateData.guarantor_phone = guarantorPhone
+        if (guarantorRelation !== undefined) updateData.guarantor_relation = guarantorRelation
 
-      // Log to audit
-      await admin.from('audit_logs').insert({
-        id: generateId(),
-        action: submit ? 'SUBMIT' : 'UPDATE',
-        entity: 'RentalFile',
-        entity_id: existingDraft.id,
-        details: submit
-          ? 'Dossier locatif soumis pour validation'
-          : 'Dossier locatif (brouillon) mis à jour',
-        user_id: userId,
-      })
+        const { data: updated } = await admin
+          .from('rental_files')
+          .update(updateData as any)
+          .eq('id', existingDraft.id)
+          .select()
+          .single()
 
-      // Notify all TC users when submitted
-      if (submit) {
-        await notifyTcUsers(admin, 'Nouveau dossier locatif soumis', 'Un nouveau dossier locatif a été soumis et nécessite votre validation.', existingDraft.id)
+        rentalFile = updated
+
+        await admin.from('audit_logs').insert({
+          id: generateId(),
+          action: 'UPDATE',
+          entity: 'RentalFile',
+          entity_id: existingDraft.id,
+          details: 'Dossier locatif (brouillon) mis à jour',
+          user_id: userId,
+        })
+      } else {
+        // Aucun DRAFT existant — créer un nouveau
+        const { data: created, error: insertError } = await admin
+          .from('rental_files')
+          .insert(insertData as any)
+          .select()
+          .maybeSingle()
+
+        if (insertError && insertError.code === '23505') {
+          // Race condition : un autre appel a créé un DRAFT entre-temps
+          const { data: concurrent } = await admin
+            .from('rental_files')
+            .select('*')
+            .eq('tenant_id', userId)
+            .eq('status', 'DRAFT')
+            .maybeSingle()
+
+          if (concurrent) {
+            rentalFile = concurrent
+          } else {
+            throw insertError
+          }
+        } else if (created) {
+          rentalFile = created
+
+          await admin.from('audit_logs').insert({
+            id: generateId(),
+            action: 'CREATE',
+            entity: 'RentalFile',
+            entity_id: rentalFile.id,
+            details: 'Nouveau dossier locatif (brouillon) créé',
+            user_id: userId,
+          })
+        } else if (insertError) {
+          throw insertError
+        }
       }
     } else {
-      // Create new draft (or submitted directly)
-      const status = submit ? 'SUBMITTED' : 'DRAFT'
-
-      const insertData: any = {
-        id: generateId(),
-        tenant_id: userId,
-        status,
-      }
-      if (resolvedTenantCategory) insertData.tenant_category = resolvedTenantCategory
-      if (monthlyIncome !== undefined) insertData.monthly_income = monthlyIncome
-      if (employer !== undefined) insertData.employer = employer
-      if (resolvedEmploymentType) insertData.employment_type = resolvedEmploymentType
-      if (guarantorName !== undefined) insertData.guarantor_name = guarantorName
-      if (guarantorPhone !== undefined) insertData.guarantor_phone = guarantorPhone
-      if (guarantorRelation !== undefined) insertData.guarantor_relation = guarantorRelation
-
+      // SUBMITTED — toujours créer (un dossier soumis peut être soumis à nouveau)
       const { data: created } = await admin
         .from('rental_files')
         .insert(insertData as any)
@@ -195,20 +227,16 @@ export async function POST(req: NextRequest) {
 
       rentalFile = created
 
-      // Log to audit
       await admin.from('audit_logs').insert({
         id: generateId(),
-        action: submit ? 'SUBMIT' : 'CREATE',
+        action: 'SUBMIT',
         entity: 'RentalFile',
         entity_id: rentalFile?.id,
-        details: submit
-          ? 'Nouveau dossier locatif créé et soumis'
-          : 'Nouveau dossier locatif (brouillon) créé',
+        details: 'Nouveau dossier locatif créé et soumis',
         user_id: userId,
       })
 
-      // Notify all TC users when submitted
-      if (submit && rentalFile) {
+      if (rentalFile) {
         await notifyTcUsers(admin, 'Nouveau dossier locatif soumis', 'Un nouveau dossier locatif a été soumis et nécessite votre validation.', rentalFile.id)
       }
     }

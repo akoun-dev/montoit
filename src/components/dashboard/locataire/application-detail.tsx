@@ -179,23 +179,28 @@ export function ApplicationDetail({  applicationId, onBack
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-      {/* Back button */}
-      <Button variant="ghost" onClick={onBack} className="gap-2 text-muted-foreground -ml-2">
-        <ArrowLeft className="size-4" /> Retour aux candidatures
-      </Button>
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Détail de la candidature</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Créée le {formatShortDate(application.createdAt)}
-          </p>
+      {/* Header with gradient */}
+      <div className="bg-gradient-to-r from-brand-500/10 to-transparent -mx-4 sm:-mx-6 px-4 sm:px-6 py-4 rounded-none">
+        <Button variant="ghost" onClick={onBack} className="gap-2 text-muted-foreground -ml-2 mb-3">
+          <ArrowLeft className="size-4" /> Retour aux candidatures
+        </Button>
+        <div className="flex items-center gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+            <FileText className="size-6 text-brand-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Détail de la candidature</h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Créée le {formatShortDate(application.createdAt)}
+            </p>
+          </div>
         </div>
-        <Badge variant="outline" className={`shrink-0 text-xs px-3 py-1 border ${config.color} w-fit`}>
-          <StatusIcon className="size-3 mr-1" />
-          {config.label}
-        </Badge>
+        <div className="mt-3">
+          <Badge variant="outline" className={`text-xs px-3 py-1 border ${config.color} w-fit`}>
+            <StatusIcon className="size-3 mr-1" />
+            {config.label}
+          </Badge>
+        </div>
       </div>
 
       {/* Status Timeline */}

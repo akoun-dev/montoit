@@ -6,7 +6,7 @@ import {
   Check, CheckCheck, Building2, Loader2,
   Paperclip, FileText, Image as ImageIcon,
 } from 'lucide-react'
-import { Card } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -524,19 +524,34 @@ export function TcMessaging() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Messagerie</h1>
-          <p className="text-muted-foreground mt-1">Communiquez avec les utilisateurs de la plateforme</p>
-        </div>
-        <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2">
-              <Plus className="size-4" />
-              <span className="hidden sm:inline">Nouvelle conversation</span>
-              <span className="sm:hidden">Nouveau</span>
-            </Button>
-          </DialogTrigger>
+      <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+                <MessageSquare className="size-6 text-brand-600" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Messagerie</h1>
+                <p className="text-muted-foreground text-sm">Communiquez avec les utilisateurs de la plateforme</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge className="bg-brand-50 text-brand-700 border-brand-200 border text-[10px]">
+                    <MessageSquare className="size-3 mr-0.5" /> {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
+                  </Badge>
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 border text-[10px]">
+                    <MessageSquare className="size-3 mr-0.5 text-amber-500" /> {conversations.reduce((sum, c) => sum + c.unreadCount, 0)} non lu{conversations.reduce((sum, c) => sum + c.unreadCount, 0) !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2 shadow-sm">
+                  <Plus className="size-4" />
+                  <span className="hidden sm:inline">Nouvelle conversation</span>
+                  <span className="sm:hidden">Nouveau</span>
+                </Button>
+              </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Nouvelle conversation</DialogTitle>
@@ -660,6 +675,8 @@ export function TcMessaging() {
           </DialogContent>
         </Dialog>
       </div>
+        </CardContent>
+      </Card>
 
       {/* Two-panel layout */}
       <Card className="border-border overflow-hidden">

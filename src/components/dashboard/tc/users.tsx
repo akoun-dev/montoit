@@ -180,45 +180,63 @@ export function TcUsers() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-4 sm:space-y-6 px-1 sm:px-0"
+      className="space-y-4 sm:space-y-6"
     >
       {/* ─── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-lg sm:text-xl xl:text-2xl font-bold text-foreground truncate">
-            Tous les utilisateurs
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            {stats.total} utilisateur{stats.total !== 1 ? 's' : ''} sur la plateforme
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="gap-1 text-muted-foreground h-9 px-2 sm:px-3"
-              aria-label="Effacer les filtres"
-            >
-              <X className="size-3.5 sm:size-4" />
-              <span className="hidden sm:inline">Effacer les filtres</span>
-            </Button>
-          )}
-          <Select value={filterRole} onValueChange={setFilterRole}>
-            <SelectTrigger className="h-9 w-full sm:w-40 text-xs sm:text-sm">
-              <SelectValue placeholder="Filtrer par rôle" />
-            </SelectTrigger>
-            <SelectContent>
-              {roleOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value} className="text-xs sm:text-sm">
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+                <Users className="size-6 text-brand-600" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Tous les utilisateurs</h1>
+                <p className="text-muted-foreground text-sm">
+                  {stats.total} utilisateur{stats.total !== 1 ? 's' : ''} sur la plateforme
+                </p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge className="bg-brand-50 text-brand-700 border-brand-200 border text-[10px]">
+                    <Users className="size-3 mr-0.5" /> {stats.total} total
+                  </Badge>
+                  <Badge className="bg-green-50 text-green-700 border-green-200 border text-[10px]">
+                    <User className="size-3 mr-0.5" /> {stats.active} actifs
+                  </Badge>
+                  <Badge className="bg-red-50 text-red-700 border-red-200 border text-[10px]">
+                    <User className="size-3 mr-0.5" /> {stats.inactive} inactifs
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="gap-1 text-muted-foreground h-9 px-2 sm:px-3"
+                  aria-label="Effacer les filtres"
+                >
+                  <X className="size-3.5 sm:size-4" />
+                  <span className="hidden sm:inline">Effacer les filtres</span>
+                </Button>
+              )}
+              <Select value={filterRole} onValueChange={setFilterRole}>
+                <SelectTrigger className="h-9 w-full sm:w-40 text-xs sm:text-sm">
+                  <SelectValue placeholder="Filtrer par rôle" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roleOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs sm:text-sm">
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ─── Stats Cards ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

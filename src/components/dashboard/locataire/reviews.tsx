@@ -277,19 +277,39 @@ export function Reviews() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes avis</h1>
-          <p className="text-muted-foreground mt-1">Vos évaluations et commentaires</p>
+      <motion.div variants={itemVariants} className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+              <Star className="size-6 text-brand-500" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes avis</h1>
+              <p className="text-muted-foreground mt-0.5">Vos évaluations et commentaires</p>
+            </div>
+          </div>
+          <Button
+            onClick={() => setShowReviewDialog(true)}
+            className="gap-2 bg-brand-500 hover:bg-brand-600 text-white shrink-0"
+          >
+            <Plus className="size-4" />
+            <span className="hidden sm:inline">Laisser un avis</span>
+            <span className="sm:hidden">Avis</span>
+          </Button>
         </div>
-        <Button
-          onClick={() => setShowReviewDialog(true)}
-          className="gap-2 bg-brand-500 hover:bg-brand-600 text-white"
-        >
-          <Plus className="size-4" />
-          <span className="hidden sm:inline">Laisser un avis</span>
-          <span className="sm:hidden">Avis</span>
-        </Button>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Badge variant="secondary" className="bg-brand-50 text-brand-700">
+            <Star className="size-3 mr-1" /> {stats?.givenCount ?? 0} donnés
+          </Badge>
+          <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
+            {stats?.receivedCount ?? 0} reçus
+          </Badge>
+          {(stats?.averageScoreReceived ?? 0) > 0 && (
+            <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+              Ø {stats!.averageScoreReceived!.toFixed(1)}/5
+            </Badge>
+          )}
+        </div>
       </motion.div>
 
       {/* Stats Cards */}

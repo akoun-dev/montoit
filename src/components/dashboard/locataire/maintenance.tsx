@@ -357,15 +357,36 @@ export function Maintenance() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       {/* Header */}
-      <motion.div variants={itemVariants} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Maintenance</h1>
-          <p className="text-muted-foreground mt-1">Demandes d&apos;intervention et suivi</p>
+      <motion.div variants={itemVariants} className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+              <Wrench className="size-6 text-brand-500" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Maintenance</h1>
+              <p className="text-muted-foreground mt-0.5">Demandes d&apos;intervention et suivi</p>
+            </div>
+          </div>
+          <Button className="bg-brand-500 hover:bg-brand-600 text-white gap-2 shrink-0" onClick={handleOpenDialog}>
+            <Plus className="size-4" />
+            Nouvelle demande
+          </Button>
         </div>
-        <Button className="bg-brand-500 hover:bg-brand-600 text-white" onClick={handleOpenDialog}>
-          <Plus className="size-4 mr-2" />
-          Nouvelle demande
-        </Button>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Badge variant="secondary" className="bg-brand-50 text-brand-700">
+            <Wrench className="size-3 mr-1" /> {requests.length} total
+          </Badge>
+          <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+            {pendingCount} en attente
+          </Badge>
+          <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
+            {inProgressCount} en cours
+          </Badge>
+          <Badge variant="secondary" className="bg-neutral-100 text-neutral-600">
+            {resolvedCount} résolues
+          </Badge>
+        </div>
       </motion.div>
 
       {/* Status Summary */}

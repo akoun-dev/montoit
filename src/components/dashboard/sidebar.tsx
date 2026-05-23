@@ -50,6 +50,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           title: 'MESSAGES',
           items: [
             { id: 'messages', label: 'Mes messages', icon: MessageSquare },
+            { id: 'disputes', label: 'Mes litiges', icon: Scale },
             { id: 'notifications', label: 'Mes notifications', icon: Bell },
           ],
         },
@@ -96,6 +97,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           title: 'MESSAGES',
           items: [
             { id: 'messages', label: 'Messages', icon: MessageSquare },
+            { id: 'disputes', label: 'Litiges', icon: Scale },
             { id: 'notifications', label: 'Notifications', icon: Bell },
           ],
         },
@@ -140,6 +142,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           title: 'OUTILS',
           items: [
             { id: 'communication', label: 'Communication', icon: MessageSquare },
+            { id: 'disputes', label: 'Litiges', icon: Scale },
             { id: 'marketing', label: 'Marketing', icon: Megaphone },
             { id: 'client-files', label: 'Dossiers clients', icon: FolderOpen },
           ],

@@ -306,18 +306,38 @@ export function CertificationsManagement() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Certifications</h1>
-          <p className="text-muted-foreground mt-1">Gérez les certifications d&apos;identité, de biens et d&apos;agences</p>
-        </div>
-        <Button
-          className="bg-brand-500 hover:bg-brand-600 text-white gap-2 shrink-0"
-          onClick={() => setCreateDialog(true)}
-        >
-          <Plus className="size-4" /> Nouvelle certification
-        </Button>
-      </div>
+      <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+                <Award className="size-6 text-brand-600" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Certifications</h1>
+                <p className="text-muted-foreground text-sm">Gérez les certifications d&apos;identité, de biens et d&apos;agences</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 border text-[10px]">
+                    <Clock className="size-3 mr-0.5" /> {stats.PENDING} en attente
+                  </Badge>
+                  <Badge className="bg-green-50 text-green-700 border-green-200 border text-[10px]">
+                    <BadgeCheck className="size-3 mr-0.5" /> {stats.GRANTED} certifiées
+                  </Badge>
+                  <Badge className="bg-slate-50 text-slate-700 border-slate-200 border text-[10px]">
+                    <Award className="size-3 mr-0.5" /> {stats.TOTAL} total
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            <Button
+              className="bg-brand-500 hover:bg-brand-600 text-white gap-2 shrink-0 shadow-sm"
+              onClick={() => setCreateDialog(true)}
+            >
+              <Plus className="size-4" /> Nouvelle certification
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

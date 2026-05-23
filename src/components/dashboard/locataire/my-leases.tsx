@@ -119,9 +119,27 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes baux</h1>
-        <p className="text-muted-foreground mt-1">Consultez vos contrats de location</p>
+      <div className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
+            <FileSignature className="size-6 text-brand-500" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes baux</h1>
+            <p className="text-muted-foreground mt-0.5">Consultez vos contrats de location</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <Badge variant="secondary" className="bg-brand-50 text-brand-700">
+            <FileSignature className="size-3 mr-1" /> {allLeases.length} total
+          </Badge>
+          <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
+            {activeLeases.length} actifs
+          </Badge>
+          <Badge variant="secondary" className="bg-neutral-100 text-neutral-600">
+            {previousLeases.length} précédents
+          </Badge>
+        </div>
       </div>
 
       {/* Tab Toggle */}

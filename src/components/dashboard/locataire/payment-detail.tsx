@@ -282,21 +282,24 @@ indiquée.
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-      {/* Back button */}
-      <Button variant="ghost" onClick={onBack} className="gap-2 text-muted-foreground -ml-2">
-        <ArrowLeft className="size-4" /> Retour aux paiements
-      </Button>
-
-      {/* Header with status */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Détail du paiement</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {property?.title || 'Loyer'} — {formatShortDate(payment.dueDate)}
-          </p>
+      {/* Header with gradient */}
+      <div className="bg-gradient-to-r from-brand-500/10 to-transparent -mx-4 sm:-mx-6 px-4 sm:px-6 py-4 rounded-none">
+        <Button variant="ghost" onClick={onBack} className="gap-2 text-muted-foreground -ml-2 mb-3">
+          <ArrowLeft className="size-4" /> Retour aux paiements
+        </Button>
+        <div className="flex items-center gap-4">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+            <CreditCard className="size-6 text-brand-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Détail du paiement</h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {property?.title || 'Loyer'} — {formatShortDate(payment.dueDate)}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className={`shrink-0 text-xs px-3 py-1 border ${config.color}`}>
+        <div className="flex items-center gap-2 mt-3">
+          <Badge variant="outline" className={`text-xs px-3 py-1 border ${config.color}`}>
             <span className={`size-2 rounded-full ${config.dotColor} mr-1.5`} />
             {config.label}
           </Badge>
@@ -304,7 +307,7 @@ indiquée.
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 text-brand-600 border-brand-200 hover:bg-brand-50 hover:text-brand-700"
+              className="gap-1.5 text-brand-600 border-brand-200 hover:bg-brand-50 hover:text-brand-700 text-xs h-7"
               onClick={handleDownloadReceipt}
             >
               <Download className="size-3.5" />
