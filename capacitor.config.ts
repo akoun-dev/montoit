@@ -8,6 +8,7 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     url: 'https://mon-toit.ansut.ci',
     cleartext: true,
+    errorPath: 'offline.html',
     allowNavigation: [
       'neoface.aineo.ai',
       'mon-toit.ansut.ci',

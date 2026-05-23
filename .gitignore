@@ -65,7 +65,8 @@ android/app/build/
 android/app/release/
 android/.gradle/
 android/build/
-android/app/src/main/assets/
+android/app/src/main/assets/public/cordova*.js
+android/app/src/main/assets/capacitor.json
 android/capacitor-cordova-android-plugins/
 android/app/capacitor.build.gradle
 android/app/google-services.json
