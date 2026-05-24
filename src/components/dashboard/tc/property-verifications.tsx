@@ -107,6 +107,7 @@ export function PropertyVerifications() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCommune, setFilterCommune] = useState('')
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'APARTMENT' | 'HOUSE' | 'OTHER'>('ALL')
 
   const fetchData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -191,6 +192,12 @@ export function PropertyVerifications() {
     setRejectComment('')
   }
 
+  const filteredProperties = properties.filter((p) => {
+    if (typeFilter === 'ALL') return true
+    if (typeFilter === 'OTHER') return !['APARTMENT', 'HOUSE'].includes(p.type)
+    return p.type === typeFilter
+  })
+
   /* ─── Loading skeleton ─── */
   if (loading) {
     return (
@@ -217,24 +224,97 @@ export function PropertyVerifications() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      {/* Header with gradient */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 p-6 sm:p-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.08),transparent_50%)]" />
-        <div className="relative z-10">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Vérification des biens</h1>
-          <p className="text-emerald-100 mt-1.5 text-sm sm:text-base">Biens en attente de vérification par le Tiers de Confiance</p>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <Home className="size-3.5" />
-              {properties.length} bien{properties.length !== 1 ? 's' : ''} à vérifier
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <MapPin className="size-3.5" />
-              {new Set(properties.map(p => p.commune)).size} commune{new Set(properties.map(p => p.commune)).size !== 1 ? 's' : ''}
-            </span>
+      {/* Header */}
+      <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+                <Home className="size-6 text-brand-600" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Vérification des biens</h1>
+                <p className="text-muted-foreground text-sm">Biens en attente de vérification par le Tiers de Confiance</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 border text-[10px]">
+                    <Home className="size-3 mr-0.5" /> {properties.length} bien{properties.length !== 1 ? 's' : ''} à vérifier
+                  </Badge>
+                  <Badge className="bg-brand-50 text-brand-700 border-brand-200 border text-[10px]">
+                    <MapPin className="size-3 mr-0.5" /> {new Set(properties.map(p => p.commune)).size} commune{new Set(properties.map(p => p.commune)).size !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', typeFilter === 'ALL' && 'ring-1 ring-brand-400 bg-brand-50/20')}
+          onClick={() => setTypeFilter('ALL')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50">
+                <Home className="size-5 text-brand-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{properties.length}</p>
+                <p className="text-xs text-muted-foreground">Total biens</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', typeFilter === 'APARTMENT' && 'ring-1 ring-amber-400 bg-amber-50/20')}
+          onClick={() => setTypeFilter(typeFilter === 'APARTMENT' ? 'ALL' : 'APARTMENT')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50">
+                <Building2 className="size-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600">{properties.filter(p => p.type === 'APARTMENT').length}</p>
+                <p className="text-xs text-muted-foreground">Appartements</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', typeFilter === 'HOUSE' && 'ring-1 ring-teal-400 bg-teal-50/20')}
+          onClick={() => setTypeFilter(typeFilter === 'HOUSE' ? 'ALL' : 'HOUSE')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-teal-50">
+                <Home className="size-5 text-teal-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-teal-600">{properties.filter(p => p.type === 'HOUSE').length}</p>
+                <p className="text-xs text-muted-foreground">Maisons</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', typeFilter === 'OTHER' && 'ring-1 ring-rose-400 bg-rose-50/20')}
+          onClick={() => setTypeFilter(typeFilter === 'OTHER' ? 'ALL' : 'OTHER')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-rose-50">
+                <MapPin className="size-5 text-rose-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-rose-600">{properties.filter(p => !['APARTMENT', 'HOUSE'].includes(p.type)).length}</p>
+                <p className="text-xs text-muted-foreground">Autres</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Search, filter & view toggle */}
@@ -261,13 +341,13 @@ export function PropertyVerifications() {
       </div>
 
       {/* Content */}
-      {properties.length === 0 ? (
+      {filteredProperties.length === 0 ? (
         emptyState
       ) : viewMode === 'card' ? (
         /* ─── CARD VIEW ─── */
         <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
           <AnimatePresence mode="popLayout">
-            {properties.map((property) => (
+            {filteredProperties.map((property) => (
               <motion.div
                 key={property.id}
                 layout
@@ -361,7 +441,7 @@ export function PropertyVerifications() {
               </thead>
               <tbody>
                 <AnimatePresence mode="popLayout">
-                  {properties.map((property) => (
+                  {filteredProperties.map((property) => (
                     <motion.tr
                       key={property.id}
                       layout

@@ -19,7 +19,7 @@ export async function POST(
 
     const { data: lease } = await (supabase
       .from('leases')
-      .select('id, status, tenant_id, owner_id, tenant:tenant_id(id, first_name, last_name, email), owner:owner_id(id, first_name, last_name, email), property:property_id(id, title)')
+      .select('id, status, tenant_id, owner_id, tenant:tenant_id(id, first_name, last_name, email, phone), owner:owner_id(id, first_name, last_name, email, phone), property:property_id(id, title)')
       .eq('id', id)
       .maybeSingle() as any)
 
@@ -48,19 +48,20 @@ export async function POST(
       return applyCookies(resp)
     }
 
-    // Récupérer l'email du destinataire
-    let recipientEmail = ''
-    
-    if (isOwner) {
-      recipientEmail = lease.owner?.email || ''
-    } else {
-      // Pour le locataire, utiliser son email depuis les données du bail
-      recipientEmail = lease.tenant?.email || ''
+    // Déterminer le canal et le destinataire
+    const recipient = isOwner ? lease.owner : lease.tenant
+    let canal = 'MAIL'
+    let recipientEmail = recipient?.email || ''
+    let recipientPhone = recipient?.phone || ''
+
+    // Si l'utilisateur a un email → MAIL, sinon SMS si téléphone disponible
+    if (!recipientEmail && recipientPhone) {
+      canal = 'SMS'
     }
 
-    if (!recipientEmail) {
+    if (!recipientEmail && !recipientPhone) {
       const resp = NextResponse.json(
-        { error: 'Email du destinataire introuvable' },
+        { error: 'Aucun email ou téléphone trouvé pour le destinataire' },
         { status: 400 }
       )
       return applyCookies(resp)
@@ -70,7 +71,11 @@ export async function POST(
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign-send-otp`
     const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
 
-    console.log('[request-sign-otp] Calling sign-send-otp:', { canal: 'MAIL', email: recipientEmail, userId, isOwner, leaseId: id })
+    const body: Record<string, string> = { canal }
+    if (recipientEmail) body.email = recipientEmail
+    if (recipientPhone && canal === 'SMS') body.phone = recipientPhone
+
+    console.log('[request-sign-otp] Calling sign-send-otp:', { canal, email: recipientEmail, phone: recipientPhone, userId, isOwner, leaseId: id })
 
     const otpRes = await fetch(functionUrl, {
       method: 'POST',
@@ -79,10 +84,7 @@ export async function POST(
         'Content-Type': 'application/json',
         ...(accessToken ? {} : { 'x-user-id': userId }),
       },
-      body: JSON.stringify({
-        canal: 'MAIL',
-        email: recipientEmail, // Spécifier l'email du destinataire
-      }),
+      body: JSON.stringify(body),
     })
 
     const otpResponseBody = await otpRes.text()
@@ -98,11 +100,13 @@ export async function POST(
       return applyCookies(resp)
     }
 
+    const sentLabel = canal === 'SMS' ? 'par SMS' : 'par email'
     const resp = NextResponse.json({
       message: isOwner
-        ? 'Un code OTP vous a été envoyé par email. Vérifiez votre boîte de réception.'
+        ? `Un code OTP vous a été envoyé ${sentLabel}. Vérifiez votre ${canal === 'SMS' ? 'téléphone' : 'boîte de réception'}.`
         : 'Code de vérification envoyé.',
-      sentTo: recipientEmail,
+      sentTo: recipientEmail || recipientPhone,
+      canal,
     })
     return applyCookies(resp)
   } catch (error) {

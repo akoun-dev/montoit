@@ -241,42 +241,46 @@ export function FraudAlertsManagement() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      {/* Header with gradient */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-red-500 via-red-600 to-rose-700 p-6 sm:p-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.08),transparent_50%)]" />
-        <div className="relative z-10">
+      {/* Header */}
+      <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Alertes fraude</h1>
-              <p className="text-red-100 mt-1.5 text-sm sm:text-base">Gérez les alertes de fraude et les investigations</p>
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+                <AlertTriangle className="size-6 text-brand-600" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Alertes fraude</h1>
+                <p className="text-muted-foreground text-sm">Gérez les alertes de fraude et les investigations</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 border text-[10px]">
+                    <AlertTriangle className="size-3 mr-0.5" /> {stats.OPEN} ouverte{stats.OPEN !== 1 ? 's' : ''}
+                  </Badge>
+                  <Badge className="bg-orange-50 text-orange-700 border-orange-200 border text-[10px]">
+                    <ShieldAlert className="size-3 mr-0.5" /> {stats.INVESTIGATING} en investigation
+                  </Badge>
+                  <Badge className="bg-red-50 text-red-700 border-red-200 border text-[10px]">
+                    {stats.CONFIRMED} confirmée{stats.CONFIRMED !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
+              </div>
             </div>
             <Button
-              className="bg-white/20 hover:bg-white/30 text-white border-0 backdrop-blur-sm gap-2 shrink-0"
+              className="bg-brand-500 hover:bg-brand-600 text-white gap-2 shrink-0 shadow-sm"
               onClick={() => setCreateDialog(true)}
             >
               <Plus className="size-4" /> Nouvelle alerte
             </Button>
           </div>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <AlertTriangle className="size-3.5" />
-              {stats.OPEN} ouverte{stats.OPEN !== 1 ? 's' : ''}
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <ShieldAlert className="size-3.5" />
-              {stats.INVESTIGATING} en investigation
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              {stats.CONFIRMED} confirmée{stats.CONFIRMED !== 1 ? 's' : ''}
-            </span>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Stats Row */}
+      {/* Stats Row — cliquable pour filtrer */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="border-border">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:border-red-300 hover:shadow-sm', statusFilter === 'OPEN' && 'ring-1 ring-red-400 bg-red-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'OPEN' ? 'ALL' : 'OPEN')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-red-50">
@@ -289,7 +293,10 @@ export function FraudAlertsManagement() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:border-amber-300 hover:shadow-sm', statusFilter === 'INVESTIGATING' && 'ring-1 ring-amber-400 bg-amber-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'INVESTIGATING' ? 'ALL' : 'INVESTIGATING')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50">
@@ -302,7 +309,10 @@ export function FraudAlertsManagement() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:border-rose-300 hover:shadow-sm', statusFilter === 'CONFIRMED' && 'ring-1 ring-rose-400 bg-rose-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'CONFIRMED' ? 'ALL' : 'CONFIRMED')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-rose-50">
@@ -315,7 +325,10 @@ export function FraudAlertsManagement() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:border-gray-300 hover:shadow-sm', statusFilter === 'DISMISSED' && 'ring-1 ring-gray-400 bg-gray-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'DISMISSED' ? 'ALL' : 'DISMISSED')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-gray-50">

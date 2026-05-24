@@ -7,6 +7,7 @@ import {
   Heart,
   Eye,
   FileSignature,
+  FolderOpen,
   MessageSquare,
   UserCircle,
   LogOut,
@@ -134,9 +135,7 @@ function getUserMenuItems(role: AuthUser['role']): UserMenuItem[] {
     case 'TIERS_CONFIANCE':
       return [
         { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
-        { id: 'rental-files', label: 'Dossiers à valider', icon: ClipboardCheck, section: 'rental-files-queue', group: 'VALIDATION' },
-        { id: 'validations', label: 'Validations propriétaires', icon: BadgeCheck, section: 'owner-validations', group: 'VALIDATION' },
-        { id: 'agency-validations', label: 'Validations agences', icon: Building2, section: 'agency-validations', group: 'VALIDATION' },
+        { id: 'dossier-validations', label: 'Dossiers', icon: FolderOpen, section: 'dossier-validations', group: 'VALIDATION' },
         { id: 'sla', label: 'Suivi SLA', icon: Clock, section: 'sla-monitoring', group: 'SUIVI' },
         { id: 'notifications', label: 'Notifications', icon: Bell, section: 'notifications', group: 'SUIVI' },
         { id: 'profile', label: 'Mon profil', icon: UserCircle, section: 'settings', group: 'COMPTE' },

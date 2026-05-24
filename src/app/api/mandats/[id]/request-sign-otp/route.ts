@@ -18,7 +18,7 @@ export async function POST(
 
     const { data: mandat } = await supabase
       .from('mandats')
-      .select('id, status, owner_id, agency_id, owner:owner_id(id, first_name, last_name, email), agency:agency_id(id, first_name, last_name, email), property:property_id(id, title)')
+      .select('id, status, owner_id, agency_id, owner:owner_id(id, first_name, last_name, email, phone), agency:agency_id(id, first_name, last_name, email), property:property_id(id, title)')
       .eq('id', id)
       .maybeSingle() as any
 
@@ -45,14 +45,27 @@ export async function POST(
       return applyCookies(resp)
     }
 
-    const recipientEmail = mandat.owner?.email || ''
-    if (!recipientEmail) {
-      const resp = NextResponse.json({ error: 'Email introuvable' }, { status: 400 })
+    const ownerData = mandat.owner
+    let canal = 'MAIL'
+    let recipientEmail = ownerData?.email || ''
+    let recipientPhone = ownerData?.phone || ''
+
+    // Fallback SMS si pas d'email mais téléphone disponible
+    if (!recipientEmail && recipientPhone) {
+      canal = 'SMS'
+    }
+
+    if (!recipientEmail && !recipientPhone) {
+      const resp = NextResponse.json({ error: 'Aucun email ou téléphone trouvé pour le propriétaire' }, { status: 400 })
       return applyCookies(resp)
     }
 
     const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign-send-otp`
     const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    const body: Record<string, string> = { canal }
+    if (recipientEmail) body.email = recipientEmail
+    if (recipientPhone && canal === 'SMS') body.phone = recipientPhone
 
     const otpRes = await fetch(functionUrl, {
       method: 'POST',
@@ -61,10 +74,7 @@ export async function POST(
         'Content-Type': 'application/json',
         ...(accessToken ? {} : { 'x-user-id': userId }),
       },
-      body: JSON.stringify({
-        canal: 'MAIL',
-        email: recipientEmail,
-      }),
+      body: JSON.stringify(body),
     })
 
     const otpResponseBody = await otpRes.text()
@@ -79,9 +89,11 @@ export async function POST(
       return applyCookies(resp)
     }
 
+    const sentLabel = canal === 'SMS' ? 'par SMS' : 'par email'
     const resp = NextResponse.json({
-      message: 'Un code OTP vous a été envoyé par email.',
-      sentTo: recipientEmail,
+      message: `Un code OTP vous a été envoyé ${sentLabel}.`,
+      sentTo: recipientEmail || recipientPhone,
+      canal,
     })
     return applyCookies(resp)
   } catch (error) {

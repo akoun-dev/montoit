@@ -45,6 +45,7 @@ import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { DocumentPreviewDialog } from './document-preview-dialog'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,7 +123,7 @@ const PAGE_SIZE = 10
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function OwnerValidations() {
+export function OwnerValidations({ showHeaderAndStats = true }: { showHeaderAndStats?: boolean }) {
   const { isAuthenticated, user } = useAuthStore()
 
   // Data state
@@ -135,6 +136,7 @@ export function OwnerValidations() {
   // View & filter state
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [filterType, setFilterType] = useState<DocType | 'ALL'>('ALL')
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'VALIDATED' | 'REJECTED'>('ALL')
 
   // Dialog state
   const [actionDialog, setActionDialog] = useState<ActionDialogType>(null)
@@ -290,6 +292,13 @@ export function OwnerValidations() {
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
+  // ─── Local status filter ──────────────────────────────────────────────────
+
+  const displayedDocs = docs.filter((d) => {
+    if (statusFilter === 'ALL') return true
+    return d.status === statusFilter
+  })
+
   // ─── Render ───────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -314,72 +323,146 @@ export function OwnerValidations() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      {/* ─── Header with gradient ──────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-700 p-6 sm:p-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.08),transparent_50%)]" />
-        <div className="relative z-10">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">
-                Validations propriétaires
-              </h1>
-              <p className="text-emerald-100 mt-1.5 text-sm sm:text-base">
-                Vérifiez les documents de propriété
-              </p>
+{showHeaderAndStats && (<>
+      {/* ─── Header ──────────────────────────────────────────────────────────── */}
+      <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+                <BadgeCheck className="size-6 text-brand-600" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Validations propriétaires</h1>
+                <p className="text-muted-foreground text-sm">Vérifiez les documents de propriété</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 border text-[10px]">
+                    <BadgeCheck className="size-3 mr-0.5" /> {total} document{total !== 1 ? 's' : ''}
+                  </Badge>
+                  <Badge className="bg-brand-50 text-brand-700 border-brand-200 border text-[10px]">
+                    <FileText className="size-3 mr-0.5" /> {docs.filter(d => d.type === 'TITRE_FONCIER').length} titre{docs.filter(d => d.type === 'TITRE_FONCIER').length !== 1 ? 's' : ''} foncier{docs.filter(d => d.type === 'TITRE_FONCIER').length !== 1 ? 's' : ''}
+                  </Badge>
+                  <Badge className="bg-teal-50 text-teal-700 border-teal-200 border text-[10px]">
+                    <FileText className="size-3 mr-0.5" /> {docs.filter(d => d.type === 'ACTE_NOTARIE').length} acte{docs.filter(d => d.type === 'ACTE_NOTARIE').length !== 1 ? 's' : ''} notarié{docs.filter(d => d.type === 'ACTE_NOTARIE').length !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
+              </div>
             </div>
-            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
           </div>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <BadgeCheck className="size-3.5" />
-              {total} document{total !== 1 ? 's' : ''}
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <FileText className="size-3.5" />
-              {docs.filter(d => d.type === 'TITRE_FONCIER').length} titre{docs.filter(d => d.type === 'TITRE_FONCIER').length !== 1 ? 's' : ''} foncier{docs.filter(d => d.type === 'TITRE_FONCIER').length !== 1 ? 's' : ''}
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <FileText className="size-3.5" />
-              {docs.filter(d => d.type === 'ACTE_NOTARIE').length} acte{docs.filter(d => d.type === 'ACTE_NOTARIE').length !== 1 ? 's' : ''} notarié{docs.filter(d => d.type === 'ACTE_NOTARIE').length !== 1 ? 's' : ''}
-            </span>
-          </div>
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* ─── Stats Row ──────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'ALL' && 'ring-1 ring-brand-400 bg-brand-50/20')}
+          onClick={() => setStatusFilter('ALL')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50">
+                <BadgeCheck className="size-5 text-brand-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{total}</p>
+                <p className="text-xs text-muted-foreground">Total</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'PENDING' && 'ring-1 ring-amber-400 bg-amber-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'PENDING' ? 'ALL' : 'PENDING')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50">
+                <AlertCircle className="size-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600">{docs.filter(d => d.status === 'PENDING').length}</p>
+                <p className="text-xs text-muted-foreground">En attente</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'VALIDATED' && 'ring-1 ring-green-400 bg-green-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'VALIDATED' ? 'ALL' : 'VALIDATED')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-green-50">
+                <Check className="size-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">{docs.filter(d => d.status === 'VALIDATED').length}</p>
+                <p className="text-xs text-muted-foreground">Validés</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'REJECTED' && 'ring-1 ring-red-400 bg-red-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'REJECTED' ? 'ALL' : 'REJECTED')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-red-50">
+                <X className="size-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-red-600">{docs.filter(d => d.status === 'REJECTED').length}</p>
+                <p className="text-xs text-muted-foreground">Rejetés</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+        </>)}
 
       {/* ─── Filter bar ───────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground mr-1 shrink-0">
           <Filter className="size-4" />
           <span className="hidden sm:inline">Filtrer :</span>
         </div>
-        <button
-          onClick={() => setFilterType('ALL')}
-          className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+        <Button
+          size="sm"
+          variant={filterType === 'ALL' ? 'default' : 'outline'}
+          className={cn(
+            'text-xs',
             filterType === 'ALL'
-              ? 'bg-brand-500 text-white border-brand-500'
-              : 'bg-background text-muted-foreground border-border hover:bg-muted'
-          }`}
+              ? 'bg-brand-500 hover:bg-brand-600 text-white'
+              : 'hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200'
+          )}
+          onClick={() => setFilterType('ALL')}
         >
           Tous
-        </button>
+        </Button>
         {ALL_DOC_TYPES.map((type) => (
-          <button
+          <Button
             key={type}
-            onClick={() => setFilterType(type)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+            size="sm"
+            variant={filterType === type ? 'default' : 'outline'}
+            className={cn(
+              'text-xs',
               filterType === type
-                ? 'bg-brand-500 text-white border-brand-500'
-                : 'bg-background text-muted-foreground border-border hover:bg-muted'
-            }`}
+                ? 'bg-brand-500 hover:bg-brand-600 text-white'
+                : 'hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200'
+            )}
+            onClick={() => setFilterType(type)}
           >
             {TYPE_LABELS[type]}
-          </button>
+          </Button>
         ))}
+        </div>
+        <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
       </div>
 
       {/* ─── Empty state ──────────────────────────────────────────────────── */}
-      {docs.length === 0 ? (
+      {displayedDocs.length === 0 ? (
         <Card className="border-border">
           <CardContent className="py-12 text-center">
             <BadgeCheck className="size-12 text-muted-foreground/50 mx-auto mb-4" />
@@ -401,7 +484,7 @@ export function OwnerValidations() {
                 transition={{ duration: 0.2 }}
                 className="grid grid-cols-1 md:grid-cols-2 gap-4"
               >
-                {docs.map((doc, index) => (
+                {displayedDocs.map((doc, index) => (
                   <motion.div
                     key={doc.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -559,7 +642,7 @@ export function OwnerValidations() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {docs.map((doc) => (
+                      {displayedDocs.map((doc) => (
                         <TableRow key={doc.id}>
                           <TableCell>
                             <div className="flex items-center gap-2">

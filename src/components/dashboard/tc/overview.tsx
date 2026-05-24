@@ -337,7 +337,7 @@ export function TcOverview() {
 
   const mainCards = [
     {
-      id: 'rental-files-queue',
+      id: 'dossier-validations',
       label: 'Dossiers locataires',
       count: stats.pendingRentalFiles,
       icon: ClipboardCheck,
@@ -351,7 +351,7 @@ export function TcOverview() {
       ],
     },
     {
-      id: 'owner-validations',
+      id: 'dossier-validations',
       label: 'Validations propriétaires',
       count: stats.pendingOwnerDocs,
       icon: BadgeCheck,
@@ -365,7 +365,7 @@ export function TcOverview() {
       ],
     },
     {
-      id: 'agency-validations',
+      id: 'dossier-validations',
       label: 'Validations agences',
       count: stats.pendingAgencyDocs,
       icon: Building2,
@@ -382,28 +382,34 @@ export function TcOverview() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
-      {/* Header with gradient */}
-      <motion.div variants={itemVariants} className="relative overflow-hidden rounded-xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-6 sm:p-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.08),transparent_50%)]" />
-        <div className="relative z-10">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Bonjour, {user?.firstName} 👋</h1>
-          <p className="text-brand-100 mt-1.5 text-sm sm:text-base">Espace Tiers de Confiance — Validation, contrôle et supervision</p>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <ClipboardCheck className="size-3.5" />
-              {stats.pendingRentalFiles} dossier{stats.pendingRentalFiles !== 1 ? 's' : ''} en attente
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <Home className="size-3.5" />
-              {stats.pendingProperties} bien{stats.pendingProperties !== 1 ? 's' : ''} à vérifier
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <Scale className="size-3.5" />
-              {openDisputes} litige{openDisputes !== 1 ? 's' : ''} ouvert{openDisputes !== 1 ? 's' : ''}
-            </span>
-          </div>
-        </div>
+      {/* Header */}
+      <motion.div variants={itemVariants}>
+        <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+                  <ClipboardCheck className="size-6 text-brand-600" />
+                </div>
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-foreground">Bonjour, {user?.firstName} 👋</h1>
+                  <p className="text-muted-foreground text-sm">Espace Tiers de Confiance — Validation, contrôle et supervision</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <Badge className="bg-amber-50 text-amber-700 border-amber-200 border text-[10px]">
+                      <ClipboardCheck className="size-3 mr-0.5" /> {stats.pendingRentalFiles} dossier{stats.pendingRentalFiles !== 1 ? 's' : ''} en attente
+                    </Badge>
+                    <Badge className="bg-brand-50 text-brand-700 border-brand-200 border text-[10px]">
+                      <Home className="size-3 mr-0.5" /> {stats.pendingProperties} bien{stats.pendingProperties !== 1 ? 's' : ''} à vérifier
+                    </Badge>
+                    <Badge className="bg-orange-50 text-orange-700 border-orange-200 border text-[10px]">
+                      <Scale className="size-3 mr-0.5" /> {openDisputes} litige{openDisputes !== 1 ? 's' : ''} ouvert{openDisputes !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* ─── 3 Main Status Cards ──────────────────────────────────────────── */}
@@ -779,7 +785,7 @@ export function TcOverview() {
                   <CardTitle className="text-base font-semibold">Dossiers locataires récents</CardTitle>
                   <CardDescription>{pendingRentalFiles.length} en attente de validation</CardDescription>
                 </div>
-                <Button variant="ghost" size="sm" className="text-brand-500 gap-1" onClick={() => setDashboardSection('rental-files-queue')}>
+                <Button variant="ghost" size="sm" className="text-brand-500 gap-1" onClick={() => setDashboardSection('dossier-validations')}>
                   Voir tout <ArrowRight className="size-3.5" />
                 </Button>
               </div>
@@ -795,7 +801,7 @@ export function TcOverview() {
                   <div
                     key={rf.id}
                     className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent cursor-pointer transition-colors"
-                    onClick={() => setDashboardSection('rental-files-queue')}
+                    onClick={() => setDashboardSection('dossier-validations')}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="size-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">

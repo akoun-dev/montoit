@@ -3,20 +3,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Building2, Search, MapPin, X, Check,
-  Loader2, FileText, ChevronDown, SlidersHorizontal,
-  User, Calendar, Bed, Ruler, Eye, LayoutList, LayoutGrid,
+  Loader2, FileText, ChevronDown, ChevronsUpDown,
+  User, Calendar, Eye, BadgeCheck, Clock,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
@@ -151,130 +148,6 @@ function shortDate(dateStr: string) {
   })
 }
 
-// ─── List Row Component ─────────────────────────────────────────────────────
-
-function ListRow({
-  property,
-  onDetail,
-  onInventory,
-  onApprove,
-  actionLoading,
-}: {
-  property: PropertyItem
-  onDetail: (id: string) => void
-  onInventory: (id: string) => void
-  onApprove: (id: string) => void
-  actionLoading: string | null
-}) {
-  const statusInfo = statusLabels[property.status] || { label: property.status, className: 'bg-gray-100 text-gray-700' }
-  const isPending = property.status === 'PENDING_VERIFICATION'
-
-  return (
-    <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border border-border hover:bg-accent/40 transition-colors group">
-      {/* Thumbnail — hidden on very small screens */}
-      <div className="hidden sm:block size-10 sm:size-12 md:size-14 shrink-0 rounded-md overflow-hidden">
-        <PropertyThumbnail images={property.images} title={property.title} className="w-full h-full" />
-      </div>
-
-      {/* Main info — grows to fill */}
-      <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto_auto] items-center gap-x-3 gap-y-1 md:gap-y-0">
-        {/* Title + commune */}
-        <div className="min-w-0">
-          <p className="text-xs sm:text-sm font-semibold text-foreground truncate group-hover:text-brand-500 transition-colors">
-            {property.title || 'Sans titre'}
-          </p>
-          {(property.commune || property.address) && (
-            <p className="text-[10px] sm:text-xs text-muted-foreground truncate flex items-center gap-0.5">
-              <MapPin className="size-2.5 sm:size-3 shrink-0" />
-              {property.commune || property.address}
-            </p>
-          )}
-        </div>
-
-        {/* Type + Status badges — row on xs+ */}
-        <div className="flex flex-wrap items-center gap-1 min-w-0 sm:justify-end md:justify-start">
-          <Badge className="bg-brand-500/10 text-brand-600 text-[9px] sm:text-[10px] leading-none px-1.5 py-0.5 font-medium whitespace-nowrap">
-            {typeLabels[property.type] || property.type}
-          </Badge>
-          <Badge className={cn('text-[9px] sm:text-[10px] leading-none px-1.5 py-0.5 whitespace-nowrap', statusInfo.className)}>
-            {statusInfo.label}
-          </Badge>
-          {property.isVerified && (
-            <Badge className="bg-emerald-500 text-white text-[9px] sm:text-[10px] leading-none px-1.5 py-0.5 flex items-center gap-0.5 whitespace-nowrap">
-              <Check className="size-2" /> Vérifié
-            </Badge>
-          )}
-        </div>
-
-        {/* Price */}
-        <p className="text-xs sm:text-sm font-bold text-brand-500 leading-tight whitespace-nowrap sm:text-right md:text-left">
-          {priceFCFA(property.price)} <span className="text-[9px] sm:text-[10px] font-normal text-muted-foreground">FCFA</span>
-        </p>
-
-        {/* Owner + Date */}
-        <div className="text-[10px] sm:text-xs text-muted-foreground min-w-0 sm:text-right md:text-left">
-          {property.owner && (
-            <div className="flex items-center gap-0.5 justify-end md:justify-start truncate">
-              <User className="size-2.5 sm:size-3 shrink-0" />
-              <span className="truncate max-w-[100px] sm:max-w-[140px]">
-                {property.owner.firstName} {property.owner.lastName}
-              </span>
-            </div>
-          )}
-          <div className="flex items-center gap-0.5 justify-end md:justify-start">
-            <Calendar className="size-2.5 sm:size-3 shrink-0" />
-            <span className="whitespace-nowrap">{shortDate(property.createdAt)}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Inventory badge + Actions — compact on mobile */}
-      <div className="flex items-center gap-1 shrink-0">
-        {property.inventoryReportCount > 0 && (
-          <Badge variant="outline" className="text-emerald-600 border-emerald-200 text-[9px] sm:text-[10px] leading-none px-1.5 py-0.5 hidden md:inline-flex items-center gap-0.5">
-            <FileText className="size-2.5" />
-            {property.inventoryReportCount}
-          </Badge>
-        )}
-
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => onDetail(property.id)}
-          className="size-7 sm:size-8 text-muted-foreground hover:text-foreground"
-          aria-label="Voir les détails"
-        >
-          <Eye className="size-3.5 sm:size-4" />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => onInventory(property.id)}
-          className="size-7 sm:size-8 text-muted-foreground hover:text-foreground"
-          aria-label="État des lieux"
-        >
-          <FileText className="size-3.5 sm:size-4" />
-        </Button>
-        {isPending && (
-          <Button
-            size="icon"
-            className="size-7 sm:size-8 bg-green-600 hover:bg-green-700 text-white"
-            onClick={() => onApprove(property.id)}
-            disabled={actionLoading === property.id}
-            aria-label="Approuver le bien"
-          >
-            {actionLoading === property.id ? (
-              <Loader2 className="size-3.5 sm:size-4 animate-spin" />
-            ) : (
-              <Check className="size-3.5 sm:size-4" />
-            )}
-          </Button>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function AllProperties() {
@@ -283,15 +156,12 @@ export function AllProperties() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
-  // View mode
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
-
   // Filters
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType] = useState('')
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false)
   const [filterCommune, setFilterCommune] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
 
   // Pagination
   const [total, setTotal] = useState(0)
@@ -308,7 +178,8 @@ export function AllProperties() {
     try {
       const params = new URLSearchParams()
       if (searchQuery) params.set('search', searchQuery)
-      if (filterStatus && filterStatus !== 'ALL') params.set('status', filterStatus)
+      if (filterStatus && filterStatus !== 'ALL' && filterStatus !== 'VERIFIED') params.set('status', filterStatus)
+      if (filterStatus === 'VERIFIED') params.set('verified', 'true')
       if (filterType && filterType !== 'ALL') params.set('type', filterType)
       if (filterCommune) params.set('commune', filterCommune)
       params.set('limit', String(LIMIT))
@@ -397,7 +268,6 @@ export function AllProperties() {
   }
 
   const hasActiveFilters = searchQuery || filterStatus || filterType || filterCommune
-  const activeFilterCount = [filterStatus, filterType, filterCommune].filter(Boolean).length
 
   // ─── Loading Skeleton ─────────────────────────────────────────────────────
 
@@ -414,413 +284,351 @@ export function AllProperties() {
     )
   }
 
+  const pendingCount = properties.filter(p => p.status === 'PENDING_VERIFICATION').length
+  const activeCount = properties.filter(p => p.status === 'ACTIVE').length
+  const verifiedCount = properties.filter(p => p.isVerified).length
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-4 sm:space-y-6 px-1 sm:px-0"
-    >
-      {/* ─── Header ─────────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-brand-500/10 to-transparent p-4 sm:p-6 rounded-xl border border-border/50">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
-              <Building2 className="size-6 text-brand-500" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl xl:text-2xl font-bold text-foreground truncate">
-                Tous les biens
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                {total} bien{total !== 1 ? 's' : ''} sur la plateforme
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-          {/* View toggle */}
-          <div className="flex items-center border border-border rounded-lg overflow-hidden">
-            <button
-              onClick={() => setViewMode('list')}
-              className={cn(
-                'p-1.5 sm:p-2 transition-colors',
-                viewMode === 'list'
-                  ? 'bg-accent text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-              aria-label="Vue liste"
-              title="Vue liste"
-            >
-              <LayoutList className="size-3.5 sm:size-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('grid')}
-              className={cn(
-                'p-1.5 sm:p-2 transition-colors',
-                viewMode === 'grid'
-                  ? 'bg-accent text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-              aria-label="Vue grille"
-              title="Vue grille"
-            >
-              <LayoutGrid className="size-3.5 sm:size-4" />
-            </button>
-          </div>
-
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="gap-1 text-muted-foreground h-9 px-2 sm:px-3"
-              aria-label="Effacer les filtres"
-            >
-              <X className="size-3.5 sm:size-4" />
-              <span className="hidden sm:inline">Effacer les filtres</span>
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className={cn('gap-2 h-9 shrink-0', showFilters && 'bg-accent')}
-          >
-            <SlidersHorizontal className="size-3.5 sm:size-4" />
-            <span className="hidden sm:inline">Filtres</span>
-            {activeFilterCount > 0 && (
-              <Badge className="bg-brand-500 text-white size-4 sm:size-5 p-0 flex items-center justify-center text-[9px] sm:text-[10px] rounded-full">
-                {activeFilterCount}
-              </Badge>
-            )}
-          </Button>
-        </div>
-      </div>
-    </div>
-
-      {/* ─── Search Bar ──────────────────────────────────────────────────── */}
-      <div className="relative w-full">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 sm:size-4 text-muted-foreground pointer-events-none" />
-        <Input
-          placeholder="Rechercher un bien..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-8 sm:pl-9 pr-3 h-10 sm:h-11 text-sm"
-        />
-      </div>
-
-      {/* ─── Filters Panel ───────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {showFilters && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <Card className="border-border">
-              <CardContent className="p-3 sm:p-4">
-                <div className="flex flex-col sm:grid sm:grid-cols-3 gap-2 sm:gap-3">
-                  <div>
-                    <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
-                      Statut
-                    </label>
-                    <Select value={filterStatus} onValueChange={setFilterStatus}>
-                      <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm">
-                        <SelectValue placeholder="Tous les statuts" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {statusOptions.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value} className="text-xs sm:text-sm">
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
-                      Type de bien
-                    </label>
-                    <Select value={filterType} onValueChange={setFilterType}>
-                      <SelectTrigger className="h-9 sm:h-10 text-xs sm:text-sm">
-                        <SelectValue placeholder="Tous les types" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {typeOptions.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value} className="text-xs sm:text-sm">
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 block">
-                      Commune
-                    </label>
-                    <div className="relative">
-                      <MapPin className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 size-3.5 sm:size-4 text-muted-foreground pointer-events-none" />
-                      <Input
-                        placeholder="Commune..."
-                        value={filterCommune}
-                        onChange={(e) => setFilterCommune(e.target.value)}
-                        className="pl-7 sm:pl-9 h-9 sm:h-10 text-xs sm:text-sm"
-                      />
-                    </div>
-                  </div>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      {/* Header */}
+      <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+                <Building2 className="size-6 text-brand-600" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Tous les biens</h1>
+                <p className="text-muted-foreground text-sm">Gérez l&apos;ensemble des biens immobiliers sur la plateforme</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge className="bg-brand-50 text-brand-700 border-brand-200 border text-[10px]">
+                    <Building2 className="size-3 mr-0.5" /> {total} bien{total !== 1 ? 's' : ''}
+                  </Badge>
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 border text-[10px]">
+                    <Clock className="size-3 mr-0.5" /> {pendingCount} en attente
+                  </Badge>
+                  <Badge className="bg-green-50 text-green-700 border-green-200 border text-[10px]">
+                    <Check className="size-3 mr-0.5" /> {verifiedCount} vérifié{verifiedCount !== 1 ? 's' : ''}
+                  </Badge>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* ─── Active filters badges ───────────────────────────────────────── */}
-      {hasActiveFilters && (
-        <div className="flex flex-wrap gap-1.5 sm:gap-2">
-          {searchQuery && (
-            <Badge variant="secondary" className="gap-1 text-[10px] sm:text-xs h-6 sm:h-7 max-w-[200px] sm:max-w-none">
-              <span className="truncate max-w-[120px] sm:max-w-none">&quot;{searchQuery}&quot;</span>
-              <button onClick={() => setSearchQuery('')} className="shrink-0">
-                <X className="size-2.5 sm:size-3 ml-0.5" />
-              </button>
-            </Badge>
-          )}
-          {filterStatus && (
-            <Badge variant="secondary" className="gap-1 text-[10px] sm:text-xs h-6 sm:h-7">
-              {statusOptions.find((o) => o.value === filterStatus)?.label}
-              <button onClick={() => setFilterStatus('')} className="shrink-0">
-                <X className="size-2.5 sm:size-3 ml-0.5" />
-              </button>
-            </Badge>
-          )}
-          {filterType && (
-            <Badge variant="secondary" className="gap-1 text-[10px] sm:text-xs h-6 sm:h-7">
-              {typeOptions.find((o) => o.value === filterType)?.label}
-              <button onClick={() => setFilterType('')} className="shrink-0">
-                <X className="size-2.5 sm:size-3 ml-0.5" />
-              </button>
-            </Badge>
-          )}
-          {filterCommune && (
-            <Badge variant="secondary" className="gap-1 text-[10px] sm:text-xs h-6 sm:h-7">
-              {filterCommune}
-              <button onClick={() => setFilterCommune('')} className="shrink-0">
-                <X className="size-2.5 sm:size-3 ml-0.5" />
-              </button>
-            </Badge>
-          )}
+      {/* Stats Row — cliquable pour filtrer */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:border-brand-200 hover:shadow-sm', !filterStatus && 'ring-1 ring-brand-200')}
+          onClick={() => setFilterStatus('')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50">
+                <Building2 className="size-5 text-brand-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{total}</p>
+                <p className="text-xs text-muted-foreground">Total</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:border-amber-300 hover:shadow-sm', filterStatus === 'PENDING_VERIFICATION' && 'ring-1 ring-amber-400 bg-amber-50/20')}
+          onClick={() => setFilterStatus(filterStatus === 'PENDING_VERIFICATION' ? '' : 'PENDING_VERIFICATION')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50">
+                <Clock className="size-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600">{pendingCount}</p>
+                <p className="text-xs text-muted-foreground">En attente</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:border-green-300 hover:shadow-sm', filterStatus === 'ACTIVE' && 'ring-1 ring-green-400 bg-green-50/20')}
+          onClick={() => setFilterStatus(filterStatus === 'ACTIVE' ? '' : 'ACTIVE')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-green-50">
+                <Check className="size-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">{activeCount}</p>
+                <p className="text-xs text-muted-foreground">Actifs</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:border-emerald-300 hover:shadow-sm', filterStatus === 'VERIFIED' && 'ring-1 ring-emerald-400 bg-emerald-50/20')}
+          onClick={() => setFilterStatus(filterStatus === 'VERIFIED' ? '' : 'VERIFIED')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-50">
+                <BadgeCheck className="size-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-emerald-600">{verifiedCount}</p>
+                <p className="text-xs text-muted-foreground">Vérifiés</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Toolbar: Search + Filters (responsive) */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="relative w-full sm:max-w-[180px] xl:max-w-xs shrink-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher un bien..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
         </div>
-      )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {statusOptions.map((opt) => (
+            <Button
+              key={opt.value}
+              size="sm"
+              variant={filterStatus === opt.value ? 'default' : 'outline'}
+              className={cn(
+                'text-xs',
+                filterStatus === opt.value
+                  ? 'bg-brand-500 hover:bg-brand-600 text-white'
+                  : 'hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200'
+              )}
+              onClick={() => setFilterStatus(opt.value === 'ALL' ? '' : opt.value)}
+            >
+              {opt.label}
+            </Button>
+          ))}
+          <div className="w-px bg-border mx-1 shrink-0 hidden sm:block" />
+          <Popover open={typeDropdownOpen} onOpenChange={setTypeDropdownOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={typeDropdownOpen}
+                className="gap-1.5 text-xs justify-between min-w-[140px]"
+              >
+                {filterType && typeLabels[filterType]
+                  ? typeLabels[filterType]
+                  : 'Tous types'
+                }
+                <ChevronsUpDown className="size-3.5 opacity-50 shrink-0" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Rechercher un type..." />
+                <CommandList>
+                  <CommandEmpty>Aucun type trouvé</CommandEmpty>
+                  <CommandGroup>
+                    {typeOptions.map((opt) => (
+                      <CommandItem
+                        key={opt.value}
+                        value={opt.label}
+                        onSelect={() => {
+                          setFilterType(opt.value === 'ALL' ? '' : opt.value)
+                          setTypeDropdownOpen(false)
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            'mr-2 size-4',
+                            filterType === opt.value || (filterType === '' && opt.value === 'ALL') ? 'opacity-100' : 'opacity-0'
+                          )}
+                        />
+                        {opt.label}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
 
-      {/* ─── Empty State ─────────────────────────────────────────────────── */}
+      {/* Empty state */}
       {!loading && properties.length === 0 && (
         <Card className="border-border">
-          <CardContent className="py-10 sm:py-16 text-center px-4">
-            <Building2 className="size-10 sm:size-16 text-muted-foreground/30 mx-auto mb-3 sm:mb-4" />
-            <p className="text-muted-foreground font-medium text-base sm:text-lg">
-              Aucun bien trouvé
-            </p>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-xs sm:max-w-md mx-auto">
+          <CardContent className="py-12 text-center">
+            <Building2 className="size-12 text-muted-foreground/50 mx-auto mb-4" />
+            <p className="text-muted-foreground font-medium">Aucun bien trouvé</p>
+            <p className="text-sm text-muted-foreground mt-1">
               {hasActiveFilters
                 ? 'Essayez de modifier vos filtres ou d\'élargir votre recherche.'
                 : 'Aucun bien n\'est encore enregistré sur la plateforme.'}
             </p>
             {hasActiveFilters && (
-              <Button variant="outline" size="sm" onClick={clearFilters} className="mt-3 sm:mt-4 gap-2 h-9">
-                <X className="size-3.5 sm:size-4" /> Effacer les filtres
+              <Button variant="outline" size="sm" onClick={clearFilters} className="mt-4 gap-2">
+                <X className="size-4" /> Effacer les filtres
               </Button>
             )}
           </CardContent>
         </Card>
       )}
 
-      {/* ─── Properties ──────────────────────────────────────────────────── */}
-      {viewMode === 'list' ? (
-        /* ─── List View ─────────────────────────────────────────────── */
-        <div className="space-y-1.5 sm:space-y-2">
-          <AnimatePresence mode="popLayout">
-            {properties.map((property) => (
-              <motion.div
-                key={property.id}
-                layout
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.15 }}
-              >
-                <ListRow
-                  property={property}
-                  onDetail={handleViewDetail}
-                  onInventory={handleInventoryReport}
-                  onApprove={handleQuickApprove}
-                  actionLoading={actionLoading}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      ) : (
-        /* ─── Grid View ─────────────────────────────────────────────── */
-        <div className="grid gap-3 sm:gap-4 xl:gap-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-          <AnimatePresence mode="popLayout">
-            {properties.map((property) => {
-              const statusInfo = statusLabels[property.status] || { label: property.status, className: 'bg-gray-100 text-gray-700' }
-              const isPending = property.status === 'PENDING_VERIFICATION'
+      {/* Properties table — non-vérifiés en surbrillance */}
+      {properties.length > 0 && (
+        <Card className="border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="text-left font-medium text-muted-foreground p-3">Bien</th>
+                  <th className="text-left font-medium text-muted-foreground p-3 hidden sm:table-cell">Type</th>
+                  <th className="text-left font-medium text-muted-foreground p-3">Prix</th>
+                  <th className="text-center font-medium text-muted-foreground p-3">Statut</th>
+                  <th className="text-left font-medium text-muted-foreground p-3 hidden md:table-cell">Propriétaire</th>
+                  <th className="text-left font-medium text-muted-foreground p-3 hidden lg:table-cell">Date</th>
+                  <th className="text-right font-medium text-muted-foreground p-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <AnimatePresence mode="popLayout">
+                  {properties.map((property) => {
+                    const isPending = property.status === 'PENDING_VERIFICATION'
+                    const statusInfo = statusLabels[property.status] || { label: property.status, className: 'bg-gray-100 text-gray-700' }
 
-              return (
-                <motion.div
-                  key={property.id}
-                  layout
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Card className="border-border overflow-hidden hover:shadow-md sm:hover:shadow-lg transition-all duration-200 group h-full flex flex-col">
-                    <div className="relative">
-                      <PropertyThumbnail images={property.images} title={property.title} />
-                      <div className="absolute top-1.5 sm:top-2 left-1.5 sm:left-2 flex gap-1">
-                        <Badge className={cn('text-[9px] sm:text-[10px] leading-none px-1.5 py-0.5 sm:px-2 sm:py-0.5', statusInfo.className)}>
-                          {statusInfo.label}
-                        </Badge>
-                        {property.isVerified && (
-                          <Badge className="bg-emerald-500 text-white text-[9px] sm:text-[10px] leading-none px-1.5 py-0.5 sm:px-2 sm:py-0.5 flex items-center gap-0.5">
-                            <Check className="size-2 sm:size-2.5" /> Vérifié
+                    return (
+                      <motion.tr
+                        key={property.id}
+                        layout
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className={cn(
+                          'border-b border-border hover:bg-muted/30 transition-colors',
+                          isPending && 'bg-amber-50/40 border-l-2 border-l-amber-400'
+                        )}
+                      >
+                        <td className="p-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="size-8 rounded-md overflow-hidden shrink-0 bg-muted">
+                              {property.images && property.images.length > 0 ? (
+                                <img src={property.images[0].url} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Building2 className="size-4 text-muted-foreground/40" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-foreground truncate max-w-[160px] sm:max-w-[200px]">{property.title || 'Sans titre'}</p>
+                              <p className="text-xs text-muted-foreground truncate">{property.commune || property.address || ''}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 hidden sm:table-cell">
+                          <Badge className="bg-brand-500/10 text-brand-600 text-[10px]">
+                            {typeLabels[property.type] || property.type}
                           </Badge>
-                        )}
-                      </div>
-                      <Badge className="absolute top-1.5 sm:top-2 right-1.5 sm:right-2 bg-brand-500 text-white text-[9px] sm:text-[10px] leading-none px-1.5 py-0.5 sm:px-2 sm:py-0.5">
-                        {typeLabels[property.type] || property.type}
-                      </Badge>
-                    </div>
-
-                    <CardContent className="p-3 sm:p-4 flex-1 flex flex-col">
-                      <div className="min-w-0">
-                        <h3 className="text-sm sm:text-base font-semibold text-foreground line-clamp-1 group-hover:text-brand-500 transition-colors">
-                          {property.title || 'Sans titre'}
-                        </h3>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <MapPin className="size-3 sm:size-3.5 text-muted-foreground shrink-0" />
-                          <span className="text-xs sm:text-sm text-muted-foreground truncate">
-                            {property.commune || property.address || 'Non spécifié'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <p className="text-base sm:text-lg font-bold text-brand-500 mt-1.5 sm:mt-2 leading-tight">
-                        {priceFCFA(property.price)}{' '}
-                        <span className="text-[10px] sm:text-xs font-normal text-muted-foreground">FCFA/mois</span>
-                      </p>
-
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-muted-foreground">
-                        {property.area > 0 && (
-                          <span className="flex items-center gap-1">
-                            <Ruler className="size-2.5 sm:size-3" />
-                            {property.area} m²
-                          </span>
-                        )}
-                        {property.bedrooms != null && (
-                          <span className="flex items-center gap-1">
-                            <Bed className="size-2.5 sm:size-3" />
-                            {property.bedrooms} ch.
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-3 gap-y-0.5 mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-muted-foreground">
-                        {property.owner && (
-                          <span className="flex items-center gap-1 min-w-0">
-                            <User className="size-2.5 sm:size-3 shrink-0" />
-                            <span className="truncate max-w-[120px] sm:max-w-[160px]">
-                              {property.owner.firstName} {property.owner.lastName}
-                            </span>
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1 shrink-0">
-                          <Calendar className="size-2.5 sm:size-3" />
-                          <span className="whitespace-nowrap">{shortDate(property.createdAt)}</span>
-                        </span>
-                      </div>
-
-                      {property.inventoryReportCount > 0 && (
-                        <div className="mt-1.5 sm:mt-2">
-                          <Badge
-                            variant="outline"
-                            className="text-emerald-600 border-emerald-200 gap-1 text-[9px] sm:text-[10px] leading-none py-0.5"
-                          >
-                            <FileText className="size-2.5 sm:size-3" />
-                            {property.inventoryReportCount} état{property.inventoryReportCount > 1 ? 's' : ''} des lieux
-                          </Badge>
-                        </div>
-                      )}
-
-                      <div className="flex-1 min-h-2" />
-
-                      <div className="flex gap-1.5 sm:gap-2 mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-border">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewDetail(property.id)}
-                          className="flex-1 gap-1 h-8 sm:h-9 text-[10px] sm:text-xs px-1.5 sm:px-3"
-                          aria-label="Voir les détails"
-                        >
-                          <Eye className="size-3 sm:size-3.5 shrink-0" />
-                          <span className="hidden sm:inline">Détails</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleInventoryReport(property.id)}
-                          className="flex-1 gap-1 h-8 sm:h-9 text-[10px] sm:text-xs px-1.5 sm:px-3"
-                          aria-label="État des lieux"
-                        >
-                          <FileText className="size-3 sm:size-3.5 shrink-0" />
-                          <span className="hidden sm:inline">État lieux</span>
-                        </Button>
-                        {isPending && (
-                          <Button
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-white gap-1 h-8 sm:h-9 text-[10px] sm:text-xs px-1.5 sm:px-3 shrink-0"
-                            onClick={() => handleQuickApprove(property.id)}
-                            disabled={actionLoading === property.id}
-                            aria-label="Approuver le bien"
-                          >
-                            {actionLoading === property.id ? (
-                              <Loader2 className="size-3 sm:size-3.5 animate-spin" />
-                            ) : (
-                              <Check className="size-3 sm:size-3.5" />
+                        </td>
+                        <td className="p-3">
+                          <span className="font-semibold text-brand-500 whitespace-nowrap">{priceFCFA(property.price)}</span>
+                          <span className="text-muted-foreground text-xs"> FCFA</span>
+                        </td>
+                        <td className="p-3 text-center">
+                          {isPending ? (
+                            <Badge className="bg-amber-100 text-amber-700 border border-amber-200 text-[10px] gap-1">
+                              <Clock className="size-3" /> En attente
+                            </Badge>
+                          ) : property.isVerified ? (
+                            <Badge className="bg-green-100 text-green-700 border border-green-200 text-[10px] gap-1">
+                              <Check className="size-3" /> Vérifié
+                            </Badge>
+                          ) : (
+                            <Badge className={cn('text-[10px]', statusInfo.className)}>
+                              {statusInfo.label}
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="p-3 hidden md:table-cell">
+                          {property.owner && (
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <User className="size-3 shrink-0" />
+                              <span className="truncate max-w-[120px]">{property.owner.firstName} {property.owner.lastName}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3 text-muted-foreground hidden lg:table-cell whitespace-nowrap">
+                          {shortDate(property.createdAt)}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
+                              onClick={() => handleViewDetail(property.id)}
+                              title="Détails"
+                            >
+                              <Eye className="size-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
+                              onClick={() => handleInventoryReport(property.id)}
+                              title="État des lieux"
+                            >
+                              <FileText className="size-4" />
+                            </Button>
+                            {isPending && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50 h-8 w-8 p-0"
+                                onClick={() => handleQuickApprove(property.id)}
+                                disabled={actionLoading === property.id}
+                                title="Approuver"
+                              >
+                                {actionLoading === property.id ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                              </Button>
                             )}
-                            <span className="hidden sm:inline">Approuver</span>
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )
-            })}
-          </AnimatePresence>
-        </div>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    )
+                  })}
+                </AnimatePresence>
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
 
-      {/* ─── Load More ───────────────────────────────────────────────────── */}
+      {/* Load More */}
       {hasMore && (
-        <div className="flex justify-center pt-1 sm:pt-2">
+        <div className="flex justify-center">
           <Button
             variant="outline"
             size="sm"
             onClick={handleLoadMore}
             disabled={loading}
-            className="gap-2 px-5 sm:px-8 h-10 sm:h-11 text-xs sm:text-sm w-full sm:w-auto"
+            className="gap-2 px-8 h-11"
           >
             {loading ? (
-              <Loader2 className="size-3.5 sm:size-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <ChevronDown className="size-3.5 sm:size-4" />
+              <ChevronDown className="size-4" />
             )}
-            <span className="hidden sm:inline">Charger plus de biens</span>
+            Charger plus de biens
           </Button>
         </div>
       )}

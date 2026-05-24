@@ -155,7 +155,7 @@ export function RentalFileDetail() {
 
   const goBack = () => {
     setSelectedItemId('')
-    setDashboardSection('rental-files-queue')
+    setDashboardSection('dossier-validations')
   }
 
   useBackHandler('rental-file-detail', goBack)

@@ -533,6 +533,74 @@ export function MissionsManagement() {
         </CardContent>
       </Card>
 
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'ALL' && 'ring-1 ring-brand-400 bg-brand-50/20')}
+          onClick={() => setStatusFilter('ALL')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50">
+                <MapPin className="size-5 text-brand-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{missions.length}</p>
+                <p className="text-xs text-muted-foreground">Total</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'ASSIGNED' && 'ring-1 ring-amber-400 bg-amber-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'ASSIGNED' ? 'ALL' : 'ASSIGNED')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50">
+                <Clock className="size-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600">{missions.filter(m => m.status === 'ASSIGNED').length}</p>
+                <p className="text-xs text-muted-foreground">Assignées</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'IN_PROGRESS' && 'ring-1 ring-orange-400 bg-orange-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'IN_PROGRESS' ? 'ALL' : 'IN_PROGRESS')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-orange-50">
+                <CircleDot className="size-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-orange-600">{missions.filter(m => m.status === 'IN_PROGRESS').length}</p>
+                <p className="text-xs text-muted-foreground">En cours</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'COMPLETED' && 'ring-1 ring-green-400 bg-green-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'COMPLETED' ? 'ALL' : 'COMPLETED')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-green-50">
+                <CheckCircle2 className="size-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">{missions.filter(m => m.status === 'COMPLETED').length}</p>
+                <p className="text-xs text-muted-foreground">Terminées</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* View Toggle: Calendar / List */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">

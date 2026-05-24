@@ -166,9 +166,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
           items: [
             { id: 'all-properties', label: 'Tous les biens', icon: Building2 },
             { id: 'property-verifications', label: 'Vérification biens', icon: Home },
-            { id: 'rental-files-queue', label: 'Dossiers locataires', icon: ClipboardCheck },
-            { id: 'owner-validations', label: 'Validations propriétaires', icon: BadgeCheck },
-            { id: 'agency-validations', label: 'Validations agences', icon: Building2 },
+            { id: 'dossier-validations', label: 'Dossiers de validation', icon: FolderOpen },
             { id: 'oneci-verification', label: 'Vérification ONECI', icon: Fingerprint },
           ],
         },

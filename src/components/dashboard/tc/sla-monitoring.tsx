@@ -134,32 +134,42 @@ export function SlaMonitoring() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemVariants}>
-        <div className="bg-gradient-to-r from-brand-500/10 to-transparent rounded-xl p-4 sm:p-6 -mx-4 sm:-mx-6">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100 shrink-0">
-              <BarChart3 className="size-6 text-brand-500" />
+        <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+                  <BarChart3 className="size-6 text-brand-600" />
+                </div>
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-foreground">Suivi SLA & Statistiques</h1>
+                  <p className="text-muted-foreground text-sm">Respect des délais de traitement et indicateurs de performance</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <Badge className="bg-brand-50 text-brand-700 border-brand-200 border text-[10px]">
+                      <Clock className="size-3 mr-0.5" /> {totalPending} en attente
+                    </Badge>
+                    <Badge className={cn(
+                      'border text-[10px]',
+                      stats.slaCompliance >= 90
+                        ? 'bg-green-50 text-green-700 border-green-200'
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                    )}>
+                      {stats.slaCompliance}% conformité
+                    </Badge>
+                    <Badge className={cn(
+                      'border text-[10px]',
+                      stats.overdueSlas > 0
+                        ? 'bg-red-50 text-red-700 border-red-200'
+                        : 'bg-green-50 text-green-700 border-green-200'
+                    )}>
+                      <AlertTriangle className="size-3 mr-0.5" /> {stats.overdueSlas} retard{stats.overdueSlas > 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Suivi SLA & Statistiques</h1>
-              <p className="text-muted-foreground mt-0.5">Respect des délais de traitement et indicateurs de performance</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-3">
-            <Badge variant="secondary" className="bg-brand-50 text-brand-700">
-              <Clock className="size-3 mr-1" /> {totalPending} en attente
-            </Badge>
-            <Badge variant="secondary" className={cn(
-              stats.slaCompliance >= 90 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
-            )}>
-              {stats.slaCompliance}% conformité
-            </Badge>
-            <Badge variant="secondary" className={cn(
-              stats.overdueSlas > 0 ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
-            )}>
-              <AlertTriangle className="size-3 mr-1" /> {stats.overdueSlas} retard{stats.overdueSlas > 1 ? 's' : ''}
-            </Badge>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </motion.div>
 
       {/* SLA Compliance - Main Card */}
@@ -463,14 +473,7 @@ export function SlaMonitoring() {
                         variant="ghost"
                         className="text-brand-500 hover:text-brand-600 hover:bg-brand-50 h-8 w-8 p-0"
                         onClick={() => {
-                          // Navigate to relevant section based on entity type
-                          if (sla.entityType === 'RENTAL_FILE') {
-                            setDashboardSection('rental-files-queue')
-                          } else if (sla.entityType === 'OWNER_PROFILE') {
-                            setDashboardSection('owner-validations')
-                          } else if (sla.entityType === 'AGENCY') {
-                            setDashboardSection('agency-validations')
-                          }
+                          setDashboardSection('dossier-validations')
                         }}
                         title="Aller au dossier"
                       >

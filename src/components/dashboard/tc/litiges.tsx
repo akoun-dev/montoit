@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   AlertTriangle, Search, Eye, User, FileText, Clock, ShieldCheck,
   CheckCircle2, XCircle, Loader2, HandMetal, Scale, AlertOctagon, CircleDot, Calendar,
-  ArrowUpRight, Paperclip, MessageSquare, Flame, ChevronDown, Link2,
+  ArrowUpRight, Paperclip, MessageSquare, Flame, ChevronDown, Link2, ChevronsUpDown, Check,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +19,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useAuthStore } from '@/lib/auth-store'
 import { useRealtimeDisputes } from '@/hooks/use-realtime-disputes'
@@ -184,8 +188,9 @@ export function LitigesManagement() {
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [activeTab, setActiveTab] = useState<string>('active')
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<DisputeStatus | 'ALL'>('ALL')
+  const [statusFilter, setStatusFilter] = useState<DisputeStatus | 'ALL' | 'ESCALATED'>('ALL')
   const [typeFilter, setTypeFilter] = useState<DisputeType | 'ALL'>('ALL')
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false)
   const [priorityFilter, setPriorityFilter] = useState<DossierPriority | 'ALL'>('ALL')
 
   // Dialogs
@@ -262,7 +267,8 @@ export function LitigesManagement() {
   const currentList = activeTab === 'resolved' ? resolvedDisputes : disputes
 
   const filteredDisputes = currentList.filter((d) => {
-    if (statusFilter !== 'ALL' && d.status !== statusFilter) return false
+    if (statusFilter !== 'ALL' && statusFilter !== 'ESCALATED' && d.status !== statusFilter) return false
+    if (statusFilter === 'ESCALATED' && !d.isEscalated) return false
     if (typeFilter !== 'ALL' && d.type !== typeFilter) return false
     if (priorityFilter !== 'ALL' && d.priority !== priorityFilter) return false
     if (search.trim()) {
@@ -564,7 +570,10 @@ export function LitigesManagement() {
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <Card className="border-border">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'OPEN' && 'ring-1 ring-red-400 bg-red-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'OPEN' ? 'ALL' : 'OPEN')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-red-50">
@@ -577,7 +586,10 @@ export function LitigesManagement() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'IN_REVIEW' && 'ring-1 ring-amber-400 bg-amber-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'IN_REVIEW' ? 'ALL' : 'IN_REVIEW')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50">
@@ -590,7 +602,10 @@ export function LitigesManagement() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'RESOLVED' && 'ring-1 ring-green-400 bg-green-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'RESOLVED' ? 'ALL' : 'RESOLVED')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-green-50">
@@ -603,7 +618,10 @@ export function LitigesManagement() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'ESCALATED' && 'ring-1 ring-rose-400 bg-rose-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'ESCALATED' ? 'ALL' : 'ESCALATED')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-rose-50">
@@ -616,7 +634,10 @@ export function LitigesManagement() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'ALL' && 'ring-1 ring-brand-400 bg-brand-50/20')}
+          onClick={() => setStatusFilter('ALL')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50">
@@ -709,31 +730,67 @@ export function LitigesManagement() {
           })}
         </div>
 
-        {/* Type filter */}
-        <div className="flex gap-2 flex-wrap mt-2">
-          <Button
-            size="sm"
-            variant={typeFilter === 'ALL' ? 'secondary' : 'ghost'}
-            className={typeFilter === 'ALL' ? 'bg-muted' : ''}
-            onClick={() => setTypeFilter('ALL')}
-          >
-            Tous les types
-          </Button>
-          {(Object.keys(typeLabels) as DisputeType[]).map((t) => {
-            const Icon = typeIcons[t]
-            return (
+        {/* Type filter — searchable dropdown */}
+        <div className="flex gap-2 flex-wrap mt-2 items-center">
+          <Popover open={typeDropdownOpen} onOpenChange={setTypeDropdownOpen}>
+            <PopoverTrigger asChild>
               <Button
-                key={t}
-                size="sm"
-                variant={typeFilter === t ? 'secondary' : 'ghost'}
-                className={cn('gap-1.5', typeFilter === t && typeBadgeColors[t])}
-                onClick={() => setTypeFilter(t)}
+                variant="outline"
+                role="combobox"
+                aria-expanded={typeDropdownOpen}
+                className="gap-1.5 text-xs justify-between min-w-[140px]"
               >
-                <Icon className="size-3.5" />
-                {typeLabels[t]}
+                {typeFilter === 'ALL'
+                  ? 'Tous les types'
+                  : typeLabels[typeFilter]
+                }
+                <ChevronsUpDown className="size-3.5 opacity-50 shrink-0" />
               </Button>
-            )
-          })}
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Rechercher un type..." />
+                <CommandList>
+                  <CommandEmpty>Aucun type trouvé</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="Tous les types"
+                      onSelect={() => {
+                        setTypeFilter('ALL')
+                        setTypeDropdownOpen(false)
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          'mr-2 size-4',
+                          typeFilter === 'ALL' ? 'opacity-100' : 'opacity-0'
+                        )}
+                      />
+                      Tous les types
+                    </CommandItem>
+                    {(Object.keys(typeLabels) as DisputeType[]).map((t) => (
+                      <CommandItem
+                        key={t}
+                        value={typeLabels[t]}
+                        onSelect={() => {
+                          setTypeFilter(t)
+                          setTypeDropdownOpen(false)
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            'mr-2 size-4',
+                            typeFilter === t ? 'opacity-100' : 'opacity-0'
+                          )}
+                        />
+                        {typeLabels[t]}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* ─── Dispute List ──────────────────────────────────────────── */}

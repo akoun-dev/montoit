@@ -27,9 +27,9 @@ serve(async (req) => {
     const supabase = getSupabaseAdminClient()
 
     // ── Récupérer les paramètres du body ──
-    const { canal, email } = await req.json().catch(() => ({}))
+    const { canal, email, phone } = await req.json().catch(() => ({}))
 
-    console.log('[sign-send-otp] Request params:', { canal, email, userId })
+    console.log('[sign-send-otp] Request params:', { canal, email, phone, userId })
 
     if (!canal || (canal !== 'MAIL' && canal !== 'SMS')) {
       console.log('[sign-send-otp] Invalid canal:', canal)
@@ -57,8 +57,23 @@ serve(async (req) => {
       } else {
         console.log('[sign-send-otp] No user found with email:', email)
       }
+    } else if (phone && canal === 'SMS') {
+      console.log('[sign-send-otp] Looking up user by phone:', phone)
+      const { data: userRaw } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('phone', phone)
+        .maybeSingle()
+      console.log('[sign-send-otp] User lookup by phone result:', userRaw)
+      if (userRaw) {
+        targetUserId = userRaw.id
+        targetEmail = userRaw.email || ''
+        targetPhone = phone
+      } else {
+        console.log('[sign-send-otp] No user found with phone:', phone)
+      }
     } else {
-      console.log('[sign-send-otp] No email provided, using current user:', userId)
+      console.log('[sign-send-otp] No email or phone provided, using current user:', userId)
       const { data: userData } = await supabase
         .from('users')
         .select('email, phone')
@@ -88,14 +103,15 @@ serve(async (req) => {
     // ── Toujours donner la priorité à CRYPTONEO ──
     // Le local peut contenir des faux alias (local_cert_*), on ne l'utilise
     // que si CRYPTONEO confirme l'avoir.
-    if (targetEmail) {
+    if (targetEmail || targetPhone) {
+      console.log('[sign-send-otp] Checking CRYPTONEO for real alias via:', targetEmail || targetPhone)
       console.log('[sign-send-otp] Checking CRYPTONEO for real alias via email:', targetEmail)
 
       const checkRes = await cryptoneoFetch('/generateCert/users')
 
       if (checkRes.ok) {
         const checkResult: CryptoneoUsersResponse = await checkRes.json()
-        const user = (checkResult?.data || []).find((u: any) => u.email === targetEmail)
+        const user = (checkResult?.data || []).find((u: any) => u.email === targetEmail || u.phone === targetPhone)
         const cryptoneoAlias = user?.alias
 
         if (cryptoneoAlias) {
@@ -135,7 +151,7 @@ serve(async (req) => {
         .eq('id', targetUserId)
         .single() as unknown as { data: { first_name: string; last_name: string; email: string; phone: string; gender: string } | null }
 
-      if (!userProfile?.first_name || !userProfile?.last_name || !userProfile?.email) {
+      if (!userProfile?.first_name || !userProfile?.last_name || (!userProfile?.email && !userProfile?.phone && !targetPhone)) {
         console.log('[sign-send-otp] Cannot auto-generate: incomplete user profile')
         return new Response(JSON.stringify({
           error: 'Profil utilisateur incomplet. Veuillez compléter vos informations.',

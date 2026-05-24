@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Award, Plus, Search, Check, X, Eye, ShieldCheck, ShieldX, Clock,
-  BadgeCheck, Loader2, User, Building2, FileText, Home,
+  BadgeCheck, Loader2, User, Building2, FileText, Home, ChevronsUpDown,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeCertifications } from '@/hooks/use-realtime-certifications'
@@ -117,6 +119,7 @@ export function CertificationsManagement() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [typeFilter, setTypeFilter] = useState('ALL')
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // Create certification dialog
@@ -125,7 +128,6 @@ export function CertificationsManagement() {
     userId: '',
     type: 'USER_IDENTITY',
     notes: '',
-    expiresAt: '',
     propertyId: '',
   })
   const [userSearch, setUserSearch] = useState('')
@@ -267,13 +269,12 @@ export function CertificationsManagement() {
           userId: createForm.userId,
           type: createForm.type,
           notes: createForm.notes.trim() || null,
-          expiresAt: createForm.expiresAt || null,
           propertyId: createForm.type === 'PROPERTY' ? createForm.propertyId || null : null,
         }),
       })
       toast.success('Certification créée')
       setCreateDialog(false)
-      setCreateForm({ userId: '', type: 'USER_IDENTITY', notes: '', expiresAt: '', propertyId: '' })
+      setCreateForm({ userId: '', type: 'USER_IDENTITY', notes: '', propertyId: '' })
       setUserSearch('')
       fetchData()
     } catch (err) {
@@ -339,9 +340,12 @@ export function CertificationsManagement() {
         </CardContent>
       </Card>
 
-      {/* Stats Row */}
+      {/* Stats Row — cliquable pour filtrer */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="border-border">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:border-amber-300 hover:shadow-sm', statusFilter === 'PENDING' && 'ring-1 ring-amber-400 bg-amber-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'PENDING' ? 'ALL' : 'PENDING')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50">
@@ -354,7 +358,10 @@ export function CertificationsManagement() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:border-green-300 hover:shadow-sm', statusFilter === 'GRANTED' && 'ring-1 ring-green-400 bg-green-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'GRANTED' ? 'ALL' : 'GRANTED')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-green-50">
@@ -367,7 +374,10 @@ export function CertificationsManagement() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:border-red-300 hover:shadow-sm', statusFilter === 'REVOKED' && 'ring-1 ring-red-400 bg-red-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'REVOKED' ? 'ALL' : 'REVOKED')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-red-50">
@@ -380,7 +390,10 @@ export function CertificationsManagement() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:border-brand-200 hover:shadow-sm', statusFilter === 'ALL' && 'ring-1 ring-brand-200')}
+          onClick={() => setStatusFilter('ALL')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50">
@@ -428,23 +441,49 @@ export function CertificationsManagement() {
             </Button>
           ))}
           <div className="w-px bg-border mx-1" />
-          {/* Type filters */}
-          {typeFilterOptions.map((opt) => (
-            <Button
-              key={opt.value}
-              size="sm"
-              variant={typeFilter === opt.value ? 'default' : 'outline'}
-              className={cn(
-                'text-xs',
-                typeFilter === opt.value
-                  ? 'bg-brand-500 hover:bg-brand-600 text-white'
-                  : 'hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200'
-              )}
-              onClick={() => setTypeFilter(opt.value)}
-            >
-              {opt.label}
-            </Button>
-          ))}
+          {/* Type filters — searchable dropdown */}
+          <Popover open={typeDropdownOpen} onOpenChange={setTypeDropdownOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs justify-between min-w-[140px]"
+              >
+                {typeFilter === 'ALL'
+                  ? 'Tous types'
+                  : typeLabels[typeFilter] || typeFilter}
+                <ChevronsUpDown className="size-3.5 opacity-50 shrink-0" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Rechercher un type..." />
+                <CommandList>
+                  <CommandEmpty>Aucun type trouvé</CommandEmpty>
+                  <CommandGroup>
+                    {typeFilterOptions.map((opt) => (
+                      <CommandItem
+                        key={opt.value}
+                        value={opt.label}
+                        onSelect={() => {
+                          setTypeFilter(opt.value)
+                          setTypeDropdownOpen(false)
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            'mr-2 size-4',
+                            typeFilter === opt.value ? 'opacity-100' : 'opacity-0'
+                          )}
+                        />
+                        {opt.label}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -532,13 +571,6 @@ export function CertificationsManagement() {
                       {cert.notes && (
                         <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
                           {cert.notes}
-                        </p>
-                      )}
-
-                      {/* Expiration */}
-                      {cert.expiresAt && (
-                        <p className="text-xs text-muted-foreground mb-3">
-                          Expire le {new Date(cert.expiresAt).toLocaleDateString('fr-FR')}
                         </p>
                       )}
 
@@ -805,15 +837,7 @@ export function CertificationsManagement() {
               />
             </div>
 
-            {/* Expiration date */}
-            <div className="space-y-2">
-              <Label>Date d&apos;expiration (optionnel)</Label>
-              <Input
-                type="date"
-                value={createForm.expiresAt}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, expiresAt: e.target.value }))}
-              />
-            </div>
+
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setCreateDialog(false)} disabled={submitting}>
@@ -920,14 +944,6 @@ export function CertificationsManagement() {
                     })}
                   </span>
                 </div>
-                {detailsDialog.cert.expiresAt && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Expiration</span>
-                    <span className="font-medium text-foreground">
-                      {new Date(detailsDialog.cert.expiresAt).toLocaleDateString('fr-FR')}
-                    </span>
-                  </div>
-                )}
                 {detailsDialog.cert.revokedAt && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Révoquée le</span>

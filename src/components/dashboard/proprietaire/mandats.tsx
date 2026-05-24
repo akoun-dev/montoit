@@ -5,6 +5,7 @@ import {
   FileSignature, Plus, Building2, User, AlertTriangle, Loader2,
   MoreVertical, Eye, PenLine, Ban, CheckCircle2, Clock, XCircle,
   Archive, Search, ChevronDown, CalendarDays, Shield, Mail,
+  Smartphone,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -218,6 +219,7 @@ export function ProprietaireMandats() {
   const [otpCode, setOtpCode] = useState('')
   const [sendingOtp, setSendingOtp] = useState(false)
   const [otpSentTo, setOtpSentTo] = useState('')
+  const [otpCanal, setOtpCanal] = useState<'MAIL' | 'SMS'>('MAIL')
 
   // ─── Fetch mandats ──────────────────────────────────────────────────────
   const fetchMandats = useCallback(async () => {
@@ -436,12 +438,15 @@ export function ProprietaireMandats() {
     if (!selectedMandat) return
     setSendingOtp(true)
     try {
-      const res = await authFetch<{ sentTo: string }>(`/api/mandats/${selectedMandat.id}/request-sign-otp`, {
+      const res = await authFetch<{ sentTo: string; canal: 'MAIL' | 'SMS' }>(`/api/mandats/${selectedMandat.id}/request-sign-otp`, {
         method: 'POST',
       })
+      const canal = res.canal || 'MAIL'
+      setOtpCanal(canal)
       setOtpSentTo(res.sentTo || '')
       setSignStep('otp')
-      toast.success('Code de vérification envoyé par email')
+      const label = canal === 'SMS' ? 'par SMS' : 'par email'
+      toast.success(`Code de vérification envoyé ${label}`)
     } catch (err) {
       if (err instanceof AuthError) {
         toast.error(err.message || 'Erreur lors de l\'envoi du code')
@@ -947,6 +952,7 @@ export function ProprietaireMandats() {
           setOtpCode('')
           setSignStep('signature')
           setOtpSentTo('')
+          setOtpCanal('MAIL')
         }
         setShowSignDialog(open)
       }}>
@@ -1003,7 +1009,7 @@ export function ProprietaireMandats() {
               <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
                 <p className="text-xs text-amber-700 flex items-center gap-1">
                   <Shield className="size-3.5" />
-                  Vous allez recevoir un code de vérification par email pour valider votre signature via CRYPTONEO.
+                  Vous allez recevoir un code de vérification {otpCanal === 'SMS' ? 'par SMS' : 'par email'} pour valider votre signature via CRYPTONEO.
                 </p>
               </div>
               <DialogFooter className="gap-2 sm:gap-0">
@@ -1040,16 +1046,16 @@ export function ProprietaireMandats() {
               </div>
               <div className="p-3 rounded-lg bg-green-50 border border-green-100">
                 <p className="text-xs text-green-700 flex items-center gap-1">
-                  <Mail className="size-3.5" />
-                  Un code vous a été envoyé à {otpSentTo || 'votre adresse email'}
+                  {otpCanal === 'SMS' ? <Smartphone className="size-3.5" /> : <Mail className="size-3.5" />}
+                  Un code vous a été envoyé {otpCanal === 'SMS' ? 'par SMS' : `à ${otpSentTo || 'votre adresse email'}`}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="otp">Code de vérification</Label>
+                <Label htmlFor="otp">Code de vérification reçu {otpCanal === 'SMS' ? 'par SMS' : 'par email'}</Label>
                 <Input
                   id="otp"
                   type="text"
-                  placeholder="Entrez le code reçu par email"
+                  placeholder={otpCanal === 'SMS' ? 'Entrez le code reçu par SMS' : 'Entrez le code reçu par email'}
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value)}
                   maxLength={10}

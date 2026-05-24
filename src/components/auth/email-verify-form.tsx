@@ -33,6 +33,7 @@ export function EmailVerifyForm() {
     login: 'connexion',
     email_verify: 'vérification',
     password_reset: 'réinitialisation',
+    phone_verify: 'vérification téléphone',
   }
 
   useEffect(() => {
@@ -47,15 +48,10 @@ export function EmailVerifyForm() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const doVerify = useCallback(async (otpCode: string) => {
     setError('')
-    if (!code.trim() || code.length < 6) {
-      setError('Veuillez entrer le code complet à 6 chiffres')
-      return
-    }
     try {
-      const result = await verifyEmailOtp(pendingEmail, code.trim(), otpPurpose)
+      const result = await verifyEmailOtp(pendingEmail, otpCode, otpPurpose)
 
       if (otpPurpose === 'password_reset' && result?.valid) {
         toast.success('Code vérifié ! Vous pouvez réinitialiser votre mot de passe.')
@@ -72,6 +68,22 @@ export function EmailVerifyForm() {
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Code invalide')
     }
+  }, [pendingEmail, otpPurpose, verifyEmailOtp, setView])
+
+  // Auto-submit when all 6 digits are entered
+  useEffect(() => {
+    if (code.length === 6 && !isLoading) {
+      doVerify(code.trim())
+    }
+  }, [code, isLoading, doVerify])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!code.trim() || code.length < 6) {
+      setError('Veuillez entrer le code complet à 6 chiffres')
+      return
+    }
+    await doVerify(code.trim())
   }
 
   const handleResend = useCallback(async () => {

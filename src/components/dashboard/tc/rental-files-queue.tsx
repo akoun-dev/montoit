@@ -177,7 +177,7 @@ function PriorityBadge({ priority }: { priority: DossierPriority }) {
 
   // ─── Component ──────────────────────────────────────────────────────────────
 
-export function RentalFilesQueue() {
+export function RentalFilesQueue({ showHeaderAndStats = true }: { showHeaderAndStats?: boolean }) {
   const { user, isAuthenticated, setSelectedItemId, setDashboardSection } = useAuthStore()
 
   // Data
@@ -410,29 +410,105 @@ export function RentalFilesQueue() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      {/* Header with gradient */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 p-6 sm:p-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.08),transparent_50%)]" />
-        <div className="relative z-10">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Dossiers à valider</h1>
-          <p className="text-amber-100 mt-1.5 text-sm sm:text-base">File d&apos;attente des dossiers locatifs — validez, rejetez ou demandez des informations</p>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <ClipboardCheck className="size-3.5" />
-              {files.length} dossier{files.length !== 1 ? 's' : ''}
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <Flame className="size-3.5" />
-              {files.filter(f => f.priority === 'URGENT').length} urgent{files.filter(f => f.priority === 'URGENT').length !== 1 ? 's' : ''}
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <Pause className="size-3.5" />
-              {files.filter(f => f.onHold).length} en attente
-            </span>
+{showHeaderAndStats && (
+        <>
+      {/* Header */}
+      <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+                <ClipboardCheck className="size-6 text-brand-600" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dossiers à valider</h1>
+                <p className="text-muted-foreground text-sm">File d&apos;attente des dossiers locatifs — validez, rejetez ou demandez des informations</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 border text-[10px]">
+                    <ClipboardCheck className="size-3 mr-0.5" /> {files.length} dossier{files.length !== 1 ? 's' : ''}
+                  </Badge>
+                  <Badge className="bg-red-50 text-red-700 border-red-200 border text-[10px]">
+                    <Flame className="size-3 mr-0.5" /> {files.filter(f => f.priority === 'URGENT').length} urgent{files.filter(f => f.priority === 'URGENT').length !== 1 ? 's' : ''}
+                  </Badge>
+                  <Badge className="bg-slate-50 text-slate-700 border-slate-200 border text-[10px]">
+                    <Pause className="size-3 mr-0.5" /> {files.filter(f => f.onHold).length} en attente
+                  </Badge>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'ALL' && 'ring-1 ring-brand-400 bg-brand-50/20')}
+          onClick={() => setStatusFilter('ALL')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50">
+                <ClipboardCheck className="size-5 text-brand-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{files.length}</p>
+                <p className="text-xs text-muted-foreground">Total</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'SUBMITTED' && 'ring-1 ring-amber-400 bg-amber-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'SUBMITTED' ? 'ALL' : 'SUBMITTED')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50">
+                <FileText className="size-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600">{files.filter(f => f.status === 'SUBMITTED').length}</p>
+                <p className="text-xs text-muted-foreground">Soumis</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'TC_REVIEW' && 'ring-1 ring-orange-400 bg-orange-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'TC_REVIEW' ? 'ALL' : 'TC_REVIEW')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-orange-50">
+                <Eye className="size-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-orange-600">{files.filter(f => f.status === 'TC_REVIEW').length}</p>
+                <p className="text-xs text-muted-foreground">En revue</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', statusFilter === 'VALIDATED' && 'ring-1 ring-green-400 bg-green-50/20')}
+          onClick={() => setStatusFilter(statusFilter === 'VALIDATED' ? 'ALL' : 'VALIDATED')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-green-50">
+                <Check className="size-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">{files.filter(f => f.status === 'VALIDATED').length}</p>
+                <p className="text-xs text-muted-foreground">Validés</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+        </>
+      )}
 
       {/* Toolbar: Search + Status Filters + View Toggle */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">

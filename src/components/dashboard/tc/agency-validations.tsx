@@ -36,12 +36,13 @@ interface AgencyDoc {
   }
 }
 
-export function AgencyValidations() {
+export function AgencyValidations({ showHeaderAndStats = true }: { showHeaderAndStats?: boolean }) {
   const { user, isAuthenticated } = useAuthStore()
   const [docs, setDocs] = useState<AgencyDoc[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'AGREMENT' | 'RCCM' | 'PENDING'>('ALL')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // Dialogs
@@ -112,6 +113,8 @@ export function AgencyValidations() {
   }
 
   const filteredDocs = docs.filter((d) => {
+    if (typeFilter === 'PENDING') return d.status === 'PENDING'
+    if (typeFilter !== 'ALL' && d.type !== typeFilter) return false
     if (!search) return true
     const s = search.toLowerCase()
     return (
@@ -125,29 +128,103 @@ export function AgencyValidations() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      {/* Header with gradient */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-rose-500 via-rose-600 to-pink-700 p-6 sm:p-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.08),transparent_50%)]" />
-        <div className="relative z-10">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Validations agences</h1>
-          <p className="text-rose-100 mt-1.5 text-sm sm:text-base">Vérifiez les agréments et RCCM des agences immobilières</p>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <Building2 className="size-3.5" />
-              {filteredDocs.length} document{filteredDocs.length !== 1 ? 's' : ''}
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <FileText className="size-3.5" />
-              {filteredDocs.filter(d => d.type === 'AGREMENT').length} agrément{filteredDocs.filter(d => d.type === 'AGREMENT').length !== 1 ? 's' : ''}
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 text-white text-xs font-medium backdrop-blur-sm">
-              <FileText className="size-3.5" />
-              {filteredDocs.filter(d => d.type === 'RCCM').length} RCCM
-            </span>
+{showHeaderAndStats && (<>
+      {/* Header */}
+      <Card className="border-border bg-gradient-to-r from-brand-500/10 to-transparent">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-brand-100">
+                <Building2 className="size-6 text-brand-600" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Validations agences</h1>
+                <p className="text-muted-foreground text-sm">Vérifiez les agréments et RCCM des agences immobilières</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 border text-[10px]">
+                    <Building2 className="size-3 mr-0.5" /> {filteredDocs.length} document{filteredDocs.length !== 1 ? 's' : ''}
+                  </Badge>
+                  <Badge className="bg-brand-50 text-brand-700 border-brand-200 border text-[10px]">
+                    <FileText className="size-3 mr-0.5" /> {filteredDocs.filter(d => d.type === 'AGREMENT').length} agrément{filteredDocs.filter(d => d.type === 'AGREMENT').length !== 1 ? 's' : ''}
+                  </Badge>
+                  <Badge className="bg-teal-50 text-teal-700 border-teal-200 border text-[10px]">
+                    <FileText className="size-3 mr-0.5" /> {filteredDocs.filter(d => d.type === 'RCCM').length} RCCM
+                  </Badge>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', typeFilter === 'ALL' && 'ring-1 ring-brand-400 bg-brand-50/20')}
+          onClick={() => setTypeFilter('ALL')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-brand-50">
+                <Building2 className="size-5 text-brand-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-foreground">{docs.length}</p>
+                <p className="text-xs text-muted-foreground">Total</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', typeFilter === 'AGREMENT' && 'ring-1 ring-amber-400 bg-amber-50/20')}
+          onClick={() => setTypeFilter(typeFilter === 'AGREMENT' ? 'ALL' : 'AGREMENT')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50">
+                <FileText className="size-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-amber-600">{docs.filter(d => d.type === 'AGREMENT').length}</p>
+                <p className="text-xs text-muted-foreground">Agréments</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', typeFilter === 'RCCM' && 'ring-1 ring-teal-400 bg-teal-50/20')}
+          onClick={() => setTypeFilter(typeFilter === 'RCCM' ? 'ALL' : 'RCCM')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-teal-50">
+                <FileText className="size-5 text-teal-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-teal-600">{docs.filter(d => d.type === 'RCCM').length}</p>
+                <p className="text-xs text-muted-foreground">RCCM</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn('border-border cursor-pointer transition-all hover:shadow-sm', typeFilter === 'PENDING' && 'ring-1 ring-rose-400 bg-rose-50/20')}
+          onClick={() => setTypeFilter(typeFilter === 'PENDING' ? 'ALL' : 'PENDING')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-rose-50">
+                <Building2 className="size-5 text-rose-600" />
+              </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-rose-600">{docs.filter(d => d.status === 'PENDING').length}</p>
+                <p className="text-xs text-muted-foreground">En attente</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+        </>)}
 
       {/* Search + View Toggle */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">

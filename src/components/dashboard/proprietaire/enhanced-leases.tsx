@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   FileSignature, Building2, User, AlertTriangle, Loader2, Check, X, Send,
   Download, Eye, PenLine, Plus, ChevronRight, ChevronLeft, Search, Clock,
-  ShieldCheck, FileText, CalendarDays, Banknote, PenTool, CheckCircle2, Bell, Mail
+  ShieldCheck, FileText, CalendarDays, Banknote, PenTool, CheckCircle2, Bell, Mail,
+  Smartphone,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -173,6 +174,7 @@ export function EnhancedLeases() {
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
   const [requestingOtp, setRequestingOtp] = useState(false)
   const [otpRequested, setOtpRequested] = useState(false)
+  const [signCanal, setSignCanal] = useState<'MAIL' | 'SMS'>('MAIL')
 
   // Detail dialog
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
@@ -340,13 +342,16 @@ export function EnhancedLeases() {
     if (!signLease) return
     setRequestingOtp(true)
     try {
-      const result = await authFetch<{ message: string; sentTo: string }>(`/api/leases/${signLease.id}/request-sign-otp`, {
+      const result = await authFetch<{ message: string; sentTo: string; canal: 'MAIL' | 'SMS' }>(`/api/leases/${signLease.id}/request-sign-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
+      const canal = result.canal || 'MAIL'
+      setSignCanal(canal)
       setOtpRequested(true)
-      toast.success('OTP envoyé par email', {
-        description: result.message || 'Vérifiez votre boîte de réception pour le code de certification CRYPTONEO.',
+      const label = canal === 'SMS' ? 'par SMS' : 'par email'
+      toast.success(`OTP envoyé ${label}`, {
+        description: result.message || `Vérifiez votre ${canal === 'SMS' ? 'téléphone' : 'boîte de réception'} pour le code de certification CRYPTONEO.`,
       })
     } catch (err) {
       if (err instanceof AuthError) {
@@ -1252,7 +1257,7 @@ export function EnhancedLeases() {
       {/* ─── Sign Dialog ──────────────────────────────────────────────────── */}
       <Dialog open={signDialogOpen} onOpenChange={(open) => {
         setSignDialogOpen(open)
-        if (!open) { setSignOtp(''); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null); setOtpRequested(false) }
+        if (!open) { setSignOtp(''); setSignLease(null); setSignStep('signature'); setSignatureDataUrl(null); setOtpRequested(false); setSignCanal('MAIL') }
       }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1349,7 +1354,7 @@ export function EnhancedLeases() {
 
                 <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 mb-1">
                   <p className="text-xs text-blue-700">
-                    Cliquez sur "Recevoir l'OTP" pour qu'un code vous soit envoyé par email via CRYPTONEO.
+                    Cliquez sur "Recevoir l'OTP" pour qu'un code vous soit envoyé {signCanal === 'SMS' ? 'par SMS' : 'par email'} via CRYPTONEO.
                     Saisissez ensuite le code reçu pour certifier votre signature électronique.
                   </p>
                 </div>
@@ -1360,7 +1365,11 @@ export function EnhancedLeases() {
                     className="w-full gap-2"
                     variant="outline"
                   >
-                    <Mail className="size-4" /> Recevoir l'OTP par email
+                    {signCanal === 'SMS' ? (
+                      <><Smartphone className="size-4" /> Recevoir l'OTP par SMS</>
+                    ) : (
+                      <><Mail className="size-4" /> Recevoir l'OTP par email</>
+                    )}
                   </Button>
                 )}
                 {requestingOtp && (
@@ -1373,12 +1382,15 @@ export function EnhancedLeases() {
                   <>
                     <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">
                       <p className="text-xs text-amber-700 flex items-center gap-2">
-                        <Mail className="size-3.5 shrink-0" />
-                        Un code OTP vous a été envoyé par email. Saisissez-le ci-dessous.
+                        {signCanal === 'SMS' ? (
+                          <><Smartphone className="size-3.5 shrink-0" /> Un code OTP vous a été envoyé par SMS. Saisissez-le ci-dessous.</>
+                        ) : (
+                          <><Mail className="size-3.5 shrink-0" /> Un code OTP vous a été envoyé par email. Saisissez-le ci-dessous.</>
+                        )}
                       </p>
                     </div>
                     <div>
-                      <Label htmlFor="signOtp">Code OTP reçu par email</Label>
+                      <Label htmlFor="signOtp">Code OTP reçu {signCanal === 'SMS' ? 'par SMS' : 'par email'}</Label>
                       <Input
                         id="signOtp"
                         value={signOtp}
