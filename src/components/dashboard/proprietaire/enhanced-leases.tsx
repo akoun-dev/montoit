@@ -678,7 +678,7 @@ export function EnhancedLeases() {
                       <div className="flex items-start gap-4">
                         {/* Property thumbnail */}
                         <div className="hidden sm:flex size-14 rounded-lg bg-muted overflow-hidden shrink-0">
-                          {lease.property.images?.[0]?.url ? (
+                          {lease.property?.images?.[0]?.url ? (
                             <img src={lease.property.images[0].url} alt="" className="size-full object-cover" />
                           ) : (
                             <div className="size-full flex items-center justify-center">
@@ -691,7 +691,7 @@ export function EnhancedLeases() {
                           {/* Top row */}
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                             <div className="min-w-0">
-                              <h3 className="font-semibold text-foreground truncate">{lease.property.title}</h3>
+                              <h3 className="font-semibold text-foreground truncate">{lease.property?.title ?? 'Propriété'}</h3>
                               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                                 <User className="size-3" />
                                 {lease.tenant.firstName} {lease.tenant.lastName}
@@ -838,7 +838,7 @@ export function EnhancedLeases() {
                     <CardContent className="p-4 sm:p-5">
                       <div className="flex items-start gap-4">
                         <div className="hidden sm:flex size-14 rounded-lg bg-muted overflow-hidden shrink-0">
-                          {lease.property.images?.[0]?.url ? (
+                          {lease.property?.images?.[0]?.url ? (
                             <img src={lease.property.images[0].url} alt="" className="size-full object-cover grayscale" />
                           ) : (
                             <div className="size-full flex items-center justify-center">
@@ -849,7 +849,7 @@ export function EnhancedLeases() {
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                             <div className="min-w-0">
-                              <h3 className="font-semibold text-foreground truncate">{lease.property.title}</h3>
+                              <h3 className="font-semibold text-foreground truncate">{lease.property?.title ?? 'Propriété'}</h3>
                               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                                 <User className="size-3" />
                                 {lease.tenant.firstName} {lease.tenant.lastName}
@@ -1924,7 +1924,7 @@ function LeaseCard({
         <div className="flex items-start gap-4">
           {/* Property thumbnail */}
           <div className="hidden sm:flex size-14 rounded-lg bg-muted overflow-hidden shrink-0">
-            {lease.property.images?.[0]?.url ? (
+            {lease.property?.images?.[0]?.url ? (
               <img src={lease.property.images[0].url} alt="" className="size-full object-cover" />
             ) : (
               <div className="size-full flex items-center justify-center">
@@ -1937,7 +1937,7 @@ function LeaseCard({
             {/* Top row */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
               <div className="min-w-0">
-                <h3 className="font-semibold text-foreground truncate">{lease.property.title}</h3>
+                <h3 className="font-semibold text-foreground truncate">{lease.property?.title ?? 'Propriété'}</h3>
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                   <User className="size-3" />
                   {lease.tenant.firstName} {lease.tenant.lastName}
