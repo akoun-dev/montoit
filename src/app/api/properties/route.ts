@@ -159,9 +159,10 @@ export async function GET(req: NextRequest) {
       dataQuery = dataQuery.order('created_at', { ascending: false })
     }
 
-    // Pagination
+    // Pagination — pour "all=true" (Nos biens public), on retourne tout
+    // car le client fait son propre filtrage/tri/pagination
     if (all === 'true') {
-      dataQuery = dataQuery.range(offset, offset + limit - 1)
+      // pas de limite serveur
     } else {
       dataQuery = dataQuery.limit(limit)
     }

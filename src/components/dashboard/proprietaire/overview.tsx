@@ -332,7 +332,7 @@ export function ProprietaireOverview() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">{lease.tenant.firstName} {lease.tenant.lastName}</p>
-                      <p className="text-xs text-muted-foreground truncate">{lease.property.title}</p>
+                      <p className="text-xs text-muted-foreground truncate">{lease.property?.title ?? 'Propriété'}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-bold text-foreground">{lease.monthlyRent.toLocaleString('fr-FR')}</p>
