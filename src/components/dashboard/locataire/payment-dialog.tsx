@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Loader2, CheckCircle2, Phone, RefreshCw, AlertCircle, Info } from 'lucide-react'
 import {
   Dialog,
@@ -92,33 +92,12 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
   const [phoneError, setPhoneError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [paymentReference, setPaymentReference] = useState<string | null>(null)
+  const [paymentRedirectUrl, setPaymentRedirectUrl] = useState<string | null>(null)
   const [pollTimedOut, setPollTimedOut] = useState(false)
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Reset state when dialog opens/closes
-  useEffect(() => {
-    if (open) {
-      setStep(1)
-      setSelectedOperator(null)
-      setPhoneNumber('')
-      setPhoneError('')
-      setIsSubmitting(false)
-      setPaymentReference(null)
-      setPollTimedOut(false)
-
-      authFetch<{ user: { phone: string | null } }>('/api/profile')
-        .then(res => {
-          if (res.user?.phone) setPhoneNumber(res.user.phone)
-        })
-        .catch(() => {})
-    }
-    return () => {
-      clearPolling()
-    }
-  }, [open])
-
-  const clearPolling = useCallback(() => {
+  const clearPolling = () => {
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current)
       pollIntervalRef.current = null
@@ -127,7 +106,24 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
       clearTimeout(pollTimeoutRef.current)
       pollTimeoutRef.current = null
     }
-  }, [])
+  }
+
+  // Reset state when dialog opens/closes
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    authFetch<{ user: { phone: string | null } }>('/api/profile')
+      .then(res => {
+        if (res.user?.phone) setPhoneNumber(res.user.phone)
+      })
+      .catch(() => {})
+
+    return () => {
+      clearPolling()
+    }
+  }, [open])
 
   const isPhoneValid = phoneNumber.replace(/\s/g, '').length === 10
 
@@ -142,6 +138,13 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
     setPhoneError('')
   }
 
+  const openRedirectUrl = (redirectUrl: string) => {
+    const openedWindow = window.open(redirectUrl, '_blank', 'noopener,noreferrer')
+    if (!openedWindow) {
+      toast.info('Ouvrez la page de paiement pour finaliser la transaction.', { icon: <Info className="size-4 text-blue-500" /> })
+    }
+  }
+
   const handleConfirmPayment = async () => {
     if (!selectedOperator || !payment || !isPhoneValid) return
 
@@ -149,7 +152,7 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
     setIsSubmitting(true)
 
     try {
-      const result = await authFetch<{ data: { partnerTransactionId?: string; status: string } }>('/api/payments/initiate', {
+      const result = await authFetch<{ data: { partnerTransactionId?: string; redirectUrl?: string | null; status: string } }>('/api/payments/initiate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -159,16 +162,23 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
         }),
       })
 
+      const redirectUrl = result.data?.redirectUrl || null
       setPaymentReference(result.data?.partnerTransactionId || null)
+      setPaymentRedirectUrl(redirectUrl)
       setStep(3)
+      setIsSubmitting(false)
       startPolling()
+
+      if (redirectUrl) {
+        openRedirectUrl(redirectUrl)
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'initiation du paiement', { icon: <AlertCircle className="size-4 text-red-500" /> })
       setIsSubmitting(false)
     }
   }
 
-  const startPolling = useCallback(() => {
+  const startPolling = () => {
     if (!payment) return
 
     setPollTimedOut(false)
@@ -193,7 +203,7 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
       clearPolling()
       setPollTimedOut(true)
     }, 120000)
-  }, [payment, clearPolling])
+  }
 
   const handleManualCheck = async () => {
     if (!payment) return
@@ -213,6 +223,14 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
 
   const handleClose = () => {
     clearPolling()
+    setStep(1)
+    setSelectedOperator(null)
+    setPhoneNumber('')
+    setPhoneError('')
+    setIsSubmitting(false)
+    setPaymentReference(null)
+    setPaymentRedirectUrl(null)
+    setPollTimedOut(false)
     if (step === 4) {
       onSuccess()
     }
@@ -431,6 +449,16 @@ export function PaymentDialog({ open, onOpenChange, payment, onSuccess }: Paymen
                   <p className="text-xs text-muted-foreground">
                     Vérification automatique en cours...
                   </p>
+                )}
+
+                {paymentRedirectUrl && (
+                  <Button
+                    variant="outline"
+                    onClick={() => openRedirectUrl(paymentRedirectUrl)}
+                    className="w-full"
+                  >
+                    Ouvrir la page de paiement
+                  </Button>
                 )}
               </div>
             </motion.div>

@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { generateBailContract, type BailContractData } from '@/lib/generate-bail'
+import {
+  getLeaseAdvanceMonthLabels,
+  getLeaseAdvanceRentAmount,
+  getLeaseDepositAmount,
+  getLeaseMonthlyRent,
+} from '@/lib/lease-financials'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { writeFile, readFile, unlink, mkdir } from 'fs/promises'
@@ -165,6 +171,10 @@ export async function GET(
       otherRoom2: item.other_room_2,
       observations: item.observations,
     }))
+    const monthlyRent = getLeaseMonthlyRent(leaseAny.monthly_rent, property?.price || 0)
+    const depositAmount = getLeaseDepositAmount(monthlyRent)
+    const advanceRentAmount = getLeaseAdvanceRentAmount(monthlyRent)
+    const advanceRentMonths = getLeaseAdvanceMonthLabels(leaseAny.start_date)
 
     const contractData: BailContractData = {
       ownerFirstName: propOwner?.first_name || leaseOwner?.first_name || '',
@@ -186,10 +196,10 @@ export async function GET(
       propertyCity: property?.city || '',
       propertyDescription,
 
-      monthlyRent: leaseAny.monthly_rent,
-      deposit: leaseAny.deposit || 0,
-      advanceRent: 0,
-      advanceRentMonths: '',
+      monthlyRent,
+      deposit: depositAmount,
+      advanceRent: advanceRentAmount,
+      advanceRentMonths,
 
       leaseDuration: String(Math.max(1, Math.round(
         (new Date(leaseAny.end_date).getTime() - new Date(leaseAny.start_date).getTime()) /

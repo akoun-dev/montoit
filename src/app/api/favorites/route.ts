@@ -151,8 +151,16 @@ export async function POST(req: NextRequest) {
 
     const response = NextResponse.json({ isFavorite: true, action: 'added' })
     return applyCookies(response)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Favorites POST error:', error)
+
+    if (error?.code === '23505') {
+      return NextResponse.json(
+        { error: 'Ce bien est déjà dans vos favoris.' },
+        { status: 409 }
+      )
+    }
+
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }

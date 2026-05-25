@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      let userPayload = existingEmail
+      let userPayload: any = existingEmail
 
       if (!userPayload) {
         const { data: authUserData, error: authError } = await admin.auth.admin.createUser({
@@ -271,8 +271,29 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: 'Méthode d\'inscription non supportée' }, { status: 400 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Register error:', error)
+
+    if (error?.code === '23505') {
+      const details = error?.details || ''
+      if (details.includes('email')) {
+        return NextResponse.json(
+          { error: 'Cet email est déjà utilisé par un autre compte.' },
+          { status: 409 }
+        )
+      }
+      if (details.includes('phone')) {
+        return NextResponse.json(
+          { error: 'Ce numéro de téléphone est déjà utilisé par un autre compte.' },
+          { status: 409 }
+        )
+      }
+      return NextResponse.json(
+        { error: 'Une valeur est déjà utilisée par un autre compte.' },
+        { status: 409 }
+      )
+    }
+
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }

@@ -103,7 +103,7 @@ export async function generateAndUploadMandatPdf(
 
   const commissionText = mandat.commission_type === 'FIXED' && mandat.fixed_commission
     ? `${mandat.fixed_commission.toLocaleString('fr-FR')} FCFA`
-    : `${mandat.commissionRate}%`
+    : `${mandat.commission_rate}%`
 
   const ownerSigHtml = version !== 'initial' && mandat.owner_signature_image
     ? `<tr><td style="padding: 8px 0;"><strong>Signature propriétaire :</strong></td></tr>

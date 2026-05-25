@@ -65,6 +65,30 @@ function getTypeIcon(property: MapProperty): string {
   return TYPE_ICONS[property.type] || '\u{1F3E0}'
 }
 
+function formatCompactPrice(price: number): string {
+  if (!Number.isFinite(price) || price <= 0) return ''
+
+  if (price >= 1_000_000) {
+    const millions = price / 1_000_000
+    return `${Number.isInteger(millions) ? millions.toFixed(0) : millions.toFixed(1).replace('.0', '')}M`
+  }
+
+  if (price >= 1_000) {
+    const thousands = price / 1_000
+    return `${Number.isInteger(thousands) ? thousands.toFixed(0) : thousands.toFixed(1).replace('.0', '')}k`
+  }
+
+  return price.toLocaleString('fr-FR')
+}
+
+function formatMarkerPrice(price: number, zoom: number): string {
+  if (zoom >= 16) {
+    return `${price.toLocaleString('fr-FR')} F`
+  }
+
+  return `${formatCompactPrice(price)} F`
+}
+
 // ── Popup Card ──────────────────────────────────────────────────────────────
 
 function LeafletPopupCard({ property, onVoirClick }: { property: MapProperty; onVoirClick: () => void }) {
@@ -216,8 +240,8 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
     if (prices.length === 0) return ''
     const min = Math.min(...prices)
     const max = Math.max(...prices)
-    if (min === max) return `${(min / 1000).toFixed(0)}k`
-    return `${(min / 1000).toFixed(0)}k - ${(max / 1000).toFixed(0)}k`
+    if (min === max) return formatCompactPrice(min)
+    return `${formatCompactPrice(min)} - ${formatCompactPrice(max)}`
   }
 
   function getGroupTypes(props: MapProperty[]): string[] {
@@ -332,15 +356,18 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
       }
 
       // Individual property marker: shows price with type icon
-      const createPropertyIcon = (price: number, status: PropertyStatus, propertyType: string) => {
+      const createPropertyIcon = (price: number, status: PropertyStatus, propertyType: string, zoom: number) => {
         const color: Record<PropertyStatus, string> = {
           disponible: '#FF6C2F',
           loue: '#EF4444',
           reserve: '#F59E0B',
         }
         const bgColor = color[status]
-        const label = `${(price / 1000).toFixed(0)}k`
+        const label = formatMarkerPrice(price, zoom)
         const typeIcon = TYPE_ICONS[propertyType] || ''
+        const isDetailedPrice = zoom >= 16
+        const fontSize = isDetailedPrice ? 10 : 11
+        const horizontalPadding = isDetailedPrice ? 10 : 12
 
         return L.divIcon({
           className: 'custom-price-marker animated-marker',
@@ -355,9 +382,9 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
               <div class="price-marker-bubble" style="
                 background: linear-gradient(135deg, ${bgColor}, ${bgColor}dd);
                 color: white;
-                font-size: 11px;
+                font-size: ${fontSize}px;
                 font-weight: 700;
-                padding: 5px 12px;
+                padding: 5px ${horizontalPadding}px;
                 border-radius: 20px;
                 white-space: nowrap;
                 border: 2.5px solid white;
@@ -371,7 +398,7 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
                 position: relative;
               ">
                 ${typeIcon ? `<span style="font-size: 12px;">${typeIcon}</span>` : ''}
-                <span>${label} F</span>
+                <span>${label}</span>
                 <div class="price-arrow" style="
                   position: absolute;
                   bottom: -6px;
@@ -718,7 +745,7 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
           // Show individual property markers
           properties.forEach((property, idx) => {
             if (property.latitude === null || property.longitude === null) return
-            const icon = createPropertyIcon(property.price, property.rentalStatus, property.type)
+            const icon = createPropertyIcon(property.price, property.rentalStatus, property.type, zoom)
             const marker = L.marker([property.latitude, property.longitude], { icon })
 
             marker.on('click', () => {
@@ -829,8 +856,7 @@ export default function PropertyMapLeaflet({ properties, onPropertyClick, userLo
       {/* Leaflet map container */}
       <div
         ref={mapRef}
-        className="w-full h-full rounded-xl overflow-hidden"
-        style={{ minHeight: '500px' }}
+        className="w-full h-full min-h-[320px] rounded-xl overflow-hidden sm:min-h-[380px] lg:min-h-[500px]"
       />
 
       {/* Centrer sur ma position button (only when we have a location) */}

@@ -91,9 +91,9 @@ const cardVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: 'easeOut' },
+    transition: { duration: 0.5, ease: 'easeOut' as const },
   },
-}
+} as const
 
 function RoleCard({ role, onSelect }: { role: Role; onSelect: (role: Role) => void }) {
   const Icon = role.icon

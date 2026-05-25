@@ -23,7 +23,7 @@ export async function GET(
 
     const effectiveRole = user?.active_role || user?.role
 
-    const { data: mandat } = await admin
+    const { data: mandat } = await (admin as any)
       .from('mandats')
       .select('id, contract_url, owner_id, agency_id')
       .eq('id', id)

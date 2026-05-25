@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils'
 interface PaginationControlsProps {
   page: number
   totalPages: number
-  total: number
-  limit: number
+  total?: number
+  limit?: number
   onPageChange: (page: number) => void
   className?: string
 }
@@ -23,8 +23,9 @@ export function PaginationControls({
 }: PaginationControlsProps) {
   if (totalPages <= 1) return null
 
-  const startItem = (page - 1) * limit + 1
-  const endItem = Math.min(page * limit, total)
+  const pageSize = limit ?? 10
+  const startItem = (page - 1) * pageSize + 1
+  const endItem = Math.min(page * pageSize, total ?? totalPages * pageSize)
 
   // Compute visible page numbers
   const getVisiblePages = () => {
@@ -62,7 +63,7 @@ export function PaginationControls({
   return (
     <div className={cn('flex flex-col sm:flex-row items-center gap-3 pt-4', className)}>
       <p className="text-xs text-muted-foreground order-2 sm:order-1">
-        {startItem}–{endItem} sur {total.toLocaleString('fr-FR')}
+        {startItem}–{endItem} sur {(total ?? 0).toLocaleString('fr-FR')}
       </p>
       <div className="flex items-center gap-1 order-1 sm:order-2">
         <Button

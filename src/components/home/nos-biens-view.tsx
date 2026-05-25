@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import {
@@ -265,31 +265,19 @@ function FilterSidebar({
       {/* Type de bien */}
       <div className="space-y-2">
         <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Type de bien</Label>
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            onClick={() => setTypeFilter('Tous')}
-            className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              typeFilter === 'Tous'
-                ? 'bg-brand-500 text-white shadow-sm'
-                : 'bg-muted text-muted-foreground hover:bg-accent border border-border'
-            }`}
-          >
-            Tous
-          </button>
-          {PROPERTY_TYPES.map((type) => (
-            <button
-              key={type}
-              onClick={() => setTypeFilter(type)}
-              className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                typeFilter === type
-                  ? 'bg-brand-500 text-white shadow-sm'
-                  : 'bg-muted text-muted-foreground hover:bg-accent border border-border'
-              }`}
-            >
-              {formatPropertyType(type)}
-            </button>
-          ))}
-        </div>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="h-9 w-full rounded-md border-border bg-card text-xs">
+            <SelectValue placeholder="Tous les types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Tous">Tous les types</SelectItem>
+            {PROPERTY_TYPES.map((type) => (
+              <SelectItem key={type} value={type}>
+                {formatPropertyType(type)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Ville */}
@@ -776,6 +764,7 @@ function MapListItem({ property, onClick, isFavorite, toggleFavorite, distance }
 
 export function NosBiensView() {
   const { setView, setSelectedPropertyId, searchParams, setSearchParams } = useAuthStore()
+  const resultsTopRef = useRef<HTMLDivElement | null>(null)
 
   // Data state
   const [properties, setProperties] = useState<Property[]>([])
@@ -802,7 +791,7 @@ export function NosBiensView() {
   const [radiusFilter, setRadiusFilter] = useState('0')
 
   // View state
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [sortBy, setSortBy] = useState('recent')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [page, setPage] = useState(1)
@@ -893,6 +882,8 @@ export function NosBiensView() {
 
   // Filter logic
   const filteredProperties = useMemo(() => {
+    const minRooms = Number(roomsMin)
+
     let result = properties.filter((p) => {
       // Search
       if (searchQuery) {
@@ -916,7 +907,7 @@ export function NosBiensView() {
       if (priceMin && p.price < Number(priceMin)) return false
       if (priceMax && p.price > Number(priceMax)) return false
       // Rooms
-      if (roomsMin !== '0' && p.bedrooms !== null && p.bedrooms < Number(roomsMin)) return false
+      if (roomsMin !== '0' && (p.bedrooms === null || p.bedrooms < minRooms)) return false
       // Meuble
       if (meubleOnly && !p.isFurnished) return false
       // Radius filter
@@ -992,6 +983,21 @@ export function NosBiensView() {
     setMeubleOnly(false)
     setSearchQuery('')
     setRadiusFilter('0')
+  }
+
+  const handlePageChange = (nextPage: number) => {
+    setPage(nextPage)
+
+    const resultsTop = resultsTopRef.current
+    if (!resultsTop) return
+
+    const headerOffset = 96
+    const targetTop = resultsTop.getBoundingClientRect().top + window.scrollY - headerOffset
+
+    window.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: 'smooth',
+    })
   }
 
   const filterSidebarProps = {
@@ -1081,6 +1087,7 @@ export function NosBiensView() {
   return (
     <section className="bg-muted min-h-screen">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div ref={resultsTopRef} />
         {/* ── Search Bar + Controls ─────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -1298,7 +1305,7 @@ export function NosBiensView() {
 
             {/* Map area */}
             <div className="flex-1 min-w-0">
-              <div className="h-[50vh] sm:h-[60vh] lg:h-[calc(100vh-10rem)] lg:sticky lg:top-24">
+              <div className="h-[42vh] sm:h-[52vh] lg:h-[calc(100vh-10rem)] lg:sticky lg:top-24">
                 {mappableProperties.length > 0 ? (
                   <PropertyMapLeaflet
                     properties={mappableProperties}
@@ -1439,7 +1446,7 @@ export function NosBiensView() {
                   totalPages={totalPages}
                   total={filteredProperties.length}
                   limit={ITEMS_PER_PAGE}
-                  onPageChange={setPage}
+                  onPageChange={handlePageChange}
                   className="pt-6"
                 />
               )}

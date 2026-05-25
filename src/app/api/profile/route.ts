@@ -164,8 +164,24 @@ export async function PUT(req: NextRequest) {
             user: toProfilePayload(updatedUser),
         })
         return applyCookies(response)
-    } catch (error) {
+    } catch (error: any) {
         console.error("Profile PUT error:", error)
+
+        // Détection de violation de contrainte unique (ex: téléphone déjà utilisé)
+        if (error?.code === '23505') {
+            const details = error?.details || ''
+            if (details.includes('phone')) {
+                return NextResponse.json(
+                    { error: "Ce numéro de téléphone est déjà utilisé par un autre compte." },
+                    { status: 409 }
+                )
+            }
+            return NextResponse.json(
+                { error: "Une valeur est déjà utilisée par un autre compte." },
+                { status: 409 }
+            )
+        }
+
         return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
     }
 }

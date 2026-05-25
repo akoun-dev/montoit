@@ -1,4 +1,4 @@
-import { getSupabaseAdminClient } from './src/lib/supabase/admin'
+import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 
 async function checkAliases() {
   const supabase = getSupabaseAdminClient()

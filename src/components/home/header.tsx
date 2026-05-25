@@ -49,6 +49,7 @@ import { AnimatedSheet } from '@/components/ui/sheet'
 import { useAuthStore, type AppView, type AuthUser } from '@/lib/auth-store'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@/lib/utils'
+import { usePaymentAlerts } from '@/hooks/use-payment-alerts'
 
 const navLinks: { label: string; view: AppView; icon: React.ElementType }[] = [
   { label: 'ACCUEIL', view: 'home', icon: Home },
@@ -100,7 +101,7 @@ function getUserMenuItems(role: AuthUser['role']): UserMenuItem[] {
         { id: 'favorites', label: 'Mes favoris', icon: Heart, section: 'favorites', group: 'LOCATION' },
         { id: 'applications', label: 'Mes candidatures', icon: UserCheck, section: 'applications', group: 'LOCATION' },
         { id: 'visits', label: 'Mes visites', icon: Eye, section: 'my-visits', group: 'LOCATION' },
-        { id: 'leases', label: 'Mes contrats', icon: FileSignature, section: 'my-leases', group: 'LOCATION' },
+        { id: 'leases', label: 'Mes locations', icon: Home, section: 'my-leases', group: 'LOCATION' },
         { id: 'payments', label: 'Mes paiements', icon: CreditCard, section: 'payments', group: 'LOCATION' },
         { id: 'messages', label: 'Messages', icon: MessageSquare, section: 'messages', group: 'MESSAGES' },
         { id: 'notifications', label: 'Notifications', icon: Bell, section: 'notifications', group: 'MESSAGES' },
@@ -244,6 +245,7 @@ function UserDropdown() {
 export function Header() {
   const [open, setOpen] = useState(false)
   const { currentView, setView, isAuthenticated, user, setDashboardSection, logout } = useAuthStore()
+  const { unpaidCount } = usePaymentAlerts()
 
   const handleNavClick = (view: AppView) => {
     setOpen(false)
@@ -411,6 +413,11 @@ export function Header() {
                                 >
                                   <Icon className="size-[18px] text-muted-foreground group-hover:text-brand-500 shrink-0 transition-colors" />
                                   <span className="flex-1">{item.label}</span>
+                                  {(user.activeRole || user.role) === 'LOCATAIRE' && item.id === 'leases' && unpaidCount > 0 && (
+                                    <Badge className="size-5 p-0 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold min-w-5 h-5 rounded-full">
+                                      {unpaidCount > 9 ? '9+' : unpaidCount}
+                                    </Badge>
+                                  )}
                                   <ChevronRight className="size-3.5 text-muted-foreground/50 group-hover:text-brand-400 shrink-0 transition-colors" />
                                 </button>
                               </li>

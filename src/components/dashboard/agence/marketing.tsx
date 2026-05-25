@@ -167,9 +167,9 @@ export function AgenceMarketing() {
                 <div key={listing.id} className="flex items-center gap-3">
                   <span className="text-sm font-medium min-w-0 sm:w-40 truncate">{listing.title}</span>
                   <div className="flex-1 h-4 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-[#FF6C2F] rounded-full" style={{ width: `${Math.min((listing.views / 300) * 100, 100)}%` }} />
+                    <div className="h-full bg-[#FF6C2F] rounded-full" style={{ width: `${Math.min((listing.viewsCount / 300) * 100, 100)}%` }} />
                   </div>
-                  <span className="text-xs text-muted-foreground w-12 text-right">{listing.views}</span>
+                  <span className="text-xs text-muted-foreground w-12 text-right">{listing.viewsCount}</span>
                 </div>
               ))}
               {listings.length === 0 && <p className="text-sm text-muted-foreground text-center">Aucune donnée</p>}

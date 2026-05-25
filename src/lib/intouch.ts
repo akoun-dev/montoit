@@ -45,6 +45,8 @@ const PAIEMENT_SERVICE_CODES: Record<PaymentOperator, string> = {
   WAVE: 'CI_PAIEMENTWAVE_TP',
 }
 
+const DEFAULT_PUBLIC_APP_URL = 'https://mon-toit.ci'
+
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
 export type PaymentOperator = 'ORANGE_MONEY' | 'MTN_MOMO' | 'MOOV_MONEY' | 'WAVE'
@@ -177,8 +179,32 @@ function getBasicAuthHeader(): string {
   return 'Basic ' + Buffer.from(`${INTOUCH_USERNAME}:${INTOUCH_PASSWORD}`).toString('base64')
 }
 
-function getDefaultCallbackUrl(): string {
-  return process.env.INTOUCH_CALLBACK_URL || 'https://montoit.ci/api/payments/callback'
+function getDefaultPublicAppUrl(): string {
+  const explicitAppUrl = process.env.INTOUCH_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL
+  if (explicitAppUrl) return explicitAppUrl
+
+  const callbackUrl = process.env.INTOUCH_CALLBACK_URL
+  if (callbackUrl) {
+    try {
+      return new URL(callbackUrl).origin
+    } catch {
+      return DEFAULT_PUBLIC_APP_URL
+    }
+  }
+
+  return DEFAULT_PUBLIC_APP_URL
+}
+
+export function getDefaultCallbackUrl(): string {
+  return process.env.INTOUCH_CALLBACK_URL || `${getDefaultPublicAppUrl()}/api/payments/callback`
+}
+
+export function getDefaultWaveReturnUrl(): string {
+  return process.env.INTOUCH_WAVE_RETURN_URL || getDefaultPublicAppUrl()
+}
+
+export function getDefaultWaveCancelUrl(): string {
+  return process.env.INTOUCH_WAVE_CANCEL_URL || getDefaultPublicAppUrl()
 }
 
 // ─── CASHIN API ─────────────────────────────────────────────────────────────────
@@ -306,8 +332,8 @@ export async function initiatePaiement(params: PaiementParams): Promise<IntouchP
   // WAVE-specific additional fields
   if (operator === 'WAVE') {
     additionnalInfos.partner_name = partnerName || 'Mon Toit'
-    additionnalInfos.return_url = returnUrl || getDefaultCallbackUrl()
-    additionnalInfos.cancel_url = cancelUrl || getDefaultCallbackUrl()
+    additionnalInfos.return_url = returnUrl || getDefaultWaveReturnUrl()
+    additionnalInfos.cancel_url = cancelUrl || getDefaultWaveCancelUrl()
   }
 
   const body = {
@@ -363,8 +389,15 @@ export async function initiatePaiement(params: PaiementParams): Promise<IntouchP
 export async function checkTransactionStatus(
   transactionId: string
 ): Promise<IntouchStatusResponse> {
+  if (!PAIEMENT_PASSWORD) {
+    return {
+      success: false,
+      error: 'INTOUCH_PAIEMENT_PASSWORD manquant pour la vérification de statut Intouch',
+    }
+  }
+
   const loginAgent = INTOUCH_LOGIN_API
-  const passwordAgent = PAIEMENT_PASSWORD || INTOUCH_LOGIN_API
+  const passwordAgent = PAIEMENT_PASSWORD
   const url = `${INTOUCH_BASE_URL}touchpayapi/ANSUT13287/transaction/${encodeURIComponent(transactionId)}?loginAgent=${encodeURIComponent(loginAgent)}&passwordAgent=${encodeURIComponent(passwordAgent)}`
 
   try {

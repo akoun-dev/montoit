@@ -5,8 +5,9 @@ import { notifyMany } from '@/lib/notify'
 import { BUCKETS, deleteFromStorage, extractBucketAndPath, uploadFromBase64 } from '@/lib/supabase/storage'
 
 export async function GET(req: NextRequest) {
+  const auth = await resolveRequestUser(req)
+  const { userId, applyCookies } = auth
   try {
-    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
     const supabase = getSupabaseAdminClient()
 
     // Récupérer les documents du propriétaire via owner_file
-    const { data: ownerFiles } = await supabase
+    const { data: ownerFiles } = await (supabase as any)
       .from('owner_files')
       .select('id')
       .eq('owner_id', ownerId)
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
     const ownerFileIds = ownerFiles.map(of => of.id)
 
     // Récupérer les documents associés
-    const { data: documents } = await supabase
+    const { data: documents } = await (supabase as any)
       .from('owner_documents')
       .select('id, name, type, url, status')
       .in('owner_file_id', ownerFileIds)
@@ -53,13 +54,14 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('[API /owner-file/documents GET] Error:', error)
     const resp = NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
-    return applyCookies(resp)
+    return applyCookies ? applyCookies(resp) : resp
   }
 }
 
 export async function POST(req: NextRequest) {
+  const auth2 = await resolveRequestUser(req)
+  const { userId, applyCookies } = auth2
   try {
-    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)
@@ -180,8 +182,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth3 = await resolveRequestUser(req)
+  const { userId, applyCookies } = auth3
   try {
-    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)

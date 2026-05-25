@@ -1,6 +1,12 @@
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { generateBailContract, type BailContractData } from '@/lib/generate-bail'
 import { uploadFromBase64, getPublicUrl, BUCKETS } from '@/lib/supabase/storage'
+import {
+  getLeaseAdvanceMonthLabels,
+  getLeaseAdvanceRentAmount,
+  getLeaseDepositAmount,
+  getLeaseMonthlyRent,
+} from '@/lib/lease-financials'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { writeFile, readFile, unlink, mkdir } from 'fs/promises'
@@ -111,6 +117,10 @@ export async function generateAndUploadLeasePdf(
   const propertyDescription = descParts.length > 0
     ? `un logement composé de ${descParts.join(', ')}`
     : property?.description || property?.title || ''
+  const monthlyRent = getLeaseMonthlyRent(lease.monthly_rent, property?.price || 0)
+  const depositAmount = getLeaseDepositAmount(monthlyRent)
+  const advanceRentAmount = getLeaseAdvanceRentAmount(monthlyRent)
+  const advanceRentMonths = getLeaseAdvanceMonthLabels(lease.start_date)
 
   const mappedItems = inventoryItems.map((item: any) => ({
     designation: item.designation,
@@ -142,10 +152,10 @@ export async function generateAndUploadLeasePdf(
     propertyCity: property?.city || '',
     propertyDescription,
 
-    monthlyRent: lease.monthly_rent,
-    deposit: lease.deposit || 0,
-    advanceRent: 0,
-    advanceRentMonths: '',
+    monthlyRent,
+    deposit: depositAmount,
+    advanceRent: advanceRentAmount,
+    advanceRentMonths,
 
     leaseDuration: String(Math.max(1, Math.round(
       (new Date(lease.end_date).getTime() - new Date(lease.start_date).getTime()) /

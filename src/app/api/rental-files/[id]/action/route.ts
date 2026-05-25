@@ -17,7 +17,7 @@ export async function POST(
 
     const supabase = getSupabaseAdminClient()
 
-    const { data: profile } = await supabase
+    const { data: profile } = await (supabase as any)
       .from('users')
       .select('role, active_role')
       .eq('id', userId)
@@ -43,11 +43,11 @@ export async function POST(
       )
     }
 
-    const rentalFileResult: any = await supabase
+    const rentalFileResult = await ((supabase as any)
       .from('rental_files')
       .select('*, tenant:users!rental_files_tenant_id_fkey(id, first_name, last_name), leases:leases(id, property:properties(id, owner_id, title))')
       .eq('id', id)
-      .single()
+      .single() as Promise<{ data: any; error: any }>)
 
     if (rentalFileResult.error || !rentalFileResult.data) {
       return NextResponse.json(
@@ -109,7 +109,7 @@ export async function POST(
     if (action === 'accept') {
       // Create lease directly (no TC_REVIEW step)
       const leaseId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-      const { data: lease, error: leaseError } = await supabase
+      const { data: lease, error: leaseError } = await (supabase as any)
         .from('leases')
         .insert({
           id: leaseId,

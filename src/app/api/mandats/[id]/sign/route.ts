@@ -67,7 +67,7 @@ export async function POST(
 
     const supabase = getSupabaseAdminClient()
 
-    const { data: _mandat } = await supabase
+    const { data: _mandat } = await (supabase as any)
       .from('mandats')
       .select('*')
       .eq('id', id)
@@ -100,7 +100,7 @@ export async function POST(
       return applyCookies(resp)
     }
 
-    const { data: property } = await supabase
+    const { data: property } = await (supabase as any)
       .from('properties')
       .select('id, title')
       .eq('id', mandat.property_id)
@@ -124,11 +124,11 @@ export async function POST(
         return applyCookies(resp)
       }
 
-      const { data: ownerInfo } = await supabase
+      const { data: ownerInfo } = await ((supabase as any)
         .from('users')
         .select('first_name, last_name, email, phone')
         .eq('id', userId)
-        .single()
+        .single() as Promise<{ data: any; error: any }>)
 
       const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sign`
       const bearerToken = accessToken || process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -198,7 +198,7 @@ export async function POST(
 
     const now = new Date()
     const s = isOwner ? 'owner' : 'agency'
-    const updateData: Record<string, unknown> = {
+    const updateData: Record<string, any> = {
       [`${s}_signed_at`]: now.toISOString(),
       [`${s}_signature_image`]: signatureImage || null,
       updated_at: now.toISOString(),
@@ -213,7 +213,7 @@ export async function POST(
       updateData.status = 'PENDING_SIGNATURE'
     }
 
-    const { data: updatedRow } = await supabase
+    const { data: updatedRow } = await (supabase as any)
       .from('mandats')
       .update(updateData)
       .eq('id', id)
@@ -246,7 +246,7 @@ export async function POST(
 
     // Si les deux parties ont signé, activer le bien s'il n'est pas déjà actif
     if (otherSigned) {
-      const { data: propertyWithStatus } = await supabase
+      const { data: propertyWithStatus } = await (supabase as any)
         .from('properties')
         .select('status')
         .eq('id', mandat.property_id)

@@ -3,8 +3,9 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 
 export async function GET(req: NextRequest) {
+  const auth = await resolveRequestUser(req)
+  const { userId, applyCookies } = auth
   try {
-    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
 
     const admin = getSupabaseAdminClient()
 
-    const { data: profile } = await admin
+    const { data: profile } = await (admin as any)
       .from('users')
       .select('role, active_role')
       .eq('id', userId)
@@ -24,71 +25,71 @@ export async function GET(req: NextRequest) {
       return applyCookies(resp)
     }
 
-    const { data: rawRentalFiles } = await admin
+    const { data: rawRentalFiles } = await (admin as any)
       .from('rental_files')
       .select('*')
       .eq('tenant_id', userId)
       .order('updated_at', { ascending: false })
 
-    const { data: rawVisitRequests } = await admin
+    const { data: rawVisitRequests } = await (admin as any)
       .from('visit_requests')
       .select('*')
       .eq('tenant_id', userId)
       .order('created_at', { ascending: false })
 
-    const { data: rawActiveLeases } = await admin
+    const { data: rawActiveLeases } = await (admin as any)
       .from('leases')
       .select('*')
       .eq('tenant_id', userId)
       .eq('status', 'ACTIVE')
       .order('created_at', { ascending: false })
 
-    const { data: rawAllLeases } = await admin
+    const { data: rawAllLeases } = await (admin as any)
       .from('leases')
       .select('*')
       .eq('tenant_id', userId)
       .order('created_at', { ascending: false })
 
-    const { data: rawConversations } = await admin
+    const { data: rawConversations } = await (admin as any)
       .from('conversations')
       .select('*')
       .or(`participant1_id.eq.${userId},participant2_id.eq.${userId}`)
       .order('last_message_at', { ascending: false })
 
-    const rfIds = (rawRentalFiles ?? []).map(f => f.id)
-    const vrPropIds = [...new Set((rawVisitRequests ?? []).map(v => v.property_id).filter((id): id is string => !!id))]
-    const leasePropIds = [...new Set((rawAllLeases ?? []).map(l => l.property_id).filter((id): id is string => !!id))]
-    const leaseIds = (rawAllLeases ?? []).map(l => l.id)
-    const activeLeaseIds = (rawActiveLeases ?? []).map(l => l.id)
-    const ownerIds = [...new Set((rawAllLeases ?? []).map(l => l.owner_id).filter((id): id is string => !!id))]
-    const convIds = (rawConversations ?? []).map(c => c.id)
-    const convPropIds = [...new Set((rawConversations ?? []).map(c => c.property_id).filter((id): id is string => !!id))]
+    const rfIds = (rawRentalFiles ?? []).map((f: any) => f.id)
+    const vrPropIds = [...new Set((rawVisitRequests ?? []).map((v: any) => v.property_id).filter((id): id is string => !!id))]
+    const leasePropIds = [...new Set((rawAllLeases ?? []).map((l: any) => l.property_id).filter((id): id is string => !!id))]
+    const leaseIds = (rawAllLeases ?? []).map((l: any) => l.id)
+    const activeLeaseIds = (rawActiveLeases ?? []).map((l: any) => l.id)
+    const ownerIds = [...new Set((rawAllLeases ?? []).map((l: any) => l.owner_id).filter((id): id is string => !!id))]
+    const convIds = (rawConversations ?? []).map((c: any) => c.id)
+    const convPropIds = [...new Set((rawConversations ?? []).map((c: any) => c.property_id).filter((id): id is string => !!id))]
     const allPropIds = [...new Set([...vrPropIds, ...leasePropIds, ...convPropIds])]
 
     const [allRfDocs, rfLeases, allProps, allPropImgs, allPayments, allOwners, allConvMessages, allConvProps, allParticipants, allMaintenance, allFavorites, allNotificationPreferences] = await Promise.all([
       rfIds.length > 0
-        ? admin.from('rental_file_documents').select('*').in('rental_file_id', rfIds).then(r => r.data ?? [])
+        ? (admin as any).from('rental_file_documents').select('*').in('rental_file_id', rfIds).then((r: any) => r.data ?? [])
         : [],
       rfIds.length > 0
-        ? admin.from('leases').select('*').in('rental_file_id', rfIds).eq('status', 'ACTIVE').then(r => r.data ?? [])
+        ? (admin as any).from('leases').select('*').in('rental_file_id', rfIds).eq('status', 'ACTIVE').then((r: any) => r.data ?? [])
         : [],
       allPropIds.length > 0
-        ? admin.from('properties').select('*').in('id', allPropIds).then(r => r.data ?? [])
+        ? (admin as any).from('properties').select('*').in('id', allPropIds).then((r: any) => r.data ?? [])
         : [],
       allPropIds.length > 0
-        ? admin.from('property_images').select('*').in('property_id', allPropIds).order('order', { ascending: true }).then(r => r.data ?? [])
+        ? (admin as any).from('property_images').select('*').in('property_id', allPropIds).order('order', { ascending: true }).then((r: any) => r.data ?? [])
         : [],
       leaseIds.length > 0
-        ? admin.from('payments').select('*').in('lease_id', leaseIds).order('due_date', { ascending: true }).then(r => r.data ?? [])
+        ? (admin as any).from('payments').select('*').in('lease_id', leaseIds).order('due_date', { ascending: true }).then((r: any) => r.data ?? [])
         : [],
       ownerIds.length > 0
-        ? admin.from('users').select('id, first_name, last_name, avatar_url').in('id', ownerIds).then(r => r.data ?? [])
+        ? (admin as any).from('users').select('id, first_name, last_name, avatar_url').in('id', ownerIds).then((r: any) => r.data ?? [])
         : [],
       convIds.length > 0
-        ? admin.from('messages').select('*').in('conversation_id', convIds).order('created_at', { ascending: false }).then(r => r.data ?? [])
+        ? (admin as any).from('messages').select('*').in('conversation_id', convIds).order('created_at', { ascending: false }).then((r: any) => r.data ?? [])
         : [],
       convPropIds.length > 0
-        ? admin.from('properties').select('id, title').in('id', convPropIds).then(r => r.data ?? [])
+        ? (admin as any).from('properties').select('id, title').in('id', convPropIds).then((r: any) => r.data ?? [])
         : [],
       (async () => {
         const pIds = new Set<string>()
@@ -98,33 +99,33 @@ export async function GET(req: NextRequest) {
         }
         return [...pIds]
       })().length > 0
-        ? admin.from('users').select('id, first_name, last_name').in('id', [...new Set((() => {
+        ? (admin as any).from('users').select('id, first_name, last_name').in('id', [...new Set((() => {
           const pIds = new Set<string>()
           for (const c of rawConversations ?? []) {
             if (c.participant1_id) pIds.add(c.participant1_id)
             if (c.participant2_id) pIds.add(c.participant2_id)
           }
           return pIds
-        })())]).then(r => r.data ?? [])
+        })())]).then((r: any) => r.data ?? [])
         : [],
       activeLeaseIds.length > 0
-        ? admin.from('maintenance_requests').select('*').in('lease_id', activeLeaseIds).order('created_at', { ascending: false }).limit(10).then(r => r.data ?? [])
+        ? (admin as any).from('maintenance_requests').select('*').in('lease_id', activeLeaseIds).order('created_at', { ascending: false }).limit(10).then((r: any) => r.data ?? [])
         : [],
-      admin.from('favorites').select('property_id').eq('user_id', userId).then(r => r.data ?? []),
-      admin.from('notification_preferences').select('*').eq('user_id', userId).then(r => r.data ?? []),
+      (admin as any).from('favorites').select('property_id').eq('user_id', userId).then((r: any) => r.data ?? []),
+      (admin as any).from('notification_preferences').select('*').eq('user_id', userId).then((r: any) => r.data ?? []),
     ])
 
     // Fetch recommended properties (similar to the user's current lease property)
     let recommendedProperties: any[] = []
     const primaryLease = (rawActiveLeases ?? [])[0]
     if (primaryLease?.property_id) {
-      const { data: leaseProp } = await admin
+      const { data: leaseProp } = await (admin as any)
         .from('properties')
         .select('city, commune, type, price')
         .eq('id', primaryLease.property_id)
         .single()
       if (leaseProp) {
-        let recQuery = admin
+        let recQuery: any = (admin as any)
           .from('properties')
           .select('*')
           .eq('status', 'ACTIVE')
@@ -391,6 +392,7 @@ export async function GET(req: NextRequest) {
           amount: lease.monthlyRent,
           dueDate: nextDue.toISOString(),
           status: 'PENDING',
+          paidAt: null,
         }
       }
 

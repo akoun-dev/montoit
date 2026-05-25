@@ -164,8 +164,16 @@ export async function PUT(req: NextRequest) {
 
     const resp = NextResponse.json({ conditions: mergedConditions })
     return applyCookies(resp)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Default conditions PUT error:', error)
+
+    if (error?.code === '23505') {
+      return NextResponse.json(
+        { error: 'Des conditions par défaut existent déjà pour ce profil.' },
+        { status: 409 }
+      )
+    }
+
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }

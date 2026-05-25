@@ -3,8 +3,9 @@ import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 
 export async function GET(req: NextRequest) {
+  const auth = await resolveRequestUser(req)
+  const { userId, applyCookies } = auth
   try {
-    const { userId, applyCookies } = await resolveRequestUser(req)
     if (!userId) {
       const resp = NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
       return applyCookies(resp)
@@ -92,6 +93,6 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('[API /agence/users] Error:', error)
     const resp = NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
-    return applyCookies(resp)
+    return applyCookies ? applyCookies(resp) : resp
   }
 }

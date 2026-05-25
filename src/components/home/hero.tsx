@@ -41,9 +41,9 @@ const fadeUp = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.1, duration: 0.5, ease: 'easeOut' },
+    transition: { delay: i * 0.1, duration: 0.5, ease: 'easeOut' as const },
   }),
-}
+} as const
 
 function formatNumber(n: number): string {
   return n.toLocaleString('fr-FR')

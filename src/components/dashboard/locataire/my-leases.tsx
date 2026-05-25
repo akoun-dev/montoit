@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, useMemo } from 'react'
-import { FileSignature, Building2, User, ChevronRight, Clock, XCircle } from 'lucide-react'
+import { FileSignature, Building2, User, ChevronRight, Clock, XCircle, Home } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/lib/auth-store'
@@ -136,13 +136,13 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
             <FileSignature className="size-6 text-brand-500" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes baux</h1>
-            <p className="text-muted-foreground mt-0.5">Consultez vos contrats de location</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Mes locations</h1>
+            <p className="text-muted-foreground mt-0.5">Consultez les biens que vous louez ou avez loués</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
           <Badge variant="secondary" className="bg-brand-50 text-brand-700">
-            <FileSignature className="size-3 mr-1" /> {allLeases.length} total
+            <Home className="size-3 mr-1" /> {allLeases.length} total
           </Badge>
           <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
             {activeLeases.length} actifs
@@ -163,7 +163,7 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
               : 'bg-muted text-muted-foreground hover:bg-accent'
           }`}
         >
-          Baux actifs ({activeLeases.length})
+          Locations actives ({activeLeases.length})
         </button>
         <button
           onClick={() => setActiveTab('previous')}
@@ -173,7 +173,7 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
               : 'bg-muted text-muted-foreground hover:bg-accent'
           }`}
         >
-          Baux précédents ({previousLeases.length})
+          Locations précédentes ({previousLeases.length})
         </button>
       </div>
 
@@ -184,12 +184,12 @@ export function MyLeases({ onDetail }: MyLeasesProps) {
             {activeTab === 'active' ? (
               <>
                 <FileSignature className="size-12 text-neutral-300 mx-auto mb-4" />
-                <p className="text-muted-foreground">Aucun bail actif</p>
+                <p className="text-muted-foreground">Aucune location active</p>
               </>
             ) : (
               <>
                 <Clock className="size-12 text-neutral-300 mx-auto mb-4" />
-                <p className="text-muted-foreground">Aucun bail précédent</p>
+                <p className="text-muted-foreground">Aucune location précédente</p>
               </>
             )}
           </CardContent>

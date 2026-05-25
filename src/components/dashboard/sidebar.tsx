@@ -12,8 +12,10 @@ import Image from 'next/image'
 import { useAuthStore, type AuthUser } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { useState } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { usePaymentAlerts } from '@/hooks/use-payment-alerts'
 
 interface SidebarItem {
   id: string
@@ -42,7 +44,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
             { id: 'favorites', label: 'Mes favoris', icon: Heart },
             { id: 'applications', label: 'Mes candidatures', icon: UserCheck },
             { id: 'my-visits', label: 'Mes visites', icon: Eye },
-            { id: 'my-leases', label: 'Mes contrats', icon: FileSignature },
+            { id: 'my-leases', label: 'Mes locations', icon: Home },
             { id: 'payments', label: 'Mes paiements', icon: CreditCard },
           ],
         },
@@ -311,6 +313,7 @@ const detailToParent: Record<string, string> = {
 
 export function SidebarContent({ collapsed = false, onNavigate }: SidebarContentProps) {
   const { user, dashboardSection, setDashboardSection, setView } = useAuthStore()
+  const { unpaidCount } = usePaymentAlerts()
 
   if (!user) return null
 
@@ -389,6 +392,11 @@ export function SidebarContent({ collapsed = false, onNavigate }: SidebarContent
                       >
                         <Icon className={cn('size-5 shrink-0', isActive ? 'text-brand-500' : 'text-muted-foreground')} />
                         {!collapsed && <span className="truncate">{item.label}</span>}
+                        {!collapsed && effectiveRole === 'LOCATAIRE' && item.id === 'my-leases' && unpaidCount > 0 && (
+                          <Badge className="ml-auto size-5 p-0 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold min-w-5 h-5 rounded-full">
+                            {unpaidCount > 9 ? '9+' : unpaidCount}
+                          </Badge>
+                        )}
                       </button>
                     </li>
                   )

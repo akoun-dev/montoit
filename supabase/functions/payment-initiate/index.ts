@@ -2,7 +2,15 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders, handleCors } from '../_shared/cors.ts'
 import { getSupabaseAdminClient } from '../_shared/supabase-admin.ts'
 import { resolveUserFromRequest } from '../_shared/auth.ts'
-import { initiatePaiement, generatePartnerTransactionId, getOperatorLabel, type PaymentOperator } from '../_shared/intouch.ts'
+import {
+  generatePartnerTransactionId,
+  getDefaultCallbackUrl,
+  getDefaultWaveCancelUrl,
+  getDefaultWaveReturnUrl,
+  getOperatorLabel,
+  initiatePaiement,
+  type PaymentOperator,
+} from '../_shared/intouch.ts'
 
 interface InitiatePaymentBody {
   paymentId: string
@@ -12,6 +20,30 @@ interface InitiatePaymentBody {
 
 const VALID_METHODS: PaymentOperator[] = ['ORANGE_MONEY', 'MTN_MOMO', 'MOOV_MONEY', 'WAVE']
 const PHONE_REGEX = /^(?:\+225|0)?\d{8,10}$/
+
+function extractRedirectUrl(operatorData: Record<string, unknown> | null | undefined): string | null {
+  if (!operatorData) return null
+
+  const candidateKeys = [
+    'waveLaunchUrl',
+    'wave_launch_url',
+    'redirectUrl',
+    'redirect_url',
+    'paymentUrl',
+    'payment_url',
+    'url',
+    'link',
+  ] as const
+
+  for (const key of candidateKeys) {
+    const value = operatorData[key]
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value
+    }
+  }
+
+  return null
+}
 
 serve(async (req) => {
   const corsRes = handleCors(req)
@@ -106,6 +138,9 @@ serve(async (req) => {
     const partnerTransactionId = generatePartnerTransactionId()
 
     const tenantPhone = cleanedPhone.startsWith('+225') ? cleanedPhone.slice(4) : cleanedPhone
+    const callbackUrl = getDefaultCallbackUrl()
+    const waveReturnUrl = getDefaultWaveReturnUrl()
+    const waveCancelUrl = getDefaultWaveCancelUrl()
 
     const paiementResult = await initiatePaiement({
       operator: method,
@@ -116,11 +151,11 @@ serve(async (req) => {
       recipientFirstName: profile?.first_name || '',
       recipientLastName: profile?.last_name || '',
       destinataire: tenantPhone,
-      callback: Deno.env.get('INTOUCH_CALLBACK_URL') || 'https://mon-toit.ci/api/payments/callback',
+      callback: callbackUrl,
       ...(method === 'WAVE' ? {
         partnerName: 'Mon Toit',
-        returnUrl: Deno.env.get('INTOUCH_WAVE_RETURN_URL') || 'https://mon-toit.ci/api/payments/callback',
-        cancelUrl: Deno.env.get('INTOUCH_WAVE_CANCEL_URL') || 'https://mon-toit.ci/api/payments/callback',
+        returnUrl: waveReturnUrl,
+        cancelUrl: waveCancelUrl,
       } : {}),
     })
 
@@ -137,6 +172,7 @@ serve(async (req) => {
       (operatorRaw?.transactionId as string) ||
       (operatorRaw?.id as string) ||
       partnerTransactionId
+    const redirectUrl = extractRedirectUrl(operatorRaw)
 
     const { data: updatedPayment } = await supabase
       .from('payments')
@@ -162,6 +198,7 @@ serve(async (req) => {
         operatorTransactionId,
         amount: updatedPayment.amount,
         operator: methodLabel,
+        redirectUrl,
         message: 'Paiement initié avec succès. Vous recevrez une notification sur votre téléphone.',
       },
     }), {

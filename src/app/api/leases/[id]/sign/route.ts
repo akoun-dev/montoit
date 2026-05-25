@@ -5,6 +5,11 @@ import crypto from 'crypto'
 import { notify, notifyLeaseActivated } from '@/lib/notify'
 import { generateAndUploadLeasePdf } from '@/lib/generate-and-upload-lease-pdf'
 import { uploadFromBase64, BUCKETS, getPublicUrl } from '@/lib/supabase/storage'
+import {
+  getLeaseAdvanceRentAmount,
+  getLeaseDepositAmount,
+  getLeaseMonthlyRent,
+} from '@/lib/lease-financials'
 
 
 function generateId() {
@@ -402,36 +407,56 @@ export async function POST(
       }
     }
 
-    // ── Créer les paiements initiaux (caution + 1er loyer) ──
+    // ── Créer les paiements initiaux (caution + 2 mois d'avance) ──
     if (updatedLease?.status === 'ACTIVE') {
-      const actualRent = lease.monthly_rent || (property?.price || 0)
-      const depositAmount = lease.deposit || (actualRent * 2)
-      const nowISO = new Date().toISOString()
+      const actualRent = getLeaseMonthlyRent(lease.monthly_rent, property?.price || 0)
+      const depositAmount = getLeaseDepositAmount(actualRent)
+      const advanceRentAmount = getLeaseAdvanceRentAmount(actualRent)
+      const dueDate = lease.start_date || new Date().toISOString()
 
-      if (depositAmount > 0) {
-        const { error: depErr } = await supabase.from('payments').insert({
+      const { data: existingPayments } = await supabase
+        .from('payments')
+        .select('reference')
+        .eq('lease_id', id)
+
+      const existingReferences = new Set(
+        (existingPayments ?? [])
+          .map((payment: any) => payment.reference)
+          .filter(Boolean)
+      )
+
+      const initialPayments: Array<Record<string, unknown>> = []
+
+      const depositReference = `CAUTION-${id.slice(0, 8)}`
+      if (depositAmount > 0 && !existingReferences.has(depositReference)) {
+        initialPayments.push({
           id: generateId(),
           lease_id: id,
           tenant_id: lease.tenant_id,
           amount: depositAmount,
           status: 'PENDING',
-          due_date: lease.start_date || nowISO,
-          reference: `CAUTION-${id.slice(0, 8)}`,
+          due_date: dueDate,
+          reference: depositReference,
         })
-        if (depErr) console.error('[sign/route] Failed to create deposit payment:', depErr)
       }
 
-      if (actualRent > 0) {
-        const { error: rentErr } = await supabase.from('payments').insert({
+      const advanceReference = `AVANCE-${id.slice(0, 8)}`
+      if (advanceRentAmount > 0 && !existingReferences.has(advanceReference)) {
+        initialPayments.push({
           id: generateId(),
           lease_id: id,
           tenant_id: lease.tenant_id,
-          amount: actualRent,
+          amount: advanceRentAmount,
           status: 'PENDING',
-          due_date: nowISO,
+          due_date: dueDate,
+          reference: advanceReference,
         })
-        if (rentErr) {
-          console.error('[sign/route] Failed to create first rent payment:', rentErr)
+      }
+
+      if (initialPayments.length > 0) {
+        const { error: paymentsError } = await supabase.from('payments').insert(initialPayments)
+        if (paymentsError) {
+          console.error('[sign/route] Failed to create initial lease payments:', paymentsError)
         }
       }
     }

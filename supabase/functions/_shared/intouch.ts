@@ -35,6 +35,8 @@ const PAIEMENT_SERVICE_CODES: Record<string, string> = {
   WAVE: 'CI_PAIEMENTWAVE_TP',
 }
 
+const DEFAULT_PUBLIC_APP_URL = 'https://mon-toit.ci'
+
 export type PaymentOperator = 'ORANGE_MONEY' | 'MTN_MOMO' | 'MOOV_MONEY' | 'WAVE'
 
 // ─── CASHIN Types ──────────────────────────────────────────────────────────────
@@ -120,8 +122,32 @@ function getBasicAuthHeader(): string {
   return `Basic ${encoded}`
 }
 
-function getDefaultCallbackUrl(): string {
-  return Deno.env.get('INTOUCH_CALLBACK_URL') || 'https://montoit.ci/api/payments/callback'
+function getDefaultPublicAppUrl(): string {
+  const explicitAppUrl = Deno.env.get('INTOUCH_PUBLIC_APP_URL') || Deno.env.get('NEXT_PUBLIC_APP_URL')
+  if (explicitAppUrl) return explicitAppUrl
+
+  const callbackUrl = Deno.env.get('INTOUCH_CALLBACK_URL')
+  if (callbackUrl) {
+    try {
+      return new URL(callbackUrl).origin
+    } catch {
+      return DEFAULT_PUBLIC_APP_URL
+    }
+  }
+
+  return DEFAULT_PUBLIC_APP_URL
+}
+
+export function getDefaultCallbackUrl(): string {
+  return Deno.env.get('INTOUCH_CALLBACK_URL') || `${getDefaultPublicAppUrl()}/api/payments/callback`
+}
+
+export function getDefaultWaveReturnUrl(): string {
+  return Deno.env.get('INTOUCH_WAVE_RETURN_URL') || getDefaultPublicAppUrl()
+}
+
+export function getDefaultWaveCancelUrl(): string {
+  return Deno.env.get('INTOUCH_WAVE_CANCEL_URL') || getDefaultPublicAppUrl()
 }
 
 // ─── CASHIN ────────────────────────────────────────────────────────────────────
@@ -211,8 +237,8 @@ export async function initiatePaiement(params: PaiementParams): Promise<IntouchP
 
   if (operator === 'WAVE') {
     additionnalInfos.partner_name = partnerName || 'Mon Toit'
-    additionnalInfos.return_url = returnUrl || getDefaultCallbackUrl()
-    additionnalInfos.cancel_url = cancelUrl || getDefaultCallbackUrl()
+    additionnalInfos.return_url = returnUrl || getDefaultWaveReturnUrl()
+    additionnalInfos.cancel_url = cancelUrl || getDefaultWaveCancelUrl()
   }
 
   try {
@@ -253,8 +279,12 @@ export async function initiatePaiement(params: PaiementParams): Promise<IntouchP
 export async function checkTransactionStatus(
   transactionId: string
 ): Promise<IntouchStatusResponse> {
+  if (!PAIEMENT_PASSWORD) {
+    return { success: false, error: 'INTOUCH_PAIEMENT_PASSWORD manquant pour la vérification de statut Intouch' }
+  }
+
   const loginAgent = INTOUCH_LOGIN_API
-  const passwordAgent = PAIEMENT_PASSWORD || INTOUCH_LOGIN_API
+  const passwordAgent = PAIEMENT_PASSWORD
   const url = `${INTOUCH_BASE_URL}touchpayapi/ANSUT13287/transaction/${encodeURIComponent(transactionId)}?loginAgent=${encodeURIComponent(loginAgent)}&passwordAgent=${encodeURIComponent(passwordAgent)}`
 
   try {

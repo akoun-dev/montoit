@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
+import { checkTransactionStatus } from '@/lib/intouch'
 import { notify } from '@/lib/notify'
 
 function snakeToCamel(obj: any): any {
@@ -11,6 +12,98 @@ function snakeToCamel(obj: any): any {
     acc[camelKey] = snakeToCamel(obj[key])
     return acc
   }, {} as Record<string, any>)
+}
+
+const SUCCESS_STATUSES = ['SUCCESS', 'SUCCESSFUL', 'COMPLETED', 'COMPLETE', 'PAID', 'SUCCESS_PAYMENT', '0']
+const FAILURE_STATUSES = ['FAILED', 'FAILURE', 'REJECTED', 'CANCELLED', 'EXPIRED', 'ERROR', '-1', '-2']
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
+}
+
+async function syncProcessingPaymentWithIntouch(supabase: ReturnType<typeof getSupabaseAdminClient>, payment: any) {
+  if (payment?.status !== 'PROCESSING' || !payment?.operator_transaction_id) {
+    return payment
+  }
+
+  try {
+    const statusResult = await checkTransactionStatus(payment.operator_transaction_id)
+    if (!statusResult.success || !statusResult.data) {
+      return payment
+    }
+
+    const statusPayload = asRecord(statusResult.data)
+    const normalizedStatus = String(statusPayload.status || '').toUpperCase()
+    const normalizedErrorCode = String(statusPayload.error_code || '').toUpperCase()
+
+    const isSuccess =
+      SUCCESS_STATUSES.includes(normalizedStatus) ||
+      SUCCESS_STATUSES.includes(normalizedErrorCode)
+
+    const isFailure =
+      FAILURE_STATUSES.includes(normalizedStatus) ||
+      FAILURE_STATUSES.includes(normalizedErrorCode) ||
+      (!!statusPayload.error_message && !isSuccess)
+
+    if (!isSuccess && !isFailure) {
+      return payment
+    }
+
+    const currentOperatorData = asRecord(payment.payment_operator_data)
+    const mergedOperatorData = {
+      ...currentOperatorData,
+      lastStatusCheckAt: new Date().toISOString(),
+      lastStatusCheckResult: statusPayload,
+    }
+
+    if (isSuccess) {
+      const updatedFields = {
+        status: 'PAID',
+        paid_at: payment.paid_at || new Date().toISOString(),
+        reference: String(
+          statusPayload.transactionId ||
+          statusPayload.id ||
+          payment.reference ||
+          payment.operator_transaction_id ||
+          ''
+        ),
+        payment_operator_data: mergedOperatorData,
+      }
+
+      await supabase
+        .from('payments')
+        .update(updatedFields)
+        .eq('id', payment.id)
+
+      return {
+        ...payment,
+        ...updatedFields,
+      }
+    }
+
+    const updatedFields = {
+      status: 'PENDING',
+      method: null,
+      operator_transaction_id: null,
+      operator_phone_number: null,
+      payment_operator_data: mergedOperatorData,
+    }
+
+    await supabase
+      .from('payments')
+      .update(updatedFields)
+      .eq('id', payment.id)
+
+    return {
+      ...payment,
+      ...updatedFields,
+    }
+  } catch (error) {
+    console.error('Payment Intouch status sync error:', error)
+    return payment
+  }
 }
 
 export async function GET(
@@ -108,7 +201,8 @@ export async function GET(
       return applyCookies(NextResponse.json({ error: 'Paiement introuvable' }, { status: 404 }))
     }
 
-    const mapped = snakeToCamel(payment)
+    const syncedPayment = await syncProcessingPaymentWithIntouch(supabase, payment)
+    const mapped = snakeToCamel(syncedPayment)
     if (mapped.lease?.property?.images) {
       const sorted = [...mapped.lease.property.images].sort(
         (a: any, b: any) => (a.order || 0) - (b.order || 0)

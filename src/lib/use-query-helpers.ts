@@ -15,7 +15,7 @@ export function useCachedQuery<T>(
 ) {
   return useQuery({
     queryKey,
-    queryFn: () => authFetch<T>(url!),
+    queryFn: () => authFetch<T>(url as string),
     enabled: !!url && (options?.enabled !== false),
     staleTime: options?.staleTime ?? 60_000, // 1 minute default
   })

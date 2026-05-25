@@ -144,8 +144,16 @@ export async function POST(req: NextRequest) {
       fakeAliasesDeleted: deleted,
     })
     return applyCookies(resp)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Sync aliases error:', error)
+
+    if (error?.code === '23505') {
+      return NextResponse.json(
+        { error: 'Un alias de signature existe déjà pour cet utilisateur.' },
+        { status: 409 }
+      )
+    }
+
     const resp = NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     return resp
   }
