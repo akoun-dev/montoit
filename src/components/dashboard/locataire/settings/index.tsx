@@ -20,87 +20,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
-import { authFetch, AuthError } from '@/lib/auth-fetch'
+import { authFetch } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useInAppBrowser } from '@/hooks/capacitor'
-import { Reviews } from './reviews'
-import { Maintenance } from './maintenance'
-import { ActivityHistory } from './history'
-
-// ── Types ───────────────────────────────────────────────────────────────────
-
-interface ProfileData {
-  id: string
-  firstName: string
-  lastName: string
-  email: string
-  phone: string | null
-  gender: string | null
-  city: string | null
-  address: string | null
-  avatarUrl: string | null
-  birthDate: string | null
-  nni: string | null
-  neofaceVerified: boolean
-  neofaceVerifiedAt: string | null
-  kycDocumentId: string | null
-  oneciVerified: boolean
-  oneciVerifiedAt: string | null
-  isEmailVerified: boolean
-  isPhoneVerified: boolean
-  passwordUpdatedAt: string | null
-  role: string
-  createdAt: string
-}
-
-interface ProfileField {
-  key: string
-  label: string
-  filled: boolean
-}
-
-interface ScoringBreakdown {
-  profile: { score: number; max: number; weight: number; fields: ProfileField[] }
-  neoface: { score: number; max: number; weight: number; verified: boolean; label: string; description: string }
-  oneci: { score: number; max: number; weight: number; verified: boolean; label: string; description: string }
-  roleSpecific: { score: number; max: number; weight: number; approved: boolean; hasFile: boolean; label: string; description: string }
-}
-
-interface Recommendation {
-  id: string
-  title: string
-  description: string
-  impact: number
-  action: string
-  actionLabel: string
-  completed: boolean
-}
-
-interface ScoringData {
-  score: number
-  status: 'approuve' | 'sous_conditions' | 'non_recommande'
-  statusLabel: string
-  statusColor: string
-  roleLabel: string
-  breakdown: ScoringBreakdown
-  recommendations: Recommendation[]
-}
-
-interface SessionInfo {
-  id: string
-  isCurrent: boolean
-  createdAt: string
-  expiresAt: string
-}
-
-interface NotificationPreferences {
-  id: string
-  messages: boolean
-  dossierUpdates: boolean
-  visitReminders: boolean
-  paymentAlerts: boolean
-  promotions: boolean
-}
+import { Reviews } from '../reviews'
+import { Maintenance } from '../maintenance'
+import { ActivityHistory } from '../history'
+import type { ProfileData, ScoringData, SessionInfo, NotificationPreferences, SettingsTab } from './types'
+import { ScoreCircle, ScoreComponentCard } from './sub-components'
+import { KycVerificationModal } from './kyc-modal'
 
 // ── Animations ──────────────────────────────────────────────────────────────
 
@@ -113,719 +40,6 @@ const itemVariants = {
   show: { opacity: 1, y: 0 },
 }
 
-// ── Score Circle ────────────────────────────────────────────────────────────
-
-function ScoreCircle({ score, statusColor, size = 'md' }: { score: number; statusColor: string; size?: 'sm' | 'md' | 'lg' }) {
-  const sizeMap = { sm: 20, md: 36, lg: 48 }
-  const radius = sizeMap[size]
-  const circumference = 2 * Math.PI * radius
-  const progress = (score / 100) * circumference
-  const colorMap: Record<string, string> = { emerald: '#10b981', amber: '#f59e0b', red: '#ef4444' }
-  const strokeColor = colorMap[statusColor] || '#ef4444'
-  const viewBox = (radius + 8) * 2
-  const center = viewBox / 2
-
-  return (
-    <div className={`relative shrink-0 ${size === 'lg' ? 'size-36' : size === 'md' ? 'size-24' : 'size-16'}`}>
-      <svg className="size-full -rotate-90" viewBox={`0 0 ${viewBox} ${viewBox}`}>
-        <circle cx={center} cy={center} r={radius} fill="none" stroke="#f5f5f5" strokeWidth="6" />
-        <circle
-          cx={center} cy={center} r={radius} fill="none"
-          stroke={strokeColor} strokeWidth="6" strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference - progress}
-          className="transition-all duration-1000 ease-out"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={`font-bold text-foreground ${size === 'lg' ? 'text-3xl' : size === 'md' ? 'text-lg' : 'text-xs'}`}>
-          {score}
-        </span>
-        {size !== 'sm' && (
-          <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">/100</span>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Score Component Card ────────────────────────────────────────────────────
-
-function ScoreComponentCard({
-  icon: Icon,
-  label,
-  weight,
-  score,
-  max,
-  statusColor,
-  details,
-  actionLabel,
-  onAction,
-  redoLabel,
-  onRedo,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  weight: number
-  score: number
-  max: number
-  statusColor: string
-  details: string
-  actionLabel?: string
-  onAction?: () => void
-  redoLabel?: string
-  onRedo?: () => void
-}) {
-  const percentage = max > 0 ? Math.round((score / max) * 100) : 0
-  const isComplete = score >= max
-
-  const barColor = isComplete ? 'bg-emerald-500' : score > 0 ? 'bg-amber-400' : 'bg-neutral-200'
-
-  return (
-    <Card className="border-border hover:border-border transition-colors">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
-            isComplete ? 'bg-emerald-50 text-emerald-600' : 'bg-muted text-muted-foreground'
-          }`}>
-            <Icon className="size-4" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-semibold text-foreground">{label}</span>
-              <span className={`text-xs font-bold ${isComplete ? 'text-emerald-600' : 'text-muted-foreground'}`}>
-                {score}/{max} pts
-              </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground mb-2">{details}</p>
-            <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-2">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${percentage}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
-                className={`h-full rounded-full ${barColor}`}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Badge className={`text-[10px] font-semibold px-2 py-0 border ${
-                isComplete
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : score > 0
-                    ? 'bg-amber-50 text-amber-700 border-amber-200'
-                    : 'bg-red-50 text-red-600 border-red-200'
-              }`}>
-                {isComplete ? (
-                  <><CheckCircle2 className="size-3 mr-0.5" /> Complété</>
-                ) : score > 0 ? (
-                  <><AlertTriangle className="size-3 mr-0.5" /> En cours</>
-                ) : (
-                  <><XCircle className="size-3 mr-0.5" /> Non complété</>
-                )}
-              </Badge>
-              <span className="text-[10px] font-medium text-muted-foreground">Poids : {weight}%</span>
-            </div>
-            {actionLabel && onAction && !isComplete && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="mt-2.5 w-full text-xs h-8 border-brand-200 text-brand-600 hover:bg-brand-50"
-                onClick={onAction}
-              >
-                {actionLabel}
-                <ArrowRight className="size-3 ml-1" />
-              </Button>
-            )}
-            {redoLabel && onRedo && isComplete && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="mt-2.5 w-full text-xs h-8 border-purple-200 text-purple-600 hover:bg-purple-50"
-                onClick={onRedo}
-              >
-                <RefreshCw className="size-3 mr-1" />
-                {redoLabel}
-              </Button>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ── Profile Field Row ───────────────────────────────────────────────────────
-
-function ProfileFieldRow({ label, value, isFilled, fieldName }: {
-  label: string
-  value: string | null | undefined
-  isFilled: boolean
-  fieldName: string
-}) {
-  return (
-    <div className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-accent transition-colors">
-      <div className="flex items-center gap-2">
-        {isFilled ? (
-          <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-        ) : (
-          <XCircle className="size-4 text-red-300 shrink-0" />
-        )}
-        <span className="text-xs text-muted-foreground">{label}</span>
-      </div>
-      <span className={`text-xs font-medium ${isFilled ? 'text-foreground' : 'text-red-400'}`}>
-        {isFilled ? (value || '✓') : 'Non renseigné'}
-      </span>
-    </div>
-  )
-}
-
-// ── KYC Verification Modal ──────────────────────────────────────────────────
-
-function KycVerificationModal({
-  open,
-  onOpenChange,
-  profile,
-  onVerified,
-  onRedo,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  profile: ProfileData | null
-  onVerified: () => void
-  onRedo?: () => Promise<void>
-}) {
-  // KYC face verification state (NeoFace v2 flow)
-  const [kycStep, setKycStep] = useState<'idle' | 'uploading' | 'selfie' | 'verifying' | 'done'>('idle')
-  const [kycDocImage, setKycDocImage] = useState<string | null>(null)
-  const [kycDocImageVerso, setKycDocImageVerso] = useState<string | null>(null)
-  const [kycDocumentId, setKycDocumentId] = useState<string | null>(null)
-  const [kycSelfieUrl, setKycSelfieUrl] = useState<string | null>(null)
-  const [kycResult, setKycResult] = useState<{ verified: boolean; message: string } | null>(null)
-  const [kycOcrData, setKycOcrData] = useState<{
-    typeDoc: string | null
-    nom: string | null
-    prenom: string | null
-    dateNaissance: string | null
-    sexe: string | null
-    numeroDocument: string | null
-    verso: {
-      nni: string | null
-      profession: string | null
-    } | null
-  } | null>(null)
-  const [kycPollCount, setKycPollCount] = useState(0)
-
-  const kycDocInputRef = useRef<HTMLInputElement>(null)
-  const kycDocVersoInputRef = useRef<HTMLInputElement>(null)
-  const kycPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  // Reset state when modal opens (always, even if already verified)
-  useEffect(() => {
-    if (open) {
-      setKycStep('idle')
-      setKycDocImage(null)
-      setKycDocImageVerso(null)
-      setKycDocumentId(null)
-      setKycSelfieUrl(null)
-      setKycResult(null)
-      setKycOcrData(null)
-      setKycPollCount(0)
-    }
-  }, [open])
-
-  // Cleanup polling interval on unmount or close
-  useEffect(() => {
-    return () => {
-      if (kycPollIntervalRef.current) {
-        clearInterval(kycPollIntervalRef.current)
-      }
-    }
-  }, [])
-
-  // Stop polling when modal closes
-  useEffect(() => {
-    if (!open && kycPollIntervalRef.current) {
-      clearInterval(kycPollIntervalRef.current)
-      kycPollIntervalRef.current = null
-      if (kycStep === 'verifying') {
-        setKycStep('selfie')
-      }
-    }
-  }, [open, kycStep])
-
-  // ── KYC: Select recto (preview only) ─────────────────────────────────────
-  const handleKycDocSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      setKycDocImage(ev.target?.result as string)
-    }
-    reader.readAsDataURL(file)
-    e.target.value = ''
-  }, [])
-
-  // ── KYC: Select verso (preview only) ─────────────────────────────────────
-  const handleKycDocVersoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      setKycDocImageVerso(ev.target?.result as string)
-    }
-    reader.readAsDataURL(file)
-    e.target.value = ''
-  }, [])
-
-  // ── KYC: Upload recto + verso together ───────────────────────────────────
-  const handleKycUploadBoth = useCallback(async () => {
-    if (!kycDocImage) return
-
-    setKycStep('uploading')
-    setKycResult(null)
-
-    try {
-      // Convert files to base64 (strip data URL prefix)
-      const docFile = kycDocImage.replace(/^data:image\/[a-z]+;base64,/, '')
-      const docFileVerso = kycDocImageVerso
-        ? kycDocImageVerso.replace(/^data:image\/[a-z]+;base64,/, '')
-        : undefined
-
-      const result = await authFetch<{
-        documentId: string
-        selfieUrl: string
-        ocr: boolean
-        ocrData: {
-          typeDoc: string | null
-          nom: string | null
-          prenom: string | null
-          dateNaissance: string | null
-          sexe: string | null
-          numeroDocument: string | null
-          verso: { nni: string | null; profession: string | null } | null
-        } | null
-      }>('/api/kyc/face-auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'upload', docFile, docFileVerso }),
-      })
-
-      setKycDocumentId(result.documentId)
-      setKycSelfieUrl(result.selfieUrl)
-      setKycOcrData(result.ocrData || null)
-      setKycStep('selfie')
-    } catch (err) {
-      setKycResult({
-        verified: false,
-        message: err instanceof Error ? err.message : 'Erreur lors de l\'envoi du document',
-      })
-      setKycStep('idle')
-    }
-  }, [kycDocImage, kycDocImageVerso])
-
-  const { openInWebView } = useInAppBrowser()
-
-  // ── KYC: Open selfie URL in app browser ────────────────────────────────────
-  const handleKycOpenSelfie = useCallback(() => {
-    if (!kycSelfieUrl) return
-    openInWebView(kycSelfieUrl)
-
-    // Start polling after a short delay
-    setKycStep('verifying')
-    setKycPollCount(0)
-
-    // Clear any existing polling
-    if (kycPollIntervalRef.current) {
-      clearInterval(kycPollIntervalRef.current)
-    }
-
-    let pollAttempts = 0
-    const maxAttempts = 40 // 40 * 3s = 120s max
-
-    kycPollIntervalRef.current = setInterval(async () => {
-      pollAttempts++
-      setKycPollCount(pollAttempts)
-
-      if (pollAttempts > maxAttempts) {
-        if (kycPollIntervalRef.current) clearInterval(kycPollIntervalRef.current)
-        setKycResult({ verified: false, message: 'Délai de vérification dépassé. Veuillez réessayer.' })
-        setKycStep('idle')
-        return
-      }
-
-      try {
-        const result = await authFetch<{ status: string; verified: boolean; message?: string; matchingScore?: number }>(
-          '/api/kyc/face-auth',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mode: 'verify', documentId: kycDocumentId }),
-          }
-        )
-
-        if (result.status === 'verified') {
-          if (kycPollIntervalRef.current) clearInterval(kycPollIntervalRef.current)
-          setKycResult({ verified: true, message: result.message || 'Vérification KYC réussie !' })
-          setKycStep('done')
-          onVerified()
-        } else if (result.status === 'failed') {
-          if (kycPollIntervalRef.current) clearInterval(kycPollIntervalRef.current)
-          setKycResult({ verified: false, message: result.message || 'La vérification a échoué.' })
-          setKycStep('idle')
-        }
-        // If "waiting", continue polling
-      } catch {
-        // Network error, continue polling
-      }
-    }, 3000)
-  }, [kycSelfieUrl, kycDocumentId, onVerified])
-
-  // ── KYC: Reset flow ──────────────────────────────────────────────────────
-  const handleKycReset = useCallback(() => {
-    if (kycPollIntervalRef.current) {
-      clearInterval(kycPollIntervalRef.current)
-    }
-    setKycStep('idle')
-    setKycDocImage(null)
-    setKycDocImageVerso(null)
-    setKycDocumentId(null)
-    setKycSelfieUrl(null)
-    setKycResult(null)
-    setKycOcrData(null)
-    setKycPollCount(0)
-  }, [])
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      {profile?.neofaceVerified ? (
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ScanFace className="size-5 text-brand-500" />
-              Vérification KYC
-            </DialogTitle>
-            <DialogDescription>
-              Vérification d&apos;identité par reconnaissance faciale (+20% Trust Score)
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-            <div className="flex items-start gap-3">
-              <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shrink-0">
-                <CheckCircle2 className="size-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-emerald-700">Vérification KYC réussie</p>
-                {profile.neofaceVerifiedAt && (
-                  <p className="text-xs text-emerald-600 mt-0.5">
-                    Vérifié le {new Date(profile.neofaceVerifiedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            className="w-full mt-4"
-            onClick={async () => {
-              await authFetch('/api/kyc/face-auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: 'reset' }),
-              }).catch(() => {})
-              handleKycReset()
-              await onRedo?.()
-            }}
-          >
-            <RefreshCw className="size-4 mr-2" />
-            Refaire la vérification
-          </Button>
-        </DialogContent>
-      ) : (
-        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ScanFace className="size-5 text-brand-500" />
-            Vérification KYC
-          </DialogTitle>
-          <DialogDescription>
-            Vérification d&apos;identité par reconnaissance faciale (+20% Trust Score)
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-3">
-          {/* Step 1: Upload ID card (recto + verso) */}
-          {(kycStep === 'idle' || kycStep === 'uploading') && (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Téléchargez le <strong>recto</strong> (face avec votre photo) et le <strong>verso</strong> de votre CNI. Nous extrayons automatiquement vos données via OCR, puis vous prendrez un selfie pour confirmer votre identité.
-              </p>
-
-              {/* Two upload zones side by side */}
-              <div className="grid grid-cols-2 gap-3">
-                {/* Recto zone */}
-                <div
-                  onClick={() => kycDocInputRef.current?.click()}
-                  className={`relative cursor-pointer rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
-                    kycDocImage
-                      ? 'border-brand-300 bg-brand-50/30'
-                      : 'border-border hover:border-brand-400 hover:bg-brand-50/20'
-                  }`}
-                >
-                  {kycDocImage ? (
-                    <div className="space-y-1">
-                      <img
-                        src={kycDocImage}
-                        alt="Recto CNI"
-                        className="mx-auto max-h-28 rounded-lg object-contain"
-                      />
-                      <p className="text-[10px] text-muted-foreground">Cliquer pour changer</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5">
-                      <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted">
-                        <CreditCard className="size-4 text-muted-foreground" />
-                      </div>
-                      <p className="text-xs font-medium text-foreground">Recto CNI</p>
-                      <p className="text-[10px] text-muted-foreground">Photo + identité</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Verso zone */}
-                <div
-                  onClick={() => kycDocVersoInputRef.current?.click()}
-                  className={`relative cursor-pointer rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
-                    kycDocImageVerso
-                      ? 'border-brand-300 bg-brand-50/30'
-                      : 'border-border hover:border-brand-400 hover:bg-brand-50/20'
-                  }`}
-                >
-                  {kycDocImageVerso ? (
-                    <div className="space-y-1">
-                      <img
-                        src={kycDocImageVerso}
-                        alt="Verso CNI"
-                        className="mx-auto max-h-28 rounded-lg object-contain"
-                      />
-                      <p className="text-[10px] text-muted-foreground">Cliquer pour changer</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5">
-                      <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted">
-                        <FileCheck className="size-4 text-muted-foreground" />
-                      </div>
-                      <p className="text-xs font-medium text-foreground">Verso CNI</p>
-                      <p className="text-[10px] text-muted-foreground">NNI + profession</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <input
-                ref={kycDocInputRef}
-                type="file"
-                accept="image/jpeg,image/jpg,image/png"
-                className="hidden"
-                onChange={handleKycDocSelect}
-              />
-              <input
-                ref={kycDocVersoInputRef}
-                type="file"
-                accept="image/jpeg,image/jpg,image/png"
-                className="hidden"
-                onChange={handleKycDocVersoSelect}
-              />
-
-              {/* Continuer button (disabled until recto is selected) */}
-              <Button
-                onClick={handleKycUploadBoth}
-                disabled={!kycDocImage || kycStep === 'uploading'}
-                className="w-full h-11 bg-brand-500 hover:bg-brand-600 text-white"
-              >
-                {kycStep === 'uploading' ? (
-                  <><Loader2 className="size-4 mr-2 animate-spin" /> Envoi en cours...</>
-                ) : (
-                  <><ScanFace className="size-4 mr-2" /> Continuer vers le selfie</>
-                )}
-              </Button>
-
-              {kycStep === 'uploading' && (
-                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin" />
-                  Envoi et analyse du document par NeoFace...
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Step 2: Selfie link */}
-          {kycStep === 'selfie' && (
-            <div className="space-y-3">
-              <div className="p-3 rounded-lg bg-brand-50 border border-brand-200">
-                <p className="text-xs font-medium text-brand-700 mb-2">
-                  ✅ Document envoyé avec succès
-                </p>
-                <p className="text-[11px] text-brand-600">
-                  Cliquez sur le bouton ci-dessous pour ouvrir l&apos;interface de prise de selfie.
-                </p>
-
-                {/* OCR data preview */}
-                {kycOcrData && (
-                  <div className="mt-2 p-2.5 rounded-lg bg-white/70 border border-brand-100">
-                    <p className="text-[10px] font-semibold text-brand-600 uppercase tracking-wider mb-1">Données extraites de la CNI :</p>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px]">
-                      {kycOcrData.typeDoc && <><span className="text-muted-foreground">Type</span><span className="text-foreground font-medium text-right">{kycOcrData.typeDoc}</span></>}
-                      {kycOcrData.nom && <><span className="text-muted-foreground">Nom</span><span className="text-foreground font-medium text-right">{kycOcrData.nom}</span></>}
-                      {kycOcrData.prenom && <><span className="text-muted-foreground">Prénom</span><span className="text-foreground font-medium text-right">{kycOcrData.prenom}</span></>}
-                      {kycOcrData.dateNaissance && <><span className="text-muted-foreground">Date naiss.</span><span className="text-foreground font-medium text-right">{kycOcrData.dateNaissance}</span></>}
-                      {kycOcrData.numeroDocument && <><span className="text-muted-foreground">N° doc.</span><span className="text-foreground font-medium text-right">{kycOcrData.numeroDocument}</span></>}
-                      {kycOcrData.verso?.nni && <><span className="text-muted-foreground">NNI</span><span className="text-foreground font-medium text-right">{kycOcrData.verso.nni}</span></>}
-                      {kycOcrData.verso?.profession && <><span className="text-muted-foreground">Profession</span><span className="text-foreground font-medium text-right">{kycOcrData.verso.profession}</span></>}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <Button
-                onClick={handleKycOpenSelfie}
-                className="w-full h-11 bg-brand-500 hover:bg-brand-600 text-white"
-              >
-                <ScanFace className="size-4 mr-2" />
-                Ouvrir la vérification faciale
-              </Button>
-
-              <Button
-                onClick={handleKycReset}
-                variant="outline"
-                className="w-full h-9 text-xs border-border"
-              >
-                <RefreshCw className="size-3.5 mr-1.5" />
-                Recommencer
-              </Button>
-            </div>
-          )}
-
-          {/* Step 3: Polling / Verifying */}
-          {kycStep === 'verifying' && (
-            <div className="space-y-3">
-              <div className="flex flex-col items-center gap-3 p-4 rounded-xl bg-muted border border-border">
-                <Loader2 className="size-8 animate-spin text-brand-500" />
-                <div className="text-center">
-                  <p className="text-sm font-semibold text-foreground">Vérification en cours...</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Prenez votre selfie dans la fenêtre ouverte. Nous vérifions le résultat automatiquement.
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-2">
-                    Tentative {kycPollCount}/40
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleKycOpenSelfie}
-                  variant="outline"
-                  className="flex-1 h-9 text-xs border-brand-200 text-brand-600 hover:bg-brand-50"
-                >
-                  <ScanFace className="size-3.5 mr-1.5" />
-                  R&#39;ouvrir le selfie
-                </Button>
-                <Button
-                  onClick={handleKycReset}
-                  variant="outline"
-                  className="flex-1 h-9 text-xs border-border"
-                >
-                  <XCircle className="size-3.5 mr-1.5" />
-                  Annuler
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 4: Done (success or failure) */}
-          {kycStep === 'done' && kycResult && (
-            <motion.div
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`p-4 rounded-xl border ${
-                kycResult.verified
-                  ? 'bg-emerald-50 border-emerald-200'
-                  : 'bg-red-50 border-red-200'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className={`flex size-10 items-center justify-center rounded-full shrink-0 mt-0.5 ${
-                  kycResult.verified ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'
-                }`}>
-                  {kycResult.verified ? <CheckCircle2 className="size-5" /> : <XCircle className="size-5" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold ${kycResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
-                    {kycResult.verified ? 'Vérification KYC réussie !' : 'Vérification échouée'}
-                  </p>
-                  <p className={`text-xs mt-0.5 ${kycResult.verified ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {kycResult.message}
-                  </p>
-
-                  {/* OCR data on success */}
-                  {kycResult.verified && kycOcrData && (
-                    <div className="mt-3 p-2.5 rounded-lg bg-white/70 border border-emerald-100">
-                      <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider mb-1">Données extraites de la CNI :</p>
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px]">
-                        {kycOcrData.typeDoc && <><span className="text-muted-foreground">Type</span><span className="text-foreground font-medium text-right">{kycOcrData.typeDoc}</span></>}
-                        {kycOcrData.nom && <><span className="text-muted-foreground">Nom</span><span className="text-foreground font-medium text-right">{kycOcrData.nom}</span></>}
-                        {kycOcrData.prenom && <><span className="text-muted-foreground">Prénom</span><span className="text-foreground font-medium text-right">{kycOcrData.prenom}</span></>}
-                        {kycOcrData.dateNaissance && <><span className="text-muted-foreground">Date naiss.</span><span className="text-foreground font-medium text-right">{kycOcrData.dateNaissance}</span></>}
-                        {kycOcrData.numeroDocument && <><span className="text-muted-foreground">N° doc.</span><span className="text-foreground font-medium text-right">{kycOcrData.numeroDocument}</span></>}
-                        {kycOcrData.verso?.nni && <><span className="text-muted-foreground">NNI</span><span className="text-foreground font-medium text-right">{kycOcrData.verso.nni}</span></>}
-                        {kycOcrData.verso?.profession && <><span className="text-muted-foreground">Profession</span><span className="text-foreground font-medium text-right">{kycOcrData.verso.profession}</span></>}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {!kycResult.verified && (
-                <Button
-                  variant="link"
-                  className="text-[11px] text-brand-500 p-0 h-auto mt-2"
-                  onClick={handleKycReset}
-                >
-                  <RefreshCw className="size-3 mr-1" />
-                  Réessayer
-                </Button>
-              )}
-            </motion.div>
-          )}
-
-          {/* Error state (on idle) */}
-          {kycStep === 'idle' && kycResult && !kycResult.verified && (
-            <motion.div
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-3 rounded-lg border bg-red-50 border-red-200"
-            >
-              <div className="flex items-start gap-2">
-                <XCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-xs font-medium text-red-700">{kycResult.message}</p>
-                  <Button
-                    variant="link"
-                    className="text-[11px] text-brand-500 p-0 h-auto mt-1"
-                    onClick={() => { setKycResult(null) }}
-                  >
-                    <RefreshCw className="size-3 mr-1" />
-                    Réessayer
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </div>
-      </DialogContent>
-      )}
-    </Dialog>
-  )
-}
-
 // ── Main Settings Component ─────────────────────────────────────────────────
 
 export function SettingsSection() {
@@ -836,7 +50,7 @@ export function SettingsSection() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'profil' | 'scoring' | 'securite' | 'notifications' | 'reviews' | 'maintenance' | 'history'>('profil')
+  const [activeTab, setActiveTab] = useState<SettingsTab>('profil')
 
   // KYC modal state
   const [kycModalOpen, setKycModalOpen] = useState(false)
@@ -1133,13 +347,13 @@ export function SettingsSection() {
 
     // Validate file type
     if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
-      setError('Format d\'image invalide. Utilisez JPG, PNG ou WEBP.')
+      setError("Format d'image invalide. Utilisez JPG, PNG ou WEBP.")
       return
     }
 
     // Validate file size (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
-      setError('L\'image est trop volumineuse (max 2 Mo).')
+      setError("L'image est trop volumineuse (max 2 Mo).")
       return
     }
 
@@ -1167,7 +381,7 @@ export function SettingsSection() {
           ctx.drawImage(img, sx, sy, sourceSize, sourceSize, 0, 0, SIZE, SIZE)
           resolve(canvas.toDataURL('image/jpeg', 0.85))
         }
-        img.onerror = () => reject(new Error('Impossible de charger l\'image'))
+        img.onerror = () => reject(new Error("Impossible de charger l'image"))
         img.src = URL.createObjectURL(file)
       })
 
@@ -1375,7 +589,7 @@ export function SettingsSection() {
       setEmailOtpSent(true)
       setEmailVerifySuccess('Code de vérification envoyé à ' + emailValue.trim())
     } catch (err) {
-      setEmailVerifyError(err instanceof Error ? err.message : 'Erreur lors de l\'envoi du code')
+      setEmailVerifyError(err instanceof Error ? err.message : "Erreur lors de l'envoi du code")
     } finally {
       setEmailSending(false)
     }
@@ -1439,7 +653,7 @@ export function SettingsSection() {
       setPhoneOtpSent(true)
       setPhoneVerifySuccess('Code de vérification envoyé par SMS au ' + formState.phone.trim())
     } catch (err) {
-      setPhoneVerifyError(err instanceof Error ? err.message : 'Erreur lors de l\'envoi du code')
+      setPhoneVerifyError(err instanceof Error ? err.message : "Erreur lors de l'envoi du code")
     } finally {
       setPhoneSending(false)
     }
@@ -2407,11 +1621,8 @@ export function SettingsSection() {
                   </div>
                   {/* Birth Date */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="birthDate-scoring" className="text-xs font-medium text-foreground">
+                    <Label htmlFor="birthDate-scoring" className="text-xs font-medium text-foreground flex items-center gap-1.5">
                       Date de naissance
-                      {profile?.oneciVerified && (
-                        <CheckCircle2 className="size-3 text-emerald-500 ml-1 inline" />
-                      )}
                     </Label>
                     <Input
                       id="birthDate-scoring"
@@ -2425,43 +1636,46 @@ export function SettingsSection() {
                 </div>
 
                 {/* Verify button */}
-                <div className="flex justify-end pt-2">
+                <div className="flex justify-end">
                   <Button
                     onClick={handleOneciVerify}
-                    disabled={!formState.nni || !formState.birthDate || oneciVerifying}
+                    disabled={oneciVerifying || !formState.nni || formState.nni.length < 10}
                     className="bg-brand-500 hover:bg-brand-600 text-white"
                   >
                     {oneciVerifying ? (
-                      <><Loader2 className="size-4 mr-2 animate-spin" /> Vérification...</>
+                      <><Loader2 className="size-4 mr-2 animate-spin" /> Vérification en cours...</>
                     ) : (
-                      <><CreditCard className="size-4 mr-2" /> Vérifier ma CNI</>
+                      <><CreditCard className="size-4 mr-2" /> Vérifier mon identité</>
                     )}
                   </Button>
                 </div>
 
-                {/* ONECI result message */}
+                {/* ONECI result */}
                 {oneciResult && (
                   <motion.div
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`p-3 rounded-lg border ${
+                    className={`p-4 rounded-lg border ${
                       oneciResult.verified
                         ? 'bg-emerald-50 border-emerald-200'
                         : 'bg-red-50 border-red-200'
                     }`}
                   >
-                    <div className="flex items-start gap-2">
-                      {oneciResult.verified ? (
-                        <CheckCircle2 className="size-4 text-emerald-500 shrink-0 mt-0.5" />
-                      ) : (
-                        <XCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
-                      )}
-                      <div className="flex-1">
-                        <p className={`text-xs font-medium ${oneciResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`flex size-8 items-center justify-center rounded-full shrink-0 ${
+                        oneciResult.verified ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'
+                      }`}>
+                        {oneciResult.verified ? <CheckCircle2 className="size-4" /> : <XCircle className="size-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold ${oneciResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
+                          {oneciResult.verified ? 'Identité vérifiée avec succès' : 'Échec de la vérification'}
+                        </p>
+                        <p className={`text-xs mt-0.5 ${oneciResult.verified ? 'text-emerald-600' : 'text-red-600'}`}>
                           {oneciResult.message}
                         </p>
                         {oneciResult.details && (
-                          <p className="text-[11px] text-muted-foreground mt-1">{oneciResult.details}</p>
+                          <p className="text-[10px] text-muted-foreground mt-1">{oneciResult.details}</p>
                         )}
                       </div>
                     </div>
@@ -2470,159 +1684,18 @@ export function SettingsSection() {
               </CardContent>
             </Card>
 
-            {/* Profile field detail breakdown */}
-            <Card className="border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <User className="size-4 text-brand-500" />
-                  Détails du score de profil
-                </CardTitle>
-                <CardDescription>
-                  Profil complet = <span className="font-semibold text-brand-500">+5%</span> sur votre Trust Score
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1">
-                  {scoring.breakdown.profile.fields.map((field) => (
-                    <ProfileFieldRow
-                      key={field.key}
-                      label={field.label}
-                      value={
-                        field.key === 'fullName'
-                          ? `${formState.firstName} ${formState.lastName}`
-                          : field.key === 'phone'
-                            ? formState.phone
-                            : field.key === 'city'
-                              ? formState.city
-                              : field.key === 'gender'
-                                ? formState.gender === 'M' ? 'Masculin' : formState.gender === 'F' ? 'Féminin' : formState.gender === 'AUTRE' ? 'Autre' : null
-                                : null
-                      }
-                      isFilled={field.filled}
-                      fieldName={field.key}
-                    />
-                  ))}
-                </div>
-                {!scoring.breakdown.profile.fields.every((f) => f.filled) && (
-                  <Button
-                    variant="outline"
-                    className="mt-3 w-full text-xs h-8 border-brand-200 text-brand-600 hover:bg-brand-50"
-                    onClick={() => setActiveTab('profil')}
-                  >
-                    Compléter mon profil
-                    <ArrowRight className="size-3 ml-1" />
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Recommendations */}
-            {scoring.recommendations.length > 0 && (
-              <Card className="border-border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Lightbulb className="size-4 text-amber-500" />
-                    Améliorez votre score
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {scoring.recommendations.map((rec) => (
-                    <div
-                      key={rec.id}
-                      className="flex items-center gap-3 p-3 rounded-xl bg-muted border border-border"
-                    >
-                      <div className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
-                        rec.id === 'profile'
-                          ? 'bg-brand-50 text-brand-500'
-                          : rec.id === 'neoface'
-                            ? 'bg-purple-50 text-purple-500'
-                            : rec.id === 'oneci'
-                              ? 'bg-sky-50 text-sky-500'
-                              : 'bg-emerald-50 text-emerald-500'
-                      }`}>
-                        {rec.id === 'profile' && <User className="size-4" />}
-                        {rec.id === 'neoface' && <ScanFace className="size-4" />}
-                        {rec.id === 'oneci' && <CreditCard className="size-4" />}
-                        {rec.id === 'rental-file' && <FileCheck className="size-4" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-foreground">{rec.title}</span>
-                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] px-1.5 py-0 border font-semibold">
-                            +{rec.impact}%
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">{rec.description}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="shrink-0 text-xs h-8 border-brand-200 text-brand-600 hover:bg-brand-50"
-                        onClick={() => {
-                          if (rec.action === 'settings') setActiveTab('profil')
-                          else if (rec.action === 'rental-file') setDashboardSection('rental-file')
-                          else if (rec.action === 'oneci') oneciSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                          else if (rec.action === 'neoface') setKycModalOpen(true)
-                        }}
-                      >
-                        {rec.actionLabel}
-                        <ArrowRight className="size-3 ml-1" />
-                      </Button>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* How it works */}
-            <Card className="border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Info className="size-4 text-brand-500" />
-                  Comment fonctionne le Trust Score ?
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-xs text-muted-foreground">
-                  Le Trust Score locataire est calculé à partir de <span className="font-semibold">4 composantes</span> :
-                </p>
-                <div className="space-y-2">
-                  {[
-                    { label: 'Profil complet', weight: '5%', desc: 'Toutes les informations requises du profil sont renseignées.' },
-                    { label: 'KYC', weight: '20%', desc: 'Vérification d\'identité par reconnaissance faciale.' },
-                    { label: 'Vérification ONECI', weight: '25%', desc: 'CNI authentifiée.' },
-                    { label: 'Dossier locataire validé', weight: '50%', desc: 'Dossier locataire approuvé.' },
-                  ].map((item) => (
-                    <div key={item.label} className="flex items-start gap-2">
-                      <Badge className="bg-brand-50 text-brand-600 border-brand-200 text-[10px] px-1.5 py-0 border font-bold shrink-0">
-                        {item.weight}
-                      </Badge>
-                      <div>
-                        <span className="text-xs font-semibold text-foreground">{item.label}</span>
-                        <p className="text-[10px] text-muted-foreground">{item.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <Separator />
-                <div className="flex items-start gap-2 p-2.5 bg-brand-50 rounded-lg border border-brand-100">
-                  <Lightbulb className="size-4 text-brand-500 shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-brand-700">
-                    <span className="font-semibold">Astuce :</span> Profil complet + Facial + ONECI + Dossier locataire validé = <span className="font-bold">100%</span>
-                  </p>
-                </div>
-                <div className="flex items-start gap-2 p-2.5 bg-muted rounded-lg border border-border">
-                  <Shield className="size-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-muted-foreground">
-                    <span className="font-semibold">Recommandation :</span> Un score de <span className="font-bold text-emerald-600">70+</span> vous donne le statut « Approuvé », <span className="font-bold text-amber-600">50-69</span> « Sous conditions », et <span className="font-bold text-red-500">moins de 50</span> « Non recommandé ».
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            {/* KYC Modal */}
+            <KycVerificationModal
+              open={kycModalOpen}
+              onOpenChange={setKycModalOpen}
+              profile={profile}
+              onVerified={handleKycVerified}
+              onRedo={handleKycRedo}
+            />
           </motion.div>
         )}
 
-        {/* ── SÉCURITÉ TAB ──────────────────────────────────────────────── */}
+        {/* ── SECURITY TAB ──────────────────────────────────────────────── */}
         {activeTab === 'securite' && (
           <motion.div
             key="securite"
@@ -2632,104 +1705,223 @@ export function SettingsSection() {
             transition={{ duration: 0.2 }}
             className="space-y-6"
           >
-            {/* Password change card */}
+            {/* Password */}
             <Card className="border-border">
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <Shield className="size-4 text-brand-500" />
                   Mot de passe
                 </CardTitle>
-                <CardDescription>Modifiez votre mot de passe pour sécuriser votre compte</CardDescription>
+                <CardDescription>
+                  Dernière modification : {profile?.passwordUpdatedAt
+                    ? new Date(profile.passwordUpdatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : 'Jamais'}
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-accent transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-9 items-center justify-center rounded-lg bg-brand-50 text-brand-500">
-                      <Shield className="size-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Mot de passe</p>
-                      <p className="text-xs text-muted-foreground">
-                        {profile?.passwordUpdatedAt
-                          ? `Dernière modification : ${new Date(profile.passwordUpdatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
-                          : 'Jamais modifié depuis la création du compte'}
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs h-8 border-brand-200 text-brand-600 hover:bg-brand-50"
-                    onClick={() => {
-                      setCurrentPassword('')
-                      setNewPassword('')
-                      setConfirmPassword('')
-                      setPasswordError(null)
-                      setPasswordSuccess(null)
-                      setPasswordModalOpen(true)
-                    }}
-                  >
-                    Modifier
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setPasswordModalOpen(true)
+                    setPasswordError(null)
+                    setPasswordSuccess(null)
+                  }}
+                  className="border-brand-200 text-brand-600 hover:bg-brand-50"
+                >
+                  <Shield className="size-4 mr-2" />
+                  Modifier le mot de passe
+                </Button>
               </CardContent>
             </Card>
 
-            {/* Verification status card */}
+            {/* Password change modal */}
+            <Dialog open={passwordModalOpen} onOpenChange={setPasswordModalOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Shield className="size-5 text-brand-500" />
+                    Changer le mot de passe
+                  </DialogTitle>
+                  <DialogDescription>
+                    Minimum 8 caractères, avec une majuscule, une minuscule et un chiffre.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-2">
+                  {/* Current password */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="currentPassword" className="text-xs font-medium text-foreground">
+                      Mot de passe actuel
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="currentPassword"
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="h-9 text-sm pr-9"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* New password */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="newPassword" className="text-xs font-medium text-foreground">
+                      Nouveau mot de passe
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="newPassword"
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="h-9 text-sm pr-9"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirm password */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="confirmPassword" className="text-xs font-medium text-foreground">
+                      Confirmer le nouveau mot de passe
+                    </Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+
+                  {/* Password strength indicator */}
+                  {newPassword.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex gap-1">
+                        {['has-min', 'has-maj', 'has-chiffre'].map((criteria) => {
+                          const met = criteria === 'has-min'
+                            ? /[a-z]/.test(newPassword) && newPassword.length >= 8
+                            : criteria === 'has-maj'
+                              ? /[A-Z]/.test(newPassword)
+                              : /[0-9]/.test(newPassword)
+                          return (
+                            <div
+                              key={criteria}
+                              className={`h-1 flex-1 rounded-full transition-colors ${
+                                met ? 'bg-emerald-400' : 'bg-muted'
+                              }`}
+                            />
+                          )}
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        {newPassword.length >= 8 && /[a-z]/.test(newPassword) && /[A-Z]/.test(newPassword) && /[0-9]/.test(newPassword)
+                          ? 'Mot de passe fort'
+                          : '8+ caractères, majuscule, minuscule, chiffre'}
+                      </p>
+                    </div>
+                  )}
+
+                  {passwordError && (
+                    <div className="p-2.5 rounded-lg bg-red-50 border border-red-200">
+                      <p className="text-xs text-red-600">{passwordError}</p>
+                    </div>
+                  )}
+                  {passwordSuccess && (
+                    <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200">
+                      <p className="text-xs text-emerald-600">{passwordSuccess}</p>
+                    </div>
+                  )}
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setPasswordModalOpen(false)}
+                    disabled={passwordSaving}
+                    className="border-border"
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    onClick={handlePasswordChange}
+                    disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
+                    className="bg-brand-500 hover:bg-brand-600 text-white"
+                  >
+                    {passwordSaving ? (
+                      <><Loader2 className="size-4 mr-1.5 animate-spin" /> Enregistrement...</>
+                    ) : (
+                      'Enregistrer'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Vérifications */}
             <Card className="border-border">
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <ShieldCheck className="size-4 text-brand-500" />
                   Vérifications
                 </CardTitle>
-                <CardDescription>Statut de vérification de vos coordonnées</CardDescription>
+                <CardDescription>Statut de vos vérifications de compte</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Email verification */}
-                <div className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-accent transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`flex size-9 items-center justify-center rounded-lg ${profile?.isEmailVerified ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}>
-                      <Mail className="size-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Adresse email</p>
-                      <p className="text-xs text-muted-foreground">{profile?.email || 'Non renseigné'}</p>
-                    </div>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between py-2">
+                  <div className="flex items-center gap-2">
+                    <Mail className="size-4 text-muted-foreground" />
+                    <span className="text-sm text-foreground">Email</span>
                   </div>
-                  <Badge className={profile?.isEmailVerified ? 'bg-emerald-50 text-emerald-700 border-emerald-200 border' : 'bg-red-50 text-red-600 border-red-200 border'}>
-                    {profile?.isEmailVerified ? (
-                      <><CheckCircle2 className="size-3 mr-0.5" /> Vérifié</>
-                    ) : (
-                      <><XCircle className="size-3 mr-0.5" /> Non vérifié</>
-                    )}
-                  </Badge>
+                  {profile?.isEmailVerified ? (
+                    <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                      <CheckCircle2 className="size-3 mr-1" /> Vérifié
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-50 text-amber-700 border-amber-200">
+                      <AlertTriangle className="size-3 mr-1" /> Non vérifié
+                    </Badge>
+                  )}
                 </div>
-
-                {/* Phone verification */}
-                <div className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-accent transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`flex size-9 items-center justify-center rounded-lg ${profile?.isPhoneVerified ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-500'}`}>
-                      <Phone className="size-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Numéro de téléphone</p>
-                      <p className="text-xs text-muted-foreground">{profile?.phone || 'Non renseigné'}</p>
-                    </div>
+                <Separator />
+                <div className="flex items-center justify-between py-2">
+                  <div className="flex items-center gap-2">
+                    <Phone className="size-4 text-muted-foreground" />
+                    <span className="text-sm text-foreground">Téléphone</span>
                   </div>
-                  <Badge className={profile?.isPhoneVerified ? 'bg-emerald-50 text-emerald-700 border-emerald-200 border' : 'bg-amber-50 text-amber-700 border-amber-200 border'}>
-                    {profile?.isPhoneVerified ? (
-                      <><CheckCircle2 className="size-3 mr-0.5" /> Vérifié</>
-                    ) : (
-                      <><AlertTriangle className="size-3 mr-0.5" /> Non vérifié</>
-                    )}
-                  </Badge>
+                  {profile?.isPhoneVerified ? (
+                    <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                      <CheckCircle2 className="size-3 mr-1" /> Vérifié
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-50 text-amber-700 border-amber-200">
+                      <AlertTriangle className="size-3 mr-1" /> Non vérifié
+                    </Badge>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Active sessions card */}
+            {/* Sessions */}
             <Card className="border-border">
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -2738,18 +1930,18 @@ export function SettingsSection() {
                     </CardTitle>
                     <CardDescription>Appareils connectés à votre compte</CardDescription>
                   </div>
-                  {sessions.filter((s) => !s.isCurrent).length > 0 && (
+                  {sessions.length > 1 && (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-xs h-8 text-red-600 border-red-200 hover:bg-red-50"
                       onClick={handleRevokeOtherSessions}
                       disabled={revokingSessions}
+                      className="h-8 text-xs border-red-200 text-red-600 hover:bg-red-50"
                     >
                       {revokingSessions ? (
-                        <><Loader2 className="size-3 mr-1 animate-spin" /> Révocation...</>
+                        <Loader2 className="size-3.5 animate-spin" />
                       ) : (
-                        <><LogOut className="size-3 mr-1" /> Déconnecter tout</>
+                        <><LogOut className="size-3.5 mr-1" /> Déconnecter les autres</>
                       )}
                     </Button>
                   )}
@@ -2759,63 +1951,37 @@ export function SettingsSection() {
                 {sessionsLoading ? (
                   <div className="space-y-3">
                     {[1, 2].map((i) => (
-                      <div key={i} className="h-14 bg-muted rounded-lg animate-pulse" />
+                      <div key={i} className="h-12 bg-muted rounded-lg animate-pulse" />
                     ))}
                   </div>
                 ) : sessions.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-4">Aucune session active trouvée</p>
+                  <p className="text-xs text-muted-foreground">Aucune session active</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {sessions.map((session) => (
                       <div
                         key={session.id}
-                        className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${
-                          session.isCurrent
-                            ? 'border-emerald-200 bg-emerald-50/30'
-                            : 'border-border hover:bg-accent'
-                        }`}
+                        className="flex items-center justify-between p-3 rounded-lg border border-border"
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`flex size-9 items-center justify-center rounded-lg ${
-                            session.isCurrent ? 'bg-emerald-50 text-emerald-600' : 'bg-muted text-muted-foreground'
+                          <div className={`flex size-8 items-center justify-center rounded-lg ${
+                            session.isCurrent ? 'bg-brand-50 text-brand-500' : 'bg-muted text-muted-foreground'
                           }`}>
-                            <Smartphone className="size-4" />
+                            {session.isCurrent ? <Smartphone className="size-4" /> : <Monitor className="size-4" />}
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-foreground">
-                                {session.isCurrent ? 'Cet appareil' : 'Autre appareil'}
-                              </p>
-                              {session.isCurrent && (
-                                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0 border font-semibold">
-                                  Actif
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                              Connecté le {new Date(session.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            <p className="text-xs font-medium text-foreground">
+                              {session.isCurrent ? 'Cette session (actuelle)' : `Session #${session.id.slice(0, 8)}`}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              Connecté le {new Date(session.createdAt).toLocaleDateString('fr-FR')}
                             </p>
                           </div>
                         </div>
-                        {!session.isCurrent && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                            onClick={async () => {
-                              try {
-                                await authFetch('/api/settings/sessions', {
-                                  method: 'DELETE',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ sessionIds: [session.id] }),
-                                })
-                                setSessions((prev) => prev.filter((s) => s.id !== session.id))
-                              } catch {}
-                            }}
-                          >
-                            <Trash2 className="size-3 mr-1" />
-                            Révoquer
-                          </Button>
+                        {session.isCurrent && (
+                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                            Actuelle
+                          </Badge>
                         )}
                       </div>
                     ))}
@@ -2824,210 +1990,73 @@ export function SettingsSection() {
               </CardContent>
             </Card>
 
-            {/* Password Change Modal */}
-            <Dialog open={passwordModalOpen} onOpenChange={setPasswordModalOpen}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Shield className="size-5 text-brand-500" />
-                    Changer le mot de passe
-                  </DialogTitle>
-                  <DialogDescription>
-                    Entrez votre mot de passe actuel puis choisissez un nouveau mot de passe
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
-                  {/* Current password */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-foreground">Mot de passe actuel</Label>
-                    <div className="relative">
-                      <Input
-                        type={showCurrentPassword ? 'text' : 'password'}
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="h-9 text-sm pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowCurrentPassword((v) => !v)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
-                      >
-                        {showCurrentPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <Separator />
-                  {/* New password */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-foreground">Nouveau mot de passe</Label>
-                    <div className="relative">
-                      <Input
-                        type={showNewPassword ? 'text' : 'password'}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Min. 8 caractères"
-                        className="h-9 text-sm pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPassword((v) => !v)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
-                      >
-                        {showNewPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                      </button>
-                    </div>
-                    {newPassword && (
-                      <div className="space-y-1 mt-1.5">
-                        <div className="flex gap-1">
-                          {[/[A-Z]/, /[a-z]/, /[0-9]/, /.{8,}/].map((regex, i) => (
-                            <div
-                              key={i}
-                              className={`h-1 flex-1 rounded-full ${
-                                regex.test(newPassword) ? 'bg-emerald-400' : 'bg-neutral-200'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">
-                          8+ caractères, 1 majuscule, 1 minuscule, 1 chiffre
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  {/* Confirm password */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-foreground">Confirmer le nouveau mot de passe</Label>
-                    <Input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className={`h-9 text-sm ${confirmPassword && newPassword !== confirmPassword ? 'border-red-300 focus:border-red-400' : ''}`}
-                    />
-                    {confirmPassword && newPassword !== confirmPassword && (
-                      <p className="text-[10px] text-red-500">Les mots de passe ne correspondent pas</p>
-                    )}
-                  </div>
-                  {/* Error */}
-                  {passwordError && (
-                    <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                      <p className="text-xs text-red-600">{passwordError}</p>
-                    </div>
-                  )}
-                  {/* Success */}
-                  {passwordSuccess && (
-                    <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-                      <p className="text-xs text-emerald-600">{passwordSuccess}</p>
-                    </div>
-                  )}
-                </div>
-                <DialogFooter className="gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setPasswordModalOpen(false)}
-                    disabled={passwordSaving}
-                    className="text-xs h-9"
-                  >
-                    Annuler
-                  </Button>
-                  <Button
-                    onClick={handlePasswordChange}
-                    disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
-                    className="bg-brand-500 hover:bg-brand-600 text-white text-xs h-9"
-                  >
-                    {passwordSaving ? (
-                      <><Loader2 className="size-3.5 mr-1.5 animate-spin" /> Enregistrement...</>
-                    ) : (
-                      <><Save className="size-3.5 mr-1.5" /> Changer le mot de passe</>
-                    )}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            {/* Privacy Policy card */}
+            {/* Confidentialité */}
             <Card className="border-border">
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Info className="size-4 text-brand-500" />
-                  Confidentialité et données
+                  <Eye className="size-4 text-brand-500" />
+                  Confidentialité
                 </CardTitle>
-                <CardDescription>Consultez notre politique de confidentialité et la gestion de vos données</CardDescription>
+                <CardDescription>Gérez vos données et votre confidentialité</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-accent transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-9 items-center justify-center rounded-lg bg-brand-50 text-brand-500">
-                      <Shield className="size-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Politique de confidentialité</p>
-                      <p className="text-xs text-muted-foreground">
-                        Comment nous collectons, utilisons et protégeons vos données
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs h-8 border-brand-200 text-brand-600 hover:bg-brand-50"
-                    onClick={() => setPrivacyModalOpen(true)}
-                  >
-                    Consulter
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setPrivacyModalOpen(true)}
+                  className="border-brand-200 text-brand-600 hover:bg-brand-50"
+                >
+                  <Eye className="size-4 mr-2" />
+                  Voir la politique de confidentialité
+                </Button>
               </CardContent>
             </Card>
 
-            {/* Privacy Policy Dialog */}
+            {/* Privacy modal */}
             <Dialog open={privacyModalOpen} onOpenChange={setPrivacyModalOpen}>
               <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
-                    <Shield className="size-5 text-brand-500" />
-                    Politique de Confidentialité
+                    <Eye className="size-5 text-brand-500" />
+                    Politique de confidentialité
                   </DialogTitle>
                   <DialogDescription>
-                    Dernière mise à jour : Janvier 2025
+                    Comment nous protégeons vos données personnelles
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 text-sm text-muted-foreground">
+
+                <div className="space-y-4 text-xs text-muted-foreground leading-relaxed">
                   <div>
                     <h4 className="font-semibold text-foreground mb-1">1. Collecte des données</h4>
-                    <p>Mon Toit collecte les données personnelles nécessaires au fonctionnement de la plateforme : nom, prénom, email, téléphone, pièces d&apos;identité, justificatifs de revenus et informations de localisation. Ces données sont collectées lors de votre inscription et de l&apos;utilisation des services.</p>
+                    <p>Nous collectons uniquement les données nécessaires à la gestion locative : identité, coordonnées, documents d&apos;identité, et historique locatif.</p>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-foreground mb-1">2. Utilisation des données</h4>
-                    <p>Vos données sont utilisées pour : la vérification d&apos;identité via ONECI, la constitution des dossiers locatifs, la mise en relation entre locataires et propriétaires, le suivi des paiements et la gestion des baux, et l&apos;amélioration de nos services.</p>
+                    <h4 className="font-semibold text-foreground mb-1">2. Utilisation</h4>
+                    <p>Vos données sont utilisées exclusivement pour la vérification d&apos;identité, la gestion des candidatures, la signature électronique, et la communication entre locataires et propriétaires.</p>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-foreground mb-1">3. Partage des données</h4>
-                    <p>Vos données ne sont partagées qu&apos;avec : les Tiers de Confiance pour la validation des dossiers, les propriétaires/locataires dans le cadre d&apos;une location, ONECI pour la vérification d&apos;identité, et les autorités compétentes si requis par la loi ivoirienne.</p>
+                    <h4 className="font-semibold text-foreground mb-1">3. Partage</h4>
+                    <p>Vos données ne sont jamais partagées avec des tiers sans votre consentement explicite, sauf obligation légale.</p>
                   </div>
                   <div>
                     <h4 className="font-semibold text-foreground mb-1">4. Sécurité</h4>
-                    <p>Nous mettons en œuvre des mesures de sécurité techniques et organisationnelles pour protéger vos données : chiffrement, authentification sécurisée, contrôles d&apos;accès stricts, et audits réguliers.</p>
+                    <p>Vos documents sont chiffrés et stockés de manière sécurisée. L&apos;authentification biométrique est traitée via NeoFace et les données d&apos;identité via ONECI, sans stockage intermédiaire.</p>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-foreground mb-1">5. Vos droits</h4>
-                    <p>Conformément à la loi ivoirienne, vous disposez d&apos;un droit d&apos;accès, de rectification, de suppression et de portabilité de vos données. Pour exercer ces droits, contactez-nous à dpo@montoit.ci.</p>
+                    <h4 className="font-semibold text-foreground mb-1">5. Droits</h4>
+                    <p>Vous pouvez à tout moment demander l&apos;accès, la rectification ou la suppression de vos données via les paramètres ou en contactant notre support.</p>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-foreground mb-1">6. Conservation des données</h4>
-                    <p>Vos données sont conservées pendant la durée nécessaire aux finalités pour lesquelles elles ont été collectées, et au maximum 5 ans après la fin de votre dernière relation contractuelle.</p>
+                    <h4 className="font-semibold text-foreground mb-1">6. Conservation</h4>
+                    <p>Vos données sont conservées pendant la durée de votre relation avec notre service, et jusqu&apos;à 3 ans après la fin de votre dernier contrat pour des raisons légales.</p>
                   </div>
                   <div>
                     <h4 className="font-semibold text-foreground mb-1">7. Cookies</h4>
-                    <p>Nous utilisons des cookies essentiels au fonctionnement de la plateforme et des cookies analytiques (anonymisés) pour améliorer l&apos;expérience utilisateur. Vous pouvez les désactiver dans les paramètres de votre navigateur.</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-foreground mb-1">8. Contact</h4>
-                    <p>Pour toute question relative à la protection de vos données personnelles, vous pouvez nous contacter à : dpo@montoit.ci ou par courrier à ANSUT — Mon Toit, Riviera Palmeraie, Abidjan, Côte d&apos;Ivoire.</p>
+                    <p>Notre site utilise des cookies strictement nécessaires à son fonctionnement. Aucun cookie publicitaire ou de tracking n&apos;est utilisé.</p>
                   </div>
                 </div>
+
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setPrivacyModalOpen(false)} className="text-xs">
+                  <Button onClick={() => setPrivacyModalOpen(false)} className="bg-brand-500 hover:bg-brand-600 text-white">
                     Fermer
                   </Button>
                 </DialogFooter>
@@ -3036,7 +2065,7 @@ export function SettingsSection() {
           </motion.div>
         )}
 
-        {/* ── NOTIFICATIONS TAB ─────────────────────────────────────────── */}
+        {/* ── NOTIFICATIONS TAB ──────────────────────────────────────────── */}
         {activeTab === 'notifications' && (
           <motion.div
             key="notifications"
@@ -3046,12 +2075,11 @@ export function SettingsSection() {
             transition={{ duration: 0.2 }}
             className="space-y-6"
           >
-            {/* Notification toggles */}
             <Card className="border-border">
-              <CardHeader>
+              <CardHeader className="pb-4">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <Bell className="size-4 text-brand-500" />
-                  Préférences de notifications
+                  Préférences de notification
                 </CardTitle>
                 <CardDescription>Choisissez les notifications que vous souhaitez recevoir</CardDescription>
               </CardHeader>
@@ -3059,88 +2087,50 @@ export function SettingsSection() {
                 {notifLoading ? (
                   <div className="space-y-4">
                     {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border">
-                        <div className="space-y-2">
-                          <div className="h-4 w-40 bg-muted rounded animate-pulse" />
-                          <div className="h-3 w-56 bg-muted rounded animate-pulse" />
-                        </div>
-                        <div className="h-5 w-9 bg-muted rounded-full animate-pulse" />
+                      <div key={i} className="flex items-center justify-between">
+                        <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                        <div className="h-6 w-10 bg-muted rounded-full animate-pulse" />
                       </div>
                     ))}
                   </div>
                 ) : notifPrefs ? (
                   <div className="space-y-1">
-                    {([
-                      { key: 'messages' as const, label: 'Nouveaux messages', desc: 'Recevez une notification pour chaque nouveau message', icon: Mail, color: 'bg-brand-50 text-brand-500' },
-                      { key: 'dossierUpdates' as const, label: 'Mises à jour de dossier', desc: 'Soyez informé des changements de statut de votre dossier', icon: FileCheck, color: 'bg-emerald-50 text-emerald-600' },
-                      { key: 'visitReminders' as const, label: 'Rappels de visite', desc: 'Recevez les rappels de vos visites planifiées', icon: Bell, color: 'bg-amber-50 text-amber-600' },
-                      { key: 'paymentAlerts' as const, label: 'Alertes de paiement', desc: 'Rappels pour les paiements à venir et les reçus', icon: CreditCard, color: 'bg-purple-50 text-purple-600' },
-                      { key: 'promotions' as const, label: 'Promotions', desc: 'Offres spéciales et nouveautés de Mon Toit', icon: Lightbulb, color: 'bg-muted text-muted-foreground' },
-                    ]).map((item) => {
-                      const Icon = item.icon
-                      const isEnabled = notifPrefs[item.key]
-                      const isSaving = notifSaving[item.key]
-                      return (
-                        <div
-                          key={item.key}
-                          className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-accent transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`flex size-9 items-center justify-center rounded-lg ${item.color}`}>
-                              <Icon className="size-4" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-foreground">{item.label}</p>
-                              <p className="text-xs text-muted-foreground">{item.desc}</p>
-                            </div>
+                    {[
+                      { key: 'messages' as const, label: 'Nouveaux messages', icon: Mail },
+                      { key: 'dossierUpdates' as const, label: 'Mises à jour de dossier', icon: FileCheck },
+                      { key: 'visitReminders' as const, label: 'Rappels de visite', icon: MapPin },
+                      { key: 'paymentAlerts' as const, label: 'Alertes de paiement', icon: CreditCard },
+                      { key: 'promotions' as const, label: 'Promotions', icon: Lightbulb },
+                    ].map(({ key, label, icon: Icon }) => (
+                      <div
+                        key={key}
+                        className="flex items-center justify-between py-3 px-3 rounded-lg hover:bg-accent transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                            <Icon className="size-4" />
                           </div>
-                          <div className="flex items-center gap-2">
-                            {isSaving && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
-                            <Switch
-                              checked={isEnabled}
-                              onCheckedChange={(checked) => handleToggleNotif(item.key, checked)}
-                              disabled={isSaving}
-                              className="data-[state=checked]:bg-brand-500"
-                            />
+                          <div>
+                            <span className="text-sm font-medium text-foreground">{label}</span>
                           </div>
                         </div>
-                      )
-                    })}
+                        <Switch
+                          checked={notifPrefs[key]}
+                          onCheckedChange={(checked) => handleToggleNotif(key, checked)}
+                          disabled={notifSaving[key]}
+                          className="data-[state=checked]:bg-brand-500"
+                        />
+                      </div>
+                    ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground text-center py-4">Impossible de charger les préférences</p>
+                  <p className="text-xs text-muted-foreground">Impossible de charger les préférences.</p>
                 )}
-              </CardContent>
-            </Card>
-
-            {/* Info card about notifications */}
-            <Card className="border-border bg-muted/50">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <Info className="size-4 text-brand-500 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-semibold text-foreground">Comment fonctionnent les notifications ?</p>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Les notifications vous informent en temps réel des événements importants sur votre compte Mon Toit.
-                      Vous pouvez activer ou désactiver chaque catégorie individuellement.
-                      Les notifications critiques de sécurité sont toujours actives.
-                    </p>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* ── KYC Verification Modal (accessible from scoring tab) ──────────── */}
-      <KycVerificationModal
-        open={kycModalOpen}
-        onOpenChange={setKycModalOpen}
-        profile={profile}
-        onVerified={handleKycVerified}
-        onRedo={handleKycRedo}
-      />
     </motion.div>
   )
 }

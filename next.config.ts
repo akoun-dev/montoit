@@ -5,9 +5,6 @@ const isCapacitorBuild = process.env.BUILD_TARGET === 'capacitor'
 const nextConfig: NextConfig = {
   output: isCapacitorBuild ? 'export' : 'standalone',
   /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   reactStrictMode: false,
   serverExternalPackages: [],
   experimental: {

@@ -96,7 +96,6 @@ function SheetContent({
   side = "right",
   className,
   children,
-  ...props
 }: SheetContentProps) {
   // Access the Sheet context (open/onOpenChange) via React context
   // Since we use a simple prop-drilling approach, we need to get them from the parent
@@ -116,7 +115,6 @@ function SheetContent({
       )}
       role="dialog"
       aria-modal="true"
-      {...props}
     >
       {children}
     </motion.div>
@@ -216,7 +214,7 @@ function AnimatedSheet({
     : side === "top" ? { top: 0, bottom: 0 }
     : { top: 0, bottom: 0 }
 
-  const handleDragEnd = React.useCallback((_: unknown, info: { offset: { x: number; y: number }; velocity: { x: number; y: number } }) => {
+  const handleDragEnd = React.useCallback((_: any, info: { offset: { x: number; y: number }; velocity: { x: number; y: number } }) => {
     const threshold = 100 // pixels
     const velocityThreshold = 500 // pixels per second
     const shouldClose = side === "left"

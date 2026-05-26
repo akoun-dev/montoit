@@ -42,6 +42,7 @@ export interface AuthUser {
     avatarUrl: string | null
     isActive: boolean
     isEmailVerified: boolean
+    isPhoneVerified?: boolean
     companyName?: string | null
     city?: string | null
     address?: string | null

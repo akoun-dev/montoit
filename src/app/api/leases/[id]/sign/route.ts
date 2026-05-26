@@ -425,7 +425,7 @@ export async function POST(
           .filter(Boolean)
       )
 
-      const initialPayments: Array<Record<string, unknown>> = []
+      const initialPayments: any[] = []
 
       const depositReference = `CAUTION-${id.slice(0, 8)}`
       if (depositAmount > 0 && !existingReferences.has(depositReference)) {

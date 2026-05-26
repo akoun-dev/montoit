@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
       .select('id, monthly_rent, property_id, owner_id, property:property_id(price)')
       .eq('tenant_id', userId)
       .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: false })
       .limit(1) as any)
 
     const activeLease = activeLeases?.[0] as any

@@ -185,6 +185,7 @@ export async function GET(req: NextRequest) {
         .select('id, monthly_rent, property:property_id(title, price), owner:owner_id(first_name, last_name)')
         .eq('tenant_id', userId)
         .eq('status', 'ACTIVE')
+        .order('created_at', { ascending: false })
         .limit(1)
       const lease = (leases as any[])?.[0]
       if (lease) {

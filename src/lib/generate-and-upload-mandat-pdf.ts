@@ -105,16 +105,17 @@ export async function generateAndUploadMandatPdf(
     ? `${mandat.fixed_commission.toLocaleString('fr-FR')} FCFA`
     : `${mandat.commission_rate}%`
 
-  const ownerSigHtml = version !== 'initial' && mandat.owner_signature_image
+  const mandatAny = mandat as any
+  const ownerSigHtml = version !== 'initial' && mandatAny.owner_signature_image
     ? `<tr><td style="padding: 8px 0;"><strong>Signature propriétaire :</strong></td></tr>
-       <tr><td style="padding: 0 0 8px 0;"><img src="${mandat.owner_signature_image}" style="max-width: 200px; max-height: 80px;" /></td></tr>
-       <tr><td style="padding: 0 0 8px 0; font-size: 11px; color: #666;">Signé le ${mandat.owner_signed_at ? new Date(mandat.owner_signed_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</td></tr>`
+       <tr><td style="padding: 0 0 8px 0;"><img src="${mandatAny.owner_signature_image}" style="max-width: 200px; max-height: 80px;" /></td></tr>
+       <tr><td style="padding: 0 0 8px 0; font-size: 11px; color: #666;">Signé le ${mandatAny.owner_signed_at ? new Date(mandatAny.owner_signed_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</td></tr>`
     : ''
 
-  const agencySigHtml = (version === 'agency_signed' || version === 'final') && mandat.agency_signature_image
+  const agencySigHtml = (version === 'agency_signed' || version === 'final') && mandatAny.agency_signature_image
     ? `<tr><td style="padding: 8px 0;"><strong>Signature agence :</strong></td></tr>
-       <tr><td style="padding: 0 0 8px 0;"><img src="${mandat.agency_signature_image}" style="max-width: 200px; max-height: 80px;" /></td></tr>
-       <tr><td style="padding: 0 0 8px 0; font-size: 11px; color: #666;">Signé le ${mandat.agency_signed_at ? new Date(mandat.agency_signed_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</td></tr>`
+       <tr><td style="padding: 0 0 8px 0;"><img src="${mandatAny.agency_signature_image}" style="max-width: 200px; max-height: 80px;" /></td></tr>
+       <tr><td style="padding: 0 0 8px 0; font-size: 11px; color: #666;">Signé le ${mandatAny.agency_signed_at ? new Date(mandatAny.agency_signed_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</td></tr>`
     : ''
 
   const html = `<!DOCTYPE html>

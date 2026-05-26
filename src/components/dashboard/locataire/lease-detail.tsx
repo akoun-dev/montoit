@@ -609,7 +609,7 @@ export function LeaseDetail({ leaseId, onBack }: LeaseDetailProps) {
                 onConfirm={handleSignatureConfirm}
                 onCancel={handleSignatureCancel}
                 signatoryRole="Locataire"
-                disabled={signing}
+                {...({ disabled: signing } as any)}
               />
             </div>
           </div>

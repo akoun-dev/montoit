@@ -137,6 +137,7 @@ export async function POST(req: NextRequest) {
       .select('id')
       .eq('property_id', propertyId)
       .in('status', ['DRAFT', 'PENDING_SIGNATURE', 'ACTIVE'])
+      .order('created_at', { ascending: false })
       .limit(1)
 
     if (existingMandats && existingMandats.length > 0) {

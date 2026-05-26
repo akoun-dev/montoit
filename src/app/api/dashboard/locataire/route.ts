@@ -69,36 +69,36 @@ export async function GET(req: NextRequest) {
     const [allRfDocs, rfLeases, allProps, allPropImgs, allPayments, allOwners, allConvMessages, allConvProps, allParticipants, allMaintenance, allFavorites, allNotificationPreferences] = await Promise.all([
       rfIds.length > 0
         ? (admin as any).from('rental_file_documents').select('*').in('rental_file_id', rfIds).then((r: any) => r.data ?? [])
-        : [],
+        : ([] as any[]),
       rfIds.length > 0
         ? (admin as any).from('leases').select('*').in('rental_file_id', rfIds).eq('status', 'ACTIVE').then((r: any) => r.data ?? [])
-        : [],
+        : ([] as any[]),
       allPropIds.length > 0
         ? (admin as any).from('properties').select('*').in('id', allPropIds).then((r: any) => r.data ?? [])
-        : [],
+        : ([] as any[]),
       allPropIds.length > 0
         ? (admin as any).from('property_images').select('*').in('property_id', allPropIds).order('order', { ascending: true }).then((r: any) => r.data ?? [])
-        : [],
+        : ([] as any[]),
       leaseIds.length > 0
         ? (admin as any).from('payments').select('*').in('lease_id', leaseIds).order('due_date', { ascending: true }).then((r: any) => r.data ?? [])
-        : [],
+        : ([] as any[]),
       ownerIds.length > 0
         ? (admin as any).from('users').select('id, first_name, last_name, avatar_url').in('id', ownerIds).then((r: any) => r.data ?? [])
-        : [],
+        : ([] as any[]),
       convIds.length > 0
         ? (admin as any).from('messages').select('*').in('conversation_id', convIds).order('created_at', { ascending: false }).then((r: any) => r.data ?? [])
-        : [],
+        : ([] as any[]),
       convPropIds.length > 0
         ? (admin as any).from('properties').select('id, title').in('id', convPropIds).then((r: any) => r.data ?? [])
-        : [],
-      (async () => {
+        : ([] as any[]),
+      (await (async () => {
         const pIds = new Set<string>()
         for (const c of rawConversations ?? []) {
           if (c.participant1_id) pIds.add(c.participant1_id)
           if (c.participant2_id) pIds.add(c.participant2_id)
         }
         return [...pIds]
-      })().length > 0
+      })()).length > 0
         ? (admin as any).from('users').select('id, first_name, last_name').in('id', [...new Set((() => {
           const pIds = new Set<string>()
           for (const c of rawConversations ?? []) {
@@ -107,12 +107,12 @@ export async function GET(req: NextRequest) {
           }
           return pIds
         })())]).then((r: any) => r.data ?? [])
-        : [],
+        : ([] as any[]),
       activeLeaseIds.length > 0
         ? (admin as any).from('maintenance_requests').select('*').in('lease_id', activeLeaseIds).order('created_at', { ascending: false }).limit(10).then((r: any) => r.data ?? [])
         : [],
-      (admin as any).from('favorites').select('property_id').eq('user_id', userId).then((r: any) => r.data ?? []),
-      (admin as any).from('notification_preferences').select('*').eq('user_id', userId).then((r: any) => r.data ?? []),
+      (admin as any).from('favorites').select('property_id').eq('user_id', userId).then((r: any) => r.data ?? ([] as any[])),
+      (admin as any).from('notification_preferences').select('*').eq('user_id', userId).then((r: any) => r.data ?? ([] as any[])),
     ])
 
     // Fetch recommended properties (similar to the user's current lease property)
@@ -124,7 +124,9 @@ export async function GET(req: NextRequest) {
         .select('city, commune, type, price')
         .eq('id', primaryLease.property_id)
         .single()
-      if (leaseProp) {
+        if (leaseProp) {
+        const leaseCommune = (leaseProp as any).commune
+        const leaseCity = (leaseProp as any).city
         let recQuery: any = (admin as any)
           .from('properties')
           .select('*')
@@ -133,15 +135,16 @@ export async function GET(req: NextRequest) {
           .neq('id', primaryLease.property_id)
           .limit(6)
 
-        if (leaseProp.commune) {
-          recQuery = recQuery.eq('commune', leaseProp.commune)
-        } else if (leaseProp.city) {
-          recQuery = recQuery.eq('city', leaseProp.city)
+        if (leaseCommune) {
+          recQuery = recQuery.eq('commune', leaseCommune)
+        } else if (leaseCity) {
+          recQuery = recQuery.eq('city', leaseCity)
         }
 
-        const { data: recs } = await recQuery
-        if (recs && recs.length > 0) {
-          const recPropIds = recs.map(p => p.id)
+        const { data: recs } = await (recQuery as any)
+        const recsArray: any[] = recs ?? []
+        if (recsArray.length > 0) {
+          const recPropIds = recsArray.map(p => p.id)
           const { data: recImgs } = await admin
             .from('property_images')
             .select('url, property_id')
@@ -149,7 +152,7 @@ export async function GET(req: NextRequest) {
             .order('order', { ascending: true })
           const recImgMap = groupBy(recImgs ?? [], 'property_id')
 
-          recommendedProperties = recs.map(p => ({
+          recommendedProperties = recsArray.map(p => ({
             id: p.id,
             title: p.title,
             type: p.type,
@@ -166,13 +169,13 @@ export async function GET(req: NextRequest) {
 
     const docByRentalFile = groupBy(allRfDocs ?? [], 'rental_file_id')
     const leaseByRentalFile = groupBy(rfLeases ?? [], 'rental_file_id')
-    const propMap = new Map((allProps ?? []).map(p => [p.id, p]))
+    const propMap = new Map<string, any>((allProps ?? []).map(p => [p.id, p]))
     const propImgMap = groupBy(allPropImgs ?? [], 'property_id')
     const paymentByLease = groupBy(allPayments ?? [], 'lease_id')
-    const ownerMap = new Map((allOwners ?? []).map(o => [o.id, o]))
+    const ownerMap = new Map<string, any>((allOwners ?? []).map(o => [o.id, o]))
     const messageByConv = groupBy(allConvMessages ?? [], 'conversation_id')
-    const convPropMap = new Map((allConvProps ?? []).map(p => [p.id, p]))
-    const participantMap = new Map((allParticipants ?? []).map(p => [p.id, p]))
+    const convPropMap = new Map<string, any>((allConvProps ?? []).map(p => [p.id, p]))
+    const participantMap = new Map<string, any>((allParticipants ?? []).map(p => [p.id, p]))
     const maintenanceByLease = groupBy(allMaintenance ?? [], 'lease_id')
 
     const favoritePropIds = new Set((allFavorites ?? []).map((f: any) => f.property_id))

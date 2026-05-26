@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
         .from('users')
         .select('id')
         .eq('role', 'TIERS_CONFIANCE')
+        .order('created_at', { ascending: true })
         .limit(1)
 
       if (!tcUsers || tcUsers.length === 0) {

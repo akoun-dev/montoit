@@ -15,7 +15,7 @@ export function useCachedQuery<T>(
 ) {
   return useQuery({
     queryKey,
-    queryFn: () => authFetch<T>(url as string),
+    queryFn: () => authFetch<T>(url ?? ''),
     enabled: !!url && (options?.enabled !== false),
     staleTime: options?.staleTime ?? 60_000, // 1 minute default
   })
@@ -25,7 +25,7 @@ export function useCachedQuery<T>(
 
 export function usePropertyDetail(propertyId: string | null) {
   return useCachedQuery<{ property: unknown }>(
-    ['property', propertyId],
+    ['property', propertyId ?? ''],
     propertyId ? `/api/properties/${propertyId}` : null,
     { staleTime: 2 * 60_000 } // 2 minutes for property details
   )
@@ -33,7 +33,7 @@ export function usePropertyDetail(propertyId: string | null) {
 
 export function usePropertyReviews(propertyId: string | null) {
   return useCachedQuery<{ reviews: unknown[]; avgRating: number; totalReviews: number }>(
-    ['property-reviews', propertyId],
+    ['property-reviews', propertyId ?? ''],
     propertyId ? `/api/properties/reviews?propertyId=${propertyId}` : null,
     { staleTime: 5 * 60_000 } // 5 minutes for reviews
   )
@@ -51,7 +51,7 @@ export function useDashboardData(role: string | null) {
   const url = role ? roleToPath[role] : null
 
   return useCachedQuery<Record<string, unknown>>(
-    ['dashboard', role],
+    ['dashboard', role ?? ''],
     url,
     { staleTime: 30_000 } // 30 seconds for dashboard data (more dynamic)
   )

@@ -83,13 +83,13 @@ export async function POST(req: NextRequest) {
 
     // Simulate backup completion (in real scenario, this would be async)
     setTimeout(async () => {
-      await supabase
+      await (supabase as any)
         .from('backups')
         .update({
           status: 'completed',
           size: `${(Math.random() * 100 + 10).toFixed(1)} MB`,
           completed_at: new Date().toISOString(),
-        } as any)
+        })
         .eq('id', id)
     }, 2000)
 

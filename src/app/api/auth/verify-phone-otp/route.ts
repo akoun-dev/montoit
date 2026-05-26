@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { checkRateLimit } from '@/lib/rate-limiter'
 
 export async function POST(req: NextRequest) {
   try {
@@ -7,6 +8,15 @@ export async function POST(req: NextRequest) {
 
     if (!phone || !code) {
       return NextResponse.json({ error: 'Numéro et code requis' }, { status: 400 })
+    }
+
+    // Rate limiting par numéro de téléphone
+    const { allowed } = checkRateLimit('otp-verify', phone, { maxRequests: 10, windowMs: 60_000 })
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Veuillez réessayer dans une minute.' },
+        { status: 429 }
+      )
     }
 
     const supabase = getSupabaseAdminClient()

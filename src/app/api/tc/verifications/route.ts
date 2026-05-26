@@ -190,7 +190,7 @@ export async function PATCH(req: NextRequest) {
       )
     }
 
-    let updatedProperty
+    let updatedProperty: any
 
     if (action === 'APPROVE') {
       // Vérifier qu'il existe au moins un état des lieux COMPLETED
@@ -200,7 +200,7 @@ export async function PATCH(req: NextRequest) {
         .eq('property_id', propertyId)
         .eq('status', 'COMPLETED')
 
-      if (!inventoryCount || inventoryCount === 0) {
+      if (!inventoryCount) {
         return NextResponse.json(
           { error: 'Un état des lieux (inventaire) COMPLETED est obligatoire avant de pouvoir approuver ce bien. Veuillez d\'abord créer un état des lieux.' },
           { status: 400 }
@@ -243,8 +243,8 @@ export async function PATCH(req: NextRequest) {
         .eq('property_id', propertyId)
         .eq('status', 'ACTIVE')
 
-      if (activeMandats && activeMandats.length > 0) {
-        const agencyIds = [...new Set(activeMandats.map((m: any) => m.agency_id))]
+      if (activeMandats && (activeMandats as any[]).length > 0) {
+        const agencyIds: string[] = [...new Set((activeMandats as any[]).map((m: any) => m.agency_id))]
         for (const agencyId of agencyIds) {
           await notify({
             userId: agencyId,
@@ -302,8 +302,8 @@ export async function PATCH(req: NextRequest) {
         .eq('property_id', propertyId)
         .eq('status', 'ACTIVE')
 
-      if (activeMandatsRej && activeMandatsRej.length > 0) {
-        const agencyIds = [...new Set(activeMandatsRej.map((m: any) => m.agency_id))]
+      if (activeMandatsRej && (activeMandatsRej as any[]).length > 0) {
+        const agencyIds: string[] = [...new Set((activeMandatsRej as any[]).map((m: any) => m.agency_id))]
         for (const agencyId of agencyIds) {
           await notify({
             userId: agencyId,
@@ -317,26 +317,27 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    const updatedPropertyAny = updatedProperty as any
     const mappedProperty = {
-      id: updatedProperty.id,
-      title: updatedProperty.title,
-      address: updatedProperty.address,
-      city: updatedProperty.city,
-      commune: updatedProperty.commune,
-      type: updatedProperty.type,
-      status: updatedProperty.status,
-      isVerified: updatedProperty.is_verified,
-      ownerId: updatedProperty.owner_id,
-      createdAt: updatedProperty.created_at,
-      updatedAt: updatedProperty.updated_at,
-      owner: updatedProperty.owner ? {
-        id: updatedProperty.owner.id,
-        firstName: updatedProperty.owner.first_name,
-        lastName: updatedProperty.owner.last_name,
-        email: updatedProperty.owner.email,
-        phone: updatedProperty.owner.phone,
+      id: updatedPropertyAny.id,
+      title: updatedPropertyAny.title,
+      address: updatedPropertyAny.address,
+      city: updatedPropertyAny.city,
+      commune: updatedPropertyAny.commune,
+      type: updatedPropertyAny.type,
+      status: updatedPropertyAny.status,
+      isVerified: updatedPropertyAny.is_verified,
+      ownerId: updatedPropertyAny.owner_id,
+      createdAt: updatedPropertyAny.created_at,
+      updatedAt: updatedPropertyAny.updated_at,
+      owner: updatedPropertyAny.owner ? {
+        id: updatedPropertyAny.owner.id,
+        firstName: updatedPropertyAny.owner.first_name,
+        lastName: updatedPropertyAny.owner.last_name,
+        email: updatedPropertyAny.owner.email,
+        phone: updatedPropertyAny.owner.phone,
       } : null,
-      images: (updatedProperty.images ?? []).map((img: any) => ({
+      images: (updatedPropertyAny.images ?? []).map((img: any) => ({
         id: img.id,
         url: img.url,
         order: img.order,

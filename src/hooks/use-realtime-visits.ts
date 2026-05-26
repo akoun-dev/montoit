@@ -77,14 +77,13 @@ export function useRealtimeVisits({ userId, ownedPropertyIds, onVisitChange }: U
             event: '*',
             schema: 'public',
             table: 'visit_requests',
-          },
-          (payload: RealtimePostgresChangesPayload<RealtimeVisitPayload>) => {
-            const visit = payload.eventType === 'DELETE' ? payload.old : payload.new
+          },            (payload: RealtimePostgresChangesPayload<RealtimeVisitPayload>) => {
+            const visit = (payload.eventType === 'DELETE' ? payload.old : payload.new) as RealtimeVisitPayload
             if (!visit?.id) return
 
             // Skip if the visit isn't relevant to the current user
             const isTenant = visit.tenant_id === userId
-            const isOwner = ownedRef.current?.includes(visit.property_id)
+            const isOwner = ownedRef.current?.includes(visit.property_id!) ?? false
 
             if (!isTenant && !isOwner) return
 

@@ -62,9 +62,8 @@ export function useRealtimeApplications({ userId, onApplicationChange }: UseReal
             event: '*',
             schema: 'public',
             table: 'applications',
-          },
-          (payload: RealtimePostgresChangesPayload<RealtimeApplicationPayload>) => {
-            const app = payload.eventType === 'DELETE' ? payload.old : payload.new
+          },            (payload: RealtimePostgresChangesPayload<RealtimeApplicationPayload>) => {
+            const app = (payload.eventType === 'DELETE' ? payload.old : payload.new) as RealtimeApplicationPayload
             if (!app?.id) return
 
             // Only process applications where the user is the tenant

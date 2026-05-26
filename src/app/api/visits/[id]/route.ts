@@ -247,7 +247,7 @@ export async function PATCH(
     if (assignedAgentId !== undefined) {
       const updateData: Record<string, any> = { assigned_agent_id: assignedAgentId || null }
 
-      const { data: updated } = await admin
+      const { data: updated } = await (admin as any)
         .from('visit_requests')
         .update(updateData)
         .eq('id', id)
@@ -289,9 +289,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'Statut invalide. Utilisez ACCEPTED, REJECTED ou COUNTER_PROPOSED' }, { status: 400 })
     }
 
-    const { data: updated } = await admin
+    const { data: updated } = await (admin as any)
       .from('visit_requests')
-      .update(updateData as any)
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()

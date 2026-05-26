@@ -6,6 +6,7 @@ import {
   getUserProfileByEmail,
   normalizeEmail,
 } from '@/lib/supabase/email-auth'
+import { checkRateLimit } from '@/lib/rate-limiter'
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +14,16 @@ export async function POST(req: NextRequest) {
 
     if ((!email && !phone) || !code || !newPassword) {
       return NextResponse.json({ error: 'Identifiant, code et nouveau mot de passe requis' }, { status: 400 })
+    }
+
+    // Rate limiting par email ou téléphone
+    const rateLimitKey = email || phone || ''
+    const { allowed } = checkRateLimit('reset-password', rateLimitKey, { maxRequests: 5, windowMs: 60_000 })
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Veuillez réessayer dans une minute.' },
+        { status: 429 }
+      )
     }
 
     if (

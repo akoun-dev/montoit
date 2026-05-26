@@ -76,7 +76,7 @@ export async function POST(
       const ownerPropIds = (ownerProperties || []).map(p => p.id)
 
       if (ownerPropIds.length > 0) {
-        const appResult: any = await supabase
+        const appResult: any = await (supabase as any)
           .from('applications')
           .select('property_id')
           .eq('rental_file_id', id)
@@ -155,7 +155,7 @@ export async function POST(
         entityId: leaseId,
       })
 
-      await supabase.from('audit_logs').insert({
+      await (supabase as any).from('audit_logs').insert({
         id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
         action: 'ACCEPT_RENTAL_FILE',
         entity: 'RentalFile',
@@ -191,9 +191,9 @@ export async function POST(
       const updatedFile = rejectResult?.data || null
 
       // Sync status to applications table
-      await supabase
+      await (supabase as any)
         .from('applications')
-        .update({ status: 'REJECTED' } as any)
+        .update({ status: 'REJECTED' })
         .eq('rental_file_id', id)
 
       await notify({

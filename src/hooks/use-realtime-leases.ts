@@ -69,9 +69,8 @@ export function useRealtimeLeases({ userId, onLeaseChange }: UseRealtimeLeasesOp
             event: '*',
             schema: 'public',
             table: 'leases',
-          },
-          (payload: RealtimePostgresChangesPayload<RealtimeLeasePayload>) => {
-            const lease = payload.eventType === 'DELETE' ? payload.old : payload.new
+          },            (payload: RealtimePostgresChangesPayload<RealtimeLeasePayload>) => {
+            const lease = (payload.eventType === 'DELETE' ? payload.old : payload.new) as RealtimeLeasePayload
             if (!lease?.id) return
 
             // Only process leases where the user is a participant

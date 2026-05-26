@@ -2,12 +2,28 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { generateOtpCode, sendOtpSms } from '@/lib/ansut-messaging'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
+import { checkRateLimit } from '@/lib/rate-limiter'
 
 const OTP_EXPIRY_MINUTES = parseInt(process.env.OTP_EXPIRY_MINUTES || '5', 10)
+
+// 3 tentatives par numéro toutes les 60 secondes
+const rateLimit = (phone: string) =>
+  checkRateLimit('otp-sms', phone, { maxRequests: 3, windowMs: 60_000 })
 
 export async function POST(req: NextRequest) {
   try {
     const { phone, purpose } = await req.json()
+
+    // Rate limiting par numéro de téléphone
+    if (phone) {
+      const { allowed } = rateLimit(phone)
+      if (!allowed) {
+        return NextResponse.json(
+          { error: 'Trop de tentatives. Veuillez réessayer dans une minute.' },
+          { status: 429 }
+        )
+      }
+    }
 
     if (!phone || typeof phone !== 'string') {
       return NextResponse.json({ error: 'Numéro de téléphone requis' }, { status: 400 })

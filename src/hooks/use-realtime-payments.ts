@@ -75,14 +75,13 @@ export function useRealtimePayments({ userId, leaseIds, onPaymentChange }: UseRe
             event: '*',
             schema: 'public',
             table: 'payments',
-          },
-          (payload: RealtimePostgresChangesPayload<RealtimePaymentPayload>) => {
-            const payment = payload.eventType === 'DELETE' ? payload.old : payload.new
+          },            (payload: RealtimePostgresChangesPayload<RealtimePaymentPayload>) => {
+            const payment = (payload.eventType === 'DELETE' ? payload.old : payload.new) as RealtimePaymentPayload
             if (!payment?.id) return
 
             // Skip if the payment isn't relevant to the current user
             const isTenant = payment.tenant_id === userId
-            const isOwner = leaseIdsRef.current?.includes(payment.lease_id)
+            const isOwner = leaseIdsRef.current?.includes(payment.lease_id!) ?? false
 
             if (!isTenant && !isOwner) return
 

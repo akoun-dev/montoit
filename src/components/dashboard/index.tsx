@@ -139,7 +139,7 @@ function LocataireDashboard({ section }: { section: string }) {
     case 'search-properties': return <SearchProperties />
     case 'favorites': return <Favorites />
     case 'applications': return <Applications onDetail={goToApplicationDetail} />
-    case 'application-detail': return <BackableSection sectionKey="application-detail" onBack={goBackToApplications}><ApplicationDetail applicationId={selectedItemId} onBack={goBackToApplications} onEditRentalFile={goToRentalFile} /></BackableSection>
+    case 'application-detail': return <BackableSection sectionKey="application-detail" onBack={goBackToApplications}><ApplicationDetail applicationId={selectedItemId} onBack={goBackToApplications} /></BackableSection>
     case 'rental-file': return <BackableSection sectionKey="rental-file" onBack={goBackFromRentalFile}><RentalFileForm /></BackableSection>
     case 'my-visits': return <MyVisits onDetail={goToVisitDetail} />
     case 'visit-detail': return <BackableSection sectionKey="visit-detail" onBack={goBackToVisits}><VisitDetail visitId={selectedItemId} onBack={goBackToVisits} /></BackableSection>

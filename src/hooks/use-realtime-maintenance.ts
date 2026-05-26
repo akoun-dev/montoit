@@ -74,14 +74,13 @@ export function useRealtimeMaintenance({ userId, ownerLeaseIds, onMaintenanceCha
             event: '*',
             schema: 'public',
             table: 'maintenance_requests',
-          },
-          (payload: RealtimePostgresChangesPayload<RealtimeMaintenancePayload>) => {
-            const req = payload.eventType === 'DELETE' ? payload.old : payload.new
+          },            (payload: RealtimePostgresChangesPayload<RealtimeMaintenancePayload>) => {
+            const req = (payload.eventType === 'DELETE' ? payload.old : payload.new) as RealtimeMaintenancePayload
             if (!req?.id) return
 
             // Skip if the request isn't relevant to the current user
             const isTenant = req.tenant_id === userId
-            const isOwner = leaseIdsRef.current?.includes(req.lease_id)
+            const isOwner = leaseIdsRef.current?.includes(req.lease_id!) ?? false
 
             if (!isTenant && !isOwner) return
 

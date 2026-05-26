@@ -18,7 +18,7 @@ async function getCurrentMandatPdfInfo(
   if (!contractUrl) {
     contractUrl = await generateAndUploadMandatPdf(mandatId, 'initial')
     if (!contractUrl) return null
-    await supabase.from('mandats').update({ contract_url: contractUrl }).eq('id', mandatId)
+    await (supabase as any).from('mandats').update({ contract_url: contractUrl }).eq('id', mandatId)
   }
 
   let pdfUrl = contractUrl
@@ -69,7 +69,7 @@ export async function POST(
 
     const { data: _mandat } = await (supabase as any)
       .from('mandats')
-      .select('*')
+      .select('*, contract_url')
       .eq('id', id)
       .maybeSingle()
 
@@ -202,6 +202,7 @@ export async function POST(
       [`${s}_signed_at`]: now.toISOString(),
       [`${s}_signature_image`]: signatureImage || null,
       updated_at: now.toISOString(),
+      status: 'PENDING_SIGNATURE',
     }
     if (operationId) updateData.cryptoneo_operation_id = operationId
     if (newContractUrl) updateData.contract_url = newContractUrl
@@ -209,8 +210,6 @@ export async function POST(
     const otherSigned = isOwner ? !!mandat.agency_signed_at : !!mandat.owner_signed_at
     if (otherSigned) {
       updateData.status = 'ACTIVE'
-    } else if (mandat.status === 'DRAFT') {
-      updateData.status = 'PENDING_SIGNATURE'
     }
 
     const { data: updatedRow } = await (supabase as any)
@@ -228,7 +227,7 @@ export async function POST(
     if (otherSigned) {
       await generateAndUploadMandatPdf(id, 'final').then((url) => {
         if (url) {
-          supabase.from('mandats').update({ contract_url: url, updated_at: new Date().toISOString() }).eq('id', id).then()
+          (supabase as any).from('mandats').update({ contract_url: url, updated_at: new Date().toISOString() }).eq('id', id).then()
         }
       })
     }

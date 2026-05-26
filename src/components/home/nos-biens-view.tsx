@@ -791,7 +791,7 @@ export function NosBiensView() {
   const [radiusFilter, setRadiusFilter] = useState('0')
 
   // View state
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid')
   const [sortBy, setSortBy] = useState('recent')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [page, setPage] = useState(1)
@@ -1247,7 +1247,7 @@ export function NosBiensView() {
               </button>
               <button
                 onClick={() => setViewMode('map')}
-                className={`h-full px-2.5 transition-colors ${viewMode === 'map' ? 'bg-brand-500 text-white' : 'text-muted-foreground hover:bg-accent'}`}
+                className={`h-full px-2.5 transition-colors ${false ? 'bg-brand-500 text-white' : 'text-muted-foreground hover:bg-accent'}`}
                 aria-label="Vue carte"
               >
                 <MapIcon className="size-3.5" />
@@ -1440,7 +1440,7 @@ export function NosBiensView() {
                 </motion.div>
               )}
               {/* Pagination */}
-              {filteredProperties.length > ITEMS_PER_PAGE && viewMode !== 'map' && (
+              {filteredProperties.length > ITEMS_PER_PAGE && (
                 <PaginationControls
                   page={page}
                   totalPages={totalPages}

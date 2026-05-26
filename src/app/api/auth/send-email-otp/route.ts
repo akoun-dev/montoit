@@ -6,10 +6,26 @@ import {
   getUserProfileByEmail,
   invalidateEmailOtps,
 } from '@/lib/supabase/email-auth'
+import { checkRateLimit } from '@/lib/rate-limiter'
+
+// 3 tentatives par email toutes les 60 secondes
+const rateLimit = (email: string) =>
+  checkRateLimit('otp-email', email, { maxRequests: 3, windowMs: 60_000 })
 
 export async function POST(req: NextRequest) {
   try {
     const { email, purpose } = await req.json()
+
+    // Rate limiting par adresse email
+    if (email) {
+      const { allowed } = rateLimit(email)
+      if (!allowed) {
+        return NextResponse.json(
+          { error: 'Trop de tentatives. Veuillez réessayer dans une minute.' },
+          { status: 429 }
+        )
+      }
+    }
 
     if (!email || typeof email !== 'string') {
       return NextResponse.json({ error: 'Adresse email requise' }, { status: 400 })
