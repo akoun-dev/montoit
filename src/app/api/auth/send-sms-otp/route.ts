@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { generateOtpCode, sendOtpSms } from '@/lib/ansut-messaging'
+import { generateOtpCode, sendOtpSms, normalizePhone } from '@/lib/ansut-messaging'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { checkRateLimit } from '@/lib/rate-limiter'
 
@@ -14,38 +14,40 @@ export async function POST(req: NextRequest) {
   try {
     const { phone, purpose } = await req.json()
 
-    // Rate limiting par numéro de téléphone
-    if (phone) {
-      const { allowed } = rateLimit(phone)
-      if (!allowed) {
-        return NextResponse.json(
-          { error: 'Trop de tentatives. Veuillez réessayer dans une minute.' },
-          { status: 429 }
-        )
-      }
-    }
-
     if (!phone || typeof phone !== 'string') {
       return NextResponse.json({ error: 'Numéro de téléphone requis' }, { status: 400 })
     }
 
+    const normalizedPhone = normalizePhone(phone)
+    if (normalizedPhone.length !== 10) {
+      return NextResponse.json({ error: 'Numéro de téléphone invalide (10 chiffres requis)' }, { status: 400 })
+    }
+
+    // Rate limiting par numéro de téléphone
+    const { allowed } = rateLimit(normalizedPhone)
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Veuillez réessayer dans une minute.' },
+        { status: 429 }
+      )
+    }
     const supabase = getSupabaseAdminClient()
     const otpType = purpose === 'password_reset' ? 'PASSWORD_RESET' : purpose === 'phone_verify' ? 'PHONE_VERIFY' : 'LOGIN'
 
     const { data: user } = await supabase
       .from('users')
       .select('id')
-      .eq('phone', phone)
+      .eq('phone', normalizedPhone)
       .maybeSingle()
 
-    if ((otpType === 'PASSWORD_RESET' || otpType === 'PHONE_VERIFY') && !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Aucun compte associé à ce numéro' }, { status: 404 })
     }
 
     const { data: existingOtps } = await supabase
       .from('otp_codes')
       .select('id')
-      .eq('phone', phone)
+      .eq('phone', normalizedPhone)
       .eq('is_used', false)
       .eq('type', otpType)
 
@@ -58,29 +60,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let otpUserId = user?.id
-    if (!otpUserId && (otpType === 'LOGIN')) {
-      const { data: tempUser } = await supabase
-        .from('users')
-          .insert({
-            id: crypto.randomUUID(),
-            phone,
-            email: `${Date.now()}@montoit.ci`,
-            password_hash: 'TEMP',
-            first_name: 'Temp',
-            last_name: 'User',
-            role: 'LOCATAIRE' as any,
-            active_role: 'LOCATAIRE' as any,
-            is_phone_verified: false,
-          } as any)
-        .select('id')
-        .single()
-      otpUserId = tempUser?.id
-    }
-
-    if (!otpUserId) {
-      return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
-    }
+    const otpUserId = user.id
 
     const otpCode = generateOtpCode(6)
 
@@ -88,7 +68,7 @@ export async function POST(req: NextRequest) {
       .from('otp_codes')
       .insert({
         id: crypto.randomUUID(),
-        phone,
+        phone: normalizedPhone,
         code: otpCode,
         type: otpType,
         expires_at: new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString(),
@@ -96,7 +76,7 @@ export async function POST(req: NextRequest) {
       })
 
     const smsPurpose = otpType === 'PASSWORD_RESET' ? 'password_reset' : 'login'
-    const smsResult = await sendOtpSms(phone, otpCode, smsPurpose)
+    const smsResult = await sendOtpSms(normalizedPhone, otpCode, smsPurpose)
 
     if (!smsResult.success) {
       console.warn(`[Send SMS OTP] SMS send failed for ${phone}, but OTP stored in DB. Code: ${otpCode}`)
@@ -105,7 +85,6 @@ export async function POST(req: NextRequest) {
     const isDev = process.env.NODE_ENV !== 'production'
 
     return NextResponse.json({
-      exists: !!user,
       message: 'OTP envoyé par SMS',
       ...(isDev && { devCode: otpCode }),
     })

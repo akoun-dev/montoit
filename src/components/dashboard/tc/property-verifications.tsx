@@ -449,7 +449,8 @@ export function PropertyVerifications() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 10 }}
                       transition={{ duration: 0.15 }}
-                      className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                      className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => handleVerify(property.id)}
                     >
                       {/* Property info + thumbnail */}
                       <td className="px-4 py-3">
@@ -505,7 +506,7 @@ export function PropertyVerifications() {
                             size="sm"
                             variant="ghost"
                             className="bg-brand-500 hover:bg-brand-600 text-white h-8 px-3 text-xs"
-                            onClick={() => handleVerify(property.id)}
+                            onClick={(e) => { e.stopPropagation(); handleVerify(property.id) }}
                             disabled={actionLoading === property.id}
                           >
                             Vérifier
@@ -514,7 +515,7 @@ export function PropertyVerifications() {
                             size="sm"
                             variant="ghost"
                             className="bg-green-600 hover:bg-green-700 text-white h-8 w-8 p-0"
-                            onClick={() => handleApprove(property.id)}
+                            onClick={(e) => { e.stopPropagation(); handleApprove(property.id) }}
                             disabled={actionLoading === property.id}
                           >
                             {actionLoading === property.id ? (
@@ -527,7 +528,7 @@ export function PropertyVerifications() {
                             size="sm"
                             variant="ghost"
                             className="text-red-600 hover:bg-red-50 hover:text-red-700 h-8 w-8 p-0"
-                            onClick={() => setRejectingId(property.id)}
+                            onClick={(e) => { e.stopPropagation(); setRejectingId(property.id) }}
                             disabled={actionLoading === property.id}
                           >
                             <X className="size-3.5" />

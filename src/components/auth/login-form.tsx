@@ -253,7 +253,7 @@ export function LoginForm() {
                     <Input
                       id="login-phone"
                       type="tel"
-                      placeholder="+225 XX XX XX XX XX"
+                      placeholder="01 40 98 43 43"
                       value={phone}
                       onChange={(e) => { setError(''); setPhone(e.target.value.replace(/\D/g, '')) }}
                       className="h-11 pl-9"

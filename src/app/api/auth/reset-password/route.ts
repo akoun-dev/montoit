@@ -7,6 +7,7 @@ import {
   normalizeEmail,
 } from '@/lib/supabase/email-auth'
 import { checkRateLimit } from '@/lib/rate-limiter'
+import { normalizePhone } from '@/lib/ansut-messaging'
 
 export async function POST(req: NextRequest) {
   try {
@@ -89,11 +90,12 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getSupabaseAdminClient()
+    const normalizedPhone = normalizePhone(phone!)
 
     const { data: otp } = await supabase
       .from('otp_codes')
       .select('id, user_id')
-      .eq('phone', phone)
+      .eq('phone', normalizedPhone)
       .eq('code', code)
       .eq('type', 'PASSWORD_RESET')
       .eq('is_used', false)
@@ -114,7 +116,7 @@ export async function POST(req: NextRequest) {
     const { data: user } = await supabase
       .from('users')
       .select('id, is_active')
-      .eq('phone', phone!)
+      .eq('phone', normalizedPhone)
       .maybeSingle()
 
     if (!user || !user.is_active) {

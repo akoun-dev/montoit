@@ -5,8 +5,11 @@ import {
   Building2, Search, MapPin, X, Check,
   Loader2, FileText, ChevronDown, ChevronsUpDown,
   User, Calendar, Eye, BadgeCheck, Clock,
+  Flag, AlertTriangle, Trash2, AlertCircle,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -92,7 +95,6 @@ const statusOptions = [
   { value: 'ALL', label: 'Tous les statuts' },
   { value: 'ACTIVE', label: 'Actif' },
   { value: 'PENDING_VERIFICATION', label: 'En attente' },
-  { value: 'DRAFT', label: 'Brouillon' },
   { value: 'SUSPENDED', label: 'Suspendu' },
   { value: 'RENTED', label: 'Loué' },
   { value: 'CLOSED', label: 'Fermé' },
@@ -148,6 +150,46 @@ function shortDate(dateStr: string) {
   })
 }
 
+// ─── Signal templates par motif ──────────────────────────────────────────────
+
+const SIGNAL_TEMPLATES: Record<string, string[]> = {
+  FALSE_INFORMATION: [
+    "Les informations affichées dans cette annonce (surface, loyer, équipements) ne correspondent pas à la réalité du bien.",
+    "Les photos de l'annonce ne correspondent pas au bien proposé.",
+  ],
+  INAPPROPRIATE_CONTENT: [
+    "Cette annonce contient des images ou descriptions inappropriées qui enfreignent les conditions d'utilisation.",
+    "Le contenu de cette annonce est de nature publicitaire ou non conforme à la plateforme.",
+  ],
+  FRAUD: [
+    "Cette annonce semble frauduleuse. Le bien présenté pourrait ne pas exister.",
+    "Les informations d'identité du propriétaire semblent suspectes.",
+  ],
+  OTHER: [
+    "Cette annonce ne respecte pas les règles générales de la plateforme.",
+    "Le bien proposé ne correspond pas à la catégorie sélectionnée.",
+  ],
+}
+
+const UNPUBLISH_TEMPLATES: Record<string, string[]> = {
+  FALSE_INFORMATION: [
+    "Les informations de l'annonce (surface, loyer, équipements) ne correspondent pas à la réalité du bien après vérification.",
+    "Les photos de l'annonce ne correspondent pas au bien proposé.",
+  ],
+  MISSING_DOCUMENTS: [
+    "Le propriétaire n'a pas fourni les documents requis pour la vérification du bien.",
+    "Les documents de propriété fournis sont incomplets ou invalides.",
+  ],
+  FRAUD: [
+    "Cette annonce est suspectée d'être frauduleuse après vérification.",
+    "L'identité du propriétaire n'a pas pu être vérifiée.",
+  ],
+  NON_COMPLIANT: [
+    "Le bien ne respecte pas les normes minimales requises sur la plateforme.",
+    "Le bien présente des défauts structurels ou de salubrité incompatibles avec la location.",
+  ],
+}
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function AllProperties() {
@@ -155,6 +197,20 @@ export function AllProperties() {
   const [properties, setProperties] = useState<PropertyItem[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  // ─── Signal property dialog ────────────────────────────────────────
+  const [signalDialogOpen, setSignalDialogOpen] = useState(false)
+  const [signalReason, setSignalReason] = useState('FALSE_INFORMATION')
+  const [signalDescription, setSignalDescription] = useState('')
+  const [signalTemplateIndex, setSignalTemplateIndex] = useState(0)
+  const [signalPropertyId, setSignalPropertyId] = useState<string | null>(null)
+
+  // ─── Unpublish dialog ──────────────────────────────────────────────
+  const [unpublishDialogOpen, setUnpublishDialogOpen] = useState(false)
+  const [unpublishReason, setUnpublishReason] = useState('')
+  const [unpublishReasonCategory, setUnpublishReasonCategory] = useState('FALSE_INFORMATION')
+  const [unpublishTemplateIndex, setUnpublishTemplateIndex] = useState(0)
+  const [unpublishPropertyId, setUnpublishPropertyId] = useState<string | null>(null)
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('')
@@ -237,6 +293,81 @@ export function AllProperties() {
   const handleInventoryReport = (id: string) => {
     setSelectedItemId(id)
     setDashboardSection('inventory-report-form')
+  }
+
+  // ─── Signal property ───────────────────────────────────────────────
+  const currentTemplates = SIGNAL_TEMPLATES[signalReason] || SIGNAL_TEMPLATES.FALSE_INFORMATION
+
+  // Sync description when reason or template index changes
+  useEffect(() => {
+    const templates = SIGNAL_TEMPLATES[signalReason] || SIGNAL_TEMPLATES.FALSE_INFORMATION
+    const validIdx = Math.min(signalTemplateIndex, templates.length - 1)
+    setSignalTemplateIndex(validIdx)
+    setSignalDescription(templates[validIdx])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signalReason, signalTemplateIndex])
+
+  // ─── Sync unpublish reason from template ───────────────────────────
+  const currentUnpublishTemplates = UNPUBLISH_TEMPLATES[unpublishReasonCategory] || UNPUBLISH_TEMPLATES.FALSE_INFORMATION
+
+  useEffect(() => {
+    const templates = UNPUBLISH_TEMPLATES[unpublishReasonCategory] || UNPUBLISH_TEMPLATES.FALSE_INFORMATION
+    const validIdx = Math.min(unpublishTemplateIndex, templates.length - 1)
+    setUnpublishTemplateIndex(validIdx)
+    setUnpublishReason(templates[validIdx])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unpublishReasonCategory, unpublishTemplateIndex])
+
+  const handleSignalProperty = async () => {
+    if (!signalPropertyId || !signalDescription.trim()) return
+    setActionLoading(signalPropertyId)
+    try {
+      await authFetch('/api/tc/signal-property', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId: signalPropertyId,
+          reason: signalReason,
+          description: signalDescription.trim(),
+        }),
+      })
+      toast.success('Bien signalé avec succès. Le propriétaire a été notifié.')
+      setSignalDialogOpen(false)
+      setSignalReason('FALSE_INFORMATION')
+      setSignalDescription('')
+      setSignalPropertyId(null)
+      setSignalTemplateIndex(0)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors du signalement")
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // ─── Unpublish property ────────────────────────────────────────────
+  const handleUnpublish = async () => {
+    if (!unpublishPropertyId) return
+    setActionLoading(unpublishPropertyId)
+    try {
+      await authFetch(`/api/tc/properties/${unpublishPropertyId}/unpublish`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: unpublishReason.trim() || null }),
+      })
+      toast.success('Bien retiré de la plateforme.')
+      setUnpublishDialogOpen(false)
+      setUnpublishReason('')
+      setUnpublishReasonCategory('FALSE_INFORMATION')
+      setUnpublishTemplateIndex(0)
+      setUnpublishPropertyId(null)
+      // Remove from local state
+      setProperties((prev) => prev.filter((p) => p.id !== unpublishPropertyId))
+      setTotal((prev) => Math.max(0, prev - 1))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors du retrait du bien")
+    } finally {
+      setActionLoading(null)
+    }
   }
 
   const handleQuickApprove = async (propertyId: string) => {
@@ -513,9 +644,10 @@ export function AllProperties() {
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.15 }}
                         className={cn(
-                          'border-b border-border hover:bg-muted/30 transition-colors',
+                          'border-b border-border hover:bg-muted/50 transition-colors cursor-pointer',
                           isPending && 'bg-amber-50/40 border-l-2 border-l-amber-400'
                         )}
+                        onClick={() => handleViewDetail(property.id)}
                       >
                         <td className="p-3">
                           <div className="flex items-center gap-2 min-w-0">
@@ -575,7 +707,7 @@ export function AllProperties() {
                               size="sm"
                               variant="ghost"
                               className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
-                              onClick={() => handleViewDetail(property.id)}
+                              onClick={(e) => { e.stopPropagation(); handleViewDetail(property.id) }}
                               title="Détails"
                             >
                               <Eye className="size-4" />
@@ -584,7 +716,7 @@ export function AllProperties() {
                               size="sm"
                               variant="ghost"
                               className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
-                              onClick={() => handleInventoryReport(property.id)}
+                              onClick={(e) => { e.stopPropagation(); handleInventoryReport(property.id) }}
                               title="État des lieux"
                             >
                               <FileText className="size-4" />
@@ -594,13 +726,47 @@ export function AllProperties() {
                                 size="sm"
                                 variant="ghost"
                                 className="text-green-600 hover:text-green-700 hover:bg-green-50 h-8 w-8 p-0"
-                                onClick={() => handleQuickApprove(property.id)}
+                                onClick={(e) => { e.stopPropagation(); handleQuickApprove(property.id) }}
                                 disabled={actionLoading === property.id}
                                 title="Approuver"
                               >
                                 {actionLoading === property.id ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
                               </Button>
                             )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 h-8 w-8 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSignalPropertyId(property.id)
+                                setSignalReason('FALSE_INFORMATION')
+                                setSignalDescription('')
+                                setSignalTemplateIndex(0)
+                                setSignalDialogOpen(true)
+                              }}
+                              disabled={actionLoading === property.id}
+                              title="Signaler"
+                            >
+                              <Flag className="size-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setUnpublishPropertyId(property.id)
+                                setUnpublishReason('')
+                                setUnpublishReasonCategory('FALSE_INFORMATION')
+                                setUnpublishTemplateIndex(0)
+                                setUnpublishDialogOpen(true)
+                              }}
+                              disabled={actionLoading === property.id}
+                              title="Retirer"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
                           </div>
                         </td>
                       </motion.tr>
@@ -612,6 +778,161 @@ export function AllProperties() {
           </div>
         </Card>
       )}
+
+      {/* Signal Property Dialog */}
+      <Dialog open={signalDialogOpen} onOpenChange={(open) => { if (!open) { setSignalDialogOpen(false); setSignalPropertyId(null); setSignalDescription(''); setSignalTemplateIndex(0) } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Signaler ce bien</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Signalez les informations incorrectes de cette annonce. Le propriétaire sera notifié.
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Motif du signalement</label>
+              <select
+                value={signalReason}
+                onChange={(e) => setSignalReason(e.target.value)}
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="FALSE_INFORMATION">Fausse information</option>
+                <option value="INAPPROPRIATE_CONTENT">Contenu inapproprié</option>
+                <option value="FRAUD">Fraude</option>
+                <option value="OTHER">Autre</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Message de signalement</label>
+              <div className="space-y-2">
+                {currentTemplates.map((template, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setSignalTemplateIndex(idx)
+                      setSignalDescription(template)
+                    }}
+                    className={`w-full text-left p-3 rounded-lg border text-sm transition-all ${
+                      signalTemplateIndex === idx
+                        ? 'border-amber-300 bg-amber-50 text-amber-900 ring-2 ring-amber-200 ring-offset-1'
+                        : 'border-border hover:bg-muted text-foreground'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className={`size-5 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center ${
+                        signalTemplateIndex === idx
+                          ? 'border-amber-500 bg-amber-500'
+                          : 'border-muted-foreground/30'
+                      }`}>
+                        {signalTemplateIndex === idx && <div className="size-2 rounded-full bg-white" />}
+                      </div>
+                      <span>{template}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setSignalDialogOpen(false); setSignalDescription(''); setSignalPropertyId(null); setSignalTemplateIndex(0) }}>
+              Annuler
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={handleSignalProperty}
+              disabled={!signalDescription.trim() || actionLoading !== null}
+            >
+              {actionLoading === signalPropertyId ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+              Signaler
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unpublish Dialog */}
+      <Dialog open={unpublishDialogOpen} onOpenChange={(open) => { if (!open) { setUnpublishDialogOpen(false); setUnpublishPropertyId(null); setUnpublishReason(''); setUnpublishReasonCategory('FALSE_INFORMATION'); setUnpublishTemplateIndex(0) } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Retirer le bien de la plateforme</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="size-5 text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-red-700">Action irréversible</p>
+                  <p className="text-xs text-red-600 mt-1">
+                    Ce bien sera remis en brouillon et ne sera plus visible sur la plateforme.
+                    Le propriétaire pourra le modifier et le soumettre à nouveau après correction.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Motif du retrait</label>
+              <select
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={unpublishReasonCategory}
+                onChange={(e) => { setUnpublishReasonCategory(e.target.value); setUnpublishTemplateIndex(0) }}
+              >
+                <option value="FALSE_INFORMATION">Informations inexactes</option>
+                <option value="MISSING_DOCUMENTS">Documents manquants</option>
+                <option value="FRAUD">Fraude suspectée</option>
+                <option value="NON_COMPLIANT">Bien non conforme</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Message de retrait</label>
+              <div className="flex flex-wrap gap-2">
+                {currentUnpublishTemplates.map((tpl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setUnpublishTemplateIndex(idx)
+                      setUnpublishReason(tpl)
+                    }}
+                    className={cn(
+                      "text-left text-xs px-3 py-2 rounded-lg border transition-colors",
+                      idx === unpublishTemplateIndex
+                        ? "border-red-300 bg-red-50 text-red-700"
+                        : "border-border hover:border-red-200 hover:bg-red-50/50 text-muted-foreground"
+                    )}
+                  >
+                    {tpl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Ou personnalisez le message</label>
+              <Textarea
+                placeholder="Expliquez pourquoi ce bien est retiré..."
+                value={unpublishReason}
+                onChange={(e) => setUnpublishReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setUnpublishDialogOpen(false); setUnpublishPropertyId(null); setUnpublishReason(''); setUnpublishReasonCategory('FALSE_INFORMATION'); setUnpublishTemplateIndex(0) }}>
+              Annuler
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white gap-2"
+              onClick={handleUnpublish}
+              disabled={actionLoading !== null}
+            >
+              {actionLoading === unpublishPropertyId ? <Loader2 className="size-4 animate-spin mr-2" /> : <Trash2 className="size-4" />}
+              Confirmer le retrait
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Load More */}
       {hasMore && (

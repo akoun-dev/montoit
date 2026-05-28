@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const isCapacitorBuild = process.env.BUILD_TARGET === 'capacitor'
 
 const nextConfig: NextConfig = {
-  output: isCapacitorBuild ? 'export' : 'standalone',
+  output: 'standalone',
   /* config options here */
   reactStrictMode: false,
   serverExternalPackages: [],

@@ -17,43 +17,43 @@ export async function resolveRequestUser(
   const cookieNames = req.cookies.getAll().map((c) => c.name)
   console.log('[resolveRequestUser] Cookie names:', cookieNames)
 
-  // 1. Try Supabase Auth session (used by email login)
-  // getSession() returns both the user and the access token (JWT)
+  // 1. Try Supabase Auth — getUser() verifies the JWT with the auth server (secure)
   try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (user?.id) {
+      // Also get the access token from the session (session.user is NOT used for auth)
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      console.log('[resolveRequestUser] Resolved via Supabase:', user.id)
+      return {
+        userId: user.id,
+        accessToken: session?.access_token ?? null,
+        authSource: 'supabase',
+        applyCookies,
+      }
+    }
+
+    // getUser() returned null — try getSession() as fallback
+    console.log(
+      '[resolveRequestUser] getUser() returned null, trying getSession() fallback...',
+    )
     const {
       data: { session },
     } = await supabase.auth.getSession()
 
     if (session?.user?.id) {
       console.log(
-        '[resolveRequestUser] Resolved via Supabase session:',
+        '[resolveRequestUser] Resolved via Supabase session (fallback):',
         session.user.id,
       )
       return {
         userId: session.user.id,
         accessToken: session.access_token,
-        authSource: 'supabase',
-        applyCookies,
-      }
-    }
-
-    // getSession() returned null — try getUser() as fallback
-    // (getUser() doesn't return an access token but may succeed where getSession() doesn't)
-    console.log(
-      '[resolveRequestUser] getSession() returned null, trying getUser()...',
-    )
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (user?.id) {
-      console.log(
-        '[resolveRequestUser] Resolved via Supabase getUser():',
-        user.id,
-      )
-      return {
-        userId: user.id,
-        accessToken: null, // no access token from getUser()
         authSource: 'supabase',
         applyCookies,
       }

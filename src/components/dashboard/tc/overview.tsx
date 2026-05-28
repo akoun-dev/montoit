@@ -351,7 +351,7 @@ export function TcOverview() {
       ],
     },
     {
-      id: 'dossier-validations',
+      id: 'owner-validations',
       label: 'Validations propriétaires',
       count: stats.pendingOwnerDocs,
       icon: BadgeCheck,
@@ -365,7 +365,7 @@ export function TcOverview() {
       ],
     },
     {
-      id: 'dossier-validations',
+      id: 'agency-validations',
       label: 'Validations agences',
       count: stats.pendingAgencyDocs,
       icon: Building2,

@@ -65,13 +65,29 @@ export function formatPhoneForAnsut(phone: string): string {
   return cleaned
 }
 
+/**
+ * Normalize a phone number to a clean 10-digit format (CI).
+ * Strips +225 or 225 prefix, keeps only digits.
+ * Examples:
+ *   "+2250140984943" → "0140984943"
+ *   "2250140984943"  → "0140984943"
+ *   "0140984943"     → "0140984943"
+ */
+export function normalizePhone(phone: string): string {
+  let cleaned = phone.replace(/\D/g, '')
+  if (cleaned.startsWith('225') && cleaned.length > 10) {
+    cleaned = cleaned.slice(3)
+  }
+  return cleaned
+}
+
 // ─── OTP Code Generation ────────────────────────────────────────────────────────
 
 /**
  * Generate a random numeric OTP code of specified length
  */
 export function generateOtpCode(length: number = 6): string {
-  const digits = '0123456789'
+  const digits = '0140984943'
   let code = ''
   // Use crypto for better randomness
   const array = new Uint8Array(length)

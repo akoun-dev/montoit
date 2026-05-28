@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
-import { generateOtpCode, sendOtpEmail, sendOtpSms } from '@/lib/ansut-messaging'
+import { generateOtpCode, sendOtpEmail, sendOtpSms, normalizePhone } from '@/lib/ansut-messaging'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import {
   createEmailOtp,
@@ -151,12 +151,20 @@ export async function POST(req: NextRequest) {
         )
       }
 
+      const normalizedPhone = normalizePhone(phone)
+      if (normalizedPhone.length !== 10) {
+        return NextResponse.json(
+          { error: 'Numéro de téléphone invalide (10 chiffres requis)' },
+          { status: 400 }
+        )
+      }
+
       const supabase = getSupabaseAdminClient()
 
       const { data: existingUser } = await supabase
         .from('users')
         .select('*')
-        .eq('phone', phone)
+        .eq('phone', normalizedPhone)
         .maybeSingle()
 
       if (email) {
@@ -165,7 +173,7 @@ export async function POST(req: NextRequest) {
           .select('*')
           .eq('email', email)
           .maybeSingle()
-        if (existingEmail && existingEmail.phone !== phone) {
+        if (existingEmail && existingEmail.phone !== normalizedPhone) {
           return NextResponse.json(
             { error: 'Un compte existe déjà avec cet email' },
             { status: 400 }
@@ -202,7 +210,7 @@ export async function POST(req: NextRequest) {
           .from('users')
           .insert({
             id: crypto.randomUUID(),
-            phone,
+            phone: normalizedPhone,
             email: email || `sms-${Date.now()}@montoit.ci`,
             password_hash: await bcrypt.hash(`sms-${Date.now()}-${Math.random()}`, 12),
             first_name: firstName,
@@ -220,7 +228,7 @@ export async function POST(req: NextRequest) {
       const { data: existingOtps } = await supabase
         .from('otp_codes')
         .select('id')
-        .eq('phone', phone)
+        .eq('phone', normalizedPhone)
         .eq('is_used', false)
         .eq('type', 'LOGIN')
 
@@ -238,14 +246,14 @@ export async function POST(req: NextRequest) {
         .from('otp_codes')
         .insert({
           id: crypto.randomUUID(),
-          phone,
+          phone: normalizedPhone,
           code: otpCode,
           type: 'LOGIN',
           expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
           user_id: user.id,
         })
 
-      const smsResult = await sendOtpSms(phone, otpCode, 'login')
+      const smsResult = await sendOtpSms(normalizedPhone, otpCode, 'login')
       if (!smsResult.success) {
         console.warn(`[Register] SMS send failed for ${phone}, but OTP stored. Code: ${otpCode}`)
       }
@@ -254,7 +262,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         user: {
           id: user.id,
-          phone: user.phone,
+          phone: normalizedPhone,
           email: user.email,
           firstName: user.first_name,
           lastName: user.last_name,

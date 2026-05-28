@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
-import { generateOtpCode, sendOtpEmail, sendOtpSms } from '@/lib/ansut-messaging'
+import { generateOtpCode, sendOtpEmail, sendOtpSms, normalizePhone } from '@/lib/ansut-messaging'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import {
   createEmailOtp,
@@ -59,11 +59,12 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = getSupabaseAdminClient()
+    const normalizedPhone = normalizePhone(identifier)
 
     const { data: user } = await supabase
       .from('users')
       .select('id, email, first_name, is_active')
-      .eq('phone', identifier)
+      .eq('phone', normalizedPhone)
       .maybeSingle()
 
     if (!user) {
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
     const { data: existingOtps } = await supabase
       .from('otp_codes')
       .select('id')
-      .eq('phone', identifier)
+      .eq('phone', normalizedPhone)
       .eq('is_used', false)
       .eq('type', 'PASSWORD_RESET')
 
@@ -102,14 +103,14 @@ export async function POST(req: NextRequest) {
       .insert({
         id: crypto.randomUUID(),
         email: user.email,
-        phone: identifier,
+        phone: normalizedPhone,
         code: otpCode,
         type: 'PASSWORD_RESET',
         expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
         user_id: user.id,
       })
 
-    const smsResult = await sendOtpSms(identifier, otpCode, 'password_reset')
+    const smsResult = await sendOtpSms(normalizedPhone, otpCode, 'password_reset')
     if (!smsResult.success) {
       console.warn(`[Forgot Password] SMS send failed for ${identifier}, but OTP stored. Code: ${otpCode}`)
     }

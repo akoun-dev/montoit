@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from('properties')
       .select('*, owner:users!owner_id(id, first_name, last_name, email, phone, avatar_url, created_at), images:property_images(id, url, order)', { count: 'exact' })
+      .neq('status', 'DRAFT')
 
     // Filters
     if (search) {

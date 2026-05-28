@@ -305,7 +305,7 @@ export function RegisterForm() {
                           <Input
                             id="reg-phone"
                             type="tel"
-                            placeholder="+225 XX XX XX XX XX"
+                            placeholder="01 40 98 43 43"
                             value={phone}
                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                             className="h-11 pl-9"
@@ -441,7 +441,7 @@ export function RegisterForm() {
                           <Input
                             id="sms-phone"
                             type="tel"
-                            placeholder="+225 XX XX XX XX XX"
+                            placeholder="01 23 45 67 89"
                             value={phone}
                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                             className="h-11 pl-9"

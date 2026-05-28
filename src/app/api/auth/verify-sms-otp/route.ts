@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSession, SESSION_COOKIE_NAME, SESSION_COOKIE_OPTIONS } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limiter'
+import { normalizePhone } from '@/lib/ansut-messaging'
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,8 +12,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Numéro et code requis' }, { status: 400 })
     }
 
+    const normalizedPhone = normalizePhone(phone)
+
     // Rate limiting par numéro de téléphone
-    const { allowed } = checkRateLimit('otp-verify', phone, { maxRequests: 10, windowMs: 60_000 })
+    const { allowed } = checkRateLimit('otp-verify', normalizedPhone, { maxRequests: 10, windowMs: 60_000 })
     if (!allowed) {
       return NextResponse.json(
         { error: 'Trop de tentatives. Veuillez réessayer dans une minute.' },
@@ -26,7 +29,7 @@ export async function POST(req: NextRequest) {
     const { data: otp } = await supabase
       .from('otp_codes')
       .select('id, user_id')
-      .eq('phone', phone)
+      .eq('phone', normalizedPhone)
       .eq('code', code)
       .eq('type', otpType)
       .eq('is_used', false)
@@ -47,20 +50,20 @@ export async function POST(req: NextRequest) {
     if (otpType === 'PASSWORD_RESET') {
       return NextResponse.json({
         valid: true,
-        phone,
+        phone: normalizedPhone,
       })
     }
 
     const { data: user } = await supabase
       .from('users')
       .select('*')
-      .eq('phone', phone)
+      .eq('phone', normalizedPhone)
       .maybeSingle()
 
     if (user && user.first_name === 'Temp' && user.last_name === 'User' && !user.is_phone_verified) {
       return NextResponse.json({
         needsRegistration: true,
-        phone,
+        phone: normalizedPhone,
       })
     }
 
@@ -97,7 +100,7 @@ export async function POST(req: NextRequest) {
       return response
     }
 
-    return NextResponse.json({ needsRegistration: true, phone })
+    return NextResponse.json({ needsRegistration: true, phone: normalizedPhone })
   } catch (error) {
     console.error('Verify SMS OTP error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

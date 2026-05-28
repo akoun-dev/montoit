@@ -39,6 +39,11 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
       }
 
+      // Le TC ne doit pas voir les biens en brouillon
+      if (property.status === 'DRAFT') {
+        return NextResponse.json({ error: 'Bien introuvable' }, { status: 404 })
+      }
+
       const mappedProperty = {
         id: property.id,
         title: property.title,

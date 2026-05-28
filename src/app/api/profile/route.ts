@@ -3,6 +3,7 @@ import { resolveRequestUser } from "@/lib/auth/request-user"
 import { getSupabaseAdminClient } from "@/lib/supabase/admin"
 import { getUserProfileById } from "@/lib/supabase/email-auth"
 import { profileSelect, toProfilePayload } from "@/lib/supabase/profile"
+import { normalizePhone } from "@/lib/ansut-messaging"
 import type { Database } from "@/lib/supabase/types"
 
 /**
@@ -83,7 +84,7 @@ export async function PUT(req: NextRequest) {
         }
 
         if (phone !== undefined) {
-            const cleanedPhone = typeof phone === "string" ? phone.trim() : null
+            const cleanedPhone = typeof phone === "string" ? normalizePhone(phone) : null
             if (cleanedPhone && cleanedPhone.length !== 10) {
                 return NextResponse.json(
                     {

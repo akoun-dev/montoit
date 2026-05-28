@@ -342,7 +342,7 @@ export function ForgotPasswordForm() {
                           <Input
                             id="fp-phone"
                             type="tel"
-                            placeholder="+225 XX XX XX XX XX"
+                            placeholder="01 40 98 43 43"
                             value={phone}
                             onChange={(e) => { setError(''); setPhone(e.target.value.replace(/\D/g, '').slice(0, 10)) }}
                             className="h-11 pl-9"

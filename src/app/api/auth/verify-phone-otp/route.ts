@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { checkRateLimit } from '@/lib/rate-limiter'
+import { normalizePhone } from '@/lib/ansut-messaging'
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,8 +11,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Numéro et code requis' }, { status: 400 })
     }
 
+    const normalizedPhone = normalizePhone(phone)
+
     // Rate limiting par numéro de téléphone
-    const { allowed } = checkRateLimit('otp-verify', phone, { maxRequests: 10, windowMs: 60_000 })
+    const { allowed } = checkRateLimit('otp-verify', normalizedPhone, { maxRequests: 10, windowMs: 60_000 })
     if (!allowed) {
       return NextResponse.json(
         { error: 'Trop de tentatives. Veuillez réessayer dans une minute.' },
@@ -24,7 +27,7 @@ export async function POST(req: NextRequest) {
     const { data: otp } = await supabase
       .from('otp_codes')
       .select('id, user_id')
-      .eq('phone', phone)
+      .eq('phone', normalizedPhone)
       .eq('code', code)
       .eq('type', 'PHONE_VERIFY')
       .eq('is_used', false)

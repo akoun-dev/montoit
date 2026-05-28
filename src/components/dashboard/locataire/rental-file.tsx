@@ -493,7 +493,7 @@ export function RentalFileForm() {
               <div className="space-y-2">
                 <Label>Téléphone du garant</Label>
                 <Input
-                  placeholder="+225 XX XX XX XX"
+                  placeholder="01 23 45 67 89"
                   value={formData.guarantorPhone}
                   onChange={(e) => updateField('guarantorPhone', e.target.value)}
                   disabled={isReadOnly}

@@ -45,6 +45,7 @@ import {
   Loader2,
   EyeOff,
   Check,
+  Flag,
 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -61,6 +62,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog'
 import { ReportDetailDialog, statusConfig as inventoryStatusConfig, typeLabels as inventoryTypeLabels } from '@/components/dashboard/tc/report-detail-dialog'
 import type { InventoryReport } from '@/components/dashboard/tc/report-detail-dialog'
@@ -159,6 +161,27 @@ interface Review {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+
+// ── Signal templates ────────────────────────────────────────────────────────
+
+const SIGNAL_TEMPLATES: Record<string, string[]> = {
+  FALSE_INFORMATION: [
+    "Les informations affichées dans cette annonce (surface, loyer, équipements) ne correspondent pas à la réalité du bien.",
+    "Les photos de l'annonce ne correspondent pas au bien proposé.",
+  ],
+  INAPPROPRIATE_CONTENT: [
+    "Cette annonce contient des images ou descriptions inappropriées qui enfreignent les conditions d'utilisation.",
+    "Le contenu de cette annonce est de nature publicitaire ou non conforme à la plateforme.",
+  ],
+  FRAUD: [
+    "Cette annonce semble frauduleuse. Le bien présenté pourrait ne pas exister.",
+    "Les informations d'identité du propriétaire semblent suspectes.",
+  ],
+  OTHER: [
+    "Cette annonce ne respecte pas les règles générales de la plateforme.",
+    "Le bien proposé ne correspond pas à la catégorie sélectionnée.",
+  ],
+}
 
 function formatJoinedDate(dateStr: string): string {
   const months = ['Jan', 'Fév', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
@@ -449,6 +472,56 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
   const [detailReport, setDetailReport] = useState<InventoryReport | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
 
+  // Signal property state
+  const [signalDialogOpen, setSignalDialogOpen] = useState(false)
+  const [signalReason, setSignalReason] = useState('FALSE_INFORMATION')
+  const [signalDescription, setSignalDescription] = useState('')
+  const [signalTemplateIndex, setSignalTemplateIndex] = useState(0)
+  const [signalSubmitting, setSignalSubmitting] = useState(false)
+  const [signalSubmitted, setSignalSubmitted] = useState(false)
+
+  const currentSignalTemplates = SIGNAL_TEMPLATES[signalReason] || SIGNAL_TEMPLATES.FALSE_INFORMATION
+
+  useEffect(() => {
+    const templates = SIGNAL_TEMPLATES[signalReason] || SIGNAL_TEMPLATES.FALSE_INFORMATION
+    const validIdx = Math.min(signalTemplateIndex, templates.length - 1)
+    setSignalTemplateIndex(validIdx)
+    setSignalDescription(templates[validIdx])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signalReason, signalTemplateIndex])
+
+  const handleSignalSubmit = async () => {
+    if (!signalDescription.trim() || signalSubmitting) return
+    setSignalSubmitting(true)
+    try {
+      await apiFetch('/api/properties/signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          propertyId,
+          reason: signalReason,
+          description: signalDescription.trim(),
+        }),
+        credentials: 'include',
+      })
+      setSignalSubmitted(true)
+    } catch {
+      toast({ title: 'Erreur', description: 'Impossible d\'envoyer le signalement. Veuillez réessayer.', variant: 'destructive' })
+    } finally {
+      setSignalSubmitting(false)
+    }
+  }
+
+  const openSignalDialog = () => {
+    requireAuth('signaler une annonce', () => {
+      setSignalReason('FALSE_INFORMATION')
+      setSignalDescription('')
+      setSignalTemplateIndex(0)
+      setSignalSubmitted(false)
+      setSignalDialogOpen(true)
+    })
+  }
+
   // Partage state
   const [shareSuccess, setShareSuccess] = useState(false)
   const handleShare = useCallback(() => {
@@ -630,6 +703,105 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
     <section className="bg-muted min-h-screen overflow-x-hidden">
       {/* Auth Gate Dialog */}
       <AuthGateDialog open={authGateOpen} onOpenChange={setAuthGateOpen} action={authGateAction} />
+
+      {/* Signal Property Dialog */}
+      <Dialog open={signalDialogOpen} onOpenChange={(open) => { if (!open) { setSignalDialogOpen(false); setSignalSubmitted(false); setSignalReason('FALSE_INFORMATION'); setSignalDescription(''); setSignalTemplateIndex(0) } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              <div className="flex items-center gap-2">
+                <Flag className="size-5 text-amber-500" />
+                Signaler cette annonce
+              </div>
+            </DialogTitle>
+            <DialogDescription>
+              Signalez les informations incorrectes ou suspectes de cette annonce. Notre équipe examinera votre signalement.
+            </DialogDescription>
+          </DialogHeader>
+
+          {signalSubmitted ? (
+            <div className="text-center py-6">
+              <div className="size-14 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+                <CheckCircle2 className="size-7 text-emerald-500" />
+              </div>
+              <h3 className="text-base font-bold text-foreground mb-2">Signalement envoyé !</h3>
+              <p className="text-sm text-muted-foreground">
+                Votre signalement a été transmis à notre équipe. Elle l&apos;examinera dans les plus brefs délais.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-4 text-brand-500 border-brand-200"
+                onClick={() => { setSignalDialogOpen(false); setSignalSubmitted(false); setSignalReason('FALSE_INFORMATION'); setSignalDescription(''); setSignalTemplateIndex(0) }}
+              >
+                Fermer
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Motif du signalement</label>
+                <select
+                  value={signalReason}
+                  onChange={(e) => setSignalReason(e.target.value)}
+                  className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="FALSE_INFORMATION">Fausse information</option>
+                  <option value="INAPPROPRIATE_CONTENT">Contenu inapproprié</option>
+                  <option value="FRAUD">Fraude</option>
+                  <option value="OTHER">Autre</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Message de signalement</label>
+                <div className="space-y-2">
+                  {currentSignalTemplates.map((template, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setSignalTemplateIndex(idx)
+                        setSignalDescription(template)
+                      }}
+                      className={`w-full text-left p-3 rounded-lg border text-sm transition-all ${
+                        signalTemplateIndex === idx
+                          ? 'border-amber-300 bg-amber-50 text-amber-900 ring-2 ring-amber-200 ring-offset-1'
+                          : 'border-border hover:bg-muted text-foreground'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className={`size-5 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center ${
+                          signalTemplateIndex === idx
+                            ? 'border-amber-500 bg-amber-500'
+                            : 'border-muted-foreground/30'
+                        }`}>
+                          {signalTemplateIndex === idx && <div className="size-2 rounded-full bg-white" />}
+                        </div>
+                        <span>{template}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!signalSubmitted && (
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => { setSignalDialogOpen(false); setSignalReason('FALSE_INFORMATION'); setSignalDescription(''); setSignalTemplateIndex(0) }}>
+                Annuler
+              </Button>
+              <Button
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                onClick={handleSignalSubmit}
+                disabled={!signalDescription.trim() || signalSubmitting}
+              >
+                {signalSubmitting ? <Loader2 className="size-4 animate-spin mr-2" /> : <Flag className="size-4 mr-1.5" />}
+                Signaler
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Apply Dialog */}
       <ApplyDialog
@@ -905,7 +1077,7 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
               >
                 {activeTab === 'details' && <DetailsTab property={property} features={features} extras={extras} />}
                 {activeTab === 'modalites' && <ModalitesTab extras={extras} price={property.price} />}
-                {activeTab === 'contact' && <ContactTab property={property} extras={extras} />}
+                {activeTab === 'contact' && <ContactTab property={property} extras={extras} openSignalDialog={openSignalDialog} />}
                 {activeTab === 'reviews' && <ReviewsTab avgRating={avgRating} reviews={reviews} totalReviews={totalReviews} propertyId={property.id} ownerId={property.ownerId} />}
               </motion.div>
             </AnimatePresence>
@@ -1095,11 +1267,18 @@ export function PropertyDetailView({ propertyId }: { propertyId: string }) {
                   <AlertCircle className="size-4 text-amber-600" />
                   <p className="text-xs font-semibold text-amber-800">Conseils de sécurité</p>
                 </div>
-                <ul className="text-[11px] text-amber-700 space-y-1">
+                <ul className="text-[11px] text-amber-700 space-y-1 mb-3">
                   <li>· Ne payez jamais avant la visite</li>
                   <li>· Vérifiez les documents du propriétaire</li>
                   <li>· Signalez toute démarche suspecte</li>
                 </ul>
+                <button
+                  onClick={openSignalDialog}
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-amber-300 bg-white/50 text-amber-700 text-xs font-medium hover:bg-amber-100/50 hover:border-amber-400 transition-all active:scale-[0.98]"
+                >
+                  <Flag className="size-3.5" />
+                  Signaler cette annonce
+                </button>
               </div>
             </div>
           </motion.aside>
@@ -1380,9 +1559,11 @@ function ModalitesTab({
 function ContactTab({
   property,
   extras,
+  openSignalDialog,
 }: {
   property: PropertyDetail
   extras: ParsedExtras
+  openSignalDialog: () => void
 }) {
   const { isAuthenticated, setView } = useAuthStore()
   const [message, setMessage] = useState('')
@@ -1545,6 +1726,28 @@ function ContactTab({
           </div>
         )}
       </div>
+
+      {/* Signal property button (visible only for authenticated users) */}
+      {isAuthenticated && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="size-4 text-amber-600" />
+            <p className="text-xs font-semibold text-amber-800">Conseils de sécurité</p>
+          </div>
+          <ul className="text-[11px] text-amber-700 space-y-1 mb-3">
+            <li>· Ne payez jamais avant la visite</li>
+            <li>· Vérifiez les documents du propriétaire</li>
+            <li>· Signalez toute démarche suspecte</li>
+          </ul>
+          <button
+            onClick={openSignalDialog}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-amber-300 bg-white/50 text-amber-700 text-xs font-medium hover:bg-amber-100/50 hover:border-amber-400 transition-all active:scale-[0.98]"
+          >
+            <Flag className="size-3.5" />
+            Signaler cette annonce
+          </button>
+        </div>
+      )}
     </div>
   )
 }
