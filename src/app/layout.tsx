@@ -86,6 +86,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="theme-color" content="#FF6C2F" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
       </head>
       <body className={`${inter.variable} antialiased bg-background text-foreground`}>
         <QueryProvider>

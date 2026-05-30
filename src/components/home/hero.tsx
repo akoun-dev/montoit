@@ -153,7 +153,7 @@ export function Hero() {
               />
             </div>
             <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger className="h-11 w-full sm:w-[200px] bg-muted border-border">
+              <SelectTrigger className="data-[size=default]:h-11 w-full sm:w-[200px] bg-muted border-border">
                 <Building2 className="size-4 text-muted-foreground mr-1" />
                 <SelectValue placeholder="Type de bien" />
               </SelectTrigger>

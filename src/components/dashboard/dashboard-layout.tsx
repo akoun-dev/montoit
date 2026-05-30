@@ -10,7 +10,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null
 
   return (
-    <div className="h-screen flex overflow-hidden bg-background">
+    <div className="h-screen flex overflow-hidden bg-background safe-area-top">
       {/* Desktop Sidebar */}
       <Sidebar />
 

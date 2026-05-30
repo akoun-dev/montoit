@@ -1139,7 +1139,7 @@ export function NosBiensView() {
 
             {/* Sort - desktop/tablet */}
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="hidden sm:flex h-11 w-[150px] bg-card border-border text-xs rounded-xl shadow-sm">
+              <SelectTrigger className="hidden sm:flex data-[size=default]:h-11 w-[150px] bg-card border-border text-xs rounded-xl shadow-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

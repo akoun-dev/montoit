@@ -641,13 +641,20 @@ export const useAuthStore = create<AuthState>()(
                             startHeartbeat()
                         } else if (res.status === 401) {
                             // Server explicitly says not authenticated — session is truly expired
+                            // Always reset navigation to home (not just when coming from dashboard)
                             set({
                                 user: null,
                                 isAuthenticated: false,
-                                currentView:
-                                    get().currentView === "dashboard"
-                                        ? "home"
-                                        : get().currentView,
+                                currentView: "home",
+                                previousView: "home",
+                                dashboardSection: "overview",
+                                selectedPropertyId: "",
+                                selectedItemId: "",
+                                searchParams: {
+                                    query: "",
+                                    commune: "",
+                                    propertyType: "",
+                                },
                                 isInitialized: true,
                                 lastAuthenticatedAt: null,
                             })
@@ -745,15 +752,39 @@ function startHeartbeat() {
     if (typeof window === "undefined") return
 
     heartbeatTimer = setInterval(async () => {
-        const { isAuthenticated, checkAuth } = useAuthStore.getState()
-        if (!isAuthenticated) {
+        const state = useAuthStore.getState()
+        if (!state.isAuthenticated) {
             stopHeartbeat()
             return
         }
         try {
-            await checkAuth()
+            const res = await apiFetch("/api/auth/me", {
+                credentials: "include",
+            })
+            if (res.ok) {
+                const data = await res.json()
+                useAuthStore.setState({
+                    user: data.user,
+                    isAuthenticated: true,
+                    lastAuthenticatedAt: Date.now(),
+                })
+            } else if (res.status === 401) {
+                // Session silently expired — clear auth state but
+                // DO NOT reset currentView or other navigation state.
+                // The view will be reset gracefully on the next:
+                //   - authFetch 401 → logout() (when user tries an API call)
+                //   - AppLifecycleManager.runResumeLogic() (on app resume)
+                //   - page.tsx checkAuth() (on full page reload)
+                useAuthStore.setState({
+                    user: null,
+                    isAuthenticated: false,
+                    lastAuthenticatedAt: null,
+                })
+                stopHeartbeat()
+            }
+            // Server error (5xx) or other — keep state, retry next interval
         } catch {
-            // Silently ignore heartbeat errors — the next one will retry
+            // Network error — silently ignore, next interval will retry
         }
     }, SESSION_HEARTBEAT_INTERVAL)
 }

@@ -4,39 +4,62 @@ const config: CapacitorConfig = {
   appId: 'com.montoit.app',
   appName: 'Mon Toit',
   webDir: 'out',
+
   server: {
     androidScheme: 'https',
     url: 'https://mon-toit.ansut.ci',
     cleartext: true,
     errorPath: 'offline.html',
     allowNavigation: [
-      'neoface.aineo.ai',
       'mon-toit.ansut.ci',
+      'neoface.aineo.ai',
+      '*.aineo.ai',
     ],
   },
+
   plugins: {
-    InAppBrowser: {
-      // Permet l'ouverture de l'URL NeoFace pour le selfie KYC
+    StatusBar: {
+      overlaysWebView: true,
+      style: 'DARK',
+      backgroundColor: '#FFFFFF',
     },
+
+    SplashScreen: {
+      launchShowDuration: 2000,
+      launchAutoHide: true,
+      backgroundColor: '#FFFFFF',
+      showSpinner: false,
+    },
+
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
+
     App: {
-      // Désactive le handler retour par défaut — géré par AppBackHandler
       disableBackButtonHandler: true,
     },
-    Browser: {
-      // Ouverture d'URLs externes (liens, documents, etc.)
-    },
+
+    Browser: {},
+
+    InAppBrowser: {},
+
     Geolocation: {
       permissions: true,
     },
-    Network: {
-      // Détection de la connectivité réseau
-    },
-    AppLauncher: {
-      // Lancement d'autres applications depuis Mon Toit
-    },
+
+    Network: {},
+
+    AppLauncher: {},
+  },
+
+  ios: {
+    contentInset: 'automatic',
+    limitsNavigationsToAppBoundDomains: false,
+  },
+
+  android: {
+    allowMixedContent: true,
+    captureInput: true,
   },
 }
 
