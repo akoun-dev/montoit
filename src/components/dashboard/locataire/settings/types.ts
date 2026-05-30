@@ -73,4 +73,4 @@ export interface NotificationPreferences {
   promotions: boolean
 }
 
-export type SettingsTab = 'profil' | 'scoring' | 'securite' | 'notifications' | 'reviews' | 'maintenance' | 'history'
+export type SettingsTab = 'profil' | 'verification' | 'securite' | 'notifications'

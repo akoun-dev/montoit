@@ -3,8 +3,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   PlusCircle, ImagePlus, EyeOff, Video, X, Loader2,
-  Upload, ArrowLeft, CheckCircle2, MapPin, Home,
-  FileText, Settings2, Save, Navigation, LocateFixed
+  Upload, ArrowLeft, ArrowRight, CheckCircle2, MapPin, Home,
+  FileText, Settings2, Save, Navigation, LocateFixed,
+  ChevronLeft, ChevronRight, Building2, Camera, DollarSign, Minus, Plus
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -64,7 +65,6 @@ function PropertyLocationPicker({
         maxZoom: 19,
       }).addTo(map)
 
-      // Custom marker icon
       const icon = L.divIcon({
         className: 'location-picker-marker',
         html: `<div style="
@@ -86,7 +86,6 @@ function PropertyLocationPicker({
         iconAnchor: [16, 32],
       })
 
-      // Add marker if coordinates exist
       if (lat !== null && lng !== null) {
         const marker = L.marker([lat, lng], { icon, draggable: true }).addTo(map)
         marker.on('dragend', () => {
@@ -96,7 +95,6 @@ function PropertyLocationPicker({
         markerRef.current = marker
       }
 
-      // Click on map to set/update marker
       map.on('click', (e: L.LeafletMouseEvent) => {
         const { lat: clickedLat, lng: clickedLng } = e.latlng
         if (markerRef.current) {
@@ -114,7 +112,6 @@ function PropertyLocationPicker({
 
       mapInstanceRef.current = map
 
-      // Fix map rendering after mount
       requestAnimationFrame(() => {
         if (mapInstanceRef.current) {
           mapInstanceRef.current.invalidateSize()
@@ -130,9 +127,8 @@ function PropertyLocationPicker({
         markerRef.current = null
       }
     }
-  }, []) // Only mount once
+  }, [])
 
-  // Update marker position when lat/lng props change externally
   useEffect(() => {
     if (!mapInstanceRef.current || lat === null || lng === null) return
     const map = mapInstanceRef.current
@@ -180,7 +176,7 @@ function PropertyLocationPicker({
 }
 
 interface AddPropertyProps {
-  editId?: string  // If provided, load existing draft for editing
+  editId?: string
   onSuccess?: () => void
   onCancel?: () => void
 }
@@ -207,44 +203,50 @@ interface PropertyData {
   virtualTourUrl: string | null
   images: Array<{ url: string; order: number }>
   status: string
+  depositMonths: number | null
+  advanceMonths: number | null
+  agencyFeesMonths: number | null
 }
 
+const STEPS = [
+  { id: 1, label: 'Description', icon: Home },
+  { id: 2, label: 'Loyer & Charges', icon: DollarSign },
+  { id: 3, label: 'Localisation', icon: MapPin },
+  { id: 4, label: 'Photos', icon: Camera },
+  { id: 5, label: 'Documents', icon: FileText },
+] as const
+
 export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
+  const [step, setStep] = useState(1)
   const [form, setForm] = useState({
     title: '', description: '', type: 'APPARTEMENT', price: '', area: '',
     bedrooms: '', bathrooms: '', address: '', city: '', commune: '',
     latitude: '', longitude: '',
     isFurnished: false, hasParking: false, hasGarden: false, hasPool: false,
+    hasBalcony: false, hasTerrace: false, hasKitchen: false, hasBox: false,
     hideOwnerName: false,
+    depositMonths: '2', advanceMonths: '2', agencyFeesMonths: '1',
   })
 
-  // Image upload state
   const [imagePreviews, setImagePreviews] = useState<Array<{ dataUrl: string; file: File }>>([])
   const [existingImages, setExistingImages] = useState<Array<{ url: string; order: number }>>([])
   const [imageError, setImageError] = useState<string | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
-  // Video upload state
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [videoPreview, setVideoPreview] = useState<string | null>(null)
   const [existingVideo, setExistingVideo] = useState<string | null>(null)
   const [videoUploading, setVideoUploading] = useState(false)
   const videoInputRef = useRef<HTMLInputElement>(null)
 
-  // Document upload state
   const [newDocuments, setNewDocuments] = useState<Array<{
     file: File; name: string; type: string; description: string; expiryDate: string
   }>>([])
   const [existingDocuments, setExistingDocuments] = useState<Array<{
     id: string; name: string; type: string; description: string | null; expiryDate: string | null; url: string
   }>>([])
-  const [docLoading, setDocLoading] = useState(false)
   const docInputRef = useRef<HTMLInputElement>(null)
-  const [docFormOpen, setDocFormOpen] = useState(false)
-  const [docModalOpen, setDocModalOpen] = useState(false)
-  const [docForm, setDocForm] = useState({
-    name: '', type: 'AUTRE', description: '', expiryDate: '', file: null as File | null,
-  })
+
   const docTypes = [
     { value: 'DIAGNOSTIC_DPE', label: 'Diagnostic DPE' },
     { value: 'DIAGNOSTIC_AMIANTE', label: 'Diagnostic Amiante' },
@@ -257,16 +259,13 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
     { value: 'AUTRE', label: 'Autre' },
   ]
 
-  // Form state
   const [submitting, setSubmitting] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [draftSavedAt, setDraftSavedAt] = useState<Date | null>(null)
   const [propertyId, setPropertyId] = useState<string | null>(editId || null)
   const [loading, setLoading] = useState(!!editId)
-  const [processingStatus, setProcessingStatus] = useState<string | null>(null)
 
-  // Auto-save timer ref
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const update = (field: string, value: string | boolean) => {
@@ -281,141 +280,79 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
         const result = await authFetch<{ property: PropertyData }>(`/api/properties/${editId}`)
         const p = result.property
         setForm({
-          title: p.title || '',
-          description: p.description || '',
-          type: p.type || 'APPARTEMENT',
-          price: p.price ? String(p.price) : '',
-          area: p.area ? String(p.area) : '',
+          title: p.title || '', description: p.description || '', type: p.type || 'APPARTEMENT',
+          price: p.price ? String(p.price) : '', area: p.area ? String(p.area) : '',
           bedrooms: p.bedrooms !== null ? String(p.bedrooms) : '',
           bathrooms: p.bathrooms !== null ? String(p.bathrooms) : '',
-          address: p.address || '',
-          city: p.city || '',
-          commune: p.commune || '',
+          address: p.address || '', city: p.city || '', commune: p.commune || '',
           latitude: p.latitude !== null ? String(p.latitude) : '',
           longitude: p.longitude !== null ? String(p.longitude) : '',
-          isFurnished: p.isFurnished || false,
-          hasParking: p.hasParking || false,
-          hasGarden: p.hasGarden || false,
-          hasPool: p.hasPool || false,
+          isFurnished: p.isFurnished || false, hasParking: p.hasParking || false,
+          hasGarden: p.hasGarden || false, hasPool: p.hasPool || false,
+          hasBalcony: false, hasTerrace: false, hasKitchen: false, hasBox: false,
           hideOwnerName: p.hideOwnerName || false,
+          depositMonths: p.depositMonths !== null ? String(p.depositMonths) : '2',
+          advanceMonths: p.advanceMonths !== null ? String(p.advanceMonths) : '2',
+          agencyFeesMonths: p.agencyFeesMonths !== null ? String(p.agencyFeesMonths) : '1',
         })
         setExistingImages(p.images || [])
-        if (p.virtualTourUrl) {
-          setExistingVideo(p.virtualTourUrl)
-          setVideoPreview(p.virtualTourUrl)
-        }
+        if (p.virtualTourUrl) { setExistingVideo(p.virtualTourUrl); setVideoPreview(p.virtualTourUrl) }
         setPropertyId(p.id)
-
-        // Load existing documents
         try {
           const docRes = await authFetch<{ documents: Array<{
             id: string; name: string; type: string; description: string | null; expiryDate: string | null; url: string
           }> }>(`/api/properties/${editId}/documents`)
           setExistingDocuments(docRes.documents || [])
         } catch {}
-      } catch (err) {
-        toast.error('Impossible de charger le brouillon')
-      } finally {
-        setLoading(false)
-      }
+      } catch { toast.error('Impossible de charger le brouillon') }
+      finally { setLoading(false) }
     }
     loadDraft()
   }, [editId])
 
-  // ── Auto-save on form change ───────────────────────────────────────────────
+  // ── Auto-save ───────────────────────────────────────────────────────────────
   const triggerAutoSave = useCallback(() => {
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current)
-    }
-    autoSaveTimerRef.current = setTimeout(() => {
-      handleSaveDraft(true) // silent = true
-    }, 5000)
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(() => { handleSaveDraft(true) }, 5000)
   }, [form, propertyId, imagePreviews, videoFile, existingImages, existingVideo])
 
-  // Trigger auto-save when form changes (but not on first render)
   const isFirstRender = useRef(true)
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false
-      return
-    }
-    if (loading) return // Don't auto-save while loading draft
+    if (isFirstRender.current) { isFirstRender.current = false; return }
+    if (loading) return
     triggerAutoSave()
-    return () => {
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
-    }
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current) }
   }, [form, triggerAutoSave, loading])
 
   // ── Image handling ─────────────────────────────────────────────────────────
   const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
-    if (!files || files.length === 0) {
-      console.log('[ImageSelect] no files')
-      return
-    }
-    // Snapshot the FileList into an array BEFORE clearing the input value,
-    // otherwise e.target.value = '' can invalidate the live FileList reference
-    // on some browsers (fileArray.length = 0 despite files.length > 0).
+    if (!files || files.length === 0) return
     const fileArray = Array.from(files)
     e.target.value = ''
-    console.log('[ImageSelect] files selected:', files.length, fileArray.map(f => ({ name: f.name, type: f.type, size: f.size })))
 
     const remaining = 10 - imagePreviews.length - existingImages.length
-    console.log('[ImageSelect] remaining:', remaining, 'imagePreviews.length:', imagePreviews.length, 'existingImages.length:', existingImages.length)
-    if (remaining <= 0) {
-      console.log('[ImageSelect] max reached')
-      setImageError('Maximum 10 photos autorisées')
-      return
-    }
+    if (remaining <= 0) { setImageError('Maximum 10 photos autorisées'); return }
 
     const newImages: Array<{ dataUrl: string; file: File }> = []
     let error = ''
 
-    const sliced = fileArray.slice(0, remaining)
-    console.log('[ImageSelect] sliced length:', sliced.length)
-
-    for (const file of sliced) {
-      console.log('[ImageSelect] processing file:', file.name, file.type, file.size)
+    for (const file of fileArray.slice(0, remaining)) {
       if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
-        console.log('[ImageSelect] invalid type:', file.type, file.name)
-        error = 'Format invalide. Utilisez JPG, PNG ou WEBP.'
-        continue
+        error = 'Format invalide. Utilisez JPG, PNG ou WEBP.'; continue
       }
-      if (file.size > 5 * 1024 * 1024) {
-        console.log('[ImageSelect] too large:', file.size, file.name)
-        error = 'Chaque image doit faire moins de 5 Mo.'
-        continue
-      }
-      let url: string
-      try {
-        url = URL.createObjectURL(file)
-      } catch (e) {
-        console.error('[ImageSelect] createObjectURL failed:', e, file.name)
-        error = "Erreur lors du chargement de l'image"
-        continue
-      }
-      console.log('[ImageSelect] blob url created:', url, file.name)
-      newImages.push({ dataUrl: url, file })
-    }
-    console.log('[ImageSelect] newImages after loop:', newImages.length, 'error:', error)
-
-    if (error) {
-      console.log('[ImageSelect] error set:', error)
-      setImageError(error)
-      if (newImages.length === 0) return
+      if (file.size > 5 * 1024 * 1024) { error = 'Chaque image doit faire moins de 5 Mo.'; continue }
+      try { newImages.push({ dataUrl: URL.createObjectURL(file), file }) }
+      catch { error = "Erreur lors du chargement de l'image" }
     }
 
-    console.log('[ImageSelect] setting previews:', newImages.length)
+    if (error) { setImageError(error); if (newImages.length === 0) return }
     setImageError(null)
     setImagePreviews((prev) => [...prev, ...newImages])
   }, [imagePreviews.length, existingImages.length])
 
   const removeImage = useCallback((index: number) => {
-    setImagePreviews((prev) => {
-      const img = prev[index]
-      if (img) URL.revokeObjectURL(img.dataUrl)
-      return prev.filter((_, i) => i !== index)
-    })
+    setImagePreviews((prev) => { const img = prev[index]; if (img) URL.revokeObjectURL(img.dataUrl); return prev.filter((_, i) => i !== index) })
   }, [])
 
   const removeExistingImage = useCallback((index: number) => {
@@ -427,142 +364,71 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
-
-    if (!file.type.startsWith('video/')) {
-      setError('Format vidéo invalide. Utilisez MP4, MOV, AVI ou WEBM.')
-      return
-    }
-
-    if (file.size > 50 * 1024 * 1024) {
-      setError('La vidéo doit faire moins de 50 Mo.')
-      return
-    }
-
+    if (!file.type.startsWith('video/')) { setError('Format vidéo invalide.'); return }
+    if (file.size > 50 * 1024 * 1024) { setError('La vidéo doit faire moins de 50 Mo.'); return }
     setError(null)
     setVideoFile(file)
-    setExistingVideo(null) // Remove existing video when new one selected
+    setExistingVideo(null)
     setVideoUploading(true)
-
-    const previewUrl = URL.createObjectURL(file)
-    setVideoPreview(previewUrl)
+    setVideoPreview(URL.createObjectURL(file))
     setVideoUploading(false)
   }, [])
 
   const removeVideo = useCallback(() => {
     if (videoPreview && !existingVideo) URL.revokeObjectURL(videoPreview)
-    setVideoFile(null)
-    setVideoPreview(null)
-    setExistingVideo(null)
+    setVideoFile(null); setVideoPreview(null); setExistingVideo(null)
   }, [videoPreview, existingVideo])
 
   // ── Document handling ────────────────────────────────────────────────────
   const handleDocFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = e.target.files
+    if (!files || files.length === 0) return
     e.target.value = ''
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Le document doit faire moins de 10 Mo.')
-      return
+    for (const file of Array.from(files)) {
+      if (file.size > 10 * 1024 * 1024) { toast.error(`"${file.name}" doit faire moins de 10 Mo.`); continue }
+      setNewDocuments((prev) => [...prev, {
+        file, name: file.name.replace(/\.[^/.]+$/, ''), type: 'AUTRE',
+        description: '', expiryDate: '',
+      }])
     }
-    setDocForm((prev) => ({ ...prev, file }))
   }
 
-  const addDocument = () => {
-    if (!docForm.name.trim() || !docForm.file) {
-      toast.error('Veuillez donner un nom et sélectionner un fichier.')
-      return
-    }
-    setNewDocuments((prev) => [...prev, {
-      file: docForm.file!,
-      name: docForm.name.trim(),
-      type: docForm.type,
-      description: docForm.description.trim(),
-      expiryDate: docForm.expiryDate,
-    }])
-    setDocForm({ name: '', type: 'AUTRE', description: '', expiryDate: '', file: null })
-    setDocFormOpen(false)
-  }
+  const removeNewDocument = (index: number) => setNewDocuments((prev) => prev.filter((_, i) => i !== index))
 
-  const removeNewDocument = (index: number) => {
-    setNewDocuments((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const deleteExistingDocument = async (docId: string, propertyId: string) => {
+  const deleteExistingDocument = async (docId: string, pid: string) => {
     try {
-      await authFetch(`/api/properties/${propertyId}/documents/${docId}`, { method: 'DELETE' })
+      await authFetch(`/api/properties/${pid}/documents/${docId}`, { method: 'DELETE' })
       setExistingDocuments((prev) => prev.filter((d) => d.id !== docId))
       toast.success('Document supprimé')
-    } catch {
-      toast.error('Erreur lors de la suppression')
-    }
+    } catch { toast.error('Erreur lors de la suppression') }
   }
 
-  // ── Compress image before base64 conversion ────────────────────────────────
-  // Limits max dimension to 1600px and quality to 0.7 to reduce payload size
+  // ── Compress image ──────────────────────────────────────────────────────
   const compressImage = (file: File): Promise<string> => {
-    console.log('[compressImage] start:', file.name, file.type, file.size)
     return new Promise((resolve, reject) => {
       if (!file.type.startsWith('image/')) {
-        console.log('[compressImage] non-image, skip compression')
-        const reader = new FileReader()
-        reader.onload = () => resolve(reader.result as string)
-        reader.onerror = () => reject(new Error('Erreur de lecture du fichier'))
-        reader.readAsDataURL(file)
-        return
+        const reader = new FileReader(); reader.onload = () => resolve(reader.result as string); reader.onerror = () => reject(new Error('Erreur de lecture')); reader.readAsDataURL(file); return
       }
-
       const img = new Image()
       img.onload = () => {
         URL.revokeObjectURL(img.src)
-        const origW = img.width
-        const origH = img.height
-        const MAX_DIM = 1600
         let { width, height } = img
-        if (width > MAX_DIM || height > MAX_DIM) {
-          const ratio = Math.min(MAX_DIM / width, MAX_DIM / height)
-          width = Math.round(width * ratio)
-          height = Math.round(height * ratio)
-        }
-        console.log('[compressImage] dimensions:', origW + 'x' + origH, '->', width + 'x' + height)
-
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
+        const MAX_DIM = 1600
+        if (width > MAX_DIM || height > MAX_DIM) { const ratio = Math.min(MAX_DIM / width, MAX_DIM / height); width = Math.round(width * ratio); height = Math.round(height * ratio) }
+        const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height
         const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          console.error('[compressImage] canvas context null, fallback FileReader')
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result as string)
-          reader.onerror = () => reject(new Error('Erreur de lecture du fichier'))
-          reader.readAsDataURL(file)
-          return
-        }
+        if (!ctx) { const reader = new FileReader(); reader.onload = () => resolve(reader.result as string); reader.readAsDataURL(file); return }
         ctx.drawImage(img, 0, 0, width, height)
-
-        const quality = file.type === 'image/png' ? 0.8 : 0.7
-        const result = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', quality)
-        console.log('[compressImage] done, base64 length:', result.length)
-        resolve(result)
+        resolve(canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', file.type === 'image/png' ? 0.8 : 0.7))
       }
-      img.onerror = (err) => {
-        console.error('[compressImage] image load error:', err, file.name)
-        URL.revokeObjectURL(img.src)
-        const reader = new FileReader()
-        reader.onload = () => resolve(reader.result as string)
-        reader.onerror = () => reject(new Error('Erreur de lecture du fichier'))
-        reader.readAsDataURL(file)
-      }
+      img.onerror = () => { const reader = new FileReader(); reader.onload = () => resolve(reader.result as string); reader.readAsDataURL(file) }
       img.src = URL.createObjectURL(file)
     })
   }
 
-  // ── Convert file to base64 (no compression — kept for non-image files) ─────
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = () => reject(new Error('Erreur de lecture du fichier'))
-      reader.readAsDataURL(file)
+      const reader = new FileReader(); reader.onload = () => resolve(reader.result as string); reader.onerror = () => reject(new Error('Erreur de lecture')); reader.readAsDataURL(file)
     })
   }
 
@@ -570,127 +436,73 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
   const handleSaveDraft = async (silent = false) => {
     if (!silent) setSavingDraft(true)
     setError(null)
-
     try {
-      console.log('[SaveDraft] imagePreviews:', imagePreviews.length, 'existingImages:', existingImages.length)
-
-      // Convert new images to base64 (with compression)
       const newImagesBase64: string[] = []
-      for (const img of imagePreviews) {
-        const base64 = await compressImage(img.file)
-        newImagesBase64.push(base64)
-      }
-
-      // Combine existing images + new images
+      for (const img of imagePreviews) newImagesBase64.push(await compressImage(img.file))
       const allImages = [...existingImages.map((img) => img.url), ...newImagesBase64]
-      console.log('[SaveDraft] total images to send:', allImages.length, 'payload size est:', JSON.stringify({ images: allImages.map(() => '...') }).length)
 
-      // Convert video to base64 (only if new video selected)
       let virtualTourUrl: string | null | undefined = undefined
-      if (videoFile) {
-        virtualTourUrl = await fileToBase64(videoFile)
-      } else if (existingVideo === null && videoPreview === null) {
-        // Video was removed
-        virtualTourUrl = null
-      }
-      // If existingVideo is set and no new video, don't send virtualTourUrl (keep existing)
+      if (videoFile) virtualTourUrl = await fileToBase64(videoFile)
+      else if (existingVideo === null && videoPreview === null) virtualTourUrl = null
 
-      const payload: Record<string, unknown> = {
-        title: form.title.trim() || undefined,
-        description: form.description.trim() || undefined,
-        type: form.type || undefined,
-        price: form.price ? parseFloat(form.price) : undefined,
+      const payload = Object.fromEntries(Object.entries({
+        title: form.title.trim() || undefined, description: form.description.trim() || undefined,
+        type: form.type || undefined, price: form.price ? parseFloat(form.price) : undefined,
         area: form.area ? parseFloat(form.area) : undefined,
         bedrooms: form.bedrooms ? parseInt(form.bedrooms) : null,
         bathrooms: form.bathrooms ? parseInt(form.bathrooms) : null,
-        address: form.address.trim() || undefined,
-        city: form.city.trim() || undefined,
+        address: form.address.trim() || undefined, city: form.city.trim() || undefined,
         commune: form.commune.trim() || null,
         latitude: form.latitude ? parseFloat(form.latitude) : null,
         longitude: form.longitude ? parseFloat(form.longitude) : null,
-        isFurnished: form.isFurnished,
-        hasParking: form.hasParking,
-        hasGarden: form.hasGarden,
-        hasPool: form.hasPool,
+        isFurnished: form.isFurnished, hasParking: form.hasParking,
+        hasGarden: form.hasGarden, hasPool: form.hasPool,
+        hasBalcony: form.hasBalcony, hasTerrace: form.hasTerrace,
+        hasKitchen: form.hasKitchen, hasBox: form.hasBox,
         hideOwnerName: form.hideOwnerName,
+        depositMonths: form.depositMonths ? parseInt(form.depositMonths) : undefined,
+        advanceMonths: form.advanceMonths ? parseInt(form.advanceMonths) : undefined,
+        agencyFeesMonths: form.agencyFeesMonths ? parseInt(form.agencyFeesMonths) : undefined,
         ...(virtualTourUrl !== undefined && { virtualTourUrl }),
         images: allImages.length > 0 ? allImages : undefined,
-      }
-
-      // Remove undefined values from payload to reduce body size
-      const cleanPayload = Object.fromEntries(
-        Object.entries(payload).filter(([_, v]) => v !== undefined)
-      )
+      }).filter(([_, v]) => v !== undefined))
 
       if (propertyId) {
-        // Update existing draft
         const result = await authFetch<{ property: { id: string; images: Array<{ url: string; order: number }>; virtualTourUrl: string | null } }>(`/api/properties/${propertyId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(cleanPayload),
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         })
-        if (result.property.images) {
-          setExistingImages(result.property.images)
-        }
-        if (result.property.virtualTourUrl) {
-          setExistingVideo(result.property.virtualTourUrl)
-          setVideoPreview(result.property.virtualTourUrl)
-          setVideoFile(null)
-        }
+        if (result.property.images) setExistingImages(result.property.images)
+        if (result.property.virtualTourUrl) { setExistingVideo(result.property.virtualTourUrl); setVideoPreview(result.property.virtualTourUrl); setVideoFile(null) }
         setImagePreviews([])
-
-        // Upload documents for existing property
         for (const doc of newDocuments) {
           const base64 = await fileToBase64(doc.file)
           await authFetch(`/api/properties/${propertyId}/documents`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: doc.name, type: doc.type, content: base64,
-              description: doc.description || undefined,
-              expiryDate: doc.expiryDate || undefined,
-            }),
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: doc.name, type: doc.type, content: base64, description: doc.description || undefined, expiryDate: doc.expiryDate || undefined }),
           })
         }
         setNewDocuments([])
       } else {
-        // Create new draft
         const result = await authFetch<{ property: { id: string; images: Array<{ url: string; order: number }>; virtualTourUrl: string | null } }>('/api/properties', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...cleanPayload, draft: true }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, draft: true }),
         })
         setPropertyId(result.property.id)
-        if (result.property.images) {
-          setExistingImages(result.property.images)
-        }
-        if (result.property.virtualTourUrl) {
-          setExistingVideo(result.property.virtualTourUrl)
-          setVideoPreview(result.property.virtualTourUrl)
-          setVideoFile(null)
-        }
+        if (result.property.images) setExistingImages(result.property.images)
+        if (result.property.virtualTourUrl) { setExistingVideo(result.property.virtualTourUrl); setVideoPreview(result.property.virtualTourUrl); setVideoFile(null) }
         setImagePreviews([])
       }
 
       setDraftSavedAt(new Date())
-      if (!silent) {
-        toast.success('Brouillon sauvegardé')
-      }
+      if (!silent) toast.success('Brouillon sauvegardé')
     } catch (err) {
-      const errMsg = err instanceof AuthError ? err.message : (err instanceof Error ? err.message : 'Erreur lors de la sauvegarde du brouillon')
-      if (!silent) {
-        toast.error(errMsg)
-      } else {
-        console.warn('[Auto-save failed]', errMsg)
-      }
-    } finally {
-      if (!silent) setSavingDraft(false)
-    }
+      const errMsg = err instanceof AuthError ? err.message : (err instanceof Error ? err.message : 'Erreur')
+      if (!silent) toast.error(errMsg); else console.warn('[Auto-save failed]', errMsg)
+    } finally { if (!silent) setSavingDraft(false) }
   }
 
-  // ── Publish handler ────────────────────────────────────────────────────────
+  // ── Publish ────────────────────────────────────────────────────────────────
   const handlePublish = async () => {
-    // Validate required fields
     if (!form.title.trim()) { setError('Le titre est requis'); return }
     if (!form.description.trim()) { setError('La description est requise'); return }
     if (!form.price || parseFloat(form.price) <= 0) { setError('Le loyer mensuel est requis'); return }
@@ -698,894 +510,598 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
     if (!form.address.trim()) { setError("L'adresse est requise"); return }
     if (!form.city.trim()) { setError('La ville est requise'); return }
 
-    setSubmitting(true)
-    setError(null)
-    setProcessingStatus('Préparation des images...')
+    setSubmitting(true); setError(null)
 
     try {
-      console.log('[Publish] imagePreviews:', imagePreviews.length, 'existingImages:', existingImages.length)
-
-      // Convert images to base64 in PARALLEL for speed
-      const totalImages = imagePreviews.length
       const newImagesBase64: string[] = []
-
-      if (totalImages > 0) {
-        const chunkSize = 3 // Process 3 at a time to avoid memory spikes
-        for (let i = 0; i < totalImages; i += chunkSize) {
-          const chunk = imagePreviews.slice(i, i + chunkSize)
-          const results = await Promise.all(
-            chunk.map((img) => compressImage(img.file))
-          )
-          newImagesBase64.push(...results)
-          setProcessingStatus(
-            `Conversion des images ${Math.min(i + chunkSize, totalImages)}/${totalImages}...`
-          )
-        }
-      }
-
+      for (const img of imagePreviews) { newImagesBase64.push(await compressImage(img.file)) }
       const allImages = [...existingImages.map((img) => img.url), ...newImagesBase64]
-      console.log('[Publish] total images to send:', allImages.length)
 
-      // Convert video to base64
       let virtualTourUrl: string | null | undefined = undefined
-      if (videoFile) {
-        setProcessingStatus('Compression de la vidéo...')
-        virtualTourUrl = await fileToBase64(videoFile)
-      } else if (existingVideo) {
-        virtualTourUrl = existingVideo
-      } else {
-        virtualTourUrl = null
-      }
-
-      setProcessingStatus('Envoi au serveur...')
+      if (videoFile) virtualTourUrl = await fileToBase64(videoFile)
+      else if (existingVideo) virtualTourUrl = existingVideo
+      else virtualTourUrl = null
 
       const payload = {
-        title: form.title.trim(),
-        description: form.description.trim(),
-        type: form.type,
-        price: parseFloat(form.price),
-        area: parseFloat(form.area),
+        title: form.title.trim(), description: form.description.trim(), type: form.type,
+        price: parseFloat(form.price), area: parseFloat(form.area),
         bedrooms: form.bedrooms ? parseInt(form.bedrooms) : null,
         bathrooms: form.bathrooms ? parseInt(form.bathrooms) : null,
-        address: form.address.trim(),
-        city: form.city.trim(),
-        commune: form.commune.trim() || null,
+        address: form.address.trim(), city: form.city.trim(), commune: form.commune.trim() || null,
         latitude: form.latitude ? parseFloat(form.latitude) : null,
         longitude: form.longitude ? parseFloat(form.longitude) : null,
-        isFurnished: form.isFurnished,
-        hasParking: form.hasParking,
-        hasGarden: form.hasGarden,
-        hasPool: form.hasPool,
-        hideOwnerName: form.hideOwnerName,
-        virtualTourUrl,
-        images: allImages,
+        isFurnished: form.isFurnished, hasParking: form.hasParking,
+        hasGarden: form.hasGarden, hasPool: form.hasPool,
+        hasBalcony: form.hasBalcony, hasTerrace: form.hasTerrace,
+        hasKitchen: form.hasKitchen, hasBox: form.hasBox,
+        hideOwnerName: form.hideOwnerName, virtualTourUrl, images: allImages,
+        depositMonths: parseInt(form.depositMonths), advanceMonths: parseInt(form.advanceMonths), agencyFeesMonths: parseInt(form.agencyFeesMonths),
       }
 
       let pid = propertyId
       if (pid) {
         await authFetch(`/api/properties/${pid}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...payload, status: 'ACTIVE' }),
-          timeout: 120_000,
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, status: 'ACTIVE' }), timeout: 120_000,
         })
       } else {
         const res = await authFetch<{ property: { id: string } }>('/api/properties', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          timeout: 120_000,
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload), timeout: 120_000,
         })
-        pid = res.property.id
-        setPropertyId(pid)
+        pid = res.property.id; setPropertyId(pid)
       }
 
-      // Upload pending documents
       if (pid && newDocuments.length > 0) {
-        setProcessingStatus('Upload des documents...')
         for (const doc of newDocuments) {
           try {
             const base64 = await fileToBase64(doc.file)
             await authFetch(`/api/properties/${pid}/documents`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name: doc.name,
-                type: doc.type,
-                content: base64,
-                description: doc.description || undefined,
-                expiryDate: doc.expiryDate || undefined,
-              }),
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: doc.name, type: doc.type, content: base64, description: doc.description || undefined, expiryDate: doc.expiryDate || undefined }),
             })
-          } catch {
-            toast.error(`Échec de l'upload du document: ${doc.name}`)
-          }
+          } catch { toast.error(`Échec de l'upload du document: ${doc.name}`) }
         }
         setNewDocuments([])
       }
 
-      setProcessingStatus(null)
       toast.success('Bien soumis pour vérification ! Un Tiers de Confiance validera votre annonce.')
       onSuccess?.()
     } catch (err) {
-      setProcessingStatus(null)
-      if (err instanceof AuthError) {
-        setError(err.message)
-      } else {
-        setError(err instanceof Error ? err.message : "Erreur lors de la publication")
-      }
-    } finally {
-      setSubmitting(false)
-    }
+      if (err instanceof AuthError) setError(err.message)
+      else setError(err instanceof Error ? err.message : "Erreur lors de la publication")
+    } finally { setSubmitting(false) }
   }
 
-  // ── Loading state for draft edit ───────────────────────────────────────────
+  // ── Validation for step navigation ─────────────────────────────────────────
+  const canGoNext = (): boolean => {
+    if (step === 1) {
+      if (!form.title.trim()) return false
+      if (!form.description.trim()) return false
+      if (!form.area || parseFloat(form.area) <= 0) return false
+      return true
+    }
+    if (step === 2) {
+      if (!form.price || parseFloat(form.price) <= 0) return false
+      return true
+    }
+    if (step === 3) {
+      if (!form.address.trim()) return false
+      if (!form.city.trim()) return false
+      return true
+    }
+    return true
+  }
+
+  const handleNext = () => { if (canGoNext()) setStep((s) => Math.min(s + 1, 5)) }
+  const handlePrev = () => setStep((s) => Math.max(s - 1, 1))
+
+  // ── Loading state ───────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="space-y-4">
         <div className="h-8 w-48 bg-muted rounded-lg animate-pulse" />
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-48 bg-muted rounded-xl animate-pulse" />
-        ))}
+        {[1, 2, 3].map((i) => <div key={i} className="h-48 bg-muted rounded-xl animate-pulse" />)}
       </div>
     )
   }
 
+  const totalImages = imagePreviews.length + existingImages.length
+
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 sm:space-y-6">
-      {/* Header */}
+      {/* ── Header ────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            // Save draft before leaving
-            if (form.title || form.description || form.address || form.city) {
-              handleSaveDraft(true)
-            }
-            onCancel?.()
-          }}
-          className="shrink-0 size-9"
-        >
+        <Button variant="ghost" size="icon" onClick={() => { if (form.title || form.description || form.address || form.city) handleSaveDraft(true); onCancel?.() }} className="shrink-0 size-9">
           <ArrowLeft className="size-4" />
         </Button>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">
             {propertyId && existingImages.length > 0 ? 'Modifier le bien' : 'Ajouter un bien'}
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {propertyId ? 'Modifiez les informations de votre bien' : 'Publiez une nouvelle annonce immobilière'}
-          </p>
+          <p className="text-sm text-muted-foreground mt-0.5">Étape {step} sur 5 — {STEPS[step - 1].label}</p>
         </div>
-        {/* Draft saved indicator */}
         <AnimatePresence>
           {draftSavedAt && (
-            <motion.div
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 10 }}
-              className="flex items-center gap-1.5 text-xs text-emerald-600 shrink-0"
-            >
+            <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="flex items-center gap-1.5 text-xs text-emerald-600 shrink-0">
               <CheckCircle2 className="size-3.5" />
               <span className="hidden sm:inline">Brouillon sauvegardé</span>
             </motion.div>
           )}
         </AnimatePresence>
-        <Button variant="outline" size="sm" onClick={() => setDocModalOpen(true)} className="gap-1.5 shrink-0">
-          <FileText className="size-4" />
-          <span className="hidden sm:inline">Documents</span>
-        </Button>
       </div>
 
-      {/* ── Document Modal ──────────────────────────────────────────── */}
-      <Dialog open={docModalOpen} onOpenChange={setDocModalOpen}>
-        <DialogContent className="flex flex-col w-full h-full sm:h-auto sm:max-w-xl max-h-dvh sm:max-h-[90vh] rounded-none sm:rounded-lg border-0 sm:border p-0 sm:p-6">
-          {/* Mobile drag handle */}
-          <div className="sm:hidden flex justify-center pt-2 pb-1 absolute top-0 left-0 right-0 z-10">
-            <div className="w-10 h-1 rounded-full bg-muted-foreground/20" />
+      {/* ── Step indicator ──────────────────────────────────────────────── */}
+      <div className="flex items-center justify-center gap-0">
+        {STEPS.map((s, i) => (
+          <div key={s.id} className="flex items-center">
+            <button
+              onClick={() => { if (i < step - 1) setStep(s.id) }}
+              className="flex flex-col items-center gap-1 px-2 sm:px-3 py-2 rounded-lg transition-colors"
+            >
+              <span className={cn(
+                'flex size-9 items-center justify-center rounded-full border-2 transition-colors',
+                step === s.id ? 'bg-brand-500 text-white border-brand-500' :
+                i < step - 1 ? 'bg-brand-100 text-brand-600 border-brand-200' :
+                'bg-muted text-muted-foreground border-border'
+              )}>
+                {i < step - 1 ? <CheckCircle2 className="size-4 sm:size-5" /> : <s.icon className="size-4 sm:size-5" />}
+              </span>
+              <span className={cn(
+                'text-[10px] sm:text-xs font-medium whitespace-nowrap',
+                step === s.id ? 'text-foreground font-semibold' :
+                i < step - 1 ? 'text-brand-600' : 'text-muted-foreground'
+              )}>
+                {s.label}
+              </span>
+            </button>
+            {i < STEPS.length - 1 && (
+              <div className={cn('w-8 sm:w-12 h-px', i < step - 1 ? 'bg-brand-300' : 'bg-border')} />
+            )}
           </div>
-
-          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-            {/* Sticky header */}
-            <div className="shrink-0 px-4 sm:px-0 pt-10 sm:pt-0 pb-2 sm:pb-0">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg">
-                  <FileText className="size-4 text-brand-500" />
-                  Documents du bien
-                </DialogTitle>
-                <DialogDescription>
-                  Ajoutez, consultez ou supprimez les documents relatifs à ce bien (DPE, diagnostics, assurances, etc.).
-                </DialogDescription>
-              </DialogHeader>
-            </div>
-
-            {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto px-4 sm:px-0 pb-4">
-              <div className="space-y-4">
-                {/* Existing documents */}
-                {existingDocuments.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Documents déjà ajoutés</p>
-                    {existingDocuments.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 sm:p-2.5 rounded-lg border border-border bg-muted/30">
-                        <div className="flex items-center gap-3 sm:gap-2.5 min-w-0 flex-1">
-                          <FileText className="size-5 sm:size-4 text-brand-500 shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                              <span>{docTypes.find((t) => t.value === doc.type)?.label || doc.type}</span>
-                              {doc.expiryDate && <span>Exp. {new Date(doc.expiryDate).toLocaleDateString('fr-FR')}</span>}
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => propertyId && deleteExistingDocument(doc.id, propertyId)}
-                          className="size-8 sm:size-7 flex items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors shrink-0 ml-2"
-                        >
-                          <X className="size-4 sm:size-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Pending new documents */}
-                {newDocuments.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Nouveaux documents</p>
-                    {newDocuments.map((doc, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 sm:p-2.5 rounded-lg border border-amber-200 bg-amber-50/50">
-                        <div className="flex items-center gap-3 sm:gap-2.5 min-w-0 flex-1">
-                          <FileText className="size-5 sm:size-4 text-amber-600 shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
-                            <p className="text-[11px] text-muted-foreground">
-                              {docTypes.find((t) => t.value === doc.type)?.label || doc.type}
-                              {doc.expiryDate && ` — Exp. ${new Date(doc.expiryDate).toLocaleDateString('fr-FR')}`}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => removeNewDocument(i)}
-                          className="size-8 sm:size-7 flex items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors shrink-0 ml-2"
-                        >
-                          <X className="size-4 sm:size-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <Separator />
-
-                {/* Add document form */}
-                {docFormOpen ? (
-                  <div className="space-y-4 sm:space-y-3 p-4 sm:p-3 rounded-lg border border-border bg-muted/20">
-                    <p className="text-sm sm:text-xs font-semibold text-foreground">Nouveau document</p>
-                    <div className="grid grid-cols-1 gap-4 sm:gap-3 sm:grid-cols-2">
-                      <div className="space-y-1.5 sm:space-y-1">
-                        <Label className="text-sm sm:text-xs font-medium">Nom <span className="text-red-400">*</span></Label>
-                        <Input
-                          placeholder="Ex: Diagnostic DPE"
-                          value={docForm.name}
-                          onChange={(e) => setDocForm((p) => ({ ...p, name: e.target.value }))}
-                          className="h-10 sm:h-9 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1.5 sm:space-y-1">
-                        <Label className="text-sm sm:text-xs font-medium">Type</Label>
-                        <Select value={docForm.type} onValueChange={(v) => setDocForm((p) => ({ ...p, type: v }))}>
-                          <SelectTrigger className="h-10 sm:h-9 text-sm"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {docTypes.map((t) => (
-                              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5 sm:space-y-1">
-                      <Label className="text-sm sm:text-xs font-medium">Description (optionnelle)</Label>
-                      <Input
-                        placeholder="Brève description du document"
-                        value={docForm.description}
-                        onChange={(e) => setDocForm((p) => ({ ...p, description: e.target.value }))}
-                        className="h-10 sm:h-9 text-sm"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 sm:gap-3 sm:grid-cols-2">
-                      <div className="space-y-1.5 sm:space-y-1">
-                        <Label className="text-sm sm:text-xs font-medium">Date d&apos;expiration (optionnelle)</Label>
-                        <Input
-                          type="date"
-                          value={docForm.expiryDate}
-                          onChange={(e) => setDocForm((p) => ({ ...p, expiryDate: e.target.value }))}
-                          className="h-10 sm:h-9 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1.5 sm:space-y-1">
-                        <Label className="text-sm sm:text-xs font-medium">Fichier <span className="text-red-400">*</span></Label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            ref={docInputRef}
-                            type="file"
-                            accept="image/*,application/pdf"
-                            className="hidden"
-                            onChange={handleDocFileSelect}
-                          />
-                          {docForm.file ? (
-                            <div className="flex items-center gap-2 flex-1 h-10 sm:h-9 px-3 rounded-lg border border-border bg-card text-sm truncate">
-                              <FileText className="size-4 text-brand-500 shrink-0" />
-                              <span className="truncate text-foreground">{docForm.file.name}</span>
-                              <button onClick={() => setDocForm((p) => ({ ...p, file: null }))} className="ml-auto shrink-0 text-red-500 hover:text-red-600"><X className="size-4 sm:size-3.5" /></button>
-                            </div>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="default"
-                              onClick={() => docInputRef.current?.click()}
-                              className="flex-1 sm:flex-none h-10 sm:h-9 gap-1.5"
-                            >
-                              <Upload className="size-4 sm:size-3.5" /> Choisir
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-1">
-                      <Button variant="outline" size="default" onClick={() => { setDocFormOpen(false); setDocForm({ name: '', type: 'AUTRE', description: '', expiryDate: '', file: null }) }}
-                        className="sm:text-sm">
-                        Annuler
-                      </Button>
-                      <Button size="default" onClick={addDocument} className="gap-1.5 bg-brand-500 hover:bg-brand-600 text-white sm:text-sm">
-                        <PlusCircle className="size-4 sm:size-3.5" /> Ajouter le document
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    onClick={() => setDocFormOpen(true)}
-                    className="w-full h-11 sm:h-9 gap-2 border-dashed border-border text-muted-foreground hover:text-foreground"
-                  >
-                    <PlusCircle className="size-5 sm:size-4" />
-                    Ajouter un document
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+        ))}
+      </div>
 
       {/* Error display */}
       {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="p-3 rounded-lg border bg-red-50 border-red-200 text-red-700 text-sm"
-        >
+        <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="p-3 rounded-lg border bg-red-50 border-red-200 text-red-700 text-sm">
           {error}
         </motion.div>
       )}
 
-      {/* ── Section 1: Informations de base ────────────────────────────────── */}
-      <Card className="border-border">
-        <CardHeader className="pb-3 sm:pb-4">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Home className="size-4 text-brand-500" />
-            Informations du bien
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="title" className="text-xs font-medium">Titre de l&apos;annonce <span className="text-red-400">*</span></Label>
-            <Input
-              id="title"
-              placeholder="Appartement F3 Cocody..."
-              value={form.title}
-              onChange={(e) => update('title', e.target.value)}
-              className="h-9 text-sm"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="description" className="text-xs font-medium">Description <span className="text-red-400">*</span></Label>
-            <Textarea
-              id="description"
-              placeholder="Décrivez votre bien..."
-              rows={4}
-              value={form.description}
-              onChange={(e) => update('description', e.target.value)}
-              className="text-sm resize-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Type de bien</Label>
-              <Select value={form.type} onValueChange={(v) => update('type', v)}>
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="APPARTEMENT">Appartement</SelectItem>
-                  <SelectItem value="MAISON">Maison</SelectItem>
-                  <SelectItem value="STUDIO">Studio</SelectItem>
-                  <SelectItem value="CHAMBRE">Chambre</SelectItem>
-                  <SelectItem value="DUPLEX">Duplex</SelectItem>
-                  <SelectItem value="PENTHOUSE">Penthouse</SelectItem>
-                  <SelectItem value="VILLA">Villa</SelectItem>
-                  <SelectItem value="CONCESSION">Concession</SelectItem>
-                  <SelectItem value="IMMEUBLE">Immeuble</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="price" className="text-xs font-medium">Loyer mensuel (FCFA) <span className="text-red-400">*</span></Label>
-              <Input
-                id="price"
-                type="number"
-                placeholder="250000"
-                value={form.price}
-                onChange={(e) => update('price', e.target.value)}
-                className="h-9 text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="area" className="text-xs font-medium">Surface (m²) <span className="text-red-400">*</span></Label>
-              <Input
-                id="area"
-                type="number"
-                placeholder="85"
-                value={form.area}
-                onChange={(e) => update('area', e.target.value)}
-                className="h-9 text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="bedrooms" className="text-xs font-medium">Pièces</Label>
-              <Input
-                id="bedrooms"
-                type="number"
-                placeholder="2"
-                value={form.bedrooms}
-                onChange={(e) => update('bedrooms', e.target.value)}
-                className="h-9 text-sm w-auto"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="bathrooms" className="text-xs font-medium">Salle de Bain</Label>
-              <Input
-                id="bathrooms"
-                type="number"
-                placeholder="1"
-                value={form.bathrooms}
-                onChange={(e) => update('bathrooms', e.target.value)}
-                className="h-9 text-sm"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Section 2: Localisation ────────────────────────────────────────── */}
-      <Card className="border-border">
-        <CardHeader className="pb-3 sm:pb-4">
-          <CardTitle className="text-base flex items-center gap-2">
-            <MapPin className="size-4 text-brand-500" />
-            Localisation
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="address" className="text-xs font-medium">Adresse <span className="text-red-400">*</span></Label>
-            <Input
-              id="address"
-              placeholder="Riviera 3, Cocody"
-              value={form.address}
-              onChange={(e) => update('address', e.target.value)}
-              className="h-9 text-sm"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="city" className="text-xs font-medium">Ville <span className="text-red-400">*</span></Label>
-              <SearchableSelect
-                options={CITIES.map((c) => ({ value: c.name, label: c.name }))}
-                value={form.city}
-                onChange={(v) => {
-                  update('city', v)
-                  if (v && getCommunesForCity(v).length > 0) {
-                    if (!getCommunesForCity(v).includes(form.commune)) {
-                      update('commune', '')
-                    }
-                  } else {
-                    update('commune', '')
-                  }
-                }}
-                placeholder="Sélectionnez une ville"
-                className="h-9 text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="commune" className="text-xs font-medium">Commune</Label>
-              {form.city && getCommunesForCity(form.city).length > 0 ? (
-                <SearchableSelect
-                  options={getCommunesForCity(form.city).map((c) => ({ value: c, label: c }))}
-                  value={form.commune}
-                  onChange={(v) => update('commune', v)}
-                  placeholder="Sélectionnez une commune"
-                  className="h-9 text-sm"
-                />
-              ) : (
-                <Input
-                  id="commune"
-                  placeholder={form.city ? 'Aucune commune' : 'Sélectionnez d\'abord une ville'}
-                  value={form.commune}
-                  onChange={(e) => update('commune', e.target.value)}
-                  className="h-9 text-sm"
-                  disabled
-                />
-              )}
-            </div>
-          </div>
-
-          {/* ── Geolocation (Latitude / Longitude) ─────────────────────── */}
-          <div className="bg-muted/30 rounded-xl border border-border p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Navigation className="size-4 text-brand-500" />
-                <span className="text-xs font-semibold text-foreground">Coordonnées GPS</span>
+      {/* ═══════════════════════════════════════════════════════════════════════
+          STEP 1 — Informations générales
+         ═══════════════════════════════════════════════════════════════════════ */}
+      {step === 1 && (
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+          <Card className="border-border">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Home className="size-4 text-brand-500" />
+                Informations du bien
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="title" className="text-xs font-medium">Titre de l&apos;annonce <span className="text-red-400">*</span></Label>
+                <Input id="title" placeholder="Appartement F3 Cocody..." value={form.title} onChange={(e) => update('title', e.target.value)} className="h-9 text-sm" />
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (!navigator.geolocation) {
-                    toast.error('Géolocalisation non disponible')
-                    return
-                  }
-                  navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                      update('latitude', String(position.coords.latitude))
-                      update('longitude', String(position.coords.longitude))
-                      toast.success('Position détectée')
-                    },
-                    () => toast.error('Impossible de détecter votre position'),
-                    { enableHighAccuracy: true, timeout: 10000 }
-                  )
-                }}
-                className="h-8 gap-1.5 text-xs border-brand-200 text-brand-600 hover:bg-brand-50"
-              >
-                <LocateFixed className="size-3.5" />
-                <span className="hidden sm:inline">Ma position</span>
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-muted-foreground">Latitude</Label>
-                <Input
-                  type="number"
-                  step="any"
-                  placeholder="5.3364"
-                  value={form.latitude}
-                  onChange={(e) => update('latitude', e.target.value)}
-                  className="h-8 text-xs"
-                />
+              <div className="space-y-1.5">
+                <Label htmlFor="description" className="text-xs font-medium">Description <span className="text-red-400">*</span></Label>
+                <Textarea id="description" placeholder="Décrivez votre bien..." rows={4} value={form.description} onChange={(e) => update('description', e.target.value)} className="text-sm resize-none" />
               </div>
-              <div className="space-y-1">
-                <Label className="text-[11px] font-medium text-muted-foreground">Longitude</Label>
-                <Input
-                  type="number"
-                  step="any"
-                  placeholder="-4.0267"
-                  value={form.longitude}
-                  onChange={(e) => update('longitude', e.target.value)}
-                  className="h-8 text-xs"
-                />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Type de bien</Label>
+                <Select value={form.type} onValueChange={(v) => update('type', v)}>
+                  <SelectTrigger className="h-9 text-sm w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="APPARTEMENT">Appartement</SelectItem>
+                    <SelectItem value="MAISON">Maison</SelectItem>
+                    <SelectItem value="STUDIO">Studio</SelectItem>
+                    <SelectItem value="CHAMBRE">Chambre</SelectItem>
+                    <SelectItem value="DUPLEX">Duplex</SelectItem>
+                    <SelectItem value="PENTHOUSE">Penthouse</SelectItem>
+                    <SelectItem value="VILLA">Villa</SelectItem>
+                    <SelectItem value="CONCESSION">Concession</SelectItem>
+                    <SelectItem value="IMMEUBLE">Immeuble</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-
-            {/* Map Picker */}
-            <PropertyLocationPicker
-              lat={form.latitude ? parseFloat(form.latitude) : null}
-              lng={form.longitude ? parseFloat(form.longitude) : null}
-              onLocationChange={(lat, lng) => {
-                update('latitude', String(lat))
-                update('longitude', String(lng))
-              }}
-              defaultCenter={{ lat: 5.3364, lng: -4.0267 }}
-            />
-
-            <p className="text-[10px] text-muted-foreground text-center">
-              Cliquez sur la carte pour positionner le bien ou utilisez les champs ci-dessus
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Section 3: Caractéristiques ────────────────────────────────────── */}
-      <Card className="border-border">
-        <CardHeader className="pb-3 sm:pb-4">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Settings2 className="size-4 text-brand-500" />
-            Caractéristiques
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              { key: 'isFurnished', label: 'Meublé', desc: 'Le bien est meublé' },
-              { key: 'hasParking', label: 'Parking', desc: 'Place de parking disponible' },
-              { key: 'hasGarden', label: 'Jardin', desc: 'Jardin ou espace vert' },
-              { key: 'hasPool', label: 'Piscine', desc: 'Piscine disponible' },
-            ].map((item) => (
-              <div
-                key={item.key}
-                className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors"
-              >
-                <div className="mr-3 min-w-0">
-                  <Label className="cursor-pointer text-sm">{item.label}</Label>
-                  <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="area" className="text-xs font-medium">Surface (m²) <span className="text-red-400">*</span></Label>
+                  <Input id="area" type="number" placeholder="85" value={form.area} onChange={(e) => update('area', e.target.value)} className="h-9 text-sm" />
                 </div>
-                <Switch
-                  checked={form[item.key as keyof typeof form] as boolean}
-                  onCheckedChange={(v) => update(item.key, v)}
-                />
+                <div className="space-y-1.5">
+                  <Label htmlFor="bedrooms" className="text-xs font-medium">Pièces</Label>
+                  <Input id="bedrooms" type="number" placeholder="2" value={form.bedrooms} onChange={(e) => update('bedrooms', e.target.value)} className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="bathrooms" className="text-xs font-medium">Salle de Bain</Label>
+                  <Input id="bathrooms" type="number" placeholder="1" value={form.bathrooms} onChange={(e) => update('bathrooms', e.target.value)} className="h-9 text-sm" />
+                </div>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
-      {/* ── Section 4: Photos ──────────────────────────────────────────────── */}
-      <Card className="border-border">
-        <CardHeader className="pb-3 sm:pb-4">
-          <CardTitle className="text-base flex items-center gap-2">
-            <ImagePlus className="size-4 text-brand-500" />
-            Photos du bien
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <label
-            htmlFor="property-image-upload"
-            className={cn(
-              'border-2 border-dashed rounded-xl p-4 sm:p-6 text-center cursor-pointer transition-colors block',
-              'hover:border-brand-400 hover:bg-brand-50/20',
-              (imagePreviews.length + existingImages.length) >= 10 ? 'opacity-50 pointer-events-none' : 'border-border'
-            )}
-          >
-            <Upload className="size-6 text-muted-foreground mx-auto mb-2" />
-            <p className="text-xs sm:text-sm font-medium text-foreground">Cliquez ou glissez vos photos ici</p>
-            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 leading-relaxed">
-              JPG, PNG, WEBP — Max 5 Mo — 10 photos max
-            </p>
-          </label>
-
-          <input
-            id="property-image-upload"
-            ref={imageInputRef}
-            type="file"
-            accept="image/jpeg,image/jpg,image/png,image/webp"
-            multiple
-            className="hidden"
-            onChange={handleImageSelect}
-          />
-
-          {imageError && (
-            <p className="text-xs text-red-500">{imageError}</p>
-          )}
-
-          {/* Existing images from draft */}
-          {existingImages.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
-              {existingImages.map((img, index) => (
-                <div
-                  key={`existing-${index}`}
-                  className="relative aspect-square rounded-lg overflow-hidden border border-border group"
-                >
-                  <img
-                    src={img.url}
-                    alt={`Photo ${index + 1}`}
-                    className="size-full object-cover"
-                  />
-                  <button
-                    onClick={() => removeExistingImage(index)}
-                    className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="size-3" />
-                  </button>
-                  {index === 0 && imagePreviews.length === 0 && (
-                    <span className="absolute bottom-1 left-1 bg-brand-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded">
-                      Couverture
-                    </span>
-                  )}
+      {/* ═══════════════════════════════════════════════════════════════════════
+          STEP 2 — Loyer & Charges
+         ═══════════════════════════════════════════════════════════════════════ */}
+      {step === 2 && (
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+          <Card className="border-border">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <DollarSign className="size-4 text-brand-500" />
+                Loyer et charges mensuelles
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Loyer mensuel <span className="text-red-500">*</span></Label>
+                <div className="relative">
+                  <input value={form.price} onChange={(e) => update('price', e.target.value)} placeholder="500 000" inputMode="numeric" className="w-full h-11 px-3 pr-14 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all" />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">FCFA/mois</span>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
 
-          {/* New image previews */}
-          {imagePreviews.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
-              {imagePreviews.map((img, index) => (
-                <div
-                  key={`new-${index}`}
-                  className="relative aspect-square rounded-lg overflow-hidden border border-border group"
-                >
-                  <img
-                    src={img.dataUrl}
-                    alt={`Photo ${index + 1}`}
-                    className="size-full object-cover"
-                  />
-                  <button
-                    onClick={() => removeImage(index)}
-                    className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="size-3" />
-                  </button>
-                  {index === 0 && existingImages.length === 0 && (
-                    <span className="absolute bottom-1 left-1 bg-brand-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded">
-                      Couverture
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              <Separator />
 
-      {/* ── Section 5: Vidéo 3D ────────────────────────────────────────────── */}
-      <Card className="border-border">
-        <CardHeader className="pb-3 sm:pb-4">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Video className="size-4 text-brand-500" />
-            Visite virtuelle 3D
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {!videoFile && !existingVideo ? (
-            <div
-              onClick={() => videoInputRef.current?.click()}
-              className="border-2 border-dashed border-border rounded-xl p-4 sm:p-6 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50/20 transition-colors"
-            >
-              <Video className="size-6 sm:size-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-xs sm:text-sm font-medium text-foreground">Télécharger une vidéo 3D</p>
-              <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">MP4, MOV, WEBM — Max 50 Mo</p>
-              <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-2 leading-relaxed px-2">
-                Les locataires pourront visionner cette vidéo avant de planifier une visite physique.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="rounded-xl overflow-hidden bg-black aspect-video relative">
-                {videoUploading ? (
-                  <div className="flex items-center justify-center h-full">
-                    <Loader2 className="size-8 animate-spin text-brand-500" />
+              <div className="space-y-4">
+                <p className="text-xs font-medium text-muted-foreground">Charges locatives (en mois de loyer)</p>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <div>
+                      <p className="text-sm font-medium">Dépôt de garantie</p>
+                      <p className="text-[11px] text-muted-foreground">{form.depositMonths} mois — {form.price ? (parseInt(form.depositMonths) * parseFloat(form.price)).toLocaleString('fr-FR') : '—'} FCFA</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => update('depositMonths', String(Math.max(0, parseInt(form.depositMonths) - 1)))} className="size-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors"><Minus className="size-4" /></button>
+                      <span className="w-8 text-center text-sm font-semibold tabular-nums">{form.depositMonths}</span>
+                      <button onClick={() => update('depositMonths', String(Math.min(12, parseInt(form.depositMonths) + 1)))} className="size-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors"><Plus className="size-4" /></button>
+                    </div>
                   </div>
-                ) : (
-                  <video
-                    src={videoPreview || undefined}
-                    controls
-                    className="size-full object-contain"
-                    title="Aperçu visite virtuelle"
-                  >
-                    Votre navigateur ne supporte pas la lecture vidéo.
-                  </video>
-                )}
-              </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Video className="size-4 text-brand-500 shrink-0" />
-                  <span className="text-xs text-foreground truncate">
-                    {videoFile ? videoFile.name : 'Vidéo existante'}
-                  </span>
-                  {videoFile && (
-                    <span className="text-[10px] text-muted-foreground shrink-0">
-                      ({(videoFile.size / (1024 * 1024)).toFixed(1)} Mo)
-                    </span>
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <div>
+                      <p className="text-sm font-medium">Avance</p>
+                      <p className="text-[11px] text-muted-foreground">{form.advanceMonths} mois — {form.price ? (parseInt(form.advanceMonths) * parseFloat(form.price)).toLocaleString('fr-FR') : '—'} FCFA</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => update('advanceMonths', String(Math.max(0, parseInt(form.advanceMonths) - 1)))} className="size-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors"><Minus className="size-4" /></button>
+                      <span className="w-8 text-center text-sm font-semibold tabular-nums">{form.advanceMonths}</span>
+                      <button onClick={() => update('advanceMonths', String(Math.min(12, parseInt(form.advanceMonths) + 1)))} className="size-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors"><Plus className="size-4" /></button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                    <div>
+                      <p className="text-sm font-medium">Frais d&apos;agence</p>
+                      <p className="text-[11px] text-muted-foreground">{form.agencyFeesMonths} mois — {form.price ? (parseInt(form.agencyFeesMonths) * parseFloat(form.price)).toLocaleString('fr-FR') : '—'} FCFA</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => update('agencyFeesMonths', String(Math.max(0, parseInt(form.agencyFeesMonths) - 1)))} className="size-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors"><Minus className="size-4" /></button>
+                      <span className="w-8 text-center text-sm font-semibold tabular-nums">{form.agencyFeesMonths}</span>
+                      <button onClick={() => update('agencyFeesMonths', String(Math.min(12, parseInt(form.agencyFeesMonths) + 1)))} className="size-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors"><Plus className="size-4" /></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          STEP 3 — Localisation & Caractéristiques
+         ═══════════════════════════════════════════════════════════════════════ */}
+      {step === 3 && (
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+          <Card className="border-border">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MapPin className="size-4 text-brand-500" />
+                Localisation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="address" className="text-xs font-medium">Adresse <span className="text-red-400">*</span></Label>
+                <Input id="address" placeholder="Riviera 3, Cocody" value={form.address} onChange={(e) => update('address', e.target.value)} className="h-9 text-sm" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="city" className="text-xs font-medium">Ville <span className="text-red-400">*</span></Label>
+                  <SearchableSelect
+                    options={CITIES.map((c) => ({ value: c.name, label: c.name }))}
+                    value={form.city} onChange={(v) => { update('city', v); if (v && getCommunesForCity(v).length > 0) { if (!getCommunesForCity(v).includes(form.commune)) update('commune', '') } else update('commune', '') }}
+                    placeholder="Sélectionnez une ville" className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="commune" className="text-xs font-medium">Commune</Label>
+                  {form.city && getCommunesForCity(form.city).length > 0 ? (
+                    <SearchableSelect
+                      options={getCommunesForCity(form.city).map((c) => ({ value: c, label: c }))}
+                      value={form.commune} onChange={(v) => update('commune', v)}
+                      placeholder="Sélectionnez une commune" className="h-9 text-sm"
+                    />
+                  ) : (
+                    <Input id="commune" placeholder={form.city ? 'Aucune commune' : "Sélectionnez d'abord une ville"} value={form.commune} onChange={(e) => update('commune', e.target.value)} className="h-9 text-sm" disabled />
                   )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={removeVideo}
-                  className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 shrink-0"
-                >
-                  <X className="size-3.5" />
-                </Button>
               </div>
-            </div>
-          )}
 
-          <input
-            ref={videoInputRef}
-            type="file"
-            accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,video/*"
-            className="hidden"
-            onChange={handleVideoSelect}
-          />
-        </CardContent>
-      </Card>
+              <div className="bg-muted/30 rounded-xl border border-border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Navigation className="size-4 text-brand-500" />
+                    <span className="text-xs font-semibold text-foreground">Coordonnées GPS</span>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => {
+                    if (!navigator.geolocation) { toast.error('Géolocalisation non disponible'); return }
+                    navigator.geolocation.getCurrentPosition(
+                      (position) => { update('latitude', String(position.coords.latitude)); update('longitude', String(position.coords.longitude)); toast.success('Position détectée') },
+                      () => toast.error('Impossible de détecter votre position'),
+                      { enableHighAccuracy: true, timeout: 10000 }
+                    )
+                  }} className="h-8 gap-1.5 text-xs border-brand-200 text-brand-600 hover:bg-brand-50">
+                    <LocateFixed className="size-3.5" />
+                    <span className="hidden sm:inline">Ma position</span>
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1"><Label className="text-[11px] font-medium text-muted-foreground">Latitude</Label><Input type="number" step="any" placeholder="5.3364" value={form.latitude} onChange={(e) => update('latitude', e.target.value)} className="h-8 text-xs" /></div>
+                  <div className="space-y-1"><Label className="text-[11px] font-medium text-muted-foreground">Longitude</Label><Input type="number" step="any" placeholder="-4.0267" value={form.longitude} onChange={(e) => update('longitude', e.target.value)} className="h-8 text-xs" /></div>
+                </div>
+                <PropertyLocationPicker
+                  lat={form.latitude ? parseFloat(form.latitude) : null}
+                  lng={form.longitude ? parseFloat(form.longitude) : null}
+                  onLocationChange={(lat, lng) => { update('latitude', String(lat)); update('longitude', String(lng)) }}
+                  defaultCenter={{ lat: 5.3364, lng: -4.0267 }}
+                />
+                <p className="text-[10px] text-muted-foreground text-center">Cliquez sur la carte pour positionner le bien</p>
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* ── Section 6: Confidentialité ──────────────────────────────────────── */}
-      <Card className="border-border">
-        <CardHeader className="pb-3 sm:pb-4">
-          <CardTitle className="text-base flex items-center gap-2">
-            <EyeOff className="size-4 text-brand-500" />
-            Confidentialité
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-            <div className="flex-1 min-w-0 mr-3">
-              <Label className="cursor-pointer text-sm">Masquer mon nom</Label>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Votre nom n&apos;apparaîtra pas sur l&apos;annonce. Les locataires pourront vous contacter uniquement par message.
-              </p>
-            </div>
-            <Switch
-              checked={form.hideOwnerName}
-              onCheckedChange={(v) => update('hideOwnerName', v)}
-            />
-          </div>
-        </CardContent>
-      </Card>
+          <Card className="border-border">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Settings2 className="size-4 text-brand-500" />
+                Caractéristiques
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { key: 'isFurnished', label: 'Meublé', desc: 'Le bien est meublé' },
+                  { key: 'hasParking', label: 'Parking', desc: 'Place de parking disponible' },
+                  { key: 'hasGarden', label: 'Jardin', desc: 'Jardin ou espace vert' },
+                  { key: 'hasPool', label: 'Piscine', desc: 'Piscine disponible' },
+                  { key: 'hasBalcony', label: 'Balcon', desc: 'Balcon aménagé' },
+                  { key: 'hasTerrace', label: 'Terrasse', desc: 'Terrasse extérieure' },
+                  { key: 'hasKitchen', label: 'Cuisine équipée', desc: 'Cuisine avec équipements' },
+                  { key: 'hasBox', label: 'Box / Débarras', desc: 'Espace de stockage' },
+                ].map((item) => (
+                  <div key={item.key} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
+                    <div className="mr-3 min-w-0">
+                      <Label className="cursor-pointer text-sm">{item.label}</Label>
+                      <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                    </div>
+                    <Switch checked={form[item.key as keyof typeof form] as boolean} onCheckedChange={(v) => update(item.key, v)} />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
-      {/* ── Action Buttons ──────────────────────────────────────────────────── */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+          STEP 4 — Photos & Visite
+         ═══════════════════════════════════════════════════════════════════════ */}
+      {step === 4 && (
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+          <Card className="border-border">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ImagePlus className="size-4 text-brand-500" />
+                Photos du bien <span className="text-xs font-normal text-muted-foreground">({totalImages}/10)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <label
+                htmlFor="property-image-upload"
+                className={cn(
+                  'border-2 border-dashed rounded-xl p-4 sm:p-6 text-center cursor-pointer transition-colors block',
+                  'hover:border-brand-400 hover:bg-brand-50/20',
+                  totalImages >= 10 ? 'opacity-50 pointer-events-none' : 'border-border'
+                )}
+              >
+                <Upload className="size-6 text-muted-foreground mx-auto mb-2" />
+                <p className="text-xs sm:text-sm font-medium text-foreground">Cliquez ou glissez vos photos ici</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">JPG, PNG, WEBP — Max 5 Mo — 10 photos max</p>
+              </label>
+              <input id="property-image-upload" ref={imageInputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp" multiple className="hidden" onChange={handleImageSelect} />
+              {imageError && <p className="text-xs text-red-500">{imageError}</p>}
+              {existingImages.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                  {existingImages.map((img, index) => (
+                    <div key={`existing-${index}`} className="relative aspect-square rounded-lg overflow-hidden border border-border group">
+                      <img src={img.url} alt={`Photo ${index + 1}`} className="size-full object-cover" />
+                      <button onClick={() => removeExistingImage(index)} className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"><X className="size-3" /></button>
+                      {index === 0 && imagePreviews.length === 0 && <span className="absolute bottom-1 left-1 bg-brand-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded">Couverture</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {imagePreviews.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                  {imagePreviews.map((img, index) => (
+                    <div key={`new-${index}`} className="relative aspect-square rounded-lg overflow-hidden border border-border group">
+                      <img src={img.dataUrl} alt={`Photo ${index + 1}`} className="size-full object-cover" />
+                      <button onClick={() => removeImage(index)} className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"><X className="size-3" /></button>
+                      {index === 0 && existingImages.length === 0 && <span className="absolute bottom-1 left-1 bg-brand-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded">Couverture</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-border">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Video className="size-4 text-brand-500" />
+                Visite virtuelle 3D
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {!videoFile && !existingVideo ? (
+                <div onClick={() => videoInputRef.current?.click()} className="border-2 border-dashed border-border rounded-xl p-4 sm:p-6 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50/20 transition-colors">
+                  <Video className="size-6 sm:size-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-xs sm:text-sm font-medium text-foreground">Télécharger une vidéo 3D</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">MP4, MOV, WEBM — Max 50 Mo</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-xl overflow-hidden bg-black aspect-video relative">
+                    {videoUploading ? <div className="flex items-center justify-center h-full"><Loader2 className="size-8 animate-spin text-brand-500" /></div>
+                      : <video src={videoPreview || undefined} controls className="size-full object-contain" title="Aperçu visite virtuelle">Votre navigateur ne supporte pas la lecture vidéo.</video>}
+                  </div>
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Video className="size-4 text-brand-500 shrink-0" />
+                      <span className="text-xs text-foreground truncate">{videoFile ? videoFile.name : 'Vidéo existante'}</span>
+                      {videoFile && <span className="text-[10px] text-muted-foreground shrink-0">({(videoFile.size / (1024 * 1024)).toFixed(1)} Mo)</span>}
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={removeVideo} className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 shrink-0"><X className="size-3.5" /></Button>
+                  </div>
+                </div>
+              )}
+              <input ref={videoInputRef} type="file" accept="video/mp4,video/quicktime,video/x-msvideo,video/webm,video/*" className="hidden" onChange={handleVideoSelect} />
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          STEP 5 — Documents & Publication
+         ═══════════════════════════════════════════════════════════════════════ */}
+      {step === 5 && (
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
+          <Card className="border-border">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="size-4 text-brand-500" />
+                Documents du bien <span className="text-xs font-normal text-muted-foreground">({existingDocuments.length + newDocuments.length} document{existingDocuments.length + newDocuments.length !== 1 ? 's' : ''})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Existing documents */}
+              {existingDocuments.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Documents déjà ajoutés</p>
+                  {existingDocuments.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <FileText className="size-5 text-brand-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
+                          <p className="text-[11px] text-muted-foreground">{docTypes.find((t) => t.value === doc.type)?.label || doc.type}{doc.expiryDate && ` — Exp. ${new Date(doc.expiryDate).toLocaleDateString('fr-FR')}`}</p>
+                        </div>
+                      </div>
+                      <button onClick={() => propertyId && deleteExistingDocument(doc.id, propertyId)} className="size-8 flex items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors shrink-0 ml-2"><X className="size-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* New documents */}
+              {newDocuments.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Nouveaux documents (non sauvegardés)</p>
+                  {newDocuments.map((doc, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-amber-50/50">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <FileText className="size-5 text-amber-600 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
+                          <p className="text-[11px] text-muted-foreground">{docTypes.find((t) => t.value === doc.type)?.label || doc.type}{doc.expiryDate && ` — Exp. ${new Date(doc.expiryDate).toLocaleDateString('fr-FR')}`}</p>
+                        </div>
+                      </div>
+                      <button onClick={() => removeNewDocument(i)} className="size-8 flex items-center justify-center rounded-md text-red-500 hover:bg-red-50 transition-colors shrink-0 ml-2"><X className="size-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Upload document */}
+              <label className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-border cursor-pointer hover:border-brand-400 hover:bg-brand-50/20 transition-colors">
+                <Upload className="size-6 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">Ajouter un document</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">PDF, JPG, PNG — Max 10 Mo</p>
+                <input ref={docInputRef} type="file" accept="image/*,application/pdf" multiple className="hidden" onChange={handleDocFileSelect} />
+              </label>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <EyeOff className="size-4 text-brand-500" />
+                Confidentialité
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+                <div className="flex-1 min-w-0 mr-3">
+                  <Label className="cursor-pointer text-sm">Masquer mon nom</Label>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Votre nom n&apos;apparaîtra pas sur l&apos;annonce.</p>
+                </div>
+                <Switch checked={form.hideOwnerName} onCheckedChange={(v) => update('hideOwnerName', v)} />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* ── Navigation & Actions ──────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
-        <Button
-          variant="outline"
-          onClick={() => {
-            if (form.title || form.description || form.address || form.city) {
-              handleSaveDraft(true)
-            }
-            onCancel?.()
-          }}
-          disabled={submitting}
-          className="h-11 sm:w-auto border-border"
-        >
-          Retour
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => handleSaveDraft(false)}
-          disabled={savingDraft || submitting}
-          className="h-11 gap-2 border-brand-200 text-brand-600 hover:bg-brand-50"
-        >
-          {savingDraft ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Save className="size-4" />
-          )}
-          <span className="truncate">{savingDraft ? 'Sauvegarde...' : 'Sauvegarder le brouillon'}</span>
-        </Button>
-        <Button
-          onClick={handlePublish}
-          disabled={submitting}
-          className="flex-1 h-12 bg-brand-500 hover:bg-brand-600 text-white font-semibold gap-2"
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="size-5 animate-spin shrink-0" />
-              <span className="truncate">{processingStatus || 'Vérification en cours...'}</span>
-            </>
-          ) : (
-            <>
-              <PlusCircle className="size-5 shrink-0" />
+        {step > 1 ? (
+          <Button variant="outline" onClick={handlePrev} disabled={submitting} className="h-11 gap-2 border-border">
+            <ChevronLeft className="size-4" /> Retour
+          </Button>
+        ) : (
+          <Button variant="outline" onClick={() => { if (form.title || form.description || form.address || form.city) handleSaveDraft(true); onCancel?.() }} disabled={submitting} className="h-11 border-border">
+            Annuler
+          </Button>
+        )}
+
+        <div className="flex-1" />
+
+        {step < 5 ? (
+          <Button onClick={handleNext} disabled={!canGoNext() || submitting} className={cn('h-11 gap-2', canGoNext() ? 'bg-brand-500 hover:bg-brand-600 text-white' : '')}>
+            Suivant <ChevronRight className="size-4" />
+          </Button>
+        ) : (
+          <>
+            <Button variant="outline" onClick={() => handleSaveDraft(false)} disabled={savingDraft || submitting} className="h-11 gap-2 border-brand-200 text-brand-600 hover:bg-brand-50">
+              {savingDraft ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+              <span className="truncate">{savingDraft ? 'Sauvegarde...' : 'Brouillon'}</span>
+            </Button>
+            <Button onClick={handlePublish} disabled={submitting} className="flex-1 h-12 bg-brand-500 hover:bg-brand-600 text-white font-semibold gap-2">
+              {submitting ? <Loader2 className="size-5 animate-spin shrink-0" /> : <PlusCircle className="size-5 shrink-0" />}
               Soumettre pour vérification
-            </>
-          )}
-        </Button>
+            </Button>
+          </>
+        )}
       </div>
     </motion.div>
   )

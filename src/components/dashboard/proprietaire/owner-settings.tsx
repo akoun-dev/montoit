@@ -2,29 +2,26 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  Settings, User, Bell, Sliders, Mail, Phone, ShieldCheck,
-  ChevronRight, CheckCircle2, Save, Loader2,
-  Eye, EyeOff, Camera, Building2, FileText, Cigarette,
-  PawPrint, DollarSign, CalendarDays, ArrowUpDown, Filter,
-  Trash2, Lock, Star, History, Award,
+  Settings, User, Bell, Mail, Phone, ShieldCheck,
+  CheckCircle2, Save, Loader2,
+  Eye, EyeOff, Camera, FileText,
+  DollarSign, CalendarDays,
+  Trash2, Lock, ScanFace, CreditCard, FileCheck,
+  AlertTriangle, XCircle, RefreshCw, Award,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
 import { OwnerSecurity } from './security'
-import { TrustScore } from '@/components/dashboard/locataire/trust-score'
-import { OwnerFileForm } from './owner-file'
-import { OwnerReviews } from './owner-reviews'
-import { ActivityHistory } from '@/components/dashboard/locataire/history'
+import { ScoreCircle, ScoreComponentCard } from '@/components/dashboard/locataire/settings/sub-components'
+import { KycVerificationModal } from '@/components/dashboard/locataire/settings/kyc-modal'
+import type { ScoringData } from '@/components/dashboard/locataire/settings/types'
 import { toast } from 'sonner'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -36,13 +33,23 @@ interface OwnerProfileData {
   email: string
   phone: string | null
   avatarUrl: string | null
-  bio: string | null
-  companyName: string | null
   showPhone: boolean
   showEmail: boolean
   isEmailVerified: boolean
   isPhoneVerified: boolean
   role: string
+  birthDate: string | null
+  nni: string | null
+  oneciVerified: boolean
+  oneciVerifiedAt: string | null
+  neofaceVerified: boolean
+  neofaceVerifiedAt: string | null
+  kycDocumentId: string | null
+  passwordUpdatedAt: string | null
+  gender: string | null
+  city: string | null
+  address: string | null
+  createdAt: string
 }
 
 interface NotificationPreferences {
@@ -52,17 +59,6 @@ interface NotificationPreferences {
   visitReminders: boolean
   paymentAlerts: boolean
   promotions: boolean
-}
-
-interface DefaultConditions {
-  depositMonths: number
-  leaseDurationMonths: number
-  defaultCharges: number
-  smokingPolicy: 'INTERDIT' | 'AUTORISE' | 'NON_SPECIFIE'
-  petPolicy: 'INTERDIT' | 'AUTORISE' | 'NON_SPECIFIE'
-  minIncomeRatio: number
-  minDocuments: number
-  defaultSort: 'DATE' | 'REVENUE' | 'CATEGORY'
 }
 
 // ── Animations ──────────────────────────────────────────────────────────────
@@ -81,7 +77,7 @@ const itemVariants = {
 export function OwnerSettings() {
   const { user, updateUser } = useAuthStore()
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'trust-score' | 'owner-file' | 'reviews' | 'history' | 'profil' | 'notifications' | 'conditions' | 'tri' | 'securite'>('profil')
+  const [activeTab, setActiveTab] = useState<'profil' | 'verification' | 'notifications' | 'securite'>('profil')
 
   // Profile state
   const [profile, setProfile] = useState<OwnerProfileData | null>(null)
@@ -89,8 +85,6 @@ export function OwnerSettings() {
     firstName: '',
     lastName: '',
     phone: '',
-    bio: '',
-    companyName: '',
     showPhone: true,
     showEmail: false,
   })
@@ -103,10 +97,124 @@ export function OwnerSettings() {
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifSaving, setNotifSaving] = useState<Record<string, boolean>>({})
 
-  // Default conditions state
-  const [conditions, setConditions] = useState<DefaultConditions | null>(null)
-  const [conditionsLoading, setConditionsLoading] = useState(false)
-  const [conditionsSaving, setConditionsSaving] = useState(false)
+  // Verification tab state
+  const [scoring, setScoring] = useState<ScoringData | null>(null)
+  const [kycModalOpen, setKycModalOpen] = useState(false)
+  const [oneciVerifying, setOneciVerifying] = useState(false)
+  const [oneciResult, setOneciResult] = useState<{ verified: boolean; message: string; details?: string } | null>(null)
+  const oneciSectionRef = useRef<HTMLDivElement>(null)
+
+  const fetchScoring = useCallback(async () => {
+    try {
+      const result = await authFetch<ScoringData>('/api/scoring')
+      setScoring(result)
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === 'verification') {
+      fetchScoring()
+    }
+  }, [activeTab, fetchScoring])
+
+  const handleKycVerified = useCallback(async () => {
+    setKycModalOpen(false)
+    try {
+      const [profileResult, scoringResult] = await Promise.allSettled([
+        authFetch<{ user: OwnerProfileData }>('/api/profile'),
+        authFetch<ScoringData>('/api/scoring'),
+      ])
+      if (profileResult.status === 'fulfilled') {
+        setProfile(profileResult.value.user)
+        updateUser({
+          firstName: profileResult.value.user.firstName,
+          lastName: profileResult.value.user.lastName,
+          email: profileResult.value.user.email,
+          phone: profileResult.value.user.phone,
+          avatarUrl: profileResult.value.user.avatarUrl,
+        })
+        setProfileForm((prev) => ({
+          ...prev,
+          firstName: profileResult.value.user.firstName || '',
+          lastName: profileResult.value.user.lastName || '',
+          phone: profileResult.value.user.phone || '',
+        }))
+      }
+      if (scoringResult.status === 'fulfilled') setScoring(scoringResult.value)
+    } catch {}
+  }, [updateUser])
+
+  const handleKycRedo = useCallback(async () => {
+    const [profileResult, scoringResult] = await Promise.allSettled([
+      authFetch<{ user: OwnerProfileData }>('/api/profile'),
+      authFetch<ScoringData>('/api/scoring'),
+    ])
+    if (profileResult.status === 'fulfilled') {
+      setProfile(profileResult.value.user)
+      updateUser({
+        firstName: profileResult.value.user.firstName,
+        lastName: profileResult.value.user.lastName,
+        email: profileResult.value.user.email,
+        phone: profileResult.value.user.phone,
+        avatarUrl: profileResult.value.user.avatarUrl,
+      })
+    }
+    if (scoringResult.status === 'fulfilled') setScoring(scoringResult.value)
+  }, [updateUser])
+
+  const handleOneciVerify = async () => {
+    setOneciVerifying(true)
+    setOneciResult(null)
+    try {
+      await authFetch<{ user: OwnerProfileData }>('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nni: (profile as any)?.nni || '',
+          birthDate: (profile as any)?.birthDate || null,
+        }),
+      })
+    } catch {}
+    try {
+      const result = await authFetch<{ verified: boolean; message: string; details?: string; error?: string }>('/api/oneci/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nni: (profile as any)?.nni || '',
+          birthDate: (profile as any)?.birthDate || null,
+        }),
+      })
+      setOneciResult({
+        verified: result.verified,
+        message: result.verified ? result.message : (result.error || result.message),
+        details: result.details,
+      })
+      if (result.verified) {
+        const [profileResult, scoringResult] = await Promise.allSettled([
+          authFetch<{ user: OwnerProfileData }>('/api/profile'),
+          authFetch<ScoringData>('/api/scoring'),
+        ])
+        if (profileResult.status === 'fulfilled') {
+          setProfile(profileResult.value.user)
+          updateUser({
+            firstName: profileResult.value.user.firstName,
+            lastName: profileResult.value.user.lastName,
+            email: profileResult.value.user.email,
+            phone: profileResult.value.user.phone,
+            avatarUrl: profileResult.value.user.avatarUrl,
+          })
+        }
+        if (scoringResult.status === 'fulfilled') setScoring(scoringResult.value)
+      }
+    } catch (err) {
+      setOneciResult({
+        verified: false,
+        message: err instanceof Error ? err.message : 'Erreur lors de la vérification ONECI',
+      })
+    } finally {
+      setOneciVerifying(false)
+    }
+  }
 
   // ── Fetch profile data ──────────────────────────────────────────────────
   const fetchProfile = useCallback(async () => {
@@ -119,8 +227,6 @@ export function OwnerSettings() {
         firstName: p.firstName || '',
         lastName: p.lastName || '',
         phone: p.phone || '',
-        bio: (p as unknown as Record<string, unknown>).bio as string || '',
-        companyName: (p as unknown as Record<string, unknown>).companyName as string || '',
         showPhone: (p as unknown as Record<string, unknown>).showPhone as boolean ?? true,
         showEmail: (p as unknown as Record<string, unknown>).showEmail as boolean ?? false,
       })
@@ -145,28 +251,6 @@ export function OwnerSettings() {
         .finally(() => setNotifLoading(false))
     }
   }, [activeTab, user])
-
-  // ── Fetch default conditions ────────────────────────────────────────────
-  useEffect(() => {
-    if (activeTab === 'conditions' && user) {
-      setConditionsLoading(true)
-      authFetch<{ conditions: DefaultConditions }>('/api/user/default-conditions')
-        .then((data) => setConditions(data.conditions))
-        .catch(() => {})
-        .finally(() => setConditionsLoading(false))
-    }
-  }, [activeTab, user])
-
-  // ── Fetch conditions also for tri tab ────────────────────────────────────
-  useEffect(() => {
-    if (activeTab === 'tri' && user && !conditions) {
-      setConditionsLoading(true)
-      authFetch<{ conditions: DefaultConditions }>('/api/user/default-conditions')
-        .then((data) => setConditions(data.conditions))
-        .catch(() => {})
-        .finally(() => setConditionsLoading(false))
-    }
-  }, [activeTab, user, conditions])
 
   // ── Save profile ────────────────────────────────────────────────────────
   const handleSaveProfile = useCallback(async () => {
@@ -207,24 +291,6 @@ export function OwnerSettings() {
       toast.error('Erreur lors de la mise à jour')
     } finally {
       setNotifSaving((prev) => ({ ...prev, [key]: false }))
-    }
-  }, [])
-
-  // ── Save default conditions ─────────────────────────────────────────────
-  const handleSaveConditions = useCallback(async (data: Partial<DefaultConditions>) => {
-    setConditionsSaving(true)
-    try {
-      const result = await authFetch<{ conditions: DefaultConditions }>('/api/user/default-conditions', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      setConditions(result.conditions)
-      toast.success('Conditions par défaut mises à jour')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde')
-    } finally {
-      setConditionsSaving(false)
     }
   }, [])
 
@@ -311,14 +377,9 @@ export function OwnerSettings() {
 
   // Tab navigation items
   const tabs = [
-    { id: 'trust-score' as const, label: 'Trust Score', icon: Award },
-    { id: 'owner-file' as const, label: 'Mon dossier', icon: FileText },
-    { id: 'reviews' as const, label: 'Avis', icon: Star },
-    { id: 'history' as const, label: 'Historique', icon: History },
     { id: 'profil' as const, label: 'Mon Profil', icon: User },
+    { id: 'verification' as const, label: 'Vérifications', icon: ShieldCheck },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell },
-    { id: 'conditions' as const, label: 'Conditions', icon: FileText },
-    { id: 'tri' as const, label: 'Tri & Filtres', icon: Sliders },
     { id: 'securite' as const, label: 'Sécurité', icon: Lock },
   ]
 
@@ -424,58 +485,6 @@ export function OwnerSettings() {
 
       {/* ── Tab Content ──────────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
-
-        {/* ── TRUST SCORE TAB ──────────────────────────────────────────── */}
-        {activeTab === 'trust-score' && (
-          <motion.div
-            key="trust-score"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            <TrustScore />
-          </motion.div>
-        )}
-
-        {/* ── DOSSIER PROPRIÉTAIRE TAB ─────────────────────────────────── */}
-        {activeTab === 'owner-file' && (
-          <motion.div
-            key="owner-file"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            <OwnerFileForm />
-          </motion.div>
-        )}
-
-        {/* ── AVIS TAB ─────────────────────────────────────────────────── */}
-        {activeTab === 'reviews' && (
-          <motion.div
-            key="reviews"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            <OwnerReviews />
-          </motion.div>
-        )}
-
-        {/* ── HISTORIQUE TAB ───────────────────────────────────────────── */}
-        {activeTab === 'history' && (
-          <motion.div
-            key="history"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            <ActivityHistory />
-          </motion.div>
-        )}
 
         {/* ── PROFIL TAB (US-P-111) ─────────────────────────────────────── */}
         {activeTab === 'profil' && (
@@ -599,41 +608,6 @@ export function OwnerSettings() {
                   </p>
                 </div>
 
-                <Separator />
-
-                {/* Company name */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="owner-company" className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                    <Building2 className="size-3" /> Nom de l&apos;entreprise
-                  </Label>
-                  <Input
-                    id="owner-company"
-                    value={profileForm.companyName}
-                    onChange={(e) => setProfileForm((prev) => ({ ...prev, companyName: e.target.value }))}
-                    placeholder="Ex: SCI Mon Toit, SARL..."
-                    className="h-9 text-sm"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Optionnel — si vous louez via une entreprise</p>
-                </div>
-
-                {/* Bio */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="owner-bio" className="text-xs font-medium text-foreground">
-                    Description / Biographie
-                  </Label>
-                  <Textarea
-                    id="owner-bio"
-                    value={profileForm.bio}
-                    onChange={(e) => setProfileForm((prev) => ({ ...prev, bio: e.target.value }))}
-                    placeholder="Présentez-vous brièvement aux candidats locataires..."
-                    className="min-h-[80px] text-sm resize-none"
-                    maxLength={500}
-                  />
-                  <p className="text-[10px] text-muted-foreground text-right">
-                    {profileForm.bio.length}/500 caractères
-                  </p>
-                </div>
-
                 {/* Save button */}
                 <div className="flex justify-end pt-2">
                   <Button
@@ -650,6 +624,212 @@ export function OwnerSettings() {
                 </div>
               </CardContent>
             </Card>
+          </motion.div>
+        )}
+
+        {/* ── VERIFICATION TAB ──────────────────────────────────────────── */}
+        {activeTab === 'verification' && (
+          <motion.div
+            key="verification"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            {/* Score Overview */}
+            {scoring && (
+              <Card className="border-border overflow-hidden">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-6">
+                    <ScoreCircle score={scoring.score} statusColor={scoring.statusColor} size="lg" />
+                    <div className="flex-1 min-w-0 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Badge className={`border text-xs font-semibold px-2.5 py-1 ${
+                          scoring.statusColor === 'emerald'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : scoring.statusColor === 'amber'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-red-50 text-red-700 border-red-200'
+                        }`}>
+                          {scoring.statusColor === 'emerald' ? (
+                            <ShieldCheck className="size-3.5 mr-1" />
+                          ) : scoring.statusColor === 'amber' ? (
+                            <AlertTriangle className="size-3.5 mr-1" />
+                          ) : (
+                            <XCircle className="size-3.5 mr-1" />
+                          )}
+                          {scoring.statusLabel}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Votre Trust Score reflète votre fiabilité en tant que {scoring.roleLabel || 'propriétaire'}. Plus votre score est élevé, plus vos annonces seront mises en avant.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Score breakdown */}
+            {scoring && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ScoreComponentCard
+                  icon={User}
+                  label="Profil complet"
+                  weight={scoring.breakdown.profile.weight}
+                  score={scoring.breakdown.profile.score}
+                  max={scoring.breakdown.profile.max}
+                  statusColor={scoring.statusColor}
+                  details="Remplissez toutes vos informations personnelles"
+                  actionLabel="Compléter le profil"
+                  onAction={() => setActiveTab('profil')}
+                />
+                <ScoreComponentCard
+                  icon={ScanFace}
+                  label="KYC"
+                  weight={scoring.breakdown.neoface.weight}
+                  score={scoring.breakdown.neoface.score}
+                  max={scoring.breakdown.neoface.max}
+                  statusColor={scoring.statusColor}
+                  details="Vérification biométrique obligatoire"
+                  actionLabel="Vérification KYC"
+                  onAction={() => setKycModalOpen(true)}
+                  redoLabel="Refaire la vérification"
+                  onRedo={() => setKycModalOpen(true)}
+                />
+                <ScoreComponentCard
+                  icon={CreditCard}
+                  label="ONECI"
+                  weight={scoring.breakdown.oneci.weight}
+                  score={scoring.breakdown.oneci.score}
+                  max={scoring.breakdown.oneci.max}
+                  statusColor={scoring.statusColor}
+                  details="Authentification de votre carte d'identité nationale"
+                  actionLabel="Vérifier ma CNI"
+                  onAction={() => oneciSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  redoLabel="Refaire la vérification"
+                  onRedo={() => oneciSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                />
+                <ScoreComponentCard
+                  icon={Award}
+                  label={scoring.breakdown.roleSpecific.label}
+                  weight={scoring.breakdown.roleSpecific.weight}
+                  score={scoring.breakdown.roleSpecific.score}
+                  max={scoring.breakdown.roleSpecific.max}
+                  statusColor={scoring.statusColor}
+                  details={scoring.breakdown.roleSpecific.description}
+                  actionLabel={scoring.breakdown.roleSpecific.hasFile ? "Voir le détail" : "Commencer"}
+                />
+              </div>
+            )}
+
+            {/* ONECI Verification form */}
+            <Card className="border-border" ref={oneciSectionRef}>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <CreditCard className="size-4 text-brand-500" />
+                  Vérification d&apos;identité ONECI
+                </CardTitle>
+                <CardDescription>
+                  Renseignez votre NNI et date de naissance pour vérifier votre carte d&apos;identité nationale auprès de l&apos;ONECI
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="owner-nni" className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                      NNI
+                      {profile?.oneciVerified && (
+                        <CheckCircle2 className="size-3 text-emerald-500" />
+                      )}
+                    </Label>
+                    <Input
+                      id="owner-nni"
+                      value={(profile as any)?.nni || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 11)
+                        setProfile((prev) => prev ? { ...prev, nni: val } : prev)
+                      }}
+                      placeholder="Numéro National d'Identification"
+                      className="h-9 text-sm"
+                      disabled={oneciVerifying}
+                      maxLength={11}
+                    />
+                    <p className="text-[10px] text-muted-foreground">10 à 11 chiffres — requis pour la vérification ONECI</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="owner-birthDate" className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                      Date de naissance
+                    </Label>
+                    <Input
+                      id="owner-birthDate"
+                      type="date"
+                      value={(profile as any)?.birthDate ? new Date((profile as any).birthDate).toISOString().split('T')[0] : ''}
+                      onChange={(e) => {
+                        setProfile((prev) => prev ? { ...prev, birthDate: e.target.value } : prev)
+                      }}
+                      className="h-9 text-sm"
+                      disabled={oneciVerifying}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleOneciVerify}
+                    disabled={oneciVerifying || !(profile as any)?.nni || (profile as any)?.nni?.length < 10}
+                    className="bg-brand-500 hover:bg-brand-600 text-white"
+                  >
+                    {oneciVerifying ? (
+                      <><Loader2 className="size-4 mr-2 animate-spin" /> Vérification en cours...</>
+                    ) : (
+                      <><CreditCard className="size-4 mr-2" /> Vérifier mon identité</>
+                    )}
+                  </Button>
+                </div>
+
+                {oneciResult && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`p-4 rounded-lg border ${
+                      oneciResult.verified
+                        ? 'bg-emerald-50 border-emerald-200'
+                        : 'bg-red-50 border-red-200'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`flex size-8 items-center justify-center rounded-full shrink-0 ${
+                        oneciResult.verified ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'
+                      }`}>
+                        {oneciResult.verified ? <CheckCircle2 className="size-4" /> : <XCircle className="size-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold ${oneciResult.verified ? 'text-emerald-700' : 'text-red-700'}`}>
+                          {oneciResult.verified ? 'Identité vérifiée avec succès' : 'Échec de la vérification'}
+                        </p>
+                        <p className={`text-xs mt-0.5 ${oneciResult.verified ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {oneciResult.message}
+                        </p>
+                        {oneciResult.details && (
+                          <p className="text-[10px] text-muted-foreground mt-1">{oneciResult.details}</p>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* KYC Modal */}
+            <KycVerificationModal
+              open={kycModalOpen}
+              onOpenChange={setKycModalOpen}
+              profile={profile as any}
+              onVerified={handleKycVerified}
+              onRedo={handleKycRedo}
+            />
           </motion.div>
         )}
 
@@ -719,155 +899,6 @@ export function OwnerSettings() {
           </motion.div>
         )}
 
-        {/* ── CONDITIONS TAB (US-P-113) ─────────────────────────────────── */}
-        {activeTab === 'conditions' && (
-          <motion.div
-            key="conditions"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-6"
-          >
-            <Card className="border-border">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <FileText className="size-4 text-brand-500" />
-                  Conditions locatives par défaut
-                </CardTitle>
-                <CardDescription>
-                  Ces valeurs pré-remplissent vos nouvelles annonces de propriété
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {conditionsLoading ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="h-14 bg-muted rounded-lg animate-pulse" />
-                    ))}
-                  </div>
-                ) : conditions ? (
-                  <div className="space-y-5">
-                    {/* Financial conditions */}
-                    <div>
-                      <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                        <DollarSign className="size-4 text-brand-500" />
-                        Conditions financières
-                      </h4>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-foreground">Caution (mois de loyer)</Label>
-                          <Select
-                            value={String(conditions.depositMonths)}
-                            onValueChange={(val) => handleSaveConditions({ depositMonths: parseInt(val, 10) })}
-                          >
-                            <SelectTrigger className="h-9 text-sm">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="0">Aucune caution</SelectItem>
-                              <SelectItem value="1">1 mois</SelectItem>
-                              <SelectItem value="2">2 mois</SelectItem>
-                              <SelectItem value="3">3 mois</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-foreground">Durée du bail</Label>
-                          <Select
-                            value={String(conditions.leaseDurationMonths)}
-                            onValueChange={(val) => handleSaveConditions({ leaseDurationMonths: parseInt(val, 10) })}
-                          >
-                            <SelectTrigger className="h-9 text-sm">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="6">6 mois</SelectItem>
-                              <SelectItem value="12">1 an (12 mois)</SelectItem>
-                              <SelectItem value="24">2 ans (24 mois)</SelectItem>
-                              <SelectItem value="36">3 ans (36 mois)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="mt-4 space-y-1.5">
-                        <Label htmlFor="default-charges" className="text-xs font-medium text-foreground">
-                          Charges par défaut (FCFA)
-                        </Label>
-                        <Input
-                          id="default-charges"
-                          type="number"
-                          value={conditions.defaultCharges}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10)
-                            if (!isNaN(val) && val >= 0) {
-                              setConditions((prev) => prev ? { ...prev, defaultCharges: val } : prev)
-                            }
-                          }}
-                          onBlur={() => handleSaveConditions({ defaultCharges: conditions.defaultCharges })}
-                          placeholder="0"
-                          className="h-9 text-sm max-w-xs"
-                          min={0}
-                        />
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Policies */}
-                    <div>
-                      <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                        <Sliders className="size-4 text-brand-500" />
-                        Politiques
-                      </h4>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                            <Cigarette className="size-3" /> Politique fumeur
-                          </Label>
-                          <Select
-                            value={conditions.smokingPolicy}
-                            onValueChange={(val) => handleSaveConditions({ smokingPolicy: val as DefaultConditions['smokingPolicy'] })}
-                          >
-                            <SelectTrigger className="h-9 text-sm">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="NON_SPECIFIE">Non spécifié</SelectItem>
-                              <SelectItem value="INTERDIT">Interdit</SelectItem>
-                              <SelectItem value="AUTORISE">Autorisé</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                            <PawPrint className="size-3" /> Politique animaux
-                          </Label>
-                          <Select
-                            value={conditions.petPolicy}
-                            onValueChange={(val) => handleSaveConditions({ petPolicy: val as DefaultConditions['petPolicy'] })}
-                          >
-                            <SelectTrigger className="h-9 text-sm">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="NON_SPECIFIE">Non spécifié</SelectItem>
-                              <SelectItem value="INTERDIT">Interdit</SelectItem>
-                              <SelectItem value="AUTORISE">Autorisé</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">Impossible de charger les conditions</p>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-
         {/* ── SÉCURITÉ TAB ──────────────────────────────────────────────── */}
         {activeTab === 'securite' && (
           <motion.div
@@ -878,151 +909,6 @@ export function OwnerSettings() {
             transition={{ duration: 0.2 }}
           >
             <OwnerSecurity />
-          </motion.div>
-        )}
-
-        {/* ── TRI & FILTRES TAB (US-P-112) ──────────────────────────────── */}
-        {activeTab === 'tri' && (
-          <motion.div
-            key="tri"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-6"
-          >
-            {/* Default sort */}
-            <Card className="border-border">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <ArrowUpDown className="size-4 text-brand-500" />
-                  Tri des candidatures par défaut
-                </CardTitle>
-                <CardDescription>
-                  Définissez l&apos;ordre d&apos;affichage des candidatures reçues
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {conditionsLoading ? (
-                  <div className="h-14 bg-muted rounded-lg animate-pulse" />
-                ) : conditions ? (
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-medium text-foreground">Trier par</Label>
-                      <Select
-                        value={conditions.defaultSort}
-                        onValueChange={(val) => handleSaveConditions({ defaultSort: val as DefaultConditions['defaultSort'] })}
-                      >
-                        <SelectTrigger className="h-9 text-sm max-w-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="DATE">Date de candidature</SelectItem>
-                          <SelectItem value="REVENUE">Revenu du candidat</SelectItem>
-                          <SelectItem value="CATEGORY">Catégorie du candidat</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">Impossible de charger</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Auto-reject criteria */}
-            <Card className="border-border">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Filter className="size-4 text-brand-500" />
-                  Critères de rejet automatique
-                </CardTitle>
-                <CardDescription>
-                  Les candidatures ne respectant pas ces critères seront automatiquement rejetées
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {conditionsLoading ? (
-                  <div className="space-y-4">
-                    {[1, 2].map((i) => (
-                      <div key={i} className="h-14 bg-muted rounded-lg animate-pulse" />
-                    ))}
-                  </div>
-                ) : conditions ? (
-                  <div className="space-y-5">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="min-income-ratio" className="text-xs font-medium text-foreground">
-                        Ratio revenu/loyer minimum
-                      </Label>
-                      <div className="flex items-center gap-3 max-w-xs">
-                        <Input
-                          id="min-income-ratio"
-                          type="number"
-                          value={conditions.minIncomeRatio}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value)
-                            if (!isNaN(val) && val >= 1 && val <= 10) {
-                              setConditions((prev) => prev ? { ...prev, minIncomeRatio: val } : prev)
-                            }
-                          }}
-                          onBlur={() => handleSaveConditions({ minIncomeRatio: conditions.minIncomeRatio })}
-                          min={1}
-                          max={10}
-                          step={0.5}
-                          className="h-9 text-sm"
-                        />
-                        <span className="text-xs text-muted-foreground shrink-0">x le loyer</span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        Ex: 3 = le revenu doit être au moins 3 fois le loyer
-                      </p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="min-documents" className="text-xs font-medium text-foreground">
-                        Nombre minimum de documents
-                      </Label>
-                      <div className="flex items-center gap-3 max-w-xs">
-                        <Input
-                          id="min-documents"
-                          type="number"
-                          value={conditions.minDocuments}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10)
-                            if (!isNaN(val) && val >= 0 && val <= 20) {
-                              setConditions((prev) => prev ? { ...prev, minDocuments: val } : prev)
-                            }
-                          }}
-                          onBlur={() => handleSaveConditions({ minDocuments: conditions.minDocuments })}
-                          min={0}
-                          max={20}
-                          className="h-9 text-sm"
-                        />
-                        <span className="text-xs text-muted-foreground shrink-0">documents</span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        Les candidatures avec moins de documents seront rejetées automatiquement
-                      </p>
-                    </div>
-
-                    {/* Info box */}
-                    <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-                      <div className="flex items-start gap-2">
-                        <ChevronRight className="size-4 text-amber-500 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs font-medium text-amber-700">Note</p>
-                          <p className="text-[11px] text-amber-600 mt-0.5">
-                            Les critères de rejet automatique s&apos;appliquent à toutes les nouvelles candidatures.
-                            Vous pouvez toujours réviser manuellement une candidature rejetée.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">Impossible de charger</p>
-                )}
-              </CardContent>
-            </Card>
           </motion.div>
         )}
       </AnimatePresence>

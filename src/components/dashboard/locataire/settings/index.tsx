@@ -6,7 +6,7 @@ import {
   CheckCircle2, XCircle, ScanFace, CreditCard, FileCheck,
   Save, Loader2, MapPin, Users, ArrowRight, Lightbulb, AlertTriangle,
   Info, RefreshCw, Eye, EyeOff, Monitor, Smartphone, Trash2, LogOut,
-  Camera, ArrowLeftRight, Building2, Share, Copy, Star, Wrench, History,
+  Camera, ArrowLeftRight, Building2,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -22,9 +22,6 @@ import { useAuthStore } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Reviews } from '../reviews'
-import { Maintenance } from '../maintenance'
-import { ActivityHistory } from '../history'
 import type { ProfileData, ScoringData, SessionInfo, NotificationPreferences, SettingsTab } from './types'
 import { ScoreCircle, ScoreComponentCard } from './sub-components'
 import { KycVerificationModal } from './kyc-modal'
@@ -91,7 +88,6 @@ export function SettingsSection() {
 
   // Security tab state
   const [passwordModalOpen, setPasswordModalOpen] = useState(false)
-  const [privacyModalOpen, setPrivacyModalOpen] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -117,14 +113,6 @@ export function SettingsSection() {
 
   // ONECI section ref for scroll
   const oneciSectionRef = useRef<HTMLDivElement>(null)
-
-  // Profile sharing state
-  const [shareEmail, setShareEmail] = useState('')
-  const [shareLoading, setShareLoading] = useState(false)
-  const [shareSuccess, setShareSuccess] = useState<string | null>(null)
-  const [shareError, setShareError] = useState<string | null>(null)
-  const [shareableLink, setShareableLink] = useState<string | null>(null)
-  const [copiedLink, setCopiedLink] = useState(false)
 
   // Fetch profile & scoring data
   const fetchProfileAndScoring = useCallback(async () => {
@@ -418,44 +406,6 @@ export function SettingsSection() {
     }
   }, [updateUser])
 
-  // ── Profile share handler ────────────────────────────────────────────────
-  const handleProfileShare = useCallback(async () => {
-    if (!shareEmail.trim()) return
-
-    setShareLoading(true)
-    setShareError(null)
-    setShareSuccess(null)
-
-    try {
-      const result = await authFetch<{ success: boolean; shareableLink: string; message: string }>('/api/profile/share', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: shareEmail.trim() }),
-      })
-
-      setShareableLink(result.shareableLink)
-      setShareSuccess(`Lien de partage envoyé à ${shareEmail.trim()}`)
-      setShareEmail('')
-    } catch (err) {
-      setShareError(err instanceof Error ? err.message : 'Erreur lors du partage du profil')
-    } finally {
-      setShareLoading(false)
-    }
-  }, [shareEmail])
-
-  // ── Copy shareable link handler ──────────────────────────────────────────
-  const handleCopyLink = useCallback(async () => {
-    if (!shareableLink) return
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}${shareableLink}`)
-      setCopiedLink(true)
-      setTimeout(() => setCopiedLink(false), 2000)
-    } catch {
-      // Fallback: select text approach
-      setCopiedLink(false)
-    }
-  }, [shareableLink])
-
   // Save profile
   const handleSave = async () => {
     setSaving(true)
@@ -713,11 +663,8 @@ export function SettingsSection() {
 
   // Scoring tab navigation items
   const tabs = [
-    { id: 'reviews' as const, label: 'Mes avis', icon: Star },
-    { id: 'maintenance' as const, label: 'Maintenance', icon: Wrench },
-    { id: 'history' as const, label: 'Activité', icon: History },
     { id: 'profil' as const, label: 'Mon Profil', icon: User },
-    { id: 'scoring' as const, label: 'Vérifications', icon: ShieldCheck },
+    { id: 'verification' as const, label: 'Vérifications', icon: ShieldCheck },
     { id: 'securite' as const, label: 'Sécurité', icon: Shield },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell },
   ]
@@ -809,7 +756,7 @@ export function SettingsSection() {
               {/* Trust Score circle */}
               {scoring && (
                 <button
-                  onClick={() => setActiveTab('scoring')}
+                  onClick={() => setActiveTab('verification')}
                   className="flex flex-col items-center gap-1 shrink-0 group"
                 >
                   <ScoreCircle score={scoring.score} statusColor={scoring.statusColor} size="md" />
@@ -882,45 +829,6 @@ export function SettingsSection() {
 
       {/* ── Tab Content ──────────────────────────────────────────────────── */}
       <AnimatePresence mode="wait">
-        {/* ── REVIEWS TAB ──────────────────────────────────────────────── */}
-        {activeTab === 'reviews' && (
-          <motion.div
-            key="reviews"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Reviews />
-          </motion.div>
-        )}
-
-        {/* ── MAINTENANCE TAB ───────────────────────────────────────────── */}
-        {activeTab === 'maintenance' && (
-          <motion.div
-            key="maintenance"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Maintenance />
-          </motion.div>
-        )}
-
-        {/* ── HISTORY TAB ──────────────────────────────────────────────── */}
-        {activeTab === 'history' && (
-          <motion.div
-            key="history"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            <ActivityHistory />
-          </motion.div>
-        )}
-
         {/* ── PROFIL TAB ────────────────────────────────────────────────── */}
         {activeTab === 'profil' && (
           <motion.div
@@ -1387,116 +1295,13 @@ export function SettingsSection() {
               </CardContent>
             </Card>
 
-            {/* ── Partager mon profil ──────────────────────────────────────────── */}
-            <Card className="border-border">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Share className="size-4 text-brand-500" />
-                  Partager mon profil
-                </CardTitle>
-                <CardDescription>
-                  Partagez votre profil {user?.activeRole === 'PROPRIETAIRE' ? 'propriétaire' : 'locataire'} avec quelqu&apos;un en entrant son adresse email
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Input
-                      type="email"
-                      placeholder="email@exemple.ci"
-                      value={shareEmail}
-                      onChange={(e) => {
-                        setShareEmail(e.target.value)
-                        setShareError(null)
-                      }}
-                      className="h-9 text-sm"
-                      disabled={shareLoading}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleProfileShare()
-                      }}
-                    />
-                  </div>
-                  <Button
-                    onClick={handleProfileShare}
-                    disabled={shareLoading || !shareEmail.trim()}
-                    className="bg-brand-500 hover:bg-brand-600 text-white h-9"
-                  >
-                    {shareLoading ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Mail className="size-4 mr-1.5" />
-                        Envoyer
-                      </>
-                    )}
-                  </Button>
-                </div>
-
-                {/* Share success message */}
-                {shareSuccess && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-3 rounded-lg bg-emerald-50 border border-emerald-200"
-                  >
-                    <div className="flex items-start gap-2">
-                      <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-xs font-medium text-emerald-700">{shareSuccess}</p>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Share error message */}
-                {shareError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-3 rounded-lg bg-red-50 border border-red-200"
-                  >
-                    <div className="flex items-start gap-2">
-                      <XCircle className="size-4 text-red-500 shrink-0 mt-0.5" />
-                      <p className="text-xs text-red-700">{shareError}</p>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Shareable link display */}
-                {shareableLink && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-3 rounded-lg bg-muted border border-border"
-                  >
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs text-muted-foreground flex-1 truncate">
-                        Lien : <span className="font-mono text-foreground">{shareableLink}</span>
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 shrink-0"
-                        onClick={handleCopyLink}
-                      >
-                        {copiedLink ? (
-                          <CheckCircle2 className="size-3.5 text-emerald-500" />
-                        ) : (
-                          <Copy className="size-3.5 text-muted-foreground" />
-                        )}
-                      </Button>
-                    </div>
-                  </motion.div>
-                )}
-              </CardContent>
-            </Card>
           </motion.div>
         )}
 
-        {/* ── SCORING TAB ───────────────────────────────────────────────── */}
-        {activeTab === 'scoring' && scoring && (
+        {/* ── VERIFICATION TAB ──────────────────────────────────────────── */}
+        {activeTab === 'verification' && scoring && (
           <motion.div
-            key="scoring"
+            key="verification"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
@@ -1990,78 +1795,7 @@ export function SettingsSection() {
               </CardContent>
             </Card>
 
-            {/* Confidentialité */}
-            <Card className="border-border">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Eye className="size-4 text-brand-500" />
-                  Confidentialité
-                </CardTitle>
-                <CardDescription>Gérez vos données et votre confidentialité</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  variant="outline"
-                  onClick={() => setPrivacyModalOpen(true)}
-                  className="border-brand-200 text-brand-600 hover:bg-brand-50"
-                >
-                  <Eye className="size-4 mr-2" />
-                  Voir la politique de confidentialité
-                </Button>
-              </CardContent>
-            </Card>
 
-            {/* Privacy modal */}
-            <Dialog open={privacyModalOpen} onOpenChange={setPrivacyModalOpen}>
-              <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Eye className="size-5 text-brand-500" />
-                    Politique de confidentialité
-                  </DialogTitle>
-                  <DialogDescription>
-                    Comment nous protégeons vos données personnelles
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-4 text-xs text-muted-foreground leading-relaxed">
-                  <div>
-                    <h4 className="font-semibold text-foreground mb-1">1. Collecte des données</h4>
-                    <p>Nous collectons uniquement les données nécessaires à la gestion locative : identité, coordonnées, documents d&apos;identité, et historique locatif.</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-foreground mb-1">2. Utilisation</h4>
-                    <p>Vos données sont utilisées exclusivement pour la vérification d&apos;identité, la gestion des candidatures, la signature électronique, et la communication entre locataires et propriétaires.</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-foreground mb-1">3. Partage</h4>
-                    <p>Vos données ne sont jamais partagées avec des tiers sans votre consentement explicite, sauf obligation légale.</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-foreground mb-1">4. Sécurité</h4>
-                    <p>Vos documents sont chiffrés et stockés de manière sécurisée. L&apos;authentification biométrique est traitée via NeoFace et les données d&apos;identité via ONECI, sans stockage intermédiaire.</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-foreground mb-1">5. Droits</h4>
-                    <p>Vous pouvez à tout moment demander l&apos;accès, la rectification ou la suppression de vos données via les paramètres ou en contactant notre support.</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-foreground mb-1">6. Conservation</h4>
-                    <p>Vos données sont conservées pendant la durée de votre relation avec notre service, et jusqu&apos;à 3 ans après la fin de votre dernier contrat pour des raisons légales.</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-foreground mb-1">7. Cookies</h4>
-                    <p>Notre site utilise des cookies strictement nécessaires à son fonctionnement. Aucun cookie publicitaire ou de tracking n&apos;est utilisé.</p>
-                  </div>
-                </div>
-
-                <DialogFooter>
-                  <Button onClick={() => setPrivacyModalOpen(false)} className="bg-brand-500 hover:bg-brand-600 text-white">
-                    Fermer
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
           </motion.div>
         )}
 

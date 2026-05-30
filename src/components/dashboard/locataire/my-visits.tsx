@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useState, useMemo } from 'react'
-import { Eye, Calendar, Clock, MapPin, ChevronRight, Search, Building2 } from 'lucide-react'
+import { Eye, Calendar, Clock, MapPin, ChevronRight, Search, Building2, Star } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
@@ -43,7 +44,7 @@ interface MyVisitsProps {
 }
 
 export function MyVisits({ onDetail }: MyVisitsProps) {
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, setDashboardSection } = useAuthStore()
   const [data, setData] = useState<VisitData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -318,6 +319,17 @@ export function MyVisits({ onDetail }: MyVisitsProps) {
                       <div className="mt-2 p-2 rounded bg-brand-50 text-xs text-brand-700">
                         Contre-proposition : {new Date(vr.counterDate).toLocaleDateString('fr-FR')} — {vr.counterTimeSlot}
                       </div>
+                    )}
+                    {vr.status === 'COMPLETED' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); setDashboardSection('reviews') }}
+                        className="mt-2 gap-1.5 h-7 text-xs border-brand-200 text-brand-600 hover:bg-brand-50"
+                      >
+                        <Star className="size-3" />
+                        Donner mon avis
+                      </Button>
                     )}
                   </div>
 

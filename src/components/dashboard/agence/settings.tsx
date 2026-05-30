@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Settings, Building2, CreditCard, Bell, Users, FileText, Save, Lock, Loader2 } from 'lucide-react'
+import { Settings, Building2, CreditCard, Bell, FileText, Save, Lock, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,7 +20,7 @@ const itemVariants = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 }
 
 export function AgenceSettings() {
   const { user, updateUser } = useAuthStore()
-  const [activeTab, setActiveTab] = useState<'profil' | 'commissions' | 'notifications' | 'equipe' | 'security'>('profil')
+  const [activeTab, setActiveTab] = useState<'profil' | 'commissions' | 'notifications' | 'security'>('profil')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [notifLoading, setNotifLoading] = useState(false)
@@ -182,7 +182,6 @@ export function AgenceSettings() {
     { id: 'profil' as const, label: 'Profil', icon: Building2 },
     { id: 'commissions' as const, label: 'Commissions', icon: CreditCard },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell },
-    { id: 'equipe' as const, label: 'Équipe', icon: Users },
     { id: 'security' as const, label: 'Sécurité', icon: Lock },
   ]
 
@@ -389,43 +388,6 @@ export function AgenceSettings() {
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-
-        {/* ── ÉQUIPE TAB ──────────────────────────────────────────────── */}
-        {activeTab === 'equipe' && (
-          <motion.div
-            key="equipe"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-6"
-          >
-            <Card className="border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Users className="size-4 text-brand-500" /> Permissions de l&apos;équipe
-                </CardTitle>
-                <CardDescription>Gérez les accès des membres de votre agence</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-accent/30 transition-colors">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Agent</p>
-                    <p className="text-xs text-muted-foreground">Gérer les biens, visites et candidatures</p>
-                  </div>
-                  <Button variant="outline" size="sm" className="text-brand-600 border-brand-200 hover:bg-brand-50">Configurer</Button>
-                </div>
-                <div className="flex items-center justify-between p-4 rounded-xl border border-border hover:bg-accent/30 transition-colors">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Lecture seule</p>
-                    <p className="text-xs text-muted-foreground">Consultation uniquement</p>
-                  </div>
-                  <Button variant="outline" size="sm" className="text-brand-600 border-brand-200 hover:bg-brand-50">Configurer</Button>
-                </div>
               </CardContent>
             </Card>
           </motion.div>

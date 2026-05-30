@@ -67,7 +67,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
       return [
         {
           items: [
-            { id: 'overview', label: 'Mon Espace', icon: LayoutDashboard },
+            { id: 'overview', label: 'Tableau de bord', icon: LayoutDashboard },
           ],
         },
         {
@@ -86,13 +86,6 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
             { id: 'mandats', label: 'Mes mandats', icon: ScrollText },
             { id: 'maintenance', label: 'Maintenance', icon: Wrench },
             { id: 'payments', label: 'Paiements', icon: CreditCard },
-          ],
-        },
-        {
-          title: 'FINANCES',
-          items: [
-            { id: 'finances', label: 'Mes finances', icon: BarChart3 },
-            { id: 'analytics', label: 'Analytics', icon: BarChart3 },
           ],
         },
         {
