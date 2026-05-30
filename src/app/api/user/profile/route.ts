@@ -93,6 +93,20 @@ export async function PATCH(req: NextRequest) {
             updateData.show_email = body.showEmail
         }
 
+        if (body.gender !== undefined) {
+            if (body.gender && !["HOMME", "FEMME"].includes(body.gender)) {
+                return NextResponse.json(
+                    { error: "Genre invalide" },
+                    { status: 400 }
+                )
+            }
+            updateData.gender = body.gender || null
+        }
+
+        if (body.city !== undefined) {
+            updateData.city = body.city?.trim() || null
+        }
+
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json(
                 { error: "Aucune donnée à mettre à jour" },
@@ -105,7 +119,7 @@ export async function PATCH(req: NextRequest) {
             .update(updateData)
             .eq("id", userId)
             .select(
-                "id, first_name, last_name, email, phone, avatar_url, bio, company_name, show_phone, show_email, is_email_verified, is_phone_verified, role"
+                "id, first_name, last_name, email, phone, avatar_url, bio, company_name, show_phone, show_email, is_email_verified, is_phone_verified, role, gender, city"
             )
             .single() as any)
 
@@ -124,6 +138,8 @@ export async function PATCH(req: NextRequest) {
                 isEmailVerified: updatedUser.is_email_verified,
                 isPhoneVerified: updatedUser.is_phone_verified,
                 role: updatedUser.role,
+                gender: updatedUser.gender,
+                city: updatedUser.city,
             },
         })
         return applyCookies(resp)

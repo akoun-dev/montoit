@@ -160,7 +160,7 @@ function LocataireDashboard({ section }: { section: string }) {
 }
 
 function ProprietaireDashboard({ section }: { section: string }) {
-  const { selectedItemId, setDashboardSection, setSelectedItemId } = useAuthStore()
+  const { selectedItemId, setDashboardSection, setSelectedItemId, settingsDefaultTab, setSettingsDefaultTab } = useAuthStore()
 
   const goToTenantDetail = (id: string) => {
     setSelectedItemId(id)
@@ -193,7 +193,7 @@ function ProprietaireDashboard({ section }: { section: string }) {
     case 'reviews': return <OwnerReviews />
     case 'maintenance': return <OwnerMaintenance />
     case 'history': return <ActivityHistory />
-    case 'settings': return <OwnerSettings />
+    case 'settings': return <OwnerSettings defaultTab={settingsDefaultTab} onTabConsumed={() => setSettingsDefaultTab('')} />
     default: return <ProprietaireOverview />
   }
 }

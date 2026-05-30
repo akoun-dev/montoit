@@ -48,6 +48,7 @@ export interface AuthUser {
     address?: string | null
     twoFactorEnabled?: boolean
     passwordUpdatedAt?: string | null
+    gender?: string | null
 }
 
 export interface VerifyEmailOtpResult {
@@ -82,6 +83,7 @@ interface TransientAuthState {
     devCode: string
     otpPurpose: OtpPurpose
     pendingMessage: string
+    settingsDefaultTab: string
 }
 
 interface AuthActions {
@@ -130,6 +132,7 @@ interface AuthActions {
     setSelectedPropertyId: (id: string) => void
     setSelectedItemId: (id: string) => void
     setSearchParams: (params: SearchParams) => void
+    setSettingsDefaultTab: (tab: string) => void
     updateUser: (partial: Partial<AuthUser>) => void
     switchRole: (newRole: AuthUser["role"]) => Promise<void>
     checkAuth: () => Promise<void>
@@ -160,10 +163,10 @@ const defaultTransient: TransientAuthState = {
     devCode: "",
     otpPurpose: "login",
     pendingMessage: "",
+    settingsDefaultTab: "",
 }
 
 // ─── checkAuth deduplication guard ──────────────────────────────────────────
-// Prevents multiple simultaneous checkAuth calls
 let checkAuthPromise: Promise<void> | null = null
 
 // ─── Session heartbeat interval ────────────────────────────────────────────
@@ -581,6 +584,7 @@ export const useAuthStore = create<AuthState>()(
             setSelectedPropertyId: id => set({ selectedPropertyId: id }),
             setSelectedItemId: id => set({ selectedItemId: id }),
             setSearchParams: params => set({ searchParams: params }),
+            setSettingsDefaultTab: tab => set({ settingsDefaultTab: tab }),
             updateUser: partial =>
                 set(state => ({
                     user: state.user

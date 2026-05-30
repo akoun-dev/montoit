@@ -15,6 +15,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch } from '@/lib/auth-fetch'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -23,6 +30,8 @@ import { ScoreCircle, ScoreComponentCard } from '@/components/dashboard/locatair
 import { KycVerificationModal } from '@/components/dashboard/locataire/settings/kyc-modal'
 import type { ScoringData } from '@/components/dashboard/locataire/settings/types'
 import { toast } from 'sonner'
+import { SearchableSelect } from '@/components/ui/searchable-select'
+import { CITIES } from '@/lib/cities'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -74,10 +83,18 @@ const itemVariants = {
 
 // ── Main Owner Settings Component ───────────────────────────────────────────
 
-export function OwnerSettings() {
+export function OwnerSettings({ defaultTab, onTabConsumed }: { defaultTab?: string; onTabConsumed?: () => void }) {
   const { user, updateUser } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'profil' | 'verification' | 'notifications' | 'securite'>('profil')
+
+  // Apply default tab from redirect and consume it
+  useEffect(() => {
+    if (defaultTab && ['profil', 'verification', 'notifications', 'securite'].includes(defaultTab)) {
+      setActiveTab(defaultTab as 'profil' | 'verification' | 'notifications' | 'securite')
+      onTabConsumed?.()
+    }
+  }, [defaultTab, onTabConsumed])
 
   // Profile state
   const [profile, setProfile] = useState<OwnerProfileData | null>(null)
@@ -85,6 +102,8 @@ export function OwnerSettings() {
     firstName: '',
     lastName: '',
     phone: '',
+    gender: '',
+    city: '',
     showPhone: true,
     showEmail: false,
   })
@@ -138,6 +157,8 @@ export function OwnerSettings() {
           firstName: profileResult.value.user.firstName || '',
           lastName: profileResult.value.user.lastName || '',
           phone: profileResult.value.user.phone || '',
+          gender: profileResult.value.user.gender || '',
+          city: profileResult.value.user.city || '',
         }))
       }
       if (scoringResult.status === 'fulfilled') setScoring(scoringResult.value)
@@ -227,6 +248,8 @@ export function OwnerSettings() {
         firstName: p.firstName || '',
         lastName: p.lastName || '',
         phone: p.phone || '',
+        gender: p.gender || '',
+        city: p.city || '',
         showPhone: (p as unknown as Record<string, unknown>).showPhone as boolean ?? true,
         showEmail: (p as unknown as Record<string, unknown>).showEmail as boolean ?? false,
       })
@@ -266,6 +289,8 @@ export function OwnerSettings() {
         firstName: result.user.firstName,
         lastName: result.user.lastName,
         avatarUrl: result.user.avatarUrl,
+        gender: result.user.gender,
+        city: result.user.city,
       })
       toast.success('Profil mis à jour avec succès')
     } catch (err) {
@@ -606,6 +631,30 @@ export function OwnerSettings() {
                   <p className="text-[10px] text-muted-foreground">
                     {profileForm.showEmail ? 'Visible par les candidats' : 'Masqué pour les candidats'}
                   </p>
+                </div>
+
+                {/* Gender & City */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-foreground">Genre</Label>
+                    <Select value={profileForm.gender} onValueChange={(v) => setProfileForm((prev) => ({ ...prev, gender: v }))}>
+                      <SelectTrigger className="h-9 text-sm w-full"><SelectValue placeholder="Non renseigné" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="HOMME">Homme</SelectItem>
+                        <SelectItem value="FEMME">Femme</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-foreground">Ville</Label>
+                    <SearchableSelect
+                      options={CITIES.map((c) => ({ value: c.name, label: c.name }))}
+                      value={profileForm.city}
+                      onChange={(v) => setProfileForm((prev) => ({ ...prev, city: v }))}
+                      placeholder="Sélectionnez une ville"
+                      className="h-9 text-sm"
+                    />
+                  </div>
                 </div>
 
                 {/* Save button */}
