@@ -153,11 +153,10 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Le style de la status bar est géré dynamiquement par MainViewController
+	     (preferredStatusBarStyle) selon le thème courant (clair/sombre) — adapté
+	     à la fois au mode système iOS et au thème de la page web (classe `dark`). -->
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-
-	<!-- Status bar : icônes foncées (visible sur fond blanc) -->
-	<key>UIStatusBarStyle</key>
-	<string>UIStatusBarStyleDarkContent</string>
 </dict>
 </plist>
