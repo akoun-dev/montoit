@@ -341,7 +341,7 @@ export function KycVerificationModal({
           {(kycStep === 'idle' || kycStep === 'uploading') && (
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Téléchargez le <strong>recto</strong> (face avec votre photo) et le <strong>verso</strong> de votre CNI. Nous extrayons automatiquement vos données via OCR, puis vous prendrez un selfie pour confirmer votre identité.
+                Prenez en photo le <strong>recto</strong> (face avec votre photo) puis le <strong>verso</strong> de votre CNI. Nous extrayons automatiquement vos données via OCR, puis vous prendrez un selfie pour confirmer votre identité.
               </p>
 
               {/* Two upload zones side by side */}
@@ -408,14 +408,16 @@ export function KycVerificationModal({
               <input
                 ref={kycDocInputRef}
                 type="file"
-                accept="image/jpeg,image/jpg,image/png"
+                accept="image/*"
+                capture="environment"
                 className="hidden"
                 onChange={handleKycDocSelect}
               />
               <input
                 ref={kycDocVersoInputRef}
                 type="file"
-                accept="image/jpeg,image/jpg,image/png"
+                accept="image/*"
+                capture="environment"
                 className="hidden"
                 onChange={handleKycDocVersoSelect}
               />
