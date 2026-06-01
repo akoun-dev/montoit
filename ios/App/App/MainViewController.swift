@@ -19,34 +19,15 @@ class MainViewController: CAPBridgeViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Fond blanc persistant du root view : visible au-dessus de la WebView
-        // (dans la zone safe-area top sous la status bar) → évite que le contenu
-        // de la WebView déborde derrière la barre de tâche.
+        // Fond blanc du root view, visible dans la zone safe-area sous la status bar.
+        // La WebView reste edge-to-edge (comportement Capacitor par défaut) pour que
+        // la page web puisse utiliser `env(safe-area-inset-top)` en CSS — ce que
+        // certaines navbars exploitent pour leur padding-top. Contraindre la WebView
+        // à la safe-area casse ce mécanisme et fait disparaître les navbars qui en
+        // dépendent.
         view.backgroundColor = MainViewController.backgroundColor
-        constrainWebViewToSafeArea()
         showSplashOverlay()
         observeWebViewProgress()
-    }
-
-    /// Force la WebView à rester strictement dans la safe-area (sous la status bar).
-    /// Sans ça, par défaut la WebView va edge-to-edge et le contenu web (cards, images)
-    /// peut apparaître par transparence dans la zone safe-area top → effet de "strip
-    /// coloré au-dessus du header" visible au scroll.
-    private func constrainWebViewToSafeArea() {
-        guard let webView = bridge?.webView else { return }
-
-        webView.isOpaque = true
-        webView.backgroundColor = MainViewController.backgroundColor
-        webView.scrollView.backgroundColor = MainViewController.backgroundColor
-        webView.scrollView.contentInsetAdjustmentBehavior = .never
-
-        webView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            webView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-        ])
     }
 
     /// Force les icônes système (heure, batterie, réseau) en mode foncé pour
