@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
 import { notify } from '@/lib/notify'
+import { generateAndUploadLeasePdf } from '@/lib/generate-and-upload-lease-pdf'
 
 // POST /api/rental-files/[id]/action — Accept or reject a rental file
 export async function POST(
@@ -31,9 +32,15 @@ export async function POST(
 
     const { id } = await params
     const body = await req.json()
-    const { action, rejectionReason } = body as {
+    const { action, rejectionReason, monthlyRent, charges, deposit, startDate, endDate, specialConditions } = body as {
       action: 'accept' | 'reject'
       rejectionReason?: string
+      monthlyRent?: number
+      charges?: number
+      deposit?: number
+      startDate?: string
+      endDate?: string
+      specialConditions?: string
     }
 
     if (!action || !['accept', 'reject'].includes(action)) {
@@ -107,18 +114,33 @@ export async function POST(
     }
 
     if (action === 'accept') {
-      // Create lease directly (no TC_REVIEW step)
+      // Validate required lease terms
+      if (!monthlyRent || monthlyRent <= 0) {
+        return NextResponse.json(
+          { error: 'Le loyer mensuel est requis et doit être supérieur à 0' },
+          { status: 400 }
+        )
+      }
+      if (!startDate || !endDate) {
+        return NextResponse.json(
+          { error: 'Les dates de début et de fin du bail sont requises' },
+          { status: 400 }
+        )
+      }
+
+      // Create lease with the provided terms
       const leaseId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
       const { data: lease, error: leaseError } = await (supabase as any)
         .from('leases')
         .insert({
           id: leaseId,
           status: 'PENDING_SIGNATURE',
-          start_date: new Date().toISOString(),
-          end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-          monthly_rent: 0,
-          charges: 0,
-          deposit: 0,
+          start_date: new Date(startDate).toISOString(),
+          end_date: new Date(endDate).toISOString(),
+          monthly_rent: parseFloat(String(monthlyRent)),
+          charges: charges ? parseFloat(String(charges)) : 0,
+          deposit: deposit ? parseFloat(String(deposit)) : 0,
+          special_conditions: specialConditions || null,
           property_id: property.id,
           tenant_id: rFile.tenant_id,
           owner_id: userId,
@@ -163,6 +185,13 @@ export async function POST(
         details: `Dossier accepté par le propriétaire ${userId}. Bail créé (${leaseId}).`,
         user_id: userId,
       })
+
+      // ── Generate PDF + upload to Storage (async, non-bloquant) ──
+      generateAndUploadLeasePdf(lease.id, 'initial').then((url) => {
+        if (url) {
+          (supabase.from('leases').update({ contract_url: url, updated_at: new Date().toISOString() } as any).eq('id', lease.id) as any).then()
+        }
+      }).catch((err) => console.error('PDF generation failed:', err))
 
       return NextResponse.json({
         data: { leaseId: lease.id },

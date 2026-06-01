@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdminClient } from '@/lib/supabase/admin'
 import { resolveRequestUser } from '@/lib/auth/request-user'
-import { notifyDisputeUpdate, notifyDisputeEscalated } from '@/lib/notify'
+import { notify, notifyDisputeUpdate, notifyDisputeEscalated } from '@/lib/notify'
+
+function generateId() {
+  return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
 
 async function authorizeTC(request: NextRequest) {
   const { userId, applyCookies } = await resolveRequestUser(request)
@@ -308,6 +312,42 @@ export async function PATCH(request: NextRequest) {
       try {
         if (action === 'ESCALATE') {
           await notifyDisputeEscalated(dispute.reported_by_id, id, escalationReason?.trim())
+
+          // ── Créer un signalement admin automatique pour l'escalade ──
+          const signalementDescription = `Litige escaladé par le TC.\n\nType de litige: ${dispute.type}\nDescription: ${dispute.description}\nMotif d'escalade: ${escalationReason?.trim() || 'Non spécifié'}`
+
+          const { data: signalement } = await ((supabase as any)
+            .from('signalements')
+            .insert({
+              id: generateId(),
+              reason: 'OTHER',
+              description: signalementDescription,
+              entity_type: 'Dispute',
+              entity_id: id,
+              reporter_id: userId,
+            })
+            .select()
+            .single() as any)
+
+          if (signalement) {
+            // Notifier tous les admins actifs
+            const { data: admins } = await (supabase
+              .from('users')
+              .select('id')
+              .eq('role', 'ADMIN')
+              .eq('is_active', true) as any)
+
+            await Promise.all((admins ?? []).map((admin: any) =>
+              notify({
+                userId: admin.id,
+                type: 'SYSTEM',
+                title: 'Litige escaladé 🚨',
+                message: `Un litige a été escaladé par le TC et nécessite votre attention. Raison : ${escalationReason?.trim() || 'Non spécifiée'}`,
+                actionUrl: 'signalements',
+                entityId: signalement.id,
+              })
+            ))
+          }
         } else if (status) {
           await notifyDisputeUpdate(dispute.reported_by_id, id, status, tcComment?.trim())
         }

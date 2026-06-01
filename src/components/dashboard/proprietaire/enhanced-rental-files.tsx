@@ -57,6 +57,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -233,6 +234,22 @@ export function EnhancedRentalFiles() {
   const [rejectionReason, setRejectionReason] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
 
+  // Lease terms form
+  const todayStr = new Date().toISOString().split('T')[0]
+  const defaultEndDate = new Date()
+  defaultEndDate.setFullYear(defaultEndDate.getFullYear() + 3) // bail 3 ans par défaut
+  const defaultEndStr = defaultEndDate.toISOString().split('T')[0]
+
+  const [leaseTerms, setLeaseTerms] = useState({
+    monthlyRent: '',
+    charges: '',
+    deposit: '',
+    startDate: todayStr,
+    endDate: defaultEndStr,
+    specialConditions: '',
+  })
+  const [termsErrors, setTermsErrors] = useState<Record<string, string>>({})
+
   // Tenant profile dialog state
   const [profileDialogOpen, setProfileDialogOpen] = useState(false)
   const [selectedTenant, setSelectedTenant] = useState<RentalFileItem | null>(null)
@@ -308,15 +325,42 @@ export function EnhancedRentalFiles() {
 
   // ─── Accept handler ──────────────────────────────────────────────────────
   const handleAccept = async () => {
+    // Validate form
+    const errors: Record<string, string> = {}
+    if (!leaseTerms.monthlyRent || parseFloat(leaseTerms.monthlyRent) <= 0) {
+      errors.monthlyRent = 'Le loyer mensuel est requis et doit être supérieur à 0'
+    }
+    if (!leaseTerms.startDate) {
+      errors.startDate = 'La date de début est requise'
+    }
+    if (!leaseTerms.endDate) {
+      errors.endDate = 'La date de fin est requise'
+    }
+    if (leaseTerms.startDate && leaseTerms.endDate && new Date(leaseTerms.endDate) <= new Date(leaseTerms.startDate)) {
+      errors.endDate = 'La date de fin doit être postérieure à la date de début'
+    }
+    setTermsErrors(errors)
+    if (Object.keys(errors).length > 0) return
+
     setActionLoading(true)
     try {
       const res = await authFetch<{ data: { leaseId: string } }>(`/api/rental-files/${selectedFileId}/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'accept' }),
+        body: JSON.stringify({
+          action: 'accept',
+          monthlyRent: parseFloat(leaseTerms.monthlyRent),
+          charges: leaseTerms.charges ? parseFloat(leaseTerms.charges) : 0,
+          deposit: leaseTerms.deposit ? parseFloat(leaseTerms.deposit) : 0,
+          startDate: leaseTerms.startDate,
+          endDate: leaseTerms.endDate,
+          specialConditions: leaseTerms.specialConditions || undefined,
+        }),
       })
-      toast.success('Candidature acceptée. Redirection vers le bail...')
+      toast.success('Candidature acceptée ! Le bail est en attente de signature.')
       setAcceptDialogOpen(false)
+      setLeaseTerms({ monthlyRent: '', charges: '', deposit: '', startDate: '', endDate: '', specialConditions: '' })
+      setTermsErrors({})
       setDashboardSection('my-leases')
     } catch (err) {
       if (err instanceof AuthError) {
@@ -658,30 +702,158 @@ export function EnhancedRentalFiles() {
         )}
       </AnimatePresence>
 
-      {/* ─── Accept Confirmation Dialog ──────────────────────────────────────── */}
-      <AlertDialog open={acceptDialogOpen} onOpenChange={setAcceptDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
+      {/* ─── Accept Dialog with Lease Terms ───────────────────────────────── */}
+      <Dialog open={acceptDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setTermsErrors({})
+          setAcceptDialogOpen(false)
+          return
+        }
+        // Reset form when opening for a new candidate
+        const newToday = new Date().toISOString().split('T')[0]
+        const newEnd = new Date()
+        newEnd.setFullYear(newEnd.getFullYear() + 3)
+        setLeaseTerms({
+          monthlyRent: '',
+          charges: '',
+          deposit: '',
+          startDate: newToday,
+          endDate: newEnd.toISOString().split('T')[0],
+          specialConditions: '',
+        })
+        setAcceptDialogOpen(true)
+      }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="size-5 text-emerald-600" />
-              Accepter le dossier
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Un bail sera créé et le locataire sera invité à signer. Vous pourrez définir les termes du bail dans la section Baux.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={actionLoading}>Annuler</AlertDialogCancel>
-            <AlertDialogAction
+              Accepter la candidature
+            </DialogTitle>
+            <DialogDescription>
+              Renseignez les termes du bail. Un bail sera créé et le locataire sera invité à le signer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {/* Monthly rent */}
+            <div className="space-y-2">
+              <Label htmlFor="monthlyRent">
+                Loyer mensuel (FCFA) <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="monthlyRent"
+                type="number"
+                min="0"
+                step="1000"
+                placeholder="150000"
+                value={leaseTerms.monthlyRent}
+                onChange={(e) => setLeaseTerms(prev => ({ ...prev, monthlyRent: e.target.value }))}
+                className={termsErrors.monthlyRent ? 'border-red-500' : ''}
+              />
+              {termsErrors.monthlyRent && (
+                <p className="text-xs text-red-500">{termsErrors.monthlyRent}</p>
+              )}
+            </div>
+
+            {/* Charges and deposit */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="charges">Charges (FCFA)</Label>
+                <Input
+                  id="charges"
+                  type="number"
+                  min="0"
+                  step="1000"
+                  placeholder="25000"
+                  value={leaseTerms.charges}
+                  onChange={(e) => setLeaseTerms(prev => ({ ...prev, charges: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deposit">Dépôt de garantie (FCFA)</Label>
+                <Input
+                  id="deposit"
+                  type="number"
+                  min="0"
+                  step="10000"
+                  placeholder="150000"
+                  value={leaseTerms.deposit}
+                  onChange={(e) => setLeaseTerms(prev => ({ ...prev, deposit: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">
+                  Date de début <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={leaseTerms.startDate}
+                  onChange={(e) => setLeaseTerms(prev => ({ ...prev, startDate: e.target.value }))}
+                  className={termsErrors.startDate ? 'border-red-500' : ''}
+                />
+                {termsErrors.startDate && (
+                  <p className="text-xs text-red-500">{termsErrors.startDate}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endDate">
+                  Date de fin <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={leaseTerms.endDate}
+                  onChange={(e) => setLeaseTerms(prev => ({ ...prev, endDate: e.target.value }))}
+                  className={termsErrors.endDate ? 'border-red-500' : ''}
+                />
+                {termsErrors.endDate && (
+                  <p className="text-xs text-red-500">{termsErrors.endDate}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Special conditions */}
+            <div className="space-y-2">
+              <Label htmlFor="specialConditions">Conditions particulières</Label>
+              <Textarea
+                id="specialConditions"
+                placeholder="Ex: meublé, parking inclus, animaux acceptés..."
+                value={leaseTerms.specialConditions}
+                onChange={(e) => setLeaseTerms(prev => ({ ...prev, specialConditions: e.target.value }))}
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAcceptDialogOpen(false)
+                setTermsErrors({})
+              }}
+              disabled={actionLoading}
+            >
+              Annuler
+            </Button>
+            <Button
               onClick={handleAccept}
               disabled={actionLoading}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
             >
-              {actionLoading ? 'Traitement...' : 'Confirmer l\'acceptation'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              {actionLoading ? (
+                <><span className="size-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" /> Traitement...</>
+              ) : (
+                <><CheckCircle2 className="size-4" /> Créer le bail</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ─── Reject Dialog ───────────────────────────────────────────────────── */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
