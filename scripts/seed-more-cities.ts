@@ -15,7 +15,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 const uuid = () => crypto.randomUUID()
 
-const PROPS_OWNER = '23ea14e4-5d33-4208-a6e1-00976efc97c1'
+const PROPS_OWNER = 'b165e0c9-3604-4547-a792-0442c3d3d4b8'
 const AGENCY_OWNER = 'bb9bd2e2-928b-4d55-a3f1-dacb595e279b'
 
 const IMAGES = [
