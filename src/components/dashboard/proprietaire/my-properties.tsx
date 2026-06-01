@@ -273,15 +273,16 @@ export function MyProperties() {
   const renderPropertyRow = (p: PropertyItem) => {
     const status = statusConfig[p.status] || { label: p.status, className: 'bg-neutral-100 text-neutral-600' }
     const isDraft = p.status === 'DRAFT'
+    const canPublish = p.title && p.description && p.price > 0 && p.area > 0 && p.address && p.city
 
     return (
       <div
         key={p.id}
-        className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card transition-colors hover:border-brand-200"
+        className="p-3 sm:p-4 rounded-xl border border-border bg-card transition-colors hover:border-brand-200 space-y-3 sm:space-y-0"
       >
         {/* Clickable body: thumbnail + info */}
         <div
-          className="flex flex-1 min-w-0 items-center gap-4 cursor-pointer rounded-lg hover:opacity-80 transition-opacity"
+          className="flex items-center gap-3 sm:gap-4 cursor-pointer rounded-lg hover:opacity-80 transition-opacity"
           onClick={() => handleResumeDraft(p.id)}
         >
           {/* Thumbnail */}
@@ -290,17 +291,17 @@ export function MyProperties() {
               <img
                 src={p.images[0].url}
                 alt={p.title || ''}
-                className="size-16 rounded-lg object-cover bg-muted"
+                className="size-12 sm:size-16 rounded-lg object-cover bg-muted"
               />
             ) : (
-              <div className="size-16 rounded-lg bg-muted flex items-center justify-center">
-                <Building2 className="size-7 text-muted-foreground/40" />
+              <div className="size-12 sm:size-16 rounded-lg bg-muted flex items-center justify-center">
+                <Building2 className="size-6 sm:size-7 text-muted-foreground/40" />
               </div>
             )}
           </div>
 
           {/* Info */}
-          <div className="space-y-1 min-w-0">
+          <div className="space-y-0.5 sm:space-y-1 min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-foreground text-sm sm:text-base truncate">
                 {p.title || 'Sans titre'}
@@ -309,15 +310,15 @@ export function MyProperties() {
                 {status.label}
               </Badge>
             </div>
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
-              <span>{p.city || 'Ville non renseignée'}{p.commune ? ` · ${p.commune}` : ''}</span>
-              <span className="hidden sm:inline">·</span>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
+              <span className="truncate max-w-[120px] sm:max-w-none">{p.city || 'Ville'}{p.commune ? ` · ${p.commune}` : ''}</span>
+              <span>·</span>
               <span>{typeLabels[p.type] || p.type}</span>
               {p.bedrooms && <><span>·</span><span>{p.bedrooms} ch.</span></>}
               {p.area > 0 && <><span>·</span><span>{p.area} m²</span></>}
             </div>
             {p.price > 0 && (
-              <p className="text-sm font-bold text-brand-600">
+              <p className="text-xs sm:text-sm font-bold text-brand-600">
                 {p.price.toLocaleString('fr-FR')} <span className="font-normal text-muted-foreground">FCFA/mois</span>
               </p>
             )}
@@ -325,27 +326,27 @@ export function MyProperties() {
         </div>
 
         {/* CRUD Actions */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0 sm:justify-end">
           {isDraft ? (
             <>
-              {p.title && p.description && p.price > 0 && p.area > 0 && p.address && p.city && (
+              {canPublish && (
                 <Button
                   size="sm"
-                  className="h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                  className="h-8 sm:h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs shrink-0"
                   onClick={() => handlePublishDraft(p.id)}
                 >
                   <CheckCircle2 className="size-3.5" />
-                  Publier
+                  <span>Publier</span>
                 </Button>
               )}
               <Button
                 size="sm"
                 variant="destructive"
-                className="h-9 gap-1.5 text-xs"
+                className="h-8 sm:h-9 gap-1.5 text-xs shrink-0"
                 onClick={() => handleDeleteDraft(p.id)}
               >
                 <Trash2 className="size-3.5" />
-                Supprimer
+                <span>Supprimer</span>
               </Button>
             </>
           ) : (
@@ -353,29 +354,29 @@ export function MyProperties() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 gap-1.5 text-xs"
+                className="h-8 sm:h-9 gap-1.5 text-xs shrink-0"
                 onClick={() => handleResumeDraft(p.id)}
               >
                 <Edit className="size-3.5" />
-                Modifier
+                <span>Modifier</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className={`h-9 gap-1.5 text-xs ${p.status === 'ACTIVE' ? 'text-amber-600 border-amber-200 hover:bg-amber-50' : 'text-green-600 border-green-200 hover:bg-green-50'}`}
+                className={`h-8 sm:h-9 gap-1.5 text-xs shrink-0 ${p.status === 'ACTIVE' ? 'text-amber-600 border-amber-200 hover:bg-amber-50' : 'text-green-600 border-green-200 hover:bg-green-50'}`}
                 onClick={() => handleToggleStatus(p.id, p.status)}
               >
                 <Power className="size-3.5" />
-                {p.status === 'ACTIVE' ? 'Suspendre' : 'Activer'}
+                <span>{p.status === 'ACTIVE' ? 'Suspendre' : 'Activer'}</span>
               </Button>
               <Button
                 size="sm"
                 variant="destructive"
-                className="h-9 gap-1.5 text-xs"
+                className="h-8 sm:h-9 gap-1.5 text-xs shrink-0"
                 onClick={() => handleDeleteDraft(p.id)}
               >
                 <Trash2 className="size-3.5" />
-                Supprimer
+                <span>Supprimer</span>
               </Button>
             </>
           )}
