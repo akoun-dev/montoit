@@ -19,6 +19,7 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
     private static let darkBackground = UIColor(red: 17/255, green: 24/255, blue: 39/255, alpha: 1.0) // gray-900 Tailwind
 
     private var splashOverlay: UIView?
+    private var statusBarOverlay: UIView?
     private var progressObservation: NSKeyValueObservation?
     private var timeoutWorkItem: DispatchWorkItem?
     private var splashHidden = false
@@ -31,6 +32,7 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
         isDarkMode = (traitCollection.userInterfaceStyle == .dark)
         view.backgroundColor = currentBackground
         injectThemeWatcher()
+        addStatusBarOverlay()
         showSplashOverlay()
         observeWebViewProgress()
         setNeedsStatusBarAppearanceUpdate()
@@ -68,7 +70,29 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
         isDarkMode = dark
         view.backgroundColor = currentBackground
         splashOverlay?.backgroundColor = currentBackground
+        statusBarOverlay?.backgroundColor = currentBackground
         setNeedsStatusBarAppearanceUpdate()
+    }
+
+    /// Ajoute un overlay natif uniquement dans la zone safe-area top
+    /// (derrière les icônes système). Adopte la couleur du thème courant.
+    /// Posé au-dessus de la WebView en z-order pour masquer le fond blanc
+    /// statique de la navbar web dans cette zone, sans toucher au logo
+    /// (qui se trouve dessous, dans la zone safe-area inférieure du device).
+    private func addStatusBarOverlay() {
+        let overlay = UIView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.isUserInteractionEnabled = false
+        overlay.backgroundColor = currentBackground
+        view.addSubview(overlay)
+
+        NSLayoutConstraint.activate([
+            overlay.topAnchor.constraint(equalTo: view.topAnchor),
+            overlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            overlay.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+        ])
+        statusBarOverlay = overlay
     }
 
     /// Injecte un MutationObserver qui surveille la classe `dark` (Tailwind) sur <html>
