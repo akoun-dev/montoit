@@ -58,11 +58,11 @@ const config: CapacitorConfig = {
   },
 
   ios: {
-    // 'automatic' = comportement par défaut iOS, gère naturellement les safe-area
-    // top/bottom selon le scroll. C'est ce qui donne le meilleur résultat dans
-    // une WebView wrapper qui charge du contenu HTML standard.
-    // ⚠️ 'always' figeait un padding-top → barre de nav restait visible au scroll.
-    contentInset: 'automatic',
+    // 'never' = pas d'inset auto. La WebView est contrainte manuellement à la
+    // safe-area dans MainViewController (constrainWebViewToSafeArea) — ça donne
+    // une séparation propre entre status bar et contenu web, sans bande de
+    // contenu qui dépasse derrière la barre de tâche.
+    contentInset: 'never',
     limitsNavigationsToAppBoundDomains: false,
     // Fond blanc derrière la WebView (visible dans la zone safe-area top)
     backgroundColor: '#FFFFFF',

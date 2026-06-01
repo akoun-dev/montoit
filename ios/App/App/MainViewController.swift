@@ -23,13 +23,30 @@ class MainViewController: CAPBridgeViewController {
         // (dans la zone safe-area top sous la status bar) → évite que le contenu
         // de la WebView déborde derrière la barre de tâche.
         view.backgroundColor = MainViewController.backgroundColor
-        if let webView = bridge?.webView {
-            webView.isOpaque = true
-            webView.backgroundColor = MainViewController.backgroundColor
-            webView.scrollView.backgroundColor = MainViewController.backgroundColor
-        }
+        constrainWebViewToSafeArea()
         showSplashOverlay()
         observeWebViewProgress()
+    }
+
+    /// Force la WebView à rester strictement dans la safe-area (sous la status bar).
+    /// Sans ça, par défaut la WebView va edge-to-edge et le contenu web (cards, images)
+    /// peut apparaître par transparence dans la zone safe-area top → effet de "strip
+    /// coloré au-dessus du header" visible au scroll.
+    private func constrainWebViewToSafeArea() {
+        guard let webView = bridge?.webView else { return }
+
+        webView.isOpaque = true
+        webView.backgroundColor = MainViewController.backgroundColor
+        webView.scrollView.backgroundColor = MainViewController.backgroundColor
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            webView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+        ])
     }
 
     /// Force les icônes système (heure, batterie, réseau) en mode foncé pour
