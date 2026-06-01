@@ -5,8 +5,12 @@ import WebKit
 /// ViewController principal — étend CAPBridgeViewController et ajoute :
 /// 1. Un overlay splash (icône centrée + 3 points orange animés)
 /// 2. Auto-hide de l'overlay quand la WebView a fini de charger l'URL distante
-/// 3. Contraintes Auto Layout sur la WebView pour respecter la safe-area
-/// 4. Status bar adaptative selon le thème courant (système iOS + thème de la page web)
+/// 3. Status bar adaptative selon le thème courant (système iOS + thème de la page web)
+///
+/// IMPORTANT : on ne touche PAS au fond de la WebView (backgroundColor, scrollView).
+/// La page web gère son propre rendu via CSS. Toucher au fond de la WebView cassait
+/// les éléments transparents comme la navbar (visibles seulement parce qu'ils
+/// s'appuient sur le fond géré par le site).
 class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
     private static let splashMaxTimeout: TimeInterval = 15.0
@@ -15,6 +19,7 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
     private static let darkBackground = UIColor(red: 17/255, green: 24/255, blue: 39/255, alpha: 1.0) // gray-900 Tailwind
 
     private var splashOverlay: UIView?
+    private var statusBarOverlay: UIView?
     private var progressObservation: NSKeyValueObservation?
     private var timeoutWorkItem: DispatchWorkItem?
     private var splashHidden = false
@@ -26,8 +31,8 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
         super.viewDidLoad()
         isDarkMode = (traitCollection.userInterfaceStyle == .dark)
         view.backgroundColor = currentBackground
-        constrainWebViewToSafeArea()
         injectThemeWatcher()
+        addStatusBarOverlay()
         showSplashOverlay()
         observeWebViewProgress()
         setNeedsStatusBarAppearanceUpdate()
@@ -55,22 +60,57 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
     }
 
     /// Bascule le thème natif. Touche UNIQUEMENT :
-    /// - view.backgroundColor (visible dans la zone safe-area top/bottom autour de la WebView)
+    /// - view.backgroundColor (visible dans la zone safe-area autour de la WebView)
     /// - splashOverlay.backgroundColor (si l'overlay est encore visible)
     /// - la status bar (via preferredStatusBarStyle)
-    /// Le fond de la WebView elle-même est laissé tel quel — c'est la page web qui gère
-    /// sa propre couleur de fond via CSS (sinon on cache certains éléments transparents
-    /// comme la navbar).
-    private func setDarkMode(_ dark: Bool) {
-        guard dark != isDarkMode else { return }
-        isDarkMode = dark
-        view.backgroundColor = currentBackground
-        splashOverlay?.backgroundColor = currentBackground
-        setNeedsStatusBarAppearanceUpdate()
+    /// Ne touche JAMAIS au fond de la WebView ou de son scrollView — c'est la page
+    /// web qui gère ça via CSS.
+    /// Met à jour le thème natif. Si `webBg` est fourni, c'est la couleur exacte du
+    /// <body> de l'app web : elle est utilisée pour l'overlay status bar (alignement
+    /// parfait visuel). Sinon, fallback vers nos couleurs prédéfinies.
+    private func setDarkMode(_ dark: Bool, webBg: UIColor? = nil) {
+        let nativeBg = dark ? MainViewController.darkBackground : MainViewController.lightBackground
+        let overlayBg = webBg ?? nativeBg
+
+        if dark != isDarkMode {
+            isDarkMode = dark
+            view.backgroundColor = nativeBg
+            splashOverlay?.backgroundColor = nativeBg
+            setNeedsStatusBarAppearanceUpdate()
+        }
+        // Le status bar overlay suit TOUJOURS la couleur exacte du body web
+        // (même si le mode n'a pas changé — la couleur peut varier finement)
+        statusBarOverlay?.backgroundColor = overlayBg
     }
 
-    /// Injecte un MutationObserver qui surveille la classe `dark` (Tailwind) sur <html>
-    /// et notifie le natif quand l'utilisateur toggle le thème depuis l'app web.
+    /// Ajoute un overlay natif uniquement dans la zone safe-area top
+    /// (derrière les icônes système). Adopte la couleur du thème courant.
+    /// Posé au-dessus de la WebView en z-order pour masquer le fond blanc
+    /// statique de la navbar web dans cette zone, sans toucher au logo
+    /// (qui se trouve dessous, dans la zone safe-area inférieure du device).
+    private func addStatusBarOverlay() {
+        let overlay = UIView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.isUserInteractionEnabled = false
+        overlay.backgroundColor = currentBackground
+        view.addSubview(overlay)
+
+        NSLayoutConstraint.activate([
+            overlay.topAnchor.constraint(equalTo: view.topAnchor),
+            overlay.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            overlay.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+        ])
+        statusBarOverlay = overlay
+    }
+
+    /// Injecte un script qui :
+    /// 1. Lit la couleur de fond RÉELLE du <body> (peu importe le mécanisme dark mode :
+    ///    Tailwind class, data-theme, CSS variables, prefers-color-scheme…)
+    /// 2. Calcule la luminance pour déterminer dark/light
+    /// 3. Transmet la couleur exacte au natif → l'overlay status bar peut s'aligner
+    ///    parfaitement avec le fond de l'app web
+    /// 4. Re-détecte sur tout changement DOM (mutations, navigation SPA, prefers-color-scheme)
     private func injectThemeWatcher() {
         guard let webView = bridge?.webView else { return }
         let controller = webView.configuration.userContentController
@@ -78,21 +118,51 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
         let script = """
         (function() {
+            function getBodyBg() {
+                var el = document.body || document.documentElement;
+                var color = window.getComputedStyle(el).backgroundColor;
+                // Si le body est transparent, remonter à <html>
+                if (color === 'rgba(0, 0, 0, 0)' || color === 'transparent') {
+                    color = window.getComputedStyle(document.documentElement).backgroundColor;
+                }
+                return color;
+            }
             function detect() {
-                var html = document.documentElement;
-                var isDark = html.classList.contains('dark') ||
-                             html.getAttribute('data-theme') === 'dark';
-                try { window.webkit.messageHandlers.themeChanged.postMessage({ dark: isDark }); } catch (e) {}
+                var bg = getBodyBg();
+                var m = bg.match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([\\d.]+))?\\)/);
+                var isDark = false;
+                if (m) {
+                    var r = +m[1], g = +m[2], b = +m[3];
+                    var luminance = 0.299*r + 0.587*g + 0.114*b;
+                    isDark = luminance < 128;
+                }
+                try {
+                    window.webkit.messageHandlers.themeChanged.postMessage({
+                        dark: isDark,
+                        bgColor: bg
+                    });
+                } catch (e) {}
             }
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', detect);
             } else {
                 detect();
             }
+            // Mutations DOM (Tailwind toggle, data-theme, ajout/retrait de classes)
             new MutationObserver(detect).observe(document.documentElement, {
-                attributes: true,
-                attributeFilter: ['class', 'data-theme']
+                attributes: true, attributeFilter: ['class', 'style', 'data-theme']
             });
+            if (document.body) {
+                new MutationObserver(detect).observe(document.body, {
+                    attributes: true, attributeFilter: ['class', 'style', 'data-theme']
+                });
+            }
+            // Changement de mode système (prefers-color-scheme)
+            if (window.matchMedia) {
+                try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', detect); } catch (e) {}
+            }
+            // Poll de sécurité (variables CSS, SPA navigation, etc.)
+            setInterval(detect, 1500);
         })();
         """
         let userScript = WKUserScript(source: script, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
@@ -103,26 +173,27 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == "themeChanged",
-              let body = message.body as? [String: Any],
-              let dark = body["dark"] as? Bool else { return }
-        DispatchQueue.main.async { self.setDarkMode(dark) }
+              let body = message.body as? [String: Any] else { return }
+        let dark = body["dark"] as? Bool ?? false
+        let bgColor = (body["bgColor"] as? String).flatMap { MainViewController.uiColor(fromCSS: $0) }
+        DispatchQueue.main.async {
+            self.setDarkMode(dark, webBg: bgColor)
+        }
     }
 
-    // MARK: - WebView safe-area constraint
-
-    /// Force la WebView à rester strictement dans la safe-area (sous la status bar)
-    /// pour qu'aucun contenu web ne déborde derrière la barre de tâche.
-    /// On ne touche PAS le fond de la WebView ici — la page web gère sa propre couleur.
-    private func constrainWebViewToSafeArea() {
-        guard let webView = bridge?.webView else { return }
-        webView.scrollView.contentInsetAdjustmentBehavior = .never
-        webView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            webView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-        ])
+    /// Parse "rgb(r, g, b)" ou "rgba(r, g, b, a)" en UIColor.
+    private static func uiColor(fromCSS css: String) -> UIColor? {
+        let pattern = "rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([0-9.]+))?\\)"
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let m = regex.firstMatch(in: css, range: NSRange(css.startIndex..., in: css)) else { return nil }
+        func intAt(_ idx: Int) -> Int? {
+            guard let r = Range(m.range(at: idx), in: css) else { return nil }
+            return Int(css[r])
+        }
+        guard let r = intAt(1), let g = intAt(2), let b = intAt(3) else { return nil }
+        var a: CGFloat = 1.0
+        if let aRange = Range(m.range(at: 4), in: css), let aVal = Double(css[aRange]) { a = CGFloat(aVal) }
+        return UIColor(red: CGFloat(r)/255, green: CGFloat(g)/255, blue: CGFloat(b)/255, alpha: a)
     }
 
     // MARK: - Splash overlay
