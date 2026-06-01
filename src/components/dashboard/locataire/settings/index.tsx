@@ -794,7 +794,7 @@ export function SettingsSection() {
                   ) : (
                     <User className="size-4.5" />
                   )}
-                  Mon espace {isTargetProprietaire ? 'propriétaire' : 'locataire'}
+                  Tableau de bord {isTargetProprietaire ? 'propriétaire' : 'locataire'}
                   <ArrowRight className="size-4 ml-0.5 opacity-70" />
                 </button>
               </div>
@@ -979,7 +979,7 @@ export function SettingsSection() {
                   </p>
                 </div>
 
-                <DialogFooter className="gap-2 sm:gap-0">
+                <DialogFooter className="gap-2">
                   <Button
                     variant="outline"
                     onClick={() => {

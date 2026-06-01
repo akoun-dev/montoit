@@ -34,7 +34,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
       return [
         {
           items: [
-            { id: 'overview', label: 'Mon espace', icon: LayoutDashboard },
+            { id: 'overview', label: 'Tableau de bord', icon: LayoutDashboard },
           ],
         },
         {
@@ -107,7 +107,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
       return [
         {
           items: [
-            { id: 'overview', label: 'Mon Espace', icon: LayoutDashboard },
+            { id: 'overview', label: 'Tableau de bord', icon: LayoutDashboard },
           ],
         },
         {
@@ -153,7 +153,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
       return [
         {
           items: [
-            { id: 'overview', label: 'Mon Espace', icon: LayoutDashboard },
+            { id: 'overview', label: 'Tableau de bord', icon: LayoutDashboard },
           ],
         },
         {
@@ -222,7 +222,7 @@ export function getSidebarSections(role: AuthUser['role']): SidebarSection[] {
       return [
         {
           items: [
-            { id: 'overview', label: 'Mon Espace', icon: LayoutDashboard },
+            { id: 'overview', label: 'Tableau de bord', icon: LayoutDashboard },
           ],
         },
         {

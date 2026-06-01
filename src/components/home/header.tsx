@@ -97,7 +97,7 @@ function getUserMenuItems(role: AuthUser['role']): UserMenuItem[] {
   switch (role) {
     case 'LOCATAIRE':
       return [
-        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
+        { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
         { id: 'favorites', label: 'Mes favoris', icon: Heart, section: 'favorites', group: 'LOCATION' },
         { id: 'applications', label: 'Mes candidatures', icon: UserCheck, section: 'applications', group: 'LOCATION' },
         { id: 'visits', label: 'Mes visites', icon: Eye, section: 'my-visits', group: 'LOCATION' },
@@ -109,7 +109,7 @@ function getUserMenuItems(role: AuthUser['role']): UserMenuItem[] {
       ]
     case 'PROPRIETAIRE':
       return [
-        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
+        { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
         { id: 'properties', label: 'Mes biens', icon: Building2, section: 'my-properties', group: 'MES BIENS' },
         { id: 'add-property', label: 'Ajouter un bien', icon: PlusCircle, section: 'add-property', group: 'MES BIENS' },
         { id: 'visits', label: 'Demandes de visite', icon: Eye, section: 'visit-requests', group: 'LOCATION' },
@@ -122,7 +122,7 @@ function getUserMenuItems(role: AuthUser['role']): UserMenuItem[] {
       ]
     case 'AGENCE':
       return [
-        { id: 'dashboard', label: 'Mon espace', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
+        { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
         { id: 'properties', label: 'Nos biens', icon: Building2, section: 'my-properties', group: 'NOS BIENS' },
         { id: 'add-property', label: 'Ajouter un bien', icon: PlusCircle, section: 'add-property', group: 'NOS BIENS' },
         { id: 'visits', label: 'Demandes de visite', icon: Eye, section: 'visit-requests', group: 'LOCATION' },
@@ -135,7 +135,7 @@ function getUserMenuItems(role: AuthUser['role']): UserMenuItem[] {
       ]
     case 'TIERS_CONFIANCE':
       return [
-        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
+        { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
         { id: 'dossier-validations', label: 'Dossiers', icon: FolderOpen, section: 'dossier-validations', group: 'VALIDATION' },
         { id: 'sla', label: 'Suivi SLA', icon: Clock, section: 'sla-monitoring', group: 'SUIVI' },
         { id: 'notifications', label: 'Notifications', icon: Bell, section: 'notifications', group: 'SUIVI' },
@@ -143,7 +143,7 @@ function getUserMenuItems(role: AuthUser['role']): UserMenuItem[] {
       ]
     case 'ADMIN':
       return [
-        { id: 'dashboard', label: 'Mon Espace', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
+        { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard, section: 'overview', group: 'ESPACE' },
         { id: 'users', label: 'Utilisateurs', icon: Users, section: 'users', group: 'GESTION' },
         { id: 'properties', label: 'Modération biens', icon: Building2, section: 'properties-moderation', group: 'GESTION' },
         { id: 'tc', label: 'Gestion TC', icon: Shield, section: 'tc-management', group: 'GESTION' },
@@ -164,7 +164,7 @@ function UserDropdown() {
   if (!user) return null
 
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-  const menuItems = getUserMenuItems(user.role)
+  const menuItems = getUserMenuItems(user.activeRole || user.role)
 
   const handleMenuItem = (item: UserMenuItem) => {
     setDashboardSection(item.section)
@@ -199,10 +199,10 @@ function UserDropdown() {
             variant="outline"
             className={cn(
               'mt-2 text-[10px] font-medium px-2 py-0 h-5 border',
-              getRoleBadgeStyle(user.role)
+              getRoleBadgeStyle(user.activeRole || user.role)
             )}
           >
-            {getRoleLabel(user.role)}
+            {getRoleLabel(user.activeRole || user.role)}
           </Badge>
         </div>
 
@@ -276,7 +276,7 @@ export function Header() {
   }
 
   // Group menu items by their group label for the mobile menu
-  const menuItems = user ? getUserMenuItems(user.role) : []
+  const menuItems = user ? getUserMenuItems(user.activeRole || user.role) : []
   const groupedItems: { group: string; items: UserMenuItem[] }[] = []
   for (const item of menuItems) {
     const last = groupedItems[groupedItems.length - 1]
@@ -383,10 +383,10 @@ export function Header() {
                     variant="outline"
                     className={cn(
                       'text-[11px] font-semibold px-2.5 py-0.5 h-6 border',
-                      getRoleBadgeStyle(user.role)
+                      getRoleBadgeStyle(user.activeRole || user.role)
                     )}
                   >
-                    {getRoleLabel(user.role)}
+                    {getRoleLabel(user.activeRole || user.role)}
                   </Badge>
                 </div>
 

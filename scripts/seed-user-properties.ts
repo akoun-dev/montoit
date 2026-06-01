@@ -239,21 +239,23 @@ const PROPERTIES: PropertyInput[] = [
   },
 ]
 
-async function seed() {
-  const TARGET_USER_ID = '91abf819-0ac9-4bb5-890c-22cf06dd34aa'
+const TARGET_EMAIL = process.argv[2] || 'aboa.akoun40@gmail.com'
 
-  // Check that the user exists
+async function seed() {
+  // Look up the user by email
   const { data: user, error: userErr } = await supabase
     .from('users')
     .select('id, email, first_name, last_name')
-    .eq('id', TARGET_USER_ID)
+    .eq('email', TARGET_EMAIL)
     .single()
 
   if (userErr || !user) {
-    console.error(`❌ Utilisateur "${TARGET_USER_ID}" introuvable dans la table users.`)
+    console.error(`❌ Utilisateur avec l'email "${TARGET_EMAIL}" introuvable.`)
     console.error(`   Erreur: ${userErr?.message || 'Utilisateur non trouvé'}`)
     process.exit(1)
   }
+
+  const TARGET_USER_ID = user.id
 
   console.log(`✅ Utilisateur trouvé: ${user.first_name} ${user.last_name} (${user.email})`)
   console.log(`   ID: ${user.id}`)
@@ -266,8 +268,6 @@ async function seed() {
     const propertyId = uuid()
 
     // Check if a similar property already exists for this user (same title)
-    // to avoid duplicates when re-running
-    // But we'll still try to insert and just skip if there's a conflict-ish check
     const { data: existingProp } = await supabase
       .from('properties')
       .select('id')
