@@ -36,6 +36,8 @@ const IMAGES = [
   'https://images.unsplash.com/photo-1600566753376-12c8ab7c4e5e?w=800',
 ] as const
 
+const VIDEO_URL = 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4'
+
 const TYPES = ['APPARTEMENT', 'MAISON', 'STUDIO', 'VILLA', 'DUPLEX'] as const
 const STATUSES = ['ACTIVE', 'ACTIVE', 'ACTIVE', 'PENDING_VERIFICATION', 'SUSPENDED'] as const
 
@@ -155,7 +157,7 @@ async function main() {
         amenities: JSON.stringify(pick(amenitiesOptions)),
         rental_terms: JSON.stringify({ deposit: '1 mois', notice: '3 mois', payment_method: 'virement bancaire' }),
         hide_owner_name: Math.random() > 0.8,
-        virtual_tour_url: null,
+        virtual_tour_url: VIDEO_URL,
         views_count: Math.floor(Math.random() * 200),
         owner_id: owner,
         rental_status: 'disponible',
