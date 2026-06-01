@@ -85,29 +85,81 @@ export function KycVerificationModal({
     }
   }, [open, kycStep])
 
-  // ── KYC: Select recto (preview only) ─────────────────────────────────────
-  const handleKycDocSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      setKycDocImage(ev.target?.result as string)
-    }
-    reader.readAsDataURL(file)
-    e.target.value = ''
+  // ── Compress large image to avoid 413 Payload Too Large ────────────────
+  const compressImage = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      // If under 1.5MB, use original
+      if (file.size <= 1.5 * 1024 * 1024) {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+        return
+      }
+
+      const img = new Image()
+      img.onload = () => {
+        let w = img.width, h = img.height
+        const maxDim = 1200
+        if (w > maxDim || h > maxDim) {
+          const ratio = Math.min(maxDim / w, maxDim / h)
+          w = Math.round(w * ratio)
+          h = Math.round(h * ratio)
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { reject(new Error('Impossible de compresser l\'image')); return }
+        ctx.drawImage(img, 0, 0, w, h)
+        canvas.toBlob((blob) => {
+          if (!blob) { reject(new Error('Impossible de compresser l\'image')); return }
+          const fr = new FileReader()
+          fr.onload = () => resolve(fr.result as string)
+          fr.onerror = reject
+          fr.readAsDataURL(blob)
+        }, 'image/jpeg', 0.85)
+      }
+      img.onerror = () => reject(new Error('Impossible de lire l\'image'))
+      img.src = URL.createObjectURL(file)
+    })
   }, [])
 
-  // ── KYC: Select verso (preview only) ─────────────────────────────────────
-  const handleKycDocVersoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  // ── KYC: Select recto (preview only) ─────────────────────────────────────
+  const handleKycDocSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      setKycDocImageVerso(ev.target?.result as string)
+    if (file.size > 10 * 1024 * 1024) {
+      setKycResult({ verified: false, message: 'L\'image est trop volumineuse (max 10 Mo). Veuillez choisir une photo plus légère.' })
+      e.target.value = ''
+      return
     }
-    reader.readAsDataURL(file)
+    try {
+      const dataUrl = await compressImage(file)
+      setKycDocImage(dataUrl)
+    } catch {
+      setKycResult({ verified: false, message: 'Erreur lors du traitement de l\'image.' })
+    }
     e.target.value = ''
-  }, [])
+  }, [compressImage])
+
+  // ── KYC: Select verso (preview only) ─────────────────────────────────────
+  const handleKycDocVersoSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      setKycResult({ verified: false, message: 'L\'image est trop volumineuse (max 10 Mo). Veuillez choisir une photo plus légère.' })
+      e.target.value = ''
+      return
+    }
+    try {
+      const dataUrl = await compressImage(file)
+      setKycDocImageVerso(dataUrl)
+    } catch {
+      setKycResult({ verified: false, message: 'Erreur lors du traitement de l\'image.' })
+    }
+    e.target.value = ''
+  }, [compressImage])
 
   // ── KYC: Upload recto + verso together ───────────────────────────────────
   const handleKycUploadBoth = useCallback(async () => {
