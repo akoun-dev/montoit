@@ -6,15 +6,13 @@ import WebKit
 /// 1. Un overlay splash (icône centrée + 3 points orange animés)
 /// 2. Auto-hide de l'overlay quand la WebView a fini de charger l'URL distante
 /// 3. Contraintes Auto Layout sur la WebView pour respecter la safe-area
-/// 4. Adaptation dynamique du thème (status bar + fond) selon :
-///    - le mode système iOS (clair/sombre)
-///    - le thème de la page web (classe `dark` sur <html> ou prefers-color-scheme)
+/// 4. Status bar adaptative selon le thème courant (système iOS + thème de la page web)
 class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
     private static let splashMaxTimeout: TimeInterval = 15.0
     private static let dotColor = UIColor(red: 249/255, green: 115/255, blue: 22/255, alpha: 1.0) // #F97316
     private static let lightBackground = UIColor.white
-    private static let darkBackground = UIColor(red: 17/255, green: 24/255, blue: 39/255, alpha: 1.0) // #111827 (gray-900 Tailwind)
+    private static let darkBackground = UIColor(red: 17/255, green: 24/255, blue: 39/255, alpha: 1.0) // gray-900 Tailwind
 
     private var splashOverlay: UIView?
     private var progressObservation: NSKeyValueObservation?
@@ -27,22 +25,22 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
     override func viewDidLoad() {
         super.viewDidLoad()
         isDarkMode = (traitCollection.userInterfaceStyle == .dark)
+        view.backgroundColor = currentBackground
         constrainWebViewToSafeArea()
         injectThemeWatcher()
-        applyTheme()
         showSplashOverlay()
         observeWebViewProgress()
+        setNeedsStatusBarAppearanceUpdate()
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
-            isDarkMode = (traitCollection.userInterfaceStyle == .dark)
-            applyTheme()
+            setDarkMode(traitCollection.userInterfaceStyle == .dark)
         }
     }
 
-    /// La status bar reflète le mode courant : icônes claires en dark, foncées en light.
+    /// Status bar : icônes claires en dark, foncées en light.
     override var preferredStatusBarStyle: UIStatusBarStyle {
         if #available(iOS 13.0, *) {
             return isDarkMode ? .lightContent : .darkContent
@@ -50,28 +48,29 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
         return .default
     }
 
-    // MARK: - Theme management
+    // MARK: - Theme
 
     private var currentBackground: UIColor {
         isDarkMode ? MainViewController.darkBackground : MainViewController.lightBackground
     }
 
-    private func applyTheme() {
-        let bg = currentBackground
-        view.backgroundColor = bg
-        if let webView = bridge?.webView {
-            webView.isOpaque = true
-            webView.backgroundColor = bg
-            webView.scrollView.backgroundColor = bg
-        }
-        splashOverlay?.backgroundColor = bg
+    /// Bascule le thème natif. Touche UNIQUEMENT :
+    /// - view.backgroundColor (visible dans la zone safe-area top/bottom autour de la WebView)
+    /// - splashOverlay.backgroundColor (si l'overlay est encore visible)
+    /// - la status bar (via preferredStatusBarStyle)
+    /// Le fond de la WebView elle-même est laissé tel quel — c'est la page web qui gère
+    /// sa propre couleur de fond via CSS (sinon on cache certains éléments transparents
+    /// comme la navbar).
+    private func setDarkMode(_ dark: Bool) {
+        guard dark != isDarkMode else { return }
+        isDarkMode = dark
+        view.backgroundColor = currentBackground
+        splashOverlay?.backgroundColor = currentBackground
         setNeedsStatusBarAppearanceUpdate()
     }
 
-    /// Injecte un MutationObserver dans chaque page web chargée : il détecte la classe
-    /// `dark` sur <html> (Tailwind dark mode) ou prefers-color-scheme du système, puis
-    /// poste un message au natif. Permet d'adapter la status bar quand l'utilisateur
-    /// toggle le thème depuis l'app web (bouton ☀️/🌙).
+    /// Injecte un MutationObserver qui surveille la classe `dark` (Tailwind) sur <html>
+    /// et notifie le natif quand l'utilisateur toggle le thème depuis l'app web.
     private func injectThemeWatcher() {
         guard let webView = bridge?.webView else { return }
         let controller = webView.configuration.userContentController
@@ -79,33 +78,21 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
         let script = """
         (function() {
-            function detectAndPost() {
+            function detect() {
                 var html = document.documentElement;
                 var isDark = html.classList.contains('dark') ||
-                             html.getAttribute('data-theme') === 'dark' ||
-                             (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches && !html.classList.contains('light'));
-                try {
-                    window.webkit.messageHandlers.themeChanged.postMessage({ dark: isDark });
-                } catch (e) {}
+                             html.getAttribute('data-theme') === 'dark';
+                try { window.webkit.messageHandlers.themeChanged.postMessage({ dark: isDark }); } catch (e) {}
             }
-            // Détection initiale au chargement
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', detectAndPost);
+                document.addEventListener('DOMContentLoaded', detect);
             } else {
-                detectAndPost();
+                detect();
             }
-            // Observe changement de classe sur <html> (toggle Tailwind dark)
-            var observer = new MutationObserver(detectAndPost);
-            observer.observe(document.documentElement, {
+            new MutationObserver(detect).observe(document.documentElement, {
                 attributes: true,
                 attributeFilter: ['class', 'data-theme']
             });
-            // Observe changement de mode système (prefers-color-scheme)
-            if (window.matchMedia) {
-                try {
-                    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', detectAndPost);
-                } catch (e) {}
-            }
         })();
         """
         let userScript = WKUserScript(source: script, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
@@ -115,18 +102,17 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
     // MARK: - WKScriptMessageHandler
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.name == "themeChanged" else { return }
-        guard let body = message.body as? [String: Any], let dark = body["dark"] as? Bool else { return }
-        if dark != isDarkMode {
-            isDarkMode = dark
-            applyTheme()
-        }
+        guard message.name == "themeChanged",
+              let body = message.body as? [String: Any],
+              let dark = body["dark"] as? Bool else { return }
+        DispatchQueue.main.async { self.setDarkMode(dark) }
     }
 
-    // MARK: - WebView constraint (safe-area)
+    // MARK: - WebView safe-area constraint
 
     /// Force la WebView à rester strictement dans la safe-area (sous la status bar)
     /// pour qu'aucun contenu web ne déborde derrière la barre de tâche.
+    /// On ne touche PAS le fond de la WebView ici — la page web gère sa propre couleur.
     private func constrainWebViewToSafeArea() {
         guard let webView = bridge?.webView else { return }
         webView.scrollView.contentInsetAdjustmentBehavior = .never
