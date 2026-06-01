@@ -15,3 +15,9 @@ export type { UseAppLauncherReturn } from './use-app-launcher'
 
 export { useInAppBrowser } from './use-inappbrowser'
 export type { UseInAppBrowserReturn } from './use-inappbrowser'
+
+export { useStatusBar } from './use-status-bar'
+export type { UseStatusBarReturn, StatusBarInfo } from './use-status-bar'
+
+export { useLocalNotifications } from './use-local-notifications'
+export type { UseLocalNotificationsReturn, LocalNotificationSchema, LocalNotificationDescriptor, Channel, PermissionStatus, ActionPerformed, Schedule, ScheduleOn, ScheduleEvery, Weekday, Importance, Visibility, Attachment } from './use-local-notifications'

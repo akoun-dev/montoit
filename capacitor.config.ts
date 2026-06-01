@@ -31,6 +31,12 @@ const config: CapacitorConfig = {
       showSpinner: false,
     },
 
+    LocalNotifications: {
+      smallIcon: 'ic_stat_icon_config',
+      iconColor: '#F57C00',
+      sound: 'notification.wav',
+    },
+
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
