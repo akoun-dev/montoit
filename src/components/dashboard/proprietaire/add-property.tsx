@@ -218,6 +218,13 @@ const STEPS = [
 
 export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
   const [step, setStep] = useState(1)
+
+  const safeChargeAmount = (months: string, price: string) => {
+    const m = parseInt(months)
+    const p = parseFloat(price)
+    if (isNaN(m) || isNaN(p) || p <= 0) return null
+    return (m * p).toLocaleString('fr-FR')
+  }
   const [form, setForm] = useState({
     title: '', description: '', type: 'APPARTEMENT', price: '', area: '',
     bedrooms: '', bathrooms: '', address: '', city: '', commune: '',
@@ -291,9 +298,9 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
           hasGarden: p.hasGarden || false, hasPool: p.hasPool || false,
           hasBalcony: false, hasTerrace: false, hasKitchen: false, hasBox: false,
           hideOwnerName: p.hideOwnerName || false,
-          depositMonths: p.depositMonths !== null ? String(p.depositMonths) : '2',
-          advanceMonths: p.advanceMonths !== null ? String(p.advanceMonths) : '2',
-          agencyFeesMonths: p.agencyFeesMonths !== null ? String(p.agencyFeesMonths) : '1',
+          depositMonths: p.depositMonths != null ? String(p.depositMonths) : '2',
+          advanceMonths: p.advanceMonths != null ? String(p.advanceMonths) : '2',
+          agencyFeesMonths: p.agencyFeesMonths != null ? String(p.agencyFeesMonths) : '1',
         })
         setExistingImages(p.images || [])
         if (p.virtualTourUrl) { setExistingVideo(p.virtualTourUrl); setVideoPreview(p.virtualTourUrl) }
@@ -632,34 +639,37 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
       </div>
 
       {/* ── Step indicator ──────────────────────────────────────────────── */}
-      <div className="flex items-center justify-center gap-0">
-        {STEPS.map((s, i) => (
-          <div key={s.id} className="flex items-center">
-            <button
-              onClick={() => { if (i < step - 1) setStep(s.id) }}
-              className="flex flex-col items-center gap-1 px-2 sm:px-3 py-2 rounded-lg transition-colors"
-            >
-              <span className={cn(
-                'flex size-9 items-center justify-center rounded-full border-2 transition-colors',
-                step === s.id ? 'bg-brand-500 text-white border-brand-500' :
-                i < step - 1 ? 'bg-brand-100 text-brand-600 border-brand-200' :
-                'bg-muted text-muted-foreground border-border'
-              )}>
-                {i < step - 1 ? <CheckCircle2 className="size-4 sm:size-5" /> : <s.icon className="size-4 sm:size-5" />}
-              </span>
-              <span className={cn(
-                'text-[10px] sm:text-xs font-medium whitespace-nowrap',
-                step === s.id ? 'text-foreground font-semibold' :
-                i < step - 1 ? 'text-brand-600' : 'text-muted-foreground'
-              )}>
-                {s.label}
-              </span>
-            </button>
-            {i < STEPS.length - 1 && (
-              <div className={cn('w-8 sm:w-12 h-px', i < step - 1 ? 'bg-brand-300' : 'bg-border')} />
-            )}
-          </div>
-        ))}
+      <div className="overflow-x-auto -mx-4 px-4 scrollbar-none">
+        <div className="flex items-center justify-center gap-0 min-w-max sm:min-w-0">
+          {STEPS.map((s, i) => (
+            <div key={s.id} className="flex items-center">
+              <button
+                onClick={() => { if (i < step - 1) setStep(s.id) }}
+                className="flex flex-col items-center gap-1 px-1.5 sm:px-3 py-2 rounded-lg transition-colors"
+              >
+                <span className={cn(
+                  'flex size-7 sm:size-9 items-center justify-center rounded-full border-2 transition-colors text-[11px] sm:text-sm font-bold',
+                  step === s.id ? 'bg-brand-500 text-white border-brand-500' :
+                  i < step - 1 ? 'bg-brand-100 text-brand-600 border-brand-200' :
+                  'bg-muted text-muted-foreground border-border'
+                )}>
+                  {i < step - 1 ? <CheckCircle2 className="size-3 sm:size-5" /> : <span>{i + 1}</span>}
+                </span>
+                <span className={cn(
+                  'text-[8px] sm:text-xs font-medium whitespace-nowrap sm:inline',
+                  step === s.id ? 'text-foreground font-semibold' :
+                  i < step - 1 ? 'text-brand-600' : 'text-muted-foreground',
+                  step === s.id ? 'inline' : 'hidden sm:inline'
+                )}>
+                  {s.label}
+                </span>
+              </button>
+              {i < STEPS.length - 1 && (
+                <div className={cn('w-4 sm:w-12 h-px', i < step - 1 ? 'bg-brand-300' : 'bg-border')} />
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Error display */}
@@ -708,15 +718,15 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
                 </Select>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 sm:col-span-1">
                   <Label htmlFor="area" className="text-xs font-medium">Surface (m²) <span className="text-red-400">*</span></Label>
                   <Input id="area" type="number" placeholder="85" value={form.area} onChange={(e) => update('area', e.target.value)} className="h-9 text-sm" />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 sm:col-span-1">
                   <Label htmlFor="bedrooms" className="text-xs font-medium">Pièces</Label>
                   <Input id="bedrooms" type="number" placeholder="2" value={form.bedrooms} onChange={(e) => update('bedrooms', e.target.value)} className="h-9 text-sm" />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 col-span-2 sm:col-span-1">
                   <Label htmlFor="bathrooms" className="text-xs font-medium">Salle de Bain</Label>
                   <Input id="bathrooms" type="number" placeholder="1" value={form.bathrooms} onChange={(e) => update('bathrooms', e.target.value)} className="h-9 text-sm" />
                 </div>
@@ -752,37 +762,37 @@ export function AddProperty({ editId, onSuccess, onCancel }: AddPropertyProps) {
               <div className="space-y-4">
                 <p className="text-xs font-medium text-muted-foreground">Charges locatives (en mois de loyer)</p>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                    <div>
+                <div className="space-y-2 sm:space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg border border-border">
+                    <div className="min-w-0">
                       <p className="text-sm font-medium">Dépôt de garantie</p>
-                      <p className="text-[11px] text-muted-foreground">{form.depositMonths} mois — {form.price ? (parseInt(form.depositMonths) * parseFloat(form.price)).toLocaleString('fr-FR') : '—'} FCFA</p>
+                      <p className="text-[11px] text-muted-foreground">{form.depositMonths} mois — {safeChargeAmount(form.depositMonths, form.price) ?? '—'} FCFA</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
                       <button onClick={() => update('depositMonths', String(Math.max(0, parseInt(form.depositMonths) - 1)))} className="size-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors"><Minus className="size-4" /></button>
                       <span className="w-8 text-center text-sm font-semibold tabular-nums">{form.depositMonths}</span>
                       <button onClick={() => update('depositMonths', String(Math.min(12, parseInt(form.depositMonths) + 1)))} className="size-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors"><Plus className="size-4" /></button>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                    <div>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg border border-border">
+                    <div className="min-w-0">
                       <p className="text-sm font-medium">Avance</p>
-                      <p className="text-[11px] text-muted-foreground">{form.advanceMonths} mois — {form.price ? (parseInt(form.advanceMonths) * parseFloat(form.price)).toLocaleString('fr-FR') : '—'} FCFA</p>
+                      <p className="text-[11px] text-muted-foreground">{form.advanceMonths} mois — {safeChargeAmount(form.advanceMonths, form.price) ?? '—'} FCFA</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
                       <button onClick={() => update('advanceMonths', String(Math.max(0, parseInt(form.advanceMonths) - 1)))} className="size-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors"><Minus className="size-4" /></button>
                       <span className="w-8 text-center text-sm font-semibold tabular-nums">{form.advanceMonths}</span>
                       <button onClick={() => update('advanceMonths', String(Math.min(12, parseInt(form.advanceMonths) + 1)))} className="size-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors"><Plus className="size-4" /></button>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                    <div>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 rounded-lg border border-border">
+                    <div className="min-w-0">
                       <p className="text-sm font-medium">Frais d&apos;agence</p>
-                      <p className="text-[11px] text-muted-foreground">{form.agencyFeesMonths} mois — {form.price ? (parseInt(form.agencyFeesMonths) * parseFloat(form.price)).toLocaleString('fr-FR') : '—'} FCFA</p>
+                      <p className="text-[11px] text-muted-foreground">{form.agencyFeesMonths} mois — {safeChargeAmount(form.agencyFeesMonths, form.price) ?? '—'} FCFA</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
                       <button onClick={() => update('agencyFeesMonths', String(Math.max(0, parseInt(form.agencyFeesMonths) - 1)))} className="size-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors"><Minus className="size-4" /></button>
                       <span className="w-8 text-center text-sm font-semibold tabular-nums">{form.agencyFeesMonths}</span>
                       <button onClick={() => update('agencyFeesMonths', String(Math.min(12, parseInt(form.agencyFeesMonths) + 1)))} className="size-8 flex items-center justify-center rounded-lg border border-border hover:bg-muted transition-colors"><Plus className="size-4" /></button>
