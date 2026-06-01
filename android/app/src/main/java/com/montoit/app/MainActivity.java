@@ -11,6 +11,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.LinearInterpolator;
+import android.webkit.ValueCallback;
 import android.webkit.WebView;
 
 import androidx.core.app.ActivityCompat;
@@ -24,12 +25,24 @@ import java.util.List;
 public class MainActivity extends BridgeActivity {
 
     private static final int PERMISSION_REQUEST_CODE = 1001;
-    private static final long SPLASH_MAX_TIMEOUT_MS = 15000L;
-    private static final long POLL_INTERVAL_MS = 100L;
+    private static final long SPLASH_MAX_TIMEOUT_MS = 30000L;
+    private static final long POLL_INTERVAL_MS = 250L;
+
+    /**
+     * Heuristique JS qui retourne true quand la page SPA est "visuellement prête" :
+     * document complet, body avec enfants ET hauteur > 100px (= contenu rendu, pas
+     * juste une div vide en attente d'hydration React).
+     */
+    private static final String CONTENT_READY_JS =
+        "(function(){try{return document.readyState==='complete'" +
+        " && document.body" +
+        " && document.body.children.length > 0" +
+        " && document.body.offsetHeight > 100;}catch(e){return false;}})()";
 
     private View splashOverlay;
     private long splashStartedAt;
     private boolean splashHidden = false;
+    private Runnable pageLoadCheck;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -103,21 +116,41 @@ public class MainActivity extends BridgeActivity {
 
     private void watchPageLoad() {
         final Handler handler = new Handler(Looper.getMainLooper());
-        handler.post(new Runnable() {
+        pageLoadCheck = new Runnable() {
             @Override
             public void run() {
                 if (splashHidden) return;
-                WebView webView = (getBridge() != null) ? getBridge().getWebView() : null;
                 long elapsed = System.currentTimeMillis() - splashStartedAt;
-                if (webView != null && webView.getProgress() >= 100) {
+                if (elapsed >= SPLASH_MAX_TIMEOUT_MS) {
                     hideSplashOverlay();
-                } else if (elapsed >= SPLASH_MAX_TIMEOUT_MS) {
-                    hideSplashOverlay();
-                } else {
-                    handler.postDelayed(this, POLL_INTERVAL_MS);
+                    return;
                 }
+                WebView webView = (getBridge() != null) ? getBridge().getWebView() : null;
+                if (webView == null) {
+                    handler.postDelayed(pageLoadCheck, POLL_INTERVAL_MS);
+                    return;
+                }
+                // Étape 1 : attendre que le chargement réseau soit fini (progress=100)
+                if (webView.getProgress() < 100) {
+                    handler.postDelayed(pageLoadCheck, POLL_INTERVAL_MS);
+                    return;
+                }
+                // Étape 2 : vérifier que le contenu est réellement RENDU côté DOM
+                // (pas juste téléchargé). Pour un SPA Next.js, getProgress=100 arrive
+                // avant que React n'ait hydraté → on poll le DOM jusqu'à voir du contenu.
+                webView.evaluateJavascript(CONTENT_READY_JS, new ValueCallback<String>() {
+                    @Override
+                    public void onReceiveValue(String value) {
+                        if ("true".equals(value)) {
+                            hideSplashOverlay();
+                        } else {
+                            handler.postDelayed(pageLoadCheck, POLL_INTERVAL_MS);
+                        }
+                    }
+                });
             }
-        });
+        };
+        handler.post(pageLoadCheck);
     }
 
     private void hideSplashOverlay() {

@@ -13,7 +13,13 @@ import WebKit
 /// s'appuient sur le fond géré par le site).
 class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
-    private static let splashMaxTimeout: TimeInterval = 15.0
+    private static let splashMaxTimeout: TimeInterval = 30.0
+    private static let pollInterval: TimeInterval = 0.25
+    /// Heuristique JS qui retourne true quand la page SPA est "visuellement prête" :
+    /// document complet, body avec enfants ET hauteur > 100px.
+    private static let contentReadyJS = """
+    (function(){try{return document.readyState==='complete' && document.body && document.body.children.length > 0 && document.body.offsetHeight > 100;}catch(e){return false;}})()
+    """
     private static let dotColor = UIColor(red: 249/255, green: 115/255, blue: 22/255, alpha: 1.0) // #F97316
     private static let lightBackground = UIColor.white
     private static let darkBackground = UIColor(red: 17/255, green: 24/255, blue: 39/255, alpha: 1.0) // gray-900 Tailwind
@@ -288,7 +294,24 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
         progressObservation = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] _, change in
             guard let self = self, let progress = change.newValue else { return }
             if progress >= 1.0 {
+                DispatchQueue.main.async { self.checkContentRendered() }
+            }
+        }
+    }
+
+    /// Vérifie que le contenu de la page est RENDU côté DOM, pas juste téléchargé.
+    /// Pour un SPA Next.js, estimatedProgress=1.0 arrive avant que React n'ait
+    /// hydraté → on poll le DOM jusqu'à voir du contenu (sinon écran blanc 30s).
+    private func checkContentRendered() {
+        guard !splashHidden, let webView = bridge?.webView else { return }
+        webView.evaluateJavaScript(MainViewController.contentReadyJS) { [weak self] result, _ in
+            guard let self = self, !self.splashHidden else { return }
+            if let ready = result as? Bool, ready {
                 DispatchQueue.main.async { self.hideSplashOverlay() }
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + MainViewController.pollInterval) {
+                    self.checkContentRendered()
+                }
             }
         }
     }
