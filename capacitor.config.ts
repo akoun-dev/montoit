@@ -19,17 +19,16 @@ const config: CapacitorConfig = {
 
   plugins: {
     StatusBar: {
-      overlaysWebView: true,
+      // false = la status bar reste séparée de la WebView (pas de chevauchement)
+      // c'est ce qui empêchait le scroll de fonctionner naturellement quand combiné à contentInset:'always'
+      overlaysWebView: false,
       style: 'DARK',
       backgroundColor: '#FFFFFF',
     },
 
-    SplashScreen: {
-      launchShowDuration: 2000,
-      launchAutoHide: true,
-      backgroundColor: '#FFFFFF',
-      showSpinner: false,
-    },
+    // Pas de plugin SplashScreen Capacitor : on utilise notre splash custom natif
+    // (MainViewController.swift sur iOS, MainActivity.java sur Android) qui affiche
+    // l'icône + 3 points orange animés et se cache quand la WebView a fini de charger.
 
     LocalNotifications: {
       smallIcon: 'ic_stat_icon_config',
@@ -59,7 +58,10 @@ const config: CapacitorConfig = {
   },
 
   ios: {
-    contentInset: 'always',
+    // 'scrollableAxes' = laisse iOS gérer les insets safe-area selon le scroll naturel.
+    // 'always' (ancienne valeur) figait un padding-top permanent → la barre de nav
+    // restait visible en haut même au scroll, ce qui était le bug constaté.
+    contentInset: 'scrollableAxes',
     limitsNavigationsToAppBoundDomains: false,
   },
 

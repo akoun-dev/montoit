@@ -31,9 +31,20 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Mon Toit utilise votre position pour afficher les biens immobiliers autour de vous.</string>
 
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Mon Toit utilise votre position pour afficher les biens immobiliers autour de vous.</string>
+
 	<!-- Caméra (KYC NeoFace, photo de profil) -->
 	<key>NSCameraUsageDescription</key>
 	<string>Mon Toit utilise la caméra pour la vérification d&apos;identité et la prise de photo de profil.</string>
+
+	<!-- Micro (vidéo KYC, getUserMedia WebRTC) -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Mon Toit a besoin d&apos;accéder à votre micro lors de la vérification d&apos;identité par vidéo.</string>
+
+	<!-- Face ID (KYC selfie sécurisé) -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Mon Toit utilise Face ID lors de la vérification d&apos;identité KYC.</string>
 
 	<!-- Galerie photos (upload photos de biens, documents) -->
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -47,13 +58,16 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+		<string>fetch</string>
 	</array>
 
-	<!-- App Transport Security (développement HTTP local autorisé) -->
+	<!-- App Transport Security : dev local + domaines de production -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<false/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
 		<key>NSExceptionDomains</key>
 		<dict>
 			<key>localhost</key>
@@ -66,8 +80,55 @@
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>
 				<true/>
 			</dict>
+			<key>mon-toit.ansut.ci</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<false/>
+			</dict>
+			<key>neoface.aineo.ai</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<false/>
+			</dict>
+			<key>ansut.ci</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<false/>
+			</dict>
+			<key>aineo.ai</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<false/>
+			</dict>
 		</dict>
 	</dict>
+
+	<!-- Schémes externes (équivalent <queries> Android) -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>mailto</string>
+		<string>sms</string>
+		<string>maps</string>
+		<string>https</string>
+		<string>http</string>
+	</array>
 
 	<!-- ── Fin permissions ──────────────────────────────────── -->
 
