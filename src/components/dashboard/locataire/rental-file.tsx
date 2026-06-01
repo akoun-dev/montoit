@@ -16,6 +16,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeRentalFiles } from '@/hooks/use-realtime-rental-files'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { motion } from 'framer-motion'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -105,6 +106,7 @@ export function RentalFileForm() {
   const [saving, setSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [uploadingDocType, setUploadingDocType] = useState<string | null>(null)
+  const [deleteDocConfirmId, setDeleteDocConfirmId] = useState<string | null>(null)
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const rentalFileIdRef = useRef<string | null>(null)
@@ -330,12 +332,18 @@ export function RentalFileForm() {
     }
   }
 
-  const handleDeleteDocument = async (docId: string) => {
+  const handleDeleteDocument = (docId: string) => {
+    setDeleteDocConfirmId(docId)
+  }
+
+  const confirmDeleteDocument = async () => {
+    if (!deleteDocConfirmId) return
     try {
-      await authFetch(`/api/rental-file/documents?docId=${docId}`, {
+      await authFetch(`/api/rental-file/documents?docId=${deleteDocConfirmId}`, {
         method: 'DELETE',
       })
       toast.success('Document supprimé')
+      setDeleteDocConfirmId(null)
       fetchRentalFile()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de la suppression')
@@ -712,6 +720,17 @@ export function RentalFileForm() {
           </div>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={!!deleteDocConfirmId}
+        onOpenChange={(open) => { if (!open) setDeleteDocConfirmId(null) }}
+        title="Supprimer le document"
+        description="Ce document sera définitivement supprimé. Cette action est irréversible."
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        onConfirm={confirmDeleteDocument}
+        variant="destructive"
+      />
     </motion.div>
   )
 }

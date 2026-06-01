@@ -31,6 +31,7 @@ import { motion } from 'framer-motion'
 import { useRealtimeProperties } from '@/hooks/use-realtime-properties'
 import { toast } from 'sonner'
 import { PaginationControls } from '@/components/ui/pagination-controls'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { AddProperty } from './add-property'
 import type { ScoringData } from '@/components/dashboard/locataire/settings/types'
 
@@ -77,6 +78,7 @@ export function MyProperties() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [page, setPage] = useState(1)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const limit = 15
 
   const fetchData = useCallback(async () => {
@@ -159,10 +161,16 @@ export function MyProperties() {
     }
   }
 
-  const handleDeleteDraft = async (id: string) => {
+  const handleDeleteDraft = (id: string) => {
+    setDeleteConfirmId(id)
+  }
+
+  const confirmDeleteDraft = async () => {
+    if (!deleteConfirmId) return
     try {
-      await authFetch(`/api/properties/${id}`, { method: 'DELETE' })
+      await authFetch(`/api/properties/${deleteConfirmId}`, { method: 'DELETE' })
       toast.success('Brouillon supprimé')
+      setDeleteConfirmId(null)
       fetchData()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de la suppression')
@@ -269,85 +277,107 @@ export function MyProperties() {
     return (
       <div
         key={p.id}
-        className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border border-border bg-card hover:bg-accent/50 transition-colors"
+        className="flex items-center gap-4 p-4 rounded-xl border border-border bg-card transition-colors hover:border-brand-200"
       >
-        {/* Thumbnail */}
-        <div className="shrink-0">
-          {p.images?.[0] ? (
-            <img
-              src={p.images[0].url}
-              alt={p.title || ''}
-              className="size-14 sm:size-16 rounded-lg object-cover bg-muted"
-            />
-          ) : (
-            <div className="size-14 sm:size-16 rounded-lg bg-muted flex items-center justify-center">
-              <Building2 className="size-6 text-muted-foreground/40" />
+        {/* Clickable body: thumbnail + info */}
+        <div
+          className="flex flex-1 min-w-0 items-center gap-4 cursor-pointer rounded-lg hover:opacity-80 transition-opacity"
+          onClick={() => handleResumeDraft(p.id)}
+        >
+          {/* Thumbnail */}
+          <div className="shrink-0">
+            {p.images?.[0] ? (
+              <img
+                src={p.images[0].url}
+                alt={p.title || ''}
+                className="size-16 rounded-lg object-cover bg-muted"
+              />
+            ) : (
+              <div className="size-16 rounded-lg bg-muted flex items-center justify-center">
+                <Building2 className="size-7 text-muted-foreground/40" />
+              </div>
+            )}
+          </div>
+
+          {/* Info */}
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-foreground text-sm sm:text-base truncate">
+                {p.title || 'Sans titre'}
+              </span>
+              <Badge className={`shrink-0 text-[10px] px-2 py-0.5 ${status.className}`}>
+                {status.label}
+              </Badge>
             </div>
-          )}
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
+              <span>{p.city || 'Ville non renseignée'}{p.commune ? ` · ${p.commune}` : ''}</span>
+              <span className="hidden sm:inline">·</span>
+              <span>{typeLabels[p.type] || p.type}</span>
+              {p.bedrooms && <><span>·</span><span>{p.bedrooms} ch.</span></>}
+              {p.area > 0 && <><span>·</span><span>{p.area} m²</span></>}
+            </div>
+            {p.price > 0 && (
+              <p className="text-sm font-bold text-brand-600">
+                {p.price.toLocaleString('fr-FR')} <span className="font-normal text-muted-foreground">FCFA/mois</span>
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Info */}
-        <div className="flex-1 min-w-0 space-y-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-foreground text-sm sm:text-base truncate">
-              {p.title || 'Sans titre'}
-            </span>
-            <Badge className={`shrink-0 text-[10px] px-2 py-0.5 ${status.className}`}>
-              {status.label}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
-            <span>{p.city || 'Ville non renseignée'}{p.commune ? ` · ${p.commune}` : ''}</span>
-            <span className="hidden sm:inline">·</span>
-            <span>{typeLabels[p.type] || p.type}</span>
-            {p.bedrooms && <><span>·</span><span>{p.bedrooms} ch.</span></>}
-            {p.area > 0 && <><span>·</span><span>{p.area} m²</span></>}
-          </div>
-          {p.price > 0 && (
-            <p className="text-sm font-bold text-brand-600">
-              {p.price.toLocaleString('fr-FR')} <span className="font-normal text-muted-foreground">FCFA/mois</span>
-            </p>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex sm:flex-col items-center sm:items-stretch gap-1.5 shrink-0">
-          <Button variant="ghost" size="icon" className="size-8" title="Modifier" onClick={() => handleResumeDraft(p.id)}>
-            <Edit className="size-3.5" />
-          </Button>
+        {/* CRUD Actions */}
+        <div className="flex items-center gap-2 shrink-0">
           {isDraft ? (
             <>
               {p.title && p.description && p.price > 0 && p.area > 0 && p.address && p.city && (
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                  title="Publier"
+                  size="sm"
+                  className="h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
                   onClick={() => handlePublishDraft(p.id)}
                 >
                   <CheckCircle2 className="size-3.5" />
+                  Publier
                 </Button>
               )}
               <Button
-                variant="ghost"
-                size="icon"
-                className="size-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                title="Supprimer"
+                size="sm"
+                variant="destructive"
+                className="h-9 gap-1.5 text-xs"
                 onClick={() => handleDeleteDraft(p.id)}
               >
                 <Trash2 className="size-3.5" />
+                Supprimer
               </Button>
             </>
           ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              title={p.status === 'ACTIVE' ? 'Suspendre' : 'Activer'}
-              onClick={() => handleToggleStatus(p.id, p.status)}
-            >
-              <Power className="size-3.5" />
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1.5 text-xs"
+                onClick={() => handleResumeDraft(p.id)}
+              >
+                <Edit className="size-3.5" />
+                Modifier
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className={`h-9 gap-1.5 text-xs ${p.status === 'ACTIVE' ? 'text-amber-600 border-amber-200 hover:bg-amber-50' : 'text-green-600 border-green-200 hover:bg-green-50'}`}
+                onClick={() => handleToggleStatus(p.id, p.status)}
+              >
+                <Power className="size-3.5" />
+                {p.status === 'ACTIVE' ? 'Suspendre' : 'Activer'}
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-9 gap-1.5 text-xs"
+                onClick={() => handleDeleteDraft(p.id)}
+              >
+                <Trash2 className="size-3.5" />
+                Supprimer
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -536,6 +566,17 @@ export function MyProperties() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteConfirmId}
+        onOpenChange={(open) => { if (!open) setDeleteConfirmId(null) }}
+        title="Supprimer le brouillon"
+        description="Ce brouillon sera définitivement supprimé. Cette action est irréversible."
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        onConfirm={confirmDeleteDraft}
+        variant="destructive"
+      />
     </motion.div>
   )
 }

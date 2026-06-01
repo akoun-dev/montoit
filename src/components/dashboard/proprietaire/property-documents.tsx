@@ -43,16 +43,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimePropertyDocuments } from '@/hooks/use-realtime-property-documents'
@@ -1052,43 +1043,16 @@ export function PropertyDocuments() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete Confirmation ──────────────────────────────────────────────── */}
-      <AlertDialog
+      <ConfirmDialog
         open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer le document</AlertDialogTitle>
-            <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer le document{' '}
-              <span className="font-semibold text-foreground">
-                {deleteTarget?.name}
-              </span>
-              &nbsp;? Cette action est irréversible.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>
-              Annuler
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={deleting}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              {deleting ? (
-                <span className="flex items-center gap-2">
-                  <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Suppression...
-                </span>
-              ) : (
-                'Supprimer'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+        title="Supprimer le document"
+        description={`Êtes-vous sûr de vouloir supprimer le document "${deleteTarget?.name ?? ''}" ? Cette action est irréversible.`}
+        confirmLabel={deleting ? 'Suppression...' : 'Supprimer'}
+        cancelLabel="Annuler"
+        onConfirm={handleDelete}
+        variant="destructive"
+      />
     </motion.div>
   )
 }

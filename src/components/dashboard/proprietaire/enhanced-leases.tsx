@@ -35,6 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
 import { useRealtimeLeases } from '@/hooks/use-realtime-leases'
@@ -193,6 +194,7 @@ export function EnhancedLeases() {
   const [showTerminateDialog, setShowTerminateDialog] = useState(false)
   const [leaseToTerminate, setLeaseToTerminate] = useState<LeaseItem | null>(null)
   const [terminating, setTerminating] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   // ─── Fetch data ──────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -392,10 +394,15 @@ export function EnhancedLeases() {
   }
 
   const handleDeleteLease = async (leaseId: string) => {
-    if (!confirm('Supprimer le bail ? Cette action est irréversible.')) return
+    setDeleteConfirmId(leaseId)
+  }
+
+  const confirmDeleteLease = async () => {
+    if (!deleteConfirmId) return
     try {
-      await authFetch(`/api/leases/${leaseId}`, { method: 'DELETE' })
+      await authFetch(`/api/leases/${deleteConfirmId}`, { method: 'DELETE' })
       toast.success('Bail supprimé')
+      setDeleteConfirmId(null)
       fetchData()
     } catch (err) {
       if (err instanceof AuthError) {
@@ -1912,6 +1919,17 @@ export function EnhancedLeases() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteConfirmId}
+        onOpenChange={(open) => { if (!open) setDeleteConfirmId(null) }}
+        title="Supprimer le bail"
+        description="Cette action est irréversible. Toutes les données associées à ce bail seront définitivement supprimées."
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        onConfirm={confirmDeleteLease}
+        variant="destructive"
+      />
     </motion.div>
   )
 }

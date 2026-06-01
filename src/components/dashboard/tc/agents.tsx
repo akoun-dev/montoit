@@ -13,10 +13,6 @@ import { Button } from '@/components/ui/button'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -27,6 +23,7 @@ import { ViewModeToggle, type ViewMode } from './view-mode-toggle'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useInAppBrowser } from '@/hooks/capacitor'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -1283,37 +1280,16 @@ export function AgentsManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* ─── Delete Confirmation Dialog ────────────────────────────────── */}
-      <AlertDialog
+      <ConfirmDialog
         open={deleteDialog.open}
-        onOpenChange={(open) => {
-          if (!open) setDeleteDialog({ open: false, agent: null })
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer l&apos;agent</AlertDialogTitle>
-            <AlertDialogDescription>
-              Êtes-vous sûr de vouloir supprimer l&apos;agent{' '}
-              <span className="font-semibold text-foreground">
-                {deleteDialog.agent?.firstName} {deleteDialog.agent?.lastName}
-              </span>{' '}
-              ? Cette action est irréversible.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={actionLoading !== null}>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={actionLoading !== null}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              {actionLoading !== null && <Loader2 className="size-4 animate-spin mr-2" />}
-              Supprimer
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={(open) => { if (!open) setDeleteDialog({ open: false, agent: null }) }}
+        title="Supprimer l'agent"
+        description={`Êtes-vous sûr de vouloir supprimer l'agent ${deleteDialog.agent?.firstName ?? ''} ${deleteDialog.agent?.lastName ?? ''} ? Cette action est irréversible.`}
+        confirmLabel={actionLoading !== null ? 'Suppression...' : 'Supprimer'}
+        cancelLabel="Annuler"
+        onConfirm={handleDelete}
+        variant="destructive"
+      />
     </motion.div>
   )
 }

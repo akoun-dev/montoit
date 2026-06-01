@@ -61,6 +61,7 @@ import { Label } from '@/components/ui/label'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface TenantInfo {
@@ -254,6 +255,7 @@ export function EnhancedRentalFiles() {
   const [profileDialogOpen, setProfileDialogOpen] = useState(false)
   const [selectedTenant, setSelectedTenant] = useState<RentalFileItem | null>(null)
   const [search, setSearch] = useState('')
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   const fetchData = useCallback(async (skipCache = false) => {
     if (!isAuthenticated) {
@@ -403,10 +405,15 @@ export function EnhancedRentalFiles() {
 
   // ─── Delete lease handler ─────────────────────────────────────────────────
   const handleDeleteLease = async (leaseId: string) => {
-    if (!confirm('Supprimer le bail ? Cette action est irréversible.')) return
+    setDeleteConfirmId(leaseId)
+  }
+
+  const confirmDeleteLease = async () => {
+    if (!deleteConfirmId) return
     try {
-      await authFetch(`/api/leases/${leaseId}`, { method: 'DELETE' })
+      await authFetch(`/api/leases/${deleteConfirmId}`, { method: 'DELETE' })
       toast.success('Bail supprimé')
+      setDeleteConfirmId(null)
       fetchData()
     } catch (err) {
       if (err instanceof AuthError) {
@@ -1263,6 +1270,17 @@ export function EnhancedRentalFiles() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteConfirmId}
+        onOpenChange={(open) => { if (!open) setDeleteConfirmId(null) }}
+        title="Supprimer le bail"
+        description="Cette action est irréversible. Toutes les données associées à ce bail seront définitivement supprimées."
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
+        onConfirm={confirmDeleteLease}
+        variant="destructive"
+      />
     </motion.div>
   )
 }

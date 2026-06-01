@@ -53,16 +53,16 @@ export async function GET(req: NextRequest) {
         .select('id, status')
         .eq('owner_id', userId)
         .eq('status', 'VALIDATED')
-        .limit(1)
         .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle()
 
       const { data: anyOwnerFile } = await supabase
         .from('owner_files')
         .select('id, status')
         .eq('owner_id', userId)
-        .limit(1)
         .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle()
 
       roleSpecificApproved = !!approvedOwnerFile
@@ -80,16 +80,16 @@ export async function GET(req: NextRequest) {
         .select('id, status')
         .eq('tenant_id', userId)
         .eq('status', 'VALIDATED')
-        .limit(1)
         .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle()
 
       const { data: anyRentalFile } = await supabase
         .from('rental_files')
         .select('id, status')
         .eq('tenant_id', userId)
-        .limit(1)
         .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle()
 
       roleSpecificApproved = !!approvedRentalFile
