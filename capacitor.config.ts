@@ -58,11 +58,14 @@ const config: CapacitorConfig = {
   },
 
   ios: {
-    // 'scrollableAxes' = laisse iOS gérer les insets safe-area selon le scroll naturel.
-    // 'always' (ancienne valeur) figait un padding-top permanent → la barre de nav
-    // restait visible en haut même au scroll, ce qui était le bug constaté.
-    contentInset: 'scrollableAxes',
+    // 'automatic' = comportement par défaut iOS, gère naturellement les safe-area
+    // top/bottom selon le scroll. C'est ce qui donne le meilleur résultat dans
+    // une WebView wrapper qui charge du contenu HTML standard.
+    // ⚠️ 'always' figeait un padding-top → barre de nav restait visible au scroll.
+    contentInset: 'automatic',
     limitsNavigationsToAppBoundDomains: false,
+    // Fond blanc derrière la WebView (visible dans la zone safe-area top)
+    backgroundColor: '#FFFFFF',
   },
 
   android: {

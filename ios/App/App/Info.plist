@@ -155,5 +155,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+
+	<!-- Status bar : icônes foncées (visible sur fond blanc) -->
+	<key>UIStatusBarStyle</key>
+	<string>UIStatusBarStyleDarkContent</string>
 </dict>
 </plist>

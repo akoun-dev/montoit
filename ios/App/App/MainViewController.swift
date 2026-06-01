@@ -19,8 +19,27 @@ class MainViewController: CAPBridgeViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // Fond blanc persistant du root view : visible au-dessus de la WebView
+        // (dans la zone safe-area top sous la status bar) → évite que le contenu
+        // de la WebView déborde derrière la barre de tâche.
+        view.backgroundColor = MainViewController.backgroundColor
+        if let webView = bridge?.webView {
+            webView.isOpaque = true
+            webView.backgroundColor = MainViewController.backgroundColor
+            webView.scrollView.backgroundColor = MainViewController.backgroundColor
+        }
         showSplashOverlay()
         observeWebViewProgress()
+    }
+
+    /// Force les icônes système (heure, batterie, réseau) en mode foncé pour
+    /// qu'elles restent visibles sur notre fond blanc.
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        if #available(iOS 13.0, *) {
+            return .darkContent
+        } else {
+            return .default
+        }
     }
 
     // MARK: - Splash overlay
