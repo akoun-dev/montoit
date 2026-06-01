@@ -65,13 +65,22 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
     /// - la status bar (via preferredStatusBarStyle)
     /// Ne touche JAMAIS au fond de la WebView ou de son scrollView — c'est la page
     /// web qui gère ça via CSS.
-    private func setDarkMode(_ dark: Bool) {
-        guard dark != isDarkMode else { return }
-        isDarkMode = dark
-        view.backgroundColor = currentBackground
-        splashOverlay?.backgroundColor = currentBackground
-        statusBarOverlay?.backgroundColor = currentBackground
-        setNeedsStatusBarAppearanceUpdate()
+    /// Met à jour le thème natif. Si `webBg` est fourni, c'est la couleur exacte du
+    /// <body> de l'app web : elle est utilisée pour l'overlay status bar (alignement
+    /// parfait visuel). Sinon, fallback vers nos couleurs prédéfinies.
+    private func setDarkMode(_ dark: Bool, webBg: UIColor? = nil) {
+        let nativeBg = dark ? MainViewController.darkBackground : MainViewController.lightBackground
+        let overlayBg = webBg ?? nativeBg
+
+        if dark != isDarkMode {
+            isDarkMode = dark
+            view.backgroundColor = nativeBg
+            splashOverlay?.backgroundColor = nativeBg
+            setNeedsStatusBarAppearanceUpdate()
+        }
+        // Le status bar overlay suit TOUJOURS la couleur exacte du body web
+        // (même si le mode n'a pas changé — la couleur peut varier finement)
+        statusBarOverlay?.backgroundColor = overlayBg
     }
 
     /// Ajoute un overlay natif uniquement dans la zone safe-area top
@@ -95,8 +104,13 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
         statusBarOverlay = overlay
     }
 
-    /// Injecte un MutationObserver qui surveille la classe `dark` (Tailwind) sur <html>
-    /// et notifie le natif quand l'utilisateur toggle le thème depuis l'app web.
+    /// Injecte un script qui :
+    /// 1. Lit la couleur de fond RÉELLE du <body> (peu importe le mécanisme dark mode :
+    ///    Tailwind class, data-theme, CSS variables, prefers-color-scheme…)
+    /// 2. Calcule la luminance pour déterminer dark/light
+    /// 3. Transmet la couleur exacte au natif → l'overlay status bar peut s'aligner
+    ///    parfaitement avec le fond de l'app web
+    /// 4. Re-détecte sur tout changement DOM (mutations, navigation SPA, prefers-color-scheme)
     private func injectThemeWatcher() {
         guard let webView = bridge?.webView else { return }
         let controller = webView.configuration.userContentController
@@ -104,21 +118,51 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
         let script = """
         (function() {
+            function getBodyBg() {
+                var el = document.body || document.documentElement;
+                var color = window.getComputedStyle(el).backgroundColor;
+                // Si le body est transparent, remonter à <html>
+                if (color === 'rgba(0, 0, 0, 0)' || color === 'transparent') {
+                    color = window.getComputedStyle(document.documentElement).backgroundColor;
+                }
+                return color;
+            }
             function detect() {
-                var html = document.documentElement;
-                var isDark = html.classList.contains('dark') ||
-                             html.getAttribute('data-theme') === 'dark';
-                try { window.webkit.messageHandlers.themeChanged.postMessage({ dark: isDark }); } catch (e) {}
+                var bg = getBodyBg();
+                var m = bg.match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([\\d.]+))?\\)/);
+                var isDark = false;
+                if (m) {
+                    var r = +m[1], g = +m[2], b = +m[3];
+                    var luminance = 0.299*r + 0.587*g + 0.114*b;
+                    isDark = luminance < 128;
+                }
+                try {
+                    window.webkit.messageHandlers.themeChanged.postMessage({
+                        dark: isDark,
+                        bgColor: bg
+                    });
+                } catch (e) {}
             }
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', detect);
             } else {
                 detect();
             }
+            // Mutations DOM (Tailwind toggle, data-theme, ajout/retrait de classes)
             new MutationObserver(detect).observe(document.documentElement, {
-                attributes: true,
-                attributeFilter: ['class', 'data-theme']
+                attributes: true, attributeFilter: ['class', 'style', 'data-theme']
             });
+            if (document.body) {
+                new MutationObserver(detect).observe(document.body, {
+                    attributes: true, attributeFilter: ['class', 'style', 'data-theme']
+                });
+            }
+            // Changement de mode système (prefers-color-scheme)
+            if (window.matchMedia) {
+                try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', detect); } catch (e) {}
+            }
+            // Poll de sécurité (variables CSS, SPA navigation, etc.)
+            setInterval(detect, 1500);
         })();
         """
         let userScript = WKUserScript(source: script, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
@@ -129,9 +173,27 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == "themeChanged",
-              let body = message.body as? [String: Any],
-              let dark = body["dark"] as? Bool else { return }
-        DispatchQueue.main.async { self.setDarkMode(dark) }
+              let body = message.body as? [String: Any] else { return }
+        let dark = body["dark"] as? Bool ?? false
+        let bgColor = (body["bgColor"] as? String).flatMap { MainViewController.uiColor(fromCSS: $0) }
+        DispatchQueue.main.async {
+            self.setDarkMode(dark, webBg: bgColor)
+        }
+    }
+
+    /// Parse "rgb(r, g, b)" ou "rgba(r, g, b, a)" en UIColor.
+    private static func uiColor(fromCSS css: String) -> UIColor? {
+        let pattern = "rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([0-9.]+))?\\)"
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let m = regex.firstMatch(in: css, range: NSRange(css.startIndex..., in: css)) else { return nil }
+        func intAt(_ idx: Int) -> Int? {
+            guard let r = Range(m.range(at: idx), in: css) else { return nil }
+            return Int(css[r])
+        }
+        guard let r = intAt(1), let g = intAt(2), let b = intAt(3) else { return nil }
+        var a: CGFloat = 1.0
+        if let aRange = Range(m.range(at: 4), in: css), let aVal = Double(css[aRange]) { a = CGFloat(aVal) }
+        return UIColor(red: CGFloat(r)/255, green: CGFloat(g)/255, blue: CGFloat(b)/255, alpha: a)
     }
 
     // MARK: - Splash overlay
