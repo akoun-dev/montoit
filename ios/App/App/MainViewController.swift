@@ -5,46 +5,116 @@ import WebKit
 /// ViewController principal — étend CAPBridgeViewController et ajoute :
 /// 1. Un overlay splash (icône centrée + 3 points orange animés)
 /// 2. Auto-hide de l'overlay quand la WebView a fini de charger l'URL distante
-/// Équivalent iOS de MainActivity.java côté Android.
-class MainViewController: CAPBridgeViewController {
+/// 3. Status bar adaptative selon le thème courant (système iOS + thème de la page web)
+///
+/// IMPORTANT : on ne touche PAS au fond de la WebView (backgroundColor, scrollView).
+/// La page web gère son propre rendu via CSS. Toucher au fond de la WebView cassait
+/// les éléments transparents comme la navbar (visibles seulement parce qu'ils
+/// s'appuient sur le fond géré par le site).
+class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
     private static let splashMaxTimeout: TimeInterval = 15.0
     private static let dotColor = UIColor(red: 249/255, green: 115/255, blue: 22/255, alpha: 1.0) // #F97316
-    private static let backgroundColor = UIColor.white
+    private static let lightBackground = UIColor.white
+    private static let darkBackground = UIColor(red: 17/255, green: 24/255, blue: 39/255, alpha: 1.0) // gray-900 Tailwind
 
     private var splashOverlay: UIView?
     private var progressObservation: NSKeyValueObservation?
     private var timeoutWorkItem: DispatchWorkItem?
     private var splashHidden = false
+    private var isDarkMode: Bool = false
+
+    // MARK: - Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Fond blanc du root view, visible dans la zone safe-area sous la status bar.
-        // La WebView reste edge-to-edge (comportement Capacitor par défaut) pour que
-        // la page web puisse utiliser `env(safe-area-inset-top)` en CSS — ce que
-        // certaines navbars exploitent pour leur padding-top. Contraindre la WebView
-        // à la safe-area casse ce mécanisme et fait disparaître les navbars qui en
-        // dépendent.
-        view.backgroundColor = MainViewController.backgroundColor
+        isDarkMode = (traitCollection.userInterfaceStyle == .dark)
+        view.backgroundColor = currentBackground
+        injectThemeWatcher()
         showSplashOverlay()
         observeWebViewProgress()
+        setNeedsStatusBarAppearanceUpdate()
     }
 
-    /// Force les icônes système (heure, batterie, réseau) en mode foncé pour
-    /// qu'elles restent visibles sur notre fond blanc.
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) {
+            setDarkMode(traitCollection.userInterfaceStyle == .dark)
+        }
+    }
+
+    /// Status bar : icônes claires en dark, foncées en light.
     override var preferredStatusBarStyle: UIStatusBarStyle {
         if #available(iOS 13.0, *) {
-            return .darkContent
-        } else {
-            return .default
+            return isDarkMode ? .lightContent : .darkContent
         }
+        return .default
+    }
+
+    // MARK: - Theme
+
+    private var currentBackground: UIColor {
+        isDarkMode ? MainViewController.darkBackground : MainViewController.lightBackground
+    }
+
+    /// Bascule le thème natif. Touche UNIQUEMENT :
+    /// - view.backgroundColor (visible dans la zone safe-area autour de la WebView)
+    /// - splashOverlay.backgroundColor (si l'overlay est encore visible)
+    /// - la status bar (via preferredStatusBarStyle)
+    /// Ne touche JAMAIS au fond de la WebView ou de son scrollView — c'est la page
+    /// web qui gère ça via CSS.
+    private func setDarkMode(_ dark: Bool) {
+        guard dark != isDarkMode else { return }
+        isDarkMode = dark
+        view.backgroundColor = currentBackground
+        splashOverlay?.backgroundColor = currentBackground
+        setNeedsStatusBarAppearanceUpdate()
+    }
+
+    /// Injecte un MutationObserver qui surveille la classe `dark` (Tailwind) sur <html>
+    /// et notifie le natif quand l'utilisateur toggle le thème depuis l'app web.
+    private func injectThemeWatcher() {
+        guard let webView = bridge?.webView else { return }
+        let controller = webView.configuration.userContentController
+        controller.add(self, name: "themeChanged")
+
+        let script = """
+        (function() {
+            function detect() {
+                var html = document.documentElement;
+                var isDark = html.classList.contains('dark') ||
+                             html.getAttribute('data-theme') === 'dark';
+                try { window.webkit.messageHandlers.themeChanged.postMessage({ dark: isDark }); } catch (e) {}
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', detect);
+            } else {
+                detect();
+            }
+            new MutationObserver(detect).observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ['class', 'data-theme']
+            });
+        })();
+        """
+        let userScript = WKUserScript(source: script, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        controller.addUserScript(userScript)
+    }
+
+    // MARK: - WKScriptMessageHandler
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "themeChanged",
+              let body = message.body as? [String: Any],
+              let dark = body["dark"] as? Bool else { return }
+        DispatchQueue.main.async { self.setDarkMode(dark) }
     }
 
     // MARK: - Splash overlay
 
     private func showSplashOverlay() {
         let overlay = UIView(frame: view.bounds)
-        overlay.backgroundColor = MainViewController.backgroundColor
+        overlay.backgroundColor = currentBackground
         overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
 
         let container = UIStackView()
