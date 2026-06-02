@@ -6,7 +6,7 @@ import {
   CheckCircle2, XCircle, ScanFace, CreditCard, FileCheck,
   Save, Loader2, MapPin, Users, ArrowRight, Lightbulb, AlertTriangle,
   Info, RefreshCw, Eye, EyeOff, Monitor, Smartphone, Trash2, LogOut,
-  Camera, ArrowLeftRight, Building2,
+  Camera, ArrowLeftRight, Building2, UserCheck, FileText,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -25,7 +25,29 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { CITIES } from '@/lib/cities'
 import type { ProfileData, ScoringData, SessionInfo, NotificationPreferences, SettingsTab } from './types'
+import type { RentalFileItem } from '@/components/dashboard/locataire/rental-file'
 import { ScoreCircle, ScoreComponentCard } from './sub-components'
+
+const DOCUMENT_LABELS: Record<string, string> = {
+  ID_CARD: "Carte d'identité",
+  PASSPORT: 'Passeport',
+  PAY_SLIP: 'Bulletin de salaire',
+  EMPLOYMENT_CONTRACT: 'Contrat de travail',
+  WORK_CERTIFICATE: 'Certificat de travail',
+  BANK_STATEMENT: 'Relevé bancaire',
+  GUARANTOR_ID: "Pièce d'identité du garant",
+  GUARANTOR_INCOME_PROOF: 'Justificatif de revenus du garant',
+  PROOF_OF_ADDRESS: 'Justificatif de domicile',
+  PARENT_ADDRESS_PROOF: 'Attestation d\'hébergement',
+  RCCM_REGISTRATION: 'Registre RCCM',
+  TAX_DECLARATION: 'Déclaration fiscale',
+  SCHOOL_CERTIFICATE: 'Certificat de scolarité',
+  SCHOLARSHIP_CERTIFICATE: 'Attestation de bourse',
+  PROPERTY_TITLE: 'Titre de propriété',
+  UTILITY_BILL: 'Facture d\'eau/électricité',
+  BANK_ACCOUNT_DETAILS: 'Coordonnées bancaires',
+  OTHER: 'Autre document',
+}
 import { KycVerificationModal } from './kyc-modal'
 
 // ── Animations ──────────────────────────────────────────────────────────────
@@ -41,18 +63,28 @@ const itemVariants = {
 
 // ── Main Settings Component ─────────────────────────────────────────────────
 
-export function SettingsSection() {
+export function SettingsSection({ defaultTab, onTabConsumed }: { defaultTab?: string; onTabConsumed?: () => void }) {
   const { user, setDashboardSection, updateUser, switchRole } = useAuthStore()
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [scoring, setScoring] = useState<ScoringData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [rentalFile, setRentalFile] = useState<RentalFileItem | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<SettingsTab>('profil')
 
+  // Apply default tab if provided (e.g. after submitting rental file)
+  useEffect(() => {
+    if (defaultTab && ['profil', 'verification', 'notifications', 'securite'].includes(defaultTab)) {
+      setActiveTab(defaultTab as SettingsTab)
+      onTabConsumed?.()
+    }
+  }, [defaultTab, onTabConsumed])
+
   // KYC modal state
   const [kycModalOpen, setKycModalOpen] = useState(false)
+  const [rentalFileDetailOpen, setRentalFileDetailOpen] = useState(false)
 
   // Role switch confirmation modal state
   const [roleSwitchModalOpen, setRoleSwitchModalOpen] = useState(false)
@@ -121,9 +153,10 @@ export function SettingsSection() {
     if (!user) return
 
     try {
-      const [profileResult, scoringResult] = await Promise.allSettled([
+      const [profileResult, scoringResult, rentalFileResult] = await Promise.allSettled([
         authFetch<{ user: ProfileData }>('/api/profile'),
         authFetch<ScoringData>('/api/scoring'),
+        authFetch<{ data: RentalFileItem[] }>('/api/rental-file'),
       ])
 
       if (profileResult.status === 'fulfilled') {
@@ -143,6 +176,13 @@ export function SettingsSection() {
 
       if (scoringResult.status === 'fulfilled') {
         setScoring(scoringResult.value)
+      }
+
+      if (rentalFileResult.status === 'fulfilled') {
+        const files = rentalFileResult.value.data ?? []
+        const submitted = files.find((f) => f.status !== 'DRAFT')
+        const draft = files.find((f) => f.status === 'DRAFT')
+        setRentalFile(submitted || draft || null)
       }
     } catch {
       // Silent fail
@@ -311,10 +351,11 @@ export function SettingsSection() {
   }, [])
 
   const handleKycRedo = useCallback(async () => {
-    const [profileResult, scoringResult] = await Promise.allSettled([
-      authFetch<{ user: ProfileData }>('/api/profile'),
-      authFetch<ScoringData>('/api/scoring'),
-    ])
+      const [profileResult, scoringResult, rentalFileResult] = await Promise.allSettled([
+        authFetch<{ user: ProfileData }>('/api/profile'),
+        authFetch<ScoringData>('/api/scoring'),
+        authFetch<{ data: RentalFileItem[] }>('/api/rental-file'),
+      ])
     if (profileResult.status === 'fulfilled') {
       const p = profileResult.value.user
       setProfile(p)
@@ -484,10 +525,11 @@ export function SettingsSection() {
 
       // If verified, refresh profile and scoring
       if (result.verified) {
-        const [profileResult, scoringResult] = await Promise.allSettled([
-          authFetch<{ user: ProfileData }>('/api/profile'),
-          authFetch<ScoringData>('/api/scoring'),
-        ])
+      const [profileResult, scoringResult, rentalFileResult] = await Promise.allSettled([
+        authFetch<{ user: ProfileData }>('/api/profile'),
+        authFetch<ScoringData>('/api/scoring'),
+        authFetch<{ data: RentalFileItem[] }>('/api/rental-file'),
+      ])
         if (profileResult.status === 'fulfilled') {
           const p = profileResult.value.user
           setProfile(p)
@@ -1351,11 +1393,15 @@ export function SettingsSection() {
                 score={scoring.breakdown.roleSpecific.score}
                 max={scoring.breakdown.roleSpecific.max}
                 statusColor={scoring.statusColor}
-                details={scoring.breakdown.roleSpecific.hasFile && !scoring.breakdown.roleSpecific.approved ? "En cours de validation" : scoring.breakdown.roleSpecific.description}
+                details={scoring.breakdown.roleSpecific.hasFile && !scoring.breakdown.roleSpecific.approved ? <span className="text-amber-500 font-semibold">En cours de validation</span> : scoring.breakdown.roleSpecific.description}
                 actionLabel={scoring.breakdown.roleSpecific.hasFile ? "Voir le détail" : "Commencer"}
                 onAction={() => {
-                  const effectiveRole = user?.activeRole || user?.role
-                  setDashboardSection(effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE' ? 'owner-file' : 'rental-file')
+                  if (scoring.breakdown.roleSpecific.hasFile) {
+                    setRentalFileDetailOpen(true)
+                  } else {
+                    const effectiveRole = user?.activeRole || user?.role
+                    setDashboardSection(effectiveRole === 'PROPRIETAIRE' || effectiveRole === 'AGENCE' ? 'owner-file' : 'rental-file')
+                  }
                 }}
               />
             </div>
@@ -1468,6 +1514,145 @@ export function SettingsSection() {
               onVerified={handleKycVerified}
               onRedo={handleKycRedo}
             />
+
+            {/* Rental File Detail Dialog */}
+            <Dialog open={rentalFileDetailOpen} onOpenChange={setRentalFileDetailOpen}>
+              <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <FileCheck className="size-5 text-brand-500" />
+                    Dossier locataire
+                  </DialogTitle>
+                  {rentalFile && (
+                    <DialogDescription className="flex items-center gap-2 pt-1">
+                      <Badge className={cn(
+                        'text-[10px] font-semibold px-2 py-0 border',
+                        rentalFile.status === 'VALIDATED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : rentalFile.status === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-200'
+                          : rentalFile.status === 'SUBMITTED' ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-brand-50 text-brand-600 border-brand-200'
+                      )}>
+                        {rentalFile.status === 'VALIDATED' ? 'Validé'
+                          : rentalFile.status === 'REJECTED' ? 'Rejeté'
+                          : rentalFile.status === 'SUBMITTED' ? 'Soumis'
+                          : 'En cours'}
+                      </Badge>
+                    </DialogDescription>
+                  )}
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  {/* Guarantor info */}
+                  {rentalFile && (rentalFile.guarantorName || rentalFile.guarantorPhone || rentalFile.guarantorRelation) && (
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        <UserCheck className="size-3.5" /> Informations du garant
+                      </h4>
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        {rentalFile.guarantorName && (
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] text-muted-foreground">Nom</span>
+                            <p className="text-sm font-medium">{rentalFile.guarantorName}</p>
+                          </div>
+                        )}
+                        {rentalFile.guarantorPhone && (
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] text-muted-foreground">Téléphone</span>
+                            <p className="text-sm font-medium">{rentalFile.guarantorPhone}</p>
+                          </div>
+                        )}
+                        {rentalFile.guarantorRelation && (
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] text-muted-foreground">Relation</span>
+                            <p className="text-sm font-medium">{rentalFile.guarantorRelation}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Documents */}
+                  {rentalFile && rentalFile.documents && rentalFile.documents.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        <FileText className="size-3.5" /> Documents soumis
+                      </h4>
+                      <div className="space-y-1.5">
+                        {rentalFile.documents.map((doc) => (
+                          <div key={doc.id} className="space-y-1 rounded-lg border border-border p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium text-foreground truncate">{DOCUMENT_LABELS[doc.type] || doc.type}</p>
+                                  <p className="text-[10px] text-muted-foreground truncate">{doc.name}</p>
+                                </div>
+                              </div>
+                              <Badge className={cn(
+                                'text-[10px] font-semibold px-2 py-0 border shrink-0 ml-2',
+                                doc.status === 'VALIDATED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : doc.status === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                              )}>
+                                {doc.status === 'VALIDATED' ? 'Validé'
+                                  : doc.status === 'REJECTED' ? 'Rejeté'
+                                  : 'En attente'}
+                              </Badge>
+                            </div>
+                            {doc.tcComment && (
+                              <p className="text-[10px] text-amber-600">Commentaire TC : {doc.tcComment}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Rejection reason */}
+                  {rentalFile?.status === 'REJECTED' && rentalFile?.rejectionReason && (
+                    <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                      <p className="text-xs font-semibold text-red-700 mb-1">Motif du rejet</p>
+                      <p className="text-sm text-red-600">{rentalFile.rejectionReason}</p>
+                    </div>
+                  )}
+
+                  {rentalFile?.tcComment && (
+                    <div className="rounded-lg bg-brand-50 border border-brand-200 p-3">
+                      <p className="text-xs font-semibold text-brand-700 mb-1">Commentaire du Tiers de Confiance</p>
+                      <p className="text-sm text-brand-600">{rentalFile.tcComment}</p>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      Pour modifier votre dossier ou ajouter de nouveaux documents,
+                      cliquez sur le bouton ci-dessous.
+                    </p>
+                    <Button
+                      className="w-full h-10 bg-brand-500 hover:bg-brand-600 text-white"
+                      onClick={async () => {
+                        setRentalFileDetailOpen(false)
+                        try {
+                          await authFetch('/api/rental-file', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({}),
+                          })
+                        } catch {
+                          // Silently handle — RentalFileForm will create one if needed
+                        }
+                        setDashboardSection('rental-file')
+                      }}
+                    >
+                      Modifier le dossier
+                      <ArrowRight className="size-4 ml-1.5" />
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </motion.div>
         )}
 

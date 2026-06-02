@@ -218,7 +218,23 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
-      // SUBMITTED — toujours créer (un dossier soumis peut être soumis à nouveau)
+      // SUBMITTED — créer et transférer les documents depuis l'éventuel DRAFT existant
+      const { data: existingDraft } = await admin
+        .from('rental_files')
+        .select('id')
+        .eq('tenant_id', userId)
+        .eq('status', 'DRAFT')
+        .maybeSingle()
+
+      let draftDocIds: string[] = []
+      if (existingDraft) {
+        const { data: draftDocs } = await admin
+          .from('rental_file_documents')
+          .select('id')
+          .eq('rental_file_id', existingDraft.id)
+        draftDocIds = (draftDocs ?? []).map((d) => d.id)
+      }
+
       const { data: created } = await admin
         .from('rental_files')
         .insert(insertData as any)
@@ -226,6 +242,19 @@ export async function POST(req: NextRequest) {
         .single()
 
       rentalFile = created
+
+      if (existingDraft) {
+        if (draftDocIds.length > 0) {
+          const { error: reassignError } = await admin
+            .from('rental_file_documents')
+            .update({ rental_file_id: rentalFile.id })
+            .in('id', draftDocIds)
+          if (reassignError) {
+            console.error('Failed to reassign documents to submitted file:', reassignError)
+          }
+        }
+        await admin.from('rental_files').delete().eq('id', existingDraft.id)
+      }
 
       await admin.from('audit_logs').insert({
         id: generateId(),
@@ -276,10 +305,24 @@ async function notifyTcUsers(admin: ReturnType<typeof getSupabaseAdminClient>, t
 async function enrichRentalFiles(admin: ReturnType<typeof getSupabaseAdminClient>, files: any[]) {
   const fileIds = files.map((f) => f.id)
 
+  // Fallback : récupère aussi les documents des DRAFT des mêmes locataires
+  const tenantIds = [...new Set(files.map((f: any) => f.tenant_id).filter(Boolean))]
+  let draftFileIds: string[] = []
+  if (tenantIds.length > 0) {
+    const { data: draftFiles } = await admin
+      .from('rental_files')
+      .select('id')
+      .eq('status', 'DRAFT')
+      .in('tenant_id', tenantIds)
+    draftFileIds = (draftFiles ?? []).map((d: any) => d.id)
+  }
+
+  const allFileIds = [...new Set([...fileIds, ...draftFileIds])]
+
   const { data: documents } = await admin
     .from('rental_file_documents')
     .select('*')
-    .in('rental_file_id', fileIds)
+    .in('rental_file_id', allFileIds)
     .order('created_at', { ascending: false })
 
   const { data: leases } = await admin
@@ -311,6 +354,14 @@ async function enrichRentalFiles(admin: ReturnType<typeof getSupabaseAdminClient
   const imgMap = groupBy(leasePropertyImages ?? [], 'property_id')
   const reviewerMap = new Map((reviewers ?? []).map((r) => [r.id, r]))
 
+  // Build tenantId → draftFileId map for document fallback
+  const draftFileByTenant = new Map<string, string>()
+  for (const f of files) {
+    if (f.status === 'DRAFT') {
+      draftFileByTenant.set(f.tenant_id, f.id)
+    }
+  }
+
   return files.map((f) => ({
     id: f.id,
     status: f.status,
@@ -332,7 +383,16 @@ async function enrichRentalFiles(admin: ReturnType<typeof getSupabaseAdminClient
     updatedAt: f.updated_at,
     tenantId: f.tenant_id,
     reviewedById: f.reviewed_by_id,
-    documents: (docMap.get(f.id) ?? []).map(mapRentalFileDoc),
+    documents: (() => {
+      const fileDocs = docMap.get(f.id)
+      if (fileDocs?.length) return fileDocs.map(mapRentalFileDoc)
+      const fallbackDraftId = draftFileByTenant.get(f.tenant_id)
+      if (fallbackDraftId) {
+        const fallbackDocs = docMap.get(fallbackDraftId)
+        if (fallbackDocs?.length) return fallbackDocs.map(mapRentalFileDoc)
+      }
+      return []
+    })(),
     leases: (leaseMap.get(f.id) ?? []).map((l: any) => {
       const prop = propMap.get(l.property_id)
       const propImages = imgMap.get(l.property_id) ?? []

@@ -1082,6 +1082,7 @@ export function RentalFilesQueue({ showHeaderAndStats = true }: { showHeaderAndS
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
+            <DialogTitle className="sr-only">Rejeter le dossier</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {rejectDialog.file && (
@@ -1133,6 +1134,7 @@ export function RentalFilesQueue({ showHeaderAndStats = true }: { showHeaderAndS
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
+            <DialogTitle className="sr-only">Demander des informations</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {requestInfoDialog.file && (

@@ -20,7 +20,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { motion } from 'framer-motion'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-interface RentalFileDoc {
+export interface RentalFileDoc {
   id: string
   type: string
   url: string
@@ -30,7 +30,7 @@ interface RentalFileDoc {
   createdAt: string
 }
 
-interface RentalFileItem {
+export interface RentalFileItem {
   id: string
   status: string
   tenantCategory: string | null
@@ -97,7 +97,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
-export function RentalFileForm({ onBack }: { onBack?: () => void }) {
+export function RentalFileForm({ onBack, onSubmitSuccess }: { onBack?: () => void; onSubmitSuccess?: () => void }) {
   const { user, isAuthenticated } = useAuthStore()
   const [step, setStep] = useState(1)
   const [existingFile, setExistingFile] = useState<RentalFileItem | null>(null)
@@ -124,14 +124,16 @@ export function RentalFileForm({ onBack }: { onBack?: () => void }) {
     try {
       const result = await authFetch<RentalFileResponse>('/api/rental-file')
       const files = result.data ?? []
-      const draft = files.find((f) => f.status === 'DRAFT') || files[0]
-      if (draft) {
-        setExistingFile(draft)
-        rentalFileIdRef.current = draft.id
+      const draft = files.find((f) => f.status === 'DRAFT')
+      const submitted = files.find((f) => f.status !== 'DRAFT')
+      const selected = draft || submitted || files[0]
+      if (selected) {
+        setExistingFile(selected)
+        rentalFileIdRef.current = selected.id
         setFormData({
-          guarantorName: draft.guarantorName || '',
-          guarantorPhone: draft.guarantorPhone || '',
-          guarantorRelation: draft.guarantorRelation || '',
+          guarantorName: selected.guarantorName || '',
+          guarantorPhone: selected.guarantorPhone || '',
+          guarantorRelation: selected.guarantorRelation || '',
         })
       } else {
         rentalFileIdRef.current = null
@@ -179,7 +181,7 @@ export function RentalFileForm({ onBack }: { onBack?: () => void }) {
     }
   }
 
-  const hasDocuments = (existingFile?.documents?.filter(d => requiredDocs.some(rd => rd.type === d.type)).length ?? 0) > 0
+  const hasDocuments = (existingFile?.documents?.filter(d => documentRequirements.some(rd => rd.type === d.type)).length ?? 0) > 0
 
   const handleSubmit = async () => {
     if (!hasDocuments) {
@@ -201,7 +203,8 @@ export function RentalFileForm({ onBack }: { onBack?: () => void }) {
         }),
       })
       toast.success('Dossier soumis avec succès ! Il sera examiné par un Tiers de Confiance.')
-      fetchRentalFile()
+      await fetchRentalFile()
+      onSubmitSuccess?.()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de la soumission')
     } finally {

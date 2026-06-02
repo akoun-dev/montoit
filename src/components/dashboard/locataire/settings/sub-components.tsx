@@ -63,7 +63,7 @@ export function ScoreComponentCard({
   score: number
   max: number
   statusColor: string
-  details: string
+  details: React.ReactNode
   actionLabel?: string
   onAction?: () => void
   redoLabel?: string

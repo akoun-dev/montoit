@@ -37,11 +37,12 @@ export async function GET(req: NextRequest) {
       .from('ownership_documents')
       .select('*', { count: 'exact' })
 
-    if (status) {
+    if (status && status !== 'ALL') {
       query = query.eq('status', status)
-    } else {
+    } else if (!status) {
       query = query.eq('status', 'PENDING')
     }
+    // status=ALL => no filter
 
     if (type) {
       query = query.eq('type', type)

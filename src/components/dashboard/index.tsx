@@ -98,7 +98,7 @@ function BackableSection({ sectionKey, onBack, children }: { sectionKey: string;
 }
 
 function LocataireDashboard({ section }: { section: string }) {
-  const { selectedItemId, setDashboardSection, setSelectedItemId } = useAuthStore()
+  const { selectedItemId, setDashboardSection, setSelectedItemId, settingsDefaultTab, setSettingsDefaultTab } = useAuthStore()
 
   const goToPaymentDetail = (id: string) => {
     setSelectedItemId(id)
@@ -140,7 +140,7 @@ function LocataireDashboard({ section }: { section: string }) {
     case 'favorites': return <Favorites />
     case 'applications': return <Applications onDetail={goToApplicationDetail} />
     case 'application-detail': return <BackableSection sectionKey="application-detail" onBack={goBackToApplications}><ApplicationDetail applicationId={selectedItemId} onBack={goBackToApplications} /></BackableSection>
-    case 'rental-file': return <BackableSection sectionKey="rental-file" onBack={goBackFromRentalFile}><RentalFileForm onBack={goBackFromRentalFile} /></BackableSection>
+    case 'rental-file': return <BackableSection sectionKey="rental-file" onBack={goBackFromRentalFile}><RentalFileForm onBack={goBackFromRentalFile} onSubmitSuccess={() => { setSettingsDefaultTab('verification'); setDashboardSection('settings') }} /></BackableSection>
     case 'my-visits': return <MyVisits onDetail={goToVisitDetail} />
     case 'visit-detail': return <BackableSection sectionKey="visit-detail" onBack={goBackToVisits}><VisitDetail visitId={selectedItemId} onBack={goBackToVisits} /></BackableSection>
     case 'my-leases': return <MyLeases onDetail={goToLeaseDetail} />
@@ -154,7 +154,7 @@ function LocataireDashboard({ section }: { section: string }) {
     case 'maintenance': return <Maintenance />
     case 'history': return <ActivityHistory />
     case 'trust-score': return <TrustScore />
-    case 'settings': return <SettingsSection />
+    case 'settings': return <SettingsSection defaultTab={settingsDefaultTab} onTabConsumed={() => setSettingsDefaultTab('')} />
     default: return <LocataireOverview />
   }
 }

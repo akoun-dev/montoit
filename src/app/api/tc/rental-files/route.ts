@@ -88,12 +88,24 @@ export async function GET(req: NextRequest) {
     const tenantIds = [...new Set(filesRaw.map((f: any) => f.tenant_id).filter(Boolean))]
     const fileIds = filesRaw.map((f: any) => f.id)
 
+    // Fallback : récupère aussi les DRAFT des mêmes locataires pour leurs documents
+    let draftFileIds: string[] = []
+    if (tenantIds.length > 0) {
+      const { data: draftFiles } = await (supabase.from('rental_files') as any)
+        .select('id')
+        .eq('status', 'DRAFT')
+        .in('tenant_id', tenantIds)
+      draftFileIds = (draftFiles ?? []).map((d: any) => d.id)
+    }
+
+    const allFileIds = [...new Set([...fileIds, ...draftFileIds])]
+
     const [{ data: tenantsData }, { data: documentsData }, { data: slasData }] = await Promise.all([
       tenantIds.length > 0
         ? (supabase.from('users') as any).select('id, first_name, last_name, phone, email, avatar_url').in('id', tenantIds) as any
         : Promise.resolve({ data: [] as any[], error: null }),
-      fileIds.length > 0
-        ? (supabase.from('rental_file_documents') as any).select('*').in('rental_file_id', fileIds).order('created_at', { ascending: true }) as any
+      allFileIds.length > 0
+        ? (supabase.from('rental_file_documents') as any).select('*').in('rental_file_id', allFileIds).order('created_at', { ascending: true }) as any
         : Promise.resolve({ data: [] as any[], error: null }),
       fileIds.length > 0
         ? (supabase.from('validation_slas') as any).select('*').eq('entity_type', 'RENTAL_FILE').in('entity_id', fileIds).eq('is_overdue', true).is('completed_at', null) as any
@@ -106,13 +118,25 @@ export async function GET(req: NextRequest) {
       if (!docByFile.has(doc.rental_file_id)) docByFile.set(doc.rental_file_id, [])
       docByFile.get(doc.rental_file_id)!.push(doc)
     }
+
+    // Build tenantId → draftFileId map for document fallback
+    const draftFileByTenant = new Map<string, string>()
+    for (const f of filesRaw) {
+      if (f.status === 'DRAFT') {
+        draftFileByTenant.set(f.tenant_id, f.id)
+      }
+    }
+
     const slaMap = new Map<string, any>((slasData ?? []).map((s: any) => [s.entity_id, s]))
 
     const filesWithSla = filesRaw.map((f: any) => {
       const tenant = tenantMap.get(f.tenant_id)
-      const documents = (docByFile.get(f.id) ?? []).map((d: any) => ({
+      // Fallback : si le fichier n'a pas de documents, prend ceux du DRAFT du même locataire
+      const fileDocs = docByFile.get(f.id)
+      const fallbackDraftId = !fileDocs?.length ? draftFileByTenant.get(f.tenant_id) : undefined
+      const documents = ((fileDocs?.length ? fileDocs : (fallbackDraftId ? docByFile.get(fallbackDraftId) : [])) ?? []).map((d: any) => ({
         id: d.id,
-        rentalFileId: d.rental_file_id,
+        rentalFileId: f.id,
         type: d.type,
         name: d.name,
         url: d.url,
