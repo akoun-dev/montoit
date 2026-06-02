@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Star, ArrowLeft, Eye, Calendar, Clock, MapPin, Building2, MessageSquare, XCircle, Loader2, FileText } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +16,6 @@ import {
 } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/auth-store'
 import { authFetch, AuthError } from '@/lib/auth-fetch'
-import { useRealtimeVisits } from '@/hooks/use-realtime-visits'
 import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 
@@ -107,130 +107,89 @@ interface VisitDetailProps {
 
 export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
   const { user, isAuthenticated, setDashboardSection } = useAuthStore()
-  const [visit, setVisit] = useState<VisitItem | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [cancelling, setCancelling] = useState(false)
+  const queryClient = useQueryClient()
   const [showCancelDialog, setShowCancelDialog] = useState(false)
-  const [applying, setApplying] = useState(false)
   const [showReviewDialog, setShowReviewDialog] = useState(false)
   const [reviewRating, setReviewRating] = useState(0)
   const [reviewComment, setReviewComment] = useState('')
-  const [submittingReview, setSubmittingReview] = useState(false)
 
-  const fetchVisit = useCallback(async (skipCache = false) => {
-    if (!isAuthenticated) { setLoading(false); return }
-    try {
-      const result = await authFetch<{ data: VisitItem }>(`/api/visits/${visitId}`, skipCache ? { skipCache: true } : undefined)
-      if (result.data) {
-        setVisit(result.data)
-      } else {
-        setError('Visite introuvable')
-      }
-    } catch (err) {
-      if (err instanceof AuthError && err.status === 401) return
-      if (err instanceof AuthError && err.status === 404) {
-        setError('Visite introuvable')
-      } else {
-        setError(err instanceof Error ? err.message : 'Erreur inconnue')
-      }
-    } finally {
-      setLoading(false)
-    }
-  }, [isAuthenticated, visitId])
+  const queryKey = ['visit', visitId]
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { fetchVisit() }, [fetchVisit])
+  const { data: visit, isLoading, error } = useQuery<VisitItem>({
+    queryKey,
+    queryFn: async () => {
+      const result = await authFetch<{ data: VisitItem }>(`/api/visits/${visitId}`)
+      if (!result.data) throw new Error('Visite introuvable')
+      return result.data
+    },
+    enabled: isAuthenticated && !!visitId,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+  })
 
-  // Realtime — refresh when visit status changes (owner accepts/rejects/counter-proposes)
-  useRealtimeVisits({
-    userId: user?.id,
-    onVisitChange: (event, visit) => {
-      if (event === 'UPDATE' && visit.id === visitId) fetchVisit(true)
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      await authFetch(`/api/visits/${visitId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CANCELLED' }),
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey })
+      queryClient.invalidateQueries({ queryKey: ['visits'] })
+      toast.success('Visite annulée avec succès')
+      setShowCancelDialog(false)
+    },
+    onError: (err) => {
+      toast.error(err instanceof AuthError ? err.message : "Erreur lors de l'annulation")
     },
   })
 
-  const handleApply = async () => {
-    if (!visit) return
-    setApplying(true)
-    try {
+  const reviewMutation = useMutation({
+    mutationFn: async ({ rating, comment }: { rating: number; comment?: string }) => {
+      const result = await authFetch<{ data: VisitItem }>(`/api/visits/${visitId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantRating: rating, tenantReview: comment }),
+      })
+      if (!result.data) throw new Error("Erreur lors de l'envoi de l'avis")
+      return result.data
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKey, data)
+      queryClient.invalidateQueries({ queryKey: ['visits'] })
+      setShowReviewDialog(false)
+      toast.success('Avis enregistré avec succès !')
+    },
+    onError: (err) => {
+      toast.error(err instanceof AuthError ? err.message : "Erreur lors de l'envoi de l'avis")
+    },
+  })
+
+  const applyMutation = useMutation({
+    mutationFn: async () => {
+      if (!visit) throw new Error('Visite introuvable')
       await authFetch('/api/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ propertyId: visit.property.id }),
       })
+    },
+    onSuccess: () => {
       toast.success('Candidature envoyée avec succès !')
       setDashboardSection('applications')
-    } catch (err) {
+    },
+    onError: (err) => {
       if (err instanceof AuthError && err.status === 409) {
         toast.error('Vous avez déjà candidaté pour ce bien')
-      } else if (err instanceof AuthError) {
-        toast.error(err.message || "Erreur lors de l'envoi de la candidature")
       } else {
-        toast.error("Erreur lors de l'envoi de la candidature")
+        toast.error(err instanceof AuthError ? err.message : "Erreur lors de l'envoi de la candidature")
       }
-    } finally {
-      setApplying(false)
-    }
-  }
+    },
+  })
 
-  const handleCancel = async () => {
-    if (!visit) return
-    setCancelling(true)
-    try {
-      await authFetch(`/api/visits/${visit.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'CANCELLED' }),
-      })
-      toast.success('Visite annulée avec succès')
-      setShowCancelDialog(false)
-      // Refresh data
-      setVisit((prev) => prev ? { ...prev, status: 'CANCELLED' } : null)
-    } catch (err) {
-      if (err instanceof AuthError) {
-        toast.error(err.message || "Erreur lors de l'annulation")
-      } else {
-        toast.error("Erreur lors de l'annulation de la visite")
-      }
-    } finally {
-      setCancelling(false)
-    }
-  }
-
-  const handleSubmitReview = async () => {
-    if (!visit) return
-    if (reviewRating === 0) {
-      toast.error('Veuillez donner une note')
-      return
-    }
-    setSubmittingReview(true)
-    try {
-      const result = await authFetch<{ data: VisitItem }>(`/api/visits/${visit.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenantRating: reviewRating,
-          tenantReview: reviewComment || undefined,
-        }),
-      })
-      if (result.data) {
-        setVisit(result.data)
-        setShowReviewDialog(false)
-        toast.success('Avis enregistré avec succès !')
-      }
-    } catch (err) {
-      if (err instanceof AuthError) {
-        toast.error(err.message || "Erreur lors de l'envoi de l'avis")
-      } else {
-        toast.error("Erreur lors de l'envoi de l'avis")
-      }
-    } finally {
-      setSubmittingReview(false)
-    }
-  }
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
         <div className="h-8 w-48 bg-muted animate-pulse rounded" />
@@ -239,7 +198,7 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
     )
   }
 
-  if (error || !visit) {
+  if (error) {
     return (
       <div className="space-y-4">
         <Button variant="ghost" onClick={onBack} className="gap-2 text-muted-foreground">
@@ -247,12 +206,14 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
         </Button>
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-4">
-            <p className="text-sm text-amber-700">{error || 'Visite introuvable'}</p>
+            <p className="text-sm text-amber-700">{error instanceof Error ? error.message : 'Visite introuvable'}</p>
           </CardContent>
         </Card>
       </div>
     )
   }
+
+  if (!visit) return null
 
   const config = statusConfig[visit.status] || statusConfig.PENDING
   const StatusIcon = config.icon
@@ -400,6 +361,26 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
                 >
                   Modifier mon avis
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50"
+                  onClick={async () => {
+                    try {
+                      await authFetch(`/api/visits/${visit.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tenantRating: null, tenantReview: null }),
+                      })
+                      queryClient.invalidateQueries({ queryKey })
+                      toast.success('Avis supprimé')
+                    } catch {
+                      toast.error("Erreur lors de la suppression de l'avis")
+                    }
+                  }}
+                >
+                  Supprimer
+                </Button>
               </div>
             ) : (
               <Button
@@ -420,10 +401,10 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
         <div className="pt-2">
           <Button
             className="w-full gap-2"
-            onClick={handleApply}
-            disabled={applying}
+            onClick={() => applyMutation.mutate()}
+            disabled={applyMutation.isPending}
           >
-            {applying ? (
+            {applyMutation.isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
                 Envoi en cours...
@@ -475,17 +456,17 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
             <Button
               variant="outline"
               onClick={() => setShowCancelDialog(false)}
-              disabled={cancelling}
+              disabled={cancelMutation.isPending}
             >
               Non, garder la visite
             </Button>
             <Button
               variant="destructive"
-              onClick={handleCancel}
-              disabled={cancelling}
+              onClick={() => cancelMutation.mutate()}
+              disabled={cancelMutation.isPending}
               className="gap-2"
             >
-              {cancelling ? (
+              {cancelMutation.isPending ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
                   Annulation...
@@ -536,16 +517,19 @@ export function VisitDetail({ visitId, onBack }: VisitDetailProps) {
             <Button
               variant="outline"
               onClick={() => setShowReviewDialog(false)}
-              disabled={submittingReview}
+              disabled={reviewMutation.isPending}
             >
               Annuler
             </Button>
             <Button
-              onClick={handleSubmitReview}
-              disabled={submittingReview || reviewRating === 0}
+              onClick={() => {
+                if (reviewRating === 0) { toast.error('Veuillez donner une note'); return }
+                reviewMutation.mutate({ rating: reviewRating, comment: reviewComment || undefined })
+              }}
+              disabled={reviewMutation.isPending || reviewRating === 0}
               className="gap-2"
             >
-              {submittingReview ? (
+              {reviewMutation.isPending ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
                   Envoi en cours...
